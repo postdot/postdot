@@ -5,7 +5,7 @@
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
 - Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md)
 - Superseded by: none
 
 > This is an exploration draft. It records the problem, evidence, requirements,
@@ -44,10 +44,25 @@ The project owner has directed that:
   storage contract from the first media implementation. Local may be the default
   deployment configuration without being the only designed backend.
 - Competitor analysis is research input, not a commitment to feature parity.
+- Herald remains a publication manager whose primary destinations are social and
+  adjacent publishing platforms. Custom channels extend destination coverage; they
+  do not change the product's primary purpose into a generic workflow engine.
+- A custom channel may define its complete content schema at runtime. Presets are
+  optional accelerators that provide an editable starting profile, not a closed list
+  of supported channel shapes.
+- Built-in providers and custom channels must use the same persisted target-content
+  boundary. Built-in providers may use statically typed schemas in code, while
+  custom channels use validated, versioned runtime schemas and declarative request
+  mappings.
+- A publication explicitly chooses automatic or manual delivery. The presence or
+  absence of a working channel connection must not silently change that choice.
+- Web editing must preserve an auto-saved draft without promoting an intermediate
+  working state to the scheduled target. Scheduling or applying changes is the
+  explicit promotion to a target revision; an execution revision becomes immutable
+  when an external effect starts.
 
-The exact media kinds, common content vocabulary, snapshot revision boundary,
-capability contract, and provider-specific adaptation model remain unresolved in
-this draft.
+The exact media kinds, common content vocabulary, runtime channel transport
+contract, and schema-change handling remain unresolved in this draft.
 
 ## Observed current state
 
@@ -180,14 +195,39 @@ current code.
   capabilities and limits relevant to its destination.
 - Capability descriptors must be typed, deterministic, versioned, and usable by
   both the web editor and the shared server-side validator.
-- Provider-specific settings must be a bounded typed set with explicit validation,
-  owned by the provider or channel module rather than an arbitrary schema supplied
-  by a channel row.
+- Built-in provider settings must be a bounded typed set with explicit validation,
+  owned by the provider module. A custom channel may instead supply a runtime schema,
+  but that schema must be validated, versioned, bounded, and unable to execute code.
 - Capability validation must be deterministic and testable without a live provider.
 - Provider payloads may contain identifiers, wrappers, or rules that do not belong
   in the common domain model.
 - The design must state whether a publication stores a target-specific rendition,
   derives it at execution time, or supports both for different content classes.
+
+### Runtime-defined custom channels
+
+Custom channels are first-class destinations rather than a fallback limited to a
+fixed preset list. A channel created from a preset materializes its resolved profile
+at creation time, after which the user may edit the profile. Later profile changes
+create a new version and may require explicit review or migration of affected
+publications. A channel may also define a new runtime schema when no preset is a
+good fit.
+
+The runtime-defined profile must contain, at minimum:
+
+- a versioned data schema for the channel's target content;
+- capability and constraint metadata for the web editor and shared validator;
+- a declarative request mapping for the configured HTTP API;
+- authentication and endpoint references without embedding secret values in content;
+- media delivery requirements and response identity extraction rules;
+- retry, idempotency, and failure-classification behavior where automatic delivery is
+  enabled.
+
+The schema describes data; it is not executable code. Request mappings must use a
+bounded declarative vocabulary rather than evaluating user-provided scripts. A
+future connector protocol may cover APIs that need provider-specific code, multi-step
+OAuth, signatures, or complex media processing, but those concerns must remain
+outside the runtime schema interpreter.
 - The design must define what is persisted after a provider transforms or uploads a
   local asset, including the relationship between local and remote identifiers.
 
@@ -360,7 +400,7 @@ competitor's entire schema.
 
 ### Provider and channel module boundary
 
-Each automated provider or custom channel module owns:
+Each built-in provider module owns:
 
 - its provider identity and account-context requirements;
 - its serializable capability descriptor;
@@ -368,6 +408,11 @@ Each automated provider or custom channel module owns:
 - its target-content validation and adaptation rules;
 - its provider payload mapping and response interpretation;
 - its media upload, processing, and remote-media delivery rules.
+
+A custom channel owns the equivalent versioned runtime profile and declarative
+transport mapping. It may omit an executable publisher when it is used only for
+manual delivery, but it still uses the same target-content schema and validation
+protocol when structured data is configured.
 
 Shared code owns the capability protocol, common constraint types, validation issue
 shape, compatibility evaluation, and the common publication lifecycle. The runtime
@@ -384,16 +429,18 @@ the server-side module validator remains authoritative.
 The intended relationship is:
 
 ```text
-Post source document
+Shared draft or source content (optional for a single target)
   -> Publication for one Channel
        -> PublicationRevision containing the exact target snapshot
             -> ordered media references and target settings
 ```
 
-The common source document expresses shared publication intent. A publication
-revision expresses the target adaptation that is actually schedulable and
-publishable. A provider payload is compiled from that revision at execution time and
-is not the source of truth.
+Here, source content means reusable authoring content, not a file or a document
+format imposed on every provider. It is useful when one draft feeds several
+destinations; a single-target publication may work directly with its target content.
+A publication revision expresses the target adaptation that is actually schedulable
+and publishable. A provider payload is compiled from that revision at execution time
+and is not the source of truth.
 
 The current one-publication-per-channel model can represent the target boundary that
 OpenPost calls a rendition. It should therefore gain explicit revision and target
@@ -416,6 +463,25 @@ The persistence representation may use versioned JSON for the typed document whi
 normalizing media references and ownership relations. JSON is a serialization of a
 validated domain value, not an arbitrary provider payload or an unvalidated escape
 hatch.
+
+### Auto-save and target revision promotion
+
+The web editor must distinguish an auto-saved draft working state from the target
+revision selected for scheduling. Each edit may be persisted after a short debounce
+and must survive navigation, reload, or an interrupted session, but an intermediate
+auto-save must not silently replace a scheduled target.
+
+The explicit scheduling or update operation validates the current draft and promotes
+it to the publication's selected target revision. If a scheduled publication is
+edited, the previously selected revision remains the one to be delivered until that
+promotion succeeds. An edit that races with a worker either completes before the
+worker claims the old revision or remains a new draft; it cannot mutate a running
+execution. No automatic suspension is required, although an explicit pause or
+reschedule operation may be added to the workflow.
+
+Once the external-effect boundary begins, the execution revision and its media
+references are immutable. Later edits create a new draft or target revision and do
+not change the payload used by the in-flight, ambiguous, or completed attempt.
 
 ### Media asset and delivery boundary
 
@@ -469,21 +535,35 @@ The same lifecycle must work for local and S3/R2 storage. Direct browser uploads
 be added for S3/R2, but they must end through the same finalization and validation
 path as server-mediated uploads.
 
-## Decisions requiring project-owner acceptance
+## Decisions recorded from the project owner
 
-1. Confirm the initial supported media kinds, formats, limits, processing states,
-   and lifecycle rules. The architecture must not assume JPEG/PNG-only media.
-2. Confirm the common content vocabulary and target-adaptation model: body and
-   ordered media references only, or title, links, mentions, and other metadata in
-   the common contract as well?
-3. Confirm that a publication stores an explicit target snapshot and that source
-   edits never silently mutate it. Decide whether draft revisions are mutable until
-   scheduling and whether the first attempted revision becomes immutable.
-4. Confirm that each provider or channel module owns a typed, versioned capability
-   descriptor and typed settings while shared code owns the protocol and validator.
-5. Confirm the `MediaStore` contract and lifecycle, with local storage through
-   `Bun.file()` and S3/R2 storage through `Bun.S3Client` as interchangeable initial
-   implementations. FlyDrive remains an evaluated alternative, not a requirement.
+The project owner has accepted the following direction:
+
+1. Custom channels may define a complete runtime schema. Presets are editable
+   accelerators and are not the limit of the model.
+2. Built-in and custom channels share a generic persisted target-content boundary;
+   built-ins use code-owned schemas while custom channels use validated runtime
+   schemas and bounded declarative mappings.
+3. Publications explicitly choose manual or automatic delivery, independently from
+   whether a connection currently works.
+4. Web auto-save must protect the latest draft without implicitly replacing the
+   scheduled target. Explicit scheduling/update promotes a validated target revision,
+   and execution revisions are immutable after an external effect starts.
+5. Local and S3/R2 media storage share the first Herald-owned `MediaStore` contract.
+
+## Decisions still requiring project-owner acceptance
+
+1. Define the initial common content vocabulary and the target-adaptation model:
+   which semantics are shared across social and adjacent publishing platforms, and
+   which remain in each channel's runtime or built-in schema?
+2. Define the first bounded declarative HTTP mapping vocabulary, including endpoint,
+   authentication references, media delivery, response identity, idempotency, and
+   error classification. This determines where a custom channel needs a connector.
+3. Define the exact initial media kinds, formats, limits, processing states, derived
+   assets, and lifecycle rules. The architecture must not assume JPEG/PNG-only media.
+4. Define the user-facing behavior when a channel schema changes: preserve the old
+   profile for existing target revisions, mark affected drafts or schedules for
+   review, and require an explicit revalidation or migration action.
 
 ## Draft acceptance criteria
 
