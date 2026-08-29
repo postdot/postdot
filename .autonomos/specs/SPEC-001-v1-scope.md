@@ -1,11 +1,14 @@
 # SPEC-001 — Herald V1 Scope
 
-- Status: accepted
+- Status: superseded
 - Scope: V1 product boundary, validation scenarios, and stop criteria
 - Provenance: V1 scope review on 2026-08-28
 - Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-003](../decisions/ADR-003-use-a-single-process-singleton.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-006](../decisions/ADR-006-use-a-next-event-durable-scheduler.md), [ADR-007](../decisions/ADR-007-use-a-react-spa-dashboard.md)
 - Related tasks: `QUAL-05`, `DOMAIN-06`, `WORK-07`, `MANUAL-08`, `PUB-09`, `OPS-10`
-- Superseded by: none
+- Superseded by: [SPEC-005](SPEC-005-continuous-product-scope.md)
+
+> Historical scope record. This file is retained for traceability and no longer
+> defines the current product release or architectural boundary.
 
 ## Intent
 

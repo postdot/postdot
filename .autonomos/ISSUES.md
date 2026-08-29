@@ -24,16 +24,18 @@
 
 - Type: proposal
 - Status: open
-- Evidence: The owner direction now requires a bounded V1 media capability. Local
-  self-hosting and a possible S3-compatible backend affect metadata, cleanup,
-  backup, security, and publisher contracts. The [DOMAIN-07 worklog](worklogs/2026-08-29-DOMAIN-07.md)
-  records the comparative study and the current storage recommendation.
+- Evidence: The owner direction requires a durable media foundation rather than a
+  release-limited media cut. Local self-hosting and a Bun-native S3-compatible
+  backend affect metadata, cleanup, backup, security, and publisher contracts. The
+  [DOMAIN-07 worklog](worklogs/2026-08-29-DOMAIN-07.md) records the comparative study
+  and the current storage direction.
 - Impact: Deferring the ownership and lifecycle model too long could force a costly
-  rewrite; designing every storage backend now would violate the SQLite-first,
-  evidence-driven scope posture.
-- Desired outcome: An explicit decision about the V1 media boundary, file metadata,
-  retention, backup, access control, and the evidence required before adding local or
-  S3-compatible storage implementations.
+  rewrite. Designing every conceivable storage backend would violate the
+  SQLite-first, evidence-driven scope posture, but local and S3-compatible storage
+  are already part of the intended boundary.
+- Desired outcome: An explicit decision about the media model, file metadata,
+  retention, backup, access control, and one interchangeable storage contract with
+  local and S3-compatible implementations.
 - Tasks: DOMAIN-07
 
 ## [ISSUE-004] Establish a reusable Herald design-system package
@@ -99,7 +101,7 @@
   unable to represent content that cannot be automated. It is also unclear which
   content must be shared from a source post and which content may be adapted per
   publication.
-- Desired outcome: An accepted V1 boundary that defines the source post content,
+- Desired outcome: An accepted durable boundary that defines the source post content,
   channel-specific publication content, provider capability validation, attachment
   references, publication snapshots and revisions, and the separation between
   common domain data and provider-specific payloads. The boundary must identify

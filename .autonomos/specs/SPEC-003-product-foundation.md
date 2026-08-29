@@ -1,8 +1,9 @@
 # SPEC-003 — Herald Product Foundation
 
 - Status: accepted
-- Scope: V1 product identity, domain boundaries, client surfaces, and operating guardrails
+- Scope: Product identity, domain boundaries, client surfaces, and operating guardrails
 - Provenance: V1 product review on 2026-08-28
+- Current direction: [SPEC-005](SPEC-005-continuous-product-scope.md)
 - Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-003](../decisions/ADR-003-use-a-single-process-singleton.md), [ADR-004](../decisions/ADR-004-use-bun-and-typescript.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-006](../decisions/ADR-006-use-a-next-event-durable-scheduler.md), [ADR-007](../decisions/ADR-007-use-a-react-spa-dashboard.md)
 - Superseded by: none
 
@@ -17,7 +18,7 @@ Herald's ability to publish there automatically.
 
 ## Product requirements
 
-- Support multiple projects from the first useful release.
+- Support multiple projects from the first useful product workflow.
 - Represent every real publication destination as a channel, including unsupported
   platforms, internal systems, blogs, and destinations that remain manual.
 - Make automation optional through a publisher associated with a channel.
@@ -78,8 +79,8 @@ state are independent dimensions rather than combined status strings.
   audit model.
 - The real workflow no longer requires a parallel JSON, spreadsheet, or secondary
   tracker.
-- The application can be operated and recovered within the V1 quality and footprint
-  constraints.
+- The application can be operated and recovered within the current quality and
+  footprint constraints.
 
 ## Out of scope
 
@@ -89,5 +90,5 @@ state are independent dimensions rather than combined status strings.
 - Multi-tenant billing, complex organizations, agency tenancy, plans, quotas, or
   horizontal scaling.
 - A plugin marketplace or universal data-driven publisher runtime.
-- Desktop and mobile applications in V1.
+- Desktop and mobile applications in the current product scope.
 - Full multi-database support.

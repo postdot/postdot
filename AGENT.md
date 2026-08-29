@@ -34,7 +34,7 @@ content generator.
 
 - **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Drizzle ORM with Bun SQLite, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Solar Icons React v2 (Linear)
 - **Patterns:** A single process for API, static dashboard, scheduler, and worker; framework-independent domain logic in `packages/core`.
-- **Authentication boundary:** Better Auth authenticates people into Herald and uses email/password only for V1. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
+- **Authentication boundary:** Better Auth authenticates people into Herald and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
 - **Publisher ownership:** Channel connections and their credentials belong to a project. The actor who connects one is audit attribution, not its owner; actor departure or account deletion does not revoke the project connection.
 
 ## 📁 Key Directories
@@ -56,4 +56,4 @@ content generator.
 - Do not add Redis, Temporal, Elasticsearch, microservices, multiple workers, or horizontal scaling without a demonstrated need.
 - Preserve the distinctions `Post` / `Publication` and `Channel` / optional `Publisher`; a manual channel is a normal channel without a publisher.
 - Avoid universal database and plugin abstractions until a real boundary requires them.
-- Do not accept placeholder, skipped, or weakened checks on a V1-critical path; consult `.autonomos/specs/SPEC-002-engineering-operating-model.md` for the proposed risk-first milestone order.
+- Do not accept placeholder, skipped, or weakened checks on a product-critical path; consult `.autonomos/specs/SPEC-002-engineering-operating-model.md` for the risk-first milestone order.
