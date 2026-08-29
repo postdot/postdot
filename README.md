@@ -38,12 +38,6 @@ cd packages/db
 bun run db:migrate
 ```
 
-Migration `0007` deliberately stops when a pre-CRED-18 database still contains
-publisher connections linked to the former authentication-account model. Back up
-the database and complete an explicit reconnect or cleanup procedure before
-retrying the migration; Herald never guesses how to transfer or discard those
-credentials.
-
 Run the complete local merge gate before opening a pull request:
 
 ```sh
