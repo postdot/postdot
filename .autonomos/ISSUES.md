@@ -82,3 +82,27 @@
   well-defined OAuth protocol mechanics to an evidence-backed dependency.
 - Tasks: CRED-15, CRED-16, CRED-17, CRED-18, PUB-09 (blocked)
 - Decision: [ADR-012](decisions/ADR-012-own-publisher-credentials-and-use-oauth4webapi.md)
+
+## [ISSUE-007] Define the publication content and provider capability boundary
+
+- Type: problem
+- Status: open
+- Evidence: The current `Post` and `Publication` records persist plain text only,
+  while the first publisher contract accepts a LinkedIn-specific text input. There
+  is no domain representation for attachments, rich content, mentions, links,
+  provider constraints, or a provider-specific publication rendition. The existing
+  media question in ISSUE-003 covers storage lifecycle but not the publication
+  content contract that would consume stored media.
+- Impact: Continuing with a provider integration before defining this boundary could
+  make the first provider's payload shape leak into the core domain, force later
+  rewrites for channels with different capabilities, and leave manual channels
+  unable to represent content that cannot be automated. It is also unclear which
+  content must be shared from a source post and which content may be adapted per
+  publication.
+- Desired outcome: An accepted V1 boundary that defines the source post content,
+  channel-specific publication content, provider capability validation, attachment
+  references, publication snapshots and revisions, and the separation between
+  common domain data and provider-specific payloads. The boundary must identify
+  what is intentionally deferred and provide executable invariants for the chosen
+  model without requiring every future social network to be designed in advance.
+- Tasks: none
