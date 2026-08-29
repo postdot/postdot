@@ -3,6 +3,7 @@
 - Status: draft
 - Scope: Source content, channel-specific publications, provider capabilities, and media lifecycle
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
+- Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-001](SPEC-001-v1-scope.md)
 - Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md)
 - Superseded by: none
@@ -22,6 +23,26 @@ the domain model.
 The boundary must also make a deliberate V1 decision about media instead of
 silently allowing the absence of media concepts to become an accidental contract.
 
+## Owner direction recorded on 2026-08-29
+
+The project owner has directed that:
+
+- V1 must include a bounded media capability rather than remaining text-only.
+- A channel must be able to express relevant destination requirements without
+  turning Herald into a universal provider-schema engine.
+- Shared publication primitives should cover the common case, while a channel
+  publication may carry a precise adaptation when interoperability requires it.
+- The web editor should expose destination constraints reactively. API, CLI, and
+  MCP requests must use server-side validation and reject invalid content before
+  an external effect.
+- A publication must persist the content snapshot that it represents.
+- Local storage and an S3-compatible backend should remain viable options while
+  the single-process, self-hosted footprint remains a primary constraint.
+- Competitor analysis is research input, not a commitment to feature parity.
+
+The exact V1 media kinds, common content vocabulary, snapshot revision boundary,
+capability contract, and storage rollout remain unresolved in this draft.
+
 ## Observed current state
 
 - `Post` stores a title and one non-empty text string.
@@ -35,9 +56,11 @@ silently allowing the absence of media concepts to become an accidental contract
 - No domain, persistence, API, or storage contract represents an attachment, a
   media upload, a rich-text mark, a mention, a link preview, a poll, or a provider
   capability declaration.
-- [SPEC-001](SPEC-001-v1-scope.md) makes the first workflow text-first and places
-  basic media attachments after the core V1 scenarios unless the selected publisher
-  requires them. [ISSUE-003](../ISSUES.md) remains open for the storage boundary.
+- [SPEC-001](SPEC-001-v1-scope.md) currently describes the first workflow as
+  text-first and places basic media attachments after the core V1 scenarios. The
+  owner direction recorded above supersedes that part of the draft scope in
+  principle, but the exact bounded media cut must be accepted before SPEC-001 is
+  amended. [ISSUE-003](../ISSUES.md) remains open for the storage boundary.
 
 ## Provider evidence
 
@@ -62,6 +85,29 @@ Sources:
 - [Mastodon statuses API](https://docs.joinmastodon.org/methods/statuses/)
 - [Mastodon media API](https://docs.joinmastodon.org/methods/media/)
 
+## Comparative study
+
+The 2026-08-29 study inspected Postiz, Mixpost, and OpenPost in disposable clones.
+It did not install dependencies or copy competitor code into Herald. The complete
+evidence record is [DOMAIN-07](../worklogs/2026-08-29-DOMAIN-07.md).
+
+The useful patterns are:
+
+- Postiz validates provider-specific settings and media rules before scheduling,
+  but its inspected post model couples a post to one integration and stores
+  provider settings as a payload alongside the post.
+- Mixpost has account-specific content versions and reactive editor limits. Its
+  JSON content and broad filesystem/conversion layer are convenient, but leave
+  more invariants implicit than the contract Herald is seeking.
+- OpenPost separates source content, target renditions, media assets, provider
+  media delivery, and durable delivery attempts. Its typed capability resolver is
+  especially relevant, while its rendition, connector, and delivery layers are
+  more than Herald needs before a concrete V1 use case requires them.
+
+These findings support a small typed capability boundary and explicit target
+snapshots. They do not justify importing a separate rendition aggregate, a generic
+connector protocol, or a complete media-processing subsystem into Herald V1.
+
 ## Requirements to resolve
 
 ### Source and publication semantics
@@ -81,6 +127,8 @@ Sources:
 
 - The common content contract must represent the V1 content types explicitly
   supported by Herald.
+- V1 media support must be bounded to an explicitly accepted set of media kinds,
+  formats, limits, and lifecycle states.
 - Unsupported content must fail validation before an external effect starts, with a
   reason that identifies the missing capability.
 - Provider-specific features may be exposed only through an explicit provider
@@ -93,6 +141,10 @@ Sources:
 
 - A publisher adapter must be able to declare or enforce the capabilities and
   limits relevant to its supported content.
+- Capability descriptors must be typed, deterministic, versioned, and usable by
+  both the web editor and the shared server-side validator.
+- Provider-specific settings must be a bounded typed set with explicit validation,
+  not an arbitrary schema supplied by a channel row.
 - Capability validation must be deterministic and testable without a live provider.
 - Provider payloads may contain identifiers, wrappers, or rules that do not belong
   in the common domain model.
@@ -111,6 +163,8 @@ Sources:
 - Local storage must work for the single-process self-hosted deployment. A future
   S3-compatible implementation must be possible without placing provider payloads
   or storage credentials in the core domain.
+- The storage seam must not leak Bun file objects, provider SDK objects, or storage
+  credentials into the domain contract.
 - Backup and restore must cover metadata and local media consistently when local
   media is supported.
 - Unreferenced, failed, and provider-uploaded temporary objects need explicit
@@ -130,22 +184,23 @@ Sources:
 
 These are alternatives for review, not selected decisions.
 
-### A. Text and attachment references only
+### A. Bounded common document with attachment references
 
-Keep the common model small: text plus ordered references to project media, with
-provider adapters responsible for all other features.
+Keep the common model small: a body plus ordered references to project media and
+the minimal accepted accessibility metadata. Provider adapters remain responsible
+for all other features.
 
-- Strengths: small schema and bundle impact, easy to validate, compatible with the
-  current text-first workflow.
+- Strengths: small schema and bundle impact, easy to validate, and directly
+  compatible with the owner's bounded V1 media direction.
 - Risks: rich links, mentions, polls, threads, and accessibility metadata may be
-  forced into provider-specific escape hatches later.
+  require deliberate additions later.
 - Best fit: a deliberately narrow V1 where only text and basic media are needed.
 
-### B. Structured common content document with per-publication renditions
+### B. Structured common document with per-publication target snapshots
 
 Represent supported authoring content as a typed document, then persist a
-channel-specific rendition or revision for each publication. Adapters compile the
-rendition into provider payloads.
+channel-specific target snapshot or revision for each publication. Adapters compile
+the snapshot into provider payloads.
 
 - Strengths: preserves source intent, makes adaptations and validation explicit, and
   supports provider differences without storing raw provider payloads in core.
@@ -177,20 +232,18 @@ schema.
 
 ## Decisions requiring project-owner acceptance
 
-1. Is V1 intentionally text-only, or must it include a bounded media capability?
-2. If media is included, which media kinds and limits are required for the first
-   validated workflow?
-3. Should a publication persist a target-specific content snapshot at creation, or
-   compile from source content at execution time? If both are allowed, which content
-   is authoritative for retries and reconciliation?
-4. Which common content concepts are in scope: plain text, links, mentions, alt text,
-   visibility, language, polls, threads, or other features?
-5. Which provider-specific options are allowed, and where are they validated and
-   persisted without creating a generic provider configuration language?
-6. Does local media storage belong in V1, or should the product explicitly reject
-   attachments until a concrete provider and workflow require them?
-7. What edit, revision, deletion, and retention semantics apply after a publication
-   is scheduled, attempted, published, or made ambiguous?
+1. Confirm the V1 media cut: still images only, or another concrete media kind as
+   well? If still images only, confirm the initial formats and limits.
+2. Confirm the common content vocabulary: body and ordered image references only,
+   or title, links, mentions, and other metadata in the first contract?
+3. Confirm that a publication stores an explicit target snapshot and that source
+   edits never silently mutate it. Decide whether draft revisions are mutable until
+   scheduling and whether the first attempted revision becomes immutable.
+4. Confirm that publisher capabilities are typed, versioned constraints with a
+   bounded set of typed settings, rather than an arbitrary channel-defined schema.
+5. Confirm local storage as the default and S3/R2 as an alternative behind a small
+   Herald-owned interface, with no FlyDrive dependency in V1 unless a concrete need
+   appears.
 
 ## Draft acceptance criteria
 
@@ -200,9 +253,14 @@ the decisions above and demonstrates:
 - at least one text-only manual publication;
 - at least one automatic provider with a provider-specific payload;
 - a content-capability rejection before the external-effect boundary;
-- a publication retry that uses the same persisted content snapshot;
+- a web-editor capability response that exposes the same constraints used by the
+  server validator;
+- a publication retry that uses the same persisted target content and media
+  references;
 - an ambiguous result that preserves enough local information for reconciliation;
-- a clear attachment decision, even if that decision is to defer storage entirely;
+- the accepted V1 media kinds, limits, project ownership, and storage lifecycle;
+- local media storage with metadata/backup coverage and an optional S3/R2 contract
+  test when that backend is enabled;
 - executable domain and database invariants for project ownership, publication
   identity, content validity, and lifecycle transitions.
 
@@ -217,5 +275,6 @@ the decisions above and demonstrates:
 
 The current text-only adapter can continue to serve as a bounded protocol spike, but
 it must not be treated as the durable publication contract. Any implementation that
-adds media, rich content, or another provider before this draft is resolved risks
-making an accidental first-provider shape part of the core domain.
+adds the V1 media or capability boundary before this draft is resolved risks making
+an accidental first-provider shape part of the core domain. Once the exact media cut
+is accepted, SPEC-001 must be amended before implementation changes the V1 scope.

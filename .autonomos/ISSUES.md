@@ -24,17 +24,17 @@
 
 - Type: proposal
 - Status: open
-- Evidence: Herald is text-first for V1, while basic media attachments may become
-  necessary for the selected automatic publisher. Local self-hosting and a possible
-  future S3-compatible backend affect metadata, cleanup, backup, security, and
-  publisher contracts.
+- Evidence: The owner direction now requires a bounded V1 media capability. Local
+  self-hosting and a possible S3-compatible backend affect metadata, cleanup,
+  backup, security, and publisher contracts. The [DOMAIN-07 worklog](worklogs/2026-08-29-DOMAIN-07.md)
+  records the comparative study and the current storage recommendation.
 - Impact: Deferring the ownership and lifecycle model too long could force a costly
   rewrite; designing every storage backend now would violate the SQLite-first,
   evidence-driven scope posture.
 - Desired outcome: An explicit decision about the V1 media boundary, file metadata,
   retention, backup, access control, and the evidence required before adding local or
   S3-compatible storage implementations.
-- Tasks: none
+- Tasks: DOMAIN-07
 
 ## [ISSUE-004] Establish a reusable Herald design-system package
 
@@ -105,4 +105,4 @@
   common domain data and provider-specific payloads. The boundary must identify
   what is intentionally deferred and provide executable invariants for the chosen
   model without requiring every future social network to be designed in advance.
-- Tasks: none
+- Tasks: DOMAIN-07
