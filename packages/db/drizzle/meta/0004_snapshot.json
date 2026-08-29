@@ -1,0 +1,1464 @@
+{
+    "version": "6",
+    "dialect": "sqlite",
+    "id": "0423e577-6ca7-40fe-bae2-1cfa75f51bc7",
+    "prevId": "a774c059-fa56-4850-870d-80aa8f774719",
+    "tables": {
+        "account": {
+            "name": "account",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "issuer": {
+                    "name": "issuer",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "account_id": {
+                    "name": "account_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "provider_id": {
+                    "name": "provider_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "user_id": {
+                    "name": "user_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "access_token": {
+                    "name": "access_token",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "refresh_token": {
+                    "name": "refresh_token",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "id_token": {
+                    "name": "id_token",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "access_token_expires_at": {
+                    "name": "access_token_expires_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "refresh_token_expires_at": {
+                    "name": "refresh_token_expires_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "scope": {
+                    "name": "scope",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "password": {
+                    "name": "password",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                }
+            },
+            "indexes": {
+                "account_issuer_accountId_uidx": {
+                    "name": "account_issuer_accountId_uidx",
+                    "columns": ["issuer", "account_id"],
+                    "isUnique": true
+                },
+                "account_userId_idx": {
+                    "name": "account_userId_idx",
+                    "columns": ["user_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "account_user_id_user_id_fk": {
+                    "name": "account_user_id_user_id_fk",
+                    "tableFrom": "account",
+                    "tableTo": "user",
+                    "columnsFrom": ["user_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "session": {
+            "name": "session",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "expires_at": {
+                    "name": "expires_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "token": {
+                    "name": "token",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "ip_address": {
+                    "name": "ip_address",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "user_agent": {
+                    "name": "user_agent",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "user_id": {
+                    "name": "user_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                }
+            },
+            "indexes": {
+                "session_token_unique": {
+                    "name": "session_token_unique",
+                    "columns": ["token"],
+                    "isUnique": true
+                },
+                "session_userId_idx": {
+                    "name": "session_userId_idx",
+                    "columns": ["user_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "session_user_id_user_id_fk": {
+                    "name": "session_user_id_user_id_fk",
+                    "tableFrom": "session",
+                    "tableTo": "user",
+                    "columnsFrom": ["user_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "user": {
+            "name": "user",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "name": {
+                    "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "email": {
+                    "name": "email",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "email_verified": {
+                    "name": "email_verified",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": false
+                },
+                "image": {
+                    "name": "image",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "user_email_unique": {
+                    "name": "user_email_unique",
+                    "columns": ["email"],
+                    "isUnique": true
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "verification": {
+            "name": "verification",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "identifier": {
+                    "name": "identifier",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "value": {
+                    "name": "value",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "expires_at": {
+                    "name": "expires_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "verification_identifier_idx": {
+                    "name": "verification_identifier_idx",
+                    "columns": ["identifier"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "actors": {
+            "name": "actors",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "kind": {
+                    "name": "kind",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "subject_id": {
+                    "name": "subject_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "display_name": {
+                    "name": "display_name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "actors_project_id_id_uidx": {
+                    "name": "actors_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                }
+            },
+            "foreignKeys": {
+                "actors_project_id_projects_id_fk": {
+                    "name": "actors_project_id_projects_id_fk",
+                    "tableFrom": "actors",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "actors_kind_valid": {
+                    "name": "actors_kind_valid",
+                    "value": "\"actors\".\"kind\" in ('human', 'agent', 'api_token', 'system')"
+                },
+                "actors_display_name_nonblank": {
+                    "name": "actors_display_name_nonblank",
+                    "value": "length(trim(\"actors\".\"display_name\")) > 0"
+                },
+                "actors_subject_id_nonblank": {
+                    "name": "actors_subject_id_nonblank",
+                    "value": "\"actors\".\"subject_id\" is null or length(trim(\"actors\".\"subject_id\")) > 0"
+                }
+            }
+        },
+        "audit_events": {
+            "name": "audit_events",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "actor_id": {
+                    "name": "actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "action": {
+                    "name": "action",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "entity_type": {
+                    "name": "entity_type",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "entity_id": {
+                    "name": "entity_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "metadata_json": {
+                    "name": "metadata_json",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "audit_events_project_id_created_at_idx": {
+                    "name": "audit_events_project_id_created_at_idx",
+                    "columns": ["project_id", "created_at"],
+                    "isUnique": false
+                },
+                "audit_events_project_id_entity_idx": {
+                    "name": "audit_events_project_id_entity_idx",
+                    "columns": ["project_id", "entity_type", "entity_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "audit_events_project_id_projects_id_fk": {
+                    "name": "audit_events_project_id_projects_id_fk",
+                    "tableFrom": "audit_events",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "audit_events_project_actor_fk": {
+                    "name": "audit_events_project_actor_fk",
+                    "tableFrom": "audit_events",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "audit_events_action_nonblank": {
+                    "name": "audit_events_action_nonblank",
+                    "value": "length(trim(\"audit_events\".\"action\")) > 0"
+                },
+                "audit_events_entity_type_nonblank": {
+                    "name": "audit_events_entity_type_nonblank",
+                    "value": "length(trim(\"audit_events\".\"entity_type\")) > 0"
+                },
+                "audit_events_entity_id_nonblank": {
+                    "name": "audit_events_entity_id_nonblank",
+                    "value": "length(trim(\"audit_events\".\"entity_id\")) > 0"
+                }
+            }
+        },
+        "channels": {
+            "name": "channels",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "name": {
+                    "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "channels_project_id_id_uidx": {
+                    "name": "channels_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                }
+            },
+            "foreignKeys": {
+                "channels_project_id_projects_id_fk": {
+                    "name": "channels_project_id_projects_id_fk",
+                    "tableFrom": "channels",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "channels_name_nonblank": {
+                    "name": "channels_name_nonblank",
+                    "value": "length(trim(\"channels\".\"name\")) > 0"
+                }
+            }
+        },
+        "jobs": {
+            "name": "jobs",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "publication_id": {
+                    "name": "publication_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "state": {
+                    "name": "state",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "run_at": {
+                    "name": "run_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "attempts": {
+                    "name": "attempts",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": 0
+                },
+                "claim_token": {
+                    "name": "claim_token",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "claimed_by_actor_id": {
+                    "name": "claimed_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "claimed_at": {
+                    "name": "claimed_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "lease_expires_at": {
+                    "name": "lease_expires_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "effect_started_at": {
+                    "name": "effect_started_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "started_at": {
+                    "name": "started_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "completed_at": {
+                    "name": "completed_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "error_message": {
+                    "name": "error_message",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "jobs_project_id_publication_id_idx": {
+                    "name": "jobs_project_id_publication_id_idx",
+                    "columns": ["project_id", "publication_id"],
+                    "isUnique": false
+                },
+                "jobs_state_run_at_idx": {
+                    "name": "jobs_state_run_at_idx",
+                    "columns": ["state", "run_at"],
+                    "isUnique": false
+                },
+                "jobs_state_lease_expires_at_idx": {
+                    "name": "jobs_state_lease_expires_at_idx",
+                    "columns": ["state", "lease_expires_at"],
+                    "isUnique": false
+                },
+                "jobs_project_id_claimed_by_actor_id_idx": {
+                    "name": "jobs_project_id_claimed_by_actor_id_idx",
+                    "columns": ["project_id", "claimed_by_actor_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "jobs_project_id_projects_id_fk": {
+                    "name": "jobs_project_id_projects_id_fk",
+                    "tableFrom": "jobs",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "jobs_project_publication_fk": {
+                    "name": "jobs_project_publication_fk",
+                    "tableFrom": "jobs",
+                    "tableTo": "publications",
+                    "columnsFrom": ["project_id", "publication_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "jobs_project_claimed_by_actor_fk": {
+                    "name": "jobs_project_claimed_by_actor_fk",
+                    "tableFrom": "jobs",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "claimed_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "jobs_state_valid": {
+                    "name": "jobs_state_valid",
+                    "value": "\"jobs\".\"state\" in ('pending', 'running', 'succeeded', 'failed', 'cancelled')"
+                },
+                "jobs_attempts_nonnegative": {
+                    "name": "jobs_attempts_nonnegative",
+                    "value": "\"jobs\".\"attempts\" >= 0"
+                },
+                "jobs_running_has_started": {
+                    "name": "jobs_running_has_started",
+                    "value": "\"jobs\".\"state\" <> 'running' or (\"jobs\".\"claim_token\" is not null and length(trim(\"jobs\".\"claim_token\")) > 0 and \"jobs\".\"claimed_by_actor_id\" is not null and \"jobs\".\"claimed_at\" is not null and \"jobs\".\"lease_expires_at\" is not null and \"jobs\".\"started_at\" is not null and \"jobs\".\"completed_at\" is null and \"jobs\".\"error_message\" is null)"
+                },
+                "jobs_pending_is_clean": {
+                    "name": "jobs_pending_is_clean",
+                    "value": "\"jobs\".\"state\" <> 'pending' or (\"jobs\".\"claim_token\" is null and \"jobs\".\"claimed_by_actor_id\" is null and \"jobs\".\"claimed_at\" is null and \"jobs\".\"lease_expires_at\" is null and \"jobs\".\"effect_started_at\" is null and \"jobs\".\"started_at\" is null and \"jobs\".\"completed_at\" is null and \"jobs\".\"error_message\" is null)"
+                },
+                "jobs_nonrunning_has_no_fence": {
+                    "name": "jobs_nonrunning_has_no_fence",
+                    "value": "\"jobs\".\"state\" = 'running' or (\"jobs\".\"claim_token\" is null and \"jobs\".\"lease_expires_at\" is null)"
+                },
+                "jobs_lease_after_claim": {
+                    "name": "jobs_lease_after_claim",
+                    "value": "\"jobs\".\"lease_expires_at\" is null or (\"jobs\".\"claimed_at\" is not null and \"jobs\".\"lease_expires_at\" > \"jobs\".\"claimed_at\")"
+                },
+                "jobs_effect_after_claim": {
+                    "name": "jobs_effect_after_claim",
+                    "value": "\"jobs\".\"effect_started_at\" is null or (\"jobs\".\"claimed_at\" is not null and \"jobs\".\"effect_started_at\" >= \"jobs\".\"claimed_at\")"
+                },
+                "jobs_terminal_has_completed": {
+                    "name": "jobs_terminal_has_completed",
+                    "value": "\"jobs\".\"state\" not in ('succeeded', 'failed', 'cancelled') or \"jobs\".\"completed_at\" is not null"
+                },
+                "jobs_failed_has_error": {
+                    "name": "jobs_failed_has_error",
+                    "value": "\"jobs\".\"state\" <> 'failed' or (\"jobs\".\"error_message\" is not null and length(trim(\"jobs\".\"error_message\")) > 0)"
+                },
+                "jobs_completed_attempt_has_started": {
+                    "name": "jobs_completed_attempt_has_started",
+                    "value": "\"jobs\".\"state\" not in ('succeeded', 'failed') or \"jobs\".\"started_at\" is not null"
+                }
+            }
+        },
+        "posts": {
+            "name": "posts",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "title": {
+                    "name": "title",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "content": {
+                    "name": "content",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_by_actor_id": {
+                    "name": "created_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "posts_project_id_id_uidx": {
+                    "name": "posts_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                },
+                "posts_project_id_created_by_actor_id_idx": {
+                    "name": "posts_project_id_created_by_actor_id_idx",
+                    "columns": ["project_id", "created_by_actor_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "posts_project_id_projects_id_fk": {
+                    "name": "posts_project_id_projects_id_fk",
+                    "tableFrom": "posts",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "posts_project_created_by_actor_fk": {
+                    "name": "posts_project_created_by_actor_fk",
+                    "tableFrom": "posts",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "created_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "posts_title_nonblank": {
+                    "name": "posts_title_nonblank",
+                    "value": "\"posts\".\"title\" is null or length(trim(\"posts\".\"title\")) > 0"
+                },
+                "posts_content_nonblank": {
+                    "name": "posts_content_nonblank",
+                    "value": "length(trim(\"posts\".\"content\")) > 0"
+                }
+            }
+        },
+        "projects": {
+            "name": "projects",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "name": {
+                    "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {},
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "projects_name_nonblank": {
+                    "name": "projects_name_nonblank",
+                    "value": "length(trim(\"projects\".\"name\")) > 0"
+                }
+            }
+        },
+        "publications": {
+            "name": "publications",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "post_id": {
+                    "name": "post_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "channel_id": {
+                    "name": "channel_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "content": {
+                    "name": "content",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "state": {
+                    "name": "state",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "scheduled_at": {
+                    "name": "scheduled_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "published_at": {
+                    "name": "published_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "external_id": {
+                    "name": "external_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "external_url": {
+                    "name": "external_url",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "error_message": {
+                    "name": "error_message",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_by_actor_id": {
+                    "name": "created_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "scheduled_by_actor_id": {
+                    "name": "scheduled_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "state_changed_by_actor_id": {
+                    "name": "state_changed_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "published_by_actor_id": {
+                    "name": "published_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "publications_project_id_id_uidx": {
+                    "name": "publications_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                },
+                "publications_project_id_post_id_idx": {
+                    "name": "publications_project_id_post_id_idx",
+                    "columns": ["project_id", "post_id"],
+                    "isUnique": false
+                },
+                "publications_project_id_channel_id_idx": {
+                    "name": "publications_project_id_channel_id_idx",
+                    "columns": ["project_id", "channel_id"],
+                    "isUnique": false
+                },
+                "publications_state_scheduled_at_idx": {
+                    "name": "publications_state_scheduled_at_idx",
+                    "columns": ["state", "scheduled_at"],
+                    "isUnique": false
+                },
+                "publications_project_id_created_by_actor_id_idx": {
+                    "name": "publications_project_id_created_by_actor_id_idx",
+                    "columns": ["project_id", "created_by_actor_id"],
+                    "isUnique": false
+                },
+                "publications_project_id_scheduled_by_actor_id_idx": {
+                    "name": "publications_project_id_scheduled_by_actor_id_idx",
+                    "columns": ["project_id", "scheduled_by_actor_id"],
+                    "isUnique": false
+                },
+                "publications_project_id_state_changed_by_actor_id_idx": {
+                    "name": "publications_project_id_state_changed_by_actor_id_idx",
+                    "columns": ["project_id", "state_changed_by_actor_id"],
+                    "isUnique": false
+                },
+                "publications_project_id_published_by_actor_id_idx": {
+                    "name": "publications_project_id_published_by_actor_id_idx",
+                    "columns": ["project_id", "published_by_actor_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "publications_project_id_projects_id_fk": {
+                    "name": "publications_project_id_projects_id_fk",
+                    "tableFrom": "publications",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publications_project_post_fk": {
+                    "name": "publications_project_post_fk",
+                    "tableFrom": "publications",
+                    "tableTo": "posts",
+                    "columnsFrom": ["project_id", "post_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publications_project_channel_fk": {
+                    "name": "publications_project_channel_fk",
+                    "tableFrom": "publications",
+                    "tableTo": "channels",
+                    "columnsFrom": ["project_id", "channel_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                },
+                "publications_project_created_by_actor_fk": {
+                    "name": "publications_project_created_by_actor_fk",
+                    "tableFrom": "publications",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "created_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                },
+                "publications_project_scheduled_by_actor_fk": {
+                    "name": "publications_project_scheduled_by_actor_fk",
+                    "tableFrom": "publications",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "scheduled_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                },
+                "publications_project_state_changed_by_actor_fk": {
+                    "name": "publications_project_state_changed_by_actor_fk",
+                    "tableFrom": "publications",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "state_changed_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                },
+                "publications_project_published_by_actor_fk": {
+                    "name": "publications_project_published_by_actor_fk",
+                    "tableFrom": "publications",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "published_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "publications_content_nonblank": {
+                    "name": "publications_content_nonblank",
+                    "value": "length(trim(\"publications\".\"content\")) > 0"
+                },
+                "publications_state_valid": {
+                    "name": "publications_state_valid",
+                    "value": "\"publications\".\"state\" in ('draft', 'scheduled', 'ready', 'publishing', 'published', 'failed', 'ambiguous', 'cancelled')"
+                },
+                "publications_schedule_consistent": {
+                    "name": "publications_schedule_consistent",
+                    "value": "(\"publications\".\"scheduled_at\" is null and \"publications\".\"scheduled_by_actor_id\" is null) or (\"publications\".\"scheduled_at\" is not null and \"publications\".\"scheduled_by_actor_id\" is not null)"
+                },
+                "publications_scheduled_state_has_time": {
+                    "name": "publications_scheduled_state_has_time",
+                    "value": "\"publications\".\"state\" <> 'scheduled' or \"publications\".\"scheduled_at\" is not null"
+                },
+                "publications_published_state_complete": {
+                    "name": "publications_published_state_complete",
+                    "value": "\"publications\".\"state\" <> 'published' or (\"publications\".\"published_at\" is not null and \"publications\".\"published_by_actor_id\" is not null)"
+                },
+                "publications_unpublished_state_has_no_result": {
+                    "name": "publications_unpublished_state_has_no_result",
+                    "value": "\"publications\".\"state\" = 'published' or (\"publications\".\"published_at\" is null and \"publications\".\"published_by_actor_id\" is null)"
+                },
+                "publications_failure_has_error": {
+                    "name": "publications_failure_has_error",
+                    "value": "\"publications\".\"state\" not in ('failed', 'ambiguous') or (\"publications\".\"error_message\" is not null and length(trim(\"publications\".\"error_message\")) > 0)"
+                },
+                "publications_nonfailure_has_no_error": {
+                    "name": "publications_nonfailure_has_no_error",
+                    "value": "\"publications\".\"state\" in ('failed', 'ambiguous') or \"publications\".\"error_message\" is null"
+                }
+            }
+        },
+        "publisher_connections": {
+            "name": "publisher_connections",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "publisher_id": {
+                    "name": "publisher_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "account_id": {
+                    "name": "account_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "connected_by_actor_id": {
+                    "name": "connected_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "publisher_connections_project_id_publisher_id_uidx": {
+                    "name": "publisher_connections_project_id_publisher_id_uidx",
+                    "columns": ["project_id", "publisher_id"],
+                    "isUnique": true
+                },
+                "publisher_connections_account_id_idx": {
+                    "name": "publisher_connections_account_id_idx",
+                    "columns": ["account_id"],
+                    "isUnique": false
+                },
+                "publisher_connections_project_id_actor_id_idx": {
+                    "name": "publisher_connections_project_id_actor_id_idx",
+                    "columns": ["project_id", "connected_by_actor_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "publisher_connections_project_id_projects_id_fk": {
+                    "name": "publisher_connections_project_id_projects_id_fk",
+                    "tableFrom": "publisher_connections",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publisher_connections_account_id_account_id_fk": {
+                    "name": "publisher_connections_account_id_account_id_fk",
+                    "tableFrom": "publisher_connections",
+                    "tableTo": "account",
+                    "columnsFrom": ["account_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                },
+                "publisher_connections_project_publisher_fk": {
+                    "name": "publisher_connections_project_publisher_fk",
+                    "tableFrom": "publisher_connections",
+                    "tableTo": "publishers",
+                    "columnsFrom": ["project_id", "publisher_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publisher_connections_project_actor_fk": {
+                    "name": "publisher_connections_project_actor_fk",
+                    "tableFrom": "publisher_connections",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "connected_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "publishers": {
+            "name": "publishers",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "channel_id": {
+                    "name": "channel_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "kind": {
+                    "name": "kind",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "publishers_project_id_id_uidx": {
+                    "name": "publishers_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                },
+                "publishers_project_id_channel_id_uidx": {
+                    "name": "publishers_project_id_channel_id_uidx",
+                    "columns": ["project_id", "channel_id"],
+                    "isUnique": true
+                }
+            },
+            "foreignKeys": {
+                "publishers_project_id_projects_id_fk": {
+                    "name": "publishers_project_id_projects_id_fk",
+                    "tableFrom": "publishers",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publishers_project_channel_fk": {
+                    "name": "publishers_project_channel_fk",
+                    "tableFrom": "publishers",
+                    "tableTo": "channels",
+                    "columnsFrom": ["project_id", "channel_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "publishers_kind_nonblank": {
+                    "name": "publishers_kind_nonblank",
+                    "value": "length(trim(\"publishers\".\"kind\")) > 0"
+                }
+            }
+        }
+    },
+    "views": {},
+    "enums": {},
+    "_meta": {
+        "schemas": {},
+        "tables": {},
+        "columns": {}
+    },
+    "internal": {
+        "indexes": {}
+    }
+}

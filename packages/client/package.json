@@ -1,0 +1,35 @@
+{
+    "name": "@herald/client",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Type-safe HTTP client for the Herald API",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+        "lint": "oxlint --deny-warnings .",
+        "lint:fix": "oxlint --fix .",
+        "format": "oxfmt --check .",
+        "format:fix": "oxfmt --write .",
+        "typecheck": "tsc --noEmit",
+        "test": "bun test",
+        "clean": "rimraf dist .turbo"
+    },
+    "dependencies": {
+        "@elysiajs/eden": "1.4.9"
+    },
+    "devDependencies": {
+        "@herald/api": "workspace:*",
+        "@herald/auth": "workspace:*",
+        "@herald/db": "workspace:*",
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
+        "typescript": "7.0.2"
+    },
+    "engines": {
+        "bun": ">=1.4"
+    }
+}

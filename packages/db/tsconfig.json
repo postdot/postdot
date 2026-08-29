@@ -1,0 +1,8 @@
+{
+    "extends": "@tala-tools/tsconfig/bun-base.json",
+    "compilerOptions": {
+        "types": ["bun", "node"]
+    },
+    "include": ["src/**/*.ts", "drizzle.config.ts"],
+    "exclude": ["dist", "node_modules", ".turbo", "drizzle"]
+}

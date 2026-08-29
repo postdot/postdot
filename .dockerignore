@@ -1,0 +1,15 @@
+.git
+.turbo
+.vite
+build
+coverage
+dist
+node_modules
+
+.env
+.env.*
+!.env.example
+
+*.sqlite
+*.sqlite-*
+*.log

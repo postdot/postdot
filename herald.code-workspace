@@ -1,0 +1,36 @@
+{
+  "folders": [
+    {
+      "name": "herald",
+      "path": ".",
+    },
+    {
+      "name": "api",
+      "path": "apps/api",
+    },
+    {
+      "name": "web",
+      "path": "apps/web",
+    },
+    {
+      "name": "client",
+      "path": "packages/client",
+    },
+    {
+      "name": "core",
+      "path": "packages/core",
+    },
+    {
+      "name": "db",
+      "path": "packages/db",
+    },
+    {
+      "name": "auth",
+      "path": "packages/auth",
+    },
+    {
+      "name": "linkedin",
+      "path": "packages/linkedin",
+    }
+  ],
+}

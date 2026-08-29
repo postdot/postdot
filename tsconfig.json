@@ -1,0 +1,8 @@
+{
+    "extends": ["@tala-tools/tsconfig/bun-base.json"],
+    "compilerOptions": {
+        "types": ["bun"]
+    },
+    "include": ["scripts/**/*.ts", "tsconfig.json"],
+    "exclude": ["apps", "packages", "node_modules", ".turbo", ".vscode"]
+}

@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Bun
+.bun/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build and tooling output
+dist/
+build/
+.turbo/
+.vite/
+coverage/
+
+# Runtime data
+data/
+*.sqlite
+*.sqlite-*
+
+# Local files
+.DS_Store
+*.log
+*.pem

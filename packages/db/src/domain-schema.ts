@@ -1,0 +1,376 @@
+import { actorKinds, jobStates, publicationStates } from '@herald/core'
+import { sql } from 'drizzle-orm'
+import {
+    check,
+    foreignKey,
+    index,
+    integer,
+    sqliteTable,
+    text,
+    uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
+
+import { account } from './auth-schema'
+
+const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
+
+const timestamps = () => ({
+    createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+    updatedAt: integer('updated_at').default(epochMilliseconds).notNull(),
+})
+
+export const projects = sqliteTable(
+    'projects',
+    {
+        id: text('id').primaryKey(),
+        name: text('name').notNull(),
+        ...timestamps(),
+    },
+    table => [check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`)]
+)
+
+export const actors = sqliteTable(
+    'actors',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        kind: text('kind', { enum: actorKinds }).notNull(),
+        subjectId: text('subject_id'),
+        displayName: text('display_name').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('actors_project_id_id_uidx').on(table.projectId, table.id),
+        check('actors_kind_valid', sql`${table.kind} in ('human', 'agent', 'api_token', 'system')`),
+        check('actors_display_name_nonblank', sql`length(trim(${table.displayName})) > 0`),
+        check(
+            'actors_subject_id_nonblank',
+            sql`${table.subjectId} is null or length(trim(${table.subjectId})) > 0`
+        ),
+    ]
+)
+
+export const channels = sqliteTable(
+    'channels',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        name: text('name').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('channels_project_id_id_uidx').on(table.projectId, table.id),
+        check('channels_name_nonblank', sql`length(trim(${table.name})) > 0`),
+    ]
+)
+
+export const publishers = sqliteTable(
+    'publishers',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        channelId: text('channel_id').notNull(),
+        kind: text('kind').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('publishers_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('publishers_project_id_channel_id_uidx').on(table.projectId, table.channelId),
+        foreignKey({
+            name: 'publishers_project_channel_fk',
+            columns: [table.projectId, table.channelId],
+            foreignColumns: [channels.projectId, channels.id],
+        }).onDelete('cascade'),
+        check('publishers_kind_nonblank', sql`length(trim(${table.kind})) > 0`),
+    ]
+)
+
+export const publisherConnections = sqliteTable(
+    'publisher_connections',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        publisherId: text('publisher_id').notNull(),
+        accountId: text('account_id')
+            .notNull()
+            .references(() => account.id, { onDelete: 'restrict' }),
+        connectedByActorId: text('connected_by_actor_id').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('publisher_connections_project_id_publisher_id_uidx').on(
+            table.projectId,
+            table.publisherId
+        ),
+        index('publisher_connections_account_id_idx').on(table.accountId),
+        index('publisher_connections_project_id_actor_id_idx').on(
+            table.projectId,
+            table.connectedByActorId
+        ),
+        foreignKey({
+            name: 'publisher_connections_project_publisher_fk',
+            columns: [table.projectId, table.publisherId],
+            foreignColumns: [publishers.projectId, publishers.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publisher_connections_project_actor_fk',
+            columns: [table.projectId, table.connectedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+    ]
+)
+
+export const posts = sqliteTable(
+    'posts',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        title: text('title'),
+        content: text('content').notNull(),
+        createdByActorId: text('created_by_actor_id').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('posts_project_id_id_uidx').on(table.projectId, table.id),
+        index('posts_project_id_created_by_actor_id_idx').on(
+            table.projectId,
+            table.createdByActorId
+        ),
+        foreignKey({
+            name: 'posts_project_created_by_actor_fk',
+            columns: [table.projectId, table.createdByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'posts_title_nonblank',
+            sql`${table.title} is null or length(trim(${table.title})) > 0`
+        ),
+        check('posts_content_nonblank', sql`length(trim(${table.content})) > 0`),
+    ]
+)
+
+export const publications = sqliteTable(
+    'publications',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        postId: text('post_id').notNull(),
+        channelId: text('channel_id').notNull(),
+        content: text('content').notNull(),
+        state: text('state', { enum: publicationStates }).notNull(),
+        scheduledAt: integer('scheduled_at'),
+        publishedAt: integer('published_at'),
+        externalId: text('external_id'),
+        externalUrl: text('external_url'),
+        errorMessage: text('error_message'),
+        createdByActorId: text('created_by_actor_id').notNull(),
+        scheduledByActorId: text('scheduled_by_actor_id'),
+        stateChangedByActorId: text('state_changed_by_actor_id').notNull(),
+        publishedByActorId: text('published_by_actor_id'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('publications_project_id_id_uidx').on(table.projectId, table.id),
+        index('publications_project_id_post_id_idx').on(table.projectId, table.postId),
+        index('publications_project_id_channel_id_idx').on(table.projectId, table.channelId),
+        index('publications_state_scheduled_at_idx').on(table.state, table.scheduledAt),
+        index('publications_project_id_created_by_actor_id_idx').on(
+            table.projectId,
+            table.createdByActorId
+        ),
+        index('publications_project_id_scheduled_by_actor_id_idx').on(
+            table.projectId,
+            table.scheduledByActorId
+        ),
+        index('publications_project_id_state_changed_by_actor_id_idx').on(
+            table.projectId,
+            table.stateChangedByActorId
+        ),
+        index('publications_project_id_published_by_actor_id_idx').on(
+            table.projectId,
+            table.publishedByActorId
+        ),
+        foreignKey({
+            name: 'publications_project_post_fk',
+            columns: [table.projectId, table.postId],
+            foreignColumns: [posts.projectId, posts.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publications_project_channel_fk',
+            columns: [table.projectId, table.channelId],
+            foreignColumns: [channels.projectId, channels.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publications_project_created_by_actor_fk',
+            columns: [table.projectId, table.createdByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publications_project_scheduled_by_actor_fk',
+            columns: [table.projectId, table.scheduledByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publications_project_state_changed_by_actor_fk',
+            columns: [table.projectId, table.stateChangedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publications_project_published_by_actor_fk',
+            columns: [table.projectId, table.publishedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check('publications_content_nonblank', sql`length(trim(${table.content})) > 0`),
+        check(
+            'publications_state_valid',
+            sql`${table.state} in ('draft', 'scheduled', 'ready', 'publishing', 'published', 'failed', 'ambiguous', 'cancelled')`
+        ),
+        check(
+            'publications_schedule_consistent',
+            sql`(${table.scheduledAt} is null and ${table.scheduledByActorId} is null) or (${table.scheduledAt} is not null and ${table.scheduledByActorId} is not null)`
+        ),
+        check(
+            'publications_scheduled_state_has_time',
+            sql`${table.state} <> 'scheduled' or ${table.scheduledAt} is not null`
+        ),
+        check(
+            'publications_published_state_complete',
+            sql`${table.state} <> 'published' or (${table.publishedAt} is not null and ${table.publishedByActorId} is not null)`
+        ),
+        check(
+            'publications_unpublished_state_has_no_result',
+            sql`${table.state} = 'published' or (${table.publishedAt} is null and ${table.publishedByActorId} is null)`
+        ),
+        check(
+            'publications_failure_has_error',
+            sql`${table.state} not in ('failed', 'ambiguous') or (${table.errorMessage} is not null and length(trim(${table.errorMessage})) > 0)`
+        ),
+        check(
+            'publications_nonfailure_has_no_error',
+            sql`${table.state} in ('failed', 'ambiguous') or ${table.errorMessage} is null`
+        ),
+    ]
+)
+
+export const jobs = sqliteTable(
+    'jobs',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        publicationId: text('publication_id').notNull(),
+        state: text('state', { enum: jobStates }).notNull(),
+        runAt: integer('run_at').notNull(),
+        attempts: integer('attempts').default(0).notNull(),
+        claimToken: text('claim_token'),
+        claimedByActorId: text('claimed_by_actor_id'),
+        claimedAt: integer('claimed_at'),
+        leaseExpiresAt: integer('lease_expires_at'),
+        effectStartedAt: integer('effect_started_at'),
+        startedAt: integer('started_at'),
+        completedAt: integer('completed_at'),
+        errorMessage: text('error_message'),
+        ...timestamps(),
+    },
+    table => [
+        index('jobs_project_id_publication_id_idx').on(table.projectId, table.publicationId),
+        index('jobs_state_run_at_idx').on(table.state, table.runAt),
+        index('jobs_state_lease_expires_at_idx').on(table.state, table.leaseExpiresAt),
+        index('jobs_project_id_claimed_by_actor_id_idx').on(
+            table.projectId,
+            table.claimedByActorId
+        ),
+        foreignKey({
+            name: 'jobs_project_publication_fk',
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'jobs_project_claimed_by_actor_fk',
+            columns: [table.projectId, table.claimedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'jobs_state_valid',
+            sql`${table.state} in ('pending', 'running', 'succeeded', 'failed', 'cancelled')`
+        ),
+        check('jobs_attempts_nonnegative', sql`${table.attempts} >= 0`),
+        check(
+            'jobs_running_has_started',
+            sql`${table.state} <> 'running' or (${table.claimToken} is not null and length(trim(${table.claimToken})) > 0 and ${table.claimedByActorId} is not null and ${table.claimedAt} is not null and ${table.leaseExpiresAt} is not null and ${table.startedAt} is not null and ${table.completedAt} is null and ${table.errorMessage} is null)`
+        ),
+        check(
+            'jobs_pending_is_clean',
+            sql`${table.state} <> 'pending' or (${table.claimToken} is null and ${table.claimedByActorId} is null and ${table.claimedAt} is null and ${table.leaseExpiresAt} is null and ${table.effectStartedAt} is null and ${table.startedAt} is null and ${table.completedAt} is null and ${table.errorMessage} is null)`
+        ),
+        check(
+            'jobs_nonrunning_has_no_fence',
+            sql`${table.state} = 'running' or (${table.claimToken} is null and ${table.leaseExpiresAt} is null)`
+        ),
+        check(
+            'jobs_lease_after_claim',
+            sql`${table.leaseExpiresAt} is null or (${table.claimedAt} is not null and ${table.leaseExpiresAt} > ${table.claimedAt})`
+        ),
+        check(
+            'jobs_effect_after_claim',
+            sql`${table.effectStartedAt} is null or (${table.claimedAt} is not null and ${table.effectStartedAt} >= ${table.claimedAt})`
+        ),
+        check(
+            'jobs_terminal_has_completed',
+            sql`${table.state} not in ('succeeded', 'failed', 'cancelled') or ${table.completedAt} is not null`
+        ),
+        check(
+            'jobs_failed_has_error',
+            sql`${table.state} <> 'failed' or (${table.errorMessage} is not null and length(trim(${table.errorMessage})) > 0)`
+        ),
+        check(
+            'jobs_completed_attempt_has_started',
+            sql`${table.state} not in ('succeeded', 'failed') or ${table.startedAt} is not null`
+        ),
+    ]
+)
+
+export const auditEvents = sqliteTable(
+    'audit_events',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        actorId: text('actor_id').notNull(),
+        action: text('action').notNull(),
+        entityType: text('entity_type').notNull(),
+        entityId: text('entity_id').notNull(),
+        metadataJson: text('metadata_json'),
+        createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+    },
+    table => [
+        index('audit_events_project_id_created_at_idx').on(table.projectId, table.createdAt),
+        index('audit_events_project_id_entity_idx').on(
+            table.projectId,
+            table.entityType,
+            table.entityId
+        ),
+        foreignKey({
+            name: 'audit_events_project_actor_fk',
+            columns: [table.projectId, table.actorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check('audit_events_action_nonblank', sql`length(trim(${table.action})) > 0`),
+        check('audit_events_entity_type_nonblank', sql`length(trim(${table.entityType})) > 0`),
+        check('audit_events_entity_id_nonblank', sql`length(trim(${table.entityId})) > 0`),
+    ]
+)

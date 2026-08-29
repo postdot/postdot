@@ -1,0 +1,5 @@
+[test]
+coverageSkipTestFiles = true
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"
+coveragePathIgnorePatterns = ["apps/web/src/routeTree.gen.ts", "packages/db/src/auth-schema.ts"]
