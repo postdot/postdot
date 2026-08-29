@@ -46,6 +46,7 @@ content generator.
 | `packages/core/` | Framework-independent domain model |
 | `packages/db/` | Drizzle schema, Bun SQLite client, and migrations |
 | `packages/auth/` | Better Auth configuration and database adapter boundary |
+| `packages/oauth/` | OAuth protocol mechanics for publisher-channel connections |
 | `.autonomos/specs/` | Draft and accepted product or engineering target state |
 | `.autonomos/decisions/` | Proposed and accepted technical decision records |
 | `.autonomos/` | Agent Protocol files, task board, and worklogs |

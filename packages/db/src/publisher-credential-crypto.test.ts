@@ -8,7 +8,7 @@ import {
 } from './publisher-credential-crypto'
 
 const context: PublisherSecretContext = {
-    credentialId: 'credential-1',
+    recordId: 'credential-1',
     providerId: 'linkedin',
     field: 'access_token',
 }
@@ -61,7 +61,7 @@ describe('publisher credential cipher', () => {
             'decryption_failed'
         )
         await expectCipherError(
-            () => cipher.decrypt({ ...context, credentialId: 'credential-2' }, first),
+            () => cipher.decrypt({ ...context, recordId: 'credential-2' }, first),
             'decryption_failed'
         )
     })
