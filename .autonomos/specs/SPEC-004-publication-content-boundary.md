@@ -90,6 +90,33 @@ Sources:
 - [Mastodon statuses API](https://docs.joinmastodon.org/methods/statuses/)
 - [Mastodon media API](https://docs.joinmastodon.org/methods/media/)
 
+## Current capability evidence
+
+The official provider contracts reinforce that media support is a composition and
+workflow problem, not only a MIME-type allowlist:
+
+- LinkedIn's Posts API currently exposes text, images, videos, documents, articles,
+  multi-image posts, and polls, with different availability for organic and
+  sponsored posts. Its multi-image contract requires between two and twenty image
+  assets, while its image upload contract has its own format and pixel constraints.
+- Mastodon accepts media attachments, polls, visibility, language, replies, and
+  quote-related options on a status. Media and polls are mutually exclusive, media
+  uploads may complete asynchronously, and media accepts accessibility descriptions
+  and focal-point metadata.
+
+This is why a capability descriptor needs profiles, composition rules, dependencies,
+conflicts, media constraints, asynchronous processing states, and typed settings. It
+also confirms that those rules belong with each provider module and must be resolved
+for the actual channel/account context.
+
+Sources:
+
+- [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api)
+- [LinkedIn MultiImage API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/multiimage-post-api)
+- [LinkedIn Images API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api)
+- [Mastodon statuses API](https://docs.joinmastodon.org/methods/statuses/)
+- [Mastodon media API](https://docs.joinmastodon.org/methods/media/)
+
 ## Comparative study
 
 The 2026-08-29 study inspected Postiz, Mixpost, and OpenPost in disposable clones.
@@ -324,6 +351,123 @@ Use FlyDrive's disk and driver model to cover local and remote storage.
 The current recommendation is B. Local versus S3/R2 is a deployment configuration
 choice, not a staged architecture in which one backend is postponed until after a
 temporary local-only model.
+
+## Proposed target architecture for review
+
+This section is a design proposal, not an accepted implementation contract. It
+translates the comparative evidence into Herald boundaries without copying a
+competitor's entire schema.
+
+### Provider and channel module boundary
+
+Each automated provider or custom channel module owns:
+
+- its provider identity and account-context requirements;
+- its serializable capability descriptor;
+- its typed provider settings and settings validation;
+- its target-content validation and adaptation rules;
+- its provider payload mapping and response interpretation;
+- its media upload, processing, and remote-media delivery rules.
+
+Shared code owns the capability protocol, common constraint types, validation issue
+shape, compatibility evaluation, and the common publication lifecycle. The runtime
+may keep a registry that resolves a channel's module, but that registry is a
+composition mechanism, not a central catalog containing every provider's rules.
+
+A module may need imperative validation for rules that cannot be described
+declaratively. It must still return structured issues that can be consumed by the
+web editor and the non-UI clients. A declarative descriptor supplies editor metadata;
+the server-side module validator remains authoritative.
+
+### Content and target snapshot boundary
+
+The intended relationship is:
+
+```text
+Post source document
+  -> Publication for one Channel
+       -> PublicationRevision containing the exact target snapshot
+            -> ordered media references and target settings
+```
+
+The common source document expresses shared publication intent. A publication
+revision expresses the target adaptation that is actually schedulable and
+publishable. A provider payload is compiled from that revision at execution time and
+is not the source of truth.
+
+The current one-publication-per-channel model can represent the target boundary that
+OpenPost calls a rendition. It should therefore gain explicit revision and target
+snapshot semantics before Herald introduces a separate `Rendition` aggregate. If a
+future requirement allows one publication to fan out to several independently
+adapted accounts or output profiles, that requirement can justify a separate target
+aggregate without invalidating the content and media contracts below.
+
+The durable revision should contain:
+
+- a schema version and deterministic content hash;
+- the validated common or target document;
+- the resolved module kind and capability revision;
+- target-specific settings in a module-owned versioned envelope;
+- ordered media references and publication-level metadata overrides;
+- author, timestamps, and an immutable execution reference once an external effect
+  begins.
+
+The persistence representation may use versioned JSON for the typed document while
+normalizing media references and ownership relations. JSON is a serialization of a
+validated domain value, not an arbitrary provider payload or an unvalidated escape
+hatch.
+
+### Media asset and delivery boundary
+
+Herald should distinguish four things:
+
+1. `MediaAsset`: the project-owned logical asset and its original object metadata.
+2. `MediaVariant`: a derived object such as a thumbnail, preview, or provider-ready
+   representation, linked to its source asset and transformation parameters.
+3. `PublicationRevisionMedia`: the ordered snapshot relation, including role,
+   accessibility text, focal/crop metadata, and the selected asset or variant.
+4. `ProviderMediaDelivery`: the provider-specific upload state and remote identifier
+   for one publication revision media item.
+
+This prevents provider media IDs from contaminating the reusable asset model and
+preserves enough state to retry or reconcile a post after a media upload succeeded.
+It also allows providers with different media requirements to select or request
+different variants without duplicating original bytes.
+
+Media assets should have an explicit lifecycle covering upload intent, object
+availability, metadata analysis, processing, ready, failed, deletion, and retention.
+The first implementation need not implement every transformation, but the state
+model must not assume that all media is immediately ready or that one original
+object is sufficient for every provider.
+
+### Storage boundary and consistency
+
+The first media implementation should define a Herald-owned `MediaStore` contract
+and provide both intended backends:
+
+- `LocalMediaStore` backed by `Bun.file()` and `Bun.write()`;
+- `S3MediaStore` backed by `Bun.S3Client` and its `S3File` references for AWS S3,
+  Cloudflare R2, and other S3-compatible services.
+
+The contract should cover the actual lifecycle rather than only a `save(path)`
+helper: create or reserve an object key, write or stream an upload, inspect metadata,
+open a read stream, delete or quarantine an object, and create controlled read or
+upload URLs when the backend supports them. The application must not expose Bun
+file objects, provider SDK objects, credentials, or untrusted paths.
+
+Because SQLite and object storage do not share a transaction, media creation should
+use an explicit upload-intent/finalization flow:
+
+1. reserve a project-owned media record and storage key;
+2. write the object through `MediaStore`;
+3. verify size, content type, checksum, and available metadata;
+4. finalize the asset and attach it to a publication revision in a database
+   transaction;
+5. reconcile expired intents and quarantine unreferenced objects.
+
+The same lifecycle must work for local and S3/R2 storage. Direct browser uploads may
+be added for S3/R2, but they must end through the same finalization and validation
+path as server-mediated uploads.
 
 ## Decisions requiring project-owner acceptance
 
