@@ -1,357 +1,341 @@
 import { describe, expect, it } from 'bun:test'
 
-import { eq } from 'drizzle-orm'
-
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
+import { createPublisherCredentialCipher } from './publisher-credential-crypto'
+import { createPublisherCredentialStore } from './publisher-credential-store'
 import { createPublisherStore } from './publisher-store'
 import {
-    account,
     jobs,
     posts,
     publisherConnections,
+    publisherCredentials,
     publications,
     publishers,
-    user,
 } from './schema'
 
 const now = 1_800_000_000_000
+const encryptionKey = new Uint8Array(32).fill(7)
 
-function seedAccount(
-    database: ReturnType<typeof createDatabase>,
+async function createFixture() {
+    const database = createDatabase(':memory:')
+    runMigrations(database)
+    const manualStore = createManualStore(database, { now: () => now })
+    const credentialStore = createPublisherCredentialStore(database, {
+        cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+        now: () => now,
+    })
+    const publisherStore = createPublisherStore(database, {
+        credentialRevoker: credentialStore,
+        now: () => now,
+    })
+    const project = manualStore.createProject({
+        name: 'Publisher Project',
+        subjectId: 'user-1',
+        displayName: 'Herald Operator',
+    })
+    const channel = manualStore.createChannel({
+        projectId: project.project.id,
+        subjectId: 'user-1',
+        name: 'LinkedIn',
+    })
+    if (channel === null) throw new Error('The test channel was not created')
+
+    return { database, manualStore, credentialStore, publisherStore, project, channel }
+}
+
+async function createCredential(
+    fixture: Awaited<ReturnType<typeof createFixture>>,
     input: {
-        readonly id: string
-        readonly userId: string
+        readonly id?: string
         readonly providerId?: string
-        readonly scope?: string
-    }
+        readonly connectedByActorId?: string
+        readonly externalAccountId?: string
+        readonly scopes?: readonly string[]
+    } = {}
 ) {
-    database
-        .insert(user)
-        .values({
-            id: input.userId,
-            name: `User ${input.userId}`,
-            email: `${input.userId}@herald.local`,
-        })
-        .onConflictDoNothing()
-        .run()
-    database
-        .insert(account)
-        .values({
-            id: input.id,
-            issuer: `local:oauth:${input.providerId ?? 'linkedin'}`,
-            accountId: `${input.id}-external`,
-            providerId: input.providerId ?? 'linkedin',
-            userId: input.userId,
-            scope: input.scope ?? 'openid,profile,w_member_social',
-            updatedAt: new Date(now),
-        })
-        .run()
+    const result = await fixture.credentialStore.createPublisherCredential({
+        projectId: fixture.project.project.id,
+        connectedByActorId: input.connectedByActorId ?? fixture.project.actor.id,
+        providerId: input.providerId ?? 'linkedin',
+        externalAccountId: input.externalAccountId ?? 'member-42',
+        externalAccountName: 'Herald Operator',
+        scopes: input.scopes ?? ['openid', 'profile', 'w_member_social'],
+        accessToken: `${input.id ?? 'credential'}-access-token`,
+        refreshToken: `${input.id ?? 'credential'}-refresh-token`,
+    })
+    if (result.kind !== 'created') throw new Error(`Credential was not created: ${result.kind}`)
+    return result.credential
 }
 
 describe('publisher connection store', () => {
-    it('creates a project-scoped connection without returning token material', () => {
-        const database = createDatabase(':memory:')
+    it('creates a project-scoped connection without returning token material', async () => {
+        const fixture = await createFixture()
 
         try {
-            runMigrations(database)
-            seedAccount(database, { id: 'account-1', userId: 'user-1' })
-
-            const manualStore = createManualStore(database, { now: () => now })
-            const publisherStore = createPublisherStore(database, {
-                now: () => now,
-                createId: (() => {
-                    let sequence = 0
-                    return () => `generated-${++sequence}`
-                })(),
-            })
-            const project = manualStore.createProject({
-                name: 'Connected Project',
-                subjectId: 'user-1',
-                displayName: 'Herald Operator',
-            })
-            const channel = manualStore.createChannel({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                name: 'LinkedIn',
-            })
+            const credential = await createCredential(fixture)
             expect(
-                publisherStore.hasChannelAccess(project.project.id, channel?.id ?? '', 'user-1')
+                fixture.publisherStore.hasChannelAccess(
+                    fixture.project.project.id,
+                    fixture.channel.id,
+                    'user-1'
+                )
             ).toBe(true)
             expect(
-                publisherStore.hasChannelAccess(project.project.id, 'missing-channel', 'user-1')
+                fixture.publisherStore.hasChannelAccess(
+                    fixture.project.project.id,
+                    'missing-channel',
+                    'user-1'
+                )
             ).toBe(false)
             expect(
-                publisherStore.hasChannelAccess(project.project.id, channel?.id ?? '', 'user-2')
+                fixture.publisherStore.hasChannelAccess(
+                    fixture.project.project.id,
+                    fixture.channel.id,
+                    'user-2'
+                )
             ).toBe(false)
 
-            const result = publisherStore.createPublisherConnection({
-                projectId: project.project.id,
-                channelId: channel?.id ?? '',
+            const result = fixture.publisherStore.createPublisherConnection({
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
                 subjectId: 'user-1',
                 kind: 'linkedin',
-                accountId: 'account-1',
-                requiredScopes: ['w_member_social'],
+                credentialId: credential.id,
             })
 
             expect(result.kind).toBe('created')
             if (result.kind !== 'created') return
 
             expect(result.connection).toMatchObject({
-                accountId: 'account-1',
-                channelId: channel?.id,
-                connectedByActorId: project.actor.id,
+                credentialId: credential.id,
+                channelId: fixture.channel.id,
+                connectedByActorId: fixture.project.actor.id,
+                externalAccountId: 'member-42',
                 kind: 'linkedin',
                 providerId: 'linkedin',
+                scopes: ['openid', 'profile', 'w_member_social'],
+                state: 'active',
             })
             expect(result.connection).not.toHaveProperty('accessToken')
             expect(result.connection).not.toHaveProperty('refreshToken')
-            expect(database.select().from(publishers).all()).toHaveLength(1)
-            expect(database.select().from(publisherConnections).all()).toHaveLength(1)
-            expect(() => database.delete(account).run()).toThrow()
+            expect(fixture.database.select().from(publishers).all()).toHaveLength(1)
+            expect(fixture.database.select().from(publisherConnections).all()).toHaveLength(1)
+            expect(
+                fixture.database.$client
+                    .query<{ table: string }, []>(
+                        `pragma foreign_key_list('publisher_connections')`
+                    )
+                    .all()
+                    .map(row => row.table)
+            ).not.toContain('account')
         } finally {
-            closeDatabase(database)
+            closeDatabase(fixture.database)
         }
     })
 
-    it('rejects inaccessible, mismatched, and under-scoped accounts', () => {
-        const database = createDatabase(':memory:')
+    it('rejects inaccessible, mismatched, and unavailable credentials', async () => {
+        const fixture = await createFixture()
 
         try {
-            runMigrations(database)
-            seedAccount(database, { id: 'account-1', userId: 'user-1' })
-            seedAccount(database, {
-                id: 'account-2',
-                userId: 'user-2',
+            const credential = await createCredential(fixture)
+            const otherProject = fixture.manualStore.createProject({
+                name: 'Other Project',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
             })
-            seedAccount(database, {
-                id: 'account-3',
-                userId: 'user-1',
-                scope: 'openid,profile',
+            const otherChannel = fixture.manualStore.createChannel({
+                projectId: otherProject.project.id,
+                subjectId: 'user-1',
+                name: 'Other Channel',
             })
-            seedAccount(database, {
-                id: 'account-4',
-                userId: 'user-1',
+            if (otherChannel === null) throw new Error('The second test channel was not created')
+
+            expect(
+                fixture.publisherStore.createPublisherConnection({
+                    projectId: otherProject.project.id,
+                    channelId: otherChannel.id,
+                    subjectId: 'user-1',
+                    kind: 'linkedin',
+                    credentialId: credential.id,
+                })
+            ).toEqual({ kind: 'invalid_credential' })
+
+            const mastodonCredential = await createCredential(fixture, {
+                id: 'mastodon',
                 providerId: 'mastodon',
-                scope: 'write:statuses',
+                externalAccountId: 'mastodon-account',
             })
+            expect(
+                fixture.publisherStore.createPublisherConnection({
+                    projectId: fixture.project.project.id,
+                    channelId: fixture.channel.id,
+                    subjectId: 'user-1',
+                    kind: 'linkedin',
+                    credentialId: mastodonCredential.id,
+                })
+            ).toEqual({ kind: 'invalid_credential' })
 
-            const manualStore = createManualStore(database, { now: () => now })
-            const publisherStore = createPublisherStore(database, { now: () => now })
-            const project = manualStore.createProject({
-                name: 'Connection Checks',
-                subjectId: 'user-1',
-                displayName: 'Herald Operator',
-            })
-            const channel = manualStore.createChannel({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                name: 'LinkedIn',
-            })
-            const input = {
-                projectId: project.project.id,
-                channelId: channel?.id ?? '',
-                subjectId: 'user-1',
-                kind: 'linkedin',
-                requiredScopes: ['w_member_social'],
-            } as const
-
+            fixture.credentialStore.markPublisherCredentialReconnectRequired(
+                fixture.project.project.id,
+                credential.id
+            )
             expect(
-                publisherStore.createPublisherConnection({
-                    ...input,
-                    accountId: 'account-2',
+                fixture.publisherStore.createPublisherConnection({
+                    projectId: fixture.project.project.id,
+                    channelId: fixture.channel.id,
+                    subjectId: 'user-1',
+                    kind: 'linkedin',
+                    credentialId: credential.id,
                 })
-            ).toEqual({ kind: 'invalid_account' })
-            expect(
-                publisherStore.createPublisherConnection({
-                    ...input,
-                    accountId: 'account-3',
-                })
-            ).toEqual({ kind: 'missing_scopes', scopes: ['w_member_social'] })
-            expect(
-                publisherStore.createPublisherConnection({
-                    ...input,
-                    accountId: 'account-4',
-                })
-            ).toEqual({ kind: 'invalid_account' })
-            expect(
-                publisherStore.createPublisherConnection({
-                    ...input,
-                    projectId: 'missing-project',
-                    accountId: 'account-1',
-                })
-            ).toEqual({ kind: 'not_found' })
+            ).toEqual({ kind: 'credential_unavailable' })
         } finally {
-            closeDatabase(database)
+            closeDatabase(fixture.database)
         }
     })
 
-    it('does not create a second publisher for a channel', () => {
-        const database = createDatabase(':memory:')
+    it('does not create a second publisher for a channel and revokes an unused credential', async () => {
+        const fixture = await createFixture()
 
         try {
-            runMigrations(database)
-            seedAccount(database, { id: 'account-1', userId: 'user-1' })
-            const manualStore = createManualStore(database, { now: () => now })
-            const publisherStore = createPublisherStore(database, { now: () => now })
-            const project = manualStore.createProject({
-                name: 'Unique Publisher',
-                subjectId: 'user-1',
-                displayName: 'Herald Operator',
-            })
-            const channel = manualStore.createChannel({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                name: 'LinkedIn',
-            })
+            const credential = await createCredential(fixture)
             const input = {
-                projectId: project.project.id,
-                channelId: channel?.id ?? '',
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
                 subjectId: 'user-1',
                 kind: 'linkedin',
-                accountId: 'account-1',
-                requiredScopes: ['w_member_social'],
+                credentialId: credential.id,
             } as const
 
-            expect(publisherStore.createPublisherConnection(input).kind).toBe('created')
-            expect(publisherStore.createPublisherConnection(input)).toEqual({
+            expect(fixture.publisherStore.createPublisherConnection(input).kind).toBe('created')
+            expect(fixture.publisherStore.createPublisherConnection(input)).toEqual({
                 kind: 'publisher_exists',
             })
-            expect(database.select().from(publishers).all()).toHaveLength(1)
-            expect(database.select().from(publisherConnections).all()).toHaveLength(1)
+            expect(fixture.database.select().from(publishers).all()).toHaveLength(1)
+            expect(fixture.database.select().from(publisherConnections).all()).toHaveLength(1)
 
             expect(
-                publisherStore.listPublisherConnections(project.project.id, 'user-1')
+                fixture.publisherStore.listPublisherConnections(
+                    fixture.project.project.id,
+                    'user-1'
+                )
             ).toHaveLength(1)
-            expect(publisherStore.listPublisherConnections(project.project.id, 'user-2')).toBeNull()
+            expect(
+                fixture.publisherStore.listPublisherConnections(
+                    fixture.project.project.id,
+                    'user-2'
+                )
+            ).toBeNull()
 
-            const disconnected = publisherStore.disconnectPublisherConnection({
-                projectId: project.project.id,
-                channelId: channel?.id ?? '',
+            const disconnected = fixture.publisherStore.disconnectPublisherConnection({
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
                 subjectId: 'user-1',
             })
             expect(disconnected.kind).toBe('disconnected')
-            expect(publisherStore.listPublisherConnections(project.project.id, 'user-1')).toEqual(
-                []
-            )
-            expect(database.select().from(publishers).all()).toEqual([])
-            expect(database.select().from(publisherConnections).all()).toEqual([])
-            expect(() =>
-                database.delete(account).where(eq(account.id, 'account-1')).run()
-            ).not.toThrow()
+            expect(
+                fixture.publisherStore.listPublisherConnections(
+                    fixture.project.project.id,
+                    'user-1'
+                )
+            ).toEqual([])
+            expect(fixture.database.select().from(publishers).all()).toEqual([])
+            expect(fixture.database.select().from(publisherConnections).all()).toEqual([])
+            expect(
+                fixture.database
+                    .select({ state: publisherCredentials.state })
+                    .from(publisherCredentials)
+                    .all()
+            ).toEqual([{ state: 'revoked' }])
+            await expect(
+                fixture.credentialStore.resolvePublisherCredentialSecrets(
+                    fixture.project.project.id,
+                    credential.id
+                )
+            ).resolves.toBeNull()
         } finally {
-            closeDatabase(database)
+            closeDatabase(fixture.database)
         }
     })
 
-    it('queues scheduled publications created before the publisher was connected', () => {
-        const database = createDatabase(':memory:')
+    it('queues scheduled publications created before the publisher was connected', async () => {
+        const fixture = await createFixture()
 
         try {
-            runMigrations(database)
-            seedAccount(database, { id: 'account-1', userId: 'user-1' })
-            const manualStore = createManualStore(database, { now: () => now })
-            const publisherStore = createPublisherStore(database, { now: () => now })
-            const project = manualStore.createProject({
-                name: 'Backfill Scheduled Work',
+            const credential = await createCredential(fixture)
+            const post = fixture.manualStore.createPost({
+                projectId: fixture.project.project.id,
                 subjectId: 'user-1',
-                displayName: 'Herald Operator',
-            })
-            const channel = manualStore.createChannel({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                name: 'LinkedIn',
-            })
-            expect(channel).not.toBeNull()
-            if (channel === null) throw new Error('The test channel was not created')
-
-            const post = manualStore.createPost({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                content: 'Scheduled before account binding',
-                publications: [{ channelId: channel.id, scheduledAt: now }],
+                content: 'Scheduled before the publisher was connected',
+                publications: [{ channelId: fixture.channel.id, scheduledAt: now }],
             })
             expect(post?.publications[0]?.state).toBe('scheduled')
-            expect(database.select().from(jobs).all()).toEqual([])
+            expect(fixture.database.select().from(jobs).all()).toEqual([])
 
-            const connection = publisherStore.createPublisherConnection({
-                projectId: project.project.id,
-                channelId: channel.id,
+            const connection = fixture.publisherStore.createPublisherConnection({
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
                 subjectId: 'user-1',
                 kind: 'linkedin',
-                accountId: 'account-1',
-                requiredScopes: ['w_member_social'],
+                credentialId: credential.id,
             })
             expect(connection.kind).toBe('created')
-            expect(database.select().from(jobs).all()).toHaveLength(1)
-            expect(database.select().from(jobs).all()[0]?.runAt).toBe(now)
+            expect(fixture.database.select().from(jobs).all()).toHaveLength(1)
+            expect(fixture.database.select().from(jobs).all()[0]?.runAt).toBe(now)
         } finally {
-            closeDatabase(database)
+            closeDatabase(fixture.database)
         }
     })
 
-    it('blocks disconnecting a publisher while a publication is active', () => {
-        const database = createDatabase(':memory:')
+    it('blocks disconnecting a publisher while a publication is active', async () => {
+        const fixture = await createFixture()
 
         try {
-            runMigrations(database)
-            seedAccount(database, { id: 'account-1', userId: 'user-1' })
-            const manualStore = createManualStore(database, { now: () => now })
-            const publisherStore = createPublisherStore(database, { now: () => now })
-            const project = manualStore.createProject({
-                name: 'Active Work',
-                subjectId: 'user-1',
-                displayName: 'Herald Operator',
-            })
-            const channel = manualStore.createChannel({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                name: 'LinkedIn',
-            })
-            const connection = publisherStore.createPublisherConnection({
-                projectId: project.project.id,
-                channelId: channel?.id ?? '',
+            const credential = await createCredential(fixture)
+            const connection = fixture.publisherStore.createPublisherConnection({
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
                 subjectId: 'user-1',
                 kind: 'linkedin',
-                accountId: 'account-1',
+                credentialId: credential.id,
             })
             expect(connection.kind).toBe('created')
 
-            database
+            fixture.database
                 .insert(posts)
                 .values({
                     id: 'post-1',
-                    projectId: project.project.id,
+                    projectId: fixture.project.project.id,
                     content: 'Active publication',
-                    createdByActorId: project.actor.id,
+                    createdByActorId: fixture.project.actor.id,
                 })
                 .run()
-            database
+            fixture.database
                 .insert(publications)
                 .values({
                     id: 'publication-1',
-                    projectId: project.project.id,
+                    projectId: fixture.project.project.id,
                     postId: 'post-1',
-                    channelId: channel?.id ?? '',
+                    channelId: fixture.channel.id,
                     content: 'Active publication',
                     state: 'scheduled',
                     scheduledAt: now,
-                    createdByActorId: project.actor.id,
-                    scheduledByActorId: project.actor.id,
-                    stateChangedByActorId: project.actor.id,
+                    createdByActorId: fixture.project.actor.id,
+                    scheduledByActorId: fixture.project.actor.id,
+                    stateChangedByActorId: fixture.project.actor.id,
                 })
                 .run()
 
             expect(
-                publisherStore.disconnectPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel?.id ?? '',
+                fixture.publisherStore.disconnectPublisherConnection({
+                    projectId: fixture.project.project.id,
+                    channelId: fixture.channel.id,
                     subjectId: 'user-1',
                 })
             ).toEqual({ kind: 'active_work' })
         } finally {
-            closeDatabase(database)
+            closeDatabase(fixture.database)
         }
     })
 })

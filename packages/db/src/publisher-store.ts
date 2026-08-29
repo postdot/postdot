@@ -15,8 +15,7 @@ export interface CreatePublisherConnectionInput {
     readonly channelId: string
     readonly subjectId: string
     readonly kind: string
-    readonly accountId: string
-    readonly requiredScopes?: readonly string[]
+    readonly credentialId: string
 }
 
 export interface DisconnectPublisherConnectionInput {
@@ -31,8 +30,12 @@ export interface PublisherConnection {
     readonly publisherId: string
     readonly channelId: string
     readonly kind: string
-    readonly accountId: string
+    readonly credentialId: string
     readonly providerId: string
+    readonly externalAccountId: string
+    readonly externalAccountName: string | null
+    readonly scopes: string[]
+    readonly state: 'active' | 'reconnect_required' | 'revoked'
     readonly connectedByActorId: string
     readonly createdAt: Timestamp
     readonly updatedAt: Timestamp
@@ -46,17 +49,18 @@ export interface PublisherExecutionTarget {
     readonly publisherId: string
     readonly channelId: string
     readonly kind: string
-    readonly accountId: string
-    readonly accountUserId: string
+    readonly credentialId: string
     readonly externalAccountId: string
     readonly providerId: string
+    readonly credentialState: 'active' | 'reconnect_required' | 'revoked'
+    readonly credentialExpiresAt: number | null
 }
 
 export type CreatePublisherConnectionResult =
     | { readonly kind: 'created'; readonly connection: PublisherConnection }
     | { readonly kind: 'not_found' }
-    | { readonly kind: 'invalid_account' }
-    | { readonly kind: 'missing_scopes'; readonly scopes: readonly string[] }
+    | { readonly kind: 'invalid_credential' }
+    | { readonly kind: 'credential_unavailable' }
     | { readonly kind: 'publisher_exists' }
 
 export type DisconnectPublisherConnectionResult =
@@ -89,11 +93,22 @@ interface ChannelRow {
     readonly updatedAt: number
 }
 
-interface AccountRow {
+interface CredentialRow {
     readonly id: string
-    readonly userId: string
     readonly providerId: string
-    readonly scope: string | null
+    readonly externalAccountId: string
+    readonly externalAccountName: string | null
+    readonly scopesJson: string
+    readonly state: 'active' | 'reconnect_required' | 'revoked'
+}
+
+interface PublisherConnectionRow extends Omit<
+    PublisherConnection,
+    'externalAccountName' | 'scopes' | 'state'
+> {
+    readonly externalAccountName: string | null
+    readonly scopesJson: string
+    readonly state: 'active' | 'reconnect_required' | 'revoked'
 }
 
 interface PublisherRow {
@@ -106,23 +121,36 @@ interface ScheduledPublicationRow {
 }
 
 export interface PublisherStoreOptions {
+    readonly credentialRevoker: {
+        readonly revokePublisherCredentialIfUnreferenced: (
+            projectId: string,
+            credentialId: string
+        ) => void
+    }
     readonly now?: () => number
     readonly createId?: () => string
 }
 
-function parseScopes(scope: string | null): ReadonlySet<string> {
-    return new Set(
-        (scope ?? '')
-            .split(',')
-            .map(value => value.trim())
-            .filter(value => value.length > 0)
-    )
+function parseScopes(scopesJson: string): string[] {
+    const parsed: unknown = JSON.parse(scopesJson)
+    if (!Array.isArray(parsed) || !parsed.every(scope => typeof scope === 'string')) {
+        throw new Error('Stored publisher credential scopes are invalid')
+    }
+    return parsed.map(scope => requireNonBlank(scope, 'scope'))
 }
 
-export function createPublisherStore(
-    database: HeraldDatabase,
-    options: PublisherStoreOptions = {}
-) {
+function credentialFields(row: CredentialRow) {
+    return {
+        credentialId: row.id,
+        providerId: row.providerId,
+        externalAccountId: row.externalAccountId,
+        externalAccountName: row.externalAccountName,
+        scopes: parseScopes(row.scopesJson),
+        state: row.state,
+    } as const
+}
+
+export function createPublisherStore(database: HeraldDatabase, options: PublisherStoreOptions) {
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
@@ -154,13 +182,19 @@ export function createPublisherStore(
         where project_id = ?1
           and id = ?2
     `)
-    const loadAccountStatement = client.query<AccountRow, [accountId: string]>(`
+    const loadCredentialStatement = client.query<
+        CredentialRow,
+        [projectId: string, credentialId: string]
+    >(`
         select id,
-               user_id as userId,
                provider_id as providerId,
-               scope
-        from account
-        where id = ?1
+               external_account_id as externalAccountId,
+               external_account_name as externalAccountName,
+               scopes as scopesJson,
+               state
+        from publisher_credentials
+        where project_id = ?1
+          and id = ?2
     `)
     const loadPublisherForChannelStatement = client.query<
         PublisherRow,
@@ -178,14 +212,18 @@ export function createPublisherStore(
         publisher_connections.publisher_id as publisherId,
         publishers.channel_id as channelId,
         publishers.kind,
-        publisher_connections.account_id as accountId,
-        account.provider_id as providerId,
+        publisher_connections.credential_id as credentialId,
+        publisher_credentials.provider_id as providerId,
+        publisher_credentials.external_account_id as externalAccountId,
+        publisher_credentials.external_account_name as externalAccountName,
+        publisher_credentials.scopes as scopesJson,
+        publisher_credentials.state,
         publisher_connections.connected_by_actor_id as connectedByActorId,
         publisher_connections.created_at as createdAt,
         publisher_connections.updated_at as updatedAt
     `
     const listPublisherConnectionsStatement = client.query<
-        PublisherConnection,
+        PublisherConnectionRow,
         [projectId: string]
     >(`
         select ${publisherConnectionColumns}
@@ -193,13 +231,14 @@ export function createPublisherStore(
         inner join publishers
             on publishers.project_id = publisher_connections.project_id
            and publishers.id = publisher_connections.publisher_id
-        inner join account
-            on account.id = publisher_connections.account_id
+        inner join publisher_credentials
+            on publisher_credentials.project_id = publisher_connections.project_id
+           and publisher_credentials.id = publisher_connections.credential_id
         where publisher_connections.project_id = ?1
         order by publisher_connections.created_at, publisher_connections.id
     `)
     const loadPublisherConnectionStatement = client.query<
-        PublisherConnection,
+        PublisherConnectionRow,
         [projectId: string, channelId: string]
     >(`
         select ${publisherConnectionColumns}
@@ -207,8 +246,9 @@ export function createPublisherStore(
         inner join publishers
             on publishers.project_id = publisher_connections.project_id
            and publishers.id = publisher_connections.publisher_id
-        inner join account
-            on account.id = publisher_connections.account_id
+        inner join publisher_credentials
+            on publisher_credentials.project_id = publisher_connections.project_id
+           and publisher_credentials.id = publisher_connections.credential_id
         where publisher_connections.project_id = ?1
           and publishers.channel_id = ?2
         limit 1
@@ -224,10 +264,11 @@ export function createPublisherStore(
                publishers.id as publisherId,
                publishers.channel_id as channelId,
                publishers.kind,
-               publisher_connections.account_id as accountId,
-               account.user_id as accountUserId,
-               account.account_id as externalAccountId,
-               account.provider_id as providerId
+               publisher_connections.credential_id as credentialId,
+               publisher_credentials.external_account_id as externalAccountId,
+               publisher_credentials.provider_id as providerId,
+               publisher_credentials.state as credentialState,
+               publisher_credentials.expires_at as credentialExpiresAt
         from jobs
         inner join publications
             on publications.project_id = jobs.project_id
@@ -238,8 +279,9 @@ export function createPublisherStore(
         inner join publisher_connections
             on publisher_connections.project_id = publishers.project_id
            and publisher_connections.publisher_id = publishers.id
-        inner join account
-            on account.id = publisher_connections.account_id
+        inner join publisher_credentials
+            on publisher_credentials.project_id = publisher_connections.project_id
+           and publisher_credentials.id = publisher_connections.credential_id
         where jobs.id = ?1
           and jobs.claim_token = ?2
           and jobs.state = 'running'
@@ -301,7 +343,7 @@ export function createPublisherStore(
             id: string,
             projectId: string,
             publisherId: string,
-            accountId: string,
+            credentialId: string,
             connectedByActorId: string,
             timestamp: number,
         ]
@@ -310,7 +352,7 @@ export function createPublisherStore(
             id,
             project_id,
             publisher_id,
-            account_id,
+            credential_id,
             connected_by_actor_id,
             created_at,
             updated_at
@@ -372,20 +414,12 @@ export function createPublisherStore(
                 return { kind: 'not_found' }
             }
 
-            const accountRow = loadAccountStatement.get(input.accountId)
-            if (
-                accountRow === null ||
-                accountRow.userId !== actorRow.subjectId ||
-                accountRow.providerId !== input.kind
-            ) {
-                return { kind: 'invalid_account' }
+            const credentialRow = loadCredentialStatement.get(input.projectId, input.credentialId)
+            if (credentialRow === null || credentialRow.providerId !== input.kind) {
+                return { kind: 'invalid_credential' }
             }
-
-            const requiredScopes = input.requiredScopes ?? []
-            const grantedScopes = parseScopes(accountRow.scope)
-            const missingScopes = requiredScopes.filter(scope => !grantedScopes.has(scope))
-            if (missingScopes.length > 0) {
-                return { kind: 'missing_scopes', scopes: missingScopes }
+            if (credentialRow.state !== 'active') {
+                return { kind: 'credential_unavailable' }
             }
 
             if (loadPublisherForChannelStatement.get(input.projectId, input.channelId) !== null) {
@@ -416,7 +450,7 @@ export function createPublisherStore(
                 connectionId,
                 publisher.projectId,
                 publisher.id,
-                accountRow.id,
+                credentialRow.id,
                 actor.id,
                 timestamp
             )
@@ -439,7 +473,7 @@ export function createPublisherStore(
                 'publisher.connected',
                 'publisher',
                 publisher.id,
-                JSON.stringify({ kind: publisher.kind, providerId: accountRow.providerId }),
+                JSON.stringify({ kind: publisher.kind, providerId: credentialRow.providerId }),
                 timestamp
             )
 
@@ -451,8 +485,7 @@ export function createPublisherStore(
                     publisherId: publisher.id,
                     channelId: publisher.channelId,
                     kind: publisher.kind,
-                    accountId: accountRow.id,
-                    providerId: accountRow.providerId,
+                    ...credentialFields(credentialRow),
                     connectedByActorId: actor.id,
                     createdAt: timestamp,
                     updatedAt: timestamp,
@@ -478,6 +511,11 @@ export function createPublisherStore(
             const deleted = deletePublisherStatement.run(input.projectId, connection.publisherId)
             if (deleted.changes < 1) return { kind: 'not_found' }
 
+            options.credentialRevoker.revokePublisherCredentialIfUnreferenced(
+                input.projectId,
+                connection.credentialId
+            )
+
             insertAuditEventStatement.run(
                 createId(),
                 input.projectId,
@@ -489,7 +527,7 @@ export function createPublisherStore(
                 timestamp
             )
 
-            return { kind: 'disconnected', connection }
+            return { kind: 'disconnected', connection: toPublisherConnection(connection) }
         }
     )
 
@@ -502,6 +540,23 @@ export function createPublisherStore(
             return (
                 loadActorStatement.get(normalizedProjectId, normalizedSubjectId) !== null &&
                 loadChannelStatement.get(normalizedProjectId, normalizedChannelId) !== null
+            )
+        },
+
+        getHumanActorId(projectId: string, subjectId: string): string | null {
+            const actor = loadActorStatement.get(
+                requireNonBlank(projectId, 'projectId'),
+                requireNonBlank(subjectId, 'subjectId')
+            )
+            return actor?.id ?? null
+        },
+
+        hasPublisherForChannel(projectId: string, channelId: string): boolean {
+            return (
+                loadPublisherForChannelStatement.get(
+                    requireNonBlank(projectId, 'projectId'),
+                    requireNonBlank(channelId, 'channelId')
+                ) !== null
             )
         },
 
@@ -526,10 +581,7 @@ export function createPublisherStore(
                 channelId: requireNonBlank(input.channelId, 'channelId'),
                 subjectId: requireNonBlank(input.subjectId, 'subjectId'),
                 kind: requireNonBlank(input.kind, 'kind'),
-                accountId: requireNonBlank(input.accountId, 'accountId'),
-                requiredScopes: input.requiredScopes?.map(scope =>
-                    requireNonBlank(scope, 'requiredScope')
-                ),
+                credentialId: requireNonBlank(input.credentialId, 'credentialId'),
             })
         },
 
@@ -543,7 +595,9 @@ export function createPublisherStore(
                 return null
             }
 
-            return listPublisherConnectionsStatement.all(normalizedProjectId)
+            return listPublisherConnectionsStatement
+                .all(normalizedProjectId)
+                .map(toPublisherConnection)
         },
 
         disconnectPublisherConnection(
@@ -585,6 +639,27 @@ function toChannel(row: ChannelRow): Channel {
         id: row.id,
         projectId: row.projectId,
         name: row.name,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+    }
+}
+
+function toPublisherConnection(row: PublisherConnectionRow): PublisherConnection {
+    return {
+        id: row.id,
+        projectId: row.projectId,
+        publisherId: row.publisherId,
+        channelId: row.channelId,
+        kind: row.kind,
+        ...credentialFields({
+            id: row.credentialId,
+            providerId: row.providerId,
+            externalAccountId: row.externalAccountId,
+            externalAccountName: row.externalAccountName,
+            scopesJson: row.scopesJson,
+            state: row.state,
+        }),
+        connectedByActorId: row.connectedByActorId,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }

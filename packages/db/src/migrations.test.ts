@@ -47,7 +47,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(7)
+            expect(migrationCount?.count).toBe(8)
         } finally {
             closeDatabase(database)
         }
@@ -81,6 +81,76 @@ describe('database migrations', () => {
             database.delete(user).where(eq(user.id, 'user-1')).run()
 
             expect(database.select().from(session).all()).toEqual([])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('refuses to replace legacy account-backed publisher connections implicitly', async () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            for (const filename of legacyMigrationFiles) {
+                const migration = await Bun.file(
+                    new URL(`../drizzle/${filename}`, import.meta.url)
+                ).text()
+                database.$client.exec(migration.replaceAll('--> statement-breakpoint', ''))
+            }
+
+            database.$client.exec(`
+                insert into projects (id, name) values ('legacy-project', 'Legacy project');
+                insert into actors (id, project_id, kind, subject_id, display_name)
+                values ('legacy-actor', 'legacy-project', 'human', 'legacy-user', 'Legacy operator');
+                insert into channels (id, project_id, name)
+                values ('legacy-channel', 'legacy-project', 'Legacy channel');
+                insert into publishers (id, project_id, channel_id, kind)
+                values ('legacy-publisher', 'legacy-project', 'legacy-channel', 'linkedin');
+                insert into user (id, name, email)
+                values ('legacy-user', 'Legacy operator', 'legacy@herald.local');
+                insert into account (id, issuer, account_id, provider_id, user_id, updated_at)
+                values ('legacy-account', 'https://www.linkedin.com', 'member-legacy', 'linkedin', 'legacy-user', 1800000000000);
+                insert into publisher_connections (
+                    id, project_id, publisher_id, account_id, connected_by_actor_id
+                ) values (
+                    'legacy-connection', 'legacy-project', 'legacy-publisher', 'legacy-account', 'legacy-actor'
+                );
+            `)
+
+            const migration = await Bun.file(
+                new URL('../drizzle/0007_fearless_hydra.sql', import.meta.url)
+            ).text()
+            let migrationError: unknown
+            database.$client.exec('BEGIN')
+            try {
+                for (const statement of migration.split('--> statement-breakpoint')) {
+                    const trimmedStatement = statement.trim()
+                    if (trimmedStatement !== '') database.$client.exec(trimmedStatement)
+                }
+                database.$client.exec('COMMIT')
+            } catch (error) {
+                migrationError = error
+                database.$client.exec('ROLLBACK')
+            }
+
+            expect(migrationError).toBeDefined()
+            expect(String(migrationError)).toContain(
+                'Legacy publisher connections require an explicit reconnect before migration'
+            )
+            expect(
+                database.$client
+                    .query<{ name: string }, []>(
+                        `select name from pragma_table_info('publisher_connections')`
+                    )
+                    .all()
+                    .map(row => row.name)
+            ).toContain('account_id')
+            expect(
+                database.$client
+                    .query<{ count: number }, []>(
+                        `select count(*) as count from publisher_connections`
+                    )
+                    .get()?.count
+            ).toBe(1)
         } finally {
             closeDatabase(database)
         }
@@ -167,3 +237,13 @@ describe('database migrations', () => {
         }
     })
 })
+
+const legacyMigrationFiles = [
+    '0000_spicy_quasimodo.sql',
+    '0001_smiling_justin_hammer.sql',
+    '0002_abnormal_nighthawk.sql',
+    '0003_yielding_norman_osborn.sql',
+    '0004_furry_vin_gonzales.sql',
+    '0005_fuzzy_namor.sql',
+    '0006_quick_silver_centurion.sql',
+] as const

@@ -5,6 +5,7 @@ import {
     createAuthorizationRequest,
     digestAuthorizationState,
     exchangeAuthorizationCode,
+    refreshAccessToken,
     validateAuthorizationResponse,
     validateReturnPath,
     type OAuthAuthorizationServer,
@@ -198,5 +199,50 @@ describe('OAuth authorization code mechanics', () => {
         expect(() => validateReturnPath('/projects-evil', ['/projects'])).toThrow()
         expect(() => validateReturnPath('/projects%2f..%2fadmin', ['/projects'])).toThrow()
         expect(() => validateReturnPath('/projects/one#redirect', ['/projects'])).toThrow()
+    })
+
+    it('refreshes an access token with client-secret-post and normalizes the response', async () => {
+        let requestBody: URLSearchParams | undefined
+        const server = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                requestBody = new URLSearchParams(await request.text())
+                return Response.json({
+                    access_token: 'refreshed-access-token',
+                    refresh_token: 'rotated-refresh-token',
+                    expires_in: 1800,
+                    scope: 'openid w_member_social',
+                    token_type: 'Bearer',
+                })
+            },
+        })
+
+        try {
+            const origin = server.url.origin
+            const tokenSet = await refreshAccessToken({
+                authorizationServer: {
+                    issuer: origin,
+                    authorizationEndpoint: `${origin}/authorize`,
+                    tokenEndpoint: `${origin}/token`,
+                },
+                clientId: 'client-1',
+                clientAuthentication: clientSecretPost('client-secret'),
+                refreshToken: 'current-refresh-token',
+            })
+
+            expect(tokenSet).toEqual({
+                accessToken: 'refreshed-access-token',
+                refreshToken: 'rotated-refresh-token',
+                expiresInSeconds: 1800,
+                scopes: ['openid', 'w_member_social'],
+                tokenType: 'bearer',
+            })
+            expect(requestBody?.get('grant_type')).toBe('refresh_token')
+            expect(requestBody?.get('refresh_token')).toBe('current-refresh-token')
+            expect(requestBody?.get('client_id')).toBe('client-1')
+            expect(requestBody?.get('client_secret')).toBe('client-secret')
+        } finally {
+            server.stop(true)
+        }
     })
 })

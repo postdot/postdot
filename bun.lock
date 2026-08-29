@@ -32,6 +32,7 @@
         "@herald/core": "workspace:*",
         "@herald/db": "workspace:*",
         "@herald/linkedin": "workspace:*",
+        "@herald/oauth": "workspace:*",
         "@sinclair/typebox": "^0.34.52",
         "drizzle-orm": "0.45.2",
         "drizzle-typebox": "^0.3.3",

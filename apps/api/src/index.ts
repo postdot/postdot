@@ -2,13 +2,16 @@ import { createAuth } from '@herald/auth'
 import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
 
 import { createApp } from './app'
-import { createHeraldConfig } from './config'
+import { createHeraldConfig, decodeHexKey } from './config'
 import { runMaintenanceCommand } from './maintenance'
+import { createPublisherRuntime } from './modules/publishers/runtime'
 import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
 
 export { createApp } from './app'
 export type { HeraldApp } from './app'
+export { createPublisherRuntime } from './modules/publishers/runtime'
+export type { PublisherRuntimeOptions } from './modules/publishers/runtime'
 export type {
     AuditEventResponse,
     ChannelResponse,
@@ -28,13 +31,24 @@ async function startServer() {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
         trustedOrigins: [config.web.origin],
-        linkedin: config.auth.linkedin,
     })
-    const worker = createPublicationWorker({ auth, database })
+    const publisher = createPublisherRuntime(database, {
+        apiOrigin: config.auth.baseURL,
+        webOrigin: config.web.origin,
+        publisherEncryptionKey: decodeHexKey(config.security.publisherEncryptionKey),
+        publisherEncryptionKeyId: config.security.publisherEncryptionKeyId,
+        linkedin: config.publishers.linkedin,
+    })
+    const worker = createPublicationWorker({
+        database,
+        publisherStore: publisher.publisherStore,
+        publisherCredentialStore: publisher.credentialStore,
+        linkedinOAuth: publisher.linkedin,
+    })
     const baseApp = createApp({
         auth,
         database,
-        webOrigin: config.web.origin,
+        publisher,
         logging: config.logging,
         onWorkScheduled: worker.replan,
     })

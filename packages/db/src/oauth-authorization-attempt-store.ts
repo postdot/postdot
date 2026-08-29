@@ -304,6 +304,11 @@ export function createAuthorizationAttemptStore(
     `)
 
     return {
+        getAuthorizationAttempt(stateDigest: Uint8Array): AuthorizationAttempt | null {
+            const row = loadAttemptByStateStatement.get(requireStateDigest(stateDigest))
+            return row === null ? null : toAttempt(row)
+        },
+
         async createAuthorizationAttempt(
             input: CreateAuthorizationAttemptInput
         ): Promise<CreateAuthorizationAttemptResult> {

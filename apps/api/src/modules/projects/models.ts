@@ -83,19 +83,22 @@ export const reconcilePublicationBody = Type.Object({
     errorMessage: Type.Optional(Type.String({ minLength: 1 })),
 })
 
-export const createPublisherBody = Type.Object({
-    provider: Type.Literal('linkedin'),
-    accountId: Type.String({ minLength: 1 }),
-})
-
 export const publisherConnectionSchema = Type.Object({
     id: Type.String({ minLength: 1 }),
     projectId: Type.String({ minLength: 1 }),
     publisherId: Type.String({ minLength: 1 }),
     channelId: Type.String({ minLength: 1 }),
     kind: Type.String({ minLength: 1 }),
-    accountId: Type.String({ minLength: 1 }),
+    credentialId: Type.String({ minLength: 1 }),
     providerId: Type.String({ minLength: 1 }),
+    externalAccountId: Type.String({ minLength: 1 }),
+    externalAccountName: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    scopes: Type.Array(Type.String({ minLength: 1 })),
+    state: Type.Union([
+        Type.Literal('active'),
+        Type.Literal('reconnect_required'),
+        Type.Literal('revoked'),
+    ]),
     connectedByActorId: Type.String({ minLength: 1 }),
     createdAt: Type.Integer({ minimum: 0 }),
     updatedAt: Type.Integer({ minimum: 0 }),

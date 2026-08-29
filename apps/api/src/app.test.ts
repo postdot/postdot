@@ -2,33 +2,33 @@ import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@herald/auth'
 import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
-import { account, publications, user as authUser } from '@herald/db/schema'
+import { publications, publisherCredentials, user as authUser } from '@herald/db/schema'
+import { createLinkedInMemberProfileClient } from '@herald/linkedin'
+import type { OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
 import { createApp } from './app'
+import { createPublisherRuntime, type PublisherRuntimeOptions } from './modules/publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
 const secret = 'herald-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
+const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
-function createFixture(options: { readonly linkedin?: boolean } = {}) {
+function createFixture(options: { readonly linkedin?: PublisherRuntimeOptions['linkedin'] } = {}) {
     const database = createDatabase(':memory:')
     runMigrations(database)
-    const auth = createAuth(database, {
-        baseURL,
-        secret,
-        ...(options.linkedin
-            ? {
-                  linkedin: {
-                      clientId: 'linkedin-client-id',
-                      clientSecret: 'linkedin-client-secret',
-                  },
-              }
-            : {}),
+    const publisher = createPublisherRuntime(database, {
+        apiOrigin: baseURL,
+        webOrigin: 'http://localhost:5173',
+        publisherEncryptionKey,
+        publisherEncryptionKeyId: 'test-v1',
+        linkedin: options.linkedin,
     })
-    const app = createApp({ auth, database, manualStore: { now: () => now } })
+    const auth = createAuth(database, { baseURL, secret })
+    const app = createApp({ auth, database, publisher, manualStore: { now: () => now } })
 
-    return { app, database }
+    return { app, database, publisher }
 }
 
 async function signUp(app: ReturnType<typeof createApp>, email = 'operator@herald.local') {
@@ -70,26 +70,6 @@ async function jsonRequest(
     )
 }
 
-function seedLinkedInAccount(
-    database: ReturnType<typeof createDatabase>,
-    userId: string,
-    accountId: string,
-    scope = 'openid,profile,w_member_social'
-) {
-    database
-        .insert(account)
-        .values({
-            id: accountId,
-            issuer: 'local:oauth:linkedin',
-            accountId: `${accountId}-external`,
-            providerId: 'linkedin',
-            userId,
-            scope,
-            updatedAt: new Date(now),
-        })
-        .run()
-}
-
 describe('Herald API', () => {
     it('reports health publicly and mounts Better Auth', async () => {
         const { app, database } = createFixture()
@@ -123,6 +103,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/channels',
                 '/api/projects/{projectId}/publishers',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/linkedin/connect',
+                '/api/oauth/linkedin/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publications/due',
@@ -256,15 +237,52 @@ describe('Herald API', () => {
         }
     })
 
-    it('starts LinkedIn OAuth and binds only a linked account to a project channel', async () => {
-        const { app, database } = createFixture({ linkedin: true })
+    it('completes LinkedIn OAuth into a project-owned credential and connection', async () => {
+        const provider = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                const url = new URL(request.url)
+                if (url.pathname === '/token') {
+                    const body = new URLSearchParams(await request.text())
+                    expect(body.get('grant_type')).toBe('authorization_code')
+                    expect(body.get('client_id')).toBe('linkedin-client-id')
+                    expect(body.get('client_secret')).toBe('linkedin-client-secret')
+                    expect(body.get('code')).toBe('authorization-code')
+                    expect(body.get('code_verifier')).toMatch(/^[A-Za-z0-9._~-]{43,128}$/)
+                    return Response.json({
+                        access_token: 'linkedin-access-token',
+                        refresh_token: 'linkedin-refresh-token',
+                        expires_in: 3600,
+                        scope: 'openid profile w_member_social',
+                        token_type: 'Bearer',
+                    })
+                }
+                if (url.pathname === '/v2/userinfo') {
+                    expect(request.headers.get('authorization')).toBe(
+                        'Bearer linkedin-access-token'
+                    )
+                    return Response.json({ sub: 'member-42', name: 'Herald Operator' })
+                }
+                return new Response('not found', { status: 404 })
+            },
+        })
+        const providerOrigin = provider.url.origin
+        const authorizationServer: OAuthAuthorizationServer = {
+            issuer: providerOrigin,
+            authorizationEndpoint: new URL('/authorize', provider.url).toString(),
+            tokenEndpoint: new URL('/token', provider.url).toString(),
+        }
+        const { app, database } = createFixture({
+            linkedin: {
+                clientId: 'linkedin-client-id',
+                clientSecret: 'linkedin-client-secret',
+                authorizationServer,
+                profileClient: createLinkedInMemberProfileClient({ baseUrl: providerOrigin }),
+            },
+        })
 
         try {
             const cookie = await signUp(app)
-            const currentUser = database.select({ id: authUser.id }).from(authUser).get()
-            expect(currentUser).toBeDefined()
-            if (currentUser === undefined) throw new Error('The test user was not created')
-
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'LinkedIn Project' }),
@@ -303,82 +321,40 @@ describe('Herald API', () => {
                 { method: 'POST' }
             )
             expect(connectionStartResponse.status).toBe(200)
-            expect(connectionStartResponse.headers.get('set-cookie')).toContain('state=')
             const connectionStartBody = (await connectionStartResponse.json()) as {
                 provider: string
                 scopes: string[]
                 authorizationUrl: string
             }
             expect(connectionStartBody.provider).toBe('linkedin')
-            expect(connectionStartBody.scopes).toEqual(['w_member_social'])
-            expect(
-                new URL(connectionStartBody.authorizationUrl).searchParams.get('scope')
-            ).toContain('w_member_social')
-
-            seedLinkedInAccount(database, currentUser.id, 'linkedin-account')
-            const bindingResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher`,
-                cookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        provider: 'linkedin',
-                        accountId: 'linkedin-account',
-                    }),
-                }
+            expect(connectionStartBody.scopes).toEqual(['openid', 'profile', 'w_member_social'])
+            const authorizationUrl = new URL(connectionStartBody.authorizationUrl)
+            expect(authorizationUrl.searchParams.get('scope')).toBe(
+                'openid profile w_member_social'
             )
-            expect(bindingResponse.status).toBe(201)
-            const bindingBody = (await bindingResponse.json()) as {
-                connection: {
-                    accountId: string
-                    providerId: string
-                    kind: string
-                }
-            }
-            expect(bindingBody.connection).toMatchObject({
-                accountId: 'linkedin-account',
-                providerId: 'linkedin',
-                kind: 'linkedin',
-            })
+            const state = authorizationUrl.searchParams.get('state')
+            expect(state).toBeString()
 
-            const duplicateResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher`,
-                cookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        provider: 'linkedin',
-                        accountId: 'linkedin-account',
-                    }),
-                }
+            const callbackResponse = await app.handle(
+                new Request(
+                    `${baseURL}/api/oauth/linkedin/callback?code=authorization-code&state=${encodeURIComponent(state ?? '')}`,
+                    { headers: { cookie } }
+                )
             )
-            expect(duplicateResponse.status).toBe(409)
-
-            database
-                .insert(authUser)
-                .values({
-                    id: 'other-user',
-                    name: 'Other User',
-                    email: 'other-user@herald.local',
-                })
-                .run()
-            seedLinkedInAccount(database, 'other-user', 'other-linkedin-account')
-
-            const foreignAccountResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher`,
-                cookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        provider: 'linkedin',
-                        accountId: 'other-linkedin-account',
-                    }),
-                }
+            expect(callbackResponse.status).toBe(303)
+            expect(callbackResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=connected'
             )
-            expect(foreignAccountResponse.status).toBe(422)
+
+            const storedAttempt = database.$client
+                .query<{ stateDigest: Uint8Array; verifier: Uint8Array | null }, []>(`
+                    select state_digest as stateDigest,
+                           pkce_verifier_ciphertext as verifier
+                    from oauth_authorization_attempts
+                `)
+                .get()
+            expect(storedAttempt?.verifier).toBeNull()
+            expect(storedAttempt?.stateDigest).toBeInstanceOf(Uint8Array)
 
             const listResponse = await jsonRequest(
                 app,
@@ -391,32 +367,50 @@ describe('Herald API', () => {
             }
             expect(listBody.connections).toHaveLength(1)
             expect(listBody.connections[0]).toMatchObject({
-                accountId: 'linkedin-account',
+                externalAccountId: 'member-42',
+                externalAccountName: 'Herald Operator',
+                kind: 'linkedin',
                 providerId: 'linkedin',
+                scopes: ['openid', 'profile', 'w_member_social'],
+                state: 'active',
             })
             expect(listBody.connections[0]).not.toHaveProperty('accessToken')
             expect(listBody.connections[0]).not.toHaveProperty('refreshToken')
 
-            const disconnectResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher`,
-                cookie,
-                { method: 'DELETE' }
-            )
-            expect(disconnectResponse.status).toBe(200)
-            expect(await disconnectResponse.json()).toEqual({ disconnected: true })
+            expect(
+                database.$client
+                    .query<{ providerId: string }, []>(
+                        `select provider_id as providerId from account`
+                    )
+                    .all()
+            ).toEqual([{ providerId: 'credential' }])
 
-            const emptyListResponse = await jsonRequest(
+            const duplicateResponse = await jsonRequest(
                 app,
-                `/api/projects/${projectBody.project.id}/publishers`,
-                cookie
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/linkedin/connect`,
+                cookie,
+                { method: 'POST' }
             )
-            expect(emptyListResponse.status).toBe(200)
-            expect(await emptyListResponse.json()).toEqual({ connections: [] })
-            expect(() =>
-                database.delete(account).where(eq(account.id, 'linkedin-account')).run()
-            ).not.toThrow()
+            expect(duplicateResponse.status).toBe(409)
+
+            database.delete(authUser).run()
+            expect(database.select().from(publisherCredentials).all()).toHaveLength(1)
+
+            const disconnectResponse = await app.handle(
+                new Request(
+                    `${baseURL}/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher`,
+                    { method: 'DELETE', headers: { cookie } }
+                )
+            )
+            expect(disconnectResponse.status).toBe(401)
+            expect(
+                database
+                    .select({ state: publisherCredentials.state })
+                    .from(publisherCredentials)
+                    .all()
+            ).toEqual([{ state: 'active' }])
         } finally {
+            provider.stop()
             closeDatabase(database)
         }
     })

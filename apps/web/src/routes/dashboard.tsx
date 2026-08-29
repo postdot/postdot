@@ -13,7 +13,6 @@ import {
     api,
     type Channel,
     type DuePublication,
-    type LinkedAccount,
     type Project,
     type PublisherConnection,
 } from '@/lib/api'
@@ -44,15 +43,12 @@ export const Route = createFileRoute('/dashboard')({
             throw redirect({ to: '/login' })
         }
 
-        const [{ projects }, linkedAccounts] = await Promise.all([
-            api.listProjects(),
-            api.listLinkedAccounts(),
-        ])
+        const { projects } = await api.listProjects()
         const data =
             projects[0] === undefined
                 ? { channels: [], connections: [], due: [] }
                 : await loadProjectData(projects[0].id)
-        return { session, projects, linkedAccounts, ...data }
+        return { session, projects, ...data }
     },
     component: DashboardPage,
 })
@@ -68,9 +64,6 @@ function DashboardPage() {
     const [duePublications, setDuePublications] = useState<DuePublication[]>(initialData.due)
     const [publisherConnections, setPublisherConnections] = useState<PublisherConnection[]>(
         initialData.connections
-    )
-    const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[]>(
-        initialData.linkedAccounts
     )
     const [projectName, setProjectName] = useState('')
     const [channelName, setChannelName] = useState('')
@@ -180,14 +173,6 @@ function DashboardPage() {
         })
     }
 
-    async function handleConnectLinkedInPublisher(channelId: string, accountId: string) {
-        if (selectedProjectId === null || accountId === '') return
-        await runAction(async () => {
-            await api.connectLinkedInPublisher(selectedProjectId, channelId, accountId)
-            await refreshSelectedProject()
-        })
-    }
-
     async function handleDisconnectPublisher(channelId: string) {
         if (selectedProjectId === null) return
         await runAction(async () => {
@@ -205,14 +190,10 @@ function DashboardPage() {
 
     async function refreshSelectedProject() {
         if (selectedProjectId === null) return
-        const [data, accounts] = await Promise.all([
-            loadProjectData(selectedProjectId),
-            api.listLinkedAccounts(),
-        ])
+        const data = await loadProjectData(selectedProjectId)
         setChannels(data.channels)
         setDuePublications(data.due)
         setPublisherConnections(data.connections)
-        setLinkedAccounts(accounts)
         setPublicationChannelId(current => current || data.channels[0]?.id || '')
     }
 
@@ -441,10 +422,8 @@ function DashboardPage() {
                             key={selectedProject.id}
                             channels={channels}
                             connections={publisherConnections}
-                            linkedAccounts={linkedAccounts}
                             pending={pending}
                             onStartLinkedInConnection={handleStartLinkedInConnection}
-                            onConnectLinkedInPublisher={handleConnectLinkedInPublisher}
                             onDisconnectPublisher={handleDisconnectPublisher}
                         />
                     ) : null}

@@ -9,6 +9,8 @@ COPY packages/auth/package.json packages/auth/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/core/package.json packages/core/package.json
 COPY packages/db/package.json packages/db/package.json
+COPY packages/linkedin/package.json packages/linkedin/package.json
+COPY packages/oauth/package.json packages/oauth/package.json
 
 RUN HUSKY=0 bun install --frozen-lockfile
 

@@ -371,6 +371,31 @@ export function createPublisherCredentialStore(
           and id = ?3
           and state != 'revoked'
     `)
+    const revokeUnreferencedCredentialStatement = client.query<
+        { changes: number },
+        [timestamp: number, projectId: string, credentialId: string]
+    >(`
+        update publisher_credentials
+        set state = 'revoked',
+            expires_at = null,
+            encryption_version = null,
+            encryption_key_id = null,
+            access_token_ciphertext = null,
+            access_token_nonce = null,
+            refresh_token_ciphertext = null,
+            refresh_token_nonce = null,
+            revision = revision + 1,
+            updated_at = ?1
+        where project_id = ?2
+          and id = ?3
+          and state != 'revoked'
+          and not exists (
+              select 1
+              from publisher_connections
+              where publisher_connections.project_id = publisher_credentials.project_id
+                and publisher_connections.credential_id = publisher_credentials.id
+          )
+    `)
 
     return {
         async createPublisherCredential(
@@ -611,6 +636,14 @@ export function createPublisherCredentialStore(
                 normalizedCredentialId
             )
             return row === null ? null : toCredential(row)
+        },
+
+        revokePublisherCredentialIfUnreferenced(projectId: string, credentialId: string): void {
+            revokeUnreferencedCredentialStatement.run(
+                requireTimestamp(now(), 'now'),
+                requireNonBlank(projectId, 'projectId'),
+                requireNonBlank(credentialId, 'credentialId')
+            )
         },
     }
 }
