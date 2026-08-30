@@ -64,3 +64,21 @@
   performance budget, and the evidence required before introducing GSAP or another
   animation dependency.
 - Tasks: none
+
+## [ISSUE-006] Separate publisher credentials from application authentication
+
+- Type: problem
+- Status: accepted
+- Evidence: The current LinkedIn connection flow stores publisher OAuth credentials
+  in Better Auth accounts, references those user-owned accounts directly from
+  project-owned publisher connections, resolves worker tokens through Better Auth,
+  and changes global account-linking policy to support the publisher use case.
+- Impact: Application identity and publisher credential lifecycles have different
+  ownership, deletion, transfer, revocation, and background-execution semantics.
+  Keeping them coupled could make user or organization changes affect publication
+  infrastructure and could force non-OAuth credentials into an identity model.
+- Desired outcome: Better Auth provides email/password authentication into Herald,
+  while Herald owns project-scoped publisher credentials and delegates only
+  well-defined OAuth protocol mechanics to an evidence-backed dependency.
+- Tasks: CRED-15, CRED-16, CRED-17, CRED-18, PUB-09 (blocked)
+- Decision: [ADR-012](decisions/ADR-012-own-publisher-credentials-and-use-oauth4webapi.md)

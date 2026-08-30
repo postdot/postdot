@@ -37,6 +37,12 @@
       "skillPath": "skills/mvp-scoping/SKILL.md",
       "computedHash": "f5bdebffd16387393904ba2169e9f0723e864c26e4c582c70401fdf40cb61d4b"
     },
+    "oauth": {
+      "source": "mcollina/skills",
+      "sourceType": "github",
+      "skillPath": "skills/oauth/SKILL.md",
+      "computedHash": "cf0ec2396dbf94504eb74ac7191c7b7b082dba3ef080a42688e79ca5c856eddc"
+    },
     "shadcn-baseui": {
       "source": "thunderboltdev/shadcn-baseui",
       "sourceType": "github",
