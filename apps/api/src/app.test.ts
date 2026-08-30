@@ -170,16 +170,24 @@ describe('Herald API', () => {
                     method: 'POST',
                     body: JSON.stringify({
                         title: 'Herald is ready',
-                        content: 'A source post for multiple destinations.',
+                        sourceContent: {
+                            body: {
+                                text: 'A source post for multiple destinations.',
+                                format: 'plain_text',
+                            },
+                            media: [],
+                        },
                         publications: [
                             {
                                 channelId: channelBody.channel.id,
-                                content: 'Manual copy',
+                                targetContent: { body: 'Manual copy', media: [] },
+                                deliveryMode: 'manual',
                                 scheduledAt: now,
                             },
                             {
                                 channelId: secondChannelBody.channel.id,
-                                content: 'Second copy',
+                                targetContent: { body: 'Second copy', media: [] },
+                                deliveryMode: 'manual',
                             },
                         ],
                     }),
@@ -298,7 +306,7 @@ describe('Herald API', () => {
                 cookie,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ name: 'LinkedIn Member' }),
+                    body: JSON.stringify({ name: 'LinkedIn Member', profile: 'linkedin' }),
                 }
             )
             expect(channelResponse.status).toBe(201)
@@ -442,8 +450,20 @@ describe('Herald API', () => {
                 {
                     method: 'POST',
                     body: JSON.stringify({
-                        content: 'A publication requiring reconciliation',
-                        publications: [{ channelId: channelBody.channel.id, scheduledAt: now }],
+                        sourceContent: {
+                            body: {
+                                text: 'A publication requiring reconciliation',
+                                format: 'plain_text',
+                            },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channelBody.channel.id,
+                                deliveryMode: 'manual',
+                                scheduledAt: now,
+                            },
+                        ],
                     }),
                 }
             )

@@ -13,10 +13,48 @@ import { eq } from 'drizzle-orm'
 import type { HeraldDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
-import { actors, channels, jobs, posts, projects, publications, publishers } from './schema'
+import {
+    actors,
+    channelProfileVersions,
+    channels,
+    jobs,
+    posts,
+    projects,
+    publicationTargetRevisions,
+    publications,
+    publishers,
+} from './schema'
 import { createWorkflowStore } from './workflow-store'
 
 const dueAt = 1_800_000_000_000
+
+const testProfile = {
+    id: 'workflow-test',
+    version: 1,
+    profileHash: 'sha256:workflow-test-profile-v1',
+    schemaHash: 'sha256:workflow-test-schema-v1',
+    origin: 'built_in' as const,
+    contentSchema: {
+        type: 'object' as const,
+        properties: { body: { type: 'string' as const, minLength: 1 } },
+        required: ['body'],
+        additionalProperties: false,
+    },
+    fieldBindings: [{ id: 'body', semantic: 'primary_text' as const, path: '/body' }],
+    capabilities: {
+        revision: 'workflow-test-v1',
+        textFields: [
+            {
+                bindingId: 'body',
+                acceptedSourceFormats: ['plain_text' as const],
+                maxLength: 10_000,
+            },
+        ],
+        mediaFields: [],
+        relations: [],
+    },
+    execution: { kind: 'built_in' as const, contractId: 'test', revision: 'v1' },
+}
 
 function seedDueJob(database: HeraldDatabase, suffix = 'one') {
     const projectId = `project-${suffix}`
@@ -26,6 +64,8 @@ function seedDueJob(database: HeraldDatabase, suffix = 'one') {
     const postId = `post-${suffix}`
     const publicationId = `publication-${suffix}`
     const jobId = `job-${suffix}`
+    const profileVersionId = `profile-${suffix}`
+    const targetRevisionId = `target-${suffix}`
 
     database
         .insert(projects)
@@ -50,7 +90,23 @@ function seedDueJob(database: HeraldDatabase, suffix = 'one') {
         .run()
     database
         .insert(channels)
-        .values({ id: channelId, projectId, name: `Channel ${suffix}` })
+        .values({ id: channelId, projectId, name: `Channel ${suffix}`, profileVersionId })
+        .run()
+    database
+        .insert(channelProfileVersions)
+        .values({
+            id: profileVersionId,
+            projectId,
+            channelId,
+            profileId: testProfile.id,
+            version: testProfile.version,
+            origin: testProfile.origin,
+            state: 'active',
+            profileJson: testProfile,
+            profileHash: testProfile.profileHash,
+            schemaHash: testProfile.schemaHash,
+            createdByActorId: humanActorId,
+        })
         .run()
     database
         .insert(publishers)
@@ -66,7 +122,11 @@ function seedDueJob(database: HeraldDatabase, suffix = 'one') {
         .values({
             id: postId,
             projectId,
-            content: `Post ${suffix}`,
+            sourceContent: {
+                body: { text: `Post ${suffix}`, format: 'plain_text' },
+                media: [],
+            },
+            sourceRevision: 1,
             createdByActorId: humanActorId,
         })
         .run()
@@ -77,12 +137,32 @@ function seedDueJob(database: HeraldDatabase, suffix = 'one') {
             projectId,
             postId,
             channelId,
-            content: `Publication ${suffix}`,
+            targetRevisionId,
+            deliveryMode: 'automatic',
+            reviewState: 'compatible',
             state: 'scheduled',
             scheduledAt: dueAt,
             createdByActorId: humanActorId,
             scheduledByActorId: humanActorId,
             stateChangedByActorId: humanActorId,
+        })
+        .run()
+    database
+        .insert(publicationTargetRevisions)
+        .values({
+            id: targetRevisionId,
+            projectId,
+            publicationId,
+            sequence: 1,
+            profileVersionId,
+            sourceRevision: 1,
+            deliveryMode: 'automatic',
+            contentJson: { body: `Publication ${suffix}` },
+            contentHash: `sha256:target-${suffix}`,
+            profileHash: testProfile.profileHash,
+            schemaHash: testProfile.schemaHash,
+            validationIssuesJson: [],
+            createdByActorId: humanActorId,
         })
         .run()
     database
@@ -102,6 +182,8 @@ function seedDueJob(database: HeraldDatabase, suffix = 'one') {
         systemActorId,
         publicationId,
         jobId,
+        profileVersionId,
+        targetRevisionId,
     }
 }
 
@@ -392,6 +474,30 @@ describe('workflow store', () => {
             expect(job?.runAt).toBe(dueAt + 1_000)
             expect(publication?.state).toBe('ready')
 
+            database
+                .insert(publicationTargetRevisions)
+                .values({
+                    id: 'replacement-target-retry',
+                    projectId: fixture.projectId,
+                    publicationId: fixture.publicationId,
+                    sequence: 2,
+                    profileVersionId: fixture.profileVersionId,
+                    sourceRevision: 1,
+                    deliveryMode: 'automatic',
+                    contentJson: { body: 'Replacement target must not be retried' },
+                    contentHash: 'sha256:replacement-target',
+                    profileHash: testProfile.profileHash,
+                    schemaHash: testProfile.schemaHash,
+                    validationIssuesJson: [],
+                    createdByActorId: fixture.humanActorId,
+                })
+                .run()
+            database
+                .update(publications)
+                .set({ targetRevisionId: 'replacement-target-retry' })
+                .where(eq(publications.id, fixture.publicationId))
+                .run()
+
             currentTime = dueAt + 1_000
             expect((await process()).outcome).toBe('failed')
             ;[job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
@@ -405,6 +511,19 @@ describe('workflow store', () => {
             expect(job?.errorMessage).toContain('rejected')
             expect(publication?.state).toBe('failed')
             expect(store.getNextEventAt()).toBeNull()
+            expect(
+                database.$client
+                    .query<{ targetRevisionId: string; contentJson: string }, []>(
+                        `select target_revision_id as targetRevisionId, content_json as contentJson
+                         from publication_execution_revisions`
+                    )
+                    .all()
+            ).toEqual([
+                {
+                    targetRevisionId: fixture.targetRevisionId,
+                    contentJson: JSON.stringify({ body: `Publication retry` }),
+                },
+            ])
         } finally {
             closeDatabase(database)
         }

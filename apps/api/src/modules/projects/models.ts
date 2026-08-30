@@ -1,4 +1,7 @@
+import { createManualChannelProfile, sourceContentSchema } from '@herald/core'
+import type { ChannelProfileDefinition } from '@herald/core'
 import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
+import { linkedinTextChannelProfile } from '@herald/linkedin'
 import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'
@@ -16,7 +19,10 @@ function createElysiaSelectSchema<const TableType extends Table>(table: TableTyp
 }
 
 export const projectSchema = createElysiaSelectSchema(projects)
-export const channelSchema = createElysiaSelectSchema(channels)
+export const channelSchema = Type.Intersect([
+    createElysiaSelectSchema(channels),
+    Type.Object({ profileId: Type.String({ minLength: 1 }) }),
+])
 export const postSchema = createElysiaSelectSchema(posts)
 export const publicationSchema = createElysiaSelectSchema(publications)
 export const auditEventSchema = createElysiaSelectSchema(auditEvents)
@@ -26,6 +32,7 @@ export const duePublicationSchema = Type.Intersect([
     Type.Object({
         postTitle: Type.Union([Type.String(), Type.Null()]),
         channelName: Type.String(),
+        targetContent: Type.Record(Type.String(), Type.Unknown()),
     }),
 ])
 
@@ -56,20 +63,46 @@ export const createProjectBody = Type.Object({
 
 export const createChannelBody = Type.Object({
     name: Type.String({ minLength: 1 }),
+    profile: Type.Optional(
+        Type.Union([
+            Type.Literal('manual-message'),
+            Type.Literal('linkedin'),
+            Type.Object({
+                id: Type.String({ minLength: 1 }),
+                version: Type.Integer({ minimum: 1 }),
+                profileHash: Type.String({ minLength: 1 }),
+                schemaHash: Type.String({ minLength: 1 }),
+                origin: Type.Literal('custom'),
+                contentSchema: Type.Unknown(),
+                fieldBindings: Type.Unknown(),
+                capabilities: Type.Unknown(),
+                execution: Type.Unknown(),
+            }),
+        ])
+    ),
 })
 
 export const createPostBody = Type.Object({
     title: Type.Optional(Type.Union([Type.String({ minLength: 1 }), Type.Null()])),
-    content: Type.String({ minLength: 1 }),
+    sourceContent: sourceContentSchema,
     publications: Type.Array(
         Type.Object({
             channelId: Type.String({ minLength: 1 }),
-            content: Type.Optional(Type.String({ minLength: 1 })),
+            targetContent: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+            deliveryMode: Type.Union([Type.Literal('manual'), Type.Literal('automatic')]),
             scheduledAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
         }),
         { minItems: 1 }
     ),
 })
+
+export function resolveChannelProfile(profile: unknown): ChannelProfileDefinition {
+    if (profile === 'linkedin') return linkedinTextChannelProfile
+    if (profile === undefined || profile === 'manual-message') {
+        return createManualChannelProfile()
+    }
+    return profile as ChannelProfileDefinition
+}
 
 export const publishPublicationBody = Type.Object({
     externalId: Type.Optional(Type.String({ minLength: 1 })),

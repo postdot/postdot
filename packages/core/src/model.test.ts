@@ -19,6 +19,11 @@ import {
 
 const now = 1_800_000_000_000
 
+const sourceContent = (text: string) => ({
+    body: { text, format: 'plain_text' as const },
+    media: [],
+})
+
 function createFixture(prefix = 'one') {
     const project = createProject({ id: `${prefix}-project`, name: 'Herald', now })
     const actor = createActor({
@@ -39,6 +44,8 @@ function createFixture(prefix = 'one') {
         id: `${prefix}-channel`,
         project,
         name: 'Release notes',
+        profileId: 'test-profile',
+        profileVersionId: `${prefix}-profile-v1`,
         now,
     })
     const post = createPost({
@@ -46,7 +53,7 @@ function createFixture(prefix = 'one') {
         project,
         createdBy: actor,
         title: 'Version 1',
-        content: 'Canonical post content',
+        sourceContent: sourceContent('Canonical post content'),
         now,
     })
 
@@ -108,25 +115,25 @@ describe('domain construction', () => {
                     post: first.post,
                     channel: second.channel,
                     createdBy: first.actor,
-                    content: 'Channel-specific content',
                     now,
                 }),
             'project_mismatch'
         )
     })
 
-    test('keeps canonical post content separate from publication content', () => {
+    test('keeps the source post separate from the target revision pointer', () => {
         const fixture = createFixture()
         const publication = createPublication({
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Short content for this channel',
+            targetRevisionId: 'target-revision',
             now,
         })
 
         expect(publication.postId).toBe(fixture.post.id)
-        expect(publication.content).not.toBe(fixture.post.content)
+        expect(publication.targetRevisionId).toBe('target-revision')
+        expect(publication.targetRevisionId).not.toBe(fixture.post.sourceRevision.toString())
         expect(publication.state).toBe('draft')
     })
 
@@ -136,7 +143,7 @@ describe('domain construction', () => {
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Scheduled content',
+            targetRevisionId: 'target-revision',
             scheduledAt: now + 60_000,
             now,
         })
@@ -193,7 +200,6 @@ describe('publication lifecycle', () => {
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Manually published content',
             now,
         })
         const ready = transitionPublication({
@@ -221,7 +227,6 @@ describe('publication lifecycle', () => {
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Automated content',
             now,
         })
         const ready = transitionPublication({
@@ -273,7 +278,8 @@ describe('job lifecycle', () => {
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Scheduled content',
+            targetRevisionId: 'target-revision',
+            deliveryMode: 'automatic',
             scheduledAt: now + 60_000,
             now,
         })
@@ -322,7 +328,8 @@ describe('job lifecycle', () => {
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Scheduled content',
+            targetRevisionId: 'target-revision',
+            deliveryMode: 'automatic',
             scheduledAt: now + 60_000,
             now,
         })
@@ -358,7 +365,7 @@ describe('job lifecycle', () => {
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Draft content',
+            deliveryMode: 'automatic',
             now,
         })
 
@@ -381,7 +388,8 @@ describe('job lifecycle', () => {
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Scheduled content',
+            targetRevisionId: 'target-revision',
+            deliveryMode: 'automatic',
             scheduledAt: now + 60_000,
             now,
         })
@@ -405,6 +413,8 @@ describe('job lifecycle', () => {
             id: 'other-channel',
             project: fixture.project,
             name: 'Other channel',
+            profileId: 'other-profile',
+            profileVersionId: 'other-profile-v1',
             now,
         })
         const otherPublisher = createPublisher({
@@ -418,7 +428,8 @@ describe('job lifecycle', () => {
             id: 'publication',
             ...fixture,
             createdBy: fixture.actor,
-            content: 'Scheduled content',
+            targetRevisionId: 'target-revision',
+            deliveryMode: 'automatic',
             scheduledAt: now + 60_000,
             now,
         })

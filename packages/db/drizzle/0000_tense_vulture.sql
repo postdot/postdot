@@ -86,13 +86,43 @@ CREATE TABLE `audit_events` (
 --> statement-breakpoint
 CREATE INDEX `audit_events_project_id_created_at_idx` ON `audit_events` (`project_id`,`created_at`);--> statement-breakpoint
 CREATE INDEX `audit_events_project_id_entity_idx` ON `audit_events` (`project_id`,`entity_type`,`entity_id`);--> statement-breakpoint
+CREATE TABLE `channel_profile_versions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`project_id` text NOT NULL,
+	`channel_id` text NOT NULL,
+	`profile_id` text NOT NULL,
+	`version` integer NOT NULL,
+	`origin` text NOT NULL,
+	`state` text NOT NULL,
+	`profile_json` text NOT NULL,
+	`profile_hash` text NOT NULL,
+	`schema_hash` text NOT NULL,
+	`created_by_actor_id` text NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`channel_id`) REFERENCES `channels`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`created_by_actor_id`) REFERENCES `actors`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
+	CONSTRAINT "channel_profile_versions_profile_id_nonblank" CHECK(length(trim("channel_profile_versions"."profile_id")) > 0),
+	CONSTRAINT "channel_profile_versions_version_positive" CHECK("channel_profile_versions"."version" > 0),
+	CONSTRAINT "channel_profile_versions_profile_json_object" CHECK(json_valid("channel_profile_versions"."profile_json") and json_type("channel_profile_versions"."profile_json") = 'object'),
+	CONSTRAINT "channel_profile_versions_hashes_nonblank" CHECK(length(trim("channel_profile_versions"."profile_hash")) > 0 and length(trim("channel_profile_versions"."schema_hash")) > 0),
+	CONSTRAINT "channel_profile_versions_origin_valid" CHECK("channel_profile_versions"."origin" in ('built_in', 'custom')),
+	CONSTRAINT "channel_profile_versions_state_valid" CHECK("channel_profile_versions"."state" in ('active', 'superseded', 'disabled'))
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `channel_profile_versions_project_id_id_uidx` ON `channel_profile_versions` (`project_id`,`id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `channel_profile_versions_project_channel_version_uidx` ON `channel_profile_versions` (`project_id`,`channel_id`,`version`);--> statement-breakpoint
+CREATE INDEX `channel_profile_versions_project_channel_state_idx` ON `channel_profile_versions` (`project_id`,`channel_id`,`state`);--> statement-breakpoint
 CREATE TABLE `channels` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`name` text NOT NULL,
+	`profile_version_id` text NOT NULL,
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "channels_profile_version_id_nonblank" CHECK(length(trim("channels"."profile_version_id")) > 0),
 	CONSTRAINT "channels_name_nonblank" CHECK(length(trim("channels"."name")) > 0)
 );
 --> statement-breakpoint
@@ -129,6 +159,8 @@ CREATE TABLE `jobs` (
 	CONSTRAINT "jobs_completed_attempt_has_started" CHECK("jobs"."state" not in ('succeeded', 'failed') or "jobs"."started_at" is not null)
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `jobs_project_id_id_uidx` ON `jobs` (`project_id`,`id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `jobs_project_publication_active_uidx` ON `jobs` (`project_id`,`publication_id`) WHERE "jobs"."state" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX `jobs_project_id_publication_id_idx` ON `jobs` (`project_id`,`publication_id`);--> statement-breakpoint
 CREATE INDEX `jobs_state_run_at_idx` ON `jobs` (`state`,`run_at`);--> statement-breakpoint
 CREATE INDEX `jobs_state_lease_expires_at_idx` ON `jobs` (`state`,`lease_expires_at`);--> statement-breakpoint
@@ -193,14 +225,16 @@ CREATE TABLE `posts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`title` text,
-	`content` text NOT NULL,
+	`source_content` text NOT NULL,
+	`source_revision` integer DEFAULT 1 NOT NULL,
 	`created_by_actor_id` text NOT NULL,
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
 	FOREIGN KEY (`project_id`,`created_by_actor_id`) REFERENCES `actors`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
 	CONSTRAINT "posts_title_nonblank" CHECK("posts"."title" is null or length(trim("posts"."title")) > 0),
-	CONSTRAINT "posts_content_nonblank" CHECK(length(trim("posts"."content")) > 0)
+	CONSTRAINT "posts_source_content_object" CHECK(json_valid("posts"."source_content") and json_type("posts"."source_content") = 'object'),
+	CONSTRAINT "posts_source_revision_positive" CHECK("posts"."source_revision" > 0)
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `posts_project_id_id_uidx` ON `posts` (`project_id`,`id`);--> statement-breakpoint
@@ -213,12 +247,95 @@ CREATE TABLE `projects` (
 	CONSTRAINT "projects_name_nonblank" CHECK(length(trim("projects"."name")) > 0)
 );
 --> statement-breakpoint
+CREATE TABLE `publication_execution_revisions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`project_id` text NOT NULL,
+	`job_id` text NOT NULL,
+	`publication_id` text NOT NULL,
+	`target_revision_id` text NOT NULL,
+	`profile_version_id` text NOT NULL,
+	`delivery_mode` text NOT NULL,
+	`content_json` text NOT NULL,
+	`content_hash` text NOT NULL,
+	`profile_hash` text NOT NULL,
+	`schema_hash` text NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`job_id`) REFERENCES `jobs`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`publication_id`) REFERENCES `publications`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`target_revision_id`) REFERENCES `publication_target_revisions`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
+	FOREIGN KEY (`project_id`,`profile_version_id`) REFERENCES `channel_profile_versions`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
+	CONSTRAINT "publication_execution_revisions_delivery_mode_automatic" CHECK("publication_execution_revisions"."delivery_mode" = 'automatic'),
+	CONSTRAINT "publication_execution_revisions_content_object" CHECK(json_valid("publication_execution_revisions"."content_json") and json_type("publication_execution_revisions"."content_json") = 'object'),
+	CONSTRAINT "publication_execution_revisions_hashes_nonblank" CHECK(length(trim("publication_execution_revisions"."content_hash")) > 0 and length(trim("publication_execution_revisions"."profile_hash")) > 0 and length(trim("publication_execution_revisions"."schema_hash")) > 0)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `publication_execution_revisions_project_job_uidx` ON `publication_execution_revisions` (`project_id`,`job_id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `publication_execution_revisions_project_id_id_uidx` ON `publication_execution_revisions` (`project_id`,`id`);--> statement-breakpoint
+CREATE TABLE `publication_target_revisions` (
+	`id` text PRIMARY KEY NOT NULL,
+	`project_id` text NOT NULL,
+	`publication_id` text NOT NULL,
+	`sequence` integer NOT NULL,
+	`profile_version_id` text NOT NULL,
+	`source_revision` integer NOT NULL,
+	`delivery_mode` text NOT NULL,
+	`content_json` text NOT NULL,
+	`content_hash` text NOT NULL,
+	`profile_hash` text NOT NULL,
+	`schema_hash` text NOT NULL,
+	`validation_issues_json` text NOT NULL,
+	`created_by_actor_id` text NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`publication_id`) REFERENCES `publications`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`profile_version_id`) REFERENCES `channel_profile_versions`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
+	FOREIGN KEY (`project_id`,`created_by_actor_id`) REFERENCES `actors`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
+	CONSTRAINT "publication_target_revisions_sequence_positive" CHECK("publication_target_revisions"."sequence" > 0),
+	CONSTRAINT "publication_target_revisions_source_revision_positive" CHECK("publication_target_revisions"."source_revision" > 0),
+	CONSTRAINT "publication_target_revisions_content_object" CHECK(json_valid("publication_target_revisions"."content_json") and json_type("publication_target_revisions"."content_json") = 'object'),
+	CONSTRAINT "publication_target_revisions_validation_issues_array" CHECK(json_valid("publication_target_revisions"."validation_issues_json") and json_type("publication_target_revisions"."validation_issues_json") = 'array'),
+	CONSTRAINT "publication_target_revisions_hashes_nonblank" CHECK(length(trim("publication_target_revisions"."content_hash")) > 0 and length(trim("publication_target_revisions"."profile_hash")) > 0 and length(trim("publication_target_revisions"."schema_hash")) > 0),
+	CONSTRAINT "publication_target_revisions_delivery_mode_valid" CHECK("publication_target_revisions"."delivery_mode" in ('manual', 'automatic'))
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `publication_target_revisions_project_id_id_uidx` ON `publication_target_revisions` (`project_id`,`id`);--> statement-breakpoint
+CREATE UNIQUE INDEX `publication_target_revisions_project_publication_sequence_uidx` ON `publication_target_revisions` (`project_id`,`publication_id`,`sequence`);--> statement-breakpoint
+CREATE INDEX `publication_target_revisions_project_publication_idx` ON `publication_target_revisions` (`project_id`,`publication_id`);--> statement-breakpoint
+CREATE TABLE `publication_working_drafts` (
+	`id` text PRIMARY KEY NOT NULL,
+	`project_id` text NOT NULL,
+	`publication_id` text NOT NULL,
+	`profile_version_id` text NOT NULL,
+	`source_revision` integer NOT NULL,
+	`content_json` text NOT NULL,
+	`review_state` text NOT NULL,
+	`validation_issues_json` text NOT NULL,
+	`revision` integer DEFAULT 1 NOT NULL,
+	`updated_by_actor_id` text NOT NULL,
+	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
+	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`publication_id`) REFERENCES `publications`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`profile_version_id`) REFERENCES `channel_profile_versions`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
+	FOREIGN KEY (`project_id`,`updated_by_actor_id`) REFERENCES `actors`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
+	CONSTRAINT "publication_working_drafts_source_revision_positive" CHECK("publication_working_drafts"."source_revision" > 0),
+	CONSTRAINT "publication_working_drafts_content_object" CHECK(json_valid("publication_working_drafts"."content_json") and json_type("publication_working_drafts"."content_json") = 'object'),
+	CONSTRAINT "publication_working_drafts_validation_issues_array" CHECK(json_valid("publication_working_drafts"."validation_issues_json") and json_type("publication_working_drafts"."validation_issues_json") = 'array'),
+	CONSTRAINT "publication_working_drafts_review_state_valid" CHECK("publication_working_drafts"."review_state" in ('compatible', 'review_required')),
+	CONSTRAINT "publication_working_drafts_revision_positive" CHECK("publication_working_drafts"."revision" > 0)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `publication_working_drafts_project_publication_uidx` ON `publication_working_drafts` (`project_id`,`publication_id`);--> statement-breakpoint
+CREATE INDEX `publication_working_drafts_project_review_idx` ON `publication_working_drafts` (`project_id`,`review_state`);--> statement-breakpoint
 CREATE TABLE `publications` (
 	`id` text PRIMARY KEY NOT NULL,
 	`project_id` text NOT NULL,
 	`post_id` text NOT NULL,
 	`channel_id` text NOT NULL,
-	`content` text NOT NULL,
+	`target_revision_id` text,
+	`delivery_mode` text NOT NULL,
+	`review_state` text NOT NULL,
 	`state` text NOT NULL,
 	`scheduled_at` integer,
 	`published_at` integer,
@@ -238,7 +355,10 @@ CREATE TABLE `publications` (
 	FOREIGN KEY (`project_id`,`scheduled_by_actor_id`) REFERENCES `actors`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
 	FOREIGN KEY (`project_id`,`state_changed_by_actor_id`) REFERENCES `actors`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
 	FOREIGN KEY (`project_id`,`published_by_actor_id`) REFERENCES `actors`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
-	CONSTRAINT "publications_content_nonblank" CHECK(length(trim("publications"."content")) > 0),
+	CONSTRAINT "publications_target_revision_id_nonblank" CHECK("publications"."target_revision_id" is null or length(trim("publications"."target_revision_id")) > 0),
+	CONSTRAINT "publications_delivery_mode_valid" CHECK("publications"."delivery_mode" in ('manual', 'automatic')),
+	CONSTRAINT "publications_review_state_valid" CHECK("publications"."review_state" in ('compatible', 'review_required')),
+	CONSTRAINT "publications_scheduled_target_valid" CHECK("publications"."state" <> 'scheduled' or ("publications"."target_revision_id" is not null and "publications"."review_state" = 'compatible')),
 	CONSTRAINT "publications_state_valid" CHECK("publications"."state" in ('draft', 'scheduled', 'ready', 'publishing', 'published', 'failed', 'ambiguous', 'cancelled')),
 	CONSTRAINT "publications_schedule_consistent" CHECK(("publications"."scheduled_at" is null and "publications"."scheduled_by_actor_id" is null) or ("publications"."scheduled_at" is not null and "publications"."scheduled_by_actor_id" is not null)),
 	CONSTRAINT "publications_scheduled_state_has_time" CHECK("publications"."state" <> 'scheduled' or "publications"."scheduled_at" is not null),

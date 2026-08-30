@@ -144,9 +144,13 @@ export const api = {
         )
     },
 
-    async createChannel(projectId: string, name: string): Promise<{ channel: Channel }> {
+    async createChannel(
+        projectId: string,
+        name: string,
+        profile: 'manual-message' | 'linkedin' = 'manual-message'
+    ): Promise<{ channel: Channel }> {
         return unwrap<{ channel: Channel }>(
-            await client.api.projects({ projectId }).channels.post({ name })
+            await client.api.projects({ projectId }).channels.post({ name, profile })
         )
     },
 
@@ -154,10 +158,14 @@ export const api = {
         projectId: string,
         input: {
             title?: string
-            content: string
+            sourceContent: {
+                body: { text: string; format: 'plain_text' }
+                media: []
+            }
             publications: Array<{
                 channelId: string
-                content?: string
+                targetContent?: Record<string, unknown>
+                deliveryMode: 'manual' | 'automatic'
                 scheduledAt?: number | null
             }>
         }

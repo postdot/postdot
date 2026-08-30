@@ -1,9 +1,11 @@
 import {
+    ChannelProfileCompiler,
     createPublisher,
     requireNonBlank,
     requireTimestamp,
     type Actor,
     type Channel,
+    type ChannelProfileDefinition,
     type Project,
     type Timestamp,
 } from '@herald/core'
@@ -45,7 +47,9 @@ export interface PublisherExecutionTarget {
     readonly jobId: string
     readonly projectId: string
     readonly publicationId: string
-    readonly content: string
+    readonly executionRevisionId: string
+    readonly profileVersionId: string
+    readonly content: Readonly<Record<string, unknown>>
     readonly publisherId: string
     readonly channelId: string
     readonly kind: string
@@ -62,6 +66,7 @@ export type CreatePublisherConnectionResult =
     | { readonly kind: 'invalid_credential' }
     | { readonly kind: 'credential_unavailable' }
     | { readonly kind: 'publisher_exists' }
+    | { readonly kind: 'incompatible_profile' }
 
 export type DisconnectPublisherConnectionResult =
     | { readonly kind: 'disconnected'; readonly connection: PublisherConnection }
@@ -89,6 +94,8 @@ interface ChannelRow {
     readonly id: string
     readonly projectId: string
     readonly name: string
+    readonly profileId: string
+    readonly profileVersionId: string
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -113,6 +120,14 @@ interface PublisherConnectionRow extends Omit<
 
 interface PublisherRow {
     readonly id: string
+}
+
+interface ChannelProfileRow {
+    readonly profileJson: string
+}
+
+interface PublisherExecutionTargetRow extends Omit<PublisherExecutionTarget, 'content'> {
+    readonly contentJson: string
 }
 
 interface ScheduledPublicationRow {
@@ -176,11 +191,30 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
         limit 1
     `)
     const loadChannelStatement = client.query<ChannelRow, [projectId: string, channelId: string]>(`
-        select id, project_id as projectId, name,
-               created_at as createdAt, updated_at as updatedAt
+        select channels.id,
+               channels.project_id as projectId,
+               channels.name,
+               channel_profiles.profile_id as profileId,
+               channels.profile_version_id as profileVersionId,
+               channels.created_at as createdAt,
+               channels.updated_at as updatedAt
         from channels
+        inner join channel_profile_versions as channel_profiles
+            on channel_profiles.project_id = channels.project_id
+           and channel_profiles.channel_id = channels.id
+           and channel_profiles.id = channels.profile_version_id
+        where channels.project_id = ?1
+          and channels.id = ?2
+    `)
+    const loadChannelProfileStatement = client.query<
+        ChannelProfileRow,
+        [projectId: string, profileVersionId: string]
+    >(`
+        select profile_json as profileJson
+        from channel_profile_versions
         where project_id = ?1
           and id = ?2
+          and state <> 'disabled'
     `)
     const loadCredentialStatement = client.query<
         CredentialRow,
@@ -254,13 +288,15 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
         limit 1
     `)
     const loadPublisherExecutionTargetStatement = client.query<
-        PublisherExecutionTarget,
+        PublisherExecutionTargetRow,
         [jobId: string, claimToken: string]
     >(`
         select jobs.id as jobId,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
-               publications.content,
+               execution.id as executionRevisionId,
+               execution.profile_version_id as profileVersionId,
+               execution.content_json as contentJson,
                publishers.id as publisherId,
                publishers.channel_id as channelId,
                publishers.kind,
@@ -273,6 +309,10 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
         inner join publications
             on publications.project_id = jobs.project_id
            and publications.id = jobs.publication_id
+        inner join publication_execution_revisions as execution
+            on execution.project_id = jobs.project_id
+           and execution.job_id = jobs.id
+           and execution.publication_id = jobs.publication_id
         inner join publishers
             on publishers.project_id = publications.project_id
            and publishers.channel_id = publications.channel_id
@@ -286,6 +326,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
           and jobs.claim_token = ?2
           and jobs.state = 'running'
           and jobs.effect_started_at is not null
+          and publications.state = 'publishing'
         limit 1
     `)
     const listUnqueuedScheduledPublicationsStatement = client.query<
@@ -298,6 +339,9 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
         where publications.project_id = ?1
           and publications.channel_id = ?2
           and publications.state = 'scheduled'
+          and publications.delivery_mode = 'automatic'
+          and publications.review_state = 'compatible'
+          and publications.target_revision_id is not null
           and publications.scheduled_at is not null
           and not exists (
               select 1
@@ -420,6 +464,17 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
             }
             if (credentialRow.state !== 'active') {
                 return { kind: 'credential_unavailable' }
+            }
+
+            const profileRow = loadChannelProfileStatement.get(
+                input.projectId,
+                channelRow.profileVersionId
+            )
+            if (
+                profileRow === null ||
+                !isCompatibleBuiltInProfile(profileRow.profileJson, input.kind)
+            ) {
+                return { kind: 'incompatible_profile' }
             }
 
             if (loadPublisherForChannelStatement.get(input.projectId, input.channelId) !== null) {
@@ -564,12 +619,11 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
             jobId: string,
             claimToken: string
         ): PublisherExecutionTarget | null {
-            return (
-                loadPublisherExecutionTargetStatement.get(
-                    requireNonBlank(jobId, 'jobId'),
-                    requireNonBlank(claimToken, 'claimToken')
-                ) ?? null
+            const row = loadPublisherExecutionTargetStatement.get(
+                requireNonBlank(jobId, 'jobId'),
+                requireNonBlank(claimToken, 'claimToken')
             )
+            return row === null ? null : { ...row, content: parseJsonObject(row.contentJson) }
         },
 
         createPublisherConnection(
@@ -639,9 +693,41 @@ function toChannel(row: ChannelRow): Channel {
         id: row.id,
         projectId: row.projectId,
         name: row.name,
+        profileId: row.profileId,
+        profileVersionId: row.profileVersionId,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
+}
+
+function isCompatibleBuiltInProfile(profileJson: string, kind: string): boolean {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(profileJson)
+    } catch {
+        return false
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return false
+    const profile = parsed as ChannelProfileDefinition
+    const compiled = new ChannelProfileCompiler().compile(profile)
+    return (
+        compiled.ok &&
+        compiled.value.profile.execution.kind === 'built_in' &&
+        compiled.value.profile.execution.contractId === kind
+    )
+}
+
+function parseJsonObject(value: string): Readonly<Record<string, unknown>> {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(value)
+    } catch {
+        throw new Error('Stored execution content is not valid JSON')
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Stored execution content must be a JSON object')
+    }
+    return parsed as Readonly<Record<string, unknown>>
 }
 
 function toPublisherConnection(row: PublisherConnectionRow): PublisherConnection {

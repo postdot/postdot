@@ -1,4 +1,13 @@
-import { actorKinds, jobStates, publicationStates, publisherCredentialStates } from '@herald/core'
+import {
+    actorKinds,
+    deliveryModes,
+    jobStates,
+    publicationReviewStates,
+    publicationStates,
+    publisherCredentialStates,
+    type ChannelProfileDefinition,
+    type SourceContent,
+} from '@herald/core'
 import { sql } from 'drizzle-orm'
 import {
     check,
@@ -13,6 +22,7 @@ import {
 
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
+const channelProfileStates = ['active', 'superseded', 'disabled'] as const
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
@@ -60,11 +70,82 @@ export const channels = sqliteTable(
             .notNull()
             .references(() => projects.id, { onDelete: 'cascade' }),
         name: text('name').notNull(),
+        profileVersionId: text('profile_version_id').notNull(),
         ...timestamps(),
     },
     table => [
         uniqueIndex('channels_project_id_id_uidx').on(table.projectId, table.id),
+        check(
+            'channels_profile_version_id_nonblank',
+            sql`length(trim(${table.profileVersionId})) > 0`
+        ),
         check('channels_name_nonblank', sql`length(trim(${table.name})) > 0`),
+    ]
+)
+
+export const channelProfileVersions = sqliteTable(
+    'channel_profile_versions',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        channelId: text('channel_id').notNull(),
+        profileId: text('profile_id').notNull(),
+        version: integer('version').notNull(),
+        origin: text('origin', { enum: ['built_in', 'custom'] }).notNull(),
+        state: text('state', { enum: channelProfileStates }).notNull(),
+        profileJson: text('profile_json', { mode: 'json' })
+            .$type<ChannelProfileDefinition>()
+            .notNull(),
+        profileHash: text('profile_hash').notNull(),
+        schemaHash: text('schema_hash').notNull(),
+        createdByActorId: text('created_by_actor_id').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('channel_profile_versions_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('channel_profile_versions_project_channel_version_uidx').on(
+            table.projectId,
+            table.channelId,
+            table.version
+        ),
+        index('channel_profile_versions_project_channel_state_idx').on(
+            table.projectId,
+            table.channelId,
+            table.state
+        ),
+        foreignKey({
+            name: 'channel_profile_versions_project_channel_fk',
+            columns: [table.projectId, table.channelId],
+            foreignColumns: [channels.projectId, channels.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'channel_profile_versions_project_actor_fk',
+            columns: [table.projectId, table.createdByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'channel_profile_versions_profile_id_nonblank',
+            sql`length(trim(${table.profileId})) > 0`
+        ),
+        check('channel_profile_versions_version_positive', sql`${table.version} > 0`),
+        check(
+            'channel_profile_versions_profile_json_object',
+            sql`json_valid(${table.profileJson}) and json_type(${table.profileJson}) = 'object'`
+        ),
+        check(
+            'channel_profile_versions_hashes_nonblank',
+            sql`length(trim(${table.profileHash})) > 0 and length(trim(${table.schemaHash})) > 0`
+        ),
+        check(
+            'channel_profile_versions_origin_valid',
+            sql`${table.origin} in ('built_in', 'custom')`
+        ),
+        check(
+            'channel_profile_versions_state_valid',
+            sql`${table.state} in ('active', 'superseded', 'disabled')`
+        ),
     ]
 )
 
@@ -345,7 +426,8 @@ export const posts = sqliteTable(
             .notNull()
             .references(() => projects.id, { onDelete: 'cascade' }),
         title: text('title'),
-        content: text('content').notNull(),
+        sourceContent: text('source_content', { mode: 'json' }).$type<SourceContent>().notNull(),
+        sourceRevision: integer('source_revision').default(1).notNull(),
         createdByActorId: text('created_by_actor_id').notNull(),
         ...timestamps(),
     },
@@ -364,7 +446,11 @@ export const posts = sqliteTable(
             'posts_title_nonblank',
             sql`${table.title} is null or length(trim(${table.title})) > 0`
         ),
-        check('posts_content_nonblank', sql`length(trim(${table.content})) > 0`),
+        check(
+            'posts_source_content_object',
+            sql`json_valid(${table.sourceContent}) and json_type(${table.sourceContent}) = 'object'`
+        ),
+        check('posts_source_revision_positive', sql`${table.sourceRevision} > 0`),
     ]
 )
 
@@ -377,7 +463,9 @@ export const publications = sqliteTable(
             .references(() => projects.id, { onDelete: 'cascade' }),
         postId: text('post_id').notNull(),
         channelId: text('channel_id').notNull(),
-        content: text('content').notNull(),
+        targetRevisionId: text('target_revision_id'),
+        deliveryMode: text('delivery_mode', { enum: deliveryModes }).notNull(),
+        reviewState: text('review_state', { enum: publicationReviewStates }).notNull(),
         state: text('state', { enum: publicationStates }).notNull(),
         scheduledAt: integer('scheduled_at'),
         publishedAt: integer('published_at'),
@@ -441,7 +529,22 @@ export const publications = sqliteTable(
             columns: [table.projectId, table.publishedByActorId],
             foreignColumns: [actors.projectId, actors.id],
         }).onDelete('restrict'),
-        check('publications_content_nonblank', sql`length(trim(${table.content})) > 0`),
+        check(
+            'publications_target_revision_id_nonblank',
+            sql`${table.targetRevisionId} is null or length(trim(${table.targetRevisionId})) > 0`
+        ),
+        check(
+            'publications_delivery_mode_valid',
+            sql`${table.deliveryMode} in ('manual', 'automatic')`
+        ),
+        check(
+            'publications_review_state_valid',
+            sql`${table.reviewState} in ('compatible', 'review_required')`
+        ),
+        check(
+            'publications_scheduled_target_valid',
+            sql`${table.state} <> 'scheduled' or (${table.targetRevisionId} is not null and ${table.reviewState} = 'compatible')`
+        ),
         check(
             'publications_state_valid',
             sql`${table.state} in ('draft', 'scheduled', 'ready', 'publishing', 'published', 'failed', 'ambiguous', 'cancelled')`
@@ -473,6 +576,148 @@ export const publications = sqliteTable(
     ]
 )
 
+export const publicationWorkingDrafts = sqliteTable(
+    'publication_working_drafts',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        publicationId: text('publication_id').notNull(),
+        profileVersionId: text('profile_version_id').notNull(),
+        sourceRevision: integer('source_revision').notNull(),
+        contentJson: text('content_json', { mode: 'json' })
+            .$type<Readonly<Record<string, unknown>>>()
+            .notNull(),
+        reviewState: text('review_state', { enum: publicationReviewStates }).notNull(),
+        validationIssuesJson: text('validation_issues_json', { mode: 'json' })
+            .$type<readonly Record<string, unknown>[]>()
+            .notNull(),
+        revision: integer('revision').default(1).notNull(),
+        updatedByActorId: text('updated_by_actor_id').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('publication_working_drafts_project_publication_uidx').on(
+            table.projectId,
+            table.publicationId
+        ),
+        index('publication_working_drafts_project_review_idx').on(
+            table.projectId,
+            table.reviewState
+        ),
+        foreignKey({
+            name: 'publication_working_drafts_project_publication_fk',
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_working_drafts_project_profile_fk',
+            columns: [table.projectId, table.profileVersionId],
+            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_working_drafts_project_actor_fk',
+            columns: [table.projectId, table.updatedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'publication_working_drafts_source_revision_positive',
+            sql`${table.sourceRevision} > 0`
+        ),
+        check(
+            'publication_working_drafts_content_object',
+            sql`json_valid(${table.contentJson}) and json_type(${table.contentJson}) = 'object'`
+        ),
+        check(
+            'publication_working_drafts_validation_issues_array',
+            sql`json_valid(${table.validationIssuesJson}) and json_type(${table.validationIssuesJson}) = 'array'`
+        ),
+        check(
+            'publication_working_drafts_review_state_valid',
+            sql`${table.reviewState} in ('compatible', 'review_required')`
+        ),
+        check('publication_working_drafts_revision_positive', sql`${table.revision} > 0`),
+    ]
+)
+
+export const publicationTargetRevisions = sqliteTable(
+    'publication_target_revisions',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        publicationId: text('publication_id').notNull(),
+        sequence: integer('sequence').notNull(),
+        profileVersionId: text('profile_version_id').notNull(),
+        sourceRevision: integer('source_revision').notNull(),
+        deliveryMode: text('delivery_mode', { enum: deliveryModes }).notNull(),
+        contentJson: text('content_json', { mode: 'json' })
+            .$type<Readonly<Record<string, unknown>>>()
+            .notNull(),
+        contentHash: text('content_hash').notNull(),
+        profileHash: text('profile_hash').notNull(),
+        schemaHash: text('schema_hash').notNull(),
+        validationIssuesJson: text('validation_issues_json', { mode: 'json' })
+            .$type<readonly Record<string, unknown>[]>()
+            .notNull(),
+        createdByActorId: text('created_by_actor_id').notNull(),
+        createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+    },
+    table => [
+        uniqueIndex('publication_target_revisions_project_id_id_uidx').on(
+            table.projectId,
+            table.id
+        ),
+        uniqueIndex('publication_target_revisions_project_publication_sequence_uidx').on(
+            table.projectId,
+            table.publicationId,
+            table.sequence
+        ),
+        index('publication_target_revisions_project_publication_idx').on(
+            table.projectId,
+            table.publicationId
+        ),
+        foreignKey({
+            name: 'publication_target_revisions_project_publication_fk',
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_target_revisions_project_profile_fk',
+            columns: [table.projectId, table.profileVersionId],
+            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_target_revisions_project_actor_fk',
+            columns: [table.projectId, table.createdByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check('publication_target_revisions_sequence_positive', sql`${table.sequence} > 0`),
+        check(
+            'publication_target_revisions_source_revision_positive',
+            sql`${table.sourceRevision} > 0`
+        ),
+        check(
+            'publication_target_revisions_content_object',
+            sql`json_valid(${table.contentJson}) and json_type(${table.contentJson}) = 'object'`
+        ),
+        check(
+            'publication_target_revisions_validation_issues_array',
+            sql`json_valid(${table.validationIssuesJson}) and json_type(${table.validationIssuesJson}) = 'array'`
+        ),
+        check(
+            'publication_target_revisions_hashes_nonblank',
+            sql`length(trim(${table.contentHash})) > 0 and length(trim(${table.profileHash})) > 0 and length(trim(${table.schemaHash})) > 0`
+        ),
+        check(
+            'publication_target_revisions_delivery_mode_valid',
+            sql`${table.deliveryMode} in ('manual', 'automatic')`
+        ),
+    ]
+)
+
 export const jobs = sqliteTable(
     'jobs',
     {
@@ -495,6 +740,10 @@ export const jobs = sqliteTable(
         ...timestamps(),
     },
     table => [
+        uniqueIndex('jobs_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('jobs_project_publication_active_uidx')
+            .on(table.projectId, table.publicationId)
+            .where(sql`${table.state} in ('pending', 'running')`),
         index('jobs_project_id_publication_id_idx').on(table.projectId, table.publicationId),
         index('jobs_state_run_at_idx').on(table.state, table.runAt),
         index('jobs_state_lease_expires_at_idx').on(table.state, table.leaseExpiresAt),
@@ -548,6 +797,70 @@ export const jobs = sqliteTable(
         check(
             'jobs_completed_attempt_has_started',
             sql`${table.state} not in ('succeeded', 'failed') or ${table.startedAt} is not null`
+        ),
+    ]
+)
+
+export const publicationExecutionRevisions = sqliteTable(
+    'publication_execution_revisions',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        jobId: text('job_id').notNull(),
+        publicationId: text('publication_id').notNull(),
+        targetRevisionId: text('target_revision_id').notNull(),
+        profileVersionId: text('profile_version_id').notNull(),
+        deliveryMode: text('delivery_mode', { enum: deliveryModes }).notNull(),
+        contentJson: text('content_json', { mode: 'json' })
+            .$type<Readonly<Record<string, unknown>>>()
+            .notNull(),
+        contentHash: text('content_hash').notNull(),
+        profileHash: text('profile_hash').notNull(),
+        schemaHash: text('schema_hash').notNull(),
+        createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+    },
+    table => [
+        uniqueIndex('publication_execution_revisions_project_job_uidx').on(
+            table.projectId,
+            table.jobId
+        ),
+        uniqueIndex('publication_execution_revisions_project_id_id_uidx').on(
+            table.projectId,
+            table.id
+        ),
+        foreignKey({
+            name: 'publication_execution_revisions_project_job_fk',
+            columns: [table.projectId, table.jobId],
+            foreignColumns: [jobs.projectId, jobs.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_execution_revisions_project_publication_fk',
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_execution_revisions_project_target_fk',
+            columns: [table.projectId, table.targetRevisionId],
+            foreignColumns: [publicationTargetRevisions.projectId, publicationTargetRevisions.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_execution_revisions_project_profile_fk',
+            columns: [table.projectId, table.profileVersionId],
+            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+        }).onDelete('restrict'),
+        check(
+            'publication_execution_revisions_delivery_mode_automatic',
+            sql`${table.deliveryMode} = 'automatic'`
+        ),
+        check(
+            'publication_execution_revisions_content_object',
+            sql`json_valid(${table.contentJson}) and json_type(${table.contentJson}) = 'object'`
+        ),
+        check(
+            'publication_execution_revisions_hashes_nonblank',
+            sql`length(trim(${table.contentHash})) > 0 and length(trim(${table.profileHash})) > 0 and length(trim(${table.schemaHash})) > 0`
         ),
     ]
 )

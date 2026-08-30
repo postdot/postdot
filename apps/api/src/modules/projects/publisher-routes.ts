@@ -265,7 +265,9 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                             consumed.attempt.returnPath,
                             connection.kind === 'publisher_exists'
                                 ? 'publisher_exists'
-                                : 'provider_unavailable'
+                                : connection.kind === 'incompatible_profile'
+                                  ? 'incompatible_profile'
+                                  : 'provider_unavailable'
                         )
                     }
 
@@ -385,6 +387,7 @@ function redirectPublisher(
         | 'invalid_callback'
         | 'provider_unavailable'
         | 'publisher_exists'
+        | 'incompatible_profile'
 ) {
     const destination = new URL(returnPath, webOrigin)
     destination.searchParams.set('publisher', result)

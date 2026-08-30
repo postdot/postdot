@@ -16,6 +16,7 @@ import {
 import {
     createLinkedInTextPublisher,
     LINKEDIN_PROVIDER,
+    readLinkedInTextContent,
     type LinkedInTextPublisher,
 } from '@herald/linkedin'
 import {
@@ -200,10 +201,15 @@ async function performExternalEffect(input: {
         return permanentFailure('The publisher account access token is unavailable')
     }
 
+    const commentary = readLinkedInTextContent(target.content)
+    if (commentary === null) {
+        return permanentFailure('The execution revision does not contain LinkedIn commentary')
+    }
+
     const outcome = await linkedInPublisher.publishText({
         accessToken,
         memberId: target.externalAccountId,
-        commentary: target.content,
+        commentary,
     })
     if (
         outcome.type === 'permanent_failure' &&

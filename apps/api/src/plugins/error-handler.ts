@@ -14,7 +14,8 @@ export function createErrorHandler() {
         }
 
         if (error instanceof DomainInvariantError) {
-            set.status = error.code === 'invalid_transition' ? 409 : 400
+            set.status =
+                error.code === 'invalid_transition' || error.code === 'write_conflict' ? 409 : 400
             return {
                 error: {
                     code: error.code,

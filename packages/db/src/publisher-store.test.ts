@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
+import type { ChannelProfileDefinition } from '@herald/core'
+
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
@@ -11,12 +13,46 @@ import {
     posts,
     publisherConnections,
     publisherCredentials,
+    publicationTargetRevisions,
     publications,
     publishers,
 } from './schema'
 
 const now = 1_800_000_000_000
 const encryptionKey = new Uint8Array(32).fill(7)
+
+const linkedinProfile: ChannelProfileDefinition = {
+    id: 'linkedin',
+    version: 1,
+    profileHash: 'sha256:linkedin-profile-v1',
+    schemaHash: 'sha256:linkedin-schema-v1',
+    origin: 'built_in',
+    contentSchema: {
+        type: 'object',
+        properties: { commentary: { type: 'string', minLength: 1, maxLength: 3000 } },
+        required: ['commentary'],
+        additionalProperties: false,
+    },
+    fieldBindings: [{ id: 'commentary', semantic: 'primary_text', path: '/commentary' }],
+    capabilities: {
+        revision: 'linkedin-v1',
+        textFields: [
+            {
+                bindingId: 'commentary',
+                acceptedSourceFormats: ['plain_text', 'markdown'],
+                maxLength: 3000,
+            },
+        ],
+        mediaFields: [],
+        relations: [],
+    },
+    execution: { kind: 'built_in', contractId: 'linkedin', revision: 'text-v1' },
+}
+
+const sourceContent = (text: string) => ({
+    body: { text, format: 'plain_text' as const },
+    media: [],
+})
 
 async function createFixture() {
     const database = createDatabase(':memory:')
@@ -39,6 +75,7 @@ async function createFixture() {
         projectId: project.project.id,
         subjectId: 'user-1',
         name: 'LinkedIn',
+        profile: linkedinProfile,
     })
     if (channel === null) throw new Error('The test channel was not created')
 
@@ -267,8 +304,14 @@ describe('publisher connection store', () => {
             const post = fixture.manualStore.createPost({
                 projectId: fixture.project.project.id,
                 subjectId: 'user-1',
-                content: 'Scheduled before the publisher was connected',
-                publications: [{ channelId: fixture.channel.id, scheduledAt: now }],
+                sourceContent: sourceContent('Scheduled before the publisher was connected'),
+                publications: [
+                    {
+                        channelId: fixture.channel.id,
+                        deliveryMode: 'automatic',
+                        scheduledAt: now,
+                    },
+                ],
             })
             expect(post?.publications[0]?.state).toBe('scheduled')
             expect(fixture.database.select().from(jobs).all()).toEqual([])
@@ -307,7 +350,8 @@ describe('publisher connection store', () => {
                 .values({
                     id: 'post-1',
                     projectId: fixture.project.project.id,
-                    content: 'Active publication',
+                    sourceContent: sourceContent('Active publication'),
+                    sourceRevision: 1,
                     createdByActorId: fixture.project.actor.id,
                 })
                 .run()
@@ -318,12 +362,32 @@ describe('publisher connection store', () => {
                     projectId: fixture.project.project.id,
                     postId: 'post-1',
                     channelId: fixture.channel.id,
-                    content: 'Active publication',
+                    targetRevisionId: 'target-1',
+                    deliveryMode: 'automatic',
+                    reviewState: 'compatible',
                     state: 'scheduled',
                     scheduledAt: now,
                     createdByActorId: fixture.project.actor.id,
                     scheduledByActorId: fixture.project.actor.id,
                     stateChangedByActorId: fixture.project.actor.id,
+                })
+                .run()
+            fixture.database
+                .insert(publicationTargetRevisions)
+                .values({
+                    id: 'target-1',
+                    projectId: fixture.project.project.id,
+                    publicationId: 'publication-1',
+                    sequence: 1,
+                    profileVersionId: fixture.channel.profileVersionId,
+                    sourceRevision: 1,
+                    deliveryMode: 'automatic',
+                    contentJson: { commentary: 'Active publication' },
+                    contentHash: 'sha256:active-content',
+                    profileHash: linkedinProfile.profileHash,
+                    schemaHash: linkedinProfile.schemaHash,
+                    validationIssuesJson: [],
+                    createdByActorId: fixture.project.actor.id,
                 })
                 .run()
 

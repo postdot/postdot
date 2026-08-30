@@ -4,11 +4,13 @@ export const domainInvariantCodes = [
     'claim_mismatch',
     'claim_not_expired',
     'invalid_actor_kind',
+    'invalid_content',
     'invalid_input',
     'invalid_job_source',
     'invalid_time',
     'invalid_transition',
     'project_mismatch',
+    'write_conflict',
 ] as const
 
 export type DomainInvariantCode = (typeof domainInvariantCodes)[number]

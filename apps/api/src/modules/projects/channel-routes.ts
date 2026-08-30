@@ -1,6 +1,12 @@
 import { Type } from 'typebox'
 
-import { channelSchema, createChannelBody, errorResponse, projectParams } from './models'
+import {
+    channelSchema,
+    createChannelBody,
+    errorResponse,
+    projectParams,
+    resolveChannelProfile,
+} from './models'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
 export function registerChannelRoutes<const Routes extends Record<string, unknown>>(
@@ -55,6 +61,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     projectId: params.projectId,
                     subjectId: user.id,
                     name: body.name,
+                    profile: resolveChannelProfile(body.profile),
                 })
                 if (channel === null) {
                     return status(404, {
