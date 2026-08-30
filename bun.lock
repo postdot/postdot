@@ -143,6 +143,15 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/media": {
+      "name": "@herald/media",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
+        "typescript": "7.0.2",
+      },
+    },
     "packages/oauth": {
       "name": "@herald/oauth",
       "version": "0.0.0",
@@ -368,6 +377,8 @@
     "@herald/db": ["@herald/db@workspace:packages/db"],
 
     "@herald/linkedin": ["@herald/linkedin@workspace:packages/linkedin"],
+
+    "@herald/media": ["@herald/media@workspace:packages/media"],
 
     "@herald/oauth": ["@herald/oauth@workspace:packages/oauth"],
 
