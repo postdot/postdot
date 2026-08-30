@@ -5,7 +5,7 @@
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
 - Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md)
 - Superseded by: none
 
 > This is an exploration draft. It records the problem, evidence, requirements,
@@ -334,13 +334,18 @@ to 300 characters, for example, immediately helps the editor validate new work w
 preserving a scheduled 420-character target under its original profile until the
 operator explicitly migrates it.
 
-### Candidate declarative HTTP boundary
+### Accepted declarative HTTP boundary
 
-The custom HTTP publisher is a bounded one-request adapter, not a general workflow
-engine. The channel profile owns the request shape; a project-owned connection owns
-the base endpoint and authentication material. Secrets are referenced by connection
-binding and can never be interpolated from publication content or stored in the
-profile.
+The owner accepted two automatic custom-channel modes on 2026-08-30. A versioned
+Herald webhook is the default contract for receivers that can implement it. A mapped
+one-request HTTP contract adapts to an existing API. Both modes use one bounded
+transport rather than separate execution engines; ADR-017 records the decision.
+
+The webhook carries a minimal versioned publication envelope and immutable delivery
+ID. Herald signs the final body with a connection-owned HMAC secret and timestamp.
+The mapped mode owns a structural request shape, while its project-owned connection
+owns the base endpoint and authentication material. Secrets can never be interpolated
+from publication content or stored in the profile.
 
 The smallest contract that covers the representative cases contains:
 
@@ -363,8 +368,9 @@ JSON Pointer addresses values within known Herald documents and provider respons
 The boundary deliberately excludes loops not tied to a bounded input array,
 arbitrary functions, filesystem or environment access, dynamic code, custom signing,
 multi-request protocols, and provider-specific OAuth flows. Those requirements need
-a built-in module or a future connector contract. Multi-step media upload therefore
-cannot be disguised as a custom schema feature.
+a built-in channel module. A future out-of-process connector protocol would require a
+separate decision. Multi-step media upload cannot be disguised as a custom schema
+feature.
 
 The remaining transport security question is deployment-sensitive. A configurable
 HTTP destination can legitimately be a private self-hosted blog, but allowing every
@@ -787,18 +793,18 @@ The project owner has accepted the following direction:
 7. Runtime-defined custom channel content uses a bounded JSON Schema 2020-12 profile,
    TypeBox compilation, separate Herald field bindings, and normalized validation
    issues.
+8. Automatic custom channels use a versioned Herald webhook by default or an advanced
+   structural one-request HTTP mapping. Complex imperative protocols remain built-in
+   channel modules.
 
 ## Decisions still requiring project-owner acceptance
 
-1. Define the first bounded declarative HTTP mapping vocabulary, including endpoint,
-   authentication references, media delivery, response identity, idempotency, and
-   error classification. This determines where a custom channel needs a connector.
-2. Define the outbound-network policy for custom HTTP connections, including public
+1. Define the outbound-network policy for custom HTTP connections, including public
    versus private destinations, operator opt-in, DNS resolution, and redirects.
-3. Accept or revise the durable media proposal: media families, extensible format
+2. Accept or revise the durable media proposal: media families, extensible format
    registry, original/variant boundary, lifecycle, relational reference index, and
    provider-delivery state.
-4. Accept or revise the proposed channel-profile evolution behavior: immutable old
+3. Accept or revise the proposed channel-profile evolution behavior: immutable old
    profiles, revalidated working drafts, unchanged scheduled targets, and explicit
    migration to a new target revision.
 
