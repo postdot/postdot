@@ -1,0 +1,5 @@
+export * from './contract'
+export { createLocalMediaStore, LocalMediaStore } from './local-store'
+export type { LocalMediaStoreOptions } from './local-store'
+export { createS3MediaStore, S3MediaStore } from './s3-store'
+export type { S3MediaStoreOptions } from './s3-store'

@@ -33,6 +33,10 @@
       "path": "packages/linkedin",
     },
     {
+      "name": "media",
+      "path": "packages/media",
+    },
+    {
       "name": "oauth",
       "path": "packages/oauth",
     }
