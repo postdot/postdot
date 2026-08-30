@@ -45,7 +45,7 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                 projectId: params.projectId,
                 subjectId: user.id,
                 title: body.title,
-                content: body.content,
+                sourceContent: body.sourceContent,
                 publications: body.publications,
             })
             if (created === null) {

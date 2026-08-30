@@ -50,9 +50,12 @@ export type {
     CreatedProject,
     DueManualPublication,
     ManualStoreOptions,
+    PromotePublicationDraftInput,
     PublishManualPublicationInput,
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,
+    PublicationWorkingDraft,
+    SavePublicationDraftInput,
 } from './manual-store'
 export type {
     CreatePublisherConnectionInput,

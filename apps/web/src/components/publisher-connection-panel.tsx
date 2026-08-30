@@ -60,7 +60,11 @@ export function PublisherConnectionPanel({
                                         )}
                                         <span>{channel.name}</span>
                                     </div>
-                                    {connection === undefined ? (
+                                    {channel.profileId !== 'linkedin' ? (
+                                        <p className="mt-2 text-sm text-muted-foreground">
+                                            Manual publication only for this channel profile.
+                                        </p>
+                                    ) : connection === undefined ? (
                                         <p className="mt-2 text-sm text-muted-foreground">
                                             No automatic publisher is connected.
                                         </p>
@@ -79,7 +83,7 @@ export function PublisherConnectionPanel({
                                     ) : null}
                                 </div>
 
-                                {connection === undefined ? (
+                                {channel.profileId === 'linkedin' && connection === undefined ? (
                                     <div className="mt-4 grid gap-3 sm:mt-0 sm:min-w-72">
                                         <Button
                                             size="sm"
@@ -91,7 +95,7 @@ export function PublisherConnectionPanel({
                                             Connect LinkedIn
                                         </Button>
                                     </div>
-                                ) : (
+                                ) : channel.profileId === 'linkedin' && connection !== undefined ? (
                                     <Button
                                         className="mt-4 sm:mt-0"
                                         size="sm"
@@ -100,7 +104,7 @@ export function PublisherConnectionPanel({
                                         disabled={pending}>
                                         Disconnect publisher
                                     </Button>
-                                )}
+                                ) : null}
                             </article>
                         )
                     })

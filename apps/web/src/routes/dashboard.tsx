@@ -67,10 +67,14 @@ function DashboardPage() {
     )
     const [projectName, setProjectName] = useState('')
     const [channelName, setChannelName] = useState('')
+    const [channelProfile, setChannelProfile] = useState<'manual-message' | 'linkedin'>(
+        'manual-message'
+    )
     const [postTitle, setPostTitle] = useState('')
     const [postContent, setPostContent] = useState('')
     const [publicationContent, setPublicationContent] = useState('')
     const [publicationChannelId, setPublicationChannelId] = useState('')
+    const [deliveryMode, setDeliveryMode] = useState<'manual' | 'automatic'>('manual')
     const [scheduledAt, setScheduledAt] = useState(defaultScheduleValue)
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -119,10 +123,11 @@ function DashboardPage() {
         event.preventDefault()
         if (selectedProjectId === null || channelName.trim() === '') return
         await runAction(async () => {
-            const response = await api.createChannel(selectedProjectId, channelName)
+            const response = await api.createChannel(selectedProjectId, channelName, channelProfile)
             setChannels(current => [...current, response.channel])
             setPublicationChannelId(current => current || response.channel.id)
             setChannelName('')
+            setChannelProfile('manual-message')
         })
     }
 
@@ -135,14 +140,28 @@ function DashboardPage() {
             return
         }
 
+        const selectedChannel = channels.find(channel => channel.id === publicationChannelId)
+        if (selectedChannel === undefined) return
+        const copy = publicationContent.trim()
+        const targetContent =
+            copy === ''
+                ? undefined
+                : selectedChannel.profileId === 'linkedin'
+                  ? { commentary: copy }
+                  : { body: copy, media: [] }
+
         await runAction(async () => {
             await api.createPost(selectedProjectId, {
                 title: postTitle.trim() === '' ? undefined : postTitle,
-                content: postContent,
+                sourceContent: {
+                    body: { text: postContent, format: 'plain_text' },
+                    media: [],
+                },
                 publications: [
                     {
                         channelId: publicationChannelId,
-                        content: publicationContent.trim() === '' ? undefined : publicationContent,
+                        targetContent,
+                        deliveryMode,
                         scheduledAt: scheduledTimestamp,
                     },
                 ],
@@ -292,7 +311,10 @@ function DashboardPage() {
                                     <li
                                         key={channel.id}
                                         className="rounded-lg bg-muted/60 px-3 py-2 text-sm">
-                                        {channel.name}
+                                        {channel.name}{' '}
+                                        <span className="text-xs text-muted-foreground">
+                                            · {channel.profileId}
+                                        </span>
                                     </li>
                                 ))
                             )}
@@ -310,6 +332,20 @@ function DashboardPage() {
                                         placeholder="Community forum"
                                         className="h-9 rounded-lg border bg-background px-3 text-sm font-normal outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
                                     />
+                                </label>
+                                <label className="grid gap-2 text-sm font-medium">
+                                    Channel profile
+                                    <select
+                                        value={channelProfile}
+                                        onChange={event =>
+                                            setChannelProfile(
+                                                event.target.value as 'manual-message' | 'linkedin'
+                                            )
+                                        }
+                                        className="h-9 rounded-lg border bg-background px-3 text-sm font-normal outline-none focus:border-ring focus:ring-3 focus:ring-ring/20">
+                                        <option value="manual-message">Manual message</option>
+                                        <option value="linkedin">LinkedIn text</option>
+                                    </select>
                                 </label>
                                 <Button
                                     className="w-full"
@@ -391,6 +427,20 @@ function DashboardPage() {
                                         />
                                     </label>
                                     <label className="grid gap-2 text-sm font-medium">
+                                        Delivery mode
+                                        <select
+                                            value={deliveryMode}
+                                            onChange={event =>
+                                                setDeliveryMode(
+                                                    event.target.value as 'manual' | 'automatic'
+                                                )
+                                            }
+                                            className="h-10 rounded-lg border bg-background px-3 text-sm font-normal outline-none focus:border-ring focus:ring-3 focus:ring-ring/20">
+                                            <option value="manual">Manual publication</option>
+                                            <option value="automatic">Automatic publication</option>
+                                        </select>
+                                    </label>
+                                    <label className="grid gap-2 text-sm font-medium">
                                         Scheduled for
                                         <input
                                             required
@@ -406,7 +456,9 @@ function DashboardPage() {
                                         type="submit"
                                         disabled={pending || channels.length === 0}>
                                         <AddCircleIcon aria-hidden="true" />
-                                        Schedule manual publication
+                                        Schedule{' '}
+                                        {deliveryMode === 'automatic' ? 'automatic' : 'manual'}{' '}
+                                        publication
                                     </Button>
                                 </div>
                             </form>
@@ -463,7 +515,7 @@ function DashboardPage() {
                                                 </span>
                                             </div>
                                             <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                                                {publication.content}
+                                                {targetPreview(publication.targetContent)}
                                             </p>
                                         </div>
                                         <Button
@@ -494,6 +546,12 @@ function defaultScheduleValue() {
 function formatSchedule(timestamp: number | null) {
     if (timestamp === null) return 'Unscheduled'
     return new Date(timestamp).toLocaleString()
+}
+
+function targetPreview(targetContent: Record<string, unknown>) {
+    const candidates = [targetContent.body, targetContent.commentary, targetContent.text]
+    const text = candidates.find(value => typeof value === 'string')
+    return typeof text === 'string' ? text : 'Structured target content'
 }
 
 function errorMessage(error: unknown) {

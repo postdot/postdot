@@ -4,6 +4,7 @@ import {
     requireSameProject,
     requireTimestamp,
 } from './invariants'
+import { validateSourceContent, type SourceContent } from './source-content'
 
 export const actorKinds = ['human', 'agent', 'api_token', 'system'] as const
 export const publicationStates = [
@@ -18,11 +19,15 @@ export const publicationStates = [
 ] as const
 export const jobStates = ['pending', 'running', 'succeeded', 'failed', 'cancelled'] as const
 export const publisherCredentialStates = ['active', 'reconnect_required', 'revoked'] as const
+export const deliveryModes = ['manual', 'automatic'] as const
+export const publicationReviewStates = ['compatible', 'review_required'] as const
 
 export type ActorKind = (typeof actorKinds)[number]
 export type PublicationState = (typeof publicationStates)[number]
 export type JobState = (typeof jobStates)[number]
 export type PublisherCredentialState = (typeof publisherCredentialStates)[number]
+export type DeliveryMode = (typeof deliveryModes)[number]
+export type PublicationReviewState = (typeof publicationReviewStates)[number]
 export type Timestamp = number
 
 interface Entity {
@@ -47,6 +52,8 @@ export interface Actor extends ProjectEntity {
 
 export interface Channel extends ProjectEntity {
     readonly name: string
+    readonly profileId: string
+    readonly profileVersionId: string
 }
 
 export interface Publisher extends ProjectEntity {
@@ -66,14 +73,17 @@ export interface PublisherCredential extends ProjectEntity {
 
 export interface Post extends ProjectEntity {
     readonly title: string | null
-    readonly content: string
+    readonly sourceContent: SourceContent
+    readonly sourceRevision: number
     readonly createdByActorId: string
 }
 
 export interface Publication extends ProjectEntity {
     readonly postId: string
     readonly channelId: string
-    readonly content: string
+    readonly targetRevisionId: string | null
+    readonly deliveryMode: DeliveryMode
+    readonly reviewState: PublicationReviewState
     readonly state: PublicationState
     readonly scheduledAt: Timestamp | null
     readonly publishedAt: Timestamp | null
@@ -154,11 +164,18 @@ export function createActor(
 }
 
 export function createChannel(
-    input: CreateEntityInput & { readonly project: Project; readonly name: string }
+    input: CreateEntityInput & {
+        readonly project: Project
+        readonly name: string
+        readonly profileId: string
+        readonly profileVersionId: string
+    }
 ): Channel {
     return {
         ...projectEntityFields(input, input.project),
         name: requireNonBlank(input.name, 'name'),
+        profileId: requireNonBlank(input.profileId, 'profileId'),
+        profileVersionId: requireNonBlank(input.profileVersionId, 'profileVersionId'),
     }
 }
 
@@ -218,10 +235,17 @@ export function createPost(
         readonly project: Project
         readonly createdBy: Actor
         readonly title?: string | null
-        readonly content: string
+        readonly sourceContent: SourceContent
     }
 ): Post {
     requireSameProject(input.project.id, input.createdBy.projectId, 'createdBy actor')
+    const sourceContent = validateSourceContent(input.sourceContent)
+    if (!sourceContent.ok) {
+        throw new DomainInvariantError(
+            'invalid_content',
+            `Source content is invalid: ${sourceContent.issues.map(issue => issue.message).join('; ')}`
+        )
+    }
 
     return {
         ...projectEntityFields(input, input.project),
@@ -229,7 +253,8 @@ export function createPost(
             input.title === null || input.title === undefined
                 ? null
                 : requireNonBlank(input.title, 'title'),
-        content: requireNonBlank(input.content, 'content'),
+        sourceContent: sourceContent.value,
+        sourceRevision: 1,
         createdByActorId: input.createdBy.id,
     }
 }
@@ -240,7 +265,9 @@ export function createPublication(
         readonly post: Post
         readonly channel: Channel
         readonly createdBy: Actor
-        readonly content: string
+        readonly targetRevisionId?: string | null
+        readonly deliveryMode?: DeliveryMode
+        readonly reviewState?: PublicationReviewState
         readonly scheduledAt?: Timestamp | null
     }
 ): Publication {
@@ -253,6 +280,37 @@ export function createPublication(
             ? null
             : requireTimestamp(input.scheduledAt, 'scheduledAt')
 
+    const deliveryMode = input.deliveryMode ?? 'manual'
+    if (!(deliveryModes as readonly string[]).includes(deliveryMode)) {
+        throw new DomainInvariantError('invalid_input', `Unknown delivery mode: ${deliveryMode}`)
+    }
+
+    const reviewState = input.reviewState ?? 'compatible'
+    if (!(publicationReviewStates as readonly string[]).includes(reviewState)) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            `Unknown publication review state: ${reviewState}`
+        )
+    }
+
+    const targetRevisionId =
+        input.targetRevisionId === null || input.targetRevisionId === undefined
+            ? null
+            : requireNonBlank(input.targetRevisionId, 'targetRevisionId')
+
+    if (scheduledAt !== null && targetRevisionId === null) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            'A scheduled publication must reference a target revision'
+        )
+    }
+    if (scheduledAt !== null && reviewState !== 'compatible') {
+        throw new DomainInvariantError(
+            'invalid_content',
+            'A publication with review-required content cannot be scheduled'
+        )
+    }
+
     if (scheduledAt !== null && scheduledAt < input.now) {
         throw new DomainInvariantError('invalid_time', 'scheduledAt must not be before now')
     }
@@ -261,7 +319,9 @@ export function createPublication(
         ...projectEntityFields(input, input.project),
         postId: input.post.id,
         channelId: input.channel.id,
-        content: requireNonBlank(input.content, 'content'),
+        targetRevisionId,
+        deliveryMode,
+        reviewState,
         state: scheduledAt === null ? 'draft' : 'scheduled',
         scheduledAt,
         publishedAt: null,
@@ -286,6 +346,24 @@ export function createJob(
         throw new DomainInvariantError(
             'invalid_job_source',
             `Cannot create a job for a ${input.publication.state} publication`
+        )
+    }
+    if (input.publication.deliveryMode !== 'automatic') {
+        throw new DomainInvariantError(
+            'invalid_job_source',
+            'Execution jobs require an automatic publication'
+        )
+    }
+    if (input.publication.targetRevisionId === null) {
+        throw new DomainInvariantError(
+            'invalid_job_source',
+            'Execution jobs require a target revision'
+        )
+    }
+    if (input.publication.reviewState !== 'compatible') {
+        throw new DomainInvariantError(
+            'invalid_job_source',
+            'Execution jobs require a compatible publication revision'
         )
     }
     requireSameProject(input.publication.projectId, input.publisher.projectId, 'publisher')

@@ -60,6 +60,7 @@ const claimedJobColumns = `
 
 export function createWorkflowStore(database: HeraldDatabase) {
     const client = database.$client
+    const createId = () => crypto.randomUUID()
 
     const listProjectIdsStatement = client.query<{ id: string }, []>(`
         select id
@@ -100,6 +101,9 @@ export function createWorkflowStore(database: HeraldDatabase) {
                 on publishers.project_id = publications.project_id
                and publishers.channel_id = publications.channel_id
             where jobs.state = 'pending'
+              and publications.delivery_mode = 'automatic'
+              and publications.review_state = 'compatible'
+              and publications.target_revision_id is not null
 
             union all
 
@@ -141,6 +145,9 @@ export function createWorkflowStore(database: HeraldDatabase) {
             where jobs.state = 'pending'
               and jobs.run_at <= ?3
               and publications.state in ('scheduled', 'ready')
+              and publications.delivery_mode = 'automatic'
+              and publications.review_state = 'compatible'
+              and publications.target_revision_id is not null
             order by jobs.run_at, jobs.id
             limit 1
         )
@@ -213,10 +220,79 @@ export function createWorkflowStore(database: HeraldDatabase) {
           and effect_started_at is null
     `)
 
+    const insertExecutionRevisionStatement = client.query<
+        { changes: number },
+        [id: string, jobId: string, claimToken: string, createdAt: number]
+    >(`
+        insert into publication_execution_revisions (
+            id,
+            project_id,
+            job_id,
+            publication_id,
+            target_revision_id,
+            profile_version_id,
+            delivery_mode,
+            content_json,
+            content_hash,
+            profile_hash,
+            schema_hash,
+            created_at
+        )
+        select ?1,
+               jobs.project_id,
+               jobs.id,
+               jobs.publication_id,
+               revisions.id,
+               revisions.profile_version_id,
+               revisions.delivery_mode,
+               revisions.content_json,
+               revisions.content_hash,
+               revisions.profile_hash,
+               revisions.schema_hash,
+               ?4
+        from jobs
+        inner join publications
+            on publications.project_id = jobs.project_id
+           and publications.id = jobs.publication_id
+        inner join publication_target_revisions as revisions
+            on revisions.project_id = publications.project_id
+           and revisions.id = publications.target_revision_id
+           and revisions.publication_id = publications.id
+        where jobs.id = ?2
+          and jobs.state = 'running'
+          and jobs.claim_token = ?3
+          and jobs.effect_started_at is null
+          and publications.state in ('scheduled', 'ready')
+          and publications.delivery_mode = 'automatic'
+          and publications.review_state = 'compatible'
+          and revisions.delivery_mode = 'automatic'
+        on conflict(project_id, job_id) do nothing
+    `)
+    const loadExecutionRevisionStatement = client.query<
+        { id: string },
+        [projectId: string, jobId: string]
+    >(`
+        select id
+        from publication_execution_revisions
+        where project_id = ?1
+          and job_id = ?2
+    `)
+
     const startExternalEffectTransaction = client.transaction(
         (jobId: string, claimToken: string, now: number): boolean => {
             const runningJob = loadRunningJobStatement.get(jobId, claimToken, now)
             if (runningJob === null) return false
+
+            const pinned = insertExecutionRevisionStatement.run(createId(), jobId, claimToken, now)
+            if (
+                pinned.changes !== 1 &&
+                loadExecutionRevisionStatement.get(runningJob.projectId, runningJob.id) === null
+            ) {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Job ${runningJob.id} has no valid target revision to execute`
+                )
+            }
 
             if (runningJob.publicationState === 'scheduled') {
                 const promoted = promoteScheduledPublicationStatement.run(

@@ -10,7 +10,7 @@ import {
     runMigrations,
 } from '@herald/db'
 import { publications } from '@herald/db/schema'
-import { createLinkedInTextPublisher } from '@herald/linkedin'
+import { createLinkedInTextPublisher, linkedinTextChannelProfile } from '@herald/linkedin'
 import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
@@ -43,6 +43,7 @@ describe('publication worker', () => {
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
+                profile: linkedinTextChannelProfile,
             })
             expect(channel).not.toBeNull()
             if (channel === null) throw new Error('The test channel was not created')
@@ -72,8 +73,13 @@ describe('publication worker', () => {
             const first = manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
-                content: 'First LinkedIn publication',
-                publications: [{ channelId: channel.id, scheduledAt: now }],
+                sourceContent: {
+                    body: { text: 'First LinkedIn publication', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
+                ],
             })
             const second = createPostAt(manualStore, project.project.id, channel.id, now + 1)
             const third = createPostAt(manualStore, project.project.id, channel.id, now + 2)
@@ -227,6 +233,7 @@ describe('publication worker', () => {
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
+                profile: linkedinTextChannelProfile,
             })
             expect(channel).not.toBeNull()
             if (channel === null) throw new Error('The refresh test channel was not created')
@@ -258,8 +265,13 @@ describe('publication worker', () => {
             const post = manualStore.createPost({
                 projectId: project.project.id,
                 subjectId: 'user-1',
-                content: 'Publication after token refresh',
-                publications: [{ channelId: channel.id, scheduledAt: now }],
+                sourceContent: {
+                    body: { text: 'Publication after token refresh', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
+                ],
             })
             expect(post).not.toBeNull()
 
@@ -333,7 +345,10 @@ function createPostAt(
     return store.createPost({
         projectId,
         subjectId: 'user-1',
-        content: `LinkedIn publication at ${scheduledAt}`,
-        publications: [{ channelId, scheduledAt }],
+        sourceContent: {
+            body: { text: `LinkedIn publication at ${scheduledAt}`, format: 'plain_text' },
+            media: [],
+        },
+        publications: [{ channelId, deliveryMode: 'automatic', scheduledAt }],
     })
 }

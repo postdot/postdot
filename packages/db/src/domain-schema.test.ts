@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 
+import { createManualChannelProfile } from '@herald/core'
+
 import type { HeraldDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 import {
     actors,
     channels,
+    channelProfileVersions,
     jobs,
     oauthAuthorizationAttempts,
     posts,
@@ -20,6 +23,8 @@ function seedProject(database: HeraldDatabase, suffix: string) {
     const actorId = `actor-${suffix}`
     const channelId = `channel-${suffix}`
     const postId = `post-${suffix}`
+    const profileVersionId = `profile-${suffix}`
+    const profile = createManualChannelProfile()
 
     database
         .insert(projects)
@@ -36,14 +41,34 @@ function seedProject(database: HeraldDatabase, suffix: string) {
         .run()
     database
         .insert(channels)
-        .values({ id: channelId, projectId, name: `Channel ${suffix}` })
+        .values({ id: channelId, projectId, name: `Channel ${suffix}`, profileVersionId })
+        .run()
+    database
+        .insert(channelProfileVersions)
+        .values({
+            id: profileVersionId,
+            projectId,
+            channelId,
+            profileId: profile.id,
+            version: profile.version,
+            origin: profile.origin,
+            state: 'active',
+            profileJson: profile,
+            profileHash: profile.profileHash,
+            schemaHash: profile.schemaHash,
+            createdByActorId: actorId,
+        })
         .run()
     database
         .insert(posts)
         .values({
             id: postId,
             projectId,
-            content: `Post ${suffix}`,
+            sourceContent: {
+                body: { text: `Post ${suffix}`, format: 'plain_text' },
+                media: [],
+            },
+            sourceRevision: 1,
             createdByActorId: actorId,
         })
         .run()
@@ -68,7 +93,9 @@ describe('domain schema', () => {
                         projectId: first.projectId,
                         postId: first.postId,
                         channelId: second.channelId,
-                        content: 'Impossible relation',
+                        targetRevisionId: null,
+                        deliveryMode: 'manual',
+                        reviewState: 'compatible',
                         state: 'draft',
                         createdByActorId: first.actorId,
                         stateChangedByActorId: first.actorId,
@@ -83,7 +110,9 @@ describe('domain schema', () => {
                     projectId: first.projectId,
                     postId: first.postId,
                     channelId: first.channelId,
-                    content: 'Valid relation',
+                    targetRevisionId: null,
+                    deliveryMode: 'manual',
+                    reviewState: 'compatible',
                     state: 'ready',
                     createdByActorId: first.actorId,
                     stateChangedByActorId: first.actorId,
@@ -109,7 +138,11 @@ describe('domain schema', () => {
                     .values({
                         id: 'cross-project-post',
                         projectId: first.projectId,
-                        content: 'Impossible attribution',
+                        sourceContent: {
+                            body: { text: 'Impossible attribution', format: 'plain_text' },
+                            media: [],
+                        },
+                        sourceRevision: 1,
                         createdByActorId: second.actorId,
                     })
                     .run()
@@ -164,10 +197,12 @@ describe('domain schema', () => {
                 projectId: fixture.projectId,
                 postId: fixture.postId,
                 channelId: fixture.channelId,
-                content: 'Publication content',
+                targetRevisionId: null,
+                deliveryMode: 'manual',
+                reviewState: 'compatible',
                 createdByActorId: fixture.actorId,
                 stateChangedByActorId: fixture.actorId,
-            }
+            } as const
 
             expect(() =>
                 database
@@ -366,7 +401,9 @@ describe('domain schema', () => {
                     projectId: fixture.projectId,
                     postId: fixture.postId,
                     channelId: fixture.channelId,
-                    content: 'Ready publication',
+                    targetRevisionId: null,
+                    deliveryMode: 'manual',
+                    reviewState: 'compatible',
                     state: 'ready',
                     createdByActorId: fixture.actorId,
                     stateChangedByActorId: fixture.actorId,

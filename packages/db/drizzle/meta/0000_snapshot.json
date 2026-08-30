@@ -1,7 +1,7 @@
 {
     "version": "6",
     "dialect": "sqlite",
-    "id": "f060e051-9e1e-4c65-9144-0c1b24eee899",
+    "id": "e890210e-584a-4f08-af7c-ded060078287",
     "prevId": "00000000-0000-0000-0000-000000000000",
     "tables": {
         "account": {
@@ -550,6 +550,178 @@
                 }
             }
         },
+        "channel_profile_versions": {
+            "name": "channel_profile_versions",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "channel_id": {
+                    "name": "channel_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_id": {
+                    "name": "profile_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "version": {
+                    "name": "version",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "origin": {
+                    "name": "origin",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "state": {
+                    "name": "state",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_json": {
+                    "name": "profile_json",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_hash": {
+                    "name": "profile_hash",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "schema_hash": {
+                    "name": "schema_hash",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_by_actor_id": {
+                    "name": "created_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "channel_profile_versions_project_id_id_uidx": {
+                    "name": "channel_profile_versions_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                },
+                "channel_profile_versions_project_channel_version_uidx": {
+                    "name": "channel_profile_versions_project_channel_version_uidx",
+                    "columns": ["project_id", "channel_id", "version"],
+                    "isUnique": true
+                },
+                "channel_profile_versions_project_channel_state_idx": {
+                    "name": "channel_profile_versions_project_channel_state_idx",
+                    "columns": ["project_id", "channel_id", "state"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "channel_profile_versions_project_id_projects_id_fk": {
+                    "name": "channel_profile_versions_project_id_projects_id_fk",
+                    "tableFrom": "channel_profile_versions",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "channel_profile_versions_project_channel_fk": {
+                    "name": "channel_profile_versions_project_channel_fk",
+                    "tableFrom": "channel_profile_versions",
+                    "tableTo": "channels",
+                    "columnsFrom": ["project_id", "channel_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "channel_profile_versions_project_actor_fk": {
+                    "name": "channel_profile_versions_project_actor_fk",
+                    "tableFrom": "channel_profile_versions",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "created_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "channel_profile_versions_profile_id_nonblank": {
+                    "name": "channel_profile_versions_profile_id_nonblank",
+                    "value": "length(trim(\"channel_profile_versions\".\"profile_id\")) > 0"
+                },
+                "channel_profile_versions_version_positive": {
+                    "name": "channel_profile_versions_version_positive",
+                    "value": "\"channel_profile_versions\".\"version\" > 0"
+                },
+                "channel_profile_versions_profile_json_object": {
+                    "name": "channel_profile_versions_profile_json_object",
+                    "value": "json_valid(\"channel_profile_versions\".\"profile_json\") and json_type(\"channel_profile_versions\".\"profile_json\") = 'object'"
+                },
+                "channel_profile_versions_hashes_nonblank": {
+                    "name": "channel_profile_versions_hashes_nonblank",
+                    "value": "length(trim(\"channel_profile_versions\".\"profile_hash\")) > 0 and length(trim(\"channel_profile_versions\".\"schema_hash\")) > 0"
+                },
+                "channel_profile_versions_origin_valid": {
+                    "name": "channel_profile_versions_origin_valid",
+                    "value": "\"channel_profile_versions\".\"origin\" in ('built_in', 'custom')"
+                },
+                "channel_profile_versions_state_valid": {
+                    "name": "channel_profile_versions_state_valid",
+                    "value": "\"channel_profile_versions\".\"state\" in ('active', 'superseded', 'disabled')"
+                }
+            }
+        },
         "channels": {
             "name": "channels",
             "columns": {
@@ -569,6 +741,13 @@
                 },
                 "name": {
                     "name": "name",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_version_id": {
+                    "name": "profile_version_id",
                     "type": "text",
                     "primaryKey": false,
                     "notNull": true,
@@ -612,6 +791,10 @@
             "compositePrimaryKeys": {},
             "uniqueConstraints": {},
             "checkConstraints": {
+                "channels_profile_version_id_nonblank": {
+                    "name": "channels_profile_version_id_nonblank",
+                    "value": "length(trim(\"channels\".\"profile_version_id\")) > 0"
+                },
                 "channels_name_nonblank": {
                     "name": "channels_name_nonblank",
                     "value": "length(trim(\"channels\".\"name\")) > 0"
@@ -738,6 +921,17 @@
                 }
             },
             "indexes": {
+                "jobs_project_id_id_uidx": {
+                    "name": "jobs_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                },
+                "jobs_project_publication_active_uidx": {
+                    "name": "jobs_project_publication_active_uidx",
+                    "columns": ["project_id", "publication_id"],
+                    "isUnique": true,
+                    "where": "\"jobs\".\"state\" in ('pending', 'running')"
+                },
                 "jobs_project_id_publication_id_idx": {
                     "name": "jobs_project_id_publication_id_idx",
                     "columns": ["project_id", "publication_id"],
@@ -1073,12 +1267,20 @@
                     "notNull": false,
                     "autoincrement": false
                 },
-                "content": {
-                    "name": "content",
+                "source_content": {
+                    "name": "source_content",
                     "type": "text",
                     "primaryKey": false,
                     "notNull": true,
                     "autoincrement": false
+                },
+                "source_revision": {
+                    "name": "source_revision",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": 1
                 },
                 "created_by_actor_id": {
                     "name": "created_by_actor_id",
@@ -1143,9 +1345,13 @@
                     "name": "posts_title_nonblank",
                     "value": "\"posts\".\"title\" is null or length(trim(\"posts\".\"title\")) > 0"
                 },
-                "posts_content_nonblank": {
-                    "name": "posts_content_nonblank",
-                    "value": "length(trim(\"posts\".\"content\")) > 0"
+                "posts_source_content_object": {
+                    "name": "posts_source_content_object",
+                    "value": "json_valid(\"posts\".\"source_content\") and json_type(\"posts\".\"source_content\") = 'object'"
+                },
+                "posts_source_revision_positive": {
+                    "name": "posts_source_revision_positive",
+                    "value": "\"posts\".\"source_revision\" > 0"
                 }
             }
         },
@@ -1194,6 +1400,524 @@
                 }
             }
         },
+        "publication_execution_revisions": {
+            "name": "publication_execution_revisions",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "job_id": {
+                    "name": "job_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "publication_id": {
+                    "name": "publication_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "target_revision_id": {
+                    "name": "target_revision_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_version_id": {
+                    "name": "profile_version_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "delivery_mode": {
+                    "name": "delivery_mode",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "content_json": {
+                    "name": "content_json",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "content_hash": {
+                    "name": "content_hash",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_hash": {
+                    "name": "profile_hash",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "schema_hash": {
+                    "name": "schema_hash",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "publication_execution_revisions_project_job_uidx": {
+                    "name": "publication_execution_revisions_project_job_uidx",
+                    "columns": ["project_id", "job_id"],
+                    "isUnique": true
+                },
+                "publication_execution_revisions_project_id_id_uidx": {
+                    "name": "publication_execution_revisions_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                }
+            },
+            "foreignKeys": {
+                "publication_execution_revisions_project_id_projects_id_fk": {
+                    "name": "publication_execution_revisions_project_id_projects_id_fk",
+                    "tableFrom": "publication_execution_revisions",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publication_execution_revisions_project_job_fk": {
+                    "name": "publication_execution_revisions_project_job_fk",
+                    "tableFrom": "publication_execution_revisions",
+                    "tableTo": "jobs",
+                    "columnsFrom": ["project_id", "job_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publication_execution_revisions_project_publication_fk": {
+                    "name": "publication_execution_revisions_project_publication_fk",
+                    "tableFrom": "publication_execution_revisions",
+                    "tableTo": "publications",
+                    "columnsFrom": ["project_id", "publication_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publication_execution_revisions_project_target_fk": {
+                    "name": "publication_execution_revisions_project_target_fk",
+                    "tableFrom": "publication_execution_revisions",
+                    "tableTo": "publication_target_revisions",
+                    "columnsFrom": ["project_id", "target_revision_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                },
+                "publication_execution_revisions_project_profile_fk": {
+                    "name": "publication_execution_revisions_project_profile_fk",
+                    "tableFrom": "publication_execution_revisions",
+                    "tableTo": "channel_profile_versions",
+                    "columnsFrom": ["project_id", "profile_version_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "publication_execution_revisions_delivery_mode_automatic": {
+                    "name": "publication_execution_revisions_delivery_mode_automatic",
+                    "value": "\"publication_execution_revisions\".\"delivery_mode\" = 'automatic'"
+                },
+                "publication_execution_revisions_content_object": {
+                    "name": "publication_execution_revisions_content_object",
+                    "value": "json_valid(\"publication_execution_revisions\".\"content_json\") and json_type(\"publication_execution_revisions\".\"content_json\") = 'object'"
+                },
+                "publication_execution_revisions_hashes_nonblank": {
+                    "name": "publication_execution_revisions_hashes_nonblank",
+                    "value": "length(trim(\"publication_execution_revisions\".\"content_hash\")) > 0 and length(trim(\"publication_execution_revisions\".\"profile_hash\")) > 0 and length(trim(\"publication_execution_revisions\".\"schema_hash\")) > 0"
+                }
+            }
+        },
+        "publication_target_revisions": {
+            "name": "publication_target_revisions",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "publication_id": {
+                    "name": "publication_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "sequence": {
+                    "name": "sequence",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_version_id": {
+                    "name": "profile_version_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "source_revision": {
+                    "name": "source_revision",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "delivery_mode": {
+                    "name": "delivery_mode",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "content_json": {
+                    "name": "content_json",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "content_hash": {
+                    "name": "content_hash",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_hash": {
+                    "name": "profile_hash",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "schema_hash": {
+                    "name": "schema_hash",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "validation_issues_json": {
+                    "name": "validation_issues_json",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_by_actor_id": {
+                    "name": "created_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "publication_target_revisions_project_id_id_uidx": {
+                    "name": "publication_target_revisions_project_id_id_uidx",
+                    "columns": ["project_id", "id"],
+                    "isUnique": true
+                },
+                "publication_target_revisions_project_publication_sequence_uidx": {
+                    "name": "publication_target_revisions_project_publication_sequence_uidx",
+                    "columns": ["project_id", "publication_id", "sequence"],
+                    "isUnique": true
+                },
+                "publication_target_revisions_project_publication_idx": {
+                    "name": "publication_target_revisions_project_publication_idx",
+                    "columns": ["project_id", "publication_id"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "publication_target_revisions_project_id_projects_id_fk": {
+                    "name": "publication_target_revisions_project_id_projects_id_fk",
+                    "tableFrom": "publication_target_revisions",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publication_target_revisions_project_publication_fk": {
+                    "name": "publication_target_revisions_project_publication_fk",
+                    "tableFrom": "publication_target_revisions",
+                    "tableTo": "publications",
+                    "columnsFrom": ["project_id", "publication_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publication_target_revisions_project_profile_fk": {
+                    "name": "publication_target_revisions_project_profile_fk",
+                    "tableFrom": "publication_target_revisions",
+                    "tableTo": "channel_profile_versions",
+                    "columnsFrom": ["project_id", "profile_version_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                },
+                "publication_target_revisions_project_actor_fk": {
+                    "name": "publication_target_revisions_project_actor_fk",
+                    "tableFrom": "publication_target_revisions",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "created_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "publication_target_revisions_sequence_positive": {
+                    "name": "publication_target_revisions_sequence_positive",
+                    "value": "\"publication_target_revisions\".\"sequence\" > 0"
+                },
+                "publication_target_revisions_source_revision_positive": {
+                    "name": "publication_target_revisions_source_revision_positive",
+                    "value": "\"publication_target_revisions\".\"source_revision\" > 0"
+                },
+                "publication_target_revisions_content_object": {
+                    "name": "publication_target_revisions_content_object",
+                    "value": "json_valid(\"publication_target_revisions\".\"content_json\") and json_type(\"publication_target_revisions\".\"content_json\") = 'object'"
+                },
+                "publication_target_revisions_validation_issues_array": {
+                    "name": "publication_target_revisions_validation_issues_array",
+                    "value": "json_valid(\"publication_target_revisions\".\"validation_issues_json\") and json_type(\"publication_target_revisions\".\"validation_issues_json\") = 'array'"
+                },
+                "publication_target_revisions_hashes_nonblank": {
+                    "name": "publication_target_revisions_hashes_nonblank",
+                    "value": "length(trim(\"publication_target_revisions\".\"content_hash\")) > 0 and length(trim(\"publication_target_revisions\".\"profile_hash\")) > 0 and length(trim(\"publication_target_revisions\".\"schema_hash\")) > 0"
+                },
+                "publication_target_revisions_delivery_mode_valid": {
+                    "name": "publication_target_revisions_delivery_mode_valid",
+                    "value": "\"publication_target_revisions\".\"delivery_mode\" in ('manual', 'automatic')"
+                }
+            }
+        },
+        "publication_working_drafts": {
+            "name": "publication_working_drafts",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "project_id": {
+                    "name": "project_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "publication_id": {
+                    "name": "publication_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "profile_version_id": {
+                    "name": "profile_version_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "source_revision": {
+                    "name": "source_revision",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "content_json": {
+                    "name": "content_json",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "review_state": {
+                    "name": "review_state",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "validation_issues_json": {
+                    "name": "validation_issues_json",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "revision": {
+                    "name": "revision",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": 1
+                },
+                "updated_by_actor_id": {
+                    "name": "updated_by_actor_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
+                }
+            },
+            "indexes": {
+                "publication_working_drafts_project_publication_uidx": {
+                    "name": "publication_working_drafts_project_publication_uidx",
+                    "columns": ["project_id", "publication_id"],
+                    "isUnique": true
+                },
+                "publication_working_drafts_project_review_idx": {
+                    "name": "publication_working_drafts_project_review_idx",
+                    "columns": ["project_id", "review_state"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "publication_working_drafts_project_id_projects_id_fk": {
+                    "name": "publication_working_drafts_project_id_projects_id_fk",
+                    "tableFrom": "publication_working_drafts",
+                    "tableTo": "projects",
+                    "columnsFrom": ["project_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publication_working_drafts_project_publication_fk": {
+                    "name": "publication_working_drafts_project_publication_fk",
+                    "tableFrom": "publication_working_drafts",
+                    "tableTo": "publications",
+                    "columnsFrom": ["project_id", "publication_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                },
+                "publication_working_drafts_project_profile_fk": {
+                    "name": "publication_working_drafts_project_profile_fk",
+                    "tableFrom": "publication_working_drafts",
+                    "tableTo": "channel_profile_versions",
+                    "columnsFrom": ["project_id", "profile_version_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                },
+                "publication_working_drafts_project_actor_fk": {
+                    "name": "publication_working_drafts_project_actor_fk",
+                    "tableFrom": "publication_working_drafts",
+                    "tableTo": "actors",
+                    "columnsFrom": ["project_id", "updated_by_actor_id"],
+                    "columnsTo": ["project_id", "id"],
+                    "onDelete": "restrict",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {
+                "publication_working_drafts_source_revision_positive": {
+                    "name": "publication_working_drafts_source_revision_positive",
+                    "value": "\"publication_working_drafts\".\"source_revision\" > 0"
+                },
+                "publication_working_drafts_content_object": {
+                    "name": "publication_working_drafts_content_object",
+                    "value": "json_valid(\"publication_working_drafts\".\"content_json\") and json_type(\"publication_working_drafts\".\"content_json\") = 'object'"
+                },
+                "publication_working_drafts_validation_issues_array": {
+                    "name": "publication_working_drafts_validation_issues_array",
+                    "value": "json_valid(\"publication_working_drafts\".\"validation_issues_json\") and json_type(\"publication_working_drafts\".\"validation_issues_json\") = 'array'"
+                },
+                "publication_working_drafts_review_state_valid": {
+                    "name": "publication_working_drafts_review_state_valid",
+                    "value": "\"publication_working_drafts\".\"review_state\" in ('compatible', 'review_required')"
+                },
+                "publication_working_drafts_revision_positive": {
+                    "name": "publication_working_drafts_revision_positive",
+                    "value": "\"publication_working_drafts\".\"revision\" > 0"
+                }
+            }
+        },
         "publications": {
             "name": "publications",
             "columns": {
@@ -1225,8 +1949,22 @@
                     "notNull": true,
                     "autoincrement": false
                 },
-                "content": {
-                    "name": "content",
+                "target_revision_id": {
+                    "name": "target_revision_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "delivery_mode": {
+                    "name": "delivery_mode",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "review_state": {
+                    "name": "review_state",
                     "type": "text",
                     "primaryKey": false,
                     "notNull": true,
@@ -1429,9 +2167,21 @@
             "compositePrimaryKeys": {},
             "uniqueConstraints": {},
             "checkConstraints": {
-                "publications_content_nonblank": {
-                    "name": "publications_content_nonblank",
-                    "value": "length(trim(\"publications\".\"content\")) > 0"
+                "publications_target_revision_id_nonblank": {
+                    "name": "publications_target_revision_id_nonblank",
+                    "value": "\"publications\".\"target_revision_id\" is null or length(trim(\"publications\".\"target_revision_id\")) > 0"
+                },
+                "publications_delivery_mode_valid": {
+                    "name": "publications_delivery_mode_valid",
+                    "value": "\"publications\".\"delivery_mode\" in ('manual', 'automatic')"
+                },
+                "publications_review_state_valid": {
+                    "name": "publications_review_state_valid",
+                    "value": "\"publications\".\"review_state\" in ('compatible', 'review_required')"
+                },
+                "publications_scheduled_target_valid": {
+                    "name": "publications_scheduled_target_valid",
+                    "value": "\"publications\".\"state\" <> 'scheduled' or (\"publications\".\"target_revision_id\" is not null and \"publications\".\"review_state\" = 'compatible')"
                 },
                 "publications_state_valid": {
                     "name": "publications_state_valid",
