@@ -23,18 +23,22 @@
 ## [ISSUE-003] Define the media attachment boundary and storage lifecycle
 
 - Type: proposal
-- Status: open
-- Evidence: Herald is text-first for V1, while basic media attachments may become
-  necessary for the selected automatic publisher. Local self-hosting and a possible
-  future S3-compatible backend affect metadata, cleanup, backup, security, and
-  publisher contracts.
+- Status: accepted
+- Evidence: The owner direction requires a durable media foundation rather than a
+  release-limited media cut. Local self-hosting and a Bun-native S3-compatible
+  backend affect metadata, cleanup, backup, security, and publisher contracts. The
+  [DOMAIN-07 worklog](worklogs/2026-08-29-DOMAIN-07.md) records the comparative study
+  and the accepted model for media families, original assets, derived variants,
+  publication-revision references, provider delivery, and storage lifecycle.
 - Impact: Deferring the ownership and lifecycle model too long could force a costly
-  rewrite; designing every storage backend now would violate the SQLite-first,
-  evidence-driven scope posture.
-- Desired outcome: An explicit decision about the V1 media boundary, file metadata,
-  retention, backup, access control, and the evidence required before adding local or
-  S3-compatible storage implementations.
-- Tasks: none
+  rewrite. Designing every conceivable storage backend would violate the
+  SQLite-first, evidence-driven scope posture, but local and S3-compatible storage
+  are already part of the intended boundary.
+- Desired outcome: An explicit decision about the media model, file metadata,
+  retention, backup, access control, and one interchangeable storage contract with
+  local and S3-compatible implementations.
+- Tasks: DOMAIN-07 (completed), MEDIA-22, MEDIA-23, MEDIA-24
+- Decision: [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md)
 
 ## [ISSUE-004] Establish a reusable Herald design-system package
 
@@ -82,3 +86,32 @@
   well-defined OAuth protocol mechanics to an evidence-backed dependency.
 - Tasks: CRED-15, CRED-16, CRED-17, CRED-18, PUB-09 (blocked)
 - Decision: [ADR-012](decisions/ADR-012-own-publisher-credentials-and-use-oauth4webapi.md)
+
+## [ISSUE-007] Define the publication content and provider capability boundary
+
+- Type: problem
+- Status: accepted
+- Evidence: The current `Post` and `Publication` records persist plain text only,
+  while the first publisher contract accepts a LinkedIn-specific text input. There
+  is no domain representation for attachments, rich content, mentions, links,
+  provider constraints, or a provider-specific publication rendition. The existing
+  media question in ISSUE-003 covers storage lifecycle but not the publication
+  content contract that would consume stored media. ADR-013 and ADR-014 have accepted
+  runtime-defined custom channel contracts and the draft-versus-execution revision
+  boundary; accepted SPEC-004 now defines source content, runtime schemas, HTTP
+  mapping, profile evolution, and media behavior.
+- Impact: Continuing with a provider integration before defining this boundary could
+  make the first provider's payload shape leak into the core domain, force later
+  rewrites for channels with different capabilities, and leave manual channels
+  unable to represent content that cannot be automated. It is also unclear which
+  content must be shared from a source post and which content may be adapted per
+  publication.
+- Desired outcome: An accepted durable boundary that defines the source post content,
+  channel-specific publication content, provider capability validation, attachment
+  references, publication snapshots and revisions, and the separation between
+  common domain data and provider-specific payloads. The boundary must identify
+  what is intentionally deferred and provide executable invariants for the chosen
+  model without requiring every future social network to be designed in advance.
+- Tasks: DOMAIN-07 (completed), DOMAIN-20, DOMAIN-21, MEDIA-24, CHANNEL-25, CHANNEL-26, EDITOR-27
+- Specification: [SPEC-004](specs/SPEC-004-publication-content-boundary.md)
+- Decisions: [ADR-013](decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](decisions/ADR-020-version-and-assess-channel-profile-changes.md)

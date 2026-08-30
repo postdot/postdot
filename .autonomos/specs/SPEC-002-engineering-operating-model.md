@@ -1,17 +1,21 @@
 # SPEC-002 — Engineering Operating Model
 
 - Status: accepted
-- Scope: Delivery loop, quality gate, footprint gate, milestone order, and Git review discipline
+- Scope: Continuous delivery loop, quality gate, footprint gate, milestone order, and Git review discipline
 - Provenance: V1 engineering review on 2026-08-28
-- Related specs: [SPEC-001](SPEC-001-v1-scope.md), [SPEC-003](SPEC-003-product-foundation.md)
+- Related specs: [SPEC-005](SPEC-005-continuous-product-scope.md), [SPEC-003](SPEC-003-product-foundation.md)
 - Related decisions: [ADR-003](../decisions/ADR-003-use-a-single-process-singleton.md), [ADR-004](../decisions/ADR-004-use-bun-and-typescript.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-006](../decisions/ADR-006-use-a-next-event-durable-scheduler.md), [ADR-007](../decisions/ADR-007-use-a-react-spa-dashboard.md)
 - Superseded by: none
 
 ## Intent
 
-Herald optimizes for durable progress: the smallest coherent change that improves a
-real V1 outcome. Speed is useful only when `main` remains understandable,
+Herald optimizes for durable progress: each change should complete the product and
+architectural boundary required for its outcome. Speed is useful only when `main`
+remains understandable,
 releasable, and cheap to operate.
+
+There is no V1 or MVP release cut. Milestones below sequence risk and evidence; they
+are not permission to build temporary substitutes for known product foundations.
 
 ## Delivery loop
 
@@ -19,7 +23,7 @@ Every task follows the same six-stage loop.
 
 ### 1. Frame
 
-- Link the work to one Autonomos task and one V1 outcome.
+- Link the work to one Autonomos task and one durable product or architectural outcome.
 - State acceptance criteria and the user-visible or architectural result.
 - Identify the highest-risk assumption; do not begin with low-risk polish.
 - Reject additions that do not help describe, prepare, schedule, execute, or audit
@@ -38,7 +42,7 @@ Every task follows the same six-stage loop.
 
 For a consequential decision, compare the smallest credible alternatives against:
 
-1. V1 necessity and product coherence;
+1. Current product need and product coherence;
 2. correctness, data-loss, and security risk;
 3. runtime, bundle, image, and operational footprint;
 4. implementation and maintenance cost;
@@ -58,7 +62,8 @@ assumption.
 - Keep business behavior out of HTTP handlers and UI components.
 - Add no generic interface until a second implementation or a useful test seam is
   concrete.
-- Keep commits and pull requests small enough to review without hidden context.
+- Keep commits and pull requests focused enough to review without hidden context;
+  reviewability must not be achieved by omitting required foundations.
 
 ### 5. Prove and measure
 
@@ -187,9 +192,10 @@ its footprint and maintenance cost.
 - Implement the common publisher contract and one adapter.
 - Exercise real provider behavior in opt-in smoke tests and deterministic contract
   tests in the default gate.
-- Complete the automatic V1 exit scenario.
+- Complete the automatic publication workflow with its durable contract and failure
+  evidence.
 
-### M5 — Operable V1
+### M5 — Operable initial deployment
 
 - Complete Better Auth and project-scoped API token flows.
 - Serve the production dashboard from the Elysia process.
