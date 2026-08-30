@@ -14,6 +14,7 @@ import {
 import { account } from './auth-schema'
 
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
+const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
@@ -197,6 +198,104 @@ export const publisherCredentials = sqliteTable(
                     and length(${table.refreshTokenNonce}) = 12)`
         ),
         check('publisher_credentials_revision_valid', sql`${table.revision} > 0`),
+    ]
+)
+
+export const oauthAuthorizationAttempts = sqliteTable(
+    'oauth_authorization_attempts',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        channelId: text('channel_id').notNull(),
+        providerId: text('provider_id').notNull(),
+        connectedByActorId: text('connected_by_actor_id').notNull(),
+        callbackUri: text('callback_uri').notNull(),
+        scopes: text('scopes', { mode: 'json' }).$type<readonly string[]>().notNull(),
+        returnPath: text('return_path').notNull(),
+        stateDigest: blob('state_digest', { mode: 'buffer' }).notNull(),
+        status: text('status', { enum: oauthAuthorizationAttemptStatuses })
+            .default('pending')
+            .notNull(),
+        pkceEncryptionVersion: integer('pkce_encryption_version'),
+        pkceEncryptionKeyId: text('pkce_encryption_key_id'),
+        pkceVerifierCiphertext: blob('pkce_verifier_ciphertext', { mode: 'buffer' }),
+        pkceVerifierNonce: blob('pkce_verifier_nonce', { mode: 'buffer' }),
+        expiresAt: integer('expires_at').notNull(),
+        completedAt: integer('completed_at'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('oauth_authorization_attempts_state_digest_uidx').on(table.stateDigest),
+        index('oauth_authorization_attempts_project_channel_idx').on(
+            table.projectId,
+            table.channelId
+        ),
+        index('oauth_authorization_attempts_status_expires_idx').on(table.status, table.expiresAt),
+        foreignKey({
+            name: 'oauth_authorization_attempts_project_channel_fk',
+            columns: [table.projectId, table.channelId],
+            foreignColumns: [channels.projectId, channels.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'oauth_authorization_attempts_project_actor_fk',
+            columns: [table.projectId, table.connectedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'oauth_authorization_attempts_provider_nonblank',
+            sql`length(trim(${table.providerId})) > 0`
+        ),
+        check(
+            'oauth_authorization_attempts_callback_nonblank',
+            sql`length(trim(${table.callbackUri})) > 0`
+        ),
+        check(
+            'oauth_authorization_attempts_return_path_local',
+            sql`substr(${table.returnPath}, 1, 1) = '/'
+                and substr(${table.returnPath}, 1, 2) != '//'
+                and instr(${table.returnPath}, char(92)) = 0`
+        ),
+        check(
+            'oauth_authorization_attempts_scopes_json_array',
+            sql`json_valid(${table.scopes}) and json_type(${table.scopes}) = 'array'`
+        ),
+        check(
+            'oauth_authorization_attempts_state_digest_length',
+            sql`length(${table.stateDigest}) = 32`
+        ),
+        check(
+            'oauth_authorization_attempts_status_valid',
+            sql`${table.status} in ('pending', 'consumed', 'expired')`
+        ),
+        check(
+            'oauth_authorization_attempts_time_valid',
+            sql`${table.expiresAt} > ${table.createdAt}
+                and (${table.completedAt} is null or ${table.completedAt} >= ${table.createdAt})`
+        ),
+        check(
+            'oauth_authorization_attempts_secret_state_valid',
+            sql`(
+                    ${table.status} = 'pending'
+                    and ${table.completedAt} is null
+                    and ${table.pkceEncryptionVersion} is not null
+                    and ${table.pkceEncryptionVersion} > 0
+                    and ${table.pkceEncryptionKeyId} is not null
+                    and length(trim(${table.pkceEncryptionKeyId})) > 0
+                    and ${table.pkceVerifierCiphertext} is not null
+                    and length(${table.pkceVerifierCiphertext}) > 16
+                    and ${table.pkceVerifierNonce} is not null
+                    and length(${table.pkceVerifierNonce}) = 12
+                ) or (
+                    ${table.status} in ('consumed', 'expired')
+                    and ${table.completedAt} is not null
+                    and ${table.pkceEncryptionVersion} is null
+                    and ${table.pkceEncryptionKeyId} is null
+                    and ${table.pkceVerifierCiphertext} is null
+                    and ${table.pkceVerifierNonce} is null
+                )`
+        ),
     ]
 )
 

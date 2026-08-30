@@ -29,7 +29,7 @@ export class PublisherCredentialCipherError extends Error {
 }
 
 export interface PublisherSecretContext {
-    readonly credentialId: string
+    readonly recordId: string
     readonly providerId: string
     readonly field: PublisherSecretField
 }
@@ -60,7 +60,7 @@ function authenticatedData(context: PublisherSecretContext): Uint8Array<ArrayBuf
             JSON.stringify([
                 'herald.publisher-secret',
                 publisherCredentialEnvelopeVersion,
-                requireNonBlank(context.credentialId, 'credentialId'),
+                requireNonBlank(context.recordId, 'recordId'),
                 requireNonBlank(context.providerId, 'providerId'),
                 context.field,
             ])

@@ -31,6 +31,10 @@
     {
       "name": "linkedin",
       "path": "packages/linkedin",
+    },
+    {
+      "name": "oauth",
+      "path": "packages/oauth",
     }
   ],
 }

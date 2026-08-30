@@ -410,7 +410,7 @@ export function createPublisherCredentialStore(
             })
             const accessToken = await cipher.encrypt(
                 {
-                    credentialId: credential.id,
+                    recordId: credential.id,
                     providerId: credential.providerId,
                     field: 'access_token',
                 },
@@ -421,7 +421,7 @@ export function createPublisherCredentialStore(
                     ? null
                     : await cipher.encrypt(
                           {
-                              credentialId: credential.id,
+                              recordId: credential.id,
                               providerId: credential.providerId,
                               field: 'refresh_token',
                           },
@@ -494,7 +494,7 @@ export function createPublisherCredentialStore(
                 throw new Error('Active publisher credential has no access token')
             }
             const refreshToken = envelopeFromRow(row, 'refresh_token')
-            const context = { credentialId: row.id, providerId: row.providerId } as const
+            const context = { recordId: row.id, providerId: row.providerId } as const
 
             return {
                 accessToken: await cipher.decrypt(
@@ -529,7 +529,7 @@ export function createPublisherCredentialStore(
                         ? null
                         : await cipher.decrypt(
                               {
-                                  credentialId: row.id,
+                                  recordId: row.id,
                                   providerId: row.providerId,
                                   field: 'refresh_token',
                               },
@@ -539,7 +539,7 @@ export function createPublisherCredentialStore(
 
             const accessToken = await cipher.encrypt(
                 {
-                    credentialId: row.id,
+                    recordId: row.id,
                     providerId: row.providerId,
                     field: 'access_token',
                 },
@@ -550,7 +550,7 @@ export function createPublisherCredentialStore(
                     ? null
                     : await cipher.encrypt(
                           {
-                              credentialId: row.id,
+                              recordId: row.id,
                               providerId: row.providerId,
                               field: 'refresh_token',
                           },

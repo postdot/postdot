@@ -139,6 +139,18 @@
         "typescript": "7.0.2",
       },
     },
+    "packages/oauth": {
+      "name": "@herald/oauth",
+      "version": "0.0.0",
+      "dependencies": {
+        "oauth4webapi": "3.8.7",
+      },
+      "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
+        "typescript": "7.0.2",
+      },
+    },
   },
   "packages": {
     "@autonomos/cli": ["@autonomos/cli@0.5.0", "", { "dependencies": { "@autonomos/core": "0.5.0", "@inquirer/prompts": "^7.0.0", "commander": "^14.0.2", "picocolors": "1.1.1" }, "bin": { "autonomos": "dist/index.mjs" } }, "sha512-+VSpgdH8F8oK2fK075R9giVutS1eaqkjH0YjXHQokAMt3dXuu7Z+4IikyaBed+CaNGYXwsS6oMu2BXqZOg8ORg=="],
@@ -352,6 +364,8 @@
     "@herald/db": ["@herald/db@workspace:packages/db"],
 
     "@herald/linkedin": ["@herald/linkedin@workspace:packages/linkedin"],
+
+    "@herald/oauth": ["@herald/oauth@workspace:packages/oauth"],
 
     "@herald/web": ["@herald/web@workspace:apps/web"],
 
@@ -1076,6 +1090,8 @@
     "node-releases": ["node-releases@2.0.54", "", {}, "sha512-YHs7BmmcsdAI5Ozuf8JZo6PT0mv2GIWC9vMfvUC3dp65M8hn7Ux8CPL+2oBI7juNuj9d0ndhTcznq2ODBps9cQ=="],
 
     "npm-run-path": ["npm-run-path@6.0.0", "", { "dependencies": { "path-key": "^4.0.0", "unicorn-magic": "^0.3.0" } }, "sha512-9qny7Z9DsQU8Ou39ERsPU4OZQlSTP47ShQzuKZ6PRXpYLtIFgl/DEBYEXKlvcEa+9tHVcK8CF81Y2V72qaZhWA=="],
+
+    "oauth4webapi": ["oauth4webapi@3.8.7", "", {}, "sha512-4RxcKxXjuItDFZ20RRPf4YTw3kpeXJyCgJFxVzJ068A7PNJ18st2Dg90tlC1LkSDS0GecroagCLHYEIVUhCAkw=="],
 
     "object-assign": ["object-assign@4.1.1", "", {}, "sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg=="],
 

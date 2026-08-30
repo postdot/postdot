@@ -11,6 +11,11 @@ export {
     publisherCredentialEnvelopeVersion,
 } from './publisher-credential-crypto'
 export { createPublisherCredentialStore } from './publisher-credential-store'
+export {
+    createAuthorizationAttemptStore,
+    defaultAuthorizationAttemptTtlMs,
+    maximumAuthorizationAttemptTtlMs,
+} from './oauth-authorization-attempt-store'
 export type {
     CreatePublisherCredentialCipherOptions,
     EncryptedPublisherSecret,
@@ -27,6 +32,14 @@ export type {
     ReplacePublisherCredentialTokensInput,
     ReplacePublisherCredentialTokensResult,
 } from './publisher-credential-store'
+export type {
+    AuthorizationAttempt,
+    AuthorizationAttemptStoreOptions,
+    ConsumeAuthorizationAttemptInput,
+    ConsumeAuthorizationAttemptResult,
+    CreateAuthorizationAttemptInput,
+    CreateAuthorizationAttemptResult,
+} from './oauth-authorization-attempt-store'
 export type {
     AuditEvent,
     CreateChannelInput,

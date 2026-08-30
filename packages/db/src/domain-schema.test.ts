@@ -7,6 +7,7 @@ import {
     actors,
     channels,
     jobs,
+    oauthAuthorizationAttempts,
     posts,
     projects,
     publications,
@@ -275,6 +276,75 @@ describe('domain schema', () => {
                         id: 'revoked-with-secret',
                         state: 'revoked',
                         accessTokenNonce: Buffer.alloc(12, 2),
+                    })
+                    .run()
+            ).toThrow()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('rejects incomplete and contradictory OAuth authorization attempts', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const fixture = seedProject(database, 'oauth-attempt')
+            const pendingAttempt = {
+                projectId: fixture.projectId,
+                channelId: fixture.channelId,
+                providerId: 'linkedin',
+                connectedByActorId: fixture.actorId,
+                callbackUri: 'https://herald.example.com/api/oauth/linkedin/callback',
+                scopes: [],
+                returnPath: '/projects/one',
+                stateDigest: Buffer.alloc(32, 1),
+                status: 'pending' as const,
+                pkceEncryptionVersion: 1,
+                pkceEncryptionKeyId: 'primary',
+                pkceVerifierCiphertext: Buffer.alloc(17, 2),
+                expiresAt: 1_800_000_060_000,
+                createdAt: 1_800_000_000_000,
+                updatedAt: 1_800_000_000_000,
+            }
+
+            expect(() =>
+                database
+                    .insert(oauthAuthorizationAttempts)
+                    .values({ ...pendingAttempt, id: 'missing-pkce-nonce' })
+                    .run()
+            ).toThrow()
+            expect(() =>
+                database
+                    .insert(oauthAuthorizationAttempts)
+                    .values({
+                        ...pendingAttempt,
+                        id: 'invalid-state-digest',
+                        stateDigest: Buffer.alloc(31, 1),
+                        pkceVerifierNonce: Buffer.alloc(12, 3),
+                    })
+                    .run()
+            ).toThrow()
+            expect(() =>
+                database
+                    .insert(oauthAuthorizationAttempts)
+                    .values({
+                        ...pendingAttempt,
+                        id: 'consumed-with-verifier',
+                        status: 'consumed',
+                        completedAt: 1_800_000_000_001,
+                        pkceVerifierNonce: Buffer.alloc(12, 3),
+                    })
+                    .run()
+            ).toThrow()
+            expect(() =>
+                database
+                    .insert(oauthAuthorizationAttempts)
+                    .values({
+                        ...pendingAttempt,
+                        id: 'external-return-path',
+                        returnPath: '//attacker.example.com',
+                        pkceVerifierNonce: Buffer.alloc(12, 3),
                     })
                     .run()
             ).toThrow()
