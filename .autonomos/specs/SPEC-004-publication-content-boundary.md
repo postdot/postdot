@@ -1,16 +1,15 @@
 # SPEC-004 — Publication Content and Provider Capability Boundary
 
-- Status: draft
+- Status: accepted
 - Scope: Source content, channel-specific publications, provider capabilities, and media lifecycle
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
 - Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](../decisions/ADR-020-version-and-assess-channel-profile-changes.md)
 - Superseded by: none
 
-> This is an exploration draft. It records the problem, evidence, requirements,
-> alternatives, and unresolved choices. It does not authorize a schema or provider
-> implementation until the project owner accepts a target direction.
+> This specification is normative. Its implementation is tracked through bounded
+> tasks and must preserve the accepted decisions and executable acceptance criteria.
 
 ## Intent
 
@@ -61,8 +60,9 @@ The project owner has directed that:
   explicit promotion to a target revision; an execution revision becomes immutable
   when an external effect starts.
 
-The exact media kinds, common content vocabulary, runtime channel transport
-contract, and schema-change handling remain unresolved in this draft.
+The media families, common content vocabulary, runtime channel transport, outbound
+network boundary, and schema-change behavior are accepted below and in their related
+decision records.
 
 ## Observed current state
 
@@ -306,7 +306,10 @@ A target revision stores its validated content, field-binding/profile version, a
 profile hash. It does not store a live pointer whose meaning changes when the channel
 profile is edited.
 
-### Candidate profile-evolution behavior
+### Accepted profile-evolution behavior
+
+The owner accepted this behavior on 2026-08-30. ADR-020 records the normative profile
+versioning, activation impact, execution support, and migration decision.
 
 Channel profile versions are immutable after activation. Editing a channel creates a
 new profile draft; it does not mutate the active profile in place. A preset is copied
@@ -612,11 +615,10 @@ The current recommendation is B. Local versus S3/R2 is a deployment configuratio
 choice, not a staged architecture in which one backend is postponed until after a
 temporary local-only model.
 
-## Proposed target architecture for review
+## Accepted target architecture
 
-This section is a design proposal, not an accepted implementation contract. It
-translates the comparative evidence into Herald boundaries without copying a
-competitor's entire schema.
+This section translates the accepted comparative findings into Herald boundaries
+without copying a competitor's entire schema.
 
 ### Provider and channel module boundary
 
@@ -904,17 +906,13 @@ The project owner has accepted the following direction:
 10. Project media separates reusable assets, immutable stored representations, exact
     publication-revision references, and provider delivery state. Local and S3/R2
     stores share one narrow contract and complete backups include retained bytes.
+11. Activated channel profiles are immutable. Activation previews actual impact,
+    incompatible pending targets require review, compatible unchanged contracts may
+    continue, and migration always creates a new target revision.
 
-## Decisions still requiring project-owner acceptance
+## Implementation acceptance criteria
 
-1. Accept or revise the proposed channel-profile evolution behavior: immutable old
-   profiles, revalidated working drafts, unchanged scheduled targets, and explicit
-   migration to a new target revision.
-
-## Draft acceptance criteria
-
-This specification can become normative only after it contains an accepted answer to
-the decisions above and demonstrates:
+The implementation of this specification is complete only after it demonstrates:
 
 - at least one text-only manual publication;
 - at least one automatic provider with a provider-specific payload;
@@ -930,18 +928,11 @@ the decisions above and demonstrates:
 - executable domain and database invariants for project ownership, publication
   identity, content validity, and lifecycle transitions.
 
-## Out of scope until accepted
+## Implementation consequence
 
-- Changing the current database schema or migrations.
-- Adding a media storage implementation or a second provider.
-- Running a live provider smoke test as evidence for the model.
-- Accepting ADR-011 or closing PUB-09 based only on the current text adapter.
-
-## Consequence of leaving this draft unresolved
-
-The current text-only adapter can continue to serve as a protocol spike, but it must
-not be treated as the durable publication contract. The first durable implementation
-must establish the common content, destination capability, publication snapshot, and
-interchangeable media-store boundaries together. It may implement only the currently
-selected provider behaviors, but it must not encode a temporary local-only or
-single-format model that makes the known next storage or media capability a rewrite.
+The current text-only schema and adapter are transitional development state rather
+than compatibility constraints. The implementation may regenerate the unused
+development migration and database while establishing the common content,
+destination capability, publication snapshot, and interchangeable media-store
+boundaries. It must not preserve a temporary local-only or single-format model that
+contradicts this specification.
