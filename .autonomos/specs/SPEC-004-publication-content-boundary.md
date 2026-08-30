@@ -682,11 +682,13 @@ not change the payload used by the in-flight, ambiguous, or completed attempt.
 
 Herald should distinguish four things:
 
-1. `MediaAsset`: the project-owned logical asset and its original object metadata.
-2. `MediaVariant`: a derived object such as a thumbnail, preview, or provider-ready
-   representation, linked to its source asset and transformation parameters.
+1. `MediaAsset`: the project-owned logical asset, user-facing metadata, lifecycle,
+   and stable identity used by working drafts.
+2. `MediaRepresentation`: one immutable stored representation of that asset. One is
+   the preserved original; others are explicit variants such as a thumbnail,
+   preview, or provider-ready representation with recorded derivation parameters.
 3. `PublicationRevisionMedia`: the ordered snapshot relation, including role,
-   accessibility text, focal/crop metadata, and the selected asset or variant.
+   accessibility text, focal/crop metadata, and the exact selected representation.
 4. `ProviderMediaDelivery`: the provider-specific upload state and remote identifier
    for one publication revision media item.
 
@@ -716,13 +718,22 @@ client-declared MIME type and filename extension are hints only; Herald verifies
 stored bytes before an asset becomes ready. Active or executable formats are not
 served inline merely because their extension resembles media.
 
-The original object is preserved. Derived objects are explicit `MediaVariant`
-records with their own storage key, MIME type, checksum, byte size, dimensions or
-duration, processor identity, processor version, and transformation parameters.
-Herald does not overwrite an original during conversion. A provider can use the
-original when compatible or select a validated variant. Heavy processors such as a
-video transcoder are not silently added to the base runtime image; a required
-transformation must have an explicit processor capability and observable failure.
+The original object is preserved as an immutable `MediaRepresentation`. Derived
+representations have their own storage locator, MIME type, checksum, byte size,
+dimensions or duration, source representation, processor identity, processor
+version, and canonical transformation recipe. Herald does not overwrite an original
+during conversion. A provider can use the original when compatible or select a
+validated variant. Heavy processors such as a video transcoder are not silently
+added to the base runtime image; a required transformation must have an explicit
+processor capability and observable failure.
+
+The asset owns semantic metadata such as its original filename and default
+accessibility text. Each representation owns technical facts about its bytes. The
+minimum representation facts are a storage locator, detected MIME type and format,
+byte size, SHA-256 checksum, and family-specific metadata when available: dimensions
+and animation for images, dimensions and duration for video, duration for audio, and
+page count when a document inspector can establish it. Client-declared MIME types
+and checksums are never authoritative.
 
 The proposed asset lifecycle is:
 
@@ -738,13 +749,19 @@ not valid ready assets. A referenced asset cannot be physically deleted. Retenti
 and recovery policy decides when an unreferenced deletion request becomes a storage
 delete; that policy applies equally to local and S3/R2 objects.
 
-Runtime target content may contain media IDs at profile-bound JSON locations. On
-promotion, Herald extracts those references into `PublicationRevisionMedia` rows in
-the same database transaction, preserving JSON Pointer location, order, role, and
-accessibility overrides. The target JSON and extracted relational index must agree;
-load and backup tests treat disagreement as data corruption rather than choosing one
-silently. This relational index supplies project ownership and deletion protection
-that arbitrary JSON cannot enforce with foreign keys.
+Runtime target content may contain media asset IDs at profile-bound JSON locations.
+On promotion, Herald validates the asset and selects a compatible ready
+representation. If a required representation does not exist, variant generation is
+requested and promotion reports a pending requirement instead of hiding external
+processing inside a database transaction. Once ready, Herald extracts an exact
+`PublicationRevisionMedia` relation in the promotion transaction. The relation
+preserves JSON Pointer location, order, role, accessibility overrides, and the
+selected immutable representation. The target JSON and extracted relational index
+must agree; load and backup tests treat disagreement as data corruption rather than
+choosing one silently. This relational index supplies project ownership and deletion
+protection that arbitrary JSON cannot enforce with foreign keys. A retry never
+resolves “the best current variant” again; it uses the representation pinned by its
+execution revision.
 
 Provider upload state remains separate. `ProviderMediaDelivery` records which exact
 revision media item and variant was sent, the remote identifiers returned, and the
@@ -761,25 +778,73 @@ and provide both intended backends:
 - `S3MediaStore` backed by `Bun.S3Client` and its `S3File` references for AWS S3,
   Cloudflare R2, and other S3-compatible services.
 
-The contract should cover the actual lifecycle rather than only a `save(path)`
-helper: create or reserve an object key, write or stream an upload, inspect metadata,
-open a read stream, delete or quarantine an object, and create controlled read or
-upload URLs when the backend supports them. The application must not expose Bun
-file objects, provider SDK objects, credentials, or untrusted paths.
+The common contract should cover only storage semantics: write a bounded stream to
+an application-generated opaque key, open a bounded read or range stream, return
+normalized object metadata, test availability, and delete an object idempotently.
+It must not allocate domain identities, inspect media formats, decide retention, or
+attach an object to a publication. Those responsibilities belong to the media
+application service above the storage seam. The application must not expose Bun file
+objects, provider SDK objects, credentials, bucket names, local roots, or untrusted
+paths.
+
+Each persisted representation stores a `storeId` and opaque object key rather than a
+backend type or absolute path. The deployment composes that stable store identity
+with either the local or S3 adapter. One store is active for new writes, while an old
+store may remain readable during an explicit migration; changing the backend behind
+an existing identity is rejected. This permits a local-to-S3 migration without
+rewriting the media or publication model.
+
+Presigned S3 upload and download URLs are an optional infrastructure acceleration,
+not part of the minimum `MediaStore` semantics. The media application service
+exposes one upload/download behavior: local storage streams through authenticated
+Herald routes, while S3 may return short-lived presigned URLs. Both paths end in the
+same server-authoritative finalization. Stored objects and buckets remain private by
+default; Herald does not require permanent public ACLs.
 
 Because SQLite and object storage do not share a transaction, media creation should
 use an explicit upload-intent/finalization flow:
 
-1. reserve a project-owned media record and storage key;
-2. write the object through `MediaStore`;
-3. verify size, content type, checksum, and available metadata;
-4. finalize the asset and attach it to a publication revision in a database
-   transaction;
-5. reconcile expired intents and quarantine unreferenced objects.
+1. reserve a project-owned asset, original representation, opaque object key, and
+   expiring upload intent in SQLite;
+2. stream locally through Herald or upload directly to S3 through a short-lived
+   signed target;
+3. finalize through Herald, which independently stats and streams the stored bytes,
+   computes the checksum, detects the format, applies resource limits, and extracts
+   available metadata;
+4. mark the representation and asset ready in one database transaction only after
+   verification succeeds;
+5. attach ready assets to working drafts independently, then pin an exact
+   representation when a validated target revision is promoted;
+6. reconcile expired intents, partial failures, database rows without objects, and
+   unreferenced objects without treating any of them as ready.
 
 The same lifecycle must work for local and S3/R2 storage. Direct browser uploads may
-be added for S3/R2, but they must end through the same finalization and validation
-path as server-mediated uploads.
+be used for S3/R2, but they must end through the same finalization and validation
+path as server-mediated uploads. A crash at any step leaves either a resumable
+non-ready row or an identifiable orphan; it cannot expose unverified bytes as a ready
+asset.
+
+Image inspection and basic variants can use Bun's native image pipeline without an
+npm dependency. Its byte sniffing and `maxPixels` guard fit the accepted verification
+boundary, while its portable Linux support for JPEG, PNG, and WebP can generate
+bounded previews. Other formats and media families enter the format registry only
+with a verified inspector; storing an unknown file must not pretend that Herald can
+validate provider constraints for it.
+
+Asset deletion is two-phase. Archiving removes an asset from normal selection, while
+physical deletion requires no draft, target, execution, or retained audit reference
+and a completed grace period. Originals and representations are immutable, so a
+reference cannot change meaning while deletion is pending. Provider-side cleanup is
+owned by the provider module and does not determine whether Herald's local object is
+retained.
+
+The complete Herald backup, not the existing SQLite-only primitive, must cover media.
+A backup manifest records every retained representation, store identity, object key,
+size, and checksum. Local and S3 objects can be streamed into a portable backup
+archive; garbage collection is fenced while the manifest snapshot is copied. Restore
+verifies all bytes before making restored assets ready. An explicitly requested
+metadata-only export may omit object bytes, but it is not described as a recoverable
+Herald backup.
 
 ## Decisions recorded from the project owner
 
@@ -805,15 +870,16 @@ The project owner has accepted the following direction:
 8. Automatic custom channels use a versioned Herald webhook by default or an advanced
    structural one-request HTTP mapping. Complex imperative protocols remain built-in
    channel modules.
+9. Public HTTPS is the default custom-channel network authority. Private destinations
+   and private HTTP require instance-operator policy; mappings cannot change the
+   connection origin, DNS is revalidated per attempt, and redirects are disabled.
 
 ## Decisions still requiring project-owner acceptance
 
-1. Define the outbound-network policy for custom HTTP connections, including public
-   versus private destinations, operator opt-in, DNS resolution, and redirects.
-2. Accept or revise the durable media proposal: media families, extensible format
-   registry, original/variant boundary, lifecycle, relational reference index, and
-   provider-delivery state.
-3. Accept or revise the proposed channel-profile evolution behavior: immutable old
+1. Accept or revise the durable media proposal: media families, extensible format
+   registry, asset/representation boundary, lifecycle, relational reference index,
+   provider-delivery state, storage consistency, deletion, and backup semantics.
+2. Accept or revise the proposed channel-profile evolution behavior: immutable old
    profiles, revalidated working drafts, unchanged scheduled targets, and explicit
    migration to a new target revision.
 
