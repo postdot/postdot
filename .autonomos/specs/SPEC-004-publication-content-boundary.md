@@ -5,7 +5,7 @@
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
 - Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md)
 - Superseded by: none
 
 > This is an exploration draft. It records the problem, evidence, requirements,
@@ -372,12 +372,21 @@ a built-in channel module. A future out-of-process connector protocol would requ
 separate decision. Multi-step media upload cannot be disguised as a custom schema
 feature.
 
-The remaining transport security question is deployment-sensitive. A configurable
-HTTP destination can legitimately be a private self-hosted blog, but allowing every
-private or link-local address by default also creates an SSRF path into the host
-network. Herald needs an explicit outbound-network policy for custom connections,
-including redirect handling and whether private network ranges require an operator
-opt-in.
+### Accepted outbound-network policy
+
+The owner accepted public HTTPS by default plus an instance-operator-controlled
+private destination policy on 2026-08-30. ADR-018 records the normative decision.
+Project members may configure a public HTTPS connection, but project data, imported
+presets, and runtime mappings cannot grant the Herald process access to a private
+network.
+
+Private hostnames, addresses, ports, and plain HTTP require matching deployment
+authority configured by the instance operator. The connection owns a fixed origin;
+the transport resolves and validates every address at each attempt, pins the
+validated connection while preserving Host and TLS server-name semantics, rejects
+metadata and non-HTTP destinations, disables redirects, and bounds time and response
+bytes. This retains private Docker or LAN publishing without making the host network
+implicitly reachable by every project-level channel editor.
 
 ### Attachments and storage
 
