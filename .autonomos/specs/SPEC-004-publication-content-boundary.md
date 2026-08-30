@@ -5,7 +5,7 @@
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
 - Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md)
 - Superseded by: none
 
 > This is an exploration draft. It records the problem, evidence, requirements,
@@ -703,7 +703,10 @@ The first implementation need not implement every transformation, but the state
 model must not assume that all media is immediately ready or that one original
 object is sufficient for every provider.
 
-### Candidate durable media contract
+### Accepted durable media contract
+
+The owner accepted this contract on 2026-08-30. ADR-019 records the normative media,
+storage, lifecycle, deletion, and backup decision.
 
 The first durable media model should recognize `image`, `video`, `audio`, and
 `document` families. Animation is metadata on an image rather than a separate storage
@@ -873,13 +876,13 @@ The project owner has accepted the following direction:
 9. Public HTTPS is the default custom-channel network authority. Private destinations
    and private HTTP require instance-operator policy; mappings cannot change the
    connection origin, DNS is revalidated per attempt, and redirects are disabled.
+10. Project media separates reusable assets, immutable stored representations, exact
+    publication-revision references, and provider delivery state. Local and S3/R2
+    stores share one narrow contract and complete backups include retained bytes.
 
 ## Decisions still requiring project-owner acceptance
 
-1. Accept or revise the durable media proposal: media families, extensible format
-   registry, asset/representation boundary, lifecycle, relational reference index,
-   provider-delivery state, storage consistency, deletion, and backup semantics.
-2. Accept or revise the proposed channel-profile evolution behavior: immutable old
+1. Accept or revise the proposed channel-profile evolution behavior: immutable old
    profiles, revalidated working drafts, unchanged scheduled targets, and explicit
    migration to a new target revision.
 

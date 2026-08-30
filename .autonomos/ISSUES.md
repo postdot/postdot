@@ -23,7 +23,7 @@
 ## [ISSUE-003] Define the media attachment boundary and storage lifecycle
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: The owner direction requires a durable media foundation rather than a
   release-limited media cut. Local self-hosting and a Bun-native S3-compatible
   backend affect metadata, cleanup, backup, security, and publisher contracts. The
@@ -38,6 +38,7 @@
   retention, backup, access control, and one interchangeable storage contract with
   local and S3-compatible implementations.
 - Tasks: DOMAIN-07
+- Decision: [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md)
 
 ## [ISSUE-004] Establish a reusable Herald design-system package
 
