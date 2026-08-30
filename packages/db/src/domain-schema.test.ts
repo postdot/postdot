@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createManualChannelProfile } from '@herald/core'
+import { eq } from 'drizzle-orm'
 
 import type { HeraldDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
@@ -10,6 +11,9 @@ import {
     channels,
     channelProfileVersions,
     jobs,
+    mediaAssets,
+    mediaRepresentations,
+    mediaUploadIntents,
     oauthAuthorizationAttempts,
     posts,
     projects,
@@ -438,6 +442,94 @@ describe('domain schema', () => {
                         completedAt: 1_800_000_000_001,
                         errorMessage: 'Connection refused',
                     })
+                    .run()
+            ).toThrow()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('enforces media representation facts and upload intent lifecycle timestamps', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const fixture = seedProject(database, 'media-state')
+            const timestamp = 1_800_000_000_000
+
+            database
+                .insert(mediaAssets)
+                .values({
+                    id: 'media-asset-state',
+                    projectId: fixture.projectId,
+                    originalFilename: 'state.png',
+                    state: 'reserved',
+                    createdByActorId: fixture.actorId,
+                    createdAt: timestamp,
+                    updatedAt: timestamp,
+                })
+                .run()
+
+            const baseRepresentation = {
+                projectId: fixture.projectId,
+                assetId: 'media-asset-state',
+                kind: 'original' as const,
+                state: 'reserved' as const,
+                storeId: 'local-default',
+                objectKey: 'media/media-asset-state/media-representation-state/original',
+                createdAt: timestamp,
+                updatedAt: timestamp,
+            }
+
+            expect(() =>
+                database
+                    .insert(mediaRepresentations)
+                    .values({
+                        ...baseRepresentation,
+                        id: 'media-representation-ready-without-facts',
+                        state: 'ready',
+                    })
+                    .run()
+            ).toThrow()
+
+            database
+                .insert(mediaRepresentations)
+                .values({ ...baseRepresentation, id: 'media-representation-state' })
+                .run()
+
+            const baseIntent = {
+                projectId: fixture.projectId,
+                assetId: 'media-asset-state',
+                representationId: 'media-representation-state',
+                expectedSize: null,
+                maxBytes: 1_000,
+                contentTypeHint: null,
+                expiresAt: timestamp + 60_000,
+                createdAt: timestamp,
+                updatedAt: timestamp,
+            }
+
+            expect(() =>
+                database
+                    .insert(mediaUploadIntents)
+                    .values({
+                        ...baseIntent,
+                        id: 'media-intent-uploading-without-start',
+                        state: 'uploading',
+                    })
+                    .run()
+            ).toThrow()
+
+            database
+                .insert(mediaUploadIntents)
+                .values({ ...baseIntent, id: 'media-intent-state', state: 'pending' })
+                .run()
+
+            expect(() =>
+                database
+                    .update(mediaUploadIntents)
+                    .set({ state: 'uploaded' })
+                    .where(eq(mediaUploadIntents.id, 'media-intent-state'))
                     .run()
             ).toThrow()
         } finally {

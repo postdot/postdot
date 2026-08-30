@@ -10,3 +10,4 @@
 - **Logging:** Keep request logging in `src/plugins/logger.ts`, use Elysia 2 lifecycle names, and default production logging to disabled. Do not add an Elysia 1 logger plugin without proving compatibility with the current Elysia version.
 - **Production serving:** The production entrypoint serves the built SPA through the Elysia 2-compatible `@elysia/static` plugin and keeps migration and asset directories configurable for compiled or containerized deployments. Development continues to use the separate Vite server.
 - **Recovery:** Keep SQLite backup and restore logic in `@herald/db`; expose maintenance commands through the production bundle, and require the server to be stopped before restoration.
+- **Media transport:** Keep upload and download routes under `src/modules/media`; finalization remains server-authoritative, and raw media downloads use a native `Response` with explicit OpenAPI documentation rather than response JSON validation.

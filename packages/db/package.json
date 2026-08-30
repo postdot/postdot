@@ -23,6 +23,7 @@
     },
     "dependencies": {
         "@herald/core": "workspace:*",
+        "@herald/media": "workspace:*",
         "drizzle-orm": "0.45.2"
     },
     "devDependencies": {

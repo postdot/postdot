@@ -1,6 +1,11 @@
 import { openapi } from '@elysiajs/openapi'
 import type { HeraldAuth } from '@herald/auth'
-import { createManualStore, type HeraldDatabase, type ManualStoreOptions } from '@herald/db'
+import {
+    createManualStore,
+    type HeraldDatabase,
+    type ManualStoreOptions,
+    type MediaAssetStore,
+} from '@herald/db'
 import { Elysia } from 'elysia'
 
 import type { HeraldLoggingConfig } from './config'
@@ -15,6 +20,7 @@ export interface HeraldAppOptions {
     readonly auth: HeraldAuth
     readonly database: HeraldDatabase
     readonly publisher: PublisherRuntime
+    readonly media?: MediaAssetStore
     readonly manualStore?: ManualStoreOptions
     readonly logging?: HeraldLoggingConfig
     readonly onWorkScheduled?: () => void
@@ -24,6 +30,7 @@ function createDomainApp({
     auth,
     database,
     publisher,
+    media,
     manualStore: manualStoreOptions,
     logging,
     onWorkScheduled,
@@ -47,6 +54,7 @@ function createDomainApp({
                         { name: 'Channels', description: 'Project publication destinations.' },
                         { name: 'Posts', description: 'Source posts and publication creation.' },
                         { name: 'Publications', description: 'Publication workflow operations.' },
+                        { name: 'Media', description: 'Project media assets and uploads.' },
                         { name: 'Audit', description: 'Project audit history.' },
                     ],
                 },
@@ -61,6 +69,7 @@ function createDomainApp({
                 auth,
                 manualStore,
                 publisher,
+                media,
                 onWorkScheduled,
             })
         )
@@ -77,6 +86,7 @@ export function createApp({
     auth,
     database,
     publisher,
+    media,
     manualStore: manualStoreOptions,
     logging,
     onWorkScheduled,
@@ -85,6 +95,7 @@ export function createApp({
         auth,
         database,
         publisher,
+        media,
         manualStore: manualStoreOptions,
         logging,
         onWorkScheduled,

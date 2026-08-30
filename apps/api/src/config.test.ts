@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createHeraldConfig } from './config'
+import { createHeraldConfig, defaultMediaDirectory } from './config'
 
 const secret = 'herald-test-secret-with-at-least-32-characters'
 const publisherEncryptionKey = '0123456789abcdef'.repeat(4)
@@ -29,6 +29,14 @@ describe('Herald configuration', () => {
             database: {
                 fileName: ':memory:',
                 migrationsDirectory: '/tmp/herald-migrations',
+            },
+            media: {
+                driver: 'local',
+                directory: defaultMediaDirectory,
+                storeId: 'local-default',
+                maxObjectBytes: 100_000_000,
+                uploadIntentTtlMs: 900_000,
+                deletionGracePeriodMs: 86_400_000,
             },
             auth: {
                 baseURL: 'http://localhost:3100',
@@ -79,6 +87,57 @@ describe('Herald configuration', () => {
             level: 'silent',
             pretty: false,
         })
+    })
+
+    it('normalizes an S3-compatible media store without changing the domain contract', () => {
+        expect(
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_MEDIA_STORE: 's3',
+                HERALD_MEDIA_STORE_ID: 'r2-primary',
+                HERALD_MEDIA_S3_BUCKET: 'herald-media',
+                HERALD_MEDIA_S3_ENDPOINT: 'https://r2.example.test',
+                HERALD_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
+                HERALD_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
+                HERALD_MEDIA_S3_PREFIX: 'production',
+            }).media
+        ).toEqual({
+            driver: 's3',
+            directory: defaultMediaDirectory,
+            storeId: 'r2-primary',
+            maxObjectBytes: 100_000_000,
+            uploadIntentTtlMs: 900_000,
+            deletionGracePeriodMs: 86_400_000,
+            s3: {
+                bucket: 'herald-media',
+                endpoint: 'https://r2.example.test',
+                accessKeyId: 'access-key',
+                secretAccessKey: 'secret-key',
+                prefix: 'production',
+            },
+        })
+    })
+
+    it('requires complete S3 media credentials and a region or endpoint', () => {
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_MEDIA_STORE: 's3',
+            })
+        ).toThrow('HERALD_MEDIA_S3_BUCKET')
+
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_MEDIA_STORE: 's3',
+                HERALD_MEDIA_S3_BUCKET: 'herald-media',
+                HERALD_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
+                HERALD_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
+            })
+        ).toThrow('HERALD_MEDIA_S3_REGION or HERALD_MEDIA_S3_ENDPOINT')
     })
 
     it('reports missing and invalid environment variables together', () => {

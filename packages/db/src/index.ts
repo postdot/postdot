@@ -4,6 +4,7 @@ export { backupDatabase, restoreDatabase } from './backup'
 export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
 export { createManualStore } from './manual-store'
+export { createMediaAssetStore } from './media-asset-store'
 export { createPublisherStore } from './publisher-store'
 export {
     createPublisherCredentialCipher,
@@ -57,6 +58,21 @@ export type {
     PublicationWorkingDraft,
     SavePublicationDraftInput,
 } from './manual-store'
+export type {
+    FinalizeMediaUploadInput,
+    FinalizeMediaUploadResult,
+    MediaAssetContent,
+    MediaAssetReference,
+    MediaAssetStore,
+    MediaAssetStoreOptions,
+    MediaUploadReservation,
+    MediaUploadResult,
+    PurgeMediaAssetResult,
+    ReconcileMediaResult,
+    RequestMediaDeletionResult,
+    ReserveMediaUploadInput,
+    UploadMediaInput,
+} from './media-asset-store'
 export type {
     CreatePublisherConnectionInput,
     CreatePublisherConnectionResult,

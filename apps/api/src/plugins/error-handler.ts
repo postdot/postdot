@@ -1,4 +1,5 @@
 import { DomainInvariantError } from '@herald/core'
+import { MediaStoreError } from '@herald/media'
 import { Elysia, NotFound, ValidationError } from 'elysia'
 
 export function createErrorHandler() {
@@ -30,6 +31,24 @@ export function createErrorHandler() {
                 error: {
                     code: 'not_found',
                     message: 'The requested resource was not found',
+                },
+            }
+        }
+
+        if (error instanceof MediaStoreError) {
+            const clientInputError =
+                error.code === 'invalid_byte_limit' ||
+                error.code === 'invalid_content_type' ||
+                error.code === 'invalid_source' ||
+                error.code === 'size_mismatch' ||
+                error.code === 'write_limit_exceeded'
+            set.status = clientInputError ? 400 : 500
+            return {
+                error: {
+                    code: clientInputError ? error.code : 'media_storage_failure',
+                    message: clientInputError
+                        ? 'The media upload does not satisfy the storage constraints'
+                        : 'Media storage is temporarily unavailable',
                 },
             }
         }

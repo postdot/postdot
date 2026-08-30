@@ -1,8 +1,9 @@
 ---
-name: "herald"
-type: "project"
-status: "active"
+name: 'herald'
+type: 'project'
+status: 'active'
 ---
+
 # AGENT CONTEXT: Herald
 
 ## 🧠 Context & Objectives
@@ -39,17 +40,18 @@ content generator.
 
 ## 📁 Key Directories
 
-| Path | Description |
-|------|-------------|
-| `apps/api/` | Elysia API process |
-| `apps/web/` | React 19 + TanStack Router Vite SPA |
-| `packages/core/` | Framework-independent domain model |
-| `packages/db/` | Drizzle schema, Bun SQLite client, and migrations |
-| `packages/auth/` | Better Auth configuration and database adapter boundary |
-| `packages/oauth/` | OAuth protocol mechanics for publisher-channel connections |
-| `.autonomos/specs/` | Draft and accepted product or engineering target state |
-| `.autonomos/decisions/` | Proposed and accepted technical decision records |
-| `.autonomos/` | Agent Protocol files, task board, and worklogs |
+| Path                    | Description                                                |
+| ----------------------- | ---------------------------------------------------------- |
+| `apps/api/`             | Elysia API process                                         |
+| `apps/web/`             | React 19 + TanStack Router Vite SPA                        |
+| `packages/core/`        | Framework-independent domain model                         |
+| `packages/db/`          | Drizzle schema, Bun SQLite client, and migrations          |
+| `packages/media/`       | Narrow object-storage contract and Bun local/S3 adapters   |
+| `packages/auth/`        | Better Auth configuration and database adapter boundary    |
+| `packages/oauth/`       | OAuth protocol mechanics for publisher-channel connections |
+| `.autonomos/specs/`     | Draft and accepted product or engineering target state     |
+| `.autonomos/decisions/` | Proposed and accepted technical decision records           |
+| `.autonomos/`           | Agent Protocol files, task board, and worklogs             |
 
 ## ⚠️ Known Constraints
 

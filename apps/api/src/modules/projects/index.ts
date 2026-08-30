@@ -1,6 +1,8 @@
 import type { HeraldAuth } from '@herald/auth'
+import type { MediaAssetStore } from '@herald/db'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
+import { registerMediaRoutes } from '../media/routes'
 import { registerAuditEventRoutes } from './audit-event-routes'
 import { registerChannelRoutes } from './channel-routes'
 import { registerPostRoutes } from './post-routes'
@@ -13,6 +15,7 @@ export interface ProjectModuleOptions {
     readonly auth: HeraldAuth
     readonly manualStore: ManualStore
     readonly publisher: PublisherRuntime
+    readonly media?: MediaAssetStore
     readonly onWorkScheduled?: () => void
 }
 
@@ -27,5 +30,9 @@ export function createProjectModule(options: ProjectModuleOptions) {
         onWorkScheduled: options.onWorkScheduled,
     })
     const publicationRoutes = registerPublicationRoutes(postRoutes, options.manualStore)
-    return registerAuditEventRoutes(publicationRoutes, options.manualStore)
+    const mediaRoutes =
+        options.media === undefined
+            ? publicationRoutes
+            : registerMediaRoutes(publicationRoutes, options.media)
+    return registerAuditEventRoutes(mediaRoutes, options.manualStore)
 }

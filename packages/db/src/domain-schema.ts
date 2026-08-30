@@ -2,6 +2,11 @@ import {
     actorKinds,
     deliveryModes,
     jobStates,
+    mediaAssetStates,
+    mediaFamilies,
+    mediaRepresentationKinds,
+    mediaRepresentationStates,
+    mediaUploadIntentStates,
     publicationReviewStates,
     publicationStates,
     publisherCredentialStates,
@@ -451,6 +456,284 @@ export const posts = sqliteTable(
             sql`json_valid(${table.sourceContent}) and json_type(${table.sourceContent}) = 'object'`
         ),
         check('posts_source_revision_positive', sql`${table.sourceRevision} > 0`),
+    ]
+)
+
+export const mediaAssets = sqliteTable(
+    'media_assets',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        originalFilename: text('original_filename').notNull(),
+        defaultAccessibilityText: text('default_accessibility_text'),
+        state: text('state', { enum: mediaAssetStates }).notNull(),
+        archivedAt: integer('archived_at'),
+        deletionRequestedAt: integer('deletion_requested_at'),
+        deletedAt: integer('deleted_at'),
+        failureCode: text('failure_code'),
+        failureMessage: text('failure_message'),
+        createdByActorId: text('created_by_actor_id').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('media_assets_project_id_id_uidx').on(table.projectId, table.id),
+        index('media_assets_project_state_idx').on(table.projectId, table.state),
+        foreignKey({
+            name: 'media_assets_project_actor_fk',
+            columns: [table.projectId, table.createdByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'media_assets_filename_valid',
+            sql`length(trim(${table.originalFilename})) > 0 and length(${table.originalFilename}) <= 255`
+        ),
+        check(
+            'media_assets_accessibility_text_valid',
+            sql`${table.defaultAccessibilityText} is null or length(trim(${table.defaultAccessibilityText})) > 0`
+        ),
+        check(
+            'media_assets_state_valid',
+            sql`${table.state} in ('reserved', 'stored', 'inspecting', 'ready', 'failed', 'deletion_requested', 'deleted')`
+        ),
+        check(
+            'media_assets_failure_valid',
+            sql`(${table.state} = 'failed'
+                    and ${table.failureCode} is not null
+                    and length(trim(${table.failureCode})) > 0
+                    and ${table.failureMessage} is not null
+                    and length(trim(${table.failureMessage})) > 0)
+                or (${table.state} <> 'failed'
+                    and ${table.failureCode} is null
+                    and ${table.failureMessage} is null)`
+        ),
+        check(
+            'media_assets_deletion_timestamps_valid',
+            sql`((${table.state} in ('deletion_requested', 'deleted')
+                    and ${table.deletionRequestedAt} is not null)
+                or (${table.state} not in ('deletion_requested', 'deleted')
+                    and ${table.deletionRequestedAt} is null))
+                and ((${table.state} = 'deleted'
+                    and ${table.deletedAt} is not null
+                    or ${table.state} <> 'deleted'
+                    and ${table.deletedAt} is null))`
+        ),
+        check(
+            'media_assets_archived_timestamp_valid',
+            sql`${table.archivedAt} is null or ${table.archivedAt} >= ${table.createdAt}`
+        ),
+    ]
+)
+
+export const mediaRepresentations = sqliteTable(
+    'media_representations',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        assetId: text('asset_id').notNull(),
+        kind: text('kind', { enum: mediaRepresentationKinds }).notNull(),
+        sourceRepresentationId: text('source_representation_id'),
+        state: text('state', { enum: mediaRepresentationStates }).notNull(),
+        storeId: text('store_id').notNull(),
+        objectKey: text('object_key').notNull(),
+        declaredContentType: text('declared_content_type'),
+        detectedContentType: text('detected_content_type'),
+        detectedFormat: text('detected_format'),
+        family: text('family', { enum: mediaFamilies }),
+        byteSize: integer('byte_size'),
+        sha256: text('sha256'),
+        width: integer('width'),
+        height: integer('height'),
+        durationMs: integer('duration_ms'),
+        pageCount: integer('page_count'),
+        isAnimated: integer('is_animated', { mode: 'boolean' }),
+        processorId: text('processor_id'),
+        processorVersion: text('processor_version'),
+        recipeJson: text('recipe_json', { mode: 'json' }).$type<
+            Readonly<Record<string, unknown>>
+        >(),
+        failureCode: text('failure_code'),
+        failureMessage: text('failure_message'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('media_representations_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('media_representations_project_asset_id_uidx').on(
+            table.projectId,
+            table.assetId,
+            table.id
+        ),
+        uniqueIndex('media_representations_project_original_uidx')
+            .on(table.projectId, table.assetId)
+            .where(sql`${table.kind} = 'original'`),
+        uniqueIndex('media_representations_store_object_uidx').on(table.storeId, table.objectKey),
+        index('media_representations_project_asset_idx').on(table.projectId, table.assetId),
+        index('media_representations_project_state_idx').on(table.projectId, table.state),
+        foreignKey({
+            name: 'media_representations_project_asset_fk',
+            columns: [table.projectId, table.assetId],
+            foreignColumns: [mediaAssets.projectId, mediaAssets.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'media_representations_project_source_fk',
+            columns: [table.projectId, table.assetId, table.sourceRepresentationId],
+            foreignColumns: [table.projectId, table.assetId, table.id],
+        }).onDelete('restrict'),
+        check('media_representations_kind_valid', sql`${table.kind} in ('original', 'derived')`),
+        check(
+            'media_representations_state_valid',
+            sql`${table.state} in ('reserved', 'stored', 'inspecting', 'ready', 'failed', 'deletion_requested', 'deleted')`
+        ),
+        check(
+            'media_representations_store_locator_valid',
+            sql`length(trim(${table.storeId})) > 0
+                and length(trim(${table.objectKey})) > 0
+                and length(${table.objectKey}) <= 1024`
+        ),
+        check(
+            'media_representations_declared_type_valid',
+            sql`${table.declaredContentType} is null or length(trim(${table.declaredContentType})) > 0`
+        ),
+        check(
+            'media_representations_dimensions_valid',
+            sql`(${table.width} is null or ${table.width} > 0)
+                and (${table.height} is null or ${table.height} > 0)
+                and (${table.durationMs} is null or ${table.durationMs} >= 0)
+                and (${table.pageCount} is null or ${table.pageCount} > 0)`
+        ),
+        check(
+            'media_representations_hash_valid',
+            sql`${table.sha256} is null or length(${table.sha256}) = 64`
+        ),
+        check(
+            'media_representations_family_valid',
+            sql`${table.family} is null or ${table.family} in ('image', 'video', 'audio', 'document')`
+        ),
+        check(
+            'media_representations_ready_facts_valid',
+            sql`${table.state} <> 'ready'
+                or (${table.detectedContentType} is not null
+                    and ${table.detectedFormat} is not null
+                    and ${table.family} is not null
+                    and ${table.byteSize} is not null
+                    and ${table.sha256} is not null)`
+        ),
+        check(
+            'media_representations_failure_valid',
+            sql`(${table.state} = 'failed'
+                    and ${table.failureCode} is not null
+                    and length(trim(${table.failureCode})) > 0
+                    and ${table.failureMessage} is not null
+                    and length(trim(${table.failureMessage})) > 0)
+                or (${table.state} <> 'failed'
+                    and ${table.failureCode} is null
+                    and ${table.failureMessage} is null)`
+        ),
+        check(
+            'media_representations_derivation_valid',
+            sql`(${table.kind} = 'original'
+                    and ${table.sourceRepresentationId} is null
+                    and ${table.processorId} is null
+                    and ${table.processorVersion} is null
+                    and ${table.recipeJson} is null)
+                or (${table.kind} = 'derived'
+                    and ${table.sourceRepresentationId} is not null
+                    and ${table.processorId} is not null
+                    and length(trim(${table.processorId})) > 0
+                    and ${table.processorVersion} is not null
+                    and length(trim(${table.processorVersion})) > 0
+                    and ${table.recipeJson} is not null
+                    and json_valid(${table.recipeJson})
+                    and json_type(${table.recipeJson}) = 'object')`
+        ),
+    ]
+)
+
+export const mediaUploadIntents = sqliteTable(
+    'media_upload_intents',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        assetId: text('asset_id').notNull(),
+        representationId: text('representation_id').notNull(),
+        state: text('state', { enum: mediaUploadIntentStates }).notNull(),
+        expectedSize: integer('expected_size'),
+        maxBytes: integer('max_bytes').notNull(),
+        contentTypeHint: text('content_type_hint'),
+        expiresAt: integer('expires_at').notNull(),
+        uploadStartedAt: integer('upload_started_at'),
+        completedAt: integer('completed_at'),
+        failureCode: text('failure_code'),
+        failureMessage: text('failure_message'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('media_upload_intents_project_representation_uidx').on(
+            table.projectId,
+            table.representationId
+        ),
+        index('media_upload_intents_state_expires_idx').on(table.state, table.expiresAt),
+        foreignKey({
+            name: 'media_upload_intents_project_asset_fk',
+            columns: [table.projectId, table.assetId],
+            foreignColumns: [mediaAssets.projectId, mediaAssets.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'media_upload_intents_project_asset_representation_fk',
+            columns: [table.projectId, table.assetId, table.representationId],
+            foreignColumns: [
+                mediaRepresentations.projectId,
+                mediaRepresentations.assetId,
+                mediaRepresentations.id,
+            ],
+        }).onDelete('cascade'),
+        check(
+            'media_upload_intents_state_valid',
+            sql`${table.state} in ('pending', 'uploading', 'uploaded', 'consumed', 'expired', 'failed')`
+        ),
+        check(
+            'media_upload_intents_limits_valid',
+            sql`${table.maxBytes} > 0
+                and (${table.expectedSize} is null or (${table.expectedSize} >= 0 and ${table.expectedSize} <= ${table.maxBytes}))`
+        ),
+        check(
+            'media_upload_intents_content_type_valid',
+            sql`${table.contentTypeHint} is null or length(trim(${table.contentTypeHint})) > 0`
+        ),
+        check('media_upload_intents_expiry_valid', sql`${table.expiresAt} > ${table.createdAt}`),
+        check(
+            'media_upload_intents_terminal_state_valid',
+            sql`(${table.state} in ('pending', 'uploading', 'uploaded')
+                    and ${table.completedAt} is null
+                    and ${table.failureCode} is null
+                    and ${table.failureMessage} is null)
+                or (${table.state} in ('consumed', 'expired')
+                    and ${table.completedAt} is not null
+                    and ${table.failureCode} is null
+                    and ${table.failureMessage} is null)
+                or (${table.state} = 'failed'
+                    and ${table.completedAt} is not null
+                    and ${table.failureCode} is not null
+                    and length(trim(${table.failureCode})) > 0
+                    and ${table.failureMessage} is not null
+                    and length(trim(${table.failureMessage})) > 0)`
+        ),
+        check(
+            'media_upload_intents_upload_start_valid',
+            sql`${table.uploadStartedAt} is null or ${table.uploadStartedAt} >= ${table.createdAt}`
+        ),
+        check(
+            'media_upload_intents_upload_start_state_valid',
+            sql`(${table.state} = 'pending' and ${table.uploadStartedAt} is null)
+                or (${table.state} in ('uploading', 'uploaded', 'consumed')
+                    and ${table.uploadStartedAt} is not null)
+                or (${table.state} in ('expired', 'failed'))`
+        ),
     ]
 )
 
