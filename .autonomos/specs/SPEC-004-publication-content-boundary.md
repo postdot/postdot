@@ -5,7 +5,7 @@
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
 - Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md)
 - Superseded by: none
 
 > This is an exploration draft. It records the problem, evidence, requirements,
@@ -450,7 +450,7 @@ schema.
   premature decisions about providers that may never be supported.
 - Best fit: none identified for Herald's current constraints.
 
-### Refined candidate common vocabulary
+### Accepted common source vocabulary
 
 The comparison does not support making every provider field common, but it does
 support a small semantic source revision that can seed several target publications:
@@ -484,8 +484,9 @@ controls what is scheduled under ADR-014.
 The principal alternative is versioned source profiles such as `social-message` and
 `article`. That would represent richer authoring modes more precisely, but it also
 introduces source-profile selection and cross-profile conversion before Herald has
-evidence that the small semantic vocabulary is insufficient. The fixed semantic
-source plus exact target revisions is the current recommendation.
+evidence that the small semantic vocabulary is insufficient. The owner accepted the
+fixed semantic source plus exact target revisions on 2026-08-30; ADR-015 records the
+decision.
 
 ## Capability ownership alternatives
 
@@ -779,12 +780,14 @@ The project owner has accepted the following direction:
    scheduled target. Explicit scheduling/update promotes a validated target revision,
    and execution revisions are immutable after an external effect starts.
 5. Local and S3/R2 media storage share the first Herald-owned `MediaStore` contract.
+6. Reusable source revisions use a small semantic vocabulary: optional plain-text or
+   Markdown body, optional publishable headline, optional language, and ordered media
+   references. Exact channel content remains in target revisions.
 
 ## Decisions still requiring project-owner acceptance
 
-1. Define the initial common content vocabulary and the target-adaptation model:
-   which semantics are shared across social and adjacent publishing platforms, and
-   which remain in each channel's runtime or built-in schema?
+1. Accept or revise the bounded JSON Schema 2020-12 runtime profile, TypeBox
+   compilation path, field bindings, resource ceilings, and normalized issues.
 2. Define the first bounded declarative HTTP mapping vocabulary, including endpoint,
    authentication references, media delivery, response identity, idempotency, and
    error classification. This determines where a custom channel needs a connector.
