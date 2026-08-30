@@ -36,6 +36,13 @@
             "when": 1787950186874,
             "tag": "0004_furry_vin_gonzales",
             "breakpoints": true
+        },
+        {
+            "idx": 5,
+            "version": "6",
+            "when": 1787999626752,
+            "tag": "0005_fuzzy_namor",
+            "breakpoints": true
         }
     ]
 }

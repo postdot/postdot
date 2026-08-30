@@ -3,7 +3,16 @@ import { describe, expect, it } from 'bun:test'
 import type { HeraldDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
-import { actors, channels, jobs, posts, projects, publications, publishers } from './schema'
+import {
+    actors,
+    channels,
+    jobs,
+    posts,
+    projects,
+    publications,
+    publisherCredentials,
+    publishers,
+} from './schema'
 
 function seedProject(database: HeraldDatabase, suffix: string) {
     const projectId = `project-${suffix}`
@@ -200,6 +209,72 @@ describe('domain schema', () => {
                         id: 'unexpected-error',
                         state: 'ready',
                         errorMessage: 'Stale failure',
+                    })
+                    .run()
+            ).toThrow()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('rejects incomplete credential envelopes and cross-project attribution', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const first = seedProject(database, 'credential-first')
+            const second = seedProject(database, 'credential-second')
+            const activeCredential = {
+                projectId: first.projectId,
+                providerId: 'linkedin',
+                externalAccountId: 'member-1',
+                scopes: [],
+                state: 'active' as const,
+                connectedByActorId: first.actorId,
+                encryptionVersion: 1,
+                encryptionKeyId: 'primary',
+                accessTokenCiphertext: Buffer.alloc(17, 1),
+            }
+
+            expect(() =>
+                database
+                    .insert(publisherCredentials)
+                    .values({
+                        ...activeCredential,
+                        id: 'missing-access-nonce',
+                    })
+                    .run()
+            ).toThrow()
+            expect(() =>
+                database
+                    .insert(publisherCredentials)
+                    .values({
+                        ...activeCredential,
+                        id: 'partial-refresh-envelope',
+                        accessTokenNonce: Buffer.alloc(12, 2),
+                        refreshTokenCiphertext: Buffer.alloc(17, 3),
+                    })
+                    .run()
+            ).toThrow()
+            expect(() =>
+                database
+                    .insert(publisherCredentials)
+                    .values({
+                        ...activeCredential,
+                        id: 'cross-project-actor',
+                        connectedByActorId: second.actorId,
+                        accessTokenNonce: Buffer.alloc(12, 2),
+                    })
+                    .run()
+            ).toThrow()
+            expect(() =>
+                database
+                    .insert(publisherCredentials)
+                    .values({
+                        ...activeCredential,
+                        id: 'revoked-with-secret',
+                        state: 'revoked',
+                        accessTokenNonce: Buffer.alloc(12, 2),
                     })
                     .run()
             ).toThrow()

@@ -10,6 +10,7 @@ import {
     createProject,
     createPublication,
     createPublisher,
+    createPublisherCredential,
     reschedulePendingJob,
     startJobEffect,
     transitionJob,
@@ -143,6 +144,45 @@ describe('domain construction', () => {
         expect(publication.state).toBe('scheduled')
         expect(publication.scheduledByActorId).toBe(fixture.actor.id)
         expect(publication.scheduledAt).toBe(now + 60_000)
+    })
+
+    test('makes publisher credentials project-owned and records connection attribution', () => {
+        const first = createFixture('first')
+        const second = createFixture('second')
+        const credential = createPublisherCredential({
+            id: 'credential',
+            project: first.project,
+            connectedBy: first.actor,
+            providerId: ' linkedin ',
+            externalAccountId: ' member-1 ',
+            externalAccountName: ' Herald Operator ',
+            scopes: ['w_member_social', 'openid', 'w_member_social'],
+            expiresAt: now + 60_000,
+            now,
+        })
+
+        expect(credential).toMatchObject({
+            projectId: first.project.id,
+            connectedByActorId: first.actor.id,
+            providerId: 'linkedin',
+            externalAccountId: 'member-1',
+            externalAccountName: 'Herald Operator',
+            scopes: ['openid', 'w_member_social'],
+            state: 'active',
+        })
+        expect(credential).not.toHaveProperty('userId')
+        expectInvariant(
+            () =>
+                createPublisherCredential({
+                    id: 'invalid-credential',
+                    project: first.project,
+                    connectedBy: second.actor,
+                    providerId: 'linkedin',
+                    externalAccountId: 'member-2',
+                    now,
+                }),
+            'project_mismatch'
+        )
     })
 })
 

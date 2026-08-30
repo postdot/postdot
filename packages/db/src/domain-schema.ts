@@ -1,7 +1,8 @@
-import { actorKinds, jobStates, publicationStates } from '@herald/core'
+import { actorKinds, jobStates, publicationStates, publisherCredentialStates } from '@herald/core'
 import { sql } from 'drizzle-orm'
 import {
     check,
+    blob,
     foreignKey,
     index,
     integer,
@@ -88,6 +89,114 @@ export const publishers = sqliteTable(
             foreignColumns: [channels.projectId, channels.id],
         }).onDelete('cascade'),
         check('publishers_kind_nonblank', sql`length(trim(${table.kind})) > 0`),
+    ]
+)
+
+export const publisherCredentials = sqliteTable(
+    'publisher_credentials',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        providerId: text('provider_id').notNull(),
+        externalAccountId: text('external_account_id').notNull(),
+        externalAccountName: text('external_account_name'),
+        scopes: text('scopes', { mode: 'json' }).$type<readonly string[]>().notNull(),
+        state: text('state', { enum: publisherCredentialStates }).notNull(),
+        expiresAt: integer('expires_at'),
+        connectedByActorId: text('connected_by_actor_id').notNull(),
+        encryptionVersion: integer('encryption_version'),
+        encryptionKeyId: text('encryption_key_id'),
+        accessTokenCiphertext: blob('access_token_ciphertext', { mode: 'buffer' }),
+        accessTokenNonce: blob('access_token_nonce', { mode: 'buffer' }),
+        refreshTokenCiphertext: blob('refresh_token_ciphertext', { mode: 'buffer' }),
+        refreshTokenNonce: blob('refresh_token_nonce', { mode: 'buffer' }),
+        revision: integer('revision').default(1).notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('publisher_credentials_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('publisher_credentials_project_provider_external_uidx').on(
+            table.projectId,
+            table.providerId,
+            table.externalAccountId
+        ),
+        index('publisher_credentials_project_state_expires_idx').on(
+            table.projectId,
+            table.state,
+            table.expiresAt
+        ),
+        index('publisher_credentials_project_actor_idx').on(
+            table.projectId,
+            table.connectedByActorId
+        ),
+        foreignKey({
+            name: 'publisher_credentials_project_actor_fk',
+            columns: [table.projectId, table.connectedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'publisher_credentials_provider_nonblank',
+            sql`length(trim(${table.providerId})) > 0`
+        ),
+        check(
+            'publisher_credentials_external_account_nonblank',
+            sql`length(trim(${table.externalAccountId})) > 0`
+        ),
+        check(
+            'publisher_credentials_external_name_nonblank',
+            sql`${table.externalAccountName} is null or length(trim(${table.externalAccountName})) > 0`
+        ),
+        check(
+            'publisher_credentials_scopes_json_array',
+            sql`json_valid(${table.scopes}) and json_type(${table.scopes}) = 'array'`
+        ),
+        check(
+            'publisher_credentials_state_valid',
+            sql`${table.state} in ('active', 'reconnect_required', 'revoked')`
+        ),
+        check(
+            'publisher_credentials_expiry_valid',
+            sql`${table.expiresAt} is null or ${table.expiresAt} >= 0`
+        ),
+        check(
+            'publisher_credentials_encryption_version_valid',
+            sql`${table.encryptionVersion} is null or ${table.encryptionVersion} > 0`
+        ),
+        check(
+            'publisher_credentials_encryption_key_nonblank',
+            sql`${table.encryptionKeyId} is null or length(trim(${table.encryptionKeyId})) > 0`
+        ),
+        check(
+            'publisher_credentials_secret_state_valid',
+            sql`(
+                    ${table.state} in ('active', 'reconnect_required')
+                    and ${table.encryptionVersion} is not null
+                    and ${table.encryptionKeyId} is not null
+                    and ${table.accessTokenCiphertext} is not null
+                    and ${table.accessTokenNonce} is not null
+                    and length(${table.accessTokenCiphertext}) > 16
+                    and length(${table.accessTokenNonce}) = 12
+                ) or (
+                    ${table.state} = 'revoked'
+                    and ${table.encryptionVersion} is null
+                    and ${table.encryptionKeyId} is null
+                    and ${table.accessTokenCiphertext} is null
+                    and ${table.accessTokenNonce} is null
+                    and ${table.refreshTokenCiphertext} is null
+                    and ${table.refreshTokenNonce} is null
+                )`
+        ),
+        check(
+            'publisher_credentials_refresh_token_envelope_valid',
+            sql`(${table.refreshTokenCiphertext} is null and ${table.refreshTokenNonce} is null)
+                or (${table.refreshTokenCiphertext} is not null
+                    and ${table.refreshTokenNonce} is not null
+                    and length(${table.refreshTokenCiphertext}) > 16
+                    and length(${table.refreshTokenNonce}) = 12)`
+        ),
+        check('publisher_credentials_revision_valid', sql`${table.revision} > 0`),
     ]
 )
 

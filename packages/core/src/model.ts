@@ -17,10 +17,12 @@ export const publicationStates = [
     'cancelled',
 ] as const
 export const jobStates = ['pending', 'running', 'succeeded', 'failed', 'cancelled'] as const
+export const publisherCredentialStates = ['active', 'reconnect_required', 'revoked'] as const
 
 export type ActorKind = (typeof actorKinds)[number]
 export type PublicationState = (typeof publicationStates)[number]
 export type JobState = (typeof jobStates)[number]
+export type PublisherCredentialState = (typeof publisherCredentialStates)[number]
 export type Timestamp = number
 
 interface Entity {
@@ -50,6 +52,16 @@ export interface Channel extends ProjectEntity {
 export interface Publisher extends ProjectEntity {
     readonly channelId: string
     readonly kind: string
+}
+
+export interface PublisherCredential extends ProjectEntity {
+    readonly providerId: string
+    readonly externalAccountId: string
+    readonly externalAccountName: string | null
+    readonly scopes: readonly string[]
+    readonly state: PublisherCredentialState
+    readonly expiresAt: Timestamp | null
+    readonly connectedByActorId: string
 }
 
 export interface Post extends ProjectEntity {
@@ -163,6 +175,41 @@ export function createPublisher(
         ...projectEntityFields(input, input.project),
         channelId: input.channel.id,
         kind: requireNonBlank(input.kind, 'kind'),
+    }
+}
+
+export function createPublisherCredential(
+    input: CreateEntityInput & {
+        readonly project: Project
+        readonly connectedBy: Actor
+        readonly providerId: string
+        readonly externalAccountId: string
+        readonly externalAccountName?: string | null
+        readonly scopes?: readonly string[]
+        readonly expiresAt?: Timestamp | null
+    }
+): PublisherCredential {
+    requireSameProject(input.project.id, input.connectedBy.projectId, 'connectedBy actor')
+
+    const scopes = [
+        ...new Set((input.scopes ?? []).map(scope => requireNonBlank(scope, 'scope'))),
+    ].sort()
+
+    return {
+        ...projectEntityFields(input, input.project),
+        providerId: requireNonBlank(input.providerId, 'providerId'),
+        externalAccountId: requireNonBlank(input.externalAccountId, 'externalAccountId'),
+        externalAccountName:
+            input.externalAccountName === null || input.externalAccountName === undefined
+                ? null
+                : requireNonBlank(input.externalAccountName, 'externalAccountName'),
+        scopes,
+        state: 'active',
+        expiresAt:
+            input.expiresAt === null || input.expiresAt === undefined
+                ? null
+                : requireTimestamp(input.expiresAt, 'expiresAt'),
+        connectedByActorId: input.connectedBy.id,
     }
 }
 
