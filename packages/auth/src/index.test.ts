@@ -81,28 +81,13 @@ describe('Herald authentication', () => {
         }
     })
 
-    it('configures LinkedIn as an optional encrypted OAuth account provider', () => {
+    it('exposes only the email and password strategy', () => {
         const { database } = createFixture()
-        const configured = createAuth(database, {
-            baseURL,
-            secret,
-            linkedin: {
-                clientId: 'linkedin-client-id',
-                clientSecret: 'linkedin-client-secret',
-            },
-        })
+        const configured = createAuth(database, { baseURL, secret })
 
         try {
-            expect(configured.options.account?.encryptOAuthTokens).toBe(true)
-            expect(configured.options.account?.accountLinking).toMatchObject({
-                allowDifferentEmails: true,
-                disableImplicitLinking: true,
-            })
-            expect(configured.options.socialProviders?.linkedin).toMatchObject({
-                clientId: 'linkedin-client-id',
-                clientSecret: 'linkedin-client-secret',
-                disableSignUp: true,
-            })
+            expect(configured.options.emailAndPassword?.enabled).toBe(true)
+            expect(Object.hasOwn(configured.options, 'socialProviders')).toBe(false)
         } finally {
             closeDatabase(database)
         }

@@ -17,6 +17,7 @@ const defaultMigrationsDirectory = fileURLToPath(
 )
 const defaultWebAssetsDirectory = fileURLToPath(new URL('../../../apps/web/dist', import.meta.url))
 const exampleBetterAuthSecret = 'replace-with-a-random-secret-of-at-least-32-characters'
+const examplePublisherEncryptionKey = 'replace-with-64-hex-characters'
 
 const environmentDefinitions = {
     NODE_ENV: env.enum(['development', 'test', 'production'], {
@@ -37,6 +38,8 @@ const environmentDefinitions = {
         },
     }),
     BETTER_AUTH_SECRET: env.secret({ example: exampleBetterAuthSecret }),
+    HERALD_PUBLISHER_ENCRYPTION_KEY: env.hexSecret({ example: examplePublisherEncryptionKey }),
+    HERALD_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
     LINKEDIN_CLIENT_ID: env.optionalString({ minLength: 1 }),
     LINKEDIN_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     HERALD_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
@@ -68,6 +71,12 @@ export interface HeraldConfig {
     readonly auth: {
         readonly baseURL: string
         readonly secret: string
+    }
+    readonly security: {
+        readonly publisherEncryptionKey: string
+        readonly publisherEncryptionKeyId: string
+    }
+    readonly publishers: {
         readonly linkedin?: {
             readonly clientId: string
             readonly clientSecret: string
@@ -111,8 +120,12 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
         auth: {
             baseURL: environment.BETTER_AUTH_URL,
             secret: environment.BETTER_AUTH_SECRET,
-            ...(linkedin === undefined ? {} : { linkedin }),
         },
+        security: {
+            publisherEncryptionKey: environment.HERALD_PUBLISHER_ENCRYPTION_KEY,
+            publisherEncryptionKeyId: environment.HERALD_PUBLISHER_ENCRYPTION_KEY_ID,
+        },
+        publishers: linkedin === undefined ? {} : { linkedin },
         web: {
             origin: environment.HERALD_WEB_ORIGIN,
             assetsDirectory: environment.HERALD_WEB_ASSETS_DIR,
@@ -123,4 +136,16 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             pretty: environment.LOG_PRETTY,
         },
     }
+}
+
+export function decodeHexKey(value: string): Uint8Array {
+    if (!/^[0-9a-fA-F]{64}$/.test(value)) {
+        throw new Error('Publisher encryption key must be 64 hexadecimal characters')
+    }
+
+    const key = new Uint8Array(32)
+    for (let index = 0; index < key.length; index += 1) {
+        key[index] = Number.parseInt(value.slice(index * 2, index * 2 + 2), 16)
+    }
+    return key
 }

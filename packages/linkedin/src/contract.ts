@@ -3,6 +3,11 @@ import type { ExternalEffectOutcome } from '@herald/core'
 export const LINKEDIN_PROVIDER = 'linkedin' as const
 export const LINKEDIN_API_BASE_URL = 'https://api.linkedin.com'
 export const LINKEDIN_POSTS_PATH = '/rest/posts'
+export const LINKEDIN_USERINFO_PATH = '/v2/userinfo'
+export const LINKEDIN_OAUTH_ISSUER = 'https://www.linkedin.com'
+export const LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT =
+    'https://www.linkedin.com/oauth/v2/authorization'
+export const LINKEDIN_OAUTH_TOKEN_ENDPOINT = 'https://www.linkedin.com/oauth/v2/accessToken'
 export const LINKEDIN_RESTLI_PROTOCOL_VERSION = '2.0.0'
 export const LINKEDIN_DEFAULT_API_VERSION = '202608'
 export const LINKEDIN_REQUIRED_SCOPES = ['openid', 'profile', 'w_member_social'] as const
@@ -57,4 +62,13 @@ export interface LinkedInTextPublisherOptions {
 
 export interface LinkedInTextPublisher {
     publishText(input: PublishLinkedInTextInput): Promise<LinkedInPublishOutcome>
+}
+
+export interface LinkedInMemberProfile {
+    readonly id: string
+    readonly name: string | null
+}
+
+export interface LinkedInMemberProfileClient {
+    getProfile(accessToken: string): Promise<LinkedInMemberProfile>
 }

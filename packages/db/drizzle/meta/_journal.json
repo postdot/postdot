@@ -5,50 +5,8 @@
         {
             "idx": 0,
             "version": "6",
-            "when": 1787898511214,
-            "tag": "0000_spicy_quasimodo",
-            "breakpoints": true
-        },
-        {
-            "idx": 1,
-            "version": "6",
-            "when": 1787915185186,
-            "tag": "0001_smiling_justin_hammer",
-            "breakpoints": true
-        },
-        {
-            "idx": 2,
-            "version": "6",
-            "when": 1787921531192,
-            "tag": "0002_abnormal_nighthawk",
-            "breakpoints": true
-        },
-        {
-            "idx": 3,
-            "version": "6",
-            "when": 1787929572181,
-            "tag": "0003_yielding_norman_osborn",
-            "breakpoints": true
-        },
-        {
-            "idx": 4,
-            "version": "6",
-            "when": 1787950186874,
-            "tag": "0004_furry_vin_gonzales",
-            "breakpoints": true
-        },
-        {
-            "idx": 5,
-            "version": "6",
-            "when": 1787999626752,
-            "tag": "0005_fuzzy_namor",
-            "breakpoints": true
-        },
-        {
-            "idx": 6,
-            "version": "6",
-            "when": 1788000425511,
-            "tag": "0006_quick_silver_centurion",
+            "when": 1788013807730,
+            "tag": "0000_eager_patriot",
             "breakpoints": true
         }
     ]

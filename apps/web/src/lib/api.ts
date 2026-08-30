@@ -22,12 +22,6 @@ export interface Session {
     }
 }
 
-export interface LinkedAccount {
-    readonly id: string
-    readonly providerId: string
-    readonly scopes: readonly string[]
-}
-
 export class ApiError extends Error {
     readonly status: number
     readonly code: string
@@ -107,21 +101,6 @@ export const api = {
         return requestAuth('/api/auth/sign-out', jsonBody({}))
     },
 
-    async listLinkedAccounts(): Promise<LinkedAccount[]> {
-        const accounts = await requestAuth<
-            Array<{
-                readonly id: string
-                readonly providerId: string
-                readonly scopes: string[]
-            }>
-        >('/api/auth/list-accounts')
-        return accounts.map(account => ({
-            id: account.id,
-            providerId: account.providerId,
-            scopes: account.scopes,
-        }))
-    },
-
     async listProjects(): Promise<{ projects: Project[] }> {
         return unwrap<{ projects: Project[] }>(await client.api.projects.get())
     },
@@ -153,19 +132,6 @@ export const api = {
                 .projects({ projectId })
                 .channels({ channelId })
                 .publisher.linkedin.connect.post()
-        )
-    },
-
-    async connectLinkedInPublisher(
-        projectId: string,
-        channelId: string,
-        accountId: string
-    ): Promise<{ connection: PublisherConnection }> {
-        return unwrap<{ connection: PublisherConnection }>(
-            await client.api
-                .projects({ projectId })
-                .channels({ channelId })
-                .publisher.post({ provider: 'linkedin', accountId })
         )
     },
 

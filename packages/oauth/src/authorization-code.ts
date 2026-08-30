@@ -39,6 +39,14 @@ export interface ExchangeAuthorizationCodeInput {
     readonly signal?: AbortSignal
 }
 
+export interface RefreshAccessTokenInput {
+    readonly authorizationServer: OAuthAuthorizationServer
+    readonly clientId: string
+    readonly clientAuthentication: OAuthClientAuthentication
+    readonly refreshToken: string
+    readonly signal?: AbortSignal
+}
+
 export interface OAuthTokenSet {
     readonly accessToken: string
     readonly refreshToken: string | null
@@ -177,8 +185,36 @@ export async function exchangeAuthorizationCode(
         requireOpaque(input.codeVerifier, 'codeVerifier'),
         options
     )
-    const tokenSet = await oauth.processAuthorizationCodeResponse(metadata, client, response)
+    return toTokenSet(await oauth.processAuthorizationCodeResponse(metadata, client, response))
+}
 
+export async function refreshAccessToken(input: RefreshAccessTokenInput): Promise<OAuthTokenSet> {
+    const metadata = authorizationServerMetadata(input.authorizationServer)
+    const client = clientMetadata(input.clientId)
+    const refreshToken = requireOpaque(input.refreshToken, 'refreshToken')
+    const response = await oauth.refreshTokenGrantRequest(
+        metadata,
+        client,
+        input.clientAuthentication,
+        refreshToken,
+        {
+            signal: input.signal,
+            [oauth.allowInsecureRequests]: allowsInsecureLocalTransport(input.authorizationServer),
+        }
+    )
+
+    return toTokenSet(await oauth.processRefreshTokenResponse(metadata, client, response))
+}
+
+export function clientSecretPost(clientSecret: string): OAuthClientAuthentication {
+    return oauth.ClientSecretPost(requireOpaque(clientSecret, 'clientSecret'))
+}
+
+export function clientSecretBasic(clientSecret: string): OAuthClientAuthentication {
+    return oauth.ClientSecretBasic(requireOpaque(clientSecret, 'clientSecret'))
+}
+
+function toTokenSet(tokenSet: oauth.TokenEndpointResponse): OAuthTokenSet {
     return {
         accessToken: tokenSet.access_token,
         refreshToken: tokenSet.refresh_token ?? null,
@@ -189,14 +225,6 @@ export async function exchangeAuthorizationCode(
                 : normalizeScopes(tokenSet.scope.split(' ').filter(Boolean)),
         tokenType: tokenSet.token_type,
     }
-}
-
-export function clientSecretPost(clientSecret: string): OAuthClientAuthentication {
-    return oauth.ClientSecretPost(requireOpaque(clientSecret, 'clientSecret'))
-}
-
-export function clientSecretBasic(clientSecret: string): OAuthClientAuthentication {
-    return oauth.ClientSecretBasic(requireOpaque(clientSecret, 'clientSecret'))
 }
 
 export async function digestAuthorizationState(state: string): Promise<Uint8Array> {

@@ -78,6 +78,25 @@ export const env = {
         }
     },
 
+    hexSecret(
+        options: DefaultValueOptions<string> & { readonly example?: string } = {}
+    ): EnvironmentVariable<string> {
+        return {
+            schema: Type.String({ pattern: '^[0-9a-fA-F]{64}$', minLength: 64, maxLength: 64 }),
+            parse: rawValue => {
+                if (options.example !== undefined && rawValue === options.example) {
+                    throw new Error('must replace the example placeholder')
+                }
+                if (!/^[0-9a-fA-F]{64}$/.test(rawValue)) {
+                    throw new Error('must be exactly 32 bytes encoded as 64 hexadecimal characters')
+                }
+
+                return rawValue
+            },
+            defaultValue: options.defaultValue,
+        }
+    },
+
     integer(
         options: DefaultValueOptions<number> & {
             readonly minimum?: number

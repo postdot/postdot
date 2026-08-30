@@ -11,8 +11,6 @@ import {
     uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 
-import { account } from './auth-schema'
-
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
 
@@ -307,9 +305,7 @@ export const publisherConnections = sqliteTable(
             .notNull()
             .references(() => projects.id, { onDelete: 'cascade' }),
         publisherId: text('publisher_id').notNull(),
-        accountId: text('account_id')
-            .notNull()
-            .references(() => account.id, { onDelete: 'restrict' }),
+        credentialId: text('credential_id').notNull(),
         connectedByActorId: text('connected_by_actor_id').notNull(),
         ...timestamps(),
     },
@@ -318,7 +314,7 @@ export const publisherConnections = sqliteTable(
             table.projectId,
             table.publisherId
         ),
-        index('publisher_connections_account_id_idx').on(table.accountId),
+        index('publisher_connections_credential_id_idx').on(table.credentialId),
         index('publisher_connections_project_id_actor_id_idx').on(
             table.projectId,
             table.connectedByActorId
@@ -327,6 +323,11 @@ export const publisherConnections = sqliteTable(
             name: 'publisher_connections_project_publisher_fk',
             columns: [table.projectId, table.publisherId],
             foreignColumns: [publishers.projectId, publishers.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publisher_connections_project_credential_fk',
+            columns: [table.projectId, table.credentialId],
+            foreignColumns: [publisherCredentials.projectId, publisherCredentials.id],
         }).onDelete('cascade'),
         foreignKey({
             name: 'publisher_connections_project_actor_fk',

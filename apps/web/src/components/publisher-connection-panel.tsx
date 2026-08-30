@@ -1,33 +1,24 @@
 import { AddCircleIcon } from '@solar-icons/react/linear/add-circle'
 import { CheckCircleIcon } from '@solar-icons/react/linear/check-circle'
-import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import type { Channel, LinkedAccount, PublisherConnection } from '@/lib/api'
+import type { Channel, PublisherConnection } from '@/lib/api'
 
 interface PublisherConnectionPanelProps {
     readonly channels: readonly Channel[]
     readonly connections: readonly PublisherConnection[]
-    readonly linkedAccounts: readonly LinkedAccount[]
     readonly pending: boolean
     readonly onStartLinkedInConnection: (channelId: string) => Promise<void>
-    readonly onConnectLinkedInPublisher: (channelId: string, accountId: string) => Promise<void>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
 }
 
 export function PublisherConnectionPanel({
     channels,
     connections,
-    linkedAccounts,
     pending,
     onStartLinkedInConnection,
-    onConnectLinkedInPublisher,
     onDisconnectPublisher,
 }: PublisherConnectionPanelProps) {
-    const linkedinAccounts = linkedAccounts.filter(account => account.providerId === 'linkedin')
-    const [selectedAccountByChannel, setSelectedAccountByChannel] = useState<
-        Record<string, string>
-    >({})
     const connectionsByChannel = new Map(
         connections.map(connection => [connection.channelId, connection])
     )
@@ -55,12 +46,6 @@ export function PublisherConnectionPanel({
                 ) : (
                     channels.map(channel => {
                         const connection = connectionsByChannel.get(channel.id)
-                        const account =
-                            connection === undefined
-                                ? undefined
-                                : linkedAccounts.find(item => item.id === connection.accountId)
-                        const selectedAccountId =
-                            selectedAccountByChannel[channel.id] ?? linkedinAccounts[0]?.id ?? ''
 
                         return (
                             <article
@@ -81,76 +66,30 @@ export function PublisherConnectionPanel({
                                         </p>
                                     ) : (
                                         <p className="mt-2 text-sm text-muted-foreground">
-                                            LinkedIn member
-                                            {account === undefined
-                                                ? ''
-                                                : ` · account ${account.id}`}
+                                            LinkedIn member ·{' '}
+                                            {connection.externalAccountName ??
+                                                connection.externalAccountId}
                                         </p>
                                     )}
+                                    {connection !== undefined && connection.state !== 'active' ? (
+                                        <p className="mt-1 text-sm text-destructive">
+                                            Reconnection required before automatic publishing can
+                                            resume.
+                                        </p>
+                                    ) : null}
                                 </div>
 
                                 {connection === undefined ? (
                                     <div className="mt-4 grid gap-3 sm:mt-0 sm:min-w-72">
-                                        {linkedinAccounts.length > 0 ? (
-                                            <label className="grid gap-2 text-sm font-medium">
-                                                LinkedIn account
-                                                <select
-                                                    aria-label={`Select a LinkedIn account for ${channel.name}`}
-                                                    value={selectedAccountId}
-                                                    onChange={event =>
-                                                        setSelectedAccountByChannel(current => ({
-                                                            ...current,
-                                                            [channel.id]: event.target.value,
-                                                        }))
-                                                    }
-                                                    disabled={pending}
-                                                    className="h-9 rounded-lg border bg-background px-3 text-sm font-normal outline-none focus:border-ring focus:ring-3 focus:ring-ring/20">
-                                                    {linkedinAccounts.map(linkedAccount => (
-                                                        <option
-                                                            key={linkedAccount.id}
-                                                            value={linkedAccount.id}>
-                                                            {linkedAccount.id}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </label>
-                                        ) : null}
-                                        {linkedinAccounts.length > 0 ? (
-                                            <div className="flex flex-wrap gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        void onConnectLinkedInPublisher(
-                                                            channel.id,
-                                                            selectedAccountId
-                                                        )
-                                                    }
-                                                    disabled={pending || selectedAccountId === ''}>
-                                                    <CheckCircleIcon aria-hidden="true" />
-                                                    Bind account
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        void onStartLinkedInConnection(channel.id)
-                                                    }
-                                                    disabled={pending}>
-                                                    <AddCircleIcon aria-hidden="true" />
-                                                    Connect another
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <Button
-                                                size="sm"
-                                                onClick={() =>
-                                                    void onStartLinkedInConnection(channel.id)
-                                                }
-                                                disabled={pending}>
-                                                <AddCircleIcon aria-hidden="true" />
-                                                Connect LinkedIn
-                                            </Button>
-                                        )}
+                                        <Button
+                                            size="sm"
+                                            onClick={() =>
+                                                void onStartLinkedInConnection(channel.id)
+                                            }
+                                            disabled={pending}>
+                                            <AddCircleIcon aria-hidden="true" />
+                                            Connect LinkedIn
+                                        </Button>
                                     </div>
                                 ) : (
                                     <Button

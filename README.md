@@ -14,7 +14,7 @@ Requirements: Bun 1.4 or newer.
 ```sh
 bun install
 cp apps/api/.env.example apps/api/.env
-# Replace BETTER_AUTH_SECRET with a random value of at least 32 characters.
+# Replace BETTER_AUTH_SECRET and HERALD_PUBLISHER_ENCRYPTION_KEY with random values.
 bun run dev
 ```
 
@@ -62,15 +62,15 @@ audit commands. Set `HERALD_URL` or pass `--base-url` when the API is not local.
 The LinkedIn publisher smoke test creates a real public member post. It is never
 part of `bun run check` and must only be run with an operator-owned test account.
 
-1. Create or configure a LinkedIn application with the **Sign In with LinkedIn
-   using OpenID Connect** and **Share on LinkedIn** products. The latter grants
-   the `w_member_social` permission required to publish for a member. See the
-   [Better Auth LinkedIn setup](https://better-auth.com/docs/authentication/linkedin)
-   and [LinkedIn access requirements](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access).
+1. Create or configure a LinkedIn application with **Sign In with LinkedIn using
+   OpenID Connect** and **Share on LinkedIn**. The latter grants the
+   `w_member_social` permission required to publish for a member. See the
+   [LinkedIn access requirements](https://learn.microsoft.com/en-us/linkedin/shared/authentication/getting-access)
+   and [LinkedIn authorization flow](https://learn.microsoft.com/en-us/linkedin/shared/authentication/authorization-code-flow).
 2. Set the exact callback URL in the LinkedIn application to
-   `http://localhost:3000/api/auth/callback/linkedin` for the default local setup.
-   If `BETTER_AUTH_URL` is changed, use
-   `<BETTER_AUTH_URL>/api/auth/callback/linkedin` instead.
+   `http://localhost:3000/api/oauth/linkedin/callback` for the default local
+   setup. If `BETTER_AUTH_URL` is changed, use
+   `<BETTER_AUTH_URL>/api/oauth/linkedin/callback` instead.
 3. Add the credentials to the ignored local file `apps/api/.env` and restart the
    API:
 
@@ -79,10 +79,11 @@ part of `bun run check` and must only be run with an operator-owned test account
    LINKEDIN_CLIENT_SECRET=your-client-secret
    ```
 
-4. Open the dashboard, sign in with the local Herald account, create a project and
-   channel, then use **Publisher connections → Connect LinkedIn**. Approve the
-   requested access, select the returned LinkedIn account, and click **Bind
-   account**.
+4. Open the dashboard, sign in with the local Herald email/password account,
+   create a project and channel, then use **Publisher connections → Connect
+   LinkedIn**. Approve the requested access. The callback creates a
+   project-owned publisher connection for the LinkedIn member returned by the
+   provider.
 5. Create a uniquely identifiable text publication for that channel and schedule
    it a few minutes in the future. The in-process worker will create and execute
    the durable job at the scheduled time.
@@ -99,9 +100,10 @@ part of `bun run check` and must only be run with an operator-owned test account
 
 The provider currently targets text-only member posts through the versioned
 [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api).
-Tokens are obtained and stored through Better Auth; they must not be copied into
-the environment file or passed to the dashboard, CLI, or provider adapter by an
-operator.
+Better Auth is used only for Herald email/password sessions. Publisher OAuth
+credentials are project-owned and encrypted at rest using the required
+`HERALD_PUBLISHER_ENCRYPTION_KEY`; they must not be copied into the environment
+file or passed to the dashboard, CLI, or provider adapter by an operator.
 
 Generate the current text and LCOV coverage reports with `bun run test:coverage`.
 Coverage is reported for visibility; critical-path behavior, not a global percentage,
@@ -172,3 +174,5 @@ The current workspace contains:
 - `packages/core`: reserved for the framework-independent domain model.
 - `packages/db`: Drizzle ORM schema, Bun SQLite client, and migrations;
 - `packages/auth`: Better Auth configuration and adapter boundary.
+- `packages/oauth`: OAuth authorization-code and PKCE protocol mechanics;
+- `packages/linkedin`: LinkedIn OAuth profile and publication adapter.

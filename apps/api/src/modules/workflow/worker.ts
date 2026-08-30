@@ -1,4 +1,3 @@
-import type { HeraldAuth } from '@herald/auth'
 import {
     createExponentialRetryPolicy,
     NextEventScheduler,
@@ -8,8 +7,9 @@ import {
     type RetryPolicy,
 } from '@herald/core'
 import {
-    createPublisherStore,
     createWorkflowStore,
+    type createPublisherCredentialStore,
+    type createPublisherStore,
     type HeraldDatabase,
     type PublisherExecutionTarget,
 } from '@herald/db'
@@ -18,6 +18,11 @@ import {
     LINKEDIN_PROVIDER,
     type LinkedInTextPublisher,
 } from '@herald/linkedin'
+import {
+    refreshAccessToken,
+    type OAuthAuthorizationServer,
+    type OAuthClientAuthentication,
+} from '@herald/oauth'
 
 const defaultLeaseDuration = 5 * 60_000
 const defaultRetryPolicy = createExponentialRetryPolicy({
@@ -27,8 +32,14 @@ const defaultRetryPolicy = createExponentialRetryPolicy({
 })
 
 export interface PublicationWorkerOptions {
-    readonly auth: HeraldAuth
     readonly database: HeraldDatabase
+    readonly publisherStore: ReturnType<typeof createPublisherStore>
+    readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
+    readonly linkedinOAuth?: {
+        readonly authorizationServer: OAuthAuthorizationServer
+        readonly clientId: string
+        readonly clientAuthentication: OAuthClientAuthentication
+    }
     readonly now?: () => number
     readonly leaseDuration?: number
     readonly retryPolicy?: RetryPolicy
@@ -48,7 +59,7 @@ export interface PublicationWorker {
 export function createPublicationWorker(options: PublicationWorkerOptions): PublicationWorker {
     const now = options.now ?? Date.now
     const workflowStore = createWorkflowStore(options.database)
-    const publisherStore = createPublisherStore(options.database)
+    const publisherStore = options.publisherStore
     const linkedInPublisher = options.linkedInPublisher ?? createLinkedInTextPublisher()
     const leaseDuration = options.leaseDuration ?? defaultLeaseDuration
     const retryPolicy = options.retryPolicy ?? defaultRetryPolicy
@@ -70,10 +81,12 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
                     createClaimToken,
                     performExternalEffect: job =>
                         performExternalEffect({
-                            auth: options.auth,
                             job,
                             linkedInPublisher,
                             publisherStore,
+                            publisherCredentialStore: options.publisherCredentialStore,
+                            linkedinOAuth: options.linkedinOAuth,
+                            now: timestamp,
                         }),
                     now: () => timestamp,
                 })
@@ -106,12 +119,20 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
 }
 
 async function performExternalEffect(input: {
-    readonly auth: HeraldAuth
     readonly job: Job
     readonly linkedInPublisher: LinkedInTextPublisher
     readonly publisherStore: ReturnType<typeof createPublisherStore>
+    readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
+    readonly linkedinOAuth:
+        | {
+              readonly authorizationServer: OAuthAuthorizationServer
+              readonly clientId: string
+              readonly clientAuthentication: OAuthClientAuthentication
+          }
+        | undefined
+    readonly now: number
 }): Promise<ExternalEffectOutcome> {
-    const { auth, job, linkedInPublisher, publisherStore } = input
+    const { job, linkedInPublisher, publisherStore, publisherCredentialStore } = input
     if (job.claimToken === null) {
         return permanentFailure('The claimed publication has no execution fence')
     }
@@ -125,28 +146,75 @@ async function performExternalEffect(input: {
         return permanentFailure(`No publisher adapter is registered for ${target.providerId}`)
     }
 
-    let accessToken: string
+    const secrets = await publisherCredentialStore.resolvePublisherCredentialSecrets(
+        target.projectId,
+        target.credentialId
+    )
+    if (secrets === null) {
+        return permanentFailure('The publisher credential is unavailable')
+    }
+
+    let accessToken = secrets.accessToken
+    const refreshToken = secrets.refreshToken
     try {
-        const credentials = await auth.api.getAccessToken({
-            body: {
-                accountId: target.accountId,
-                userId: target.accountUserId,
-            },
-        })
-        accessToken = credentials.accessToken
+        if (target.credentialExpiresAt !== null && target.credentialExpiresAt <= input.now) {
+            if (refreshToken === null || input.linkedinOAuth === undefined) {
+                publisherCredentialStore.markPublisherCredentialReconnectRequired(
+                    target.projectId,
+                    target.credentialId
+                )
+                return permanentFailure('The publisher credential requires reconnection')
+            }
+
+            const refreshed = await refreshAccessToken({
+                authorizationServer: input.linkedinOAuth.authorizationServer,
+                clientId: input.linkedinOAuth.clientId,
+                clientAuthentication: input.linkedinOAuth.clientAuthentication,
+                refreshToken,
+            })
+            const expiresAt =
+                refreshed.expiresInSeconds === null
+                    ? null
+                    : input.now + refreshed.expiresInSeconds * 1000
+            const replaced = await publisherCredentialStore.replacePublisherCredentialTokens({
+                projectId: target.projectId,
+                credentialId: target.credentialId,
+                accessToken: refreshed.accessToken,
+                refreshToken: refreshed.refreshToken ?? undefined,
+                expiresAt,
+            })
+            if (replaced.kind !== 'updated') {
+                return permanentFailure('The publisher credential could not be refreshed')
+            }
+            accessToken = refreshed.accessToken
+        }
     } catch {
-        return permanentFailure('The publisher account access token is unavailable')
+        publisherCredentialStore.markPublisherCredentialReconnectRequired(
+            target.projectId,
+            target.credentialId
+        )
+        return permanentFailure('The publisher credential could not be refreshed')
     }
 
     if (accessToken.trim().length === 0) {
         return permanentFailure('The publisher account access token is unavailable')
     }
 
-    return linkedInPublisher.publishText({
+    const outcome = await linkedInPublisher.publishText({
         accessToken,
         memberId: target.externalAccountId,
         commentary: target.content,
     })
+    if (
+        outcome.type === 'permanent_failure' &&
+        (outcome.code === 'authentication_required' || outcome.code === 'forbidden')
+    ) {
+        publisherCredentialStore.markPublisherCredentialReconnectRequired(
+            target.projectId,
+            target.credentialId
+        )
+    }
+    return outcome
 }
 
 function permanentFailure(

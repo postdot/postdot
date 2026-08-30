@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createApp } from '@herald/api'
+import { createApp, createPublisherRuntime } from '@herald/api'
 import { createAuth } from '@herald/auth'
 import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
 
@@ -16,10 +16,6 @@ describe('Herald client', () => {
         expect(client.api.projects.post).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).publishers.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).channels.get).toBeFunction()
-        expect(
-            client.api.projects({ projectId: 'project-1' }).channels({ channelId: 'channel-1' })
-                .publisher.post
-        ).toBeFunction()
         expect(
             client.api.projects({ projectId: 'project-1' }).channels({ channelId: 'channel-1' })
                 .publisher.delete
@@ -38,12 +34,19 @@ describe('Herald client', () => {
     it('calls typed routes through a custom fetcher', async () => {
         const database = createDatabase(':memory:')
         runMigrations(database)
+        const publisher = createPublisherRuntime(database, {
+            apiOrigin: 'http://localhost:3000',
+            webOrigin: 'http://localhost:5173',
+            publisherEncryptionKey: new Uint8Array(32).fill(7),
+            publisherEncryptionKeyId: 'test-v1',
+        })
         const app = createApp({
             auth: createAuth(database, {
                 baseURL: 'http://localhost:3000',
                 secret: 'herald-test-secret-with-at-least-32-characters',
             }),
             database,
+            publisher,
         })
 
         try {
