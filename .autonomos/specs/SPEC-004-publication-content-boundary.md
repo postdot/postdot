@@ -309,18 +309,35 @@ profile is edited.
 ### Candidate profile-evolution behavior
 
 Channel profile versions are immutable after activation. Editing a channel creates a
-new profile draft; it does not mutate the active profile in place. Activating the new
-version has the following effects:
+new profile draft; it does not mutate the active profile in place. A preset is copied
+into that draft and has no live authority over the resulting channel.
+
+Before activation, Herald evaluates the new profile against actual affected working
+drafts and pending target revisions. The activation preview reports compatible
+content, validation failures, removed or changed fields, unavailable media
+representations, and execution-contract changes such as a different transport,
+authentication binding, or built-in module revision. JSON Schema compatibility is
+not guessed in the abstract; Herald validates the persisted instances and applies
+the module's deterministic rules.
+
+Activating the new version has the following effects:
 
 - new drafts use the new active profile;
-- historical and in-flight execution revisions retain their exact old profile
-  version and remain readable and retryable;
-- existing working drafts are revalidated against the new profile and marked
-  `compatible` or `review_required`, with normalized issues for fields that no longer
-  fit;
-- an already selected scheduled target stays attached to its old profile and remains
-  executable. Herald displays that a newer channel profile exists but does not
-  silently reinterpret or cancel the schedule;
+- historical and in-flight execution revisions retain their exact old profile,
+  representation references, and hashes. They remain readable and reconcilable;
+  retry is allowed only while the referenced profile execution contract remains
+  supported;
+- existing working drafts keep their bytes and fields, are revalidated against the
+  new profile, and are marked `compatible` or `review_required` with normalized
+  issues. Herald never removes incompatible data during this assessment;
+- an already selected scheduled target stays attached to its old profile. If its
+  actual content still satisfies the new constraints and its execution contract is
+  unchanged and supported, it may execute without being rewritten and the UI shows
+  that a newer profile exists;
+- if the target fails the new constraints, requires unavailable media, or its
+  transport/module contract changed, it becomes `review_required` before the
+  external-effect boundary. The scheduler cannot claim it until the user resolves or
+  explicitly re-approves the old contract where that contract is still supported;
 - applying the new profile to a draft or scheduled publication is an explicit
   migration that creates a new validated target revision;
 - removed, renamed, or type-changed fields require an explicit field mapping or user
@@ -328,11 +345,19 @@ version has the following effects:
 - profile versions referenced by any draft, target, execution, or audit record cannot
   be physically deleted.
 
+Profile immutability and execution support are separate. A superseded custom profile
+may remain executable because its complete declarative contract is stored. A
+built-in module may stop executing an old contract when its code or provider API no
+longer supports it, and a security correction may disable a profile immediately.
+Neither case removes the historical profile or rewrites a revision. A security-
+disabled contract cannot be re-approved from project configuration.
+
 This treats a channel-profile update like a small domain migration without forcing a
 database migration for each custom destination. Lowering a microblog limit from 500
-to 300 characters, for example, immediately helps the editor validate new work while
-preserving a scheduled 420-character target under its original profile until the
-operator explicitly migrates it.
+to 300 characters, for example, leaves a scheduled 280-character target executable
+when the transport is unchanged, but marks a scheduled 420-character target for
+review. The latter keeps its exact old revision until the user edits, migrates, or
+deliberately retains the old executable contract.
 
 ### Accepted declarative HTTP boundary
 
