@@ -228,8 +228,149 @@ bounded declarative vocabulary rather than evaluating user-provided scripts. A
 future connector protocol may cover APIs that need provider-specific code, multi-step
 OAuth, signatures, or complex media processing, but those concerns must remain
 outside the runtime schema interpreter.
-- The design must define what is persisted after a provider transforms or uploads a
-  local asset, including the relationship between local and remote identifiers.
+
+The design must define what is persisted after a provider transforms or uploads a
+local asset, including the relationship between local and remote identifiers.
+
+### Candidate runtime-profile contract
+
+The following contract is concrete enough to test, but remains a proposal until it
+is accepted with the rest of this specification.
+
+A resolved channel profile contains three separate artifacts:
+
+1. `contentSchema`: a structural schema for target content;
+2. `fieldBindings`: Herald semantics attached to selected schema locations, such as
+   primary text, ordered media references, accessibility text, title, or tags;
+3. an optional `transport`: the automatic HTTP delivery contract. A manual channel
+   has the first two artifacts and no transport.
+
+Keeping these artifacts separate prevents JSON Schema annotations from becoming an
+implicit execution language. It also lets the same content profile support manual
+and automatic publications without changing the data that the publication revision
+represents.
+
+`contentSchema` uses the JSON Schema 2020-12 dialect. Built-in modules may author the
+same contract with TypeBox and retain static TypeScript inference. Custom-channel
+content remains `unknown` to TypeScript until its stored schema validates it. TypeBox
+1.3 can compile both native JSON Schema and TypeBox-created schemas through the same
+validator API, so Herald does not need a second runtime validator for this boundary.
+
+The custom-channel dialect is intentionally a bounded profile of JSON Schema rather
+than every possible vocabulary:
+
+- the root value is an object and all object fields are explicit;
+- standard scalar, object, array, enum, composition, and conditional validation
+  keywords are allowed only after the profile validator recognizes them;
+- references are limited to the same profile's `$defs`; remote references,
+  `$dynamicRef`, user-controlled `$id`, custom vocabularies, and executable formats
+  are rejected;
+- `contentEncoding` and `contentMediaType` remain annotations and never cause Herald
+  to decode or execute instance data;
+- regular-expression keywords are rejected until Herald has a bounded regular-
+  expression implementation; JavaScript backtracking expressions are not accepted
+  from stored custom profiles;
+- schema bytes, nesting depth, node count, properties, composition branches, and
+  validated instance bytes have explicit hard limits. Arrays and strings must also
+  have finite maxima;
+- defaults are editor suggestions only. Validation never mutates a publication by
+  inserting defaults or coercing values;
+- a schema passes the JSON Schema meta-schema and Herald's stricter policy before it
+  is compiled. Compiled validators are cached by immutable profile version and
+  content hash rather than rebuilt for each request.
+
+Candidate hard ceilings for the first implementation are a 64 KiB schema, depth 16,
+256 schema nodes, 64 properties per object, 16 branches per composition keyword, and
+a 1 MiB JSON target document before referenced media bytes. These are resource
+ceilings, not destination capabilities: an individual channel normally declares much
+smaller limits. The constants need adversarial and representative fixture tests
+before this proposal becomes normative.
+
+Structural validation is only the first layer. `fieldBindings` lets the shared
+validator resolve project-owned media IDs and other domain references, enforce
+ownership, and return stable issue codes. A built-in module may add deterministic
+imperative rules for provider constraints that JSON Schema cannot express. All
+layers return one normalized issue shape with a JSON Pointer location, code, message,
+severity, and source so the web editor, API, CLI, and MCP report the same failure.
+
+Representative profiles demonstrate the intended range:
+
+| Profile | Target content | Bindings | Delivery |
+| --- | --- | --- | --- |
+| Custom microblog | Required `body` with an edited destination limit and an optional bounded media array | Primary text and ordered media | Manual, or one JSON/multipart HTTP request |
+| Project blog | `title`, `body`, optional `slug`, `excerpt`, `tags`, and cover media | Title, long-form text, tags, and cover asset | One configured HTTP request when the blog API accepts it |
+| Manual regional network | Destination-specific text and media fields | Primary text and ordered media | No transport; the operator completes and records the publication manually |
+
+A target revision stores its validated content, field-binding/profile version, and
+profile hash. It does not store a live pointer whose meaning changes when the channel
+profile is edited.
+
+### Candidate profile-evolution behavior
+
+Channel profile versions are immutable after activation. Editing a channel creates a
+new profile draft; it does not mutate the active profile in place. Activating the new
+version has the following effects:
+
+- new drafts use the new active profile;
+- historical and in-flight execution revisions retain their exact old profile
+  version and remain readable and retryable;
+- existing working drafts are revalidated against the new profile and marked
+  `compatible` or `review_required`, with normalized issues for fields that no longer
+  fit;
+- an already selected scheduled target stays attached to its old profile and remains
+  executable. Herald displays that a newer channel profile exists but does not
+  silently reinterpret or cancel the schedule;
+- applying the new profile to a draft or scheduled publication is an explicit
+  migration that creates a new validated target revision;
+- removed, renamed, or type-changed fields require an explicit field mapping or user
+  edit. Herald never guesses a destructive conversion;
+- profile versions referenced by any draft, target, execution, or audit record cannot
+  be physically deleted.
+
+This treats a channel-profile update like a small domain migration without forcing a
+database migration for each custom destination. Lowering a microblog limit from 500
+to 300 characters, for example, immediately helps the editor validate new work while
+preserving a scheduled 420-character target under its original profile until the
+operator explicitly migrates it.
+
+### Candidate declarative HTTP boundary
+
+The custom HTTP publisher is a bounded one-request adapter, not a general workflow
+engine. The channel profile owns the request shape; a project-owned connection owns
+the base endpoint and authentication material. Secrets are referenced by connection
+binding and can never be interpolated from publication content or stored in the
+profile.
+
+The smallest contract that covers the representative cases contains:
+
+- an allowed method (`POST`, `PUT`, or `PATCH`) and a path or URI template resolved
+  against the connection's endpoint;
+- explicit header, query, JSON, form, or multipart mappings;
+- typed value expressions that read content or execution context through JSON
+  Pointer, insert literals, build objects or arrays, and map a bounded source array;
+- same-request media as controlled public URLs or multipart file parts;
+- an optional idempotency value mapped from Herald's immutable execution key;
+- success, retryable, rejected, and ambiguous HTTP outcome classifications;
+- JSON Pointer extraction of remote identifiers and URLs from a bounded response.
+
+This structural mapping AST is preferred over string templates because it preserves
+JSON types and can map media arrays without parsing generated JSON. It is preferred
+over JSONata, JMESPath, or user JavaScript because the accepted operations, cost, and
+data sources remain explicit. URI templates are limited to path/query construction;
+JSON Pointer addresses values within known Herald documents and provider responses.
+
+The boundary deliberately excludes loops not tied to a bounded input array,
+arbitrary functions, filesystem or environment access, dynamic code, custom signing,
+multi-request protocols, and provider-specific OAuth flows. Those requirements need
+a built-in module or a future connector contract. Multi-step media upload therefore
+cannot be disguised as a custom schema feature.
+
+The remaining transport security question is deployment-sensitive. A configurable
+HTTP destination can legitimately be a private self-hosted blog, but allowing every
+private or link-local address by default also creates an SSRF path into the host
+network. Herald needs an explicit outbound-network policy for custom connections,
+including redirect handling and whether private network ranges require an operator
+opt-in.
 
 ### Attachments and storage
 
@@ -308,6 +449,43 @@ schema.
 - Risks: high permanent complexity, lowest-common-denominator behavior, and
   premature decisions about providers that may never be supported.
 - Best fit: none identified for Herald's current constraints.
+
+### Refined candidate common vocabulary
+
+The comparison does not support making every provider field common, but it does
+support a small semantic source revision that can seed several target publications:
+
+```text
+SourceRevision
+  body?: { text, format: plain_text | markdown }
+  headline?: string
+  language?: BCP-47 tag
+  media: ordered project-owned media references with default accessibility text
+```
+
+At least body text or one media reference is required. `headline` is publishable
+authoring content and must remain distinct from any internal label used to organize a
+post inside Herald. Tags, visibility, polls, replies, thread structure, provider
+mentions, and similar semantics remain target-profile fields until evidence shows
+that Herald can define one stable meaning for them across destinations.
+
+This is not the schema sent to every channel. A `PublicationRevision` stores the
+validated target content required by its channel profile. Matching `fieldBindings`
+can seed headline, primary text, language, and media into a new target draft; the
+target validator then reports losses or incompatibilities. A destination may omit a
+source concept, add required fields, or use a richer target structure. Herald does
+not silently truncate, strip Markdown, discard media, or invent required values.
+
+This shape preserves the central write-once/adapt-many workflow without making
+LinkedIn, a project blog, or an unknown custom channel share a fabricated universal
+payload. Source edits remain editable authoring work; explicit target promotion still
+controls what is scheduled under ADR-014.
+
+The principal alternative is versioned source profiles such as `social-message` and
+`article`. That would represent richer authoring modes more precisely, but it also
+introduces source-profile selection and cross-profile conversion before Herald has
+evidence that the small semantic vocabulary is insufficient. The fixed semantic
+source plus exact target revisions is the current recommendation.
 
 ## Capability ownership alternatives
 
@@ -506,6 +684,57 @@ The first implementation need not implement every transformation, but the state
 model must not assume that all media is immediately ready or that one original
 object is sufficient for every provider.
 
+### Candidate durable media contract
+
+The first durable media model should recognize `image`, `video`, `audio`, and
+`document` families. Animation is metadata on an image rather than a separate storage
+kind. This does not claim that every channel accepts every family: each channel
+profile declares exact MIME, count, byte, dimension, duration, composition, and
+accessibility constraints for each bound media field.
+
+The core schema should not encode one permanent global MIME enum. A media-inspection
+registry recognizes safe formats and can grow without a database migration, while a
+channel profile stores the exact MIME allowlist that applies to its version. The
+client-declared MIME type and filename extension are hints only; Herald verifies the
+stored bytes before an asset becomes ready. Active or executable formats are not
+served inline merely because their extension resembles media.
+
+The original object is preserved. Derived objects are explicit `MediaVariant`
+records with their own storage key, MIME type, checksum, byte size, dimensions or
+duration, processor identity, processor version, and transformation parameters.
+Herald does not overwrite an original during conversion. A provider can use the
+original when compatible or select a validated variant. Heavy processors such as a
+video transcoder are not silently added to the base runtime image; a required
+transformation must have an explicit processor capability and observable failure.
+
+The proposed asset lifecycle is:
+
+```text
+reserved -> stored -> inspecting -> ready
+    |          |           |
+    +----------+-----------+-> failed
+ready | failed -> deletion_requested -> deleted
+```
+
+An expired reservation and an unreferenced stored object are reconciliation cases,
+not valid ready assets. A referenced asset cannot be physically deleted. Retention
+and recovery policy decides when an unreferenced deletion request becomes a storage
+delete; that policy applies equally to local and S3/R2 objects.
+
+Runtime target content may contain media IDs at profile-bound JSON locations. On
+promotion, Herald extracts those references into `PublicationRevisionMedia` rows in
+the same database transaction, preserving JSON Pointer location, order, role, and
+accessibility overrides. The target JSON and extracted relational index must agree;
+load and backup tests treat disagreement as data corruption rather than choosing one
+silently. This relational index supplies project ownership and deletion protection
+that arbitrary JSON cannot enforce with foreign keys.
+
+Provider upload state remains separate. `ProviderMediaDelivery` records which exact
+revision media item and variant was sent, the remote identifiers returned, and the
+attempt state. A successful remote upload followed by a failed final publication can
+therefore be retried or reconciled without pretending that the remote ID belongs to
+the reusable `MediaAsset`.
+
 ### Storage boundary and consistency
 
 The first media implementation should define a Herald-owned `MediaStore` contract
@@ -559,11 +788,12 @@ The project owner has accepted the following direction:
 2. Define the first bounded declarative HTTP mapping vocabulary, including endpoint,
    authentication references, media delivery, response identity, idempotency, and
    error classification. This determines where a custom channel needs a connector.
-3. Define the exact initial media kinds, formats, limits, processing states, derived
-   assets, and lifecycle rules. The architecture must not assume JPEG/PNG-only media.
-4. Define the user-facing behavior when a channel schema changes: preserve the old
-   profile for existing target revisions, mark affected drafts or schedules for
-   review, and require an explicit revalidation or migration action.
+3. Accept or revise the durable media proposal: media families, extensible format
+   registry, original/variant boundary, lifecycle, relational reference index, and
+   provider-delivery state.
+4. Accept or revise the proposed channel-profile evolution behavior: immutable old
+   profiles, revalidated working drafts, unchanged scheduled targets, and explicit
+   migration to a new target revision.
 
 ## Draft acceptance criteria
 
