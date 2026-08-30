@@ -1,10 +1,17 @@
 export { closeDatabase, createDatabase } from './client'
 export type { HeraldDatabase } from './client'
-export { backupDatabase, restoreDatabase } from './backup'
+export { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
+export type {
+    MediaBackupManifest,
+    MediaBackupOptions,
+    MediaBackupRepresentation,
+    MediaRestoreOptions,
+} from './backup'
 export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
 export { createManualStore } from './manual-store'
 export { createMediaAssetStore } from './media-asset-store'
+export { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
 export { createPublisherStore } from './publisher-store'
 export {
     createPublisherCredentialCipher,
@@ -74,11 +81,20 @@ export type {
     UploadMediaInput,
 } from './media-asset-store'
 export type {
+    CompleteProviderMediaDeliveryInput,
+    FailProviderMediaDeliveryInput,
+    ProviderMediaDelivery,
+    ReserveProviderMediaDeliveryInput,
+    RetryProviderMediaDeliveryInput,
+    StartProviderMediaDeliveryInput,
+} from './provider-media-delivery-store'
+export type {
     CreatePublisherConnectionInput,
     CreatePublisherConnectionResult,
     DisconnectPublisherConnectionInput,
     DisconnectPublisherConnectionResult,
     PublisherConnection,
+    PublisherExecutionMedia,
     PublisherExecutionTarget,
     PublisherStoreOptions,
 } from './publisher-store'

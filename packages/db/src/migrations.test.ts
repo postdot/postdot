@@ -33,12 +33,16 @@ describe('database migrations', () => {
                 'channels',
                 'jobs',
                 'media_assets',
+                'media_backup_fences',
                 'media_representations',
                 'media_upload_intents',
                 'oauth_authorization_attempts',
                 'posts',
                 'projects',
+                'provider_media_deliveries',
+                'publication_execution_revision_media',
                 'publication_execution_revisions',
+                'publication_revision_media',
                 'publication_target_revisions',
                 'publication_working_drafts',
                 'publications',
@@ -54,7 +58,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(2)
+            expect(migrationCount?.count).toBe(3)
         } finally {
             closeDatabase(database)
         }

@@ -27,8 +27,7 @@ export type {
     PublicationResponse,
 } from './modules/projects/models'
 
-async function startServer() {
-    const config = createHeraldConfig()
+async function startServer(config = createHeraldConfig()) {
     const database = createDatabase(config.database.fileName)
     runMigrations(database, config.database.migrationsDirectory)
     const media = createMediaAssetStore(database, createConfiguredMediaStore(config.media), {
@@ -88,5 +87,14 @@ async function startServer() {
 }
 
 if (import.meta.main) {
-    if (!(await runMaintenanceCommand(Bun.argv.slice(2)))) await startServer()
+    const args = Bun.argv.slice(2)
+    if (args.includes('--media')) {
+        const config = createHeraldConfig()
+        const handled = await runMaintenanceCommand(args, {
+            mediaStore: createConfiguredMediaStore(config.media),
+        })
+        if (!handled) await startServer(config)
+    } else if (!(await runMaintenanceCommand(args))) {
+        await startServer()
+    }
 }

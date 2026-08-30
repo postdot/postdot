@@ -1,11 +1,15 @@
 import {
+    ChannelProfileCompiler,
     DomainInvariantError,
+    extractTargetMediaReferences,
     requireNonBlank,
     requireTimestamp,
     type CompleteExternalEffectInput,
     type ExpiredClaimRecovery,
     type Job,
     type PersistedEffectOutcome,
+    type TargetContent,
+    type ChannelProfileDefinition,
     type PublicationState,
 } from '@herald/core'
 
@@ -39,6 +43,29 @@ interface SystemActorRow {
     readonly id: string
 }
 
+interface ExecutionRevisionRow {
+    readonly id: string
+    readonly targetRevisionId: string
+    readonly mediaReferenceCount: number
+}
+
+interface TargetRevisionMediaRow {
+    readonly id: string
+    readonly projectId: string
+    readonly targetRevisionId: string
+    readonly assetId: string
+    readonly representationId: string
+    readonly position: number
+    readonly contentPath: string
+    readonly role: string | null
+    readonly accessibilityText: string | null
+}
+
+interface TargetRevisionContentRow {
+    readonly profileJson: string
+    readonly contentJson: string
+}
+
 const claimedJobColumns = `
     id,
     project_id as projectId,
@@ -61,6 +88,7 @@ const claimedJobColumns = `
 export function createWorkflowStore(database: HeraldDatabase) {
     const client = database.$client
     const createId = () => crypto.randomUUID()
+    const profileCompiler = new ChannelProfileCompiler()
 
     const listProjectIdsStatement = client.query<{ id: string }, []>(`
         select id
@@ -232,6 +260,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
             target_revision_id,
             profile_version_id,
             delivery_mode,
+            media_reference_count,
             content_json,
             content_hash,
             profile_hash,
@@ -245,6 +274,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                revisions.id,
                revisions.profile_version_id,
                revisions.delivery_mode,
+               revisions.media_reference_count,
                revisions.content_json,
                revisions.content_hash,
                revisions.profile_hash,
@@ -269,13 +299,85 @@ export function createWorkflowStore(database: HeraldDatabase) {
         on conflict(project_id, job_id) do nothing
     `)
     const loadExecutionRevisionStatement = client.query<
-        { id: string },
+        ExecutionRevisionRow,
         [projectId: string, jobId: string]
     >(`
-        select id
+        select id,
+               target_revision_id as targetRevisionId,
+               media_reference_count as mediaReferenceCount
         from publication_execution_revisions
         where project_id = ?1
           and job_id = ?2
+    `)
+    const listTargetRevisionMediaStatement = client.query<
+        TargetRevisionMediaRow,
+        [projectId: string, targetRevisionId: string]
+    >(`
+        select id,
+               project_id as projectId,
+               target_revision_id as targetRevisionId,
+               asset_id as assetId,
+               representation_id as representationId,
+               position,
+               content_path as contentPath,
+               role,
+               accessibility_text as accessibilityText
+        from publication_revision_media
+        where project_id = ?1
+          and target_revision_id = ?2
+        order by position, id
+    `)
+    const listExecutionRevisionMediaCountStatement = client.query<
+        { count: number },
+        [projectId: string, executionRevisionId: string]
+    >(`
+        select count(*) as count
+        from publication_execution_revision_media
+        where project_id = ?1
+          and execution_revision_id = ?2
+    `)
+    const loadTargetRevisionContentStatement = client.query<
+        TargetRevisionContentRow,
+        [projectId: string, targetRevisionId: string]
+    >(`
+        select channel_profiles.profile_json as profileJson,
+               revisions.content_json as contentJson
+        from publication_target_revisions as revisions
+        inner join channel_profile_versions as channel_profiles
+            on channel_profiles.project_id = revisions.project_id
+           and channel_profiles.id = revisions.profile_version_id
+        where revisions.project_id = ?1
+          and revisions.id = ?2
+    `)
+    const insertExecutionRevisionMediaStatement = client.query<
+        void,
+        [
+            id: string,
+            projectId: string,
+            executionRevisionId: string,
+            targetRevisionMediaId: string,
+            assetId: string,
+            representationId: string,
+            position: number,
+            contentPath: string,
+            role: string | null,
+            accessibilityText: string | null,
+            createdAt: number,
+        ]
+    >(`
+        insert into publication_execution_revision_media (
+            id,
+            project_id,
+            execution_revision_id,
+            target_revision_media_id,
+            asset_id,
+            representation_id,
+            position,
+            content_path,
+            role,
+            accessibility_text,
+            created_at
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
     `)
 
     const startExternalEffectTransaction = client.transaction(
@@ -283,14 +385,62 @@ export function createWorkflowStore(database: HeraldDatabase) {
             const runningJob = loadRunningJobStatement.get(jobId, claimToken, now)
             if (runningJob === null) return false
 
-            const pinned = insertExecutionRevisionStatement.run(createId(), jobId, claimToken, now)
-            if (
-                pinned.changes !== 1 &&
-                loadExecutionRevisionStatement.get(runningJob.projectId, runningJob.id) === null
-            ) {
+            const executionRevisionId = createId()
+            const pinned = insertExecutionRevisionStatement.run(
+                executionRevisionId,
+                jobId,
+                claimToken,
+                now
+            )
+            const executionRevision = loadExecutionRevisionStatement.get(
+                runningJob.projectId,
+                runningJob.id
+            )
+            if (executionRevision === null) {
                 throw new DomainInvariantError(
                     'invalid_transition',
                     `Job ${runningJob.id} has no valid target revision to execute`
+                )
+            }
+            const targetMedia = listTargetRevisionMediaStatement.all(
+                runningJob.projectId,
+                executionRevision.targetRevisionId
+            )
+            assertTargetRevisionMediaMatchesContent(
+                loadTargetRevisionContentStatement.get(
+                    runningJob.projectId,
+                    executionRevision.targetRevisionId
+                ),
+                targetMedia,
+                executionRevision.targetRevisionId,
+                executionRevision.mediaReferenceCount,
+                profileCompiler
+            )
+            if (pinned.changes === 1) {
+                for (const media of targetMedia) {
+                    insertExecutionRevisionMediaStatement.run(
+                        createId(),
+                        media.projectId,
+                        executionRevision.id,
+                        media.id,
+                        media.assetId,
+                        media.representationId,
+                        media.position,
+                        media.contentPath,
+                        media.role,
+                        media.accessibilityText,
+                        now
+                    )
+                }
+            }
+            const executionMediaCount = listExecutionRevisionMediaCountStatement.get(
+                runningJob.projectId,
+                executionRevision.id
+            )?.count
+            if (executionMediaCount !== executionRevision.mediaReferenceCount) {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Execution revision ${executionRevision.id} has inconsistent media references`
                 )
             }
 
@@ -839,4 +989,76 @@ export function createWorkflowStore(database: HeraldDatabase) {
 
 function normalizeOptionalResult(value: string | undefined, field: string): string | null {
     return value === undefined ? null : requireNonBlank(value, field)
+}
+
+function assertTargetRevisionMediaMatchesContent(
+    row: TargetRevisionContentRow | null,
+    media: readonly TargetRevisionMediaRow[],
+    targetRevisionId: string,
+    mediaReferenceCount: number,
+    profileCompiler: ChannelProfileCompiler
+): void {
+    if (row === null) {
+        throw new DomainInvariantError(
+            'invalid_transition',
+            `Target revision ${targetRevisionId} has no profile or content snapshot`
+        )
+    }
+
+    let profileJson: unknown
+    let contentJson: unknown
+    try {
+        profileJson = JSON.parse(row.profileJson)
+        contentJson = JSON.parse(row.contentJson)
+    } catch {
+        throw new DomainInvariantError(
+            'invalid_content',
+            `Target revision ${targetRevisionId} contains invalid JSON`
+        )
+    }
+    if (!isRecord(contentJson)) {
+        throw new DomainInvariantError(
+            'invalid_content',
+            `Target revision ${targetRevisionId} content is not an object`
+        )
+    }
+    const compiled = profileCompiler.compile(profileJson as ChannelProfileDefinition)
+    if (!compiled.ok) {
+        throw new DomainInvariantError(
+            'invalid_content',
+            `Target revision ${targetRevisionId} profile is invalid`
+        )
+    }
+
+    const references = extractTargetMediaReferences(
+        compiled.value.profile,
+        contentJson as TargetContent
+    )
+    if (references.length !== mediaReferenceCount || media.length !== mediaReferenceCount) {
+        throw new DomainInvariantError(
+            'invalid_transition',
+            `Target revision ${targetRevisionId} has inconsistent media reference counts`
+        )
+    }
+    for (const [position, reference] of references.entries()) {
+        const persisted = media[position]
+        if (
+            persisted === undefined ||
+            persisted.position !== position ||
+            persisted.contentPath !== reference.contentPath ||
+            persisted.assetId !== reference.assetId ||
+            persisted.role !== reference.role ||
+            (reference.accessibilityText !== null &&
+                persisted.accessibilityText !== reference.accessibilityText)
+        ) {
+            throw new DomainInvariantError(
+                'invalid_transition',
+                `Target revision ${targetRevisionId} media index disagrees with its content`
+            )
+        }
+    }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
 }

@@ -11,6 +11,7 @@ import {
     createPost,
     createProject,
     createPublication,
+    extractTargetMediaReferences,
     requireNonBlank,
     requireTimestamp,
     transitionPublication,
@@ -18,6 +19,8 @@ import {
     type Channel,
     type ChannelProfileDefinition,
     type DeliveryMode,
+    type MediaFieldCapability,
+    type MediaRepresentation,
     type Post,
     type Project,
     type Publication,
@@ -25,16 +28,19 @@ import {
     type PublicationReviewState,
     type SourceContent,
     type TargetContent,
+    type TargetMediaReference,
     type Timestamp,
     type ValidationIssue,
     validateSourceContent,
 } from '@herald/core'
 
 import type { HeraldDatabase } from './client'
+import type { MediaAssetStore } from './media-asset-store'
 
 export interface ManualStoreOptions {
     readonly now?: () => number
     readonly createId?: () => string
+    readonly media?: Pick<MediaAssetStore, 'getAsset'>
 }
 
 export interface CreateProjectInput {
@@ -237,6 +243,12 @@ interface DuePublicationRow extends PublicationRow {
     readonly targetContentJson: string
 }
 
+interface ResolvedTargetMedia {
+    readonly reference: TargetMediaReference
+    readonly representation: MediaRepresentation
+    readonly accessibilityText: string | null
+}
+
 interface AuditEventRow {
     readonly id: string
     readonly projectId: string
@@ -275,6 +287,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const profileCompiler = new ChannelProfileCompiler()
+    const media = options.media
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
         select id, name, created_at as createdAt, updated_at as updatedAt
@@ -567,6 +580,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             profileVersionId: string,
             sourceRevision: number,
             deliveryMode: DeliveryMode,
+            mediaReferenceCount: number,
             contentJson: string,
             contentHash: string,
             profileHash: string,
@@ -584,6 +598,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             profile_version_id,
             source_revision,
             delivery_mode,
+            media_reference_count,
             content_json,
             content_hash,
             profile_hash,
@@ -591,7 +606,35 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             validation_issues_json,
             created_by_actor_id,
             created_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+    `)
+    const insertTargetRevisionMediaStatement = client.query<
+        void,
+        [
+            id: string,
+            projectId: string,
+            targetRevisionId: string,
+            assetId: string,
+            representationId: string,
+            position: number,
+            contentPath: string,
+            role: string | null,
+            accessibilityText: string | null,
+            createdAt: number,
+        ]
+    >(`
+        insert into publication_revision_media (
+            id,
+            project_id,
+            target_revision_id,
+            asset_id,
+            representation_id,
+            position,
+            content_path,
+            role,
+            accessibility_text,
+            created_at
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
     `)
     const updatePostSourceStatement = client.query<
         { changes: number },
@@ -1044,6 +1087,16 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 if (publicationInput.scheduledAt != null && !validation.ok) {
                     throw invalidTargetContentError(validation.issues)
                 }
+                const targetMedia =
+                    publicationInput.scheduledAt == null
+                        ? []
+                        : resolveTargetMedia(
+                              profile,
+                              targetContent,
+                              project.id,
+                              input.subjectId,
+                              media
+                          )
                 const targetContentJson = canonicalJson(targetContent)
                 const deliveryMode = publicationInput.deliveryMode ?? 'manual'
                 if (deliveryMode === 'automatic' && profile.execution.kind === 'manual') {
@@ -1071,6 +1124,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                     profileVersionId: channelRow.profileVersionId,
                     targetContent,
                     targetContentJson,
+                    targetMedia,
                     validationIssues: validation.issues,
                     workingDraftId: createId(),
                     targetRevisionId,
@@ -1137,6 +1191,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                         entry.profileVersionId,
                         post.sourceRevision,
                         publication.deliveryMode,
+                        entry.targetMedia.length,
                         entry.targetContentJson,
                         contentHash(entry.targetContent),
                         entry.profile.profileHash,
@@ -1145,6 +1200,20 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                         actor.id,
                         timestamp
                     )
+                    for (const [position, targetMedia] of entry.targetMedia.entries()) {
+                        insertTargetRevisionMediaStatement.run(
+                            createId(),
+                            project.id,
+                            entry.targetRevisionId,
+                            targetMedia.reference.assetId,
+                            targetMedia.representation.id,
+                            position,
+                            targetMedia.reference.contentPath,
+                            targetMedia.reference.role,
+                            targetMedia.accessibilityText,
+                            timestamp
+                        )
+                    }
                 }
                 insertAuditEventStatement.run(
                     createId(),
@@ -1348,6 +1417,13 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             const content = parseJsonObject(draftRow.contentJson, 'publication draft content')
             const validation = profileResult.value.validate(content)
             if (!validation.ok) throw invalidTargetContentError(validation.issues)
+            const targetMedia = resolveTargetMedia(
+                profileResult.value.profile,
+                content,
+                input.projectId,
+                input.subjectId,
+                media
+            )
 
             const timestamp = requireTimestamp(now(), 'now')
             const contentJson = canonicalJson(content)
@@ -1380,6 +1456,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 draftRow.profileVersionId,
                 draftRow.sourceRevision,
                 publicationRow.deliveryMode,
+                targetMedia.length,
                 contentJson,
                 contentHash(content),
                 profileResult.value.profile.profileHash,
@@ -1388,6 +1465,20 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 actorRow.id,
                 timestamp
             )
+            for (const [position, mediaReference] of targetMedia.entries()) {
+                insertTargetRevisionMediaStatement.run(
+                    createId(),
+                    input.projectId,
+                    targetRevisionId,
+                    mediaReference.reference.assetId,
+                    mediaReference.representation.id,
+                    position,
+                    mediaReference.reference.contentPath,
+                    mediaReference.reference.role,
+                    mediaReference.accessibilityText,
+                    timestamp
+                )
+            }
 
             const promoted = promotePublicationStatement.run(
                 targetRevisionId,
@@ -1957,6 +2048,179 @@ function invalidTargetContentError(issues: readonly ValidationIssue[]): DomainIn
         'invalid_content',
         `Publication target content is invalid: ${issues.map(issue => issue.message).join('; ')}`
     )
+}
+
+function resolveTargetMedia(
+    profile: ChannelProfileDefinition,
+    content: TargetContent,
+    projectId: string,
+    subjectId: string,
+    media: Pick<MediaAssetStore, 'getAsset'> | undefined
+): readonly ResolvedTargetMedia[] {
+    const references = extractTargetMediaReferences(profile, content)
+    if (references.length === 0) {
+        for (const capability of profile.capabilities.mediaFields) {
+            if ((capability.minItems ?? 0) > 0) {
+                throw mediaContentError(
+                    `Media field ${capability.bindingId} requires at least ${capability.minItems} item(s)`
+                )
+            }
+        }
+        return []
+    }
+    if (media === undefined) {
+        throw mediaContentError('Media lifecycle service is required for media publications')
+    }
+
+    const referencesByBinding = new Map<string, TargetMediaReference[]>()
+    for (const reference of references) {
+        const bindingReferences = referencesByBinding.get(reference.bindingId) ?? []
+        bindingReferences.push(reference)
+        referencesByBinding.set(reference.bindingId, bindingReferences)
+    }
+
+    for (const capability of profile.capabilities.mediaFields) {
+        const bindingReferences = referencesByBinding.get(capability.bindingId) ?? []
+        if (bindingReferences.length < (capability.minItems ?? 0)) {
+            throw mediaContentError(
+                `Media field ${capability.bindingId} requires at least ${capability.minItems} item(s)`
+            )
+        }
+        if (bindingReferences.length > capability.maxItems) {
+            throw mediaContentError(
+                `Media field ${capability.bindingId} accepts at most ${capability.maxItems} item(s)`
+            )
+        }
+    }
+
+    const resolved: ResolvedTargetMedia[] = []
+    const totalBytesByBinding = new Map<string, number>()
+    for (const reference of references) {
+        const capability = profile.capabilities.mediaFields.find(
+            candidate => candidate.bindingId === reference.bindingId
+        )
+        const asset = media.getAsset(projectId, reference.assetId, subjectId)
+        if (asset === null || asset.asset.state !== 'ready') {
+            throw mediaContentError(
+                `Media asset ${reference.assetId} is not available for publication`
+            )
+        }
+
+        const candidates = asset.representations
+            .filter(representation => representation.state === 'ready')
+            .sort(
+                (left, right) =>
+                    Number(right.kind === 'original') - Number(left.kind === 'original')
+            )
+        const representation = candidates.find(candidate =>
+            capability === undefined ? true : supportsMediaCapability(candidate, capability)
+        )
+        if (representation === undefined) {
+            throw mediaContentError(
+                `Media asset ${reference.assetId} has no ready representation compatible with field ${reference.bindingId}`
+            )
+        }
+
+        const accessibilityText =
+            reference.accessibilityText ?? asset.asset.defaultAccessibilityText
+        if (capability?.accessibilityTextRequired && accessibilityText === null) {
+            throw mediaContentError(
+                `Media field ${reference.bindingId} requires accessibility text for asset ${reference.assetId}`
+            )
+        }
+        if (capability?.publicUrlRequired) {
+            throw mediaContentError(
+                `Media field ${reference.bindingId} requires a public URL, which is not available in the current storage contract`
+            )
+        }
+
+        const totalBytes = totalBytesByBinding.get(reference.bindingId) ?? 0
+        const nextTotalBytes = totalBytes + (representation.byteSize ?? 0)
+        if (capability?.maxTotalBytes !== undefined && nextTotalBytes > capability.maxTotalBytes) {
+            throw mediaContentError(
+                `Media field ${reference.bindingId} exceeds its total byte limit`
+            )
+        }
+        totalBytesByBinding.set(reference.bindingId, nextTotalBytes)
+
+        resolved.push({ reference, representation, accessibilityText })
+    }
+
+    return resolved
+}
+
+function supportsMediaCapability(
+    representation: MediaRepresentation,
+    capability: MediaFieldCapability
+): boolean {
+    if (
+        representation.family === null ||
+        representation.detectedContentType === null ||
+        representation.byteSize === null ||
+        !capability.families.includes(representation.family) ||
+        !capability.mimeTypes.some(pattern =>
+            matchesMimeType(representation.detectedContentType!, pattern)
+        )
+    ) {
+        return false
+    }
+    if (
+        capability.maxBytesPerItem !== undefined &&
+        representation.byteSize > capability.maxBytesPerItem
+    ) {
+        return false
+    }
+    if (
+        capability.dimensions?.minWidth !== undefined &&
+        (representation.width === null || representation.width < capability.dimensions.minWidth)
+    ) {
+        return false
+    }
+    if (
+        capability.dimensions?.maxWidth !== undefined &&
+        (representation.width === null || representation.width > capability.dimensions.maxWidth)
+    ) {
+        return false
+    }
+    if (
+        capability.dimensions?.minHeight !== undefined &&
+        (representation.height === null || representation.height < capability.dimensions.minHeight)
+    ) {
+        return false
+    }
+    if (
+        capability.dimensions?.maxHeight !== undefined &&
+        (representation.height === null || representation.height > capability.dimensions.maxHeight)
+    ) {
+        return false
+    }
+    if (
+        capability.duration?.minMilliseconds !== undefined &&
+        (representation.durationMs === null ||
+            representation.durationMs < capability.duration.minMilliseconds)
+    ) {
+        return false
+    }
+    if (
+        capability.duration?.maxMilliseconds !== undefined &&
+        (representation.durationMs === null ||
+            representation.durationMs > capability.duration.maxMilliseconds)
+    ) {
+        return false
+    }
+    return true
+}
+
+function matchesMimeType(contentType: string, pattern: string): boolean {
+    const normalizedContentType = contentType.toLowerCase()
+    const normalizedPattern = pattern.toLowerCase()
+    return normalizedPattern.endsWith('/*')
+        ? normalizedContentType.startsWith(normalizedPattern.slice(0, -1))
+        : normalizedContentType === normalizedPattern
+}
+
+function mediaContentError(message: string): DomainInvariantError {
+    return new DomainInvariantError('invalid_content', message)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

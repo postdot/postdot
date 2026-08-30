@@ -20,11 +20,26 @@ export const mediaUploadIntentStates = [
     'expired',
     'failed',
 ] as const
+export const providerMediaDeliveryStates = [
+    'pending',
+    'uploading',
+    'uploaded',
+    'failed',
+    'ambiguous',
+] as const
 export const mediaRepresentationKinds = ['original', 'derived'] as const
 export type MediaAssetState = (typeof mediaAssetStates)[number]
 export type MediaRepresentationState = (typeof mediaRepresentationStates)[number]
 export type MediaUploadIntentState = (typeof mediaUploadIntentStates)[number]
 export type MediaRepresentationKind = (typeof mediaRepresentationKinds)[number]
+export type ProviderMediaDeliveryState = (typeof providerMediaDeliveryStates)[number]
+
+export function assertProviderMediaDeliveryTransition(
+    from: ProviderMediaDeliveryState,
+    to: ProviderMediaDeliveryState
+): void {
+    assertTransition('provider media delivery', from, to, providerMediaDeliveryTransitions)
+}
 
 export interface MediaAsset {
     readonly id: string
@@ -188,6 +203,16 @@ const mediaRepresentationTransitions: Readonly<
     failed: ['reserved', 'deletion_requested'],
     deletion_requested: ['deleted'],
     deleted: [],
+}
+
+const providerMediaDeliveryTransitions: Readonly<
+    Record<ProviderMediaDeliveryState, readonly ProviderMediaDeliveryState[]>
+> = {
+    pending: ['uploading'],
+    uploading: ['uploaded', 'failed', 'ambiguous'],
+    uploaded: [],
+    failed: ['pending'],
+    ambiguous: ['uploaded', 'failed'],
 }
 
 function assertTransition<T extends string>(

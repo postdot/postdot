@@ -20,6 +20,7 @@ import {
     jobs,
     posts,
     projects,
+    publicationExecutionRevisions,
     publicationTargetRevisions,
     publications,
     publishers,
@@ -374,6 +375,49 @@ describe('workflow store', () => {
                 })
             ).toBeNull()
             expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('fails closed when the persisted media index disagrees with the target revision', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const fixture = seedDueJob(database, 'media-mismatch')
+            database
+                .update(publicationTargetRevisions)
+                .set({ mediaReferenceCount: 1 })
+                .where(eq(publicationTargetRevisions.id, fixture.targetRevisionId))
+                .run()
+            const store = createWorkflowStore(database)
+            store.claimNextDueJob({
+                actorId: fixture.systemActorId,
+                claimToken: 'claim-media-mismatch',
+                now: dueAt,
+                leaseExpiresAt: dueAt + 60_000,
+            })
+
+            expect(() =>
+                store.startExternalEffect(fixture.jobId, 'claim-media-mismatch', dueAt + 1)
+            ).toThrow('inconsistent media reference counts')
+            expect(
+                database
+                    .select()
+                    .from(publicationExecutionRevisions)
+                    .where(eq(publicationExecutionRevisions.jobId, fixture.jobId))
+                    .all()
+            ).toEqual([])
+            const [job] = database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()
+            const [publication] = database
+                .select()
+                .from(publications)
+                .where(eq(publications.id, fixture.publicationId))
+                .all()
+            expect(job?.state).toBe('running')
+            expect(job?.effectStartedAt).toBeNull()
+            expect(publication?.state).toBe('scheduled')
         } finally {
             closeDatabase(database)
         }

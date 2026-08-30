@@ -147,25 +147,30 @@ OPS-10 deployment baseline.
 The example reuses the local environment file for convenience; deployment setups
 should provide an equivalent secret-managed environment file and must not commit it.
 
-Create a consistent backup from a running container by mounting the application data
-volume and a separate host backup directory:
+Create a complete application backup from a running container by mounting the
+application data volume and a separate host backup directory. The bundle contains
+the database and verified media bytes:
 
 ```sh
 docker run --rm \
   --mount type=volume,source=herald-data,target=/data \
   --mount type=bind,source="$PWD/backups",target=/backups \
-  herald:local backup --output /backups/herald.sqlite
+  herald:local backup --media --output /backups/herald.bundle
 ```
 
-Stop the application before restoring. The command validates the backup and replaces
-the database atomically; start the application again afterward:
+Stop the application before restoring. The command validates the database, manifest,
+and every media object before replacing the database; start the application again
+afterward:
 
 ```sh
 docker run --rm \
   --mount type=volume,source=herald-data,target=/data \
   --mount type=bind,source="$PWD/backups",target=/backups \
-  herald:local restore --input /backups/herald.sqlite
+  herald:local restore --media --input /backups/herald.bundle
 ```
+
+The commands without `--media` remain available for database-only recovery, but do
+not include stored media objects.
 
 The current workspace contains:
 
