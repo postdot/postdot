@@ -4,7 +4,14 @@ import { CalendarIcon } from '@solar-icons/react/linear/calendar'
 import { CheckCircleIcon } from '@solar-icons/react/linear/check-circle'
 import { ClipboardTextIcon } from '@solar-icons/react/linear/clipboard-text'
 import { LogoutIcon } from '@solar-icons/react/linear/logout'
-import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import {
+    createFileRoute,
+    Link,
+    Outlet,
+    redirect,
+    useNavigate,
+    useRouterState,
+} from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
@@ -17,6 +24,7 @@ import {
     type PublisherConnection,
     type PublicationSummary,
 } from '@/lib/api'
+import { parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 
 interface ProjectData {
     readonly channels: Channel[]
@@ -59,6 +67,12 @@ export const Route = createFileRoute('/dashboard')({
 })
 
 function DashboardPage() {
+    const isPublicationEditor = useRouterState({
+        select: state =>
+            state.matches[state.matches.length - 1]?.routeId ===
+            '/dashboard/projects/$projectId/publications/$publicationId',
+    })
+
     const navigate = useNavigate()
     const initialData = Route.useLoaderData()
     const [projects, setProjects] = useState<Project[]>(initialData.projects)
@@ -116,6 +130,8 @@ function DashboardPage() {
         }
     }, [selectedProjectId])
 
+    if (isPublicationEditor) return <Outlet />
+
     async function handleCreateProject(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         if (projectName.trim() === '') return
@@ -142,8 +158,8 @@ function DashboardPage() {
     async function handleCreatePost(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         if (selectedProjectId === null || publicationChannelId === '') return
-        const scheduledTimestamp = Date.parse(scheduledAt)
-        if (!Number.isFinite(scheduledTimestamp)) {
+        const scheduledTimestamp = parseDateTimeLocal(scheduledAt)
+        if (scheduledTimestamp === null || scheduledTimestamp === 'invalid') {
             setError('Choose a valid publication date.')
             return
         }
@@ -601,8 +617,7 @@ function DashboardPage() {
 }
 
 function defaultScheduleValue() {
-    const date = new Date(Date.now() + 60 * 60 * 1000)
-    return date.toISOString().slice(0, 16)
+    return toDateTimeLocal(Date.now() + 60 * 60 * 1000)
 }
 
 function formatSchedule(timestamp: number | null) {

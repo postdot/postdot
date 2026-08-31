@@ -4,7 +4,7 @@ export const LINKEDIN_PROVIDER = 'linkedin' as const
 export const LINKEDIN_API_BASE_URL = 'https://api.linkedin.com'
 export const LINKEDIN_POSTS_PATH = '/rest/posts'
 export const LINKEDIN_USERINFO_PATH = '/v2/userinfo'
-export const LINKEDIN_OAUTH_ISSUER = 'https://www.linkedin.com'
+export const LINKEDIN_OAUTH_ISSUER = 'https://www.linkedin.com/oauth'
 export const LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT =
     'https://www.linkedin.com/oauth/v2/authorization'
 export const LINKEDIN_OAUTH_TOKEN_ENDPOINT = 'https://www.linkedin.com/oauth/v2/accessToken'

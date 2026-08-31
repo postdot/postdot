@@ -92,14 +92,18 @@ An OAuth authorization attempt is a short-lived, single-use record bound to the
 authenticated actor, project, channel, provider, exact callback URI, requested
 scopes, and intended return path.
 
-- Generate a fresh high-entropy `state` value and PKCE verifier for every attempt.
+- Generate a fresh high-entropy `state` value for every attempt. Generate and
+  persist a PKCE verifier when the selected provider authorization flow supports
+  PKCE.
 - Persist only a digest of `state`; encrypt the PKCE verifier while it is needed.
 - Reject missing, expired, consumed, mismatched, or replayed attempts before token
   exchange.
 - Use an allowlisted return path and provider-specific callback routes. Never accept
   an arbitrary redirect target from a query parameter.
-- Use authorization code flow and PKCE S256 when the provider supports it. Retain
-  transaction-bound `state` validation even when PKCE is present.
+- Use authorization code flow and PKCE S256 when the provider supports it. A
+  provider adapter must declare the selected flow's PKCE policy explicitly;
+  disabling PKCE is never a global convenience switch. Retain transaction-bound
+  `state` validation for every flow, including flows without PKCE.
 
 These requirements follow the current OAuth security best current practice, which
 recommends PKCE for confidential clients and requires explicit CSRF and authorization

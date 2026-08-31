@@ -39,7 +39,21 @@ describe('OAuth authorization code mechanics', () => {
         expect(request.url.href).not.toContain(request.codeVerifier)
         expect(request.url.searchParams.get('prompt')).toBe('consent')
         expect(request.state.length).toBeGreaterThanOrEqual(32)
-        expect(request.codeVerifier.length).toBeGreaterThanOrEqual(43)
+        expect(request.codeVerifier).not.toBeNull()
+        expect(request.codeVerifier?.length).toBeGreaterThanOrEqual(43)
+    })
+
+    it('allows a provider to explicitly use its non-PKCE authorization flow', async () => {
+        const request = await createAuthorizationRequest({
+            authorizationServer: { ...authorizationServer, pkce: 'disabled' },
+            clientId: 'client-1',
+            callbackUri: 'https://herald.example.com/api/oauth/linkedin/callback',
+            scopes: ['openid'],
+        })
+
+        expect(request.codeVerifier).toBeNull()
+        expect(request.url.searchParams.get('code_challenge')).toBeNull()
+        expect(request.url.searchParams.get('code_challenge_method')).toBeNull()
     })
 
     it('rejects insecure endpoints and protected parameter overrides', async () => {

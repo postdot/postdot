@@ -4,6 +4,11 @@ export interface OAuthAuthorizationServer {
     readonly issuer: string
     readonly authorizationEndpoint: string
     readonly tokenEndpoint: string
+    /**
+     * Provider-specific PKCE policy. PKCE is enabled by default; disable it only
+     * when the provider's selected authorization flow does not support it.
+     */
+    readonly pkce?: 'required' | 'disabled'
 }
 
 export interface CreateAuthorizationRequestInput {
@@ -17,7 +22,7 @@ export interface CreateAuthorizationRequestInput {
 export interface AuthorizationRequest {
     readonly url: URL
     readonly state: string
-    readonly codeVerifier: string
+    readonly codeVerifier: string | null
     readonly callbackUri: string
     readonly scopes: readonly string[]
 }
@@ -35,7 +40,7 @@ export interface ExchangeAuthorizationCodeInput {
     readonly clientAuthentication: OAuthClientAuthentication
     readonly callbackParameters: URLSearchParams
     readonly callbackUri: string
-    readonly codeVerifier: string
+    readonly codeVerifier: string | null
     readonly signal?: AbortSignal
 }
 
@@ -131,8 +136,10 @@ export async function createAuthorizationRequest(
     const callbackUri = secureUrl(input.callbackUri, 'callbackUri', true).href
     const scopes = normalizeScopes(input.scopes)
     const state = oauth.generateRandomState()
-    const codeVerifier = oauth.generateRandomCodeVerifier()
-    const codeChallenge = await oauth.calculatePKCECodeChallenge(codeVerifier)
+    const usesPkce = input.authorizationServer.pkce !== 'disabled'
+    const codeVerifier = usesPkce ? oauth.generateRandomCodeVerifier() : null
+    const codeChallenge =
+        codeVerifier === null ? null : await oauth.calculatePKCECodeChallenge(codeVerifier)
 
     for (const [name, value] of Object.entries(input.additionalParameters ?? {})) {
         if (protectedAuthorizationParameters.has(name)) {
@@ -149,8 +156,10 @@ export async function createAuthorizationRequest(
     authorizationEndpoint.searchParams.set('redirect_uri', callbackUri)
     authorizationEndpoint.searchParams.set('scope', scopes.join(' '))
     authorizationEndpoint.searchParams.set('state', state)
-    authorizationEndpoint.searchParams.set('code_challenge', codeChallenge)
-    authorizationEndpoint.searchParams.set('code_challenge_method', 'S256')
+    if (codeChallenge !== null) {
+        authorizationEndpoint.searchParams.set('code_challenge', codeChallenge)
+        authorizationEndpoint.searchParams.set('code_challenge_method', 'S256')
+    }
 
     return { url: authorizationEndpoint, state, codeVerifier, callbackUri, scopes }
 }
@@ -182,7 +191,9 @@ export async function exchangeAuthorizationCode(
         input.clientAuthentication,
         input.callbackParameters,
         callbackUri,
-        requireOpaque(input.codeVerifier, 'codeVerifier'),
+        input.codeVerifier === null
+            ? oauth.nopkce
+            : requireOpaque(input.codeVerifier, 'codeVerifier'),
         options
     )
     return toTokenSet(await oauth.processAuthorizationCodeResponse(metadata, client, response))

@@ -109,6 +109,37 @@ describe('OAuth authorization attempt store', () => {
         }
     })
 
+    it('supports providers whose authorization flow does not use PKCE', async () => {
+        const fixture = createFixture()
+
+        try {
+            const input = await createAttemptInput(fixture, 'non-pkce-state')
+            const result = await fixture.store.createAuthorizationAttempt({
+                ...input,
+                codeVerifier: null,
+            })
+
+            expect(result.kind).toBe('created')
+            const stored = fixture.database.select().from(oauthAuthorizationAttempts).get()
+            expect(stored).toMatchObject({
+                pkceEncryptionVersion: null,
+                pkceEncryptionKeyId: null,
+                pkceVerifierCiphertext: null,
+                pkceVerifierNonce: null,
+            })
+
+            const consumed = await fixture.store.consumeAuthorizationAttempt({
+                stateDigest: input.stateDigest,
+                connectedByActorId: input.connectedByActorId,
+                providerId: input.providerId,
+                callbackUri: input.callbackUri,
+            })
+            expect(consumed).toMatchObject({ kind: 'consumed', codeVerifier: null })
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
     it('consumes once, returns the verifier internally, and erases its envelope', async () => {
         const fixture = createFixture()
 

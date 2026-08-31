@@ -1,6 +1,6 @@
 # ADR-011 — Select LinkedIn Member Text Publishing for the First Automatic Slice
 
-- Status: proposed
+- Status: accepted
 - Scope: PUB-09 provider selection and the first automatic V1 publishing boundary
 - Provenance: [PUB-09](../TASKS.md), provider documentation review, and the 2026-08-28 feasibility spike
 - Related specifications: [SPEC-001](../specs/SPEC-001-v1-scope.md), [SPEC-002](../specs/SPEC-002-engineering-operating-model.md)
@@ -140,3 +140,17 @@ PUB-09 must not be marked complete until all of the following are true:
 - an opt-in live smoke test is documented and passes with operator-provided
   credentials, without making network access part of the default quality gate;
 - `bun run check` and the footprint measurements remain green.
+
+## Live validation
+
+On 2026-08-31, an operator-approved smoke test completed with the configured
+LinkedIn member application:
+
+- the OAuth callback persisted a project-owned LinkedIn connection;
+- the scheduler and worker delivered one real text post through the Posts API;
+- Herald persisted the provider result and marked the job as succeeded;
+- the exact provider post was deleted through LinkedIn's idempotent delete
+  operation, which returned HTTP `204`;
+- `bun run check` and the production footprint measurement passed after the live
+  flow changes;
+- no client secret or token material was recorded in the repository or logs.

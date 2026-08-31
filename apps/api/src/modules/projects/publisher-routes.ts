@@ -11,6 +11,7 @@ import {
     exchangeAuthorizationCode,
     validateAuthorizationResponse,
 } from '@herald/oauth'
+import type { Logger } from 'pino'
 import { Type } from 'typebox'
 
 import type { PublisherRuntime } from '../publishers/runtime'
@@ -29,6 +30,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly logger?: Logger
         readonly onWorkScheduled?: () => void
     } = {}
 ) {
@@ -266,7 +268,16 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         scopes: [...authorization.scopes],
                         authorizationUrl: authorization.url.toString(),
                     }
-                } catch {
+                } catch (error) {
+                    logPublisherFlowError(
+                        options.logger,
+                        {
+                            channelId: params.channelId,
+                            projectId: params.projectId,
+                            stage: 'authorization_request',
+                        },
+                        error
+                    )
                     return status(503, {
                         error: {
                             code: 'provider_unavailable',
@@ -337,6 +348,12 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     )
                 }
 
+                let callbackStage:
+                    | 'validate_response'
+                    | 'exchange_authorization_code'
+                    | 'fetch_profile'
+                    | 'save_credential'
+                    | 'create_connection' = 'validate_response'
                 try {
                     const callbackParameters = validateAuthorizationResponse({
                         authorizationServer: linkedin.authorizationServer,
@@ -344,6 +361,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         parameters,
                         expectedState: state,
                     })
+                    callbackStage = 'exchange_authorization_code'
                     const tokenSet = await exchangeAuthorizationCode({
                         authorizationServer: linkedin.authorizationServer,
                         clientId: linkedin.clientId,
@@ -352,8 +370,10 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         callbackUri: publisher.callbackUri,
                         codeVerifier: consumed.codeVerifier,
                     })
+                    callbackStage = 'fetch_profile'
                     const profile = await linkedin.profileClient.getProfile(tokenSet.accessToken)
                     const expiresAt = tokenExpiry(publisher.now(), tokenSet.expiresInSeconds)
+                    callbackStage = 'save_credential'
                     const credential = await savePublisherCredential({
                         credentialStore,
                         projectId: consumed.attempt.projectId,
@@ -373,6 +393,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         )
                     }
 
+                    callbackStage = 'create_connection'
                     const connection = publisherStore.createPublisherConnection({
                         projectId: consumed.attempt.projectId,
                         channelId: consumed.attempt.channelId,
@@ -398,7 +419,16 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         consumed.attempt.returnPath,
                         'connected'
                     )
-                } catch {
+                } catch (error) {
+                    logPublisherFlowError(
+                        options.logger,
+                        {
+                            channelId: consumed.attempt.channelId,
+                            projectId: consumed.attempt.projectId,
+                            stage: callbackStage,
+                        },
+                        error
+                    )
                     return redirectPublisher(
                         publisher.webOrigin,
                         consumed.attempt.returnPath,
@@ -497,6 +527,78 @@ function tokenExpiry(now: number, expiresInSeconds: number | null): number | nul
     const expiresAt = now + expiresInSeconds * 1000
     if (!Number.isSafeInteger(expiresAt)) throw new Error('OAuth token expiry is out of range')
     return expiresAt
+}
+
+function logPublisherFlowError(
+    logger: Logger | undefined,
+    fields: {
+        readonly channelId: string
+        readonly projectId: string
+        readonly stage: string
+    },
+    error: unknown
+) {
+    if (logger === undefined) return
+
+    logger.error(
+        {
+            ...fields,
+            error: safeErrorDetails(error),
+            provider: LINKEDIN_PROVIDER,
+        },
+        'LinkedIn publisher flow failed'
+    )
+}
+
+function safeErrorDetails(error: unknown) {
+    if (!(error instanceof Error)) {
+        return { name: 'UnknownError', message: 'The failure did not provide an Error instance' }
+    }
+
+    const details: {
+        readonly name: string
+        readonly message: string
+        readonly status?: number
+        readonly providerCode?: string
+        readonly providerDescription?: string
+    } = {
+        name: error.name,
+        message: redactErrorMessage(error.message),
+    }
+
+    const status = readNumberProperty(error, 'status')
+    const providerCode = readStringProperty(error, 'error')
+    const providerDescription = readStringProperty(error, 'error_description')
+
+    return {
+        ...details,
+        ...(status === undefined ? {} : { status }),
+        ...(providerCode === undefined ? {} : { providerCode }),
+        ...(providerDescription === undefined ? {} : { providerDescription }),
+    }
+}
+
+function readNumberProperty(value: object, key: string): number | undefined {
+    if (!(key in value)) return undefined
+    const candidate = (value as Record<string, unknown>)[key]
+    return typeof candidate === 'number' && Number.isSafeInteger(candidate) ? candidate : undefined
+}
+
+function readStringProperty(value: object, key: string): string | undefined {
+    if (!(key in value)) return undefined
+    const candidate = (value as Record<string, unknown>)[key]
+    return typeof candidate === 'string' ? redactErrorMessage(candidate) : undefined
+}
+
+function redactErrorMessage(message: string): string {
+    return message
+        .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+        .replace(
+            /\b(access_token|refresh_token|client_secret|code_verifier|authorization_code|state)=\S+/gi,
+            '$1=[redacted]'
+        )
+        .replace(/\s+/g, ' ')
+        .slice(0, 500)
 }
 
 function redirectPublisher(
