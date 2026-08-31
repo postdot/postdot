@@ -43,7 +43,7 @@
 ## [ISSUE-004] Establish a reusable Herald design-system package
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The dashboard already uses Tailwind CSS, shadcn/ui with Base UI, and
   Solar Icons React, while a future website and documentation surface should reuse
   the same visual language.
@@ -53,12 +53,19 @@
 - Desired outcome: A focused shared package for approved design tokens, Base UI-based
   components, project-specific variants, icon conventions, and Tailwind integration,
   with a clear ownership boundary and no Radix UI dependency.
-- Tasks: none
+- Tasks: DESIGN-29 (completed)
+- Resolution: The private `@herald/ui` workspace package now owns shared Tailwind
+  tokens, base styles, the Base UI Button primitive, and the class-composition
+  utility. The web app consumes the package through public subpaths and keeps a
+  thin local Tailwind entrypoint with explicit application and package source
+  roots. [ADR-023](decisions/ADR-023-establish-shared-ui-package.md) records the
+  ownership boundary.
+- Decision: [ADR-023](decisions/ADR-023-establish-shared-ui-package.md)
 
 ## [ISSUE-005] Define a motion policy before adding an animation runtime
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: No motion policy exists yet, and GSAP is a possible solution for future
   interactions but would add runtime weight and another abstraction to the web
   surface.
@@ -67,7 +74,13 @@
 - Desired outcome: A small motion policy covering accessibility, interaction classes,
   performance budget, and the evidence required before introducing GSAP or another
   animation dependency.
-- Tasks: none
+- Tasks: DESIGN-30 (completed)
+- Resolution: Herald now follows a native-first motion policy recorded in
+  [ADR-024](decisions/ADR-024-adopt-a-native-first-motion-policy.md). The shared
+  stylesheet honors reduced-motion preferences, existing transitions target
+  bounded properties, and no animation runtime was added without a concrete
+  interaction requirement.
+- Decision: [ADR-024](decisions/ADR-024-adopt-a-native-first-motion-policy.md)
 
 ## [ISSUE-006] Separate publisher credentials from application authentication
 
@@ -115,3 +128,27 @@
 - Tasks: DOMAIN-07 (completed), DOMAIN-20, DOMAIN-21, MEDIA-24, CHANNEL-25, CHANNEL-26, EDITOR-27
 - Specification: [SPEC-004](specs/SPEC-004-publication-content-boundary.md)
 - Decisions: [ADR-013](decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](decisions/ADR-021-channel-owns-profile-contract.md)
+
+## [ISSUE-008] Make local API and web startup reproducible
+
+- Type: problem
+- Status: resolved
+- Evidence: A local database created from an earlier migration history contains
+  tables and migration records that do not match the five migrations currently
+  committed. Starting the API then fails with a low-level `table account already
+  exists` error. At the same time, the Vite development proxy always targets port
+  `3000`, which is already used by another local project, so the Herald dashboard
+  sends API requests to the wrong server when Herald's API is unavailable.
+- Impact: A new contributor or operator cannot tell whether startup failed because
+  of stale development data, a port collision, or a dashboard request failure.
+  The resulting generic browser error obscures the actual integration boundary.
+- Desired outcome: Document and exercise a clean local startup path, make the web
+  development API target configurable without changing production same-origin
+  behavior, and provide actionable migration failure context without weakening
+  migration safety.
+- Tasks: OPS-11 (completed)
+- Resolution: The Vite development API target is now validated and configurable
+  through `HERALD_API_ORIGIN`, while browser requests remain same-origin. The API
+  keeps the default `3000` port, and alternate local ports are documented for both
+  processes. Migration conflicts involving an existing schema object now fail
+  closed with actionable context; no idempotent SQL or automatic reset was added.

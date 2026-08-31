@@ -2,11 +2,17 @@ import {
     createHeraldClient,
     type AuditEvent,
     type Channel,
+    type ChannelProfileActivation,
+    type ChannelProfileAssessment,
+    type ChannelProfileState,
+    type ChannelProfileVersion,
     type DuePublication,
     type Post,
+    type PublicationEditorState,
     type PublisherConnection,
     type Project,
     type Publication,
+    type PublicationSummary,
 } from '@herald/client'
 
 const client = createHeraldClient(window.location.origin)
@@ -69,8 +75,8 @@ async function requestAuth<T>(path: string, init?: RequestInit): Promise<T> {
     return body as T
 }
 
-function jsonBody(value: unknown): RequestInit {
-    return { method: 'POST', body: JSON.stringify(value) }
+function jsonBody(value: unknown, method: 'POST' | 'PATCH' = 'POST'): RequestInit {
+    return { method, body: JSON.stringify(value) }
 }
 
 function unwrap<T>(result: {
@@ -112,6 +118,59 @@ export const api = {
     async listChannels(projectId: string): Promise<{ channels: Channel[] }> {
         return unwrap<{ channels: Channel[] }>(
             await client.api.projects({ projectId }).channels.get()
+        )
+    },
+
+    async getChannelProfileState(
+        projectId: string,
+        channelId: string
+    ): Promise<ChannelProfileState> {
+        return unwrap<ChannelProfileState>(
+            await client.api.projects({ projectId }).channels({ channelId }).profile.get()
+        )
+    },
+
+    async saveChannelProfileDraft(
+        projectId: string,
+        channelId: string,
+        profile: Record<string, unknown>,
+        expectedRevision?: number
+    ): Promise<{ profile: ChannelProfileVersion }> {
+        const body = expectedRevision === undefined ? { profile } : { profile, expectedRevision }
+        return unwrap<{ profile: ChannelProfileVersion }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                ['profile-drafts'].post(body)
+        )
+    },
+
+    async previewChannelProfileActivation(
+        projectId: string,
+        channelId: string,
+        profileVersionId: string
+    ): Promise<{ assessment: ChannelProfileAssessment }> {
+        return unwrap<{ assessment: ChannelProfileAssessment }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                ['profile-drafts']({ profileVersionId })
+                .preview.post()
+        )
+    },
+
+    async activateChannelProfile(
+        projectId: string,
+        channelId: string,
+        profileVersionId: string,
+        expectedRevision?: number
+    ): Promise<ChannelProfileActivation> {
+        return unwrap<ChannelProfileActivation>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                ['profile-drafts']({ profileVersionId })
+                .activate.post(expectedRevision === undefined ? {} : { expectedRevision })
         )
     },
 
@@ -158,10 +217,7 @@ export const api = {
         projectId: string,
         input: {
             title?: string
-            sourceContent: {
-                body: { text: string; format: 'plain_text' }
-                media: []
-            }
+            sourceContent: PublicationEditorState['post']['sourceContent']
             publications: Array<{
                 channelId: string
                 targetContent?: Record<string, unknown>
@@ -178,6 +234,56 @@ export const api = {
     async listDuePublications(projectId: string): Promise<{ publications: DuePublication[] }> {
         return unwrap<{ publications: DuePublication[] }>(
             await client.api.projects({ projectId }).publications.due.get()
+        )
+    },
+
+    async listPublications(projectId: string): Promise<{ publications: PublicationSummary[] }> {
+        return unwrap<{ publications: PublicationSummary[] }>(
+            await client.api.projects({ projectId }).publications.get()
+        )
+    },
+
+    async getPublicationEditor(
+        projectId: string,
+        publicationId: string
+    ): Promise<{ editor: PublicationEditorState }> {
+        return unwrap<{ editor: PublicationEditorState }>(
+            await client.api.projects({ projectId }).publications({ publicationId }).editor.get()
+        )
+    },
+
+    async savePublicationDraft(
+        projectId: string,
+        publicationId: string,
+        input: {
+            expectedRevision: number
+            sourceContent?: PublicationEditorState['post']['sourceContent']
+            targetContent?: Record<string, unknown>
+        }
+    ): Promise<{ editor: PublicationEditorState }> {
+        return unwrap<{ editor: PublicationEditorState }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .draft.patch(input)
+        )
+    },
+
+    async promotePublicationDraft(
+        projectId: string,
+        publicationId: string,
+        expectedRevision: number,
+        scheduledAt?: number | null
+    ): Promise<{ editor: PublicationEditorState }> {
+        return unwrap<{ editor: PublicationEditorState }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .draft.promote.post(
+                    scheduledAt === undefined
+                        ? { expectedRevision }
+                        : { expectedRevision, scheduledAt }
+                )
         )
     },
 
@@ -204,9 +310,15 @@ export const api = {
 export type {
     AuditEvent,
     Channel,
+    ChannelProfileActivation,
+    ChannelProfileAssessment,
+    ChannelProfileState,
+    ChannelProfileVersion,
     DuePublication,
     Post,
+    PublicationEditorState,
     PublisherConnection,
     Project,
     Publication,
+    PublicationSummary,
 } from '@herald/client'

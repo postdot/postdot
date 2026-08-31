@@ -78,8 +78,10 @@ choices interchangeable without changing publication records.
 
 S3 presigned uploads and downloads are optional infrastructure accelerations rather
 than required `MediaStore` semantics. Local bytes stream through authenticated
-Herald routes; S3 may use short-lived signed URLs. Both paths use the same finalizer,
-and storage remains private by default.
+Herald routes, or through the application-owned short-lived signed route when a
+destination requires a URL; S3/R2 uses the same Herald delivery authority rather
+than exposing a storage locator. Both paths use the same finalizer, and storage
+remains private by default.
 
 ## Upload, inspection, and deletion
 

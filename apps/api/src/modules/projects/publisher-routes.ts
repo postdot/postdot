@@ -1,3 +1,5 @@
+import { isCustomHttpAuthentication } from '@herald/core'
+import { CUSTOM_HTTP_PUBLISHER_KIND, normalizeCustomHttpEndpoint } from '@herald/custom-http'
 import {
     LINKEDIN_PROVIDER,
     LINKEDIN_REQUIRED_SCOPES,
@@ -14,6 +16,8 @@ import { Type } from 'typebox'
 import type { PublisherRuntime } from '../publishers/runtime'
 import {
     errorResponse,
+    customHttpConnectionBody,
+    customHttpConnectionResponse,
     linkedInConnectionSchema,
     projectParams,
     publisherConnectionsSchema,
@@ -58,6 +62,123 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 }
 
                 return { connections }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/channels/:channelId/publisher/custom-http/connect',
+            {
+                auth: true,
+                params: Type.Object({
+                    projectId: Type.String({ minLength: 1 }),
+                    channelId: Type.String({ minLength: 1 }),
+                }),
+                body: customHttpConnectionBody,
+                response: {
+                    200: customHttpConnectionResponse,
+                    400: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'createCustomHttpPublisherConnection',
+                    summary: 'Create a custom HTTP publisher connection',
+                    tags: ['Channels'],
+                },
+            },
+            async ({ body, params, status, user }) => {
+                if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+
+                if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+                    return status(409, {
+                        error: {
+                            code: 'publisher_exists',
+                            message: 'This channel already has a publisher',
+                        },
+                    })
+                }
+
+                let endpoint: ReturnType<typeof normalizeCustomHttpEndpoint>
+                try {
+                    endpoint = normalizeCustomHttpEndpoint(body.endpointUrl)
+                } catch {
+                    return status(400, {
+                        error: {
+                            code: 'invalid_connection',
+                            message:
+                                'The custom HTTP endpoint must be a valid origin-only HTTP URL',
+                        },
+                    })
+                }
+                if (!isCustomHttpAuthentication(body.authentication)) {
+                    return status(400, {
+                        error: {
+                            code: 'invalid_connection',
+                            message: 'The custom HTTP authentication configuration is invalid',
+                        },
+                    })
+                }
+
+                const actorId = publisherStore.getHumanActorId(params.projectId, user.id)
+                if (actorId === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+
+                const credential = await publisher.credentialStore.createPublisherCredential({
+                    projectId: params.projectId,
+                    connectedByActorId: actorId,
+                    providerId: CUSTOM_HTTP_PUBLISHER_KIND,
+                    externalAccountId: crypto.randomUUID(),
+                    externalAccountName: body.externalAccountName ?? endpoint.hostname,
+                    scopes: [],
+                    accessToken: body.secret,
+                    expiresAt: null,
+                })
+                if (credential.kind !== 'created') {
+                    return status(409, {
+                        error: {
+                            code: 'credential_exists',
+                            message: 'The custom HTTP credential could not be created',
+                        },
+                    })
+                }
+
+                const connection = publisherStore.createPublisherConnection({
+                    projectId: params.projectId,
+                    channelId: params.channelId,
+                    subjectId: user.id,
+                    kind: CUSTOM_HTTP_PUBLISHER_KIND,
+                    credentialId: credential.credential.id,
+                    endpointUrl: endpoint.url.origin,
+                    authentication: body.authentication,
+                })
+                if (connection.kind !== 'created') {
+                    publisher.credentialStore.revokePublisherCredential(
+                        params.projectId,
+                        credential.credential.id
+                    )
+                    return connection.kind === 'publisher_exists'
+                        ? status(409, {
+                              error: {
+                                  code: 'publisher_exists',
+                                  message: 'This channel already has a publisher',
+                              },
+                          })
+                        : status(400, {
+                              error: {
+                                  code: 'invalid_connection',
+                                  message: 'The custom HTTP connection could not be created',
+                              },
+                          })
+                }
+
+                options.onWorkScheduled?.()
+                return { connection: connection.connection }
             }
         )
         .post(

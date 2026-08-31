@@ -11,7 +11,9 @@ import {
     publicationReviewStates,
     publicationStates,
     publisherCredentialStates,
+    channelProfileVersionStates,
     type ChannelProfileDefinition,
+    type CustomHttpAuthentication,
     type SourceContent,
 } from '@herald/core'
 import { sql } from 'drizzle-orm'
@@ -28,7 +30,7 @@ import {
 
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
-const channelProfileStates = ['active', 'superseded', 'disabled'] as const
+const channelProfileStates = channelProfileVersionStates
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
@@ -101,6 +103,7 @@ export const channelProfileVersions = sqliteTable(
         version: integer('version').notNull(),
         origin: text('origin', { enum: ['built_in', 'custom'] }).notNull(),
         state: text('state', { enum: channelProfileStates }).notNull(),
+        revision: integer('revision').default(1).notNull(),
         profileJson: text('profile_json', { mode: 'json' })
             .$type<ChannelProfileDefinition>()
             .notNull(),
@@ -121,6 +124,12 @@ export const channelProfileVersions = sqliteTable(
             table.channelId,
             table.state
         ),
+        uniqueIndex('channel_profile_versions_project_channel_active_uidx')
+            .on(table.projectId, table.channelId)
+            .where(sql`${table.state} = 'active'`),
+        uniqueIndex('channel_profile_versions_project_channel_draft_uidx')
+            .on(table.projectId, table.channelId)
+            .where(sql`${table.state} = 'draft'`),
         foreignKey({
             name: 'channel_profile_versions_project_channel_fk',
             columns: [table.projectId, table.channelId],
@@ -136,6 +145,7 @@ export const channelProfileVersions = sqliteTable(
             sql`length(trim(${table.profileId})) > 0`
         ),
         check('channel_profile_versions_version_positive', sql`${table.version} > 0`),
+        check('channel_profile_versions_revision_positive', sql`${table.revision} > 0`),
         check(
             'channel_profile_versions_profile_json_object',
             sql`json_valid(${table.profileJson}) and json_type(${table.profileJson}) = 'object'`
@@ -150,7 +160,7 @@ export const channelProfileVersions = sqliteTable(
         ),
         check(
             'channel_profile_versions_state_valid',
-            sql`${table.state} in ('active', 'superseded', 'disabled')`
+            sql`${table.state} in ('draft', 'active', 'superseded', 'disabled')`
         ),
     ]
 )
@@ -393,6 +403,10 @@ export const publisherConnections = sqliteTable(
             .references(() => projects.id, { onDelete: 'cascade' }),
         publisherId: text('publisher_id').notNull(),
         credentialId: text('credential_id').notNull(),
+        endpointUrl: text('endpoint_url'),
+        authenticationJson: text('authentication_json', {
+            mode: 'json',
+        }).$type<CustomHttpAuthentication | null>(),
         connectedByActorId: text('connected_by_actor_id').notNull(),
         ...timestamps(),
     },
@@ -421,6 +435,14 @@ export const publisherConnections = sqliteTable(
             columns: [table.projectId, table.connectedByActorId],
             foreignColumns: [actors.projectId, actors.id],
         }).onDelete('restrict'),
+        check(
+            'publisher_connections_endpoint_url_nonblank',
+            sql`${table.endpointUrl} is null or length(trim(${table.endpointUrl})) > 0`
+        ),
+        check(
+            'publisher_connections_authentication_json_object',
+            sql`${table.authenticationJson} is null or (json_valid(${table.authenticationJson}) and json_type(${table.authenticationJson}) = 'object')`
+        ),
     ]
 )
 
@@ -776,6 +798,11 @@ export const publications = sqliteTable(
         scheduledByActorId: text('scheduled_by_actor_id'),
         stateChangedByActorId: text('state_changed_by_actor_id').notNull(),
         publishedByActorId: text('published_by_actor_id'),
+        lastAssessedProfileVersionId: text('last_assessed_profile_version_id'),
+        profileAssessmentIssuesJson: text('profile_assessment_issues_json', { mode: 'json' })
+            .$type<readonly Record<string, unknown>[]>()
+            .notNull()
+            .default(sql`'[]'`),
         ...timestamps(),
     },
     table => [
@@ -829,6 +856,11 @@ export const publications = sqliteTable(
             columns: [table.projectId, table.publishedByActorId],
             foreignColumns: [actors.projectId, actors.id],
         }).onDelete('restrict'),
+        foreignKey({
+            name: 'publications_project_assessed_profile_fk',
+            columns: [table.projectId, table.lastAssessedProfileVersionId],
+            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+        }).onDelete('restrict'),
         check(
             'publications_target_revision_id_nonblank',
             sql`${table.targetRevisionId} is null or length(trim(${table.targetRevisionId})) > 0`
@@ -842,8 +874,12 @@ export const publications = sqliteTable(
             sql`${table.reviewState} in ('compatible', 'review_required')`
         ),
         check(
+            'publications_profile_assessment_issues_array',
+            sql`json_valid(${table.profileAssessmentIssuesJson}) and json_type(${table.profileAssessmentIssuesJson}) = 'array'`
+        ),
+        check(
             'publications_scheduled_target_valid',
-            sql`${table.state} <> 'scheduled' or (${table.targetRevisionId} is not null and ${table.reviewState} = 'compatible')`
+            sql`${table.state} <> 'scheduled' or ${table.targetRevisionId} is not null`
         ),
         check(
             'publications_state_valid',
@@ -893,6 +929,7 @@ export const publicationWorkingDrafts = sqliteTable(
         validationIssuesJson: text('validation_issues_json', { mode: 'json' })
             .$type<readonly Record<string, unknown>[]>()
             .notNull(),
+        lastAssessedProfileVersionId: text('last_assessed_profile_version_id'),
         revision: integer('revision').default(1).notNull(),
         updatedByActorId: text('updated_by_actor_id').notNull(),
         ...timestamps(),
@@ -914,6 +951,11 @@ export const publicationWorkingDrafts = sqliteTable(
         foreignKey({
             name: 'publication_working_drafts_project_profile_fk',
             columns: [table.projectId, table.profileVersionId],
+            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_working_drafts_project_assessed_profile_fk',
+            columns: [table.projectId, table.lastAssessedProfileVersionId],
             foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
         }).onDelete('restrict'),
         foreignKey({

@@ -94,6 +94,8 @@ export interface Publication extends ProjectEntity {
     readonly scheduledByActorId: string | null
     readonly stateChangedByActorId: string
     readonly publishedByActorId: string | null
+    readonly lastAssessedProfileVersionId: string | null
+    readonly profileAssessmentIssues: readonly Record<string, unknown>[]
 }
 
 export interface Job extends ProjectEntity {
@@ -332,6 +334,8 @@ export function createPublication(
         scheduledByActorId: scheduledAt === null ? null : input.createdBy.id,
         stateChangedByActorId: input.createdBy.id,
         publishedByActorId: null,
+        lastAssessedProfileVersionId: null,
+        profileAssessmentIssues: [],
     }
 }
 

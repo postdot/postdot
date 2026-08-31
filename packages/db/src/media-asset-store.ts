@@ -1259,6 +1259,26 @@ export function createMediaAssetStore(
                 : openRepresentationContent(media, representation.id)
         },
 
+        async openPublicRepresentationContent(
+            projectId: string,
+            assetId: string,
+            representationId: string
+        ): Promise<MediaAssetContent | null> {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedAssetId = requireNonBlank(assetId, 'assetId')
+            const normalizedRepresentationId = requireNonBlank(representationId, 'representationId')
+            const media = readMedia(normalizedProjectId, normalizedAssetId)
+            if (media === null || media.asset.state !== 'ready') return null
+
+            const representation = media.representations.find(
+                candidate =>
+                    candidate.id === normalizedRepresentationId && candidate.state === 'ready'
+            )
+            return representation === undefined
+                ? null
+                : openRepresentationContent(media, representation.id)
+        },
+
         listAssets(projectId: string, subjectId: string): readonly MediaAssetReference[] | null {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {

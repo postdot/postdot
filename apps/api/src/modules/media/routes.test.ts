@@ -9,9 +9,11 @@ import { createLocalMediaStore } from '@herald/media'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
+import { createMediaPublicDelivery } from './public-delivery'
 
 const baseURL = 'http://localhost:3000'
 const secret = 'herald-test-secret-with-at-least-32-characters'
+const mediaPublicUrlSecret = 'herald-media-public-url-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
@@ -102,6 +104,11 @@ describe('media HTTP routes', () => {
             database,
             publisher,
             media,
+            mediaPublicDelivery: createMediaPublicDelivery({
+                baseURL,
+                signingSecret: mediaPublicUrlSecret,
+                now: () => now,
+            }),
             manualStore: { now: () => now },
         })
 
@@ -189,6 +196,7 @@ describe('media HTTP routes', () => {
                 media: {
                     asset: { id: string; state: string }
                     representations: Array<{
+                        id: string
                         state: string
                         detectedFormat: string | null
                         detectedContentType: string | null
@@ -233,6 +241,28 @@ describe('media HTTP routes', () => {
                 Array.from(bytes)
             )
 
+            const publicMediaDelivery = createMediaPublicDelivery({
+                baseURL,
+                signingSecret: mediaPublicUrlSecret,
+                now: () => now,
+            })
+            const publicUrl = publicMediaDelivery.createUrl({
+                projectId: projectBody.project.id,
+                assetId: reservationBody.asset.id,
+                representationId: finalizedBody.media.representations[0]!.id,
+            })
+            const publicResponse = await app.handle(new Request(publicUrl))
+            expect(publicResponse.status).toBe(200)
+            expect(publicResponse.headers.get('cache-control')).toBe('private, no-store')
+            expect(publicResponse.headers.get('referrer-policy')).toBe('no-referrer')
+            expect(publicResponse.headers.get('x-content-type-options')).toBe('nosniff')
+            expect(Array.from(new Uint8Array(await publicResponse.arrayBuffer()))).toEqual(
+                Array.from(bytes)
+            )
+
+            const tamperedPublicUrl = publicUrl.replace(/.$/, publicUrl.endsWith('a') ? 'b' : 'a')
+            expect((await app.handle(new Request(tamperedPublicUrl))).status).toBe(404)
+
             const listResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/media`,
@@ -271,6 +301,7 @@ describe('media HTTP routes', () => {
                 cookie
             )
             expect(deletedContentResponse.status).toBe(404)
+            expect((await app.handle(new Request(publicUrl))).status).toBe(404)
 
             const deletedMetadataResponse = await jsonRequest(
                 app,
@@ -346,7 +377,17 @@ describe('media HTTP routes', () => {
             }),
             { now: () => now, deletionGracePeriodMs: 0 }
         )
-        const app = createApp({ auth, database, publisher, media })
+        const app = createApp({
+            auth,
+            database,
+            publisher,
+            media,
+            mediaPublicDelivery: createMediaPublicDelivery({
+                baseURL,
+                signingSecret: mediaPublicUrlSecret,
+                now: () => now,
+            }),
+        })
 
         try {
             const response = await app.handle(new Request(`${baseURL}/openapi/json`))
@@ -365,6 +406,7 @@ describe('media HTTP routes', () => {
                     '/api/projects/{projectId}/media/uploads',
                     '/api/projects/{projectId}/media/uploads/{intentId}',
                     '/api/projects/{projectId}/media/uploads/{intentId}/finalize',
+                    '/api/media/public/{token}',
                 ])
             )
             expect(

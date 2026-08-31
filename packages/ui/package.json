@@ -1,0 +1,55 @@
+{
+    "name": "@herald/ui",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Shared Herald UI primitives and design tokens",
+    "type": "module",
+    "sideEffects": [
+        "**/*.css"
+    ],
+    "exports": {
+        ".": "./src/index.ts",
+        "./components": "./src/components/index.ts",
+        "./components/*": "./src/components/*.tsx",
+        "./lib": "./src/lib/index.ts",
+        "./lib/*": "./src/lib/*.ts",
+        "./styles/*": "./src/styles/*",
+        "./globals.css": "./src/styles/globals.css",
+        "./package.json": "./package.json"
+    },
+    "scripts": {
+        "build": "bun build ./src/index.ts --outdir ./dist --target browser",
+        "lint": "oxlint --deny-warnings .",
+        "lint:fix": "oxlint --fix .",
+        "format": "oxfmt --check .",
+        "format:fix": "oxfmt --write .",
+        "typecheck": "tsc --noEmit",
+        "test": "bun test",
+        "clean": "rimraf dist .turbo"
+    },
+    "dependencies": {
+        "@base-ui/react": "1.7.0",
+        "@fontsource-variable/geist": "5.3.0",
+        "class-variance-authority": "0.7.1",
+        "clsx": "2.1.1",
+        "tailwind-merge": "3.6.0",
+        "tw-animate-css": "1.4.0"
+    },
+    "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
+        "@types/react": "19.2.18",
+        "@types/react-dom": "19.2.5",
+        "react": "19.2.8",
+        "react-dom": "19.2.8",
+        "shadcn": "4.19.0",
+        "typescript": "7.0.2"
+    },
+    "peerDependencies": {
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+    },
+    "engines": {
+        "bun": ">=1.4"
+    }
+}

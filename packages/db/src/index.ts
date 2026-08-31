@@ -50,7 +50,12 @@ export type {
 } from './oauth-authorization-attempt-store'
 export type {
     AuditEvent,
+    ActivateChannelProfileInput,
+    ChannelProfileActivationResult,
+    ChannelProfileState,
+    ChannelProfileVersion,
     CreateChannelInput,
+    CreateChannelProfileDraftInput,
     CreatePostInput,
     CreatePostPublicationInput,
     CreateProjectInput,
@@ -60,9 +65,13 @@ export type {
     ManualStoreOptions,
     PromotePublicationDraftInput,
     PublishManualPublicationInput,
+    PreviewChannelProfileActivationInput,
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,
     PublicationWorkingDraft,
+    PublicationEditorState,
+    PublicationSummary,
+    PublicationTargetRevision,
     SavePublicationDraftInput,
 } from './manual-store'
 export type {

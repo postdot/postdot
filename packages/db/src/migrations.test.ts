@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'bun:test'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 
 import { eq } from 'drizzle-orm'
 
@@ -58,9 +60,47 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(3)
+            expect(migrationCount?.count).toBe(5)
         } finally {
             closeDatabase(database)
+        }
+    })
+
+    it('explains an existing-schema conflict without weakening migration safety', async () => {
+        const migrationsFolder = await mkdtemp('/tmp/herald-migration-conflict-')
+        const database = createDatabase(':memory:')
+
+        try {
+            await mkdir(join(migrationsFolder, 'meta'))
+            await writeFile(
+                join(migrationsFolder, '0000_conflicting_schema.sql'),
+                'CREATE TABLE `account` (`id` text PRIMARY KEY NOT NULL);\n'
+            )
+            await writeFile(
+                join(migrationsFolder, 'meta/_journal.json'),
+                JSON.stringify({
+                    version: '7',
+                    dialect: 'sqlite',
+                    entries: [
+                        {
+                            idx: 0,
+                            version: '6',
+                            when: Date.now() + 86_400_000,
+                            tag: '0000_conflicting_schema',
+                            breakpoints: true,
+                        },
+                    ],
+                })
+            )
+
+            runMigrations(database)
+
+            expect(() => runMigrations(database, migrationsFolder)).toThrow(
+                'The database schema conflicts with the committed migration history'
+            )
+        } finally {
+            closeDatabase(database)
+            await rm(migrationsFolder, { recursive: true, force: true })
         }
     })
 

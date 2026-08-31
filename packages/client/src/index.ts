@@ -3,12 +3,18 @@ import type { HeraldApp } from '@herald/api'
 import type {
     AuditEventResponse,
     ChannelResponse,
+    ChannelProfileActivationResponse,
+    ChannelProfileAssessmentResponse,
+    ChannelProfileStateResponse,
+    ChannelProfileVersionResponse,
     DuePublicationResponse,
     PostResponse,
+    PublicationEditorStateResponse,
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
     ProjectResponse,
     PublicationResponse,
+    PublicationSummaryResponse,
 } from '@herald/api'
 
 type HeraldFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
@@ -39,9 +45,15 @@ export type HeraldClient = ReturnType<typeof createHeraldClient>
 
 export type Project = ProjectResponse
 export type Channel = ChannelResponse
+export type ChannelProfileVersion = ChannelProfileVersionResponse
+export type ChannelProfileState = ChannelProfileStateResponse
+export type ChannelProfileAssessment = ChannelProfileAssessmentResponse
+export type ChannelProfileActivation = ChannelProfileActivationResponse
 export type Post = PostResponse
 export type Publication = PublicationResponse
 export type DuePublication = DuePublicationResponse
+export type PublicationEditorState = PublicationEditorStateResponse
+export type PublicationSummary = PublicationSummaryResponse
 export type AuditEvent = AuditEventResponse
 export type PublisherConnection = PublisherConnectionResponse
 export type PublisherConnections = PublisherConnectionsResponse
