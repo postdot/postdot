@@ -7,10 +7,17 @@ import {
     type RetryPolicy,
 } from '@herald/core'
 import {
+    CUSTOM_HTTP_PUBLISHER_KIND,
+    createCustomHttpTransport,
+    type CustomHttpMediaDescriptor,
+    type CustomHttpTransport,
+} from '@herald/custom-http'
+import {
     createWorkflowStore,
     type createPublisherCredentialStore,
     type createPublisherStore,
     type HeraldDatabase,
+    type MediaAssetStore,
     type PublisherExecutionTarget,
 } from '@herald/db'
 import {
@@ -36,6 +43,11 @@ export interface PublicationWorkerOptions {
     readonly database: HeraldDatabase
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
+    readonly media?: MediaAssetStore
+    readonly customHttpTransport?: CustomHttpTransport
+    readonly resolveCustomHttpMediaUrl?: (
+        media: CustomHttpMediaDescriptor
+    ) => string | null | Promise<string | null>
     readonly linkedinOAuth?: {
         readonly authorizationServer: OAuthAuthorizationServer
         readonly clientId: string
@@ -62,6 +74,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
     const workflowStore = createWorkflowStore(options.database)
     const publisherStore = options.publisherStore
     const linkedInPublisher = options.linkedInPublisher ?? createLinkedInTextPublisher()
+    const customHttpTransport = options.customHttpTransport ?? createCustomHttpTransport()
     const leaseDuration = options.leaseDuration ?? defaultLeaseDuration
     const retryPolicy = options.retryPolicy ?? defaultRetryPolicy
     const createClaimToken = options.createClaimToken ?? (() => crypto.randomUUID())
@@ -86,6 +99,9 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
                             linkedInPublisher,
                             publisherStore,
                             publisherCredentialStore: options.publisherCredentialStore,
+                            media: options.media,
+                            customHttpTransport,
+                            resolveCustomHttpMediaUrl: options.resolveCustomHttpMediaUrl,
                             linkedinOAuth: options.linkedinOAuth,
                             now: timestamp,
                         }),
@@ -124,6 +140,11 @@ async function performExternalEffect(input: {
     readonly linkedInPublisher: LinkedInTextPublisher
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
+    readonly media?: MediaAssetStore
+    readonly customHttpTransport: CustomHttpTransport
+    readonly resolveCustomHttpMediaUrl?: (
+        media: CustomHttpMediaDescriptor
+    ) => string | null | Promise<string | null>
     readonly linkedinOAuth:
         | {
               readonly authorizationServer: OAuthAuthorizationServer
@@ -141,6 +162,13 @@ async function performExternalEffect(input: {
     const target = publisherStore.getPublisherExecutionTarget(job.id, job.claimToken)
     if (target === null) {
         return permanentFailure('The publisher execution context is unavailable')
+    }
+
+    if (target.kind === CUSTOM_HTTP_PUBLISHER_KIND) {
+        if (target.providerId !== CUSTOM_HTTP_PUBLISHER_KIND) {
+            return permanentFailure('The custom HTTP publisher credential is invalid')
+        }
+        return performCustomHttpEffect(input, target)
     }
 
     if (target.providerId !== LINKEDIN_PROVIDER || target.kind !== LINKEDIN_PROVIDER) {
@@ -221,6 +249,78 @@ async function performExternalEffect(input: {
         )
     }
     return outcome
+}
+
+async function performCustomHttpEffect(
+    input: Parameters<typeof performExternalEffect>[0],
+    target: PublisherExecutionTarget
+): Promise<ExternalEffectOutcome> {
+    if (target.profile.execution.kind !== 'declarative_http') {
+        return permanentFailure('The custom HTTP channel profile is not executable')
+    }
+    if (target.endpointUrl === null || target.authentication === null) {
+        return permanentFailure('The custom HTTP connection is incomplete')
+    }
+
+    const secrets = await input.publisherCredentialStore.resolvePublisherCredentialSecrets(
+        target.projectId,
+        target.credentialId
+    )
+    if (secrets === null || secrets.accessToken.trim().length === 0) {
+        return permanentFailure('The custom HTTP connection secret is unavailable')
+    }
+
+    const mediaReader =
+        input.media === undefined
+            ? undefined
+            : {
+                  open: async (media: CustomHttpMediaDescriptor) => {
+                      const opened = await input.media!.openRepresentationContent(
+                          target.projectId,
+                          media.assetId,
+                          media.representationId
+                      )
+                      if (
+                          opened === null ||
+                          opened.representation.storeId !== media.storeId ||
+                          opened.representation.objectKey !== media.objectKey ||
+                          opened.size !== media.byteSize ||
+                          opened.contentType !== media.contentType
+                      ) {
+                          return null
+                      }
+                      return {
+                          size: opened.size,
+                          contentType: opened.contentType,
+                          stream: opened.stream,
+                      }
+                  },
+              }
+
+    return input.customHttpTransport.deliver({
+        execution: target.profile.execution,
+        content: target.content,
+        context: {
+            deliveryId: target.jobId,
+            jobId: target.jobId,
+            projectId: target.projectId,
+            publicationId: target.publicationId,
+            channelId: target.channelId,
+            channelName: target.channelName,
+            scheduledAt: target.scheduledAt,
+            attempt: target.attempt,
+            externalAccountId: target.externalAccountId,
+            deliveredAt: input.now,
+        },
+        media: target.media,
+        connection: {
+            endpointUrl: target.endpointUrl,
+            authentication: target.authentication,
+            secret: secrets.accessToken,
+        },
+        mediaReader,
+        resolveMediaUrl: input.resolveCustomHttpMediaUrl,
+    })
 }
 
 function permanentFailure(

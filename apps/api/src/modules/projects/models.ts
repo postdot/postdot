@@ -243,6 +243,16 @@ export const publisherConnectionSchema = Type.Object({
     channelId: Type.String({ minLength: 1 }),
     kind: Type.String({ minLength: 1 }),
     credentialId: Type.String({ minLength: 1 }),
+    endpointUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    authentication: Type.Union([
+        Type.Object({ kind: Type.Literal('none') }),
+        Type.Object({ kind: Type.Literal('bearer') }),
+        Type.Object({
+            kind: Type.Literal('header'),
+            headerName: Type.String({ minLength: 1 }),
+        }),
+        Type.Null(),
+    ]),
     providerId: Type.String({ minLength: 1 }),
     externalAccountId: Type.String({ minLength: 1 }),
     externalAccountName: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
@@ -263,6 +273,26 @@ export const linkedInConnectionSchema = Type.Object({
     provider: Type.Literal('linkedin'),
     scopes: Type.Array(Type.String({ minLength: 1 })),
     authorizationUrl: Type.String({ minLength: 1 }),
+})
+
+export const customHttpConnectionBody = Type.Object({
+    endpointUrl: Type.String({ minLength: 1, maxLength: 2_048 }),
+    authentication: Type.Union([
+        Type.Object({ kind: Type.Literal('none') }),
+        Type.Object({ kind: Type.Literal('bearer') }),
+        Type.Object({
+            kind: Type.Literal('header'),
+            headerName: Type.String({ minLength: 1, maxLength: 128 }),
+        }),
+    ]),
+    externalAccountName: Type.Optional(
+        Type.Union([Type.String({ minLength: 1, maxLength: 255 }), Type.Null()])
+    ),
+    secret: Type.String({ minLength: 32, maxLength: 4_096, writeOnly: true }),
+})
+
+export const customHttpConnectionResponse = Type.Object({
+    connection: publisherConnectionSchema,
 })
 
 export const publisherConnectionsSchema = Type.Object({

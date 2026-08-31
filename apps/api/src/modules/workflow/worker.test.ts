@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
+import type { ChannelProfileDefinition } from '@herald/core'
+import { createCustomHttpTransport } from '@herald/custom-http'
 import {
     closeDatabase,
     createDatabase,
@@ -18,6 +20,40 @@ import { createPublicationWorker } from './worker'
 
 const now = 1_800_000_000_000
 const encryptionKey = new Uint8Array(32).fill(11)
+
+const customWebhookProfile: ChannelProfileDefinition = {
+    id: 'custom-webhook',
+    version: 1,
+    profileHash: 'sha256:custom-webhook-profile-v1',
+    schemaHash: 'sha256:custom-webhook-schema-v1',
+    origin: 'custom',
+    contentSchema: {
+        $schema: 'https://json-schema.org/draft/2020-12/schema',
+        type: 'object',
+        properties: { commentary: { type: 'string', minLength: 1, maxLength: 1_000 } },
+        required: ['commentary'],
+        additionalProperties: false,
+    },
+    fieldBindings: [{ id: 'commentary', semantic: 'primary_text', path: '/commentary' }],
+    capabilities: {
+        revision: 'custom-webhook-v1',
+        textFields: [
+            {
+                bindingId: 'commentary',
+                acceptedSourceFormats: ['plain_text'],
+                maxLength: 1_000,
+            },
+        ],
+        mediaFields: [],
+        relations: [],
+    },
+    execution: {
+        kind: 'declarative_http',
+        contractId: 'custom-webhook',
+        revision: '1',
+        mode: 'herald_webhook',
+    },
+}
 
 describe('publication worker', () => {
     it('executes scheduled LinkedIn publications through a project credential and persists outcomes', async () => {
@@ -191,6 +227,121 @@ describe('publication worker', () => {
                 credentialStore.getPublisherCredential(project.project.id, credential.credential.id)
             ).toMatchObject({ state: 'reconnect_required' })
         } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('delivers a custom HTTP webhook through the real worker and local HTTP server', async () => {
+        let receivedBody: string | null = null
+        let receivedSignature: string | null = null
+        const receiver = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                receivedBody = await request.text()
+                receivedSignature = request.headers.get('x-herald-signature')
+                return Response.json({ accepted: true }, { status: 201 })
+            },
+        })
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const manualStore = createManualStore(database, { now: () => now })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => now,
+            })
+            const publisherStore = createPublisherStore(database, {
+                credentialRevoker: credentialStore,
+                now: () => now,
+            })
+            const project = manualStore.createProject({
+                name: 'Custom HTTP Worker Project',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Local Receiver',
+                profile: customWebhookProfile,
+            })
+            expect(channel).not.toBeNull()
+            if (channel === null) throw new Error('The custom HTTP test channel was not created')
+
+            const secret = 'custom-http-worker-secret-with-at-least-32-characters'
+            const credential = await credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'custom_http',
+                externalAccountId: 'receiver-1',
+                externalAccountName: 'Local Receiver',
+                scopes: [],
+                accessToken: secret,
+                expiresAt: null,
+            })
+            expect(credential.kind).toBe('created')
+            if (credential.kind !== 'created')
+                throw new Error('The custom HTTP credential was not created')
+
+            const connection = publisherStore.createPublisherConnection({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                kind: 'custom_http',
+                credentialId: credential.credential.id,
+                endpointUrl: `http://127.0.0.1:${new URL(receiver.url).port}`,
+                authentication: { kind: 'none' },
+            })
+            expect(connection.kind).toBe('created')
+
+            const post = manualStore.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Delivered by the custom channel', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
+                ],
+            })
+            expect(post).not.toBeNull()
+
+            const worker = createPublicationWorker({
+                database,
+                publisherStore,
+                publisherCredentialStore: credentialStore,
+                customHttpTransport: createCustomHttpTransport({
+                    privateDestinations: [
+                        {
+                            kind: 'cidr',
+                            cidr: '127.0.0.0/8',
+                            port: receiver.port ?? Number(new URL(receiver.url).port),
+                            schemes: ['http'],
+                        },
+                    ],
+                }),
+                now: () => now,
+            })
+
+            await worker.processDueEvents(now)
+
+            expect(receivedBody).not.toBeNull()
+            expect(receivedSignature).toMatch(/^sha256=[0-9a-f]{64}$/)
+            expect(JSON.parse(receivedBody ?? '{}')).toMatchObject({
+                event: 'publication.delivery',
+                content: { commentary: 'Delivered by the custom channel' },
+            })
+            expect(
+                database
+                    .select({ state: publications.state })
+                    .from(publications)
+                    .where(eq(publications.projectId, project.project.id))
+                    .all()
+            ).toEqual([{ state: 'published' }])
+        } finally {
+            receiver.stop()
             closeDatabase(database)
         }
     })

@@ -21,6 +21,10 @@
       "path": "packages/core",
     },
     {
+      "name": "custom-http",
+      "path": "packages/custom-http",
+    },
+    {
       "name": "db",
       "path": "packages/db",
     },

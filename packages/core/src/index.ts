@@ -1,4 +1,5 @@
 export * from './channel-profile'
+export * from './channel-transport'
 export * from './channel-profile-evolution'
 export * from './invariants'
 export * from './json-schema-policy'

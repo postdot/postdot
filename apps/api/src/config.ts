@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url'
 
+import { parsePrivateDestinationRules, type PrivateDestinationRule } from '@herald/custom-http'
 import type { LevelWithSilent } from 'pino'
 
 import {
@@ -66,6 +67,7 @@ const environmentDefinitions = {
     LINKEDIN_CLIENT_ID: env.optionalString({ minLength: 1 }),
     LINKEDIN_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     HERALD_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
+    HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
         defaultValue: values => (values.NODE_ENV === 'production' ? 'silent' : 'info'),
     }),
@@ -122,6 +124,9 @@ export interface HeraldConfig {
             readonly clientSecret: string
         }
     }
+    readonly customHttp: {
+        readonly privateDestinations: readonly PrivateDestinationRule[]
+    }
     readonly web: {
         readonly origin: string
         readonly assetsDirectory: string
@@ -173,6 +178,9 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
                   clientSecret: environment.LINKEDIN_CLIENT_SECRET,
               }
             : undefined
+    const customHttpPrivateDestinations = parsePrivateDestinationRules(
+        environment.HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS
+    )
 
     return {
         environment: environment.NODE_ENV,
@@ -221,6 +229,9 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             publisherEncryptionKeyId: environment.HERALD_PUBLISHER_ENCRYPTION_KEY_ID,
         },
         publishers: linkedin === undefined ? {} : { linkedin },
+        customHttp: {
+            privateDestinations: customHttpPrivateDestinations,
+        },
         web: {
             origin: environment.HERALD_WEB_ORIGIN,
             assetsDirectory: environment.HERALD_WEB_ASSETS_DIR,

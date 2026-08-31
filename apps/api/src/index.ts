@@ -1,4 +1,5 @@
 import { createAuth } from '@herald/auth'
+import { createCustomHttpTransport } from '@herald/custom-http'
 import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@herald/db'
 
 import { createApp } from './app'
@@ -52,10 +53,15 @@ async function startServer(config = createHeraldConfig()) {
         publisherEncryptionKeyId: config.security.publisherEncryptionKeyId,
         linkedin: config.publishers.linkedin,
     })
+    const customHttpTransport = createCustomHttpTransport({
+        privateDestinations: config.customHttp.privateDestinations,
+    })
     const worker = createPublicationWorker({
         database,
         publisherStore: publisher.publisherStore,
         publisherCredentialStore: publisher.credentialStore,
+        media,
+        customHttpTransport,
         linkedinOAuth: publisher.linkedin,
     })
     const baseApp = createApp({

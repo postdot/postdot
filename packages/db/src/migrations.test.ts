@@ -58,7 +58,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(4)
+            expect(migrationCount?.count).toBe(5)
         } finally {
             closeDatabase(database)
         }

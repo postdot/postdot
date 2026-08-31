@@ -47,6 +47,9 @@ describe('Herald configuration', () => {
                 publisherEncryptionKeyId: 'v1',
             },
             publishers: {},
+            customHttp: {
+                privateDestinations: [],
+            },
             web: {
                 origin: 'http://localhost:5173',
                 assetsDirectory: '/tmp/herald-web',
@@ -73,6 +76,38 @@ describe('Herald configuration', () => {
             web: { origin: 'http://localhost:5173' },
             logging: { enabled: true, level: 'info', pretty: true },
         })
+    })
+
+    it('parses operator-owned private custom HTTP destinations', () => {
+        expect(
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: JSON.stringify([
+                    {
+                        kind: 'cidr',
+                        cidr: '10.0.0.0/8',
+                        port: 8080,
+                        schemes: ['http'],
+                    },
+                ]),
+            }).customHttp.privateDestinations
+        ).toEqual([
+            {
+                kind: 'cidr',
+                cidr: '10.0.0.0/8',
+                port: 8080,
+                schemes: ['http'],
+            },
+        ])
+
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: '{not-json}',
+            })
+        ).toThrow('HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS')
     })
 
     it('disables logging by default in production', () => {

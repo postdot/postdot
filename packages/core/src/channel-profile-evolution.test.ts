@@ -99,6 +99,7 @@ describe('channel profile evolution', () => {
                     kind: 'declarative_http',
                     contractId: 'custom-endpoint',
                     revision: 'v2',
+                    mode: 'herald_webhook',
                 },
             }),
             pendingTargets: [

@@ -2,6 +2,10 @@ import type { TSchema } from 'typebox'
 import Schema from 'typebox/schema'
 
 import {
+    type DeclarativeHttpExecutionContract,
+    validateDeclarativeHttpExecution,
+} from './channel-transport'
+import {
     type JsonSchema,
     validateContentResourceLimits,
     validateCustomContentSchema,
@@ -104,10 +108,11 @@ export interface ChannelCapabilities {
 export type ChannelExecutionContract =
     | { readonly kind: 'manual' }
     | {
-          readonly kind: 'built_in' | 'declarative_http'
+          readonly kind: 'built_in'
           readonly contractId: string
           readonly revision: string
       }
+    | DeclarativeHttpExecutionContract
 
 export interface ChannelProfileDefinition {
     readonly id: string
@@ -676,6 +681,9 @@ function validateProfileDefinition(profile: ChannelProfileDefinition): Validatio
                 )
             )
         }
+    }
+    if (profile.execution.kind === 'declarative_http') {
+        issues.push(...validateDeclarativeHttpExecution(profile.execution))
     }
 
     if (profile.origin === 'custom') {

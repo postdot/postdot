@@ -21,6 +21,7 @@
         "@elysiajs/openapi": "2.0.0-exp.0",
         "@herald/auth": "workspace:*",
         "@herald/core": "workspace:*",
+        "@herald/custom-http": "workspace:*",
         "@herald/db": "workspace:*",
         "@herald/linkedin": "workspace:*",
         "@herald/media": "workspace:*",

@@ -13,6 +13,7 @@ import {
     publisherCredentialStates,
     channelProfileVersionStates,
     type ChannelProfileDefinition,
+    type CustomHttpAuthentication,
     type SourceContent,
 } from '@herald/core'
 import { sql } from 'drizzle-orm'
@@ -402,6 +403,10 @@ export const publisherConnections = sqliteTable(
             .references(() => projects.id, { onDelete: 'cascade' }),
         publisherId: text('publisher_id').notNull(),
         credentialId: text('credential_id').notNull(),
+        endpointUrl: text('endpoint_url'),
+        authenticationJson: text('authentication_json', {
+            mode: 'json',
+        }).$type<CustomHttpAuthentication | null>(),
         connectedByActorId: text('connected_by_actor_id').notNull(),
         ...timestamps(),
     },
@@ -430,6 +435,14 @@ export const publisherConnections = sqliteTable(
             columns: [table.projectId, table.connectedByActorId],
             foreignColumns: [actors.projectId, actors.id],
         }).onDelete('restrict'),
+        check(
+            'publisher_connections_endpoint_url_nonblank',
+            sql`${table.endpointUrl} is null or length(trim(${table.endpointUrl})) > 0`
+        ),
+        check(
+            'publisher_connections_authentication_json_object',
+            sql`${table.authenticationJson} is null or (json_valid(${table.authenticationJson}) and json_type(${table.authenticationJson}) = 'object')`
+        ),
     ]
 )
 

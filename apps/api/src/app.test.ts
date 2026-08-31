@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@herald/auth'
+import type { ChannelProfileDefinition } from '@herald/core'
 import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
 import { publications, publisherCredentials, user as authUser } from '@herald/db/schema'
 import { createLinkedInMemberProfileClient } from '@herald/linkedin'
@@ -14,6 +15,40 @@ const baseURL = 'http://localhost:3000'
 const secret = 'herald-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
+
+const customWebhookProfile: ChannelProfileDefinition = {
+    id: 'custom-webhook',
+    version: 1,
+    profileHash: 'sha256:custom-webhook-profile-v1',
+    schemaHash: 'sha256:custom-webhook-schema-v1',
+    origin: 'custom',
+    contentSchema: {
+        $schema: 'https://json-schema.org/draft/2020-12/schema',
+        type: 'object',
+        properties: { body: { type: 'string', minLength: 1, maxLength: 1_000 } },
+        required: ['body'],
+        additionalProperties: false,
+    },
+    fieldBindings: [{ id: 'body', semantic: 'primary_text', path: '/body' }],
+    capabilities: {
+        revision: 'custom-webhook-v1',
+        textFields: [
+            {
+                bindingId: 'body',
+                acceptedSourceFormats: ['plain_text'],
+                maxLength: 1_000,
+            },
+        ],
+        mediaFields: [],
+        relations: [],
+    },
+    execution: {
+        kind: 'declarative_http',
+        contractId: 'custom-webhook',
+        revision: '1',
+        mode: 'herald_webhook',
+    },
+}
 
 function createFixture(options: { readonly linkedin?: PublisherRuntimeOptions['linkedin'] } = {}) {
     const database = createDatabase(':memory:')
@@ -106,6 +141,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/channels/{channelId}/profile-drafts/{profileVersionId}/preview',
                 '/api/projects/{projectId}/channels/{channelId}/profile-drafts/{profileVersionId}/activate',
                 '/api/projects/{projectId}/publishers',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/custom-http/connect',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/linkedin/connect',
                 '/api/oauth/linkedin/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
@@ -215,6 +251,62 @@ describe('Herald API', () => {
                 version: 2,
             })
             expect(activationBody.channel.profileVersionId).toBe(draftBody.profile.id)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('creates a project-owned custom HTTP connection without exposing its secret', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'custom-http-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Custom HTTP Project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: 'Custom Receiver',
+                        profile: customWebhookProfile,
+                    }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const channelBody = (await channelResponse.json()) as { channel: { id: string } }
+            const secret = 'custom-http-secret-with-at-least-32-characters'
+
+            const connectionResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/custom-http/connect`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        endpointUrl: 'https://receiver.example.test',
+                        authentication: { kind: 'none' },
+                        externalAccountName: 'Project receiver',
+                        secret,
+                    }),
+                }
+            )
+
+            expect(connectionResponse.status).toBe(200)
+            const connectionBody = (await connectionResponse.json()) as {
+                connection: Record<string, unknown>
+            }
+            expect(connectionBody.connection).toMatchObject({
+                kind: 'custom_http',
+                endpointUrl: 'https://receiver.example.test',
+                authentication: { kind: 'none' },
+            })
+            expect(JSON.stringify(connectionBody)).not.toContain(secret)
         } finally {
             closeDatabase(database)
         }
