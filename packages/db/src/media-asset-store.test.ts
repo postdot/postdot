@@ -246,6 +246,16 @@ describe('project media lifecycle', () => {
                 now
             )
 
+            database.$client.run(
+                `insert into media_backup_fences (id, owner_id, expires_at, created_at, updated_at)
+                 values (1, 'backup-test', ?, ?, ?)`,
+                [now + 1_000, now, now]
+            )
+            await expect(
+                media.purgeAsset(projectId, reservation?.asset.id ?? '', subjectId, now, 0)
+            ).resolves.toEqual({ kind: 'blocked', reason: 'backup_in_progress' })
+            database.$client.run('delete from media_backup_fences where id = 1')
+
             database
                 .insert(posts)
                 .values({

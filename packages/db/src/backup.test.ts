@@ -4,8 +4,11 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { backupDatabase, restoreDatabase } from './backup'
+import { createLocalMediaStore } from '@herald/media'
+
+import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
 import { closeDatabase, createDatabase } from './client'
+import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
 
 describe('SQLite backup and restore', () => {
@@ -61,6 +64,106 @@ describe('SQLite backup and restore', () => {
             expect(() => backupDatabase(sourcePath, sourcePath)).toThrow(
                 'Source and destination database paths must be different'
             )
+        } finally {
+            await rm(directory, { recursive: true, force: true })
+        }
+    })
+
+    it('backs up and restores database rows together with verified media bytes', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'herald-media-backup-'))
+        const sourcePath = join(directory, 'source.sqlite')
+        const bundlePath = join(directory, 'backups', 'herald.bundle')
+        const restoredPath = join(directory, 'restored.sqlite')
+        const sourceMediaPath = join(directory, 'source-media')
+        const restoredMediaPath = join(directory, 'restored-media')
+        const now = 1_800_000_000_000
+
+        try {
+            const source = createDatabase(sourcePath)
+            runMigrations(source)
+            source.$client.run(
+                `insert into projects (id, name, created_at, updated_at) values ('project-1', 'Backup project', ?, ?)`,
+                [now, now]
+            )
+            source.$client.run(
+                `insert into actors (id, project_id, kind, subject_id, display_name, created_at, updated_at)
+                 values ('actor-1', 'project-1', 'human', 'subject-1', 'Backup operator', ?, ?)`,
+                [now, now]
+            )
+            const sourceStore = createLocalMediaStore({
+                storeId: 'local-default',
+                rootDirectory: sourceMediaPath,
+                maxObjectBytes: 2_000_000,
+            })
+            const media = createMediaAssetStore(source, sourceStore, {
+                now: () => now,
+                createId: (() => {
+                    let sequence = 0
+                    return () => `media-${++sequence}`
+                })(),
+            })
+            const reservation = media.reserveUpload({
+                projectId: 'project-1',
+                subjectId: 'subject-1',
+                originalFilename: 'backup.png',
+                expectedSize: 33,
+            })
+            if (reservation === null) throw new Error('Media reservation was not created')
+            const bytes = new Uint8Array(33)
+            bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+            bytes.set([0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52], 8)
+            bytes.set([0, 0, 0, 4, 0, 0, 0, 3], 16)
+            await media.upload({
+                projectId: 'project-1',
+                subjectId: 'subject-1',
+                intentId: reservation.intent.id,
+                source: new Blob([bytes]).stream(),
+            })
+            const finalized = await media.finalizeUpload({
+                projectId: 'project-1',
+                subjectId: 'subject-1',
+                intentId: reservation.intent.id,
+            })
+            expect(finalized.kind).toBe('ready')
+            closeDatabase(source)
+
+            const manifest = await backupWithMedia({
+                databaseFilename: sourcePath,
+                destinationDirectory: bundlePath,
+                mediaStore: sourceStore,
+                now: () => now,
+            })
+            expect(manifest.representations).toHaveLength(1)
+            expect(await Bun.file(join(bundlePath, 'manifest.json')).exists()).toBe(true)
+            expect(
+                await Bun.file(
+                    join(bundlePath, 'media', `${reservation.representation.id}.bin`)
+                ).exists()
+            ).toBe(true)
+
+            const restoredStore = createLocalMediaStore({
+                storeId: 'local-default',
+                rootDirectory: restoredMediaPath,
+                maxObjectBytes: 2_000_000,
+            })
+            await restoreWithMedia({
+                sourceDirectory: bundlePath,
+                databaseFilename: restoredPath,
+                mediaStore: restoredStore,
+                now: () => now,
+            })
+
+            const restored = createDatabase(restoredPath)
+            expect(
+                restored.$client
+                    .query<{ state: string }, [string]>(
+                        'select state from media_assets where id = ?'
+                    )
+                    .get(reservation.asset.id)
+            ).toEqual({ state: 'ready' })
+            closeDatabase(restored)
+            const restoredObject = await restoredStore.open(reservation.representation.objectKey)
+            expect(restoredObject?.metadata.size).toBe(bytes.byteLength)
         } finally {
             await rm(directory, { recursive: true, force: true })
         }

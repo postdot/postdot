@@ -35,7 +35,10 @@ function createDomainApp({
     logging,
     onWorkScheduled,
 }: HeraldAppOptions) {
-    const manualStore = createManualStore(database, manualStoreOptions)
+    const manualStore = createManualStore(database, {
+        ...manualStoreOptions,
+        media,
+    })
 
     return new Elysia({ name: 'herald-api' })
         .use(createRequestLogger(logging))

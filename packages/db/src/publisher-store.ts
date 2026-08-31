@@ -43,6 +43,19 @@ export interface PublisherConnection {
     readonly updatedAt: Timestamp
 }
 
+export interface PublisherExecutionMedia {
+    readonly id: string
+    readonly projectId: string
+    readonly executionRevisionId: string
+    readonly targetRevisionMediaId: string
+    readonly assetId: string
+    readonly representationId: string
+    readonly position: number
+    readonly contentPath: string
+    readonly role: string | null
+    readonly accessibilityText: string | null
+}
+
 export interface PublisherExecutionTarget {
     readonly jobId: string
     readonly projectId: string
@@ -58,6 +71,7 @@ export interface PublisherExecutionTarget {
     readonly providerId: string
     readonly credentialState: 'active' | 'reconnect_required' | 'revoked'
     readonly credentialExpiresAt: number | null
+    readonly media: readonly PublisherExecutionMedia[]
 }
 
 export type CreatePublisherConnectionResult =
@@ -126,7 +140,7 @@ interface ChannelProfileRow {
     readonly profileJson: string
 }
 
-interface PublisherExecutionTargetRow extends Omit<PublisherExecutionTarget, 'content'> {
+interface PublisherExecutionTargetRow extends Omit<PublisherExecutionTarget, 'content' | 'media'> {
     readonly contentJson: string
 }
 
@@ -328,6 +342,25 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
           and jobs.effect_started_at is not null
           and publications.state = 'publishing'
         limit 1
+    `)
+    const listPublisherExecutionMediaStatement = client.query<
+        PublisherExecutionMedia,
+        [projectId: string, executionRevisionId: string]
+    >(`
+        select id,
+               project_id as projectId,
+               execution_revision_id as executionRevisionId,
+               target_revision_media_id as targetRevisionMediaId,
+               asset_id as assetId,
+               representation_id as representationId,
+               position,
+               content_path as contentPath,
+               role,
+               accessibility_text as accessibilityText
+        from publication_execution_revision_media
+        where project_id = ?1
+          and execution_revision_id = ?2
+        order by position, id
     `)
     const listUnqueuedScheduledPublicationsStatement = client.query<
         ScheduledPublicationRow,
@@ -623,7 +656,16 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 requireNonBlank(jobId, 'jobId'),
                 requireNonBlank(claimToken, 'claimToken')
             )
-            return row === null ? null : { ...row, content: parseJsonObject(row.contentJson) }
+            return row === null
+                ? null
+                : {
+                      ...row,
+                      content: parseJsonObject(row.contentJson),
+                      media: listPublisherExecutionMediaStatement.all(
+                          row.projectId,
+                          row.executionRevisionId
+                      ),
+                  }
         },
 
         createPublisherConnection(

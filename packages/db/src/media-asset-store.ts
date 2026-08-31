@@ -97,7 +97,10 @@ export type RequestMediaDeletionResult =
 
 export type PurgeMediaAssetResult =
     | { readonly kind: 'deleted'; readonly media: MediaAssetReference }
-    | { readonly kind: 'blocked'; readonly reason: 'grace_period' | 'referenced' }
+    | {
+          readonly kind: 'blocked'
+          readonly reason: 'grace_period' | 'referenced' | 'backup_in_progress'
+      }
     | { readonly kind: 'not_found' }
 
 export interface ReconcileMediaResult {
@@ -381,6 +384,13 @@ export function createMediaAssetStore(
         where state = 'deletion_requested'
           and deletion_requested_at <= ?1
         order by deletion_requested_at, id
+    `)
+    const activeBackupFenceStatement = client.query<{ id: number }, [number]>(`
+        select id
+        from media_backup_fences
+        where id = 1
+          and expires_at > ?1
+        limit 1
     `)
 
     const insertAssetStatement = client.query<
@@ -856,6 +866,38 @@ export function createMediaAssetStore(
         }
     }
 
+    async function openRepresentationContent(
+        media: MediaAssetReference,
+        representationId: string
+    ): Promise<MediaAssetContent | null> {
+        const representation = media.representations.find(
+            candidate => candidate.id === representationId && candidate.state === 'ready'
+        )
+        if (
+            representation === undefined ||
+            representation.storeId !== mediaStore.storeId ||
+            representation.byteSize === null ||
+            representation.detectedContentType === null ||
+            representation.sha256 === null
+        ) {
+            return null
+        }
+
+        const opened = await mediaStore.open(representation.objectKey, {
+            maxBytes: mediaStore.maxObjectBytes,
+        })
+        if (opened === null || opened.metadata.size !== representation.byteSize) return null
+
+        return {
+            representation,
+            size: opened.metadata.size,
+            contentType: representation.detectedContentType,
+            sha256: representation.sha256,
+            lastModified: opened.metadata.lastModified,
+            stream: opened.stream,
+        }
+    }
+
     async function failFinalization(
         projectId: string,
         intentId: string,
@@ -1034,6 +1076,9 @@ export function createMediaAssetStore(
         at: number,
         gracePeriodMs: number
     ): Promise<PurgeMediaAssetResult> {
+        if (activeBackupFenceStatement.get(at) !== null) {
+            return { kind: 'blocked', reason: 'backup_in_progress' }
+        }
         const media = readMedia(projectId, assetId)
         if (media === null) return { kind: 'not_found' }
         if (media.asset.state !== 'deletion_requested') return { kind: 'not_found' }
@@ -1188,28 +1233,30 @@ export function createMediaAssetStore(
                 media.representations.find(
                     candidate => candidate.kind === 'original' && candidate.state === 'ready'
                 ) ?? media.representations.find(candidate => candidate.state === 'ready')
-            if (
-                representation === undefined ||
-                representation.byteSize === null ||
-                representation.detectedContentType === null ||
-                representation.sha256 === null
-            ) {
+            return representation === undefined
+                ? null
+                : openRepresentationContent(media, representation.id)
+        },
+
+        async openRepresentationContent(
+            projectId: string,
+            assetId: string,
+            representationId: string
+        ): Promise<MediaAssetContent | null> {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedAssetId = requireNonBlank(assetId, 'assetId')
+            const normalizedRepresentationId = requireNonBlank(representationId, 'representationId')
+            const media = readMedia(normalizedProjectId, normalizedAssetId)
+            if (media === null || !['ready', 'deletion_requested'].includes(media.asset.state)) {
                 return null
             }
-
-            const opened = await mediaStore.open(representation.objectKey, {
-                maxBytes: mediaStore.maxObjectBytes,
-            })
-            if (opened === null || opened.metadata.size !== representation.byteSize) return null
-
-            return {
-                representation,
-                size: opened.metadata.size,
-                contentType: representation.detectedContentType,
-                sha256: representation.sha256,
-                lastModified: opened.metadata.lastModified,
-                stream: opened.stream,
-            }
+            const representation = media.representations.find(
+                candidate =>
+                    candidate.id === normalizedRepresentationId && candidate.state === 'ready'
+            )
+            return representation === undefined
+                ? null
+                : openRepresentationContent(media, representation.id)
         },
 
         listAssets(projectId: string, subjectId: string): readonly MediaAssetReference[] | null {
@@ -1463,6 +1510,12 @@ function hasMediaReference(
          where publication_target_revisions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
         `select 1 as found from publication_execution_revisions, json_tree(publication_execution_revisions.content_json)
          where publication_execution_revisions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
+        `select 1 as found from publication_revision_media
+         where publication_revision_media.project_id = ?1
+           and publication_revision_media.asset_id = ?2 limit 1`,
+        `select 1 as found from publication_execution_revision_media
+         where publication_execution_revision_media.project_id = ?1
+           and publication_execution_revision_media.asset_id = ?2 limit 1`,
         `select 1 as found from audit_events
          where audit_events.project_id = ?1 and audit_events.entity_type = 'media_asset'
            and audit_events.entity_id = ?2 limit 1`,

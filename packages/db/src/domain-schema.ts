@@ -7,6 +7,7 @@ import {
     mediaRepresentationKinds,
     mediaRepresentationStates,
     mediaUploadIntentStates,
+    providerMediaDeliveryStates,
     publicationReviewStates,
     publicationStates,
     publisherCredentialStates,
@@ -737,6 +738,22 @@ export const mediaUploadIntents = sqliteTable(
     ]
 )
 
+export const mediaBackupFences = sqliteTable(
+    'media_backup_fences',
+    {
+        id: integer('id').primaryKey(),
+        ownerId: text('owner_id').notNull(),
+        expiresAt: integer('expires_at').notNull(),
+        createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+        updatedAt: integer('updated_at').default(epochMilliseconds).notNull(),
+    },
+    table => [
+        check('media_backup_fences_singleton', sql`${table.id} = 1`),
+        check('media_backup_fences_owner_nonblank', sql`length(trim(${table.ownerId})) > 0`),
+        check('media_backup_fences_expiry_valid', sql`${table.expiresAt} > ${table.createdAt}`),
+    ]
+)
+
 export const publications = sqliteTable(
     'publications',
     {
@@ -936,6 +953,7 @@ export const publicationTargetRevisions = sqliteTable(
         profileVersionId: text('profile_version_id').notNull(),
         sourceRevision: integer('source_revision').notNull(),
         deliveryMode: text('delivery_mode', { enum: deliveryModes }).notNull(),
+        mediaReferenceCount: integer('media_reference_count').default(0).notNull(),
         contentJson: text('content_json', { mode: 'json' })
             .$type<Readonly<Record<string, unknown>>>()
             .notNull(),
@@ -997,6 +1015,69 @@ export const publicationTargetRevisions = sqliteTable(
         check(
             'publication_target_revisions_delivery_mode_valid',
             sql`${table.deliveryMode} in ('manual', 'automatic')`
+        ),
+        check(
+            'publication_target_revisions_media_reference_count_valid',
+            sql`${table.mediaReferenceCount} >= 0`
+        ),
+    ]
+)
+
+export const publicationRevisionMedia = sqliteTable(
+    'publication_revision_media',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        targetRevisionId: text('target_revision_id').notNull(),
+        assetId: text('asset_id').notNull(),
+        representationId: text('representation_id').notNull(),
+        position: integer('position').notNull(),
+        contentPath: text('content_path').notNull(),
+        role: text('role'),
+        accessibilityText: text('accessibility_text'),
+        createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+    },
+    table => [
+        uniqueIndex('publication_revision_media_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('publication_revision_media_project_revision_position_uidx').on(
+            table.projectId,
+            table.targetRevisionId,
+            table.position
+        ),
+        index('publication_revision_media_project_asset_idx').on(table.projectId, table.assetId),
+        foreignKey({
+            name: 'publication_revision_media_project_revision_fk',
+            columns: [table.projectId, table.targetRevisionId],
+            foreignColumns: [publicationTargetRevisions.projectId, publicationTargetRevisions.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_revision_media_project_asset_fk',
+            columns: [table.projectId, table.assetId],
+            foreignColumns: [mediaAssets.projectId, mediaAssets.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_revision_media_project_representation_fk',
+            columns: [table.projectId, table.assetId, table.representationId],
+            foreignColumns: [
+                mediaRepresentations.projectId,
+                mediaRepresentations.assetId,
+                mediaRepresentations.id,
+            ],
+        }).onDelete('restrict'),
+        check('publication_revision_media_position_nonnegative', sql`${table.position} >= 0`),
+        check(
+            'publication_revision_media_content_path_valid',
+            sql`length(${table.contentPath}) > 1 and substr(${table.contentPath}, 1, 1) = '/'`
+        ),
+        check(
+            'publication_revision_media_role_valid',
+            sql`${table.role} is null or length(trim(${table.role})) > 0`
+        ),
+        check(
+            'publication_revision_media_accessibility_text_valid',
+            sql`${table.accessibilityText} is null or length(trim(${table.accessibilityText})) > 0`
         ),
     ]
 )
@@ -1096,6 +1177,7 @@ export const publicationExecutionRevisions = sqliteTable(
         targetRevisionId: text('target_revision_id').notNull(),
         profileVersionId: text('profile_version_id').notNull(),
         deliveryMode: text('delivery_mode', { enum: deliveryModes }).notNull(),
+        mediaReferenceCount: integer('media_reference_count').default(0).notNull(),
         contentJson: text('content_json', { mode: 'json' })
             .$type<Readonly<Record<string, unknown>>>()
             .notNull(),
@@ -1144,6 +1226,188 @@ export const publicationExecutionRevisions = sqliteTable(
         check(
             'publication_execution_revisions_hashes_nonblank',
             sql`length(trim(${table.contentHash})) > 0 and length(trim(${table.profileHash})) > 0 and length(trim(${table.schemaHash})) > 0`
+        ),
+        check(
+            'publication_execution_revisions_media_reference_count_valid',
+            sql`${table.mediaReferenceCount} >= 0`
+        ),
+    ]
+)
+
+export const publicationExecutionRevisionMedia = sqliteTable(
+    'publication_execution_revision_media',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        executionRevisionId: text('execution_revision_id').notNull(),
+        targetRevisionMediaId: text('target_revision_media_id').notNull(),
+        assetId: text('asset_id').notNull(),
+        representationId: text('representation_id').notNull(),
+        position: integer('position').notNull(),
+        contentPath: text('content_path').notNull(),
+        role: text('role'),
+        accessibilityText: text('accessibility_text'),
+        createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+    },
+    table => [
+        uniqueIndex('publication_execution_revision_media_project_id_id_uidx').on(
+            table.projectId,
+            table.id
+        ),
+        uniqueIndex('publication_execution_revision_media_revision_position_uidx').on(
+            table.projectId,
+            table.executionRevisionId,
+            table.position
+        ),
+        uniqueIndex('publication_execution_revision_media_revision_target_uidx').on(
+            table.projectId,
+            table.executionRevisionId,
+            table.targetRevisionMediaId
+        ),
+        index('publication_execution_revision_media_project_asset_idx').on(
+            table.projectId,
+            table.assetId
+        ),
+        foreignKey({
+            name: 'publication_execution_revision_media_project_execution_fk',
+            columns: [table.projectId, table.executionRevisionId],
+            foreignColumns: [
+                publicationExecutionRevisions.projectId,
+                publicationExecutionRevisions.id,
+            ],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_execution_revision_media_project_target_media_fk',
+            columns: [table.projectId, table.targetRevisionMediaId],
+            foreignColumns: [publicationRevisionMedia.projectId, publicationRevisionMedia.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_execution_revision_media_project_asset_fk',
+            columns: [table.projectId, table.assetId],
+            foreignColumns: [mediaAssets.projectId, mediaAssets.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_execution_revision_media_project_representation_fk',
+            columns: [table.projectId, table.assetId, table.representationId],
+            foreignColumns: [
+                mediaRepresentations.projectId,
+                mediaRepresentations.assetId,
+                mediaRepresentations.id,
+            ],
+        }).onDelete('restrict'),
+        check(
+            'publication_execution_revision_media_position_nonnegative',
+            sql`${table.position} >= 0`
+        ),
+        check(
+            'publication_execution_revision_media_content_path_valid',
+            sql`length(${table.contentPath}) > 1 and substr(${table.contentPath}, 1, 1) = '/'`
+        ),
+        check(
+            'publication_execution_revision_media_role_valid',
+            sql`${table.role} is null or length(trim(${table.role})) > 0`
+        ),
+        check(
+            'publication_execution_revision_media_accessibility_text_valid',
+            sql`${table.accessibilityText} is null or length(trim(${table.accessibilityText})) > 0`
+        ),
+    ]
+)
+
+export const providerMediaDeliveries = sqliteTable(
+    'provider_media_deliveries',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        executionMediaId: text('execution_media_id').notNull(),
+        publisherId: text('publisher_id').notNull(),
+        providerId: text('provider_id').notNull(),
+        state: text('state', { enum: providerMediaDeliveryStates }).notNull(),
+        attempts: integer('attempts').default(0).notNull(),
+        remoteMediaId: text('remote_media_id'),
+        remoteMediaUrl: text('remote_media_url'),
+        lastAttemptAt: integer('last_attempt_at'),
+        completedAt: integer('completed_at'),
+        errorCode: text('error_code'),
+        errorMessage: text('error_message'),
+        createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+        updatedAt: integer('updated_at').default(epochMilliseconds).notNull(),
+    },
+    table => [
+        uniqueIndex('provider_media_deliveries_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('provider_media_deliveries_execution_provider_uidx').on(
+            table.projectId,
+            table.executionMediaId,
+            table.publisherId,
+            table.providerId
+        ),
+        index('provider_media_deliveries_project_state_idx').on(table.projectId, table.state),
+        foreignKey({
+            name: 'provider_media_deliveries_project_execution_media_fk',
+            columns: [table.projectId, table.executionMediaId],
+            foreignColumns: [
+                publicationExecutionRevisionMedia.projectId,
+                publicationExecutionRevisionMedia.id,
+            ],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'provider_media_deliveries_project_publisher_fk',
+            columns: [table.projectId, table.publisherId],
+            foreignColumns: [publishers.projectId, publishers.id],
+        }).onDelete('cascade'),
+        check(
+            'provider_media_deliveries_provider_nonblank',
+            sql`length(trim(${table.providerId})) > 0`
+        ),
+        check('provider_media_deliveries_attempts_nonnegative', sql`${table.attempts} >= 0`),
+        check(
+            'provider_media_deliveries_state_valid',
+            sql`${table.state} in ('pending', 'uploading', 'uploaded', 'failed', 'ambiguous')`
+        ),
+        check(
+            'provider_media_deliveries_timestamps_valid',
+            sql`(${table.lastAttemptAt} is null or ${table.lastAttemptAt} >= ${table.createdAt})
+                and (${table.completedAt} is null or ${table.completedAt} >= ${table.createdAt})`
+        ),
+        check(
+            'provider_media_deliveries_state_data_valid',
+            sql`(${table.state} = 'pending'
+                    and ${table.attempts} >= 0
+                    and (${table.lastAttemptAt} is null or ${table.lastAttemptAt} >= ${table.createdAt})
+                    and ${table.completedAt} is null
+                    and ${table.remoteMediaId} is null
+                    and ${table.remoteMediaUrl} is null
+                    and ${table.errorCode} is null
+                    and ${table.errorMessage} is null)
+                or (${table.state} = 'uploading'
+                    and ${table.attempts} > 0
+                    and ${table.lastAttemptAt} is not null
+                    and ${table.completedAt} is null
+                    and ${table.remoteMediaId} is null
+                    and ${table.errorCode} is null
+                    and ${table.errorMessage} is null)
+                or (${table.state} = 'uploaded'
+                    and ${table.attempts} > 0
+                    and ${table.completedAt} is not null
+                    and ${table.remoteMediaId} is not null
+                    and length(trim(${table.remoteMediaId})) > 0
+                    and ${table.errorCode} is null
+                    and ${table.errorMessage} is null)
+                or (${table.state} in ('failed', 'ambiguous')
+                    and ${table.attempts} > 0
+                    and ${table.completedAt} is not null
+                    and ${table.errorCode} is not null
+                    and length(trim(${table.errorCode})) > 0
+                    and ${table.errorMessage} is not null
+                    and length(trim(${table.errorMessage})) > 0)`
+        ),
+        check(
+            'provider_media_deliveries_url_valid',
+            sql`${table.remoteMediaUrl} is null or length(trim(${table.remoteMediaUrl})) > 0`
         ),
     ]
 )
