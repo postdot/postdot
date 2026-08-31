@@ -179,9 +179,13 @@ function decodeAndVerifyToken(
         return null
     }
 
+    const payloadBytes = decodeCanonicalBase64Url(payload)
+    const receivedSignature = decodeCanonicalBase64Url(signature)
+    if (payloadBytes === null || receivedSignature === null) return null
+
     const expectedSignature = signPayload(payload, signingSecret)
-    const receivedSignature = Buffer.from(signature, 'base64url')
-    const computedSignature = Buffer.from(expectedSignature, 'base64url')
+    const computedSignature = decodeCanonicalBase64Url(expectedSignature)
+    if (computedSignature === null) return null
     if (
         receivedSignature.byteLength !== computedSignature.byteLength ||
         !timingSafeEqual(receivedSignature, computedSignature)
@@ -191,7 +195,7 @@ function decodeAndVerifyToken(
 
     let parsed: unknown
     try {
-        parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
+        parsed = JSON.parse(payloadBytes.toString('utf8'))
     } catch {
         return null
     }
@@ -224,6 +228,13 @@ function decodeAndVerifyToken(
 
 function isBase64Url(value: string): boolean {
     return value.length > 0 && /^[A-Za-z0-9_-]+$/.test(value)
+}
+
+function decodeCanonicalBase64Url(value: string): Buffer | null {
+    if (!isBase64Url(value)) return null
+
+    const decoded = Buffer.from(value, 'base64url')
+    return decoded.toString('base64url') === value ? decoded : null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

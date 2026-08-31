@@ -33,7 +33,7 @@ describe('media public delivery authority', () => {
         })
     })
 
-    it('rejects tampered, expired, malformed, and differently signed capabilities', () => {
+    it('rejects tampered, non-canonical, expired, malformed, and differently signed capabilities', () => {
         const delivery = createMediaPublicDelivery({
             baseURL,
             signingSecret,
