@@ -14,6 +14,7 @@ Requirements: Bun 1.4 or newer.
 ```sh
 bun install
 cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
 # Replace BETTER_AUTH_SECRET, HERALD_MEDIA_PUBLIC_URL_SECRET, and
 # HERALD_PUBLISHER_ENCRYPTION_KEY with random values.
 bun run dev
@@ -29,15 +30,27 @@ ports because the API listens on `3000` and the Vite development server listens
 on `5173`. A production deployment that serves both from one origin can use the
 same origin for both values.
 
+The Vite development proxy targets `http://localhost:3000` by default. If that
+port is already used by another local application, set the same alternate API
+origin in both ignored local files before starting the two processes:
+
+```dotenv
+# apps/api/.env
+PORT=3001
+BETTER_AUTH_URL=http://localhost:3001
+
+# apps/web/.env
+HERALD_API_ORIGIN=http://localhost:3001
+```
+
 Request logging is readable by default in development. Set `LOG_LEVEL=silent` to
 disable it, or set `NODE_ENV=production` to make the default log level silent.
 
-For the first local database setup, apply the committed Drizzle migrations:
-
-```sh
-cd packages/db
-bun run db:migrate
-```
+The API applies the committed Drizzle migrations at startup. For a local,
+unreleased database whose migration history no longer matches the repository,
+stop the API and move that ignored database file aside before restarting. Herald
+will create a fresh database; do not use this procedure for a database containing
+data that must be preserved.
 
 Run the complete local merge gate before opening a pull request:
 
