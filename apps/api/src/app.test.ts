@@ -146,7 +146,11 @@ describe('Herald API', () => {
                 '/api/oauth/linkedin/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts',
+                '/api/projects/{projectId}/publications',
                 '/api/projects/{projectId}/publications/due',
+                '/api/projects/{projectId}/publications/{publicationId}/editor',
+                '/api/projects/{projectId}/publications/{publicationId}/draft',
+                '/api/projects/{projectId}/publications/{publicationId}/draft/promote',
                 '/api/projects/{projectId}/publications/{publicationId}/publish',
                 '/api/projects/{projectId}/publications/{publicationId}/reconcile',
                 '/api/projects/{projectId}/audit-events',
@@ -396,6 +400,125 @@ describe('Herald API', () => {
                 'scheduled',
                 'draft',
             ])
+
+            const publicationId = postBody.publications[0]?.id
+            expect(publicationId).toBeString()
+            const editorResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${publicationId}/editor`,
+                cookie
+            )
+            expect(editorResponse.status).toBe(200)
+            const editorBody = (await editorResponse.json()) as {
+                editor: {
+                    post: { sourceRevision: number; sourceContent: { body?: { text: string } } }
+                    draft: { revision: number; content: Record<string, unknown> }
+                    selectedTarget: { content: Record<string, unknown> } | null
+                }
+            }
+            expect(editorBody.editor).toMatchObject({
+                post: {
+                    sourceRevision: 1,
+                    sourceContent: {
+                        body: { text: 'A source post for multiple destinations.' },
+                    },
+                },
+                draft: { revision: 1, content: { body: 'Manual copy', media: [] } },
+                selectedTarget: { content: { body: 'Manual copy', media: [] } },
+            })
+
+            const listResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications`,
+                cookie
+            )
+            expect(listResponse.status).toBe(200)
+            expect(
+                (await listResponse.json()) as {
+                    publications: Array<{ id: string; draftDiffersFromTarget: boolean }>
+                }
+            ).toMatchObject({
+                publications: [
+                    { id: publicationId, draftDiffersFromTarget: false },
+                    expect.objectContaining({ draftDiffersFromTarget: true }),
+                ],
+            })
+
+            const saveResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${publicationId}/draft`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        expectedRevision: 1,
+                        sourceContent: {
+                            body: {
+                                text: 'An edited source post for multiple destinations.',
+                                format: 'plain_text',
+                            },
+                            media: [],
+                        },
+                        targetContent: { body: 'Edited manual copy', media: [] },
+                    }),
+                }
+            )
+            expect(saveResponse.status).toBe(200)
+            const savedEditor = (await saveResponse.json()) as {
+                editor: {
+                    post: { sourceRevision: number }
+                    draft: { revision: number; content: Record<string, unknown> }
+                    selectedTarget: { content: Record<string, unknown> } | null
+                }
+            }
+            expect(savedEditor.editor).toMatchObject({
+                post: { sourceRevision: 2 },
+                draft: { revision: 2, content: { body: 'Edited manual copy', media: [] } },
+                selectedTarget: { content: { body: 'Manual copy', media: [] } },
+            })
+
+            const staleSaveResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${publicationId}/draft`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        expectedRevision: 1,
+                        targetContent: { body: 'Stale copy', media: [] },
+                    }),
+                }
+            )
+            expect(staleSaveResponse.status).toBe(409)
+
+            const promoteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${publicationId}/draft/promote`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ expectedRevision: 2, scheduledAt: now }),
+                }
+            )
+            expect(promoteResponse.status).toBe(200)
+            const promotedEditor = (await promoteResponse.json()) as {
+                editor: {
+                    publication: { targetRevisionId: string | null }
+                    draft: { revision: number }
+                    selectedTarget: { id: string; content: Record<string, unknown> } | null
+                }
+            }
+            expect(promotedEditor.editor).toMatchObject({
+                draft: { revision: 2 },
+                selectedTarget: { content: { body: 'Edited manual copy', media: [] } },
+            })
+            expect(promotedEditor.editor.publication.targetRevisionId).toBeString()
+            if (promotedEditor.editor.publication.targetRevisionId === null) {
+                throw new Error('The promoted target revision is missing')
+            }
+            expect(promotedEditor.editor.selectedTarget?.id).toBe(
+                promotedEditor.editor.publication.targetRevisionId
+            )
 
             const dueResponse = await jsonRequest(
                 app,

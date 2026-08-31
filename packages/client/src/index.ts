@@ -9,10 +9,12 @@ import type {
     ChannelProfileVersionResponse,
     DuePublicationResponse,
     PostResponse,
+    PublicationEditorStateResponse,
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
     ProjectResponse,
     PublicationResponse,
+    PublicationSummaryResponse,
 } from '@herald/api'
 
 type HeraldFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
@@ -50,6 +52,8 @@ export type ChannelProfileActivation = ChannelProfileActivationResponse
 export type Post = PostResponse
 export type Publication = PublicationResponse
 export type DuePublication = DuePublicationResponse
+export type PublicationEditorState = PublicationEditorStateResponse
+export type PublicationSummary = PublicationSummaryResponse
 export type AuditEvent = AuditEventResponse
 export type PublisherConnection = PublisherConnectionResponse
 export type PublisherConnections = PublisherConnectionsResponse

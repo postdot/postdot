@@ -1,3 +1,4 @@
+import { DomainInvariantError } from '@herald/core'
 import { Type } from 'typebox'
 
 import {
@@ -5,9 +6,13 @@ import {
     errorResponse,
     projectParams,
     publicationParams,
+    publicationEditorStateSchema,
     publicationSchema,
+    publicationSummarySchema,
     publishPublicationBody,
     reconcilePublicationBody,
+    promotePublicationDraftBody,
+    savePublicationDraftBody,
 } from './models'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
@@ -16,6 +21,31 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
     manualStore: ManualStore
 ) {
     return app
+        .get(
+            '/api/projects/:projectId/publications',
+            {
+                auth: true,
+                params: projectParams,
+                response: {
+                    200: Type.Object({ publications: Type.Array(publicationSummarySchema) }),
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'listPublicationSummaries',
+                    summary: 'List recent publications and draft status',
+                    tags: ['Publications'],
+                },
+            },
+            ({ params, status, user }) => {
+                const publications = manualStore.listPublicationSummaries(params.projectId, user.id)
+                if (publications === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                return { publications }
+            }
+        )
         .get(
             '/api/projects/:projectId/publications/due',
             {
@@ -42,6 +72,134 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     })
                 }
                 return { publications }
+            }
+        )
+        .get(
+            '/api/projects/:projectId/publications/:publicationId/editor',
+            {
+                auth: true,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ editor: publicationEditorStateSchema }),
+                    400: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'getPublicationEditor',
+                    summary: 'Read publication source, draft, profile, and selected target',
+                    tags: ['Publications'],
+                },
+            },
+            ({ params, status, user }) => {
+                const editor = manualStore.getPublicationEditorState(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
+                if (editor === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+                return { editor }
+            }
+        )
+        .patch(
+            '/api/projects/:projectId/publications/:publicationId/draft',
+            {
+                auth: true,
+                body: savePublicationDraftBody,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ editor: publicationEditorStateSchema }),
+                    400: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'savePublicationDraft',
+                    summary: 'Persist a publication draft without changing its selected target',
+                    tags: ['Publications'],
+                },
+            },
+            ({ body, params, status, user }) => {
+                if (body.sourceContent === undefined && body.targetContent === undefined) {
+                    throw new DomainInvariantError(
+                        'invalid_input',
+                        'A publication draft must include sourceContent or targetContent'
+                    )
+                }
+
+                const draft = manualStore.savePublicationDraft({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                    expectedRevision: body.expectedRevision,
+                    sourceContent: body.sourceContent,
+                    targetContent: body.targetContent,
+                })
+                if (draft === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+
+                const editor = manualStore.getPublicationEditorState(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
+                if (editor === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+                return { editor }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/draft/promote',
+            {
+                auth: true,
+                body: promotePublicationDraftBody,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ editor: publicationEditorStateSchema }),
+                    400: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'promotePublicationDraft',
+                    summary: 'Promote the current draft to an immutable target revision',
+                    tags: ['Publications'],
+                },
+            },
+            ({ body, params, status, user }) => {
+                const publication = manualStore.promotePublicationDraft({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                    expectedRevision: body.expectedRevision,
+                    scheduledAt: body.scheduledAt,
+                })
+                if (publication === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+
+                const editor = manualStore.getPublicationEditorState(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
+                if (editor === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+                return { editor }
             }
         )
         .post(

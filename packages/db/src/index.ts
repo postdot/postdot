@@ -69,6 +69,9 @@ export type {
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,
     PublicationWorkingDraft,
+    PublicationEditorState,
+    PublicationSummary,
+    PublicationTargetRevision,
     SavePublicationDraftInput,
 } from './manual-store'
 export type {

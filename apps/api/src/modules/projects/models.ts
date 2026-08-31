@@ -5,6 +5,10 @@ import type {
     ChannelProfileActivationResult,
     ChannelProfileState,
     ChannelProfileVersion,
+    PublicationEditorState,
+    PublicationSummary,
+    PublicationTargetRevision,
+    PublicationWorkingDraft,
 } from '@herald/db'
 import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
 import { linkedinTextChannelProfile } from '@herald/linkedin'
@@ -137,6 +141,71 @@ export const duePublicationSchema = Type.Intersect([
     }),
 ])
 
+export const publicationWorkingDraftSchema = Type.Unsafe<PublicationWorkingDraft>(
+    Type.Object({
+        id: Type.String({ minLength: 1 }),
+        projectId: Type.String({ minLength: 1 }),
+        publicationId: Type.String({ minLength: 1 }),
+        profileVersionId: Type.String({ minLength: 1 }),
+        sourceRevision: Type.Integer({ minimum: 1 }),
+        content: Type.Record(Type.String(), Type.Unknown()),
+        reviewState: Type.Union([Type.Literal('compatible'), Type.Literal('review_required')]),
+        validationIssues: Type.Array(Type.Record(Type.String(), Type.Unknown())),
+        lastAssessedProfileVersionId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+        revision: Type.Integer({ minimum: 1 }),
+        updatedByActorId: Type.String({ minLength: 1 }),
+        createdAt: Type.Integer({ minimum: 0 }),
+        updatedAt: Type.Integer({ minimum: 0 }),
+    })
+)
+
+export const publicationTargetRevisionSchema = Type.Unsafe<PublicationTargetRevision>(
+    Type.Object({
+        id: Type.String({ minLength: 1 }),
+        projectId: Type.String({ minLength: 1 }),
+        publicationId: Type.String({ minLength: 1 }),
+        sequence: Type.Integer({ minimum: 1 }),
+        profileVersionId: Type.String({ minLength: 1 }),
+        sourceRevision: Type.Integer({ minimum: 1 }),
+        deliveryMode: Type.Union([Type.Literal('manual'), Type.Literal('automatic')]),
+        mediaReferenceCount: Type.Integer({ minimum: 0 }),
+        content: Type.Record(Type.String(), Type.Unknown()),
+        contentHash: Type.String({ minLength: 1 }),
+        profileHash: Type.String({ minLength: 1 }),
+        schemaHash: Type.String({ minLength: 1 }),
+        validationIssues: Type.Array(Type.Record(Type.String(), Type.Unknown())),
+        createdByActorId: Type.String({ minLength: 1 }),
+        createdAt: Type.Integer({ minimum: 0 }),
+    })
+)
+
+export const publicationEditorStateSchema = Type.Unsafe<PublicationEditorState>(
+    Type.Object({
+        publication: publicationSchema,
+        post: postSchema,
+        channel: channelSchema,
+        profile: channelProfileVersionSchema,
+        draft: publicationWorkingDraftSchema,
+        selectedTarget: Type.Union([publicationTargetRevisionSchema, Type.Null()]),
+    })
+)
+
+export const publicationSummarySchema = Type.Unsafe<PublicationSummary>(
+    Type.Intersect([
+        publicationSchema,
+        Type.Object({
+            postTitle: Type.Union([Type.String(), Type.Null()]),
+            channelName: Type.String(),
+            draftRevision: Type.Integer({ minimum: 1 }),
+            draftReviewState: Type.Union([
+                Type.Literal('compatible'),
+                Type.Literal('review_required'),
+            ]),
+            draftDiffersFromTarget: Type.Boolean(),
+        }),
+    ])
+)
+
 export type ProjectResponse = Static<typeof projectSchema>
 export type ChannelResponse = Static<typeof channelSchema>
 export type ChannelProfileVersionResponse = Static<typeof channelProfileVersionSchema>
@@ -146,6 +215,8 @@ export type ChannelProfileActivationResponse = Static<typeof channelProfileActiv
 export type PostResponse = Static<typeof postSchema>
 export type PublicationResponse = Static<typeof publicationSchema>
 export type DuePublicationResponse = Static<typeof duePublicationSchema>
+export type PublicationEditorStateResponse = Static<typeof publicationEditorStateSchema>
+export type PublicationSummaryResponse = Static<typeof publicationSummarySchema>
 export type AuditEventResponse = Static<typeof auditEventSchema>
 
 export const projectParams = Type.Object({
@@ -214,6 +285,17 @@ export const createPostBody = Type.Object({
         }),
         { minItems: 1 }
     ),
+})
+
+export const savePublicationDraftBody = Type.Object({
+    expectedRevision: Type.Integer({ minimum: 1 }),
+    sourceContent: Type.Optional(sourceContentSchema),
+    targetContent: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+})
+
+export const promotePublicationDraftBody = Type.Object({
+    expectedRevision: Type.Integer({ minimum: 1 }),
+    scheduledAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
 })
 
 export function resolveChannelProfile(profile: unknown): ChannelProfileDefinition {

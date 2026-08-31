@@ -3,7 +3,7 @@ import { CalendarIcon } from '@solar-icons/react/linear/calendar'
 import { CheckCircleIcon } from '@solar-icons/react/linear/check-circle'
 import { ClipboardTextIcon } from '@solar-icons/react/linear/clipboard-text'
 import { LogoutIcon } from '@solar-icons/react/linear/logout'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
@@ -15,24 +15,29 @@ import {
     type DuePublication,
     type Project,
     type PublisherConnection,
+    type PublicationSummary,
 } from '@/lib/api'
 
 interface ProjectData {
     readonly channels: Channel[]
     readonly due: DuePublication[]
     readonly connections: PublisherConnection[]
+    readonly publications: PublicationSummary[]
 }
 
 async function loadProjectData(projectId: string): Promise<ProjectData> {
-    const [channelResponse, dueResponse, publisherResponse] = await Promise.all([
-        api.listChannels(projectId),
-        api.listDuePublications(projectId),
-        api.listPublisherConnections(projectId),
-    ])
+    const [channelResponse, dueResponse, publisherResponse, publicationResponse] =
+        await Promise.all([
+            api.listChannels(projectId),
+            api.listDuePublications(projectId),
+            api.listPublisherConnections(projectId),
+            api.listPublications(projectId),
+        ])
     return {
         channels: channelResponse.channels,
         due: dueResponse.publications,
         connections: publisherResponse.connections,
+        publications: publicationResponse.publications,
     }
 }
 
@@ -46,7 +51,7 @@ export const Route = createFileRoute('/dashboard')({
         const { projects } = await api.listProjects()
         const data =
             projects[0] === undefined
-                ? { channels: [], connections: [], due: [] }
+                ? { channels: [], connections: [], due: [], publications: [] }
                 : await loadProjectData(projects[0].id)
         return { session, projects, ...data }
     },
@@ -65,6 +70,7 @@ function DashboardPage() {
     const [publisherConnections, setPublisherConnections] = useState<PublisherConnection[]>(
         initialData.connections
     )
+    const [publications, setPublications] = useState<PublicationSummary[]>(initialData.publications)
     const [projectName, setProjectName] = useState('')
     const [channelName, setChannelName] = useState('')
     const [channelProfile, setChannelProfile] = useState<'manual-message' | 'linkedin'>(
@@ -86,6 +92,7 @@ function DashboardPage() {
             setChannels([])
             setDuePublications([])
             setPublisherConnections([])
+            setPublications([])
             setPublicationChannelId('')
             return
         }
@@ -97,6 +104,7 @@ function DashboardPage() {
                 setChannels(data.channels)
                 setDuePublications(data.due)
                 setPublisherConnections(data.connections)
+                setPublications(data.publications)
                 setPublicationChannelId(current => current || data.channels[0]?.id || '')
             })
             .catch(caughtError => {
@@ -213,6 +221,7 @@ function DashboardPage() {
         setChannels(data.channels)
         setDuePublications(data.due)
         setPublisherConnections(data.connections)
+        setPublications(data.publications)
         setPublicationChannelId(current => current || data.channels[0]?.id || '')
     }
 
@@ -479,6 +488,59 @@ function DashboardPage() {
                             onDisconnectPublisher={handleDisconnectPublisher}
                         />
                     ) : null}
+
+                    <div className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+                        <div className="flex items-end justify-between gap-4">
+                            <div>
+                                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
+                                    Publication queue
+                                </p>
+                                <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+                                    Drafts and targets
+                                </h2>
+                            </div>
+                            <span className="rounded-full bg-muted px-3 py-1 text-sm font-medium">
+                                {publications.length}
+                            </span>
+                        </div>
+                        <div className="mt-6 space-y-2">
+                            {publications.length === 0 ? (
+                                <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                                    Create a publication to open the editor.
+                                </p>
+                            ) : (
+                                publications.map(publication => (
+                                    <Link
+                                        key={publication.id}
+                                        to="/dashboard/projects/$projectId/publications/$publicationId"
+                                        params={{
+                                            projectId: selectedProjectId ?? '',
+                                            publicationId: publication.id,
+                                        }}
+                                        className="block rounded-xl border px-4 py-3 transition-colors hover:bg-muted/50">
+                                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                            <span className="font-semibold">
+                                                {publication.postTitle ?? 'Untitled publication'}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {publication.state}
+                                            </span>
+                                        </div>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                            <span>{publication.channelName}</span>
+                                            <span>·</span>
+                                            <span>{formatSchedule(publication.scheduledAt)}</span>
+                                            {publication.draftDiffersFromTarget ? (
+                                                <span className="font-medium text-amber-700 dark:text-amber-300">
+                                                    · draft changes pending
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </Link>
+                                ))
+                            )}
+                        </div>
+                    </div>
 
                     <div className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
                         <div className="flex items-end justify-between gap-4">

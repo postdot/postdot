@@ -27,10 +27,12 @@ export type {
     ChannelProfileVersionResponse,
     DuePublicationResponse,
     PostResponse,
+    PublicationEditorStateResponse,
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
     ProjectResponse,
     PublicationResponse,
+    PublicationSummaryResponse,
 } from './modules/projects/models'
 
 async function startServer(config = createHeraldConfig()) {

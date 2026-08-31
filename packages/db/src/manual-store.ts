@@ -134,6 +134,7 @@ export interface PromotePublicationDraftInput {
     readonly projectId: string
     readonly publicationId: string
     readonly subjectId: string
+    readonly expectedRevision: number
     readonly scheduledAt?: Timestamp | null
 }
 
@@ -190,6 +191,41 @@ export interface PublicationWorkingDraft {
     readonly updatedByActorId: string
     readonly createdAt: Timestamp
     readonly updatedAt: Timestamp
+}
+
+export interface PublicationTargetRevision {
+    readonly id: string
+    readonly projectId: string
+    readonly publicationId: string
+    readonly sequence: number
+    readonly profileVersionId: string
+    readonly sourceRevision: number
+    readonly deliveryMode: DeliveryMode
+    readonly mediaReferenceCount: number
+    readonly content: TargetContent
+    readonly contentHash: string
+    readonly profileHash: string
+    readonly schemaHash: string
+    readonly validationIssues: readonly Record<string, unknown>[]
+    readonly createdByActorId: string
+    readonly createdAt: Timestamp
+}
+
+export interface PublicationSummary extends Publication {
+    readonly postTitle: string | null
+    readonly channelName: string
+    readonly draftRevision: number
+    readonly draftReviewState: PublicationReviewState
+    readonly draftDiffersFromTarget: boolean
+}
+
+export interface PublicationEditorState {
+    readonly publication: Publication
+    readonly post: Post
+    readonly channel: Channel
+    readonly profile: ChannelProfileVersion
+    readonly draft: PublicationWorkingDraft
+    readonly selectedTarget: PublicationTargetRevision | null
 }
 
 export interface AuditEvent {
@@ -285,6 +321,13 @@ interface PostSourceRow {
     readonly sourceRevision: number
 }
 
+interface PostRow extends PostSourceRow {
+    readonly title: string | null
+    readonly createdByActorId: string
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
 interface WorkingDraftRow {
     readonly id: string
     readonly projectId: string
@@ -331,10 +374,39 @@ interface TargetRevisionMediaRow {
     readonly accessibilityText: string | null
 }
 
+interface TargetRevisionRow {
+    readonly id: string
+    readonly projectId: string
+    readonly publicationId: string
+    readonly sequence: number
+    readonly profileVersionId: string
+    readonly sourceRevision: number
+    readonly deliveryMode: DeliveryMode
+    readonly mediaReferenceCount: number
+    readonly contentJson: string
+    readonly contentHash: string
+    readonly profileHash: string
+    readonly schemaHash: string
+    readonly validationIssuesJson: string
+    readonly createdByActorId: string
+    readonly createdAt: number
+}
+
 interface DuePublicationRow extends PublicationRow {
     readonly postTitle: string | null
     readonly channelName: string
     readonly targetContentJson: string
+}
+
+interface PublicationSummaryRow extends PublicationRow {
+    readonly postTitle: string | null
+    readonly channelName: string
+    readonly draftRevision: number
+    readonly draftReviewState: PublicationReviewState
+    readonly draftSourceRevision: number
+    readonly draftContentJson: string
+    readonly targetSourceRevision: number | null
+    readonly targetContentJson: string | null
 }
 
 interface ResolvedTargetMedia {
@@ -487,6 +559,19 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         where project_id = ?1
           and id = ?2
     `)
+    const loadPostStatement = client.query<PostRow, [projectId: string, postId: string]>(`
+        select id,
+               project_id as projectId,
+               title,
+               source_content as sourceContentJson,
+               source_revision as sourceRevision,
+               created_by_actor_id as createdByActorId,
+               created_at as createdAt,
+               updated_at as updatedAt
+        from posts
+        where project_id = ?1
+          and id = ?2
+    `)
     const loadWorkingDraftStatement = client.query<
         WorkingDraftRow,
         [projectId: string, publicationId: string]
@@ -507,6 +592,30 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         from publication_working_drafts
         where project_id = ?1
           and publication_id = ?2
+    `)
+    const loadTargetRevisionStatement = client.query<
+        TargetRevisionRow,
+        [projectId: string, targetRevisionId: string, publicationId: string]
+    >(`
+        select id,
+               project_id as projectId,
+               publication_id as publicationId,
+               sequence,
+               profile_version_id as profileVersionId,
+               source_revision as sourceRevision,
+               delivery_mode as deliveryMode,
+               media_reference_count as mediaReferenceCount,
+               content_json as contentJson,
+               content_hash as contentHash,
+               profile_hash as profileHash,
+               schema_hash as schemaHash,
+               validation_issues_json as validationIssuesJson,
+               created_by_actor_id as createdByActorId,
+               created_at as createdAt
+        from publication_target_revisions
+        where project_id = ?1
+          and id = ?2
+          and publication_id = ?3
     `)
     const listProfileImpactWorkingDraftsStatement = client.query<
         ProfileImpactWorkingDraftRow,
@@ -1203,6 +1312,41 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
           and publications.scheduled_at <= ?2
         order by publications.scheduled_at, publications.id
     `)
+    const listPublicationSummariesStatement = client.query<
+        PublicationSummaryRow,
+        [projectId: string, limit: number]
+    >(`
+        select ${publicationColumns},
+               posts.title as postTitle,
+               channels.name as channelName,
+               working_drafts.revision as draftRevision,
+               working_drafts.review_state as draftReviewState,
+               working_drafts.source_revision as draftSourceRevision,
+               working_drafts.content_json as draftContentJson,
+               target_revisions.source_revision as targetSourceRevision,
+               target_revisions.content_json as targetContentJson
+        from publications
+        inner join posts
+            on posts.project_id = publications.project_id
+           and posts.id = publications.post_id
+        inner join channels
+            on channels.project_id = publications.project_id
+           and channels.id = publications.channel_id
+        inner join publication_working_drafts as working_drafts
+            on working_drafts.project_id = publications.project_id
+           and working_drafts.publication_id = publications.id
+        left join publication_target_revisions as target_revisions
+            on target_revisions.project_id = publications.project_id
+           and target_revisions.id = publications.target_revision_id
+           and target_revisions.publication_id = publications.id
+        where publications.project_id = ?1
+        order by
+            case when publications.scheduled_at is null then 1 else 0 end,
+            publications.scheduled_at,
+            publications.updated_at desc,
+            publications.id
+        limit ?2
+    `)
     const listAuditEventsStatement = client.query<
         AuditEventRow,
         [projectId: string, limit: number]
@@ -1863,11 +2007,25 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                     )
                 }
                 const validation = profileResult.value.validate(targetContent)
-                const reviewState: PublicationReviewState = validation.ok
-                    ? 'compatible'
-                    : 'review_required'
-                if (publicationInput.scheduledAt != null && !validation.ok) {
-                    throw invalidTargetContentError(validation.issues)
+                const mediaIssues =
+                    publicationInput.scheduledAt == null
+                        ? assessWorkingDraftMedia(
+                              profile,
+                              targetContent,
+                              project.id,
+                              input.subjectId,
+                              media,
+                              publicMediaUrlAvailable
+                          )
+                        : []
+                const validationIssues = [...validation.issues, ...mediaIssues]
+                const reviewState: PublicationReviewState =
+                    validation.ok && mediaIssues.length === 0 ? 'compatible' : 'review_required'
+                if (
+                    publicationInput.scheduledAt != null &&
+                    (!validation.ok || mediaIssues.length > 0)
+                ) {
+                    throw invalidTargetContentError(validationIssues)
                 }
                 const targetMedia =
                     publicationInput.scheduledAt == null
@@ -1908,7 +2066,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                     targetContent,
                     targetContentJson,
                     targetMedia,
-                    validationIssues: validation.issues,
+                    validationIssues,
                     workingDraftId: createId(),
                     targetRevisionId,
                     publisher: channelRow.publisherId === null ? null : toPublisher(channelRow),
@@ -2044,6 +2202,13 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
 
     const savePublicationDraftTransaction = client.transaction(
         (input: SavePublicationDraftInput): PublicationWorkingDraft | null => {
+            if (input.sourceContent === undefined && input.targetContent === undefined) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    'A publication draft must include sourceContent or targetContent'
+                )
+            }
+
             const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
             const publicationRow = loadPublicationByIdStatement.get(
                 input.projectId,
@@ -2087,10 +2252,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                     `Publication draft ${input.publicationId} changed after revision ${input.expectedRevision}`
                 )
             }
-            if (
-                input.sourceContent !== undefined &&
-                postRow.sourceRevision !== draftRow.sourceRevision
-            ) {
+            if (postRow.sourceRevision !== draftRow.sourceRevision) {
                 throw new DomainInvariantError(
                     'write_conflict',
                     `Source post ${postRow.id} changed after this publication draft was loaded`
@@ -2113,9 +2275,17 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 )
             }
             const validation = profileResult.value.validate(targetContent)
-            const reviewState: PublicationReviewState = validation.ok
-                ? 'compatible'
-                : 'review_required'
+            const mediaIssues = assessWorkingDraftMedia(
+                profileResult.value.profile,
+                targetContent,
+                input.projectId,
+                input.subjectId,
+                media,
+                publicMediaUrlAvailable
+            )
+            const validationIssues = [...validation.issues, ...mediaIssues]
+            const reviewState: PublicationReviewState =
+                validation.ok && mediaIssues.length === 0 ? 'compatible' : 'review_required'
             const timestamp = requireTimestamp(now(), 'now')
             const sourceContentJson = canonicalJson(sourceResult.value)
             const storedSourceContentJson = canonicalJson(
@@ -2148,7 +2318,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 sourceRevision,
                 targetContentJson,
                 reviewState,
-                JSON.stringify(validation.issues),
+                JSON.stringify(validationIssues),
                 draftRow.profileVersionId,
                 actorRow.id,
                 timestamp,
@@ -2179,6 +2349,12 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             )
             const draftRow = loadWorkingDraftStatement.get(input.projectId, input.publicationId)
             if (actorRow === null || publicationRow === null || draftRow === null) return null
+            if (input.expectedRevision !== draftRow.revision) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    `Publication draft ${input.publicationId} changed after revision ${input.expectedRevision}`
+                )
+            }
             if (
                 ['ready', 'publishing', 'published', 'ambiguous', 'cancelled'].includes(
                     publicationRow.state
@@ -2187,6 +2363,20 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 throw new DomainInvariantError(
                     'invalid_transition',
                     `Cannot promote a ${publicationRow.state} publication`
+                )
+            }
+
+            const postRow = loadPostSourceStatement.get(input.projectId, publicationRow.postId)
+            if (postRow === null) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Publication ${input.publicationId} has no source post`
+                )
+            }
+            if (postRow.sourceRevision !== draftRow.sourceRevision) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    `Source post ${postRow.id} changed after this publication draft was loaded`
                 )
             }
 
@@ -2605,6 +2795,93 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             return draft === null ? null : toWorkingDraft(draft)
         },
 
+        getPublicationEditorState(
+            projectId: string,
+            publicationId: string,
+            subjectId: string
+        ): PublicationEditorState | null {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedPublicationId = requireNonBlank(publicationId, 'publicationId')
+            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+            if (loadActorStatement.get(normalizedProjectId, normalizedSubjectId) === null) {
+                return null
+            }
+
+            const publicationRow = loadPublicationByIdStatement.get(
+                normalizedProjectId,
+                normalizedPublicationId
+            )
+            const draftRow = loadWorkingDraftStatement.get(
+                normalizedProjectId,
+                normalizedPublicationId
+            )
+            if (publicationRow === null || draftRow === null) return null
+
+            const postRow = loadPostStatement.get(normalizedProjectId, publicationRow.postId)
+            const channelRow = loadChannelStatement.get(
+                normalizedProjectId,
+                publicationRow.channelId
+            )
+            const profileRow = loadProfileStatement.get(
+                normalizedProjectId,
+                draftRow.profileVersionId
+            )
+            if (
+                postRow === null ||
+                channelRow === null ||
+                profileRow === null ||
+                profileRow.channelId !== channelRow.id
+            ) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Publication ${normalizedPublicationId} has incomplete editor state`
+                )
+            }
+
+            const selectedTarget =
+                publicationRow.targetRevisionId === null
+                    ? null
+                    : loadTargetRevisionStatement.get(
+                          normalizedProjectId,
+                          publicationRow.targetRevisionId,
+                          normalizedPublicationId
+                      )
+            if (publicationRow.targetRevisionId !== null && selectedTarget === null) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Publication ${normalizedPublicationId} points to a missing target revision`
+                )
+            }
+
+            return {
+                publication: toPublication(publicationRow),
+                post: toPost(postRow),
+                channel: toChannel(channelRow),
+                profile: toProfileVersion(profileRow),
+                draft: toWorkingDraft(draftRow),
+                selectedTarget: selectedTarget === null ? null : toTargetRevision(selectedTarget),
+            }
+        },
+
+        listPublicationSummaries(
+            projectId: string,
+            subjectId: string
+        ): PublicationSummary[] | null {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            if (
+                loadActorStatement.get(
+                    normalizedProjectId,
+                    requireNonBlank(subjectId, 'subjectId')
+                ) === null
+            ) {
+                return null
+            }
+
+            return listPublicationSummariesStatement
+                .all(normalizedProjectId, 100)
+                .map(toPublicationSummary)
+        },
+
         savePublicationDraft(input: SavePublicationDraftInput): PublicationWorkingDraft | null {
             return savePublicationDraftTransaction.immediate({
                 ...input,
@@ -2621,6 +2898,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 projectId: requireNonBlank(input.projectId, 'projectId'),
                 publicationId: requireNonBlank(input.publicationId, 'publicationId'),
                 subjectId: requireNonBlank(input.subjectId, 'subjectId'),
+                expectedRevision: requirePositiveRevision(input.expectedRevision),
             })
         },
 
@@ -3087,6 +3365,56 @@ function toPublication(row: PublicationRow): Publication {
         ],
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
+    }
+}
+
+function toPost(row: PostRow): Post {
+    return {
+        id: row.id,
+        projectId: row.projectId,
+        title: row.title,
+        sourceContent: parseSourceContent(row.sourceContentJson),
+        sourceRevision: row.sourceRevision,
+        createdByActorId: row.createdByActorId,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+    }
+}
+
+function toTargetRevision(row: TargetRevisionRow): PublicationTargetRevision {
+    return {
+        id: row.id,
+        projectId: row.projectId,
+        publicationId: row.publicationId,
+        sequence: row.sequence,
+        profileVersionId: row.profileVersionId,
+        sourceRevision: row.sourceRevision,
+        deliveryMode: row.deliveryMode,
+        mediaReferenceCount: row.mediaReferenceCount,
+        content: parseJsonObject(row.contentJson, 'publication target content'),
+        contentHash: row.contentHash,
+        profileHash: row.profileHash,
+        schemaHash: row.schemaHash,
+        validationIssues: parseJsonArray(
+            row.validationIssuesJson,
+            'publication target validation issues'
+        ),
+        createdByActorId: row.createdByActorId,
+        createdAt: row.createdAt,
+    }
+}
+
+function toPublicationSummary(row: PublicationSummaryRow): PublicationSummary {
+    return {
+        ...toPublication(row),
+        postTitle: row.postTitle,
+        channelName: row.channelName,
+        draftRevision: row.draftRevision,
+        draftReviewState: row.draftReviewState,
+        draftDiffersFromTarget:
+            row.targetContentJson === null ||
+            row.draftSourceRevision !== row.targetSourceRevision ||
+            row.draftContentJson !== row.targetContentJson,
     }
 }
 

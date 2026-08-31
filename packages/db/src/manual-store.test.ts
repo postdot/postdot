@@ -444,6 +444,40 @@ describe('manual workflow store', () => {
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
+                    expectedRevision: 2,
+                })
+            ).toThrow('must include sourceContent or targetContent')
+
+            const editor = store.getPublicationEditorState(
+                project.project.id,
+                publication.id,
+                'user-1'
+            )
+            expect(editor).toMatchObject({
+                post: { sourceRevision: 2, sourceContent: sourceContent('Edited revision') },
+                channel: { id: channel.id },
+                profile: { id: channel.profileVersionId, state: 'active' },
+                draft: { revision: 2, sourceRevision: 2, content: { body: 'Edited target' } },
+                selectedTarget: {
+                    id: publication.targetRevisionId,
+                    sourceRevision: 1,
+                    content: { body: 'Initial revision' },
+                },
+            })
+            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toMatchObject([
+                {
+                    id: publication.id,
+                    draftRevision: 2,
+                    draftReviewState: 'compatible',
+                    draftDiffersFromTarget: true,
+                },
+            ])
+
+            expect(() =>
+                store.savePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
                     expectedRevision: 1,
                     targetContent: { body: 'Stale editor write' },
                 })
@@ -459,6 +493,7 @@ describe('manual workflow store', () => {
                 projectId: project.project.id,
                 publicationId: publication.id,
                 subjectId: 'user-1',
+                expectedRevision: 2,
                 scheduledAt: now + 120_000,
             })
             expect(promoted).toMatchObject({ state: 'scheduled', scheduledAt: now + 120_000 })
@@ -471,6 +506,19 @@ describe('manual workflow store', () => {
                     runAt: now + 120_000,
                 }),
             ])
+            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toMatchObject([
+                { id: publication.id, draftDiffersFromTarget: false },
+            ])
+
+            expect(() =>
+                store.promotePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 1,
+                    scheduledAt: now + 180_000,
+                })
+            ).toThrow('changed after revision 1')
         } finally {
             closeDatabase(database)
         }
@@ -520,6 +568,7 @@ describe('manual workflow store', () => {
                     projectId: project.project.id,
                     publicationId: publication.id,
                     subjectId: 'user-1',
+                    expectedRevision: 2,
                     scheduledAt: now + 60_000,
                 })
             ).toThrow('Publication target content is invalid')
@@ -835,6 +884,84 @@ describe('manual workflow store', () => {
         }
     })
 
+    it('surfaces media capability issues while drafts are created and autosaved', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const media = {
+                getAsset(
+                    _projectId: string,
+                    _assetId: string,
+                    _subjectId: string
+                ): MediaAssetReference | null {
+                    return null
+                },
+            }
+            const store = createManualStore(database, { now: () => now, media })
+            const project = store.createProject({
+                name: 'Draft Media Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Media Draft Channel',
+                profile: createMediaProfile(1, ['image'], ['image/jpeg']),
+            })
+            if (channel === null) throw new Error('The media draft channel was not created')
+
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Draft media source', format: 'plain_text' },
+                    media: [{ assetId: 'missing-asset' }],
+                },
+                publications: [
+                    {
+                        channelId: channel.id,
+                        targetContent: {
+                            body: 'Draft media target',
+                            media: [{ assetId: 'missing-asset' }],
+                        },
+                    },
+                ],
+            })
+            if (created === null) throw new Error('The draft media post was not created')
+            const publication = created.publications[0]
+            if (publication === undefined) throw new Error('The draft media publication is missing')
+
+            expect(publication).toMatchObject({ reviewState: 'review_required' })
+            expect(
+                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+            ).toMatchObject({
+                reviewState: 'review_required',
+                validationIssues: [expect.objectContaining({ code: 'profile.media_incompatible' })],
+            })
+
+            const saved = store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+                targetContent: {
+                    body: 'Updated draft media target',
+                    media: [{ assetId: 'missing-asset' }],
+                },
+            })
+            expect(saved).toMatchObject({
+                revision: 2,
+                reviewState: 'review_required',
+                validationIssues: [expect.objectContaining({ code: 'profile.media_incompatible' })],
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('fences concurrent source edits across publication drafts', () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
@@ -891,7 +1018,6 @@ describe('manual workflow store', () => {
                     publicationId: secondPublication.id,
                     subjectId: 'user-1',
                     expectedRevision: 1,
-                    sourceContent: sourceContent('Stale second editor source'),
                     targetContent: { body: 'Second editor target', media: [] },
                 })
             ).toThrow('changed after this publication draft was loaded')
