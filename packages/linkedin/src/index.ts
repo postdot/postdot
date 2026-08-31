@@ -1,5 +1,5 @@
 export * from './contract'
 export * from './payload'
 export { createLinkedInMemberProfileClient, LinkedInProfileError } from './profile'
-export { createLinkedInTextPublisher } from './publisher'
-export { linkedinTextChannelProfile, readLinkedInTextContent } from './channel-profile'
+export { createLinkedInImagePublisher, createLinkedInTextPublisher } from './publisher'
+export { linkedinChannelProfile, readLinkedInTextContent } from './channel-profile'

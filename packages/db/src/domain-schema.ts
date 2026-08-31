@@ -1438,7 +1438,6 @@ export const providerMediaDeliveries = sqliteTable(
                     and ${table.attempts} > 0
                     and ${table.lastAttemptAt} is not null
                     and ${table.completedAt} is null
-                    and ${table.remoteMediaId} is null
                     and ${table.errorCode} is null
                     and ${table.errorMessage} is null)
                 or (${table.state} = 'uploaded'

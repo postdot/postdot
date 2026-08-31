@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import {
+    createLinkedInImagePublisher,
     createLinkedInTextPublisher,
     type LinkedInFetcher,
     type LinkedInPublishOutcome,
@@ -18,6 +19,19 @@ function createPublisher(fetcher: LinkedInFetcher, options: { readonly timeoutMs
         fetcher,
         ...options,
     })
+}
+
+const imageBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+
+function createImagePublisher(fetcher: LinkedInFetcher) {
+    return createLinkedInImagePublisher({
+        baseUrl: 'https://linkedin.test',
+        fetcher,
+    })
+}
+
+async function readRequestBody(body: RequestInit['body']): Promise<Uint8Array> {
+    return new Uint8Array(await new Response(body ?? null).arrayBuffer())
 }
 
 describe('LinkedIn text publisher', () => {
@@ -130,6 +144,9 @@ describe('LinkedIn text publisher', () => {
         const providerFailure = createPublisher(
             async () => new Response('gateway failure', { status: 503 })
         )
+        const conflict = createPublisher(
+            async () => new Response('write conflict', { status: 409 })
+        )
 
         await expect(rateLimited.publishText(input)).resolves.toEqual({
             type: 'retryable_failure',
@@ -142,6 +159,13 @@ describe('LinkedIn text publisher', () => {
             code: 'provider_failure',
             errorMessage:
                 'LinkedIn returned a server error (HTTP 503); the publication outcome is ambiguous: gateway failure',
+        })
+        await expect(conflict.publishText(input)).resolves.toEqual({
+            type: 'retryable_failure',
+            effectOccurred: false,
+            code: 'conflict',
+            errorMessage:
+                'LinkedIn reported a write conflict for the post request (HTTP 409): write conflict',
         })
     })
 
@@ -187,6 +211,222 @@ describe('LinkedIn text publisher', () => {
             code: 'provider_timeout',
             errorMessage:
                 'LinkedIn request timed out after dispatch; the publication outcome is ambiguous',
+        })
+    })
+})
+
+describe('LinkedIn image publisher', () => {
+    it('initializes, uploads, and publishes a single image with the pinned provider id', async () => {
+        const uploadUrl = 'https://uploads.linkedin.test/image-42?signature=upload-secret'
+        const imageId = 'urn:li:image:image-42'
+        const requests: Array<{ readonly input: string; readonly init: RequestInit | undefined }> =
+            []
+        let uploadedBytes: Uint8Array | undefined
+        const publisher = createImagePublisher(async (input, init) => {
+            requests.push({ input: input.toString(), init })
+            if (requests.length === 1) {
+                return Response.json({ value: { uploadUrl, image: imageId } })
+            }
+            if (requests.length === 2) {
+                uploadedBytes = await readRequestBody(init?.body)
+                return new Response(null, { status: 201 })
+            }
+            return new Response(null, {
+                status: 201,
+                headers: { 'x-restli-id': 'urn:li:post:image-42' },
+            })
+        })
+
+        const uploadOutcome = await publisher.uploadImage({
+            accessToken: input.accessToken,
+            memberId: input.memberId,
+            media: {
+                contentType: 'image/png',
+                size: imageBytes.byteLength,
+                stream: new Blob([imageBytes]).stream(),
+            },
+        })
+        const publishOutcome = await publisher.publishImage({
+            accessToken: input.accessToken,
+            memberId: input.memberId,
+            commentary: input.commentary,
+            imageId,
+            accessibilityText: '  Herald image  ',
+        })
+
+        expect(uploadOutcome).toEqual({ type: 'uploaded', remoteMediaId: imageId })
+        expect(publishOutcome).toEqual({
+            type: 'published',
+            externalId: 'urn:li:post:image-42',
+        })
+        expect(uploadedBytes).toEqual(imageBytes)
+        expect(requests).toHaveLength(3)
+
+        const initializeRequest = requests[0]
+        if (initializeRequest === undefined) throw new Error('Missing initialize request')
+        expect(initializeRequest.input).toBe(
+            'https://linkedin.test/rest/images?action=initializeUpload'
+        )
+        expect(initializeRequest.init?.method).toBe('POST')
+        const initializeHeaders = new Headers(initializeRequest.init?.headers)
+        expect(initializeHeaders.get('authorization')).toBe('Bearer access-token-secret')
+        expect(initializeHeaders.get('content-type')).toBe('application/json')
+        expect(initializeHeaders.get('linkedin-version')).toBe('202608')
+        expect(initializeHeaders.get('x-restli-protocol-version')).toBe('2.0.0')
+        expect(JSON.parse(String(initializeRequest.init?.body))).toEqual({
+            initializeUploadRequest: { owner: 'urn:li:person:member-42' },
+        })
+
+        const uploadRequest = requests[1]
+        if (uploadRequest === undefined) throw new Error('Missing upload request')
+        expect(uploadRequest.input).toBe(uploadUrl)
+        expect(uploadRequest.init?.method).toBe('PUT')
+        const uploadHeaders = new Headers(uploadRequest.init?.headers)
+        expect(uploadHeaders.get('authorization')).toBe('Bearer access-token-secret')
+        expect(uploadHeaders.get('content-type')).toBe('image/png')
+        expect(uploadHeaders.get('content-length')).toBe(String(imageBytes.byteLength))
+        expect(uploadHeaders.get('linkedin-version')).toBeNull()
+
+        const publishRequest = requests[2]
+        if (publishRequest === undefined) throw new Error('Missing publish request')
+        expect(publishRequest.input).toBe('https://linkedin.test/rest/posts')
+        expect(JSON.parse(String(publishRequest.init?.body))).toMatchObject({
+            author: 'urn:li:person:member-42',
+            commentary: 'Hello from Herald',
+            content: { media: { id: imageId, altText: 'Herald image' } },
+            lifecycleState: 'PUBLISHED',
+        })
+    })
+
+    it('rejects invalid media input without dispatching a provider request', async () => {
+        let calls = 0
+        const publisher = createImagePublisher(async () => {
+            calls += 1
+            return new Response(null, { status: 200 })
+        })
+
+        const outcome = await publisher.uploadImage({
+            accessToken: input.accessToken,
+            memberId: input.memberId,
+            media: {
+                contentType: 'image/png',
+                size: 0,
+                stream: new Blob([imageBytes]).stream(),
+            },
+        })
+
+        expect(outcome).toEqual({
+            type: 'permanent_failure',
+            effectOccurred: false,
+            code: 'invalid_input',
+            errorMessage: 'LinkedIn image size must be a positive safe integer',
+        })
+        expect(calls).toBe(0)
+    })
+
+    it('redacts access tokens and signed upload URLs from ambiguous failures', async () => {
+        const uploadUrl = 'https://uploads.linkedin.test/image-43?signature=upload-secret'
+        let calls = 0
+        const publisher = createImagePublisher(async () => {
+            calls += 1
+            if (calls === 1) {
+                return Response.json({ value: { uploadUrl, image: 'urn:li:image:image-43' } })
+            }
+            throw new Error('socket closed for upload-secret using access-token-secret')
+        })
+
+        const outcome = await publisher.uploadImage({
+            accessToken: input.accessToken,
+            memberId: input.memberId,
+            media: {
+                contentType: 'image/png',
+                size: imageBytes.byteLength,
+                stream: new Blob([imageBytes]).stream(),
+            },
+        })
+
+        expect(outcome).toMatchObject({ type: 'ambiguous', code: 'network_failure' })
+        expect('errorMessage' in outcome ? outcome.errorMessage : '').not.toContain(
+            input.accessToken
+        )
+        expect('errorMessage' in outcome ? outcome.errorMessage : '').not.toContain('upload-secret')
+    })
+
+    it('classifies image initialization and transfer provider statuses separately', async () => {
+        const rateLimited = createImagePublisher(
+            async () => new Response('slow down', { status: 429 })
+        )
+        await expect(
+            rateLimited.uploadImage({
+                accessToken: input.accessToken,
+                memberId: input.memberId,
+                media: {
+                    contentType: 'image/png',
+                    size: imageBytes.byteLength,
+                    stream: new Blob([imageBytes]).stream(),
+                },
+            })
+        ).resolves.toEqual({
+            type: 'retryable_failure',
+            effectOccurred: false,
+            code: 'rate_limited',
+            errorMessage:
+                'LinkedIn rate limited the image initialization request (HTTP 429): slow down',
+        })
+
+        let calls = 0
+        const providerFailure = createImagePublisher(async () => {
+            calls += 1
+            if (calls === 1) {
+                return Response.json({
+                    value: {
+                        uploadUrl: 'https://uploads.linkedin.test/image-45?signature=secret',
+                        image: 'urn:li:image:image-45',
+                    },
+                })
+            }
+            return new Response('gateway failure', { status: 503 })
+        })
+        await expect(
+            providerFailure.uploadImage({
+                accessToken: input.accessToken,
+                memberId: input.memberId,
+                media: {
+                    contentType: 'image/png',
+                    size: imageBytes.byteLength,
+                    stream: new Blob([imageBytes]).stream(),
+                },
+            })
+        ).resolves.toEqual({
+            type: 'ambiguous',
+            code: 'provider_failure',
+            errorMessage:
+                'LinkedIn returned a server error during image upload (HTTP 503); the media outcome is ambiguous: gateway failure',
+            remoteMediaId: 'urn:li:image:image-45',
+        })
+    })
+
+    it('preserves a provider image id when initialization omits the upload URL', async () => {
+        const imageId = 'urn:li:image:image-44'
+        const publisher = createImagePublisher(async () =>
+            Response.json({ value: { image: imageId } })
+        )
+
+        await expect(
+            publisher.uploadImage({
+                accessToken: input.accessToken,
+                memberId: input.memberId,
+                media: {
+                    contentType: 'image/png',
+                    size: imageBytes.byteLength,
+                    stream: new Blob([imageBytes]).stream(),
+                },
+            })
+        ).resolves.toEqual({
+            type: 'ambiguous',
+            code: 'missing_upload_url',
+            errorMessage: 'LinkedIn registered the image upload but did not return an upload URL',
+            remoteMediaId: imageId,
         })
     })
 })

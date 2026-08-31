@@ -216,6 +216,49 @@ describe('provider media delivery store', () => {
                 })?.state
             ).toBe('uploaded')
 
+            const checkpointDelivery = deliveries.reserve({
+                projectId: project.project.id,
+                executionMediaId: executionMedia[0]?.id ?? '',
+                publisherId: 'publisher-1',
+                providerId: 'checkpoint-provider',
+            })
+            expect(
+                deliveries.start({
+                    projectId: project.project.id,
+                    deliveryId: checkpointDelivery.id,
+                })?.state
+            ).toBe('uploading')
+            expect(
+                deliveries.recordRemoteMediaId({
+                    projectId: project.project.id,
+                    deliveryId: checkpointDelivery.id,
+                    remoteMediaId: 'checkpoint-media',
+                })
+            ).toMatchObject({ state: 'uploading', remoteMediaId: 'checkpoint-media' })
+            expect(
+                deliveries.fail({
+                    projectId: project.project.id,
+                    deliveryId: checkpointDelivery.id,
+                    errorCode: 'provider_timeout',
+                    errorMessage: 'The upload response was lost after registration',
+                    ambiguous: true,
+                })
+            ).toMatchObject({ state: 'ambiguous', remoteMediaId: 'checkpoint-media' })
+            expect(() =>
+                deliveries.complete({
+                    projectId: project.project.id,
+                    deliveryId: checkpointDelivery.id,
+                    remoteMediaId: 'another-checkpoint-media',
+                })
+            ).toThrow('already has another remote media ID')
+            expect(
+                deliveries.complete({
+                    projectId: project.project.id,
+                    deliveryId: checkpointDelivery.id,
+                    remoteMediaId: 'checkpoint-media',
+                })
+            ).toMatchObject({ state: 'uploaded', remoteMediaId: 'checkpoint-media' })
+
             const failedDelivery = deliveries.reserve({
                 projectId: project.project.id,
                 executionMediaId: executionMedia[0]?.id ?? '',

@@ -2,7 +2,7 @@
     "name": "@herald/linkedin",
     "version": "0.0.0",
     "private": true,
-    "description": "LinkedIn text publishing adapter for Herald",
+    "description": "LinkedIn member publishing adapter for Herald",
     "type": "module",
     "sideEffects": false,
     "exports": {
