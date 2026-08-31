@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { ApiError, api, type PublicationEditorState } from '@/lib/api'
+import { parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
@@ -821,16 +822,7 @@ function formatJson(value: unknown) {
 }
 
 function parseSchedule(value: string): number | null | 'invalid' {
-    if (value === '') return null
-    const timestamp = Date.parse(value)
-    return Number.isFinite(timestamp) ? timestamp : 'invalid'
-}
-
-function toDateTimeLocal(timestamp: number | null) {
-    if (timestamp === null) return ''
-    const date = new Date(timestamp)
-    const offset = date.getTimezoneOffset() * 60_000
-    return new Date(timestamp - offset).toISOString().slice(0, 16)
+    return parseDateTimeLocal(value)
 }
 
 function formatSchedule(timestamp: number | null) {
