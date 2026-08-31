@@ -112,8 +112,11 @@ part of `bun run check` and must only be run with an operator-owned test account
    not publish a second copy; inspect LinkedIn first and use the explicit
    `publications reconcile` command to resolve the existing publication.
 
-The provider currently targets text-only member posts through the versioned
-[LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api).
+The provider currently targets text and single-image member posts through the
+versioned [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api),
+using the [LinkedIn Images API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api)
+for verified JPEG and PNG uploads. The opt-in smoke-test procedure above remains
+text-only until a disposable image test is explicitly approved.
 Better Auth is used only for Herald email/password sessions. Publisher OAuth
 credentials are project-owned and encrypted at rest using the required
 `HERALD_PUBLISHER_ENCRYPTION_KEY`; they must not be copied into the environment

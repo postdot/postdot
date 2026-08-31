@@ -1,7 +1,7 @@
 # ADR-011 — Select LinkedIn Member Text Publishing for the First Automatic Slice
 
 - Status: accepted
-- Scope: PUB-09 provider selection and the first automatic V1 publishing boundary
+- Scope: PUB-09 provider selection and the first automatic publishing boundary
 - Provenance: [PUB-09](../TASKS.md), provider documentation review, and the 2026-08-28 feasibility spike
 - Related specifications: [SPEC-001](../specs/SPEC-001-v1-scope.md), [SPEC-002](../specs/SPEC-002-engineering-operating-model.md)
 - Related decisions: [ADR-001](ADR-001-separate-channel-from-publisher.md), [ADR-006](ADR-006-use-a-next-event-durable-scheduler.md), [ADR-009](ADR-009-fence-external-effects-with-durable-claims.md)
@@ -17,7 +17,8 @@ destinations remain valid manual or custom channels.
 The first implementation must prove the publisher boundary, account connection,
 scheduling, external-effect fencing, result persistence, and recovery semantics.
 It must not pull media storage, organization administration, comments, analytics,
-or a universal provider framework into V1 before the evidence requires them.
+or a universal provider framework into this first provider slice before the
+evidence requires them.
 
 The official LinkedIn documentation confirms that:
 
@@ -41,7 +42,7 @@ Sources:
 
 ## Decision proposal
 
-Select a LinkedIn member-profile publisher as the first automatic V1 publisher,
+Select a LinkedIn member-profile publisher as the first automatic publisher,
 with this deliberately narrow initial contract:
 
 1. Connect a member profile through OAuth 2.0.
@@ -61,9 +62,11 @@ with this deliberately narrow initial contract:
    reconciliation behavior in the LinkedIn adapter. Do not create a generic
    provider configuration language or a second domain model.
 
-Organization Pages, media uploads, comments, analytics, reshares, and additional
-publishers are deferred. They can be added through separate evidence-backed
-changes without changing `Channel -> 0..1 Publisher`.
+Organization Pages, comments, analytics, reshares, and additional publishers were
+outside the PUB-09 slice. PUB-10 subsequently added one-image member delivery
+through [ADR-026](ADR-026-linkedin-single-image-delivery.md). Further provider
+capabilities remain separate evidence-backed changes and must not change
+`Channel -> 0..1 Publisher`.
 
 ## Alternatives considered
 
@@ -108,9 +111,9 @@ complex publishers remain code and channel instances remain data.
 
 - The first automatic path matches the product's stated workflow instead of merely
   selecting the easiest API.
-- Text-only publishing validates scheduling, credentials, external effect fencing,
-  result persistence, and operator-visible failure handling without forcing a V1
-  media-storage design.
+- Text-only publishing validated scheduling, credentials, external effect fencing,
+  result persistence, and operator-visible failure handling without making media a
+  prerequisite of the first provider slice.
 - The adapter boundary remains small and provider-specific behavior stays explicit.
 - The initial permission request follows least privilege and leaves organization
   access out of the default connection flow.
@@ -123,8 +126,8 @@ complex publishers remain code and channel instances remain data.
   and reconciled explicitly before PUB-09 can be considered complete.
 - A monthly API version requires maintenance and a version migration check; the
   pinned default must be updated before its provider support window ends.
-- Organization pages and media will require additional domain, credential, storage,
-  and provider capability decisions later.
+- Organization pages and additional media capabilities require separate domain,
+  credential, storage, and provider capability decisions.
 
 ## Implementation exit criteria
 

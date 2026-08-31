@@ -4,7 +4,7 @@
 - Scope: Current product direction, architectural foundations, and delivery sequencing
 - Provenance: Owner direction on 2026-08-29
 - Related specifications: [SPEC-002](SPEC-002-engineering-operating-model.md), [SPEC-003](SPEC-003-product-foundation.md), [SPEC-004](SPEC-004-publication-content-boundary.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-022](../decisions/ADR-022-use-expiring-signed-media-delivery-urls.md), [ADR-026](../decisions/ADR-026-linkedin-single-image-delivery.md)
 - Superseded by: none
 
 > This specification replaces the release-oriented framing of SPEC-001 as the
@@ -94,9 +94,11 @@ the level appropriate to the risk.
 
 ## Current publication and media consequence
 
-[SPEC-004](SPEC-004-publication-content-boundary.md) is the active draft for the
-publication content boundary. Its media direction must be resolved as an extensible
-foundation, not as a temporary JPEG/PNG-only or local-only implementation. The
-initial supported media families and provider constraints still require explicit
-decisions, but the storage interface and capability architecture must not make those
-future additions require replacing the first implementation.
+[SPEC-004](SPEC-004-publication-content-boundary.md) is the active specification for
+the publication content boundary. Its media direction is an extensible foundation:
+the current implementation already has the shared asset, representation, and
+provider-delivery seams, interchangeable local and S3-compatible storage
+contracts, and a LinkedIn one-image JPEG/PNG slice. This slice is not a permanent
+media ceiling. Additional media families and provider constraints still require
+evidence and explicit decisions, but they must not require replacing the first
+implementation.
