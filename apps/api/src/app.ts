@@ -10,6 +10,8 @@ import { Elysia } from 'elysia'
 
 import type { HeraldLoggingConfig } from './config'
 import { createHealthRoutes } from './modules/health/routes'
+import type { MediaPublicDelivery } from './modules/media/public-delivery'
+import { createPublicMediaRoutes } from './modules/media/public-routes'
 import { createProjectModule } from './modules/projects'
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
@@ -21,6 +23,7 @@ export interface HeraldAppOptions {
     readonly database: HeraldDatabase
     readonly publisher: PublisherRuntime
     readonly media?: MediaAssetStore
+    readonly mediaPublicDelivery?: MediaPublicDelivery
     readonly manualStore?: ManualStoreOptions
     readonly logging?: HeraldLoggingConfig
     readonly onWorkScheduled?: () => void
@@ -31,6 +34,7 @@ function createDomainApp({
     database,
     publisher,
     media,
+    mediaPublicDelivery,
     manualStore: manualStoreOptions,
     logging,
     onWorkScheduled,
@@ -38,7 +42,14 @@ function createDomainApp({
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
         media,
+        publicMediaUrlAvailable:
+            media !== undefined &&
+            (manualStoreOptions?.publicMediaUrlAvailable ?? mediaPublicDelivery !== undefined),
     })
+    const publicMediaRoutes =
+        media === undefined || mediaPublicDelivery === undefined
+            ? new Elysia({ name: 'herald-public-media-disabled' })
+            : createPublicMediaRoutes(media, mediaPublicDelivery)
 
     return new Elysia({ name: 'herald-api' })
         .use(createRequestLogger(logging))
@@ -76,6 +87,7 @@ function createDomainApp({
                 onWorkScheduled,
             })
         )
+        .use(publicMediaRoutes)
 }
 
 /**
@@ -90,6 +102,7 @@ export function createApp({
     database,
     publisher,
     media,
+    mediaPublicDelivery,
     manualStore: manualStoreOptions,
     logging,
     onWorkScheduled,
@@ -99,6 +112,7 @@ export function createApp({
         database,
         publisher,
         media,
+        mediaPublicDelivery,
         manualStore: manualStoreOptions,
         logging,
         onWorkScheduled,

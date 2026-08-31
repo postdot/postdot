@@ -14,7 +14,8 @@ Requirements: Bun 1.4 or newer.
 ```sh
 bun install
 cp apps/api/.env.example apps/api/.env
-# Replace BETTER_AUTH_SECRET and HERALD_PUBLISHER_ENCRYPTION_KEY with random values.
+# Replace BETTER_AUTH_SECRET, HERALD_MEDIA_PUBLIC_URL_SECRET, and
+# HERALD_PUBLISHER_ENCRYPTION_KEY with random values.
 bun run dev
 ```
 

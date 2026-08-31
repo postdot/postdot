@@ -5,7 +5,7 @@
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
 - Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](../decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](../decisions/ADR-021-channel-owns-profile-contract.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](../decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](../decisions/ADR-021-channel-owns-profile-contract.md), [ADR-022](../decisions/ADR-022-use-expiring-signed-media-delivery-urls.md)
 - Superseded by: none
 
 > This specification is normative. Its implementation is tracked through bounded
@@ -87,11 +87,11 @@ decision records.
 The following providers are representative evidence, not a commitment to reproduce
 their complete feature sets:
 
-| Destination | Publication shape | Media behavior | Additional constraints |
-| --- | --- | --- | --- |
-| Manual custom channel | Operator-provided destination action | Outside Herald's automated provider API | The content must remain inspectable and actionable without a provider adapter |
-| LinkedIn member post | JSON with commentary, visibility, distribution, lifecycle, and optional nested content | Media is uploaded first and referenced by a provider media URN | The author is a provider URN; the API is versioned; media and other content types have provider-specific schemas |
-| Mastodon status | Form fields such as status, media IDs, poll, visibility, language, and scheduling | Media is uploaded separately and attached through provider IDs | Media and polls are mutually constrained; the provider supports an idempotency key with a bounded retention period |
+| Destination           | Publication shape                                                                      | Media behavior                                                 | Additional constraints                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Manual custom channel | Operator-provided destination action                                                   | Outside Herald's automated provider API                        | The content must remain inspectable and actionable without a provider adapter                                      |
+| LinkedIn member post  | JSON with commentary, visibility, distribution, lifecycle, and optional nested content | Media is uploaded first and referenced by a provider media URN | The author is a provider URN; the API is versioned; media and other content types have provider-specific schemas   |
+| Mastodon status       | Form fields such as status, media IDs, poll, visibility, language, and scheduling      | Media is uploaded separately and attached through provider IDs | Media and polls are mutually constrained; the provider supports an idempotency key with a bounded retention period |
 
 These differences show that the common domain cannot be a provider payload union
 disguised as a generic object. The common boundary must express only concepts that
@@ -296,11 +296,11 @@ severity, and source so the web editor, API, CLI, and MCP report the same failur
 
 Representative profiles demonstrate the intended range:
 
-| Profile | Target content | Bindings | Delivery |
-| --- | --- | --- | --- |
-| Custom microblog | Required `body` with an edited destination limit and an optional bounded media array | Primary text and ordered media | Manual, or one JSON/multipart HTTP request |
-| Project blog | `title`, `body`, optional `slug`, `excerpt`, `tags`, and cover media | Title, long-form text, tags, and cover asset | One configured HTTP request when the blog API accepts it |
-| Manual regional network | Destination-specific text and media fields | Primary text and ordered media | No transport; the operator completes and records the publication manually |
+| Profile                 | Target content                                                                       | Bindings                                     | Delivery                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------- |
+| Custom microblog        | Required `body` with an edited destination limit and an optional bounded media array | Primary text and ordered media               | Manual, or one JSON/multipart HTTP request                                |
+| Project blog            | `title`, `body`, optional `slug`, `excerpt`, `tags`, and cover media                 | Title, long-form text, tags, and cover asset | One configured HTTP request when the blog API accepts it                  |
+| Manual regional network | Destination-specific text and media fields                                           | Primary text and ordered media               | No transport; the operator completes and records the publication manually |
 
 A target revision stores its validated content, field-binding/profile version, and
 profile hash. It does not store a live pointer whose meaning changes when the channel
@@ -374,6 +374,11 @@ ID. Herald signs the final body with a connection-owned HMAC secret and timestam
 The mapped mode owns a structural request shape, while its project-owned connection
 owns the base endpoint and authentication material. Secrets can never be interpolated
 from publication content or stored in the profile.
+
+When a mapping requires a URL rather than a multipart part, Herald resolves each
+immutable representation to a short-lived signed Herald URL. The URL is a temporary
+bearer capability and does not expose a local path, object key, storage credential,
+or Better Auth session. Its public delivery rules are defined by [ADR-022](../decisions/ADR-022-use-expiring-signed-media-delivery-urls.md).
 
 The smallest contract that covers the representative cases contains:
 

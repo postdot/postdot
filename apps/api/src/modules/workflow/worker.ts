@@ -46,7 +46,8 @@ export interface PublicationWorkerOptions {
     readonly media?: MediaAssetStore
     readonly customHttpTransport?: CustomHttpTransport
     readonly resolveCustomHttpMediaUrl?: (
-        media: CustomHttpMediaDescriptor
+        media: CustomHttpMediaDescriptor,
+        context: { readonly projectId: string }
     ) => string | null | Promise<string | null>
     readonly linkedinOAuth?: {
         readonly authorizationServer: OAuthAuthorizationServer
@@ -143,7 +144,8 @@ async function performExternalEffect(input: {
     readonly media?: MediaAssetStore
     readonly customHttpTransport: CustomHttpTransport
     readonly resolveCustomHttpMediaUrl?: (
-        media: CustomHttpMediaDescriptor
+        media: CustomHttpMediaDescriptor,
+        context: { readonly projectId: string }
     ) => string | null | Promise<string | null>
     readonly linkedinOAuth:
         | {
@@ -319,7 +321,10 @@ async function performCustomHttpEffect(
             secret: secrets.accessToken,
         },
         mediaReader,
-        resolveMediaUrl: input.resolveCustomHttpMediaUrl,
+        resolveMediaUrl:
+            input.resolveCustomHttpMediaUrl === undefined
+                ? undefined
+                : (media, context) => input.resolveCustomHttpMediaUrl!(media, context),
     })
 }
 

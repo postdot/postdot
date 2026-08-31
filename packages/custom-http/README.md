@@ -34,7 +34,9 @@ JSON Pointer values from target content and execution context into:
 - non-reserved headers;
 - JSON, URL-encoded form, or multipart bodies;
 - bounded arrays and objects;
-- media URLs supplied by the application or streamed multipart media.
+- short-lived signed media URLs supplied by the application or streamed multipart
+  media. Herald's application layer owns the URL authority; this package never
+  constructs a storage URL.
 
 The connection owns the fixed origin and authentication secret. A mapped profile
 may select `none`, bearer, or one connection-owned header authentication, but it

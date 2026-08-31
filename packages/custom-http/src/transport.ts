@@ -36,7 +36,10 @@ interface EvaluationScope {
     readonly context: CustomHttpDeliveryContext
     readonly item: unknown | undefined
     readonly mediaUrlResolver:
-        | ((media: CustomHttpMediaDescriptor) => string | null | Promise<string | null>)
+        | ((
+              media: CustomHttpMediaDescriptor,
+              context: CustomHttpDeliveryContext
+          ) => string | null | Promise<string | null>)
         | undefined
 }
 
@@ -361,7 +364,7 @@ async function evaluateExpression(
             }
             const urls: string[] = []
             for (const candidate of selected) {
-                const url = await resolver(candidate)
+                const url = await resolver(candidate, scope.context)
                 if (url === null || url.trim().length === 0) {
                     throw new MappingError(
                         `No public URL is available for media ${candidate.assetId}`

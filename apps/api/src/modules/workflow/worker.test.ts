@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'bun:test'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import type { ChannelProfileDefinition } from '@herald/core'
 import { createCustomHttpTransport } from '@herald/custom-http'
@@ -6,6 +9,7 @@ import {
     closeDatabase,
     createDatabase,
     createManualStore,
+    createMediaAssetStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
@@ -13,9 +17,11 @@ import {
 } from '@herald/db'
 import { publications } from '@herald/db/schema'
 import { createLinkedInTextPublisher, linkedinTextChannelProfile } from '@herald/linkedin'
+import { createLocalMediaStore } from '@herald/media'
 import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
+import { createMediaPublicDelivery } from '../media/public-delivery'
 import { createPublicationWorker } from './worker'
 
 const now = 1_800_000_000_000
@@ -53,6 +59,103 @@ const customWebhookProfile: ChannelProfileDefinition = {
         revision: '1',
         mode: 'herald_webhook',
     },
+}
+
+const customMappedMediaProfile: ChannelProfileDefinition = {
+    id: 'custom-mapped-media',
+    version: 1,
+    profileHash: 'sha256:custom-mapped-media-profile-v1',
+    schemaHash: 'sha256:custom-mapped-media-schema-v1',
+    origin: 'custom',
+    contentSchema: {
+        $schema: 'https://json-schema.org/draft/2020-12/schema',
+        type: 'object',
+        properties: {
+            commentary: { type: 'string', minLength: 1, maxLength: 1_000 },
+            media: {
+                type: 'array',
+                maxItems: 1,
+                items: {
+                    type: 'object',
+                    properties: { assetId: { type: 'string', minLength: 1, maxLength: 255 } },
+                    required: ['assetId'],
+                    additionalProperties: false,
+                },
+            },
+        },
+        required: ['commentary', 'media'],
+        additionalProperties: false,
+    },
+    fieldBindings: [
+        { id: 'commentary', semantic: 'primary_text', path: '/commentary' },
+        {
+            id: 'media',
+            semantic: 'ordered_media',
+            path: '/media',
+            item: { assetIdPath: '/assetId' },
+        },
+    ],
+    capabilities: {
+        revision: 'custom-mapped-media-v1',
+        textFields: [
+            {
+                bindingId: 'commentary',
+                acceptedSourceFormats: ['plain_text'],
+                maxLength: 1_000,
+            },
+        ],
+        mediaFields: [
+            {
+                bindingId: 'media',
+                families: ['image'],
+                mimeTypes: ['image/png'],
+                maxItems: 1,
+                publicUrlRequired: true,
+            },
+        ],
+        relations: [],
+    },
+    execution: {
+        kind: 'declarative_http',
+        contractId: 'custom-mapped-media',
+        revision: '1',
+        mode: 'mapped_http',
+        request: {
+            method: 'POST',
+            path: [],
+            body: {
+                kind: 'json',
+                value: {
+                    kind: 'object',
+                    properties: {
+                        commentary: { kind: 'content', pointer: '/commentary' },
+                        media: { kind: 'media_urls', pointer: '/media' },
+                    },
+                },
+            },
+            response: {
+                successStatuses: [200, 201],
+                retryableStatuses: [429],
+                rejectedStatuses: [400],
+                ambiguousStatuses: [500],
+            },
+        },
+    },
+}
+
+function createPng(width = 4, height = 3): Uint8Array {
+    const bytes = new Uint8Array(33)
+    bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
+    bytes.set([0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52], 8)
+    bytes[16] = (width >>> 24) & 0xff
+    bytes[17] = (width >>> 16) & 0xff
+    bytes[18] = (width >>> 8) & 0xff
+    bytes[19] = width & 0xff
+    bytes[20] = (height >>> 24) & 0xff
+    bytes[21] = (height >>> 16) & 0xff
+    bytes[22] = (height >>> 8) & 0xff
+    bytes[23] = height & 0xff
+    return bytes
 }
 
 describe('publication worker', () => {
@@ -343,6 +446,189 @@ describe('publication worker', () => {
         } finally {
             receiver.stop()
             closeDatabase(database)
+        }
+    })
+
+    it('delivers signed public media URLs through a mapped custom HTTP channel', async () => {
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-public-media-'))
+        let receivedBody: string | null = null
+        const receiver = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                receivedBody = await request.text()
+                return Response.json({ accepted: true }, { status: 201 })
+            },
+        })
+        const receiverPort = receiver.port
+        if (receiverPort === undefined) throw new Error('The public media receiver has no port')
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const media = createMediaAssetStore(
+                database,
+                createLocalMediaStore({
+                    storeId: 'local-test',
+                    rootDirectory,
+                    maxObjectBytes: 2_000_000,
+                }),
+                { now: () => now, deletionGracePeriodMs: 0 }
+            )
+            const manualStore = createManualStore(database, {
+                now: () => now,
+                media,
+                publicMediaUrlAvailable: true,
+            })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => now,
+            })
+            const publisherStore = createPublisherStore(database, {
+                credentialRevoker: credentialStore,
+                now: () => now,
+            })
+            const project = manualStore.createProject({
+                name: 'Mapped Public Media Project',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            const bytes = createPng()
+            const reservation = media.reserveUpload({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                originalFilename: 'cover.png',
+                expectedSize: bytes.byteLength,
+                contentType: 'image/png',
+            })
+            expect(reservation).not.toBeNull()
+            if (reservation === null)
+                throw new Error('The public media reservation was not created')
+
+            const uploaded = await media.upload({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                intentId: reservation.intent.id,
+                source: new Blob([bytes]).stream(),
+            })
+            expect(uploaded.kind).toBe('uploaded')
+            const finalized = await media.finalizeUpload({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                intentId: reservation.intent.id,
+            })
+            expect(finalized.kind).toBe('ready')
+
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Mapped Public Media Receiver',
+                profile: customMappedMediaProfile,
+            })
+            expect(channel).not.toBeNull()
+            if (channel === null) throw new Error('The mapped media channel was not created')
+
+            const publisherCredential = await credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'custom_http',
+                externalAccountId: 'mapped-media-receiver',
+                externalAccountName: 'Mapped Public Media Receiver',
+                scopes: [],
+                accessToken: 'custom-http-public-media-secret-with-at-least-32-characters',
+                expiresAt: null,
+            })
+            expect(publisherCredential.kind).toBe('created')
+            if (publisherCredential.kind !== 'created')
+                throw new Error('The mapped media credential was not created')
+
+            const connection = publisherStore.createPublisherConnection({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                kind: 'custom_http',
+                credentialId: publisherCredential.credential.id,
+                endpointUrl: `http://127.0.0.1:${receiverPort}`,
+                authentication: { kind: 'none' },
+            })
+            expect(connection.kind).toBe('created')
+
+            const post = manualStore.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Mapped media delivery', format: 'plain_text' },
+                    media: [{ assetId: reservation.asset.id }],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
+                ],
+            })
+            expect(post).not.toBeNull()
+
+            const publicDelivery = createMediaPublicDelivery({
+                baseURL: 'https://herald.example.test',
+                signingSecret: 'media-public-delivery-secret-with-at-least-32-bytes',
+                lifetimeMs: 60_000,
+                now: () => now,
+            })
+            let publicUrl: string | null = null
+            const worker = createPublicationWorker({
+                database,
+                publisherStore,
+                publisherCredentialStore: credentialStore,
+                media,
+                customHttpTransport: createCustomHttpTransport({
+                    privateDestinations: [
+                        {
+                            kind: 'cidr',
+                            cidr: '127.0.0.0/8',
+                            port: receiverPort,
+                            schemes: ['http'],
+                        },
+                    ],
+                }),
+                resolveCustomHttpMediaUrl: (mediaReference, context) => {
+                    publicUrl = publicDelivery.createUrl({
+                        projectId: context.projectId,
+                        assetId: mediaReference.assetId,
+                        representationId: mediaReference.representationId,
+                    })
+                    return publicUrl
+                },
+                now: () => now,
+            })
+
+            await worker.processDueEvents(now)
+
+            expect(receivedBody).not.toBeNull()
+            const deliveredUrl = publicUrl
+            if (deliveredUrl === null) throw new Error('The custom HTTP media URL was not created')
+            expect(deliveredUrl).toStartWith('https://herald.example.test/api/media/public/')
+            const body = JSON.parse(receivedBody ?? '{}') as {
+                commentary: string
+                media: string[]
+            }
+            expect(body.commentary).toBe('Mapped media delivery')
+            expect(body.media).toEqual([deliveredUrl])
+            const token = new URL(deliveredUrl).pathname.split('/').at(-1)!
+            expect(publicDelivery.resolve(token, now)).toMatchObject({
+                projectId: project.project.id,
+                assetId: reservation.asset.id,
+                representationId:
+                    finalized.kind === 'ready' ? finalized.reservation.representation.id : '',
+            })
+
+            expect(
+                database
+                    .select({ state: publications.state })
+                    .from(publications)
+                    .where(eq(publications.projectId, project.project.id))
+                    .all()
+            ).toEqual([{ state: 'published' }])
+        } finally {
+            receiver.stop()
+            closeDatabase(database)
+            await rm(rootDirectory, { recursive: true, force: true })
         }
     })
 

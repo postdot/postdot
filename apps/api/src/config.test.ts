@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import { createHeraldConfig, defaultMediaDirectory } from './config'
 
 const secret = 'herald-test-secret-with-at-least-32-characters'
+const mediaPublicUrlSecret = 'herald-media-public-url-secret-with-at-least-32-characters'
 const publisherEncryptionKey = '0123456789abcdef'.repeat(4)
 
 describe('Herald configuration', () => {
@@ -16,6 +17,7 @@ describe('Herald configuration', () => {
                 HERALD_WEB_ASSETS_DIR: '/tmp/herald-web',
                 BETTER_AUTH_URL: 'http://localhost:3100/some-path',
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 HERALD_WEB_ORIGIN: 'http://localhost:5173/dashboard',
                 LOG_LEVEL: 'debug',
@@ -37,12 +39,14 @@ describe('Herald configuration', () => {
                 maxObjectBytes: 100_000_000,
                 uploadIntentTtlMs: 900_000,
                 deletionGracePeriodMs: 86_400_000,
+                publicUrlLifetimeMs: 900_000,
             },
             auth: {
                 baseURL: 'http://localhost:3100',
                 secret,
             },
             security: {
+                mediaPublicUrlSecret,
                 publisherEncryptionKey,
                 publisherEncryptionKeyId: 'v1',
             },
@@ -67,6 +71,7 @@ describe('Herald configuration', () => {
             createHeraldConfig({
                 PORT: '3200',
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             })
         ).toMatchObject({
@@ -82,6 +87,7 @@ describe('Herald configuration', () => {
         expect(
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: JSON.stringify([
                     {
@@ -104,6 +110,7 @@ describe('Herald configuration', () => {
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: '{not-json}',
             })
@@ -115,6 +122,7 @@ describe('Herald configuration', () => {
             createHeraldConfig({
                 NODE_ENV: 'production',
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             }).logging
         ).toEqual({
@@ -128,6 +136,7 @@ describe('Herald configuration', () => {
         expect(
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 HERALD_MEDIA_STORE: 's3',
                 HERALD_MEDIA_STORE_ID: 'r2-primary',
@@ -144,6 +153,7 @@ describe('Herald configuration', () => {
             maxObjectBytes: 100_000_000,
             uploadIntentTtlMs: 900_000,
             deletionGracePeriodMs: 86_400_000,
+            publicUrlLifetimeMs: 900_000,
             s3: {
                 bucket: 'herald-media',
                 endpoint: 'https://r2.example.test',
@@ -158,6 +168,7 @@ describe('Herald configuration', () => {
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 HERALD_MEDIA_STORE: 's3',
             })
@@ -166,6 +177,7 @@ describe('Herald configuration', () => {
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 HERALD_MEDIA_STORE: 's3',
                 HERALD_MEDIA_S3_BUCKET: 'herald-media',
@@ -180,12 +192,14 @@ describe('Herald configuration', () => {
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: 'not-long-enough',
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             })
         ).toThrow('BETTER_AUTH_SECRET')
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 PORT: '70000',
                 LOG_PRETTY: 'sometimes',
@@ -197,12 +211,14 @@ describe('Herald configuration', () => {
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: 'replace-with-a-random-secret-of-at-least-32-characters',
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
             })
         ).toThrow('replace the example placeholder')
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 BETTER_AUTH_URL: 'sqlite://local',
             })
@@ -213,6 +229,7 @@ describe('Herald configuration', () => {
         expect(
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 LINKEDIN_CLIENT_ID: '',
                 LINKEDIN_CLIENT_SECRET: '   ',
@@ -222,6 +239,7 @@ describe('Herald configuration', () => {
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 LINKEDIN_CLIENT_ID: 'client-id',
             })
@@ -232,6 +250,7 @@ describe('Herald configuration', () => {
         expect(
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 LINKEDIN_CLIENT_ID: ' client-id ',
                 LINKEDIN_CLIENT_SECRET: ' client-secret ',
@@ -246,6 +265,7 @@ describe('Herald configuration', () => {
         expect(() =>
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: 'not-a-hex-key',
             })
         ).toThrow('HERALD_PUBLISHER_ENCRYPTION_KEY')

@@ -5,6 +5,7 @@ import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } f
 import { createApp } from './app'
 import { createHeraldConfig, decodeHexKey } from './config'
 import { runMaintenanceCommand } from './maintenance'
+import { createMediaPublicDelivery } from './modules/media/public-delivery'
 import {
     createConfiguredMediaStore,
     createMediaReconciliationRuntime,
@@ -39,6 +40,11 @@ async function startServer(config = createHeraldConfig()) {
         uploadIntentTtlMs: config.media.uploadIntentTtlMs,
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
     })
+    const mediaPublicDelivery = createMediaPublicDelivery({
+        baseURL: config.auth.baseURL,
+        signingSecret: config.security.mediaPublicUrlSecret,
+        lifetimeMs: config.media.publicUrlLifetimeMs,
+    })
     await media.reconcile()
     const mediaMaintenance = createMediaReconciliationRuntime(media)
     const auth = createAuth(database, {
@@ -62,6 +68,12 @@ async function startServer(config = createHeraldConfig()) {
         publisherCredentialStore: publisher.credentialStore,
         media,
         customHttpTransport,
+        resolveCustomHttpMediaUrl: (mediaReference, context) =>
+            mediaPublicDelivery.createUrl({
+                projectId: context.projectId,
+                assetId: mediaReference.assetId,
+                representationId: mediaReference.representationId,
+            }),
         linkedinOAuth: publisher.linkedin,
     })
     const baseApp = createApp({
@@ -69,6 +81,7 @@ async function startServer(config = createHeraldConfig()) {
         database,
         publisher,
         media,
+        mediaPublicDelivery,
         logging: config.logging,
         onWorkScheduled: worker.replan,
     })

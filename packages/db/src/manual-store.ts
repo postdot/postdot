@@ -44,6 +44,7 @@ export interface ManualStoreOptions {
     readonly now?: () => number
     readonly createId?: () => string
     readonly media?: Pick<MediaAssetStore, 'getAsset'>
+    readonly publicMediaUrlAvailable?: boolean
 }
 
 export interface CreateProjectInput {
@@ -383,6 +384,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     const createId = options.createId ?? (() => crypto.randomUUID())
     const profileCompiler = new ChannelProfileCompiler()
     const media = options.media
+    const publicMediaUrlAvailable = options.publicMediaUrlAvailable ?? false
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
         select id, name, created_at as createdAt, updated_at as updatedAt
@@ -1259,7 +1261,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                         candidate.content,
                         projectId,
                         subjectId,
-                        media
+                        media,
+                        publicMediaUrlAvailable
                     )
                 }
 
@@ -1279,7 +1282,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                     projectId,
                     subjectId,
                     media,
-                    targetMediaByPublicationId.get(target.publicationId) ?? []
+                    targetMediaByPublicationId.get(target.publicationId) ?? [],
+                    publicMediaUrlAvailable
                 )
             },
         })
@@ -1873,7 +1877,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                               targetContent,
                               project.id,
                               input.subjectId,
-                              media
+                              media,
+                              publicMediaUrlAvailable
                           )
                 const targetContentJson = canonicalJson(targetContent)
                 const deliveryMode = publicationInput.deliveryMode ?? 'manual'
@@ -2204,7 +2209,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 content,
                 input.projectId,
                 input.subjectId,
-                media
+                media,
+                publicMediaUrlAvailable
             )
 
             const timestamp = requireTimestamp(now(), 'now')
@@ -2805,7 +2811,8 @@ function assessWorkingDraftMedia(
     content: unknown,
     projectId: string,
     subjectId: string,
-    media: Pick<MediaAssetStore, 'getAsset'> | undefined
+    media: Pick<MediaAssetStore, 'getAsset'> | undefined,
+    publicMediaUrlAvailable: boolean
 ): readonly ValidationIssue[] {
     if (!isRecord(content)) {
         return [
@@ -2818,7 +2825,7 @@ function assessWorkingDraftMedia(
     }
 
     try {
-        resolveTargetMedia(profile, content, projectId, subjectId, media)
+        resolveTargetMedia(profile, content, projectId, subjectId, media, publicMediaUrlAvailable)
         return []
     } catch (error) {
         return [
@@ -2836,7 +2843,8 @@ function assessPinnedTargetMedia(
     projectId: string,
     subjectId: string,
     media: Pick<MediaAssetStore, 'getAsset'> | undefined,
-    pinnedMedia: readonly TargetRevisionMediaRow[]
+    pinnedMedia: readonly TargetRevisionMediaRow[],
+    publicMediaUrlAvailable: boolean
 ): readonly ValidationIssue[] {
     if (!isRecord(content)) {
         return [
@@ -3001,11 +3009,11 @@ function assessPinnedTargetMedia(
                 )
             )
         }
-        if (capability?.publicUrlRequired) {
+        if (capability?.publicUrlRequired && !publicMediaUrlAvailable) {
             issues.push(
                 profileAssessmentIssue(
                     'profile.media_public_url_required',
-                    `Media field ${reference.bindingId} requires a public URL, which is not available in the current storage contract`,
+                    `Media field ${reference.bindingId} requires public media delivery, which is not configured`,
                     reference.contentPath
                 )
             )
@@ -3191,7 +3199,8 @@ function resolveTargetMedia(
     content: TargetContent,
     projectId: string,
     subjectId: string,
-    media: Pick<MediaAssetStore, 'getAsset'> | undefined
+    media: Pick<MediaAssetStore, 'getAsset'> | undefined,
+    publicMediaUrlAvailable: boolean
 ): readonly ResolvedTargetMedia[] {
     const references = extractTargetMediaReferences(profile, content)
     if (references.length === 0) {
@@ -3264,9 +3273,9 @@ function resolveTargetMedia(
                 `Media field ${reference.bindingId} requires accessibility text for asset ${reference.assetId}`
             )
         }
-        if (capability?.publicUrlRequired) {
+        if (capability?.publicUrlRequired && !publicMediaUrlAvailable) {
             throw mediaContentError(
-                `Media field ${reference.bindingId} requires a public URL, which is not available in the current storage contract`
+                `Media field ${reference.bindingId} requires public media delivery, which is not configured`
             )
         }
 

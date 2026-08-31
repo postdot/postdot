@@ -107,7 +107,8 @@ export interface CustomHttpDeliveryInput {
     readonly connection: CustomHttpConnection
     readonly mediaReader?: CustomHttpMediaReader
     readonly resolveMediaUrl?: (
-        media: CustomHttpMediaDescriptor
+        media: CustomHttpMediaDescriptor,
+        context: CustomHttpDeliveryContext
     ) => string | null | Promise<string | null>
 }
 

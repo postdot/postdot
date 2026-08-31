@@ -9,6 +9,7 @@ import {
     type EnvironmentSource,
     type InferEnvironment,
 } from './environment'
+import { mediaPublicDeliveryLimits } from './modules/media/public-delivery'
 
 export const defaultDatabaseFileName = fileURLToPath(
     new URL('../../../herald.sqlite', import.meta.url)
@@ -19,6 +20,7 @@ const defaultMigrationsDirectory = fileURLToPath(
 const defaultWebAssetsDirectory = fileURLToPath(new URL('../../../apps/web/dist', import.meta.url))
 export const defaultMediaDirectory = fileURLToPath(new URL('../../../data/media', import.meta.url))
 const exampleBetterAuthSecret = 'replace-with-a-random-secret-of-at-least-32-characters'
+const exampleMediaPublicUrlSecret = 'replace-with-a-random-secret-of-at-least-32-characters'
 const examplePublisherEncryptionKey = 'replace-with-64-hex-characters'
 
 const environmentDefinitions = {
@@ -44,6 +46,11 @@ const environmentDefinitions = {
         defaultValue: 24 * 60 * 60 * 1_000,
         minimum: 0,
     }),
+    HERALD_MEDIA_PUBLIC_URL_TTL_MS: env.integer({
+        defaultValue: mediaPublicDeliveryLimits.defaultLifetimeMs,
+        minimum: 60 * 1_000,
+        maximum: mediaPublicDeliveryLimits.maximumLifetimeMs,
+    }),
     HERALD_MEDIA_S3_BUCKET: env.optionalString({ minLength: 1 }),
     HERALD_MEDIA_S3_REGION: env.optionalString({ minLength: 1 }),
     HERALD_MEDIA_S3_ENDPOINT: env.optionalString({ minLength: 1 }),
@@ -62,6 +69,7 @@ const environmentDefinitions = {
         },
     }),
     BETTER_AUTH_SECRET: env.secret({ example: exampleBetterAuthSecret }),
+    HERALD_MEDIA_PUBLIC_URL_SECRET: env.secret({ example: exampleMediaPublicUrlSecret }),
     HERALD_PUBLISHER_ENCRYPTION_KEY: env.hexSecret({ example: examplePublisherEncryptionKey }),
     HERALD_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
     LINKEDIN_CLIENT_ID: env.optionalString({ minLength: 1 }),
@@ -100,6 +108,7 @@ export interface HeraldConfig {
         readonly maxObjectBytes: number
         readonly uploadIntentTtlMs: number
         readonly deletionGracePeriodMs: number
+        readonly publicUrlLifetimeMs: number
         readonly s3?: {
             readonly bucket: string
             readonly region?: string
@@ -115,6 +124,7 @@ export interface HeraldConfig {
         readonly secret: string
     }
     readonly security: {
+        readonly mediaPublicUrlSecret: string
         readonly publisherEncryptionKey: string
         readonly publisherEncryptionKeyId: string
     }
@@ -198,6 +208,7 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             maxObjectBytes: environment.HERALD_MEDIA_MAX_OBJECT_BYTES,
             uploadIntentTtlMs: environment.HERALD_MEDIA_UPLOAD_TTL_MS,
             deletionGracePeriodMs: environment.HERALD_MEDIA_DELETION_GRACE_MS,
+            publicUrlLifetimeMs: environment.HERALD_MEDIA_PUBLIC_URL_TTL_MS,
             ...(environment.HERALD_MEDIA_STORE === 's3' && mediaS3Values.bucket !== undefined
                 ? {
                       s3: {
@@ -225,6 +236,7 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             secret: environment.BETTER_AUTH_SECRET,
         },
         security: {
+            mediaPublicUrlSecret: environment.HERALD_MEDIA_PUBLIC_URL_SECRET,
             publisherEncryptionKey: environment.HERALD_PUBLISHER_ENCRYPTION_KEY,
             publisherEncryptionKeyId: environment.HERALD_PUBLISHER_ENCRYPTION_KEY_ID,
         },

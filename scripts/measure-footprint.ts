@@ -72,6 +72,8 @@ async function measureRuntimeSample(databaseFilename: string): Promise<RuntimeSa
             ...Bun.env,
             BETTER_AUTH_SECRET: 'herald-footprint-secret-with-at-least-32-characters',
             BETTER_AUTH_URL: baseURL,
+            HERALD_MEDIA_PUBLIC_URL_SECRET:
+                'herald-footprint-media-public-url-secret-with-at-least-32-characters',
             HERALD_PUBLISHER_ENCRYPTION_KEY: '00'.repeat(32),
             HERALD_PUBLISHER_ENCRYPTION_KEY_ID: 'footprint-v1',
             DB_FILE_NAME: databaseFilename,
