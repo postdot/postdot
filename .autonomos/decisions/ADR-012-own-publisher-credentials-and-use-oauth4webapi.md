@@ -250,12 +250,14 @@ Sources:
   placing it in the database archive.
 - Provider deviations still require contract tests and explicit adapter behavior;
   the standards library cannot make a non-compliant provider compliant.
-- Replacing the current Better Auth coupling requires a schema and API migration
-  before the LinkedIn smoke test can resume.
+- Replacing the original Better Auth coupling required a schema and API migration;
+  that migration and the associated live validation are now recorded by CRED-15
+  through CRED-18 and PUB-09.
 
-## Implementation gate
+## Implementation gate (satisfied)
 
-Do not resume PUB-09 until a follow-up task proves all of the following:
+The following gate was applied before the LinkedIn smoke test resumed. CRED-15
+through CRED-18 and PUB-09 provide the implementation and live-validation evidence:
 
 - no publisher schema, route, client contract, or worker references a Better Auth
   account or uses Better Auth to obtain a publisher token;

@@ -23,7 +23,7 @@
 ## [ISSUE-003] Define the media attachment boundary and storage lifecycle
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The owner direction requires a durable media foundation rather than a
   release-limited media cut. Local self-hosting and a Bun-native S3-compatible
   backend affect metadata, cleanup, backup, security, and publisher contracts. The
@@ -37,7 +37,12 @@
 - Desired outcome: An explicit decision about the media model, file metadata,
   retention, backup, access control, and one interchangeable storage contract with
   local and S3-compatible implementations.
-- Tasks: DOMAIN-07 (completed), MEDIA-22, MEDIA-23, MEDIA-24
+- Tasks: DOMAIN-07 (completed), MEDIA-22, MEDIA-23, MEDIA-24, MEDIA-31
+- Resolution: The project now has an accepted media model, project-owned asset and
+  representation persistence, local and Bun S3-compatible storage adapters, upload
+  inspection and cleanup lifecycles, revision references, provider delivery state,
+  and media-aware backup and restore. MEDIA-31 completes the first product surface
+  integration by making this existing boundary usable from the web editor.
 - Decision: [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md)
 
 ## [ISSUE-004] Establish a reusable Herald design-system package
@@ -85,8 +90,8 @@
 ## [ISSUE-006] Separate publisher credentials from application authentication
 
 - Type: problem
-- Status: accepted
-- Evidence: The current LinkedIn connection flow stores publisher OAuth credentials
+- Status: resolved
+- Evidence at opening: The LinkedIn connection flow stored publisher OAuth credentials
   in Better Auth accounts, references those user-owned accounts directly from
   project-owned publisher connections, resolves worker tokens through Better Auth,
   and changes global account-linking policy to support the publisher use case.
@@ -97,13 +102,19 @@
 - Desired outcome: Better Auth provides email/password authentication into Herald,
   while Herald owns project-scoped publisher credentials and delegates only
   well-defined OAuth protocol mechanics to an evidence-backed dependency.
-- Tasks: CRED-15, CRED-16, CRED-17, CRED-18, PUB-09 (blocked)
+- Tasks: CRED-15, CRED-16, CRED-17, CRED-18, PUB-09
+- Resolution: Better Auth now provides only Herald email/password sessions. Herald
+  owns project-scoped encrypted publisher credentials and single-use authorization
+  attempts, while provider modules supply explicit OAuth mechanics and the worker
+  resolves credentials without a Better Auth account or session. The live LinkedIn
+  smoke test completed successfully, and no publisher token material is exposed in
+  API responses, logs, audit events, or committed artifacts.
 - Decision: [ADR-012](decisions/ADR-012-own-publisher-credentials-and-use-oauth4webapi.md)
 
 ## [ISSUE-007] Define the publication content and provider capability boundary
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence at opening: The `Post` and `Publication` records persisted plain text
   only, while the first publisher contract accepted a LinkedIn-specific text input.
   There was no domain representation for attachments, rich content, mentions,
@@ -116,7 +127,8 @@
 - Resolution evidence: SPEC-004 is now the accepted publication-content boundary.
   The implementation has established reusable media assets, immutable
   representations, exact publication-revision references, provider media
-  deliveries, and provider-owned capability contracts. PUB-10 adds the first
+  deliveries, provider-owned capability contracts, and a web editor that reuses
+  the same media lifecycle for source and target editing. PUB-10 adds the first
   durable LinkedIn image-delivery slice without moving provider identifiers into
   reusable assets.
 - Impact: Continuing with a provider integration before defining this boundary could
@@ -131,7 +143,7 @@
   common domain data and provider-specific payloads. The boundary must identify
   what is intentionally deferred and provide executable invariants for the chosen
   model without requiring every future social network to be designed in advance.
-- Tasks: DOMAIN-07 (completed), DOMAIN-20, DOMAIN-21, MEDIA-24, CHANNEL-25, CHANNEL-26, EDITOR-27, PUB-10
+- Tasks: DOMAIN-07 (completed), DOMAIN-20, DOMAIN-21, MEDIA-24, MEDIA-31, CHANNEL-25, CHANNEL-26, EDITOR-27, PUB-10
 - Specification: [SPEC-004](specs/SPEC-004-publication-content-boundary.md)
 - Decisions: [ADR-013](decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](decisions/ADR-021-channel-owns-profile-contract.md), [ADR-026](decisions/ADR-026-linkedin-single-image-delivery.md)
 
