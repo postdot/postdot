@@ -11,7 +11,7 @@ import type {
     PublicationWorkingDraft,
 } from '@herald/db'
 import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
-import { linkedinTextChannelProfile } from '@herald/linkedin'
+import { linkedinChannelProfile } from '@herald/linkedin'
 import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'
@@ -299,7 +299,7 @@ export const promotePublicationDraftBody = Type.Object({
 })
 
 export function resolveChannelProfile(profile: unknown): ChannelProfileDefinition {
-    if (profile === 'linkedin') return linkedinTextChannelProfile
+    if (profile === 'linkedin') return linkedinChannelProfile
     if (profile === undefined || profile === 'manual-message') {
         return createManualChannelProfile()
     }

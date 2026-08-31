@@ -47,6 +47,13 @@ export interface CompleteProviderMediaDeliveryInput {
     readonly at?: number
 }
 
+export interface RecordProviderMediaDeliveryRemoteIdInput {
+    readonly projectId: string
+    readonly deliveryId: string
+    readonly remoteMediaId: string
+    readonly at?: number
+}
+
 export interface FailProviderMediaDeliveryInput {
     readonly projectId: string
     readonly deliveryId: string
@@ -152,6 +159,18 @@ export function createProviderMediaDeliveryStore(
           and id = ?5
           and state in ('uploading', 'ambiguous')
     `)
+    const recordRemoteMediaIdStatement = client.query<
+        { changes: number },
+        [number, string, string, string]
+    >(`
+        update provider_media_deliveries
+        set remote_media_id = ?2,
+            updated_at = ?1
+        where project_id = ?3
+          and id = ?4
+          and state = 'uploading'
+          and (remote_media_id is null or remote_media_id = ?2)
+    `)
     const failStatement = client.query<
         { changes: number },
         [number, string, string, string, string, string]
@@ -159,8 +178,8 @@ export function createProviderMediaDeliveryStore(
         update provider_media_deliveries
         set state = ?2,
             completed_at = ?1,
-            remote_media_id = null,
-            remote_media_url = null,
+            remote_media_id = case when ?2 = 'ambiguous' then remote_media_id else null end,
+            remote_media_url = case when ?2 = 'ambiguous' then remote_media_url else null end,
             error_code = ?3,
             error_message = ?4,
             updated_at = ?1
@@ -228,6 +247,31 @@ export function createProviderMediaDeliveryStore(
             return loadStatement.get(projectId, deliveryId)
         },
 
+        recordRemoteMediaId(
+            input: RecordProviderMediaDeliveryRemoteIdInput
+        ): ProviderMediaDelivery | null {
+            const projectId = requireNonBlank(input.projectId, 'projectId')
+            const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
+            const remoteMediaId = requireNonBlank(input.remoteMediaId, 'remoteMediaId')
+            const delivery = loadStatement.get(projectId, deliveryId)
+            if (delivery === null) return null
+            if (delivery.remoteMediaId !== null && delivery.remoteMediaId !== remoteMediaId) {
+                throw new DomainInvariantError(
+                    'claim_mismatch',
+                    `Provider media delivery ${deliveryId} already has another remote media ID`
+                )
+            }
+            if (delivery.state !== 'uploading') return delivery
+            const timestamp = requireTimestamp(input.at ?? now(), 'at')
+            if (
+                recordRemoteMediaIdStatement.run(timestamp, remoteMediaId, projectId, deliveryId)
+                    .changes !== 1
+            ) {
+                return loadStatement.get(projectId, deliveryId)
+            }
+            return loadStatement.get(projectId, deliveryId)
+        },
+
         complete(input: CompleteProviderMediaDeliveryInput): ProviderMediaDelivery | null {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const deliveryId = requireNonBlank(input.deliveryId, 'deliveryId')
@@ -238,13 +282,13 @@ export function createProviderMediaDeliveryStore(
                     : requireNonBlank(input.remoteMediaUrl, 'remoteMediaUrl')
             const delivery = loadStatement.get(projectId, deliveryId)
             if (delivery === null) return null
+            if (delivery.remoteMediaId !== null && delivery.remoteMediaId !== remoteMediaId) {
+                throw new DomainInvariantError(
+                    'claim_mismatch',
+                    `Provider media delivery ${deliveryId} already has another remote media ID`
+                )
+            }
             if (delivery.state === 'uploaded') {
-                if (delivery.remoteMediaId !== remoteMediaId) {
-                    throw new DomainInvariantError(
-                        'claim_mismatch',
-                        `Provider media delivery ${deliveryId} already has another remote media ID`
-                    )
-                }
                 return delivery
             }
             if (delivery.state !== 'uploading' && delivery.state !== 'ambiguous') {

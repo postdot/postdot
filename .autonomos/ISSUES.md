@@ -104,15 +104,21 @@
 
 - Type: problem
 - Status: accepted
-- Evidence: The current `Post` and `Publication` records persist plain text only,
-  while the first publisher contract accepts a LinkedIn-specific text input. There
-  is no domain representation for attachments, rich content, mentions, links,
-  provider constraints, or a provider-specific publication rendition. The existing
-  media question in ISSUE-003 covers storage lifecycle but not the publication
-  content contract that would consume stored media. ADR-013 and ADR-014 have accepted
-  runtime-defined custom channel contracts and the draft-versus-execution revision
-  boundary; accepted SPEC-004 now defines source content, runtime schemas, HTTP
-  mapping, profile evolution, and media behavior.
+- Evidence at opening: The `Post` and `Publication` records persisted plain text
+  only, while the first publisher contract accepted a LinkedIn-specific text input.
+  There was no domain representation for attachments, rich content, mentions,
+  links, provider constraints, or a provider-specific publication rendition. The
+  existing media question in ISSUE-003 covered storage lifecycle but not the
+  publication content contract that would consume stored media. ADR-013 and
+  ADR-014 accepted runtime-defined custom channel contracts and the
+  draft-versus-execution revision boundary; SPEC-004 then defined source content,
+  runtime schemas, HTTP mapping, profile evolution, and media behavior.
+- Resolution evidence: SPEC-004 is now the accepted publication-content boundary.
+  The implementation has established reusable media assets, immutable
+  representations, exact publication-revision references, provider media
+  deliveries, and provider-owned capability contracts. PUB-10 adds the first
+  durable LinkedIn image-delivery slice without moving provider identifiers into
+  reusable assets.
 - Impact: Continuing with a provider integration before defining this boundary could
   make the first provider's payload shape leak into the core domain, force later
   rewrites for channels with different capabilities, and leave manual channels
@@ -125,9 +131,9 @@
   common domain data and provider-specific payloads. The boundary must identify
   what is intentionally deferred and provide executable invariants for the chosen
   model without requiring every future social network to be designed in advance.
-- Tasks: DOMAIN-07 (completed), DOMAIN-20, DOMAIN-21, MEDIA-24, CHANNEL-25, CHANNEL-26, EDITOR-27
+- Tasks: DOMAIN-07 (completed), DOMAIN-20, DOMAIN-21, MEDIA-24, CHANNEL-25, CHANNEL-26, EDITOR-27, PUB-10
 - Specification: [SPEC-004](specs/SPEC-004-publication-content-boundary.md)
-- Decisions: [ADR-013](decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](decisions/ADR-021-channel-owns-profile-contract.md)
+- Decisions: [ADR-013](decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](decisions/ADR-021-channel-owns-profile-contract.md), [ADR-026](decisions/ADR-026-linkedin-single-image-delivery.md)
 
 ## [ISSUE-008] Make local API and web startup reproducible
 

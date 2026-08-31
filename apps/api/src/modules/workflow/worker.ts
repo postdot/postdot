@@ -14,6 +14,7 @@ import {
 } from '@herald/custom-http'
 import {
     createWorkflowStore,
+    createProviderMediaDeliveryStore,
     type createPublisherCredentialStore,
     type createPublisherStore,
     type HeraldDatabase,
@@ -21,9 +22,11 @@ import {
     type PublisherExecutionTarget,
 } from '@herald/db'
 import {
+    createLinkedInImagePublisher,
     createLinkedInTextPublisher,
     LINKEDIN_PROVIDER,
     readLinkedInTextContent,
+    type LinkedInImagePublisher,
     type LinkedInTextPublisher,
 } from '@herald/linkedin'
 import {
@@ -59,6 +62,8 @@ export interface PublicationWorkerOptions {
     readonly retryPolicy?: RetryPolicy
     readonly createClaimToken?: () => string
     readonly linkedInPublisher?: LinkedInTextPublisher
+    readonly linkedInImagePublisher?: LinkedInImagePublisher
+    readonly providerMediaDeliveryStore?: ReturnType<typeof createProviderMediaDeliveryStore>
     readonly onError?: (error: unknown) => void
 }
 
@@ -75,6 +80,10 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
     const workflowStore = createWorkflowStore(options.database)
     const publisherStore = options.publisherStore
     const linkedInPublisher = options.linkedInPublisher ?? createLinkedInTextPublisher()
+    const linkedInImagePublisher = options.linkedInImagePublisher ?? createLinkedInImagePublisher()
+    const providerMediaDeliveryStore =
+        options.providerMediaDeliveryStore ??
+        createProviderMediaDeliveryStore(options.database, { now })
     const customHttpTransport = options.customHttpTransport ?? createCustomHttpTransport()
     const leaseDuration = options.leaseDuration ?? defaultLeaseDuration
     const retryPolicy = options.retryPolicy ?? defaultRetryPolicy
@@ -98,6 +107,8 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
                         performExternalEffect({
                             job,
                             linkedInPublisher,
+                            linkedInImagePublisher,
+                            providerMediaDeliveryStore,
                             publisherStore,
                             publisherCredentialStore: options.publisherCredentialStore,
                             media: options.media,
@@ -139,6 +150,8 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
 async function performExternalEffect(input: {
     readonly job: Job
     readonly linkedInPublisher: LinkedInTextPublisher
+    readonly linkedInImagePublisher: LinkedInImagePublisher
+    readonly providerMediaDeliveryStore: ReturnType<typeof createProviderMediaDeliveryStore>
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
     readonly media?: MediaAssetStore
@@ -156,7 +169,14 @@ async function performExternalEffect(input: {
         | undefined
     readonly now: number
 }): Promise<ExternalEffectOutcome> {
-    const { job, linkedInPublisher, publisherStore, publisherCredentialStore } = input
+    const {
+        job,
+        linkedInPublisher,
+        linkedInImagePublisher,
+        providerMediaDeliveryStore,
+        publisherStore,
+        publisherCredentialStore,
+    } = input
     if (job.claimToken === null) {
         return permanentFailure('The claimed publication has no execution fence')
     }
@@ -231,18 +251,26 @@ async function performExternalEffect(input: {
         return permanentFailure('The publisher account access token is unavailable')
     }
 
-    const commentary = readLinkedInTextContent(target.content)
-    if (commentary === null) {
-        return permanentFailure('The execution revision does not contain LinkedIn commentary')
-    }
-
-    const outcome = await linkedInPublisher.publishText({
-        accessToken,
-        memberId: target.externalAccountId,
-        commentary,
-    })
+    const outcome =
+        target.media.length === 0
+            ? await publishLinkedInText({
+                  accessToken,
+                  memberId: target.externalAccountId,
+                  content: target.content,
+                  publisher: linkedInPublisher,
+              })
+            : await publishLinkedInImage({
+                  accessToken,
+                  memberId: target.externalAccountId,
+                  target,
+                  media: input.media,
+                  publisher: linkedInImagePublisher,
+                  providerMediaDeliveryStore,
+                  now: input.now,
+              })
     if (
         outcome.type === 'permanent_failure' &&
+        'code' in outcome &&
         (outcome.code === 'authentication_required' || outcome.code === 'forbidden')
     ) {
         publisherCredentialStore.markPublisherCredentialReconnectRequired(
@@ -251,6 +279,235 @@ async function performExternalEffect(input: {
         )
     }
     return outcome
+}
+
+async function publishLinkedInText(input: {
+    readonly accessToken: string
+    readonly memberId: string
+    readonly content: Readonly<Record<string, unknown>>
+    readonly publisher: LinkedInTextPublisher
+}): Promise<ExternalEffectOutcome> {
+    const commentary = readLinkedInTextContent(input.content)
+    if (commentary === null) {
+        return permanentFailure('The execution revision does not contain LinkedIn commentary')
+    }
+
+    return input.publisher.publishText({
+        accessToken: input.accessToken,
+        memberId: input.memberId,
+        commentary,
+    })
+}
+
+async function publishLinkedInImage(input: {
+    readonly accessToken: string
+    readonly memberId: string
+    readonly target: PublisherExecutionTarget
+    readonly media: MediaAssetStore | undefined
+    readonly publisher: LinkedInImagePublisher
+    readonly providerMediaDeliveryStore: ReturnType<typeof createProviderMediaDeliveryStore>
+    readonly now: number
+}): Promise<ExternalEffectOutcome> {
+    if (input.target.media.length !== 1) {
+        return permanentFailure('LinkedIn member image posts require exactly one image')
+    }
+    const targetMedia = input.target.media[0]
+    if (targetMedia === undefined) {
+        return permanentFailure('The LinkedIn image reference is unavailable')
+    }
+    if (
+        targetMedia.family !== 'image' ||
+        (targetMedia.contentType !== 'image/jpeg' && targetMedia.contentType !== 'image/png')
+    ) {
+        return permanentFailure(
+            'The pinned LinkedIn media representation is not a JPEG or PNG image'
+        )
+    }
+    if (input.media === undefined) {
+        return permanentFailure('Media lifecycle service is required for LinkedIn image posts')
+    }
+
+    const commentary = readLinkedInTextContent(input.target.content)
+    if (commentary === null) {
+        return permanentFailure('The execution revision does not contain LinkedIn commentary')
+    }
+
+    const delivery = input.providerMediaDeliveryStore.reserve({
+        projectId: input.target.projectId,
+        executionMediaId: targetMedia.id,
+        publisherId: input.target.publisherId,
+        providerId: LINKEDIN_PROVIDER,
+    })
+    if (delivery.state === 'ambiguous') {
+        return ambiguousFailure(
+            delivery.errorMessage ?? 'The LinkedIn image delivery requires reconciliation'
+        )
+    }
+
+    let current = delivery
+    if (current.state === 'failed') {
+        const retried = input.providerMediaDeliveryStore.retry({
+            projectId: input.target.projectId,
+            deliveryId: current.id,
+            at: input.now,
+        })
+        if (retried === null) return permanentFailure('The LinkedIn image delivery disappeared')
+        current = retried
+    }
+
+    if (current.state === 'uploaded' && current.remoteMediaId !== null) {
+        return input.publisher.publishImage({
+            accessToken: input.accessToken,
+            memberId: input.memberId,
+            commentary,
+            imageId: current.remoteMediaId,
+            accessibilityText: targetMedia.accessibilityText,
+        })
+    }
+
+    if (current.state === 'uploading' && current.remoteMediaId !== null) {
+        const completed = input.providerMediaDeliveryStore.complete({
+            projectId: input.target.projectId,
+            deliveryId: current.id,
+            remoteMediaId: current.remoteMediaId,
+            at: input.now,
+        })
+        if (completed?.state === 'uploaded' && completed.remoteMediaId !== null) {
+            return input.publisher.publishImage({
+                accessToken: input.accessToken,
+                memberId: input.memberId,
+                commentary,
+                imageId: completed.remoteMediaId,
+                accessibilityText: targetMedia.accessibilityText,
+            })
+        }
+        return ambiguousFailure('The LinkedIn image delivery could not be resumed safely')
+    }
+
+    if (current.state === 'uploading') {
+        return failLinkedInImageDelivery(
+            input,
+            current.id,
+            'upload_in_progress',
+            'The LinkedIn image upload has no durable provider identifier',
+            true
+        )
+    }
+
+    const started = input.providerMediaDeliveryStore.start({
+        projectId: input.target.projectId,
+        deliveryId: current.id,
+        at: input.now,
+    })
+    if (started === null || started.state !== 'uploading') {
+        return permanentFailure('The LinkedIn image delivery could not be started')
+    }
+
+    let opened: Awaited<ReturnType<MediaAssetStore['openRepresentationContent']>>
+    try {
+        opened = await input.media.openRepresentationContent(
+            input.target.projectId,
+            targetMedia.assetId,
+            targetMedia.representationId
+        )
+    } catch {
+        return failLinkedInImageDelivery(
+            input,
+            started.id,
+            'media_read_failure',
+            'The pinned LinkedIn image representation could not be read; retry is safe',
+            false
+        )
+    }
+    if (
+        opened === null ||
+        opened.representation.storeId !== targetMedia.storeId ||
+        opened.representation.objectKey !== targetMedia.objectKey ||
+        opened.size !== targetMedia.byteSize ||
+        opened.contentType !== targetMedia.contentType ||
+        opened.sha256 !== targetMedia.sha256
+    ) {
+        const failed = input.providerMediaDeliveryStore.fail({
+            projectId: input.target.projectId,
+            deliveryId: started.id,
+            errorCode: 'media_unavailable',
+            errorMessage: 'The pinned LinkedIn image representation is unavailable or changed',
+            at: input.now,
+        })
+        return permanentFailure(
+            failed?.errorMessage ??
+                'The pinned LinkedIn image representation is unavailable or changed'
+        )
+    }
+
+    let upload: Awaited<ReturnType<LinkedInImagePublisher['uploadImage']>>
+    try {
+        upload = await input.publisher.uploadImage({
+            accessToken: input.accessToken,
+            memberId: input.memberId,
+            media: {
+                contentType: targetMedia.contentType,
+                size: targetMedia.byteSize,
+                stream: opened.stream,
+            },
+        })
+    } catch {
+        return failLinkedInImageDelivery(
+            input,
+            started.id,
+            'upload_exception',
+            'The LinkedIn image upload threw after dispatch; the media outcome is ambiguous',
+            true
+        )
+    }
+    if (upload.type !== 'uploaded') {
+        if (upload.type === 'ambiguous' && upload.remoteMediaId !== undefined) {
+            input.providerMediaDeliveryStore.recordRemoteMediaId({
+                projectId: input.target.projectId,
+                deliveryId: started.id,
+                remoteMediaId: upload.remoteMediaId,
+                at: input.now,
+            })
+        }
+        const failed = input.providerMediaDeliveryStore.fail({
+            projectId: input.target.projectId,
+            deliveryId: started.id,
+            errorCode: upload.code,
+            errorMessage: upload.errorMessage,
+            ambiguous: upload.type === 'ambiguous',
+            at: input.now,
+        })
+        return failed === null
+            ? ambiguousFailure('The LinkedIn image delivery state could not be persisted')
+            : upload
+    }
+
+    const checkpoint = input.providerMediaDeliveryStore.recordRemoteMediaId({
+        projectId: input.target.projectId,
+        deliveryId: started.id,
+        remoteMediaId: upload.remoteMediaId,
+        at: input.now,
+    })
+    if (checkpoint === null || checkpoint.remoteMediaId !== upload.remoteMediaId) {
+        return ambiguousFailure('The LinkedIn image provider identifier could not be persisted')
+    }
+    const completed = input.providerMediaDeliveryStore.complete({
+        projectId: input.target.projectId,
+        deliveryId: started.id,
+        remoteMediaId: upload.remoteMediaId,
+        at: input.now,
+    })
+    if (completed?.state !== 'uploaded') {
+        return ambiguousFailure('The LinkedIn image delivery could not be completed')
+    }
+
+    return input.publisher.publishImage({
+        accessToken: input.accessToken,
+        memberId: input.memberId,
+        commentary,
+        imageId: upload.remoteMediaId,
+        accessibilityText: targetMedia.accessibilityText,
+    })
 }
 
 async function performCustomHttpEffect(
@@ -336,6 +593,44 @@ function permanentFailure(
         effectOccurred: false,
         errorMessage,
     }
+}
+
+function ambiguousFailure(
+    errorMessage: string
+): Extract<ExternalEffectOutcome, { type: 'ambiguous' }> {
+    return { type: 'ambiguous', errorMessage }
+}
+
+function retryableFailure(
+    errorMessage: string
+): Extract<ExternalEffectOutcome, { type: 'retryable_failure' }> {
+    return { type: 'retryable_failure', effectOccurred: false, errorMessage }
+}
+
+function failLinkedInImageDelivery(
+    input: Parameters<typeof publishLinkedInImage>[0],
+    deliveryId: string,
+    errorCode: string,
+    errorMessage: string,
+    ambiguous: boolean
+): ExternalEffectOutcome {
+    try {
+        const failed = input.providerMediaDeliveryStore.fail({
+            projectId: input.target.projectId,
+            deliveryId,
+            errorCode,
+            errorMessage,
+            ambiguous,
+            at: input.now,
+        })
+        if (failed === null) {
+            return ambiguousFailure('The LinkedIn image delivery state could not be persisted')
+        }
+    } catch {
+        return ambiguousFailure('The LinkedIn image delivery state could not be persisted')
+    }
+
+    return ambiguous ? ambiguousFailure(errorMessage) : retryableFailure(errorMessage)
 }
 
 function defaultWorkerErrorHandler(error: unknown): void {

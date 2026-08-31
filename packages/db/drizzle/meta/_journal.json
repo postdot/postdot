@@ -43,6 +43,13 @@
             "when": 1788201041931,
             "tag": "0005_slimy_mikhail_rasputin",
             "breakpoints": true
+        },
+        {
+            "idx": 6,
+            "version": "6",
+            "when": 1788206119687,
+            "tag": "0006_unknown_fixer",
+            "breakpoints": true
         }
     ]
 }

@@ -93,6 +93,7 @@ export type {
     CompleteProviderMediaDeliveryInput,
     FailProviderMediaDeliveryInput,
     ProviderMediaDelivery,
+    RecordProviderMediaDeliveryRemoteIdInput,
     ReserveProviderMediaDeliveryInput,
     RetryProviderMediaDeliveryInput,
     StartProviderMediaDeliveryInput,

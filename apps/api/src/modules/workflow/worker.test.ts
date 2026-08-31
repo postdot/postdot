@@ -15,8 +15,12 @@ import {
     createPublisherStore,
     runMigrations,
 } from '@herald/db'
-import { publications } from '@herald/db/schema'
-import { createLinkedInTextPublisher, linkedinTextChannelProfile } from '@herald/linkedin'
+import { providerMediaDeliveries, publications } from '@herald/db/schema'
+import {
+    createLinkedInImagePublisher,
+    createLinkedInTextPublisher,
+    linkedinChannelProfile,
+} from '@herald/linkedin'
 import { createLocalMediaStore } from '@herald/media'
 import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
@@ -182,7 +186,7 @@ describe('publication worker', () => {
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
-                profile: linkedinTextChannelProfile,
+                profile: linkedinChannelProfile,
             })
             expect(channel).not.toBeNull()
             if (channel === null) throw new Error('The test channel was not created')
@@ -331,6 +335,201 @@ describe('publication worker', () => {
             ).toMatchObject({ state: 'reconnect_required' })
         } finally {
             closeDatabase(database)
+        }
+    })
+
+    it('uploads and publishes a LinkedIn image through the real worker and SQLite state', async () => {
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-linkedin-image-'))
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const media = createMediaAssetStore(
+                database,
+                createLocalMediaStore({
+                    storeId: 'local-test',
+                    rootDirectory,
+                    maxObjectBytes: 2_000_000,
+                }),
+                { now: () => now, deletionGracePeriodMs: 0 }
+            )
+            const manualStore = createManualStore(database, { now: () => now, media })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => now,
+            })
+            const publisherStore = createPublisherStore(database, {
+                credentialRevoker: credentialStore,
+                now: () => now,
+            })
+            const project = manualStore.createProject({
+                name: 'LinkedIn Image Worker Project',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'LinkedIn Member',
+                profile: linkedinChannelProfile,
+            })
+            expect(channel).not.toBeNull()
+            if (channel === null) throw new Error('The LinkedIn image channel was not created')
+
+            const credential = await credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'linkedin',
+                externalAccountId: 'member-42',
+                scopes: ['openid', 'profile', 'w_member_social'],
+                accessToken: 'linkedin-image-access-token',
+            })
+            expect(credential.kind).toBe('created')
+            if (credential.kind !== 'created')
+                throw new Error('The LinkedIn image credential was not created')
+
+            expect(
+                publisherStore.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'user-1',
+                    kind: 'linkedin',
+                    credentialId: credential.credential.id,
+                }).kind
+            ).toBe('created')
+
+            const bytes = createPng()
+            const reservation = media.reserveUpload({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                originalFilename: 'announcement.png',
+                defaultAccessibilityText: 'Herald announcement image',
+                expectedSize: bytes.byteLength,
+                contentType: 'image/png',
+            })
+            expect(reservation).not.toBeNull()
+            if (reservation === null)
+                throw new Error('The LinkedIn image reservation was not created')
+            expect(
+                await media.upload({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    intentId: reservation.intent.id,
+                    source: new Blob([bytes]).stream(),
+                })
+            ).toMatchObject({ kind: 'uploaded' })
+            expect(
+                await media.finalizeUpload({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    intentId: reservation.intent.id,
+                })
+            ).toMatchObject({ kind: 'ready' })
+
+            const post = manualStore.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'A LinkedIn image publication', format: 'plain_text' },
+                    media: [{ assetId: reservation.asset.id }],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
+                ],
+            })
+            expect(post).not.toBeNull()
+
+            const imageId = 'urn:li:image:worker-image-42'
+            const requests: Array<{
+                readonly input: string
+                readonly init: RequestInit | undefined
+            }> = []
+            let uploadedBytes: Uint8Array | undefined
+            const imagePublisher = createLinkedInImagePublisher({
+                baseUrl: 'https://linkedin.test',
+                fetcher: async (input, init) => {
+                    requests.push({ input: input.toString(), init })
+                    if (requests.length === 1) {
+                        return Response.json({
+                            value: {
+                                uploadUrl:
+                                    'https://uploads.linkedin.test/worker-image-42?signature=secret',
+                                image: imageId,
+                            },
+                        })
+                    }
+                    if (requests.length === 2) {
+                        uploadedBytes = new Uint8Array(
+                            await new Response(init?.body ?? null).arrayBuffer()
+                        )
+                        return new Response(null, { status: 201 })
+                    }
+                    if (requests.length === 3) {
+                        return new Response('retry the final post', { status: 429 })
+                    }
+                    return new Response(null, {
+                        status: 201,
+                        headers: { 'x-restli-id': 'urn:li:post:worker-image-42' },
+                    })
+                },
+            })
+            const worker = createPublicationWorker({
+                database,
+                publisherStore,
+                publisherCredentialStore: credentialStore,
+                media,
+                linkedInImagePublisher: imagePublisher,
+                createClaimToken: () => 'image-worker-claim',
+                retryPolicy: {
+                    nextRunAt: ({ failedAt }) => failedAt + 1,
+                },
+                now: () => now,
+            })
+
+            await worker.processDueEvents(now)
+            expect(requests).toHaveLength(3)
+            expect(
+                database
+                    .select({ state: publications.state })
+                    .from(publications)
+                    .where(eq(publications.projectId, project.project.id))
+                    .all()
+            ).toEqual([{ state: 'ready' }])
+
+            await worker.processDueEvents(now + 1)
+
+            expect(requests).toHaveLength(4)
+            expect(uploadedBytes).toEqual(bytes)
+            expect(requests[3]?.input).toBe('https://linkedin.test/rest/posts')
+            expect(JSON.parse(String(requests[3]?.init?.body))).toMatchObject({
+                author: 'urn:li:person:member-42',
+                commentary: 'A LinkedIn image publication',
+                content: {
+                    media: { id: imageId, altText: 'Herald announcement image' },
+                },
+            })
+            expect(
+                database
+                    .select({
+                        state: publications.state,
+                        externalId: publications.externalId,
+                    })
+                    .from(publications)
+                    .where(eq(publications.projectId, project.project.id))
+                    .all()
+            ).toEqual([{ state: 'published', externalId: 'urn:li:post:worker-image-42' }])
+            expect(
+                database
+                    .select({
+                        state: providerMediaDeliveries.state,
+                        remoteMediaId: providerMediaDeliveries.remoteMediaId,
+                    })
+                    .from(providerMediaDeliveries)
+                    .all()
+            ).toEqual([{ state: 'uploaded', remoteMediaId: imageId }])
+        } finally {
+            closeDatabase(database)
+            await rm(rootDirectory, { recursive: true, force: true })
         }
     })
 
@@ -670,7 +869,7 @@ describe('publication worker', () => {
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'LinkedIn Member',
-                profile: linkedinTextChannelProfile,
+                profile: linkedinChannelProfile,
             })
             expect(channel).not.toBeNull()
             if (channel === null) throw new Error('The refresh test channel was not created')

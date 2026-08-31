@@ -5,7 +5,7 @@
 - Provenance: [ISSUE-007](../ISSUES.md), [ISSUE-003](../ISSUES.md), provider contract review on 2026-08-29
 - Research record: [DOMAIN-07 worklog](../worklogs/2026-08-29-DOMAIN-07.md)
 - Related specifications: [SPEC-005](SPEC-005-continuous-product-scope.md)
-- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](../decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](../decisions/ADR-021-channel-owns-profile-contract.md), [ADR-022](../decisions/ADR-022-use-expiring-signed-media-delivery-urls.md)
+- Related decisions: [ADR-001](../decisions/ADR-001-separate-channel-from-publisher.md), [ADR-002](../decisions/ADR-002-separate-post-from-publication.md), [ADR-005](../decisions/ADR-005-use-sqlite-first-persistence.md), [ADR-008](../decisions/ADR-008-enforce-project-scoped-domain-state.md), [ADR-009](../decisions/ADR-009-fence-external-effects-with-durable-claims.md), [ADR-011](../decisions/ADR-011-select-linkedin-member-text-publisher.md), [ADR-013](../decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](../decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](../decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](../decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](../decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](../decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](../decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](../decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](../decisions/ADR-021-channel-owns-profile-contract.md), [ADR-022](../decisions/ADR-022-use-expiring-signed-media-delivery-urls.md), [ADR-026](../decisions/ADR-026-linkedin-single-image-delivery.md)
 - Superseded by: none
 
 > This specification is normative. Its implementation is tracked through bounded
@@ -71,16 +71,18 @@ decision records.
   scheduling and lifecycle state, attribution, and one external identifier and URL.
 - `Channel` stores a project and a name. `Publisher` stores a channel and a string
   kind.
-- The current provider contract accepts a LinkedIn member identifier and a text
-  commentary string. Its adapter maps those values directly to the LinkedIn Posts
-  API payload.
-- No domain, persistence, API, or storage contract represents an attachment, a
-  media upload, a rich-text mark, a mention, a link preview, a poll, or a provider
-  capability declaration.
-- [SPEC-001](SPEC-001-v1-scope.md) is a superseded historical scope record. The
-  current direction in [SPEC-005](SPEC-005-continuous-product-scope.md) requires
-  the first durable media implementation to use an extensible contract. [ISSUE-003](../ISSUES.md)
-  remains open for the storage boundary.
+- The built-in LinkedIn contract accepts a member identifier, text commentary, and
+  zero or one verified JPEG/PNG image. Its adapter maps those values to the
+  versioned Images and Posts APIs.
+- The domain, persistence, and storage contracts represent reusable media assets,
+  immutable representations, publication-revision media references, provider media
+  delivery state, and provider capability declarations. Rich-text marks, mentions,
+  link previews, polls, and other provider-specific content remain outside the
+  current common contract.
+- [SPEC-001](SPEC-001-v1-scope.md) is a superseded historical scope record.
+  [SPEC-005](SPEC-005-continuous-product-scope.md) remains the current development
+  direction, and [ADR-026](../decisions/ADR-026-linkedin-single-image-delivery.md)
+  records the first media-backed automatic provider slice.
 
 ## Provider evidence
 
@@ -935,9 +937,11 @@ The implementation of this specification is complete only after it demonstrates:
 
 ## Implementation consequence
 
-The current text-only schema and adapter are transitional development state rather
-than compatibility constraints. The implementation may regenerate the unused
-development migration and database while establishing the common content,
-destination capability, publication snapshot, and interchangeable media-store
-boundaries. It must not preserve a temporary local-only or single-format model that
-contradicts this specification.
+The former text-only schema and adapter were transitional development state rather
+than compatibility constraints. The current implementation has established the
+common content, destination capability, publication snapshot, and interchangeable
+media-store boundaries, and PUB-10 extends the built-in LinkedIn profile with one
+image without changing those foundations. Future provider media support must follow
+the same pinned-representation and provider-delivery boundaries; it must not
+introduce a temporary local-only model or place provider identifiers on reusable
+assets.
