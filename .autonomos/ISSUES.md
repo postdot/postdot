@@ -128,3 +128,27 @@
 - Tasks: DOMAIN-07 (completed), DOMAIN-20, DOMAIN-21, MEDIA-24, CHANNEL-25, CHANNEL-26, EDITOR-27
 - Specification: [SPEC-004](specs/SPEC-004-publication-content-boundary.md)
 - Decisions: [ADR-013](decisions/ADR-013-runtime-defined-custom-channel-contracts.md), [ADR-014](decisions/ADR-014-separate-autosaved-drafts-from-execution-revisions.md), [ADR-015](decisions/ADR-015-use-a-small-semantic-source-content-vocabulary.md), [ADR-016](decisions/ADR-016-use-a-bounded-json-schema-runtime-profile.md), [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-019](decisions/ADR-019-separate-media-assets-representations-and-deliveries.md), [ADR-020](decisions/ADR-020-version-and-assess-channel-profile-changes.md), [ADR-021](decisions/ADR-021-channel-owns-profile-contract.md)
+
+## [ISSUE-008] Make local API and web startup reproducible
+
+- Type: problem
+- Status: resolved
+- Evidence: A local database created from an earlier migration history contains
+  tables and migration records that do not match the five migrations currently
+  committed. Starting the API then fails with a low-level `table account already
+  exists` error. At the same time, the Vite development proxy always targets port
+  `3000`, which is already used by another local project, so the Herald dashboard
+  sends API requests to the wrong server when Herald's API is unavailable.
+- Impact: A new contributor or operator cannot tell whether startup failed because
+  of stale development data, a port collision, or a dashboard request failure.
+  The resulting generic browser error obscures the actual integration boundary.
+- Desired outcome: Document and exercise a clean local startup path, make the web
+  development API target configurable without changing production same-origin
+  behavior, and provide actionable migration failure context without weakening
+  migration safety.
+- Tasks: OPS-11 (completed)
+- Resolution: The Vite development API target is now validated and configurable
+  through `HERALD_API_ORIGIN`, while browser requests remain same-origin. The API
+  keeps the default `3000` port, and alternate local ports are documented for both
+  processes. Migration conflicts involving an existing schema object now fail
+  closed with actionable context; no idempotent SQL or automatic reset was added.
