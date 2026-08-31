@@ -65,7 +65,7 @@
 ## [ISSUE-005] Define a motion policy before adding an animation runtime
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: No motion policy exists yet, and GSAP is a possible solution for future
   interactions but would add runtime weight and another abstraction to the web
   surface.
@@ -74,7 +74,13 @@
 - Desired outcome: A small motion policy covering accessibility, interaction classes,
   performance budget, and the evidence required before introducing GSAP or another
   animation dependency.
-- Tasks: none
+- Tasks: DESIGN-30 (completed)
+- Resolution: Herald now follows a native-first motion policy recorded in
+  [ADR-024](decisions/ADR-024-adopt-a-native-first-motion-policy.md). The shared
+  stylesheet honors reduced-motion preferences, existing transitions target
+  bounded properties, and no animation runtime was added without a concrete
+  interaction requirement.
+- Decision: [ADR-024](decisions/ADR-024-adopt-a-native-first-motion-policy.md)
 
 ## [ISSUE-006] Separate publisher credentials from application authentication
 

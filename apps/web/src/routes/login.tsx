@@ -65,7 +65,7 @@ function LoginPage() {
                                 required
                                 value={name}
                                 onChange={event => setName(event.target.value)}
-                                className="h-10 rounded-lg border bg-background px-3 font-normal outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20"
+                                className="h-10 rounded-lg border bg-background px-3 font-normal outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-3 focus:ring-ring/20"
                             />
                         </label>
                     ) : null}
@@ -76,7 +76,7 @@ function LoginPage() {
                             type="email"
                             value={email}
                             onChange={event => setEmail(event.target.value)}
-                            className="h-10 rounded-lg border bg-background px-3 font-normal outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20"
+                            className="h-10 rounded-lg border bg-background px-3 font-normal outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-3 focus:ring-ring/20"
                         />
                     </label>
                     <label className="grid gap-2 text-sm font-medium">
@@ -87,7 +87,7 @@ function LoginPage() {
                             type="password"
                             value={password}
                             onChange={event => setPassword(event.target.value)}
-                            className="h-10 rounded-lg border bg-background px-3 font-normal outline-none transition focus:border-ring focus:ring-3 focus:ring-ring/20"
+                            className="h-10 rounded-lg border bg-background px-3 font-normal outline-none transition-[border-color,box-shadow] focus:border-ring focus:ring-3 focus:ring-ring/20"
                         />
                     </label>
                     {error ? (

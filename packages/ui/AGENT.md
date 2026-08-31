@@ -29,3 +29,15 @@ the shared stylesheet.
 
 Add a component here only when it is reusable across Herald surfaces or is part
 of the shared visual language. Keep one-off product composition in the app.
+
+## Motion
+
+- Keep essential state understandable without animation.
+- Prefer CSS transitions for local feedback and animate only color, opacity,
+  shadow, border, or small transforms. Never use `transition-all`.
+- Avoid decorative infinite motion, scroll hijacking, parallax, and large-area
+  scaling or panning.
+- Honor `prefers-reduced-motion: reduce`; the shared stylesheet provides a
+  fallback, and imperative animations must check the preference themselves.
+- Do not add GSAP or another animation runtime without a concrete interaction,
+  bundle measurement, reduced-motion behavior, and an accepted decision record.
