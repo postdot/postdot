@@ -16,7 +16,7 @@ import { createProjectModule } from './modules/projects'
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
 import { createErrorHandler } from './plugins/error-handler'
-import { createRequestLogger } from './plugins/logger'
+import { createHeraldLogger, createRequestLogger } from './plugins/logger'
 
 export interface HeraldAppOptions {
     readonly auth: HeraldAuth
@@ -50,9 +50,10 @@ function createDomainApp({
         media === undefined || mediaPublicDelivery === undefined
             ? new Elysia({ name: 'herald-public-media-disabled' })
             : createPublicMediaRoutes(media, mediaPublicDelivery)
+    const logger = logging?.enabled === true ? createHeraldLogger(logging) : undefined
 
     return new Elysia({ name: 'herald-api' })
-        .use(createRequestLogger(logging))
+        .use(createRequestLogger(logging, logger))
         .use(
             openapi({
                 documentation: {
@@ -84,6 +85,7 @@ function createDomainApp({
                 manualStore,
                 publisher,
                 media,
+                logger,
                 onWorkScheduled,
             })
         )
