@@ -79,4 +79,8 @@ const defaultLinkedInAuthorizationServer: OAuthAuthorizationServer = {
     issuer: LINKEDIN_OAUTH_ISSUER,
     authorizationEndpoint: LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT,
     tokenEndpoint: LINKEDIN_OAUTH_TOKEN_ENDPOINT,
+    // LinkedIn's standard web flow uses client-secret-post without PKCE. Its
+    // PKCE flow is a separate native-client integration with different provider
+    // requirements; state validation remains enabled for this server flow.
+    pkce: 'disabled',
 }

@@ -374,14 +374,23 @@ export const oauthAuthorizationAttempts = sqliteTable(
             sql`(
                     ${table.status} = 'pending'
                     and ${table.completedAt} is null
-                    and ${table.pkceEncryptionVersion} is not null
-                    and ${table.pkceEncryptionVersion} > 0
-                    and ${table.pkceEncryptionKeyId} is not null
-                    and length(trim(${table.pkceEncryptionKeyId})) > 0
-                    and ${table.pkceVerifierCiphertext} is not null
-                    and length(${table.pkceVerifierCiphertext}) > 16
-                    and ${table.pkceVerifierNonce} is not null
-                    and length(${table.pkceVerifierNonce}) = 12
+                    and (
+                        (
+                            ${table.pkceEncryptionVersion} is null
+                            and ${table.pkceEncryptionKeyId} is null
+                            and ${table.pkceVerifierCiphertext} is null
+                            and ${table.pkceVerifierNonce} is null
+                        ) or (
+                            ${table.pkceEncryptionVersion} is not null
+                            and ${table.pkceEncryptionVersion} > 0
+                            and ${table.pkceEncryptionKeyId} is not null
+                            and length(trim(${table.pkceEncryptionKeyId})) > 0
+                            and ${table.pkceVerifierCiphertext} is not null
+                            and length(${table.pkceVerifierCiphertext}) > 16
+                            and ${table.pkceVerifierNonce} is not null
+                            and length(${table.pkceVerifierNonce}) = 12
+                        )
+                    )
                 ) or (
                     ${table.status} in ('consumed', 'expired')
                     and ${table.completedAt} is not null

@@ -350,6 +350,21 @@ describe('domain schema', () => {
             expect(() =>
                 database
                     .insert(oauthAuthorizationAttempts)
+                    .values({
+                        ...pendingAttempt,
+                        id: 'pending-without-pkce',
+                        stateDigest: Buffer.alloc(32, 2),
+                        pkceEncryptionVersion: null,
+                        pkceEncryptionKeyId: null,
+                        pkceVerifierCiphertext: null,
+                        pkceVerifierNonce: null,
+                    })
+                    .run()
+            ).not.toThrow()
+
+            expect(() =>
+                database
+                    .insert(oauthAuthorizationAttempts)
                     .values({ ...pendingAttempt, id: 'missing-pkce-nonce' })
                     .run()
             ).toThrow()

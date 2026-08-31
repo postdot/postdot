@@ -574,7 +574,7 @@ describe('Herald API', () => {
                     expect(body.get('client_id')).toBe('linkedin-client-id')
                     expect(body.get('client_secret')).toBe('linkedin-client-secret')
                     expect(body.get('code')).toBe('authorization-code')
-                    expect(body.get('code_verifier')).toMatch(/^[A-Za-z0-9._~-]{43,128}$/)
+                    expect(body.get('code_verifier')).toBeNull()
                     return Response.json({
                         access_token: 'linkedin-access-token',
                         refresh_token: 'linkedin-refresh-token',
@@ -597,6 +597,7 @@ describe('Herald API', () => {
             issuer: providerOrigin,
             authorizationEndpoint: new URL('/authorize', provider.url).toString(),
             tokenEndpoint: new URL('/token', provider.url).toString(),
+            pkce: 'disabled',
         }
         const { app, database } = createFixture({
             linkedin: {

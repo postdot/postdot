@@ -18,7 +18,7 @@ export interface CreateAuthorizationAttemptInput {
     readonly scopes: readonly string[]
     readonly returnPath: string
     readonly stateDigest: Uint8Array
-    readonly codeVerifier: string
+    readonly codeVerifier: string | null
 }
 
 export interface AuthorizationAttempt {
@@ -50,7 +50,7 @@ export type ConsumeAuthorizationAttemptResult =
     | {
           readonly kind: 'consumed'
           readonly attempt: AuthorizationAttempt
-          readonly codeVerifier: string
+          readonly codeVerifier: string | null
       }
     | { readonly kind: 'not_found' }
     | { readonly kind: 'mismatch' }
@@ -148,28 +148,43 @@ function requireTtl(ttlMs: number): number {
     return ttlMs
 }
 
-function requireCodeVerifier(codeVerifier: string): string {
+function requireCodeVerifier(codeVerifier: string | null): string | null {
+    if (codeVerifier === null) return null
     if (!/^[A-Za-z0-9._~-]{43,128}$/.test(codeVerifier)) {
         throw new Error('codeVerifier must satisfy the RFC 7636 length and character requirements')
     }
     return codeVerifier
 }
 
-function pkceEnvelope(row: AuthorizationAttemptRow): EncryptedPublisherSecret {
+function pkceEnvelope(row: AuthorizationAttemptRow): EncryptedPublisherSecret | null {
+    const {
+        pkceEncryptionVersion,
+        pkceEncryptionKeyId,
+        pkceVerifierCiphertext,
+        pkceVerifierNonce,
+    } = row
     if (
-        row.pkceEncryptionVersion === null ||
-        row.pkceEncryptionKeyId === null ||
-        row.pkceVerifierCiphertext === null ||
-        row.pkceVerifierNonce === null
+        pkceEncryptionVersion === null &&
+        pkceEncryptionKeyId === null &&
+        pkceVerifierCiphertext === null &&
+        pkceVerifierNonce === null
+    ) {
+        return null
+    }
+    if (
+        pkceEncryptionVersion === null ||
+        pkceEncryptionKeyId === null ||
+        pkceVerifierCiphertext === null ||
+        pkceVerifierNonce === null
     ) {
         throw new Error('Pending OAuth authorization attempt has no PKCE verifier')
     }
 
     return {
-        version: row.pkceEncryptionVersion as EncryptedPublisherSecret['version'],
-        keyId: row.pkceEncryptionKeyId,
-        ciphertext: row.pkceVerifierCiphertext,
-        nonce: row.pkceVerifierNonce,
+        version: pkceEncryptionVersion as EncryptedPublisherSecret['version'],
+        keyId: pkceEncryptionKeyId,
+        ciphertext: pkceVerifierCiphertext,
+        nonce: pkceVerifierNonce,
     }
 }
 
@@ -218,10 +233,10 @@ export function createAuthorizationAttemptStore(
             scopesJson: string,
             returnPath: string,
             stateDigest: Uint8Array,
-            encryptionVersion: number,
-            encryptionKeyId: string,
-            verifierCiphertext: Uint8Array,
-            verifierNonce: Uint8Array,
+            encryptionVersion: number | null,
+            encryptionKeyId: string | null,
+            verifierCiphertext: Uint8Array | null,
+            verifierNonce: Uint8Array | null,
             expiresAt: number,
             timestamp: number,
         ]
@@ -344,10 +359,13 @@ export function createAuthorizationAttemptStore(
                 expiresAt: timestamp + ttlMs,
                 createdAt: timestamp,
             }
-            const verifier = await cipher.encrypt(
-                { recordId: attempt.id, providerId, field: 'pkce_verifier' },
-                codeVerifier
-            )
+            const verifier =
+                codeVerifier === null
+                    ? null
+                    : await cipher.encrypt(
+                          { recordId: attempt.id, providerId, field: 'pkce_verifier' },
+                          codeVerifier
+                      )
             const inserted = insertAttemptStatement.run(
                 attempt.id,
                 attempt.projectId,
@@ -358,10 +376,10 @@ export function createAuthorizationAttemptStore(
                 JSON.stringify(attempt.scopes),
                 attempt.returnPath,
                 stateDigest,
-                verifier.version,
-                verifier.keyId,
-                verifier.ciphertext,
-                verifier.nonce,
+                verifier?.version ?? null,
+                verifier?.keyId ?? null,
+                verifier?.ciphertext ?? null,
+                verifier?.nonce ?? null,
                 attempt.expiresAt,
                 timestamp
             )
@@ -417,10 +435,17 @@ export function createAuthorizationAttemptStore(
             return {
                 kind: 'consumed',
                 attempt: toAttempt(row),
-                codeVerifier: await cipher.decrypt(
-                    { recordId: row.id, providerId: row.providerId, field: 'pkce_verifier' },
-                    verifier
-                ),
+                codeVerifier:
+                    verifier === null
+                        ? null
+                        : await cipher.decrypt(
+                              {
+                                  recordId: row.id,
+                                  providerId: row.providerId,
+                                  field: 'pkce_verifier',
+                              },
+                              verifier
+                          ),
             }
         },
 
