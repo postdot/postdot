@@ -1,8 +1,8 @@
+import { Button } from '@herald/ui/components/button'
 import { CheckCircleIcon } from '@solar-icons/react/linear/check-circle'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Button } from '@/components/ui/button'
 import { ApiError, api, type PublicationEditorState } from '@/lib/api'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']

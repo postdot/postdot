@@ -1,7 +1,7 @@
+import { Button } from '@herald/ui/components/button'
 import { AddCircleIcon } from '@solar-icons/react/linear/add-circle'
 import { CheckCircleIcon } from '@solar-icons/react/linear/check-circle'
 
-import { Button } from '@/components/ui/button'
 import type { Channel, PublisherConnection } from '@/lib/api'
 
 interface PublisherConnectionPanelProps {

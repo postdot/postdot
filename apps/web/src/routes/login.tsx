@@ -1,8 +1,8 @@
+import { Button } from '@herald/ui/components/button'
 import { LoginIcon } from '@solar-icons/react/linear/login'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 
-import { Button } from '@/components/ui/button'
 import { ApiError, api } from '@/lib/api'
 
 export const Route = createFileRoute('/login')({

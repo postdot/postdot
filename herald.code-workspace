@@ -13,6 +13,10 @@
       "path": "apps/web",
     },
     {
+      "name": "ui",
+      "path": "packages/ui",
+    },
+    {
       "name": "client",
       "path": "packages/client",
     },

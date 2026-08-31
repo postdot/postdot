@@ -43,7 +43,7 @@
 ## [ISSUE-004] Establish a reusable Herald design-system package
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The dashboard already uses Tailwind CSS, shadcn/ui with Base UI, and
   Solar Icons React, while a future website and documentation surface should reuse
   the same visual language.
@@ -53,7 +53,14 @@
 - Desired outcome: A focused shared package for approved design tokens, Base UI-based
   components, project-specific variants, icon conventions, and Tailwind integration,
   with a clear ownership boundary and no Radix UI dependency.
-- Tasks: none
+- Tasks: DESIGN-29 (completed)
+- Resolution: The private `@herald/ui` workspace package now owns shared Tailwind
+  tokens, base styles, the Base UI Button primitive, and the class-composition
+  utility. The web app consumes the package through public subpaths and keeps a
+  thin local Tailwind entrypoint with explicit application and package source
+  roots. [ADR-023](decisions/ADR-023-establish-shared-ui-package.md) records the
+  ownership boundary.
+- Decision: [ADR-023](decisions/ADR-023-establish-shared-ui-package.md)
 
 ## [ISSUE-005] Define a motion policy before adding an animation runtime
 

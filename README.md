@@ -177,6 +177,7 @@ The current workspace contains:
 
 - `apps/api`: Elysia API process;
 - `apps/web`: React 19 + TanStack Router Vite SPA with Tailwind CSS, shadcn/ui Base UI, and Solar Icons;
+- `packages/ui`: shared Base UI primitives, Herald design tokens, and Tailwind integration;
 - `packages/auth`: Better Auth configuration and adapter boundary;
 - `packages/client`: typed client helpers shared by the CLI and dashboard;
 - `packages/core`: framework-independent domain and workflow contracts;
