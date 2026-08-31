@@ -3,8 +3,10 @@ import { CheckCircleIcon } from '@solar-icons/react/linear/check-circle'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
 import { ApiError, api, type PublicationEditorState } from '@/lib/api'
 import { parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
+import { updateTargetMedia } from '@/lib/target-media'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
@@ -167,13 +169,18 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     ])
 
     function updateSourceText(text: string) {
-        setSourceContent(current => ({
-            ...current,
-            body: {
-                format: current.body?.format ?? 'plain_text',
-                text,
-            },
-        }))
+        setSourceContent(current => {
+            const next = { ...current }
+            if (text.trim() === '') {
+                delete next.body
+            } else {
+                next.body = {
+                    format: current.body?.format ?? 'plain_text',
+                    text,
+                }
+            }
+            return next
+        })
         setDirty(true)
     }
 
@@ -198,6 +205,16 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             }
             return next
         })
+        setDirty(true)
+    }
+
+    function updateSourceMedia(media: MediaSelection[]) {
+        setSourceContent(current => ({ ...current, media }))
+        if (targetResult.value !== null) {
+            setTargetText(
+                formatJson(updateTargetMedia(editor.profile.profile, targetResult.value, media))
+            )
+        }
         setDirty(true)
     }
 
@@ -456,21 +473,12 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                     className="h-10 rounded-lg border bg-background px-3 text-sm font-normal outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
                                 />
                             </label>
-                            {sourceContent.media.length > 0 ? (
-                                <div className="rounded-xl border bg-muted/40 px-4 py-3 text-sm">
-                                    <p className="font-medium">Attached media is preserved</p>
-                                    <ul className="mt-2 space-y-1 text-muted-foreground">
-                                        {sourceContent.media.map(media => (
-                                            <li key={media.assetId}>
-                                                {media.assetId}
-                                                {media.accessibilityText
-                                                    ? ` · ${media.accessibilityText}`
-                                                    : ''}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ) : null}
+                            <MediaAttachmentPicker
+                                projectId={projectId}
+                                value={sourceContent.media}
+                                onChange={updateSourceMedia}
+                                disabled={saveState === 'saving'}
+                            />
                         </div>
                     </section>
 

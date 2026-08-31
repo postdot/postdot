@@ -1,6 +1,6 @@
 import type { MediaAssetStore } from '@herald/db'
 import type { OpenAPIV3 } from 'openapi-types'
-import { Type } from 'typebox'
+import { Type, type Static } from 'typebox'
 
 import type { AuthenticatedElysia } from '../../plugins/auth'
 import { errorResponse } from '../projects/models'
@@ -155,9 +155,19 @@ const deletionResponse = Type.Object({
     media: mediaReferenceSchema,
 })
 
+export type MediaAssetResponse = Static<typeof mediaAssetSchema>
+export type MediaRepresentationResponse = Static<typeof mediaRepresentationSchema>
+export type MediaIntentResponse = Static<typeof mediaIntentSchema>
+export type MediaReferenceResponse = Static<typeof mediaReferenceSchema>
+export type MediaReservationResponse = Static<typeof mediaReservationSchema>
+export type MediaUploadResponse = Static<typeof uploadedResponse>
+export type MediaPendingResponse = Static<typeof pendingResponse>
+export type MediaFinalizeResponse = Static<typeof finalizedResponse>
+export type MediaDeletionResponse = Static<typeof deletionResponse>
+
 export function registerMediaRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    media: MediaAssetStore
+    media: MediaAssetStore | undefined
 ) {
     return app
         .post(
@@ -169,6 +179,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 response: {
                     201: mediaReservationSchema,
                     404: errorResponse,
+                    503: errorResponse,
                 },
                 detail: {
                     operationId: 'reserveMediaUpload',
@@ -177,6 +188,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 },
             },
             ({ body, params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
                 const reservation = media.reserveUpload({
                     projectId: params.projectId,
                     subjectId: user.id,
@@ -203,6 +215,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     400: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
+                    503: errorResponse,
                 },
                 detail: {
                     operationId: 'uploadMedia',
@@ -211,6 +224,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 },
             },
             async ({ params, request, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
                 if (request.body === null) {
                     return status(400, {
                         error: {
@@ -261,6 +275,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     200: finalizedResponse,
                     202: pendingResponse,
                     404: errorResponse,
+                    503: errorResponse,
                 },
                 detail: {
                     operationId: 'finalizeMediaUpload',
@@ -269,6 +284,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 },
             },
             async ({ params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
                 const result = await media.finalizeUpload({
                     projectId: params.projectId,
                     subjectId: user.id,
@@ -297,6 +313,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 response: {
                     200: Type.Object({ media: Type.Array(mediaReferenceSchema) }),
                     404: errorResponse,
+                    503: errorResponse,
                 },
                 detail: {
                     operationId: 'listProjectMedia',
@@ -305,6 +322,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 },
             },
             ({ params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
                 const mediaAssets = media.listAssets(params.projectId, user.id)
                 if (mediaAssets === null) {
                     return status(404, {
@@ -343,10 +361,19 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                                 },
                             },
                         },
+                        503: {
+                            description: 'Media storage is not configured',
+                            content: {
+                                'application/json': {
+                                    schema: errorResponse,
+                                },
+                            },
+                        },
                     },
                 },
             },
             async ({ params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
                 const content = await media.openAssetContent(
                     params.projectId,
                     params.assetId,
@@ -377,6 +404,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 response: {
                     200: mediaReferenceSchema,
                     404: errorResponse,
+                    503: errorResponse,
                 },
                 detail: {
                     operationId: 'getProjectMedia',
@@ -385,6 +413,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 },
             },
             ({ params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
                 const mediaAsset = media.getAsset(params.projectId, params.assetId, user.id)
                 if (mediaAsset === null) {
                     return status(404, {
@@ -403,6 +432,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     200: deletionResponse,
                     202: deletionResponse,
                     404: errorResponse,
+                    503: errorResponse,
                 },
                 detail: {
                     operationId: 'requestMediaDeletion',
@@ -411,6 +441,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 },
             },
             ({ params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
                 const result = media.requestDeletion(params.projectId, params.assetId, user.id)
                 if (result.kind === 'not_found') {
                     return status(404, {
@@ -424,6 +455,15 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 return result.kind === 'requested' ? status(202, response) : response
             }
         )
+}
+
+function mediaUnavailableError() {
+    return {
+        error: {
+            code: 'media_unavailable',
+            message: 'Media storage is not configured for this instance',
+        },
+    } as const
 }
 
 type MediaReservation = NonNullable<ReturnType<MediaAssetStore['reserveUpload']>>

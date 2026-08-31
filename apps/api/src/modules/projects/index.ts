@@ -35,9 +35,6 @@ export function createProjectModule(options: ProjectModuleOptions) {
         onWorkScheduled: options.onWorkScheduled,
     })
     const publicationRoutes = registerPublicationRoutes(postRoutes, options.manualStore)
-    const mediaRoutes =
-        options.media === undefined
-            ? publicationRoutes
-            : registerMediaRoutes(publicationRoutes, options.media)
+    const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media)
     return registerAuditEventRoutes(mediaRoutes, options.manualStore)
 }

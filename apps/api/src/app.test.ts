@@ -153,9 +153,34 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/publications/{publicationId}/draft/promote',
                 '/api/projects/{projectId}/publications/{publicationId}/publish',
                 '/api/projects/{projectId}/publications/{publicationId}/reconcile',
+                '/api/projects/{projectId}/media/uploads',
+                '/api/projects/{projectId}/media/uploads/{intentId}',
+                '/api/projects/{projectId}/media/uploads/{intentId}/finalize',
+                '/api/projects/{projectId}/media',
+                '/api/projects/{projectId}/media/{assetId}/content',
+                '/api/projects/{projectId}/media/{assetId}',
                 '/api/projects/{projectId}/audit-events',
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('reports unavailable media storage through the typed media surface', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'media-unavailable-operator@herald.local')
+            const response = await jsonRequest(app, '/api/projects/project-id/media', cookie)
+
+            expect(response.status).toBe(503)
+            expect(await response.json()).toEqual({
+                error: {
+                    code: 'media_unavailable',
+                    message: 'Media storage is not configured for this instance',
+                },
+            })
         } finally {
             closeDatabase(database)
         }
