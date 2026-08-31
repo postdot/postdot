@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'bun:test'
 
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition, MediaFamily } from '@herald/core'
 import { eq } from 'drizzle-orm'
 
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
+import type { MediaAssetReference } from './media-asset-store'
 import { runMigrations } from './migrations'
-import { jobs, posts, publicationTargetRevisions, publications, publishers } from './schema'
+import {
+    channelProfileVersions,
+    jobs,
+    mediaAssets,
+    mediaRepresentations,
+    posts,
+    publicationTargetRevisions,
+    publicationWorkingDrafts,
+    publications,
+    publishers,
+} from './schema'
 
 const automaticTestProfile: ChannelProfileDefinition = {
     id: 'future-provider',
@@ -40,6 +51,121 @@ const sourceContent = (text: string) => ({
     body: { text, format: 'plain_text' as const },
     media: [],
 })
+
+function createMediaProfile(
+    version: number,
+    families: readonly MediaFamily[],
+    mimeTypes: readonly string[]
+): ChannelProfileDefinition {
+    return {
+        id: 'media-provider',
+        version,
+        profileHash: `sha256:media-provider-profile-v${version}`,
+        schemaHash: `sha256:media-provider-schema-v${version}`,
+        origin: 'built_in',
+        contentSchema: {
+            type: 'object',
+            properties: {
+                body: { type: 'string', minLength: 1, maxLength: 1_000 },
+                media: {
+                    type: 'array',
+                    maxItems: 1,
+                    items: {
+                        type: 'object',
+                        properties: { assetId: { type: 'string', minLength: 1 } },
+                        required: ['assetId'],
+                        additionalProperties: false,
+                    },
+                },
+            },
+            required: ['body', 'media'],
+            additionalProperties: false,
+        },
+        fieldBindings: [
+            { id: 'body', semantic: 'primary_text', path: '/body' },
+            {
+                id: 'media',
+                semantic: 'ordered_media',
+                path: '/media',
+                item: { assetIdPath: '/assetId' },
+            },
+        ],
+        capabilities: {
+            revision: `media-provider-v${version}`,
+            textFields: [
+                {
+                    bindingId: 'body',
+                    acceptedSourceFormats: ['plain_text'],
+                    maxLength: 1_000,
+                },
+            ],
+            mediaFields: [
+                {
+                    bindingId: 'media',
+                    families,
+                    mimeTypes,
+                    maxItems: 1,
+                },
+            ],
+            relations: [],
+        },
+        execution: { kind: 'built_in', contractId: 'media-provider', revision: 'v1' },
+    }
+}
+
+function createReadyMedia(
+    projectId: string,
+    now: number,
+    createdByActorId = 'user-1'
+): MediaAssetReference {
+    return {
+        asset: {
+            id: 'asset-1',
+            projectId,
+            originalFilename: 'image.jpg',
+            defaultAccessibilityText: null,
+            state: 'ready',
+            archivedAt: null,
+            deletionRequestedAt: null,
+            deletedAt: null,
+            failureCode: null,
+            failureMessage: null,
+            createdByActorId,
+            createdAt: now,
+            updatedAt: now,
+        },
+        representations: [
+            {
+                id: 'representation-1',
+                projectId,
+                assetId: 'asset-1',
+                kind: 'original',
+                sourceRepresentationId: null,
+                state: 'ready',
+                storeId: 'local',
+                objectKey: 'asset-1/original',
+                declaredContentType: 'image/jpeg',
+                detectedContentType: 'image/jpeg',
+                detectedFormat: 'jpeg',
+                family: 'image',
+                byteSize: 100,
+                sha256: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+                width: 100,
+                height: 100,
+                durationMs: null,
+                pageCount: null,
+                isAnimated: false,
+                processorId: null,
+                processorVersion: null,
+                recipeJson: null,
+                failureCode: null,
+                failureMessage: null,
+                createdAt: now,
+                updatedAt: now,
+            },
+        ],
+    }
+}
 
 describe('manual workflow store', () => {
     it('creates a project, tracks manual publications, and records attribution', () => {
@@ -398,6 +524,312 @@ describe('manual workflow store', () => {
                 })
             ).toThrow('Publication target content is invalid')
             expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(0)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('versions a channel profile and re-assesses persisted work on activation', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Profile Lifecycle Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Versioned Channel',
+                profile: automaticTestProfile,
+            })
+            if (channel === null) throw new Error('The profile lifecycle channel was not created')
+
+            database
+                .insert(publishers)
+                .values({
+                    id: 'profile-lifecycle-publisher',
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    kind: 'future-provider',
+                })
+                .run()
+
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Profile lifecycle source'),
+                publications: [
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        targetContent: { body: 'short target' },
+                        scheduledAt: now + 60_000,
+                    },
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        targetContent: { body: 'this target becomes invalid' },
+                        scheduledAt: now + 120_000,
+                    },
+                ],
+            })
+            if (created === null) throw new Error('The profile lifecycle post was not created')
+
+            const nextSchema = structuredClone(automaticTestProfile.contentSchema) as Record<
+                string,
+                unknown
+            >
+            const nextProperties = nextSchema.properties as Record<string, Record<string, unknown>>
+            ;(nextProperties.body as Record<string, unknown>).maxLength = 12
+            const automaticTextField = automaticTestProfile.capabilities.textFields[0]
+            if (automaticTextField === undefined) {
+                throw new Error('The automatic test profile has no text field')
+            }
+            const nextProfile = {
+                ...automaticTestProfile,
+                profileHash: 'sha256:future-provider-profile-v2',
+                schemaHash: 'sha256:future-provider-schema-v2',
+                contentSchema: nextSchema,
+                capabilities: {
+                    ...automaticTestProfile.capabilities,
+                    revision: 'future-provider-v2',
+                    textFields: [
+                        {
+                            bindingId: automaticTextField.bindingId,
+                            acceptedSourceFormats: automaticTextField.acceptedSourceFormats,
+                            maxLength: 12,
+                        },
+                    ],
+                },
+            }
+
+            const draft = store.createChannelProfileDraft({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                profile: nextProfile,
+            })
+            expect(draft).toMatchObject({ state: 'draft', version: 2, revision: 1 })
+            if (draft === null) throw new Error('The profile draft was not created')
+
+            const preview = store.previewChannelProfileActivation({
+                projectId: project.project.id,
+                channelId: channel.id,
+                profileVersionId: draft.id,
+                subjectId: 'user-1',
+            })
+            expect(preview?.pendingTargets).toEqual([
+                expect.objectContaining({ state: 'compatible' }),
+                expect.objectContaining({ state: 'review_required' }),
+            ])
+            expect(preview?.workingDrafts.map(candidate => candidate.state).sort()).toEqual([
+                'compatible',
+                'review_required',
+            ])
+
+            const activated = store.activateChannelProfile({
+                projectId: project.project.id,
+                channelId: channel.id,
+                profileVersionId: draft.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+            })
+            expect(activated).toMatchObject({
+                channel: { profileVersionId: draft.id },
+                profile: { id: draft.id, state: 'active', version: 2 },
+            })
+            expect(activated?.assessment.hasReviewRequired).toBe(true)
+
+            const profileRows = database
+                .select({ id: channelProfileVersions.id, state: channelProfileVersions.state })
+                .from(channelProfileVersions)
+                .all()
+            expect(profileRows).toEqual([
+                { id: channel.profileVersionId, state: 'superseded' },
+                { id: draft.id, state: 'active' },
+            ])
+
+            const publicationRows = database
+                .select({
+                    id: publications.id,
+                    reviewState: publications.reviewState,
+                    targetRevisionId: publications.targetRevisionId,
+                    lastAssessedProfileVersionId: publications.lastAssessedProfileVersionId,
+                })
+                .from(publications)
+                .orderBy(publications.createdAt, publications.id)
+                .all()
+            const shortPublication = created.publications[0]
+            const invalidPublication = created.publications[1]
+            if (shortPublication === undefined || invalidPublication === undefined) {
+                throw new Error('The profile lifecycle publications are missing')
+            }
+            expect(publicationRows.find(row => row.id === shortPublication.id)).toEqual(
+                expect.objectContaining({
+                    reviewState: 'compatible',
+                    lastAssessedProfileVersionId: draft.id,
+                    targetRevisionId: expect.any(String),
+                })
+            )
+            expect(publicationRows.find(row => row.id === invalidPublication.id)).toEqual(
+                expect.objectContaining({
+                    reviewState: 'review_required',
+                    lastAssessedProfileVersionId: draft.id,
+                    targetRevisionId: expect.any(String),
+                })
+            )
+
+            const workingDraftRows = database
+                .select({
+                    profileVersionId: publicationWorkingDrafts.profileVersionId,
+                    lastAssessedProfileVersionId:
+                        publicationWorkingDrafts.lastAssessedProfileVersionId,
+                })
+                .from(publicationWorkingDrafts)
+                .all()
+            expect(workingDraftRows).toEqual([
+                expect.objectContaining({
+                    profileVersionId: channel.profileVersionId,
+                    lastAssessedProfileVersionId: draft.id,
+                }),
+                expect.objectContaining({
+                    profileVersionId: channel.profileVersionId,
+                    lastAssessedProfileVersionId: draft.id,
+                }),
+            ])
+
+            expect(
+                database
+                    .select()
+                    .from(jobs)
+                    .all()
+                    .map(job => job.state)
+                    .sort()
+            ).toEqual(['cancelled', 'pending'])
+            expect(
+                store.getChannelProfileState(project.project.id, channel.id, 'user-1')
+            ).toMatchObject({
+                active: { id: draft.id, state: 'active' },
+                draft: null,
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('revalidates pinned media representations when a profile narrows media support', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const media = {
+                getAsset(
+                    currentProjectId: string,
+                    assetId: string,
+                    _subjectId: string
+                ): MediaAssetReference | null {
+                    return assetId === 'asset-1' ? createReadyMedia(currentProjectId, now) : null
+                },
+            }
+            const store = createManualStore(database, { now: () => now, media })
+            const project = store.createProject({
+                name: 'Media Profile Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const readyMedia = createReadyMedia(project.project.id, now, project.actor.id)
+            database.insert(mediaAssets).values(readyMedia.asset).run()
+            const readyRepresentation = readyMedia.representations[0]
+            if (readyRepresentation === undefined) {
+                throw new Error('The ready media representation is missing')
+            }
+            database
+                .insert(mediaRepresentations)
+                .values({ ...readyRepresentation, recipeJson: null })
+                .run()
+            const profile = createMediaProfile(1, ['image'], ['image/jpeg'])
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Media Channel',
+                profile,
+            })
+            if (channel === null) throw new Error('The media profile channel was not created')
+
+            database
+                .insert(publishers)
+                .values({
+                    id: 'media-profile-publisher',
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    kind: 'media-provider',
+                })
+                .run()
+
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Media profile source', format: 'plain_text' },
+                    media: [{ assetId: 'asset-1' }],
+                },
+                publications: [
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        targetContent: {
+                            body: 'Media target',
+                            media: [{ assetId: 'asset-1' }],
+                        },
+                        scheduledAt: now + 60_000,
+                    },
+                ],
+            })
+            if (created === null) throw new Error('The media profile post was not created')
+            const publication = created.publications[0]
+            if (publication === undefined) throw new Error('The media publication is missing')
+
+            const draft = store.createChannelProfileDraft({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                profile: createMediaProfile(2, ['video'], ['video/mp4']),
+            })
+            if (draft === null) throw new Error('The media profile draft was not created')
+
+            const preview = store.previewChannelProfileActivation({
+                projectId: project.project.id,
+                channelId: channel.id,
+                profileVersionId: draft.id,
+                subjectId: 'user-1',
+            })
+            expect(preview?.pendingTargets[0]).toEqual(
+                expect.objectContaining({
+                    id: publication.id,
+                    state: 'review_required',
+                    issues: [
+                        expect.objectContaining({
+                            code: 'profile.media_representation_incompatible',
+                        }),
+                    ],
+                })
+            )
+
+            store.activateChannelProfile({
+                projectId: project.project.id,
+                channelId: channel.id,
+                profileVersionId: draft.id,
+                subjectId: 'user-1',
+            })
+            expect(database.select().from(jobs).all()).toEqual([
+                expect.objectContaining({ state: 'cancelled' }),
+            ])
         } finally {
             closeDatabase(database)
         }

@@ -2,6 +2,10 @@ import {
     createHeraldClient,
     type AuditEvent,
     type Channel,
+    type ChannelProfileActivation,
+    type ChannelProfileAssessment,
+    type ChannelProfileState,
+    type ChannelProfileVersion,
     type DuePublication,
     type Post,
     type PublisherConnection,
@@ -115,6 +119,59 @@ export const api = {
         )
     },
 
+    async getChannelProfileState(
+        projectId: string,
+        channelId: string
+    ): Promise<ChannelProfileState> {
+        return unwrap<ChannelProfileState>(
+            await client.api.projects({ projectId }).channels({ channelId }).profile.get()
+        )
+    },
+
+    async saveChannelProfileDraft(
+        projectId: string,
+        channelId: string,
+        profile: Record<string, unknown>,
+        expectedRevision?: number
+    ): Promise<{ profile: ChannelProfileVersion }> {
+        const body = expectedRevision === undefined ? { profile } : { profile, expectedRevision }
+        return unwrap<{ profile: ChannelProfileVersion }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                ['profile-drafts'].post(body)
+        )
+    },
+
+    async previewChannelProfileActivation(
+        projectId: string,
+        channelId: string,
+        profileVersionId: string
+    ): Promise<{ assessment: ChannelProfileAssessment }> {
+        return unwrap<{ assessment: ChannelProfileAssessment }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                ['profile-drafts']({ profileVersionId })
+                .preview.post()
+        )
+    },
+
+    async activateChannelProfile(
+        projectId: string,
+        channelId: string,
+        profileVersionId: string,
+        expectedRevision?: number
+    ): Promise<ChannelProfileActivation> {
+        return unwrap<ChannelProfileActivation>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                ['profile-drafts']({ profileVersionId })
+                .activate.post(expectedRevision === undefined ? {} : { expectedRevision })
+        )
+    },
+
     async listPublisherConnections(
         projectId: string
     ): Promise<{ connections: PublisherConnection[] }> {
@@ -204,6 +261,10 @@ export const api = {
 export type {
     AuditEvent,
     Channel,
+    ChannelProfileActivation,
+    ChannelProfileAssessment,
+    ChannelProfileState,
+    ChannelProfileVersion,
     DuePublication,
     Post,
     PublisherConnection,

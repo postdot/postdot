@@ -19,6 +19,10 @@ export type { PublisherRuntimeOptions } from './modules/publishers/runtime'
 export type {
     AuditEventResponse,
     ChannelResponse,
+    ChannelProfileActivationResponse,
+    ChannelProfileAssessmentResponse,
+    ChannelProfileStateResponse,
+    ChannelProfileVersionResponse,
     DuePublicationResponse,
     PostResponse,
     PublisherConnectionResponse,

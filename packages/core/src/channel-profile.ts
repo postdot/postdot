@@ -17,6 +17,7 @@ import {
 } from './validation'
 
 export const channelProfileOrigins = ['built_in', 'custom'] as const
+export const channelProfileVersionStates = ['draft', 'active', 'superseded', 'disabled'] as const
 export const channelFieldSemantics = [
     'primary_text',
     'headline',
@@ -27,6 +28,7 @@ export const channelFieldSemantics = [
 export const mediaFamilies = ['image', 'video', 'audio', 'document'] as const
 
 export type ChannelProfileOrigin = (typeof channelProfileOrigins)[number]
+export type ChannelProfileVersionState = (typeof channelProfileVersionStates)[number]
 export type ChannelFieldSemantic = (typeof channelFieldSemantics)[number]
 export type MediaFamily = (typeof mediaFamilies)[number]
 

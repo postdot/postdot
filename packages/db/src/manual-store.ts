@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import {
     adaptSourceContentToProfile,
+    assessChannelProfileChange,
     ChannelProfileCompiler,
     createManualChannelProfile,
     DomainInvariantError,
@@ -17,7 +18,9 @@ import {
     transitionPublication,
     type Actor,
     type Channel,
+    type ChannelProfileImpactAssessment,
     type ChannelProfileDefinition,
+    type ChannelProfileVersionState,
     type DeliveryMode,
     type MediaFieldCapability,
     type MediaRepresentation,
@@ -54,6 +57,52 @@ export interface CreateChannelInput {
     readonly subjectId: string
     readonly name: string
     readonly profile?: ChannelProfileDefinition
+}
+
+export interface CreateChannelProfileDraftInput {
+    readonly projectId: string
+    readonly channelId: string
+    readonly subjectId: string
+    readonly profile: ChannelProfileDefinition
+    readonly expectedRevision?: number
+}
+
+export interface ChannelProfileVersion {
+    readonly id: string
+    readonly projectId: string
+    readonly channelId: string
+    readonly profileId: string
+    readonly version: number
+    readonly origin: ChannelProfileDefinition['origin']
+    readonly state: ChannelProfileVersionState
+    readonly revision: number
+    readonly profile: ChannelProfileDefinition
+    readonly createdByActorId: string
+    readonly createdAt: Timestamp
+    readonly updatedAt: Timestamp
+}
+
+export interface ChannelProfileState {
+    readonly channel: Channel
+    readonly active: ChannelProfileVersion
+    readonly draft: ChannelProfileVersion | null
+}
+
+export interface PreviewChannelProfileActivationInput {
+    readonly projectId: string
+    readonly channelId: string
+    readonly profileVersionId: string
+    readonly subjectId: string
+}
+
+export interface ActivateChannelProfileInput extends PreviewChannelProfileActivationInput {
+    readonly expectedRevision?: number
+}
+
+export interface ChannelProfileActivationResult {
+    readonly channel: Channel
+    readonly profile: ChannelProfileVersion
+    readonly assessment: ChannelProfileImpactAssessment
 }
 
 export interface CreatePostPublicationInput {
@@ -135,6 +184,7 @@ export interface PublicationWorkingDraft {
     readonly content: TargetContent
     readonly reviewState: PublicationReviewState
     readonly validationIssues: readonly Record<string, unknown>[]
+    readonly lastAssessedProfileVersionId: string | null
     readonly revision: number
     readonly updatedByActorId: string
     readonly createdAt: Timestamp
@@ -204,6 +254,8 @@ interface PublicationRow {
     readonly scheduledByActorId: string | null
     readonly stateChangedByActorId: string
     readonly publishedByActorId: string | null
+    readonly lastAssessedProfileVersionId: string | null
+    readonly profileAssessmentIssuesJson: string
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -212,7 +264,17 @@ interface ProfileRow {
     readonly id: string
     readonly projectId: string
     readonly channelId: string
+    readonly profileId: string
+    readonly version: number
+    readonly origin: ChannelProfileDefinition['origin']
+    readonly state: ChannelProfileVersionState
+    readonly revision: number
     readonly profileJson: string
+    readonly profileHash: string
+    readonly schemaHash: string
+    readonly createdByActorId: string
+    readonly createdAt: number
+    readonly updatedAt: number
 }
 
 interface PostSourceRow {
@@ -231,10 +293,41 @@ interface WorkingDraftRow {
     readonly contentJson: string
     readonly reviewState: PublicationReviewState
     readonly validationIssuesJson: string
+    readonly lastAssessedProfileVersionId: string | null
     readonly revision: number
     readonly updatedByActorId: string
     readonly createdAt: number
     readonly updatedAt: number
+}
+
+interface ProfileImpactWorkingDraftRow {
+    readonly id: string
+    readonly publicationId: string
+    readonly contentJson: string
+    readonly deliveryMode: DeliveryMode
+    readonly revision: number
+}
+
+interface ProfileImpactTargetRow {
+    readonly id: string
+    readonly publicationId: string
+    readonly targetRevisionId: string
+    readonly contentJson: string
+    readonly deliveryMode: DeliveryMode
+    readonly scheduledAt: number | null
+    readonly state: Publication['state']
+}
+
+interface TargetRevisionMediaRow {
+    readonly id: string
+    readonly projectId: string
+    readonly targetRevisionId: string
+    readonly assetId: string
+    readonly representationId: string
+    readonly position: number
+    readonly contentPath: string
+    readonly role: string | null
+    readonly accessibilityText: string | null
 }
 
 interface DuePublicationRow extends PublicationRow {
@@ -278,6 +371,8 @@ const publicationColumns = `
     publications.scheduled_by_actor_id as scheduledByActorId,
     publications.state_changed_by_actor_id as stateChangedByActorId,
     publications.published_by_actor_id as publishedByActorId,
+    publications.last_assessed_profile_version_id as lastAssessedProfileVersionId,
+    publications.profile_assessment_issues_json as profileAssessmentIssuesJson,
     publications.created_at as createdAt,
     publications.updated_at as updatedAt
 `
@@ -339,11 +434,44 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         select id,
                project_id as projectId,
                channel_id as channelId,
-               profile_json as profileJson
+               profile_id as profileId,
+               version,
+               origin,
+               state,
+               revision,
+               profile_json as profileJson,
+               profile_hash as profileHash,
+               schema_hash as schemaHash,
+               created_by_actor_id as createdByActorId,
+               created_at as createdAt,
+               updated_at as updatedAt
         from channel_profile_versions
         where project_id = ?1
           and id = ?2
           and state <> 'disabled'
+    `)
+    const loadDraftProfileStatement = client.query<
+        ProfileRow,
+        [projectId: string, channelId: string]
+    >(`
+        select id,
+               project_id as projectId,
+               channel_id as channelId,
+               profile_id as profileId,
+               version,
+               origin,
+               state,
+               revision,
+               profile_json as profileJson,
+               profile_hash as profileHash,
+               schema_hash as schemaHash,
+               created_by_actor_id as createdByActorId,
+               created_at as createdAt,
+               updated_at as updatedAt
+        from channel_profile_versions
+        where project_id = ?1
+          and channel_id = ?2
+          and state = 'draft'
     `)
     const loadPostSourceStatement = client.query<
         PostSourceRow,
@@ -369,6 +497,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                content_json as contentJson,
                review_state as reviewState,
                validation_issues_json as validationIssuesJson,
+               last_assessed_profile_version_id as lastAssessedProfileVersionId,
                revision,
                updated_by_actor_id as updatedByActorId,
                created_at as createdAt,
@@ -376,6 +505,71 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         from publication_working_drafts
         where project_id = ?1
           and publication_id = ?2
+    `)
+    const listProfileImpactWorkingDraftsStatement = client.query<
+        ProfileImpactWorkingDraftRow,
+        [projectId: string, channelId: string]
+    >(`
+        select drafts.id,
+               drafts.publication_id as publicationId,
+               drafts.content_json as contentJson,
+               publications.delivery_mode as deliveryMode,
+               drafts.revision
+        from publication_working_drafts as drafts
+        inner join publications
+            on publications.project_id = drafts.project_id
+           and publications.id = drafts.publication_id
+        where drafts.project_id = ?1
+          and publications.channel_id = ?2
+          and publications.state in ('draft', 'scheduled', 'failed')
+        order by drafts.id
+    `)
+    const listProfileImpactTargetsStatement = client.query<
+        ProfileImpactTargetRow,
+        [projectId: string, channelId: string]
+    >(`
+        select publications.id,
+               publications.id as publicationId,
+               publications.target_revision_id as targetRevisionId,
+               target_revisions.content_json as contentJson,
+               publications.delivery_mode as deliveryMode,
+               publications.scheduled_at as scheduledAt,
+               publications.state
+        from publications
+        inner join publication_target_revisions as target_revisions
+            on target_revisions.project_id = publications.project_id
+           and target_revisions.id = publications.target_revision_id
+           and target_revisions.publication_id = publications.id
+        where publications.project_id = ?1
+          and publications.channel_id = ?2
+          and publications.target_revision_id is not null
+          and publications.state in ('scheduled', 'ready')
+          and not exists (
+              select 1
+              from jobs
+              where jobs.project_id = publications.project_id
+                and jobs.publication_id = publications.id
+                and jobs.state = 'running'
+          )
+        order by publications.scheduled_at, publications.id
+    `)
+    const listTargetRevisionMediaStatement = client.query<
+        TargetRevisionMediaRow,
+        [projectId: string, targetRevisionId: string]
+    >(`
+        select id,
+               project_id as projectId,
+               target_revision_id as targetRevisionId,
+               asset_id as assetId,
+               representation_id as representationId,
+               position,
+               content_path as contentPath,
+               role,
+               accessibility_text as accessibilityText
+        from publication_revision_media
+        where project_id = ?1
+          and target_revision_id = ?2
+        order by position, id
     `)
     const nextTargetRevisionSequenceStatement = client.query<
         { sequence: number | null },
@@ -458,6 +652,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             profileId: string,
             version: number,
             origin: ChannelProfileDefinition['origin'],
+            state: ChannelProfileVersionState,
+            revision: number,
             profileJson: string,
             profileHash: string,
             schemaHash: string,
@@ -473,13 +669,71 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             version,
             origin,
             state,
+            revision,
             profile_json,
             profile_hash,
             schema_hash,
             created_by_actor_id,
             created_at,
             updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, 'active', ?7, ?8, ?9, ?10, ?11, ?11)
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
+    `)
+    const updateProfileDraftStatement = client.query<
+        { changes: number },
+        [
+            profileJson: string,
+            profileHash: string,
+            schemaHash: string,
+            updatedAt: number,
+            projectId: string,
+            channelId: string,
+            profileVersionId: string,
+            expectedRevision: number,
+        ]
+    >(`
+        update channel_profile_versions
+        set profile_json = ?1,
+            profile_hash = ?2,
+            schema_hash = ?3,
+            revision = revision + 1,
+            updated_at = ?4
+        where project_id = ?5
+          and channel_id = ?6
+          and id = ?7
+          and state = 'draft'
+          and revision = ?8
+    `)
+    const updateProfileStateStatement = client.query<
+        { changes: number },
+        [
+            state: ChannelProfileVersionState,
+            updatedAt: number,
+            projectId: string,
+            profileVersionId: string,
+        ]
+    >(`
+        update channel_profile_versions
+        set state = ?1,
+            updated_at = ?2
+        where project_id = ?3
+          and id = ?4
+    `)
+    const updateChannelProfileStatement = client.query<
+        { changes: number },
+        [
+            profileVersionId: string,
+            updatedAt: number,
+            projectId: string,
+            channelId: string,
+            expectedProfileVersionId: string,
+        ]
+    >(`
+        update channels
+        set profile_version_id = ?1,
+            updated_at = ?2
+        where project_id = ?3
+          and id = ?4
+          and profile_version_id = ?5
     `)
     const insertPostStatement = client.query<
         void,
@@ -519,6 +773,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             createdByActorId: string,
             scheduledByActorId: string | null,
             stateChangedByActorId: string,
+            lastAssessedProfileVersionId: string | null,
+            profileAssessmentIssuesJson: string,
             now: number,
         ]
     >(`
@@ -535,10 +791,12 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             created_by_actor_id,
             scheduled_by_actor_id,
             state_changed_by_actor_id,
+            last_assessed_profile_version_id,
+            profile_assessment_issues_json,
             created_at,
             updated_at
         )
-        values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
+        values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)
     `)
     const insertWorkingDraftStatement = client.query<
         void,
@@ -551,6 +809,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             contentJson: string,
             reviewState: PublicationReviewState,
             validationIssuesJson: string,
+            lastAssessedProfileVersionId: string | null,
             updatedByActorId: string,
             now: number,
         ]
@@ -564,11 +823,12 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             content_json,
             review_state,
             validation_issues_json,
+            last_assessed_profile_version_id,
             revision,
             updated_by_actor_id,
             created_at,
             updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, ?10, ?10)
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11, ?11)
     `)
     const insertTargetRevisionStatement = client.query<
         void,
@@ -660,6 +920,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             contentJson: string,
             reviewState: PublicationReviewState,
             validationIssuesJson: string,
+            lastAssessedProfileVersionId: string | null,
             updatedByActorId: string,
             updatedAt: number,
             projectId: string,
@@ -672,12 +933,57 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             content_json = ?2,
             review_state = ?3,
             validation_issues_json = ?4,
+            last_assessed_profile_version_id = ?5,
             revision = revision + 1,
-            updated_by_actor_id = ?5,
-            updated_at = ?6
-        where project_id = ?7
-          and publication_id = ?8
-          and revision = ?9
+            updated_by_actor_id = ?6,
+            updated_at = ?7
+        where project_id = ?8
+          and publication_id = ?9
+          and revision = ?10
+    `)
+    const updatePublicationAssessmentStatement = client.query<
+        { changes: number },
+        [
+            reviewState: PublicationReviewState,
+            issuesJson: string,
+            profileVersionId: string,
+            updatedAt: number,
+            actorId: string,
+            projectId: string,
+            publicationId: string,
+        ]
+    >(`
+        update publications
+        set review_state = ?1,
+            profile_assessment_issues_json = ?2,
+            last_assessed_profile_version_id = ?3,
+            state_changed_by_actor_id = ?5,
+            updated_at = ?4
+        where project_id = ?6
+          and id = ?7
+          and state in ('draft', 'scheduled', 'ready', 'failed')
+    `)
+    const updateWorkingDraftAssessmentStatement = client.query<
+        { changes: number },
+        [
+            reviewState: PublicationReviewState,
+            issuesJson: string,
+            profileVersionId: string,
+            updatedByActorId: string,
+            updatedAt: number,
+            projectId: string,
+            publicationId: string,
+        ]
+    >(`
+        update publication_working_drafts
+        set review_state = ?1,
+            validation_issues_json = ?2,
+            last_assessed_profile_version_id = ?3,
+            revision = revision + 1,
+            updated_by_actor_id = ?4,
+            updated_at = ?5
+        where project_id = ?6
+          and publication_id = ?7
     `)
     const updatePendingJobStatement = client.query<
         { changes: number },
@@ -719,6 +1025,13 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         set target_revision_id = ?1,
             state = ?2,
             review_state = 'compatible',
+            profile_assessment_issues_json = '[]',
+            last_assessed_profile_version_id = (
+                select profile_version_id
+                from publication_working_drafts
+                where publication_working_drafts.project_id = publications.project_id
+                  and publication_working_drafts.publication_id = publications.id
+            ),
             scheduled_at = ?3,
             scheduled_by_actor_id = ?4,
             error_message = null,
@@ -906,6 +1219,469 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         limit ?2
     `)
 
+    const assessChannelProfileImpact = (
+        projectId: string,
+        channelId: string,
+        currentProfileRow: ProfileRow,
+        proposedProfileRow: ProfileRow,
+        subjectId: string
+    ) => {
+        const workingDraftRows = listProfileImpactWorkingDraftsStatement.all(projectId, channelId)
+        const targetRows = listProfileImpactTargetsStatement.all(projectId, channelId)
+        const targetMediaByPublicationId = new Map<string, readonly TargetRevisionMediaRow[]>()
+
+        for (const target of targetRows) {
+            targetMediaByPublicationId.set(
+                target.publicationId,
+                listTargetRevisionMediaStatement.all(projectId, target.targetRevisionId)
+            )
+        }
+
+        const assessmentResult = assessChannelProfileChange({
+            currentProfile: parseProfile(currentProfileRow.profileJson),
+            proposedProfile: parseProfile(proposedProfileRow.profileJson),
+            workingDrafts: workingDraftRows.map(row => ({
+                id: row.publicationId,
+                kind: 'working_draft' as const,
+                content: parseJsonObject(row.contentJson, 'publication working draft content'),
+                deliveryMode: row.deliveryMode,
+            })),
+            pendingTargets: targetRows.map(row => ({
+                id: row.publicationId,
+                kind: 'pending_target' as const,
+                content: parseJsonObject(row.contentJson, 'publication target content'),
+                deliveryMode: row.deliveryMode,
+            })),
+            validateMedia: (candidate, profile) => {
+                if (candidate.kind === 'working_draft') {
+                    return assessWorkingDraftMedia(
+                        profile,
+                        candidate.content,
+                        projectId,
+                        subjectId,
+                        media
+                    )
+                }
+
+                const target = targetRows.find(row => row.publicationId === candidate.id)
+                if (target === undefined) {
+                    return [
+                        profileAssessmentIssue(
+                            'profile.target_missing',
+                            'The pending target could not be loaded during profile assessment'
+                        ),
+                    ]
+                }
+
+                return assessPinnedTargetMedia(
+                    profile,
+                    candidate.content,
+                    projectId,
+                    subjectId,
+                    media,
+                    targetMediaByPublicationId.get(target.publicationId) ?? []
+                )
+            },
+        })
+        if (!assessmentResult.ok) throw invalidProfileError(assessmentResult.issues)
+
+        return {
+            assessment: assessmentResult.value,
+            workingDraftRows,
+            targetRows,
+            targetMediaByPublicationId,
+        }
+    }
+
+    const getChannelProfileState = (
+        projectId: string,
+        channelId: string,
+        subjectId: string
+    ): ChannelProfileState | null => {
+        if (loadActorStatement.get(projectId, subjectId) === null) return null
+
+        const channelRow = loadChannelStatement.get(projectId, channelId)
+        if (channelRow === null) return null
+
+        const activeRow = loadProfileStatement.get(projectId, channelRow.profileVersionId)
+        if (activeRow === null || activeRow.state !== 'active') {
+            throw new DomainInvariantError(
+                'invalid_input',
+                `Channel ${channelId} has no active profile`
+            )
+        }
+
+        const draftRow = loadDraftProfileStatement.get(projectId, channelId)
+        return {
+            channel: toChannel(channelRow),
+            active: toProfileVersion(activeRow),
+            draft: draftRow === null ? null : toProfileVersion(draftRow),
+        }
+    }
+
+    const createChannelProfileDraftTransaction = client.transaction(
+        (input: CreateChannelProfileDraftInput): ChannelProfileVersion | null => {
+            const actor = loadActorStatement.get(input.projectId, input.subjectId)
+            const channelRow = loadChannelStatement.get(input.projectId, input.channelId)
+            if (actor === null || channelRow === null) return null
+
+            const activeRow = loadProfileStatement.get(input.projectId, channelRow.profileVersionId)
+            if (activeRow === null || activeRow.state !== 'active') {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Channel ${input.channelId} has no active profile`
+                )
+            }
+
+            const expectedRevision = normalizeOptionalProfileRevision(input.expectedRevision)
+            const draftProfile = profileForDraft(input.profile, activeRow)
+            const profileResult = profileCompiler.compile(draftProfile)
+            if (!profileResult.ok) throw invalidProfileError(profileResult.issues)
+
+            const profile = profileResult.value.profile
+            const timestamp = requireTimestamp(now(), 'now')
+            const existingDraft = loadDraftProfileStatement.get(input.projectId, input.channelId)
+
+            if (existingDraft !== null) {
+                if (expectedRevision === undefined || expectedRevision !== existingDraft.revision) {
+                    throw new DomainInvariantError(
+                        'write_conflict',
+                        `Channel profile draft ${input.channelId} changed after revision ${expectedRevision ?? 'unknown'}`
+                    )
+                }
+
+                const updated = updateProfileDraftStatement.run(
+                    JSON.stringify(profile),
+                    profile.profileHash,
+                    profile.schemaHash,
+                    timestamp,
+                    input.projectId,
+                    input.channelId,
+                    existingDraft.id,
+                    expectedRevision
+                )
+                if (updated.changes !== 1) {
+                    throw new DomainInvariantError(
+                        'write_conflict',
+                        `Channel profile draft ${input.channelId} changed before it could be saved`
+                    )
+                }
+
+                insertAuditEventStatement.run(
+                    createId(),
+                    input.projectId,
+                    actor.id,
+                    'channel.profile_draft.updated',
+                    'channel_profile_version',
+                    existingDraft.id,
+                    JSON.stringify({
+                        channelId: input.channelId,
+                        profileId: profile.id,
+                        version: profile.version,
+                        revision: existingDraft.revision + 1,
+                    }),
+                    timestamp
+                )
+
+                const saved = loadProfileStatement.get(input.projectId, existingDraft.id)
+                if (saved === null)
+                    throw new DomainInvariantError('invalid_input', 'Draft disappeared')
+                return toProfileVersion(saved)
+            }
+
+            if (expectedRevision !== undefined && expectedRevision !== 0) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    `Channel profile ${input.channelId} has no draft at revision ${expectedRevision}`
+                )
+            }
+
+            const profileVersionId = createId()
+            insertProfileStatement.run(
+                profileVersionId,
+                input.projectId,
+                input.channelId,
+                profile.id,
+                profile.version,
+                profile.origin,
+                'draft',
+                1,
+                JSON.stringify(profile),
+                profile.profileHash,
+                profile.schemaHash,
+                actor.id,
+                timestamp
+            )
+            insertAuditEventStatement.run(
+                createId(),
+                input.projectId,
+                actor.id,
+                'channel.profile_draft.created',
+                'channel_profile_version',
+                profileVersionId,
+                JSON.stringify({
+                    channelId: input.channelId,
+                    profileId: profile.id,
+                    version: profile.version,
+                    revision: 1,
+                }),
+                timestamp
+            )
+
+            const created = loadProfileStatement.get(input.projectId, profileVersionId)
+            if (created === null)
+                throw new DomainInvariantError('invalid_input', 'Draft disappeared')
+            return toProfileVersion(created)
+        }
+    )
+
+    const previewChannelProfileActivation = (
+        input: PreviewChannelProfileActivationInput
+    ): ChannelProfileImpactAssessment | null => {
+        const actor = loadActorStatement.get(input.projectId, input.subjectId)
+        const channelRow = loadChannelStatement.get(input.projectId, input.channelId)
+        if (actor === null || channelRow === null) return null
+
+        const activeRow = loadProfileStatement.get(input.projectId, channelRow.profileVersionId)
+        const draftRow = loadProfileStatement.get(input.projectId, input.profileVersionId)
+        if (activeRow === null || activeRow.state !== 'active') {
+            throw new DomainInvariantError(
+                'invalid_input',
+                `Channel ${input.channelId} has no active profile`
+            )
+        }
+        if (
+            draftRow === null ||
+            draftRow.channelId !== input.channelId ||
+            draftRow.state !== 'draft'
+        ) {
+            throw new DomainInvariantError(
+                'invalid_input',
+                `Profile ${input.profileVersionId} is not a draft for channel ${input.channelId}`
+            )
+        }
+
+        return assessChannelProfileImpact(
+            input.projectId,
+            input.channelId,
+            activeRow,
+            draftRow,
+            input.subjectId
+        ).assessment
+    }
+
+    const activateChannelProfileTransaction = client.transaction(
+        (input: ActivateChannelProfileInput): ChannelProfileActivationResult | null => {
+            const actor = loadActorStatement.get(input.projectId, input.subjectId)
+            const channelRow = loadChannelStatement.get(input.projectId, input.channelId)
+            if (actor === null || channelRow === null) return null
+
+            const activeRow = loadProfileStatement.get(input.projectId, channelRow.profileVersionId)
+            const draftRow = loadProfileStatement.get(input.projectId, input.profileVersionId)
+            if (activeRow === null || activeRow.state !== 'active') {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Channel ${input.channelId} has no active profile`
+                )
+            }
+            if (
+                draftRow === null ||
+                draftRow.channelId !== input.channelId ||
+                draftRow.state !== 'draft'
+            ) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Profile ${input.profileVersionId} is not a draft for channel ${input.channelId}`
+                )
+            }
+
+            const expectedRevision = normalizeOptionalProfileRevision(input.expectedRevision)
+            if (expectedRevision !== undefined && expectedRevision !== draftRow.revision) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    `Channel profile draft ${input.profileVersionId} changed after revision ${expectedRevision}`
+                )
+            }
+
+            const impact = assessChannelProfileImpact(
+                input.projectId,
+                input.channelId,
+                activeRow,
+                draftRow,
+                input.subjectId
+            )
+            const timestamp = requireTimestamp(now(), 'now')
+
+            if (
+                updateProfileStateStatement.run(
+                    'superseded',
+                    timestamp,
+                    input.projectId,
+                    activeRow.id
+                ).changes !== 1
+            ) {
+                throw new DomainInvariantError(
+                    'claim_mismatch',
+                    `Could not supersede profile ${activeRow.id}`
+                )
+            }
+            if (
+                updateProfileStateStatement.run('active', timestamp, input.projectId, draftRow.id)
+                    .changes !== 1
+            ) {
+                throw new DomainInvariantError(
+                    'claim_mismatch',
+                    `Could not activate profile ${draftRow.id}`
+                )
+            }
+            if (
+                updateChannelProfileStatement.run(
+                    draftRow.id,
+                    timestamp,
+                    input.projectId,
+                    input.channelId,
+                    activeRow.id
+                ).changes !== 1
+            ) {
+                throw new DomainInvariantError(
+                    'claim_mismatch',
+                    `Could not attach profile ${draftRow.id} to channel ${input.channelId}`
+                )
+            }
+
+            for (const workingDraft of impact.workingDraftRows) {
+                const assessed = impact.assessment.workingDrafts.find(
+                    candidate => candidate.id === workingDraft.publicationId
+                )
+                if (assessed === undefined) continue
+                if (
+                    updateWorkingDraftAssessmentStatement.run(
+                        assessed.state,
+                        JSON.stringify(assessed.issues),
+                        draftRow.id,
+                        actor.id,
+                        timestamp,
+                        input.projectId,
+                        workingDraft.publicationId
+                    ).changes !== 1
+                ) {
+                    throw new DomainInvariantError(
+                        'claim_mismatch',
+                        `Could not assess working draft ${workingDraft.publicationId}`
+                    )
+                }
+            }
+
+            for (const target of impact.targetRows) {
+                const assessed = impact.assessment.pendingTargets.find(
+                    candidate => candidate.id === target.publicationId
+                )
+                if (assessed === undefined) continue
+                const assessmentUpdate = updatePublicationAssessmentStatement.run(
+                    assessed.state,
+                    JSON.stringify(assessed.issues),
+                    draftRow.id,
+                    timestamp,
+                    actor.id,
+                    input.projectId,
+                    target.publicationId
+                )
+                if (assessmentUpdate.changes !== 1) {
+                    throw new DomainInvariantError(
+                        'claim_mismatch',
+                        `Could not assess publication ${target.publicationId}`
+                    )
+                }
+
+                const activeJob = loadActiveJobStatement.get(input.projectId, target.publicationId)
+                if (assessed.state === 'review_required') {
+                    if (activeJob?.state === 'pending') {
+                        if (
+                            cancelPendingJobStatement.run(timestamp, input.projectId, activeJob.id)
+                                .changes !== 1
+                        ) {
+                            throw new DomainInvariantError(
+                                'claim_mismatch',
+                                `Could not cancel job ${activeJob.id}`
+                            )
+                        }
+                    }
+                    continue
+                }
+
+                if (
+                    activeJob === null &&
+                    target.deliveryMode === 'automatic' &&
+                    channelRow.publisherId !== null
+                ) {
+                    const publicationRow = loadPublicationByIdStatement.get(
+                        input.projectId,
+                        target.publicationId
+                    )
+                    if (publicationRow === null) {
+                        throw new DomainInvariantError(
+                            'claim_mismatch',
+                            `Publication ${target.publicationId} disappeared during activation`
+                        )
+                    }
+                    const publication = toPublication(publicationRow)
+                    const job = createJob({
+                        id: createId(),
+                        publication,
+                        publisher: toPublisher(channelRow),
+                        runAt: Math.max(publication.scheduledAt ?? timestamp, timestamp),
+                        now: timestamp,
+                    })
+                    insertJobStatement.run(
+                        job.id,
+                        job.projectId,
+                        job.publicationId,
+                        job.runAt,
+                        timestamp
+                    )
+                }
+            }
+
+            insertAuditEventStatement.run(
+                createId(),
+                input.projectId,
+                actor.id,
+                'channel.profile_activated',
+                'channel',
+                input.channelId,
+                JSON.stringify({
+                    previousProfileVersionId: activeRow.id,
+                    profileVersionId: draftRow.id,
+                    compatibleWorkingDraftIds: impact.assessment.workingDrafts
+                        .filter(candidate => candidate.state === 'compatible')
+                        .map(candidate => candidate.id),
+                    reviewRequiredWorkingDraftIds: impact.assessment.workingDrafts
+                        .filter(candidate => candidate.state === 'review_required')
+                        .map(candidate => candidate.id),
+                    compatibleTargetIds: impact.assessment.pendingTargets
+                        .filter(candidate => candidate.state === 'compatible')
+                        .map(candidate => candidate.id),
+                    reviewRequiredTargetIds: impact.assessment.pendingTargets
+                        .filter(candidate => candidate.state === 'review_required')
+                        .map(candidate => candidate.id),
+                }),
+                timestamp
+            )
+
+            const updatedChannel = loadChannelStatement.get(input.projectId, input.channelId)
+            const updatedProfile = loadProfileStatement.get(input.projectId, draftRow.id)
+            if (updatedChannel === null || updatedProfile === null) {
+                throw new DomainInvariantError('invalid_input', 'Activated profile disappeared')
+            }
+
+            return {
+                channel: toChannel(updatedChannel),
+                profile: toProfileVersion(updatedProfile),
+                assessment: impact.assessment,
+            }
+        }
+    )
+
     const createProjectTransaction = client.transaction(
         (input: CreateProjectInput): CreatedProject => {
             const timestamp = requireTimestamp(now(), 'now')
@@ -1002,6 +1778,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 profile.id,
                 profile.version,
                 profile.origin,
+                'active',
+                1,
                 JSON.stringify(profile),
                 profile.profileHash,
                 profile.schemaHash,
@@ -1168,6 +1946,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                     publication.createdByActorId,
                     publication.scheduledByActorId,
                     publication.stateChangedByActorId,
+                    entry.profileVersionId,
+                    JSON.stringify(entry.validationIssues),
                     timestamp
                 )
                 insertWorkingDraftStatement.run(
@@ -1179,6 +1959,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                     entry.targetContentJson,
                     publication.reviewState,
                     JSON.stringify(entry.validationIssues),
+                    entry.profileVersionId,
                     actor.id,
                     timestamp
                 )
@@ -1363,6 +2144,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 targetContentJson,
                 reviewState,
                 JSON.stringify(validation.issues),
+                draftRow.profileVersionId,
                 actorRow.id,
                 timestamp,
                 input.projectId,
@@ -1732,6 +2514,53 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             })
         },
 
+        getChannelProfileState(
+            projectId: string,
+            channelId: string,
+            subjectId: string
+        ): ChannelProfileState | null {
+            return getChannelProfileState(
+                requireNonBlank(projectId, 'projectId'),
+                requireNonBlank(channelId, 'channelId'),
+                requireNonBlank(subjectId, 'subjectId')
+            )
+        },
+
+        createChannelProfileDraft(
+            input: CreateChannelProfileDraftInput
+        ): ChannelProfileVersion | null {
+            return createChannelProfileDraftTransaction.immediate({
+                ...input,
+                projectId: requireNonBlank(input.projectId, 'projectId'),
+                channelId: requireNonBlank(input.channelId, 'channelId'),
+                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
+            })
+        },
+
+        previewChannelProfileActivation(
+            input: PreviewChannelProfileActivationInput
+        ): ChannelProfileImpactAssessment | null {
+            return previewChannelProfileActivation({
+                ...input,
+                projectId: requireNonBlank(input.projectId, 'projectId'),
+                channelId: requireNonBlank(input.channelId, 'channelId'),
+                profileVersionId: requireNonBlank(input.profileVersionId, 'profileVersionId'),
+                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
+            })
+        },
+
+        activateChannelProfile(
+            input: ActivateChannelProfileInput
+        ): ChannelProfileActivationResult | null {
+            return activateChannelProfileTransaction.immediate({
+                ...input,
+                projectId: requireNonBlank(input.projectId, 'projectId'),
+                channelId: requireNonBlank(input.channelId, 'channelId'),
+                profileVersionId: requireNonBlank(input.profileVersionId, 'profileVersionId'),
+                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
+            })
+        },
+
         listChannels(projectId: string, subjectId: string): Channel[] | null {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const actor = loadActorStatement.get(
@@ -1900,6 +2729,305 @@ function toChannel(row: ChannelRow): Channel {
     }
 }
 
+function toProfileVersion(row: ProfileRow): ChannelProfileVersion {
+    const profile = parseProfile(row.profileJson)
+    if (
+        profile.id !== row.profileId ||
+        profile.version !== row.version ||
+        profile.origin !== row.origin ||
+        profile.profileHash !== row.profileHash ||
+        profile.schemaHash !== row.schemaHash
+    ) {
+        throw new DomainInvariantError(
+            'invalid_content',
+            `Stored channel profile ${row.id} metadata does not match its definition`
+        )
+    }
+
+    return {
+        id: row.id,
+        projectId: row.projectId,
+        channelId: row.channelId,
+        profileId: row.profileId,
+        version: row.version,
+        origin: row.origin,
+        state: row.state,
+        revision: row.revision,
+        profile,
+        createdByActorId: row.createdByActorId,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+    }
+}
+
+function profileForDraft(
+    profile: ChannelProfileDefinition,
+    activeRow: ProfileRow
+): ChannelProfileDefinition {
+    if (profile.id !== activeRow.profileId) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            `A channel profile draft cannot change profile identity from ${activeRow.profileId}`
+        )
+    }
+    if (profile.origin !== activeRow.origin) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            `A channel profile draft cannot change profile origin from ${activeRow.origin}`
+        )
+    }
+
+    return {
+        ...profile,
+        id: activeRow.profileId,
+        version: activeRow.version + 1,
+        origin: activeRow.origin,
+    }
+}
+
+function normalizeOptionalProfileRevision(value: number | undefined): number | undefined {
+    if (value === undefined) return undefined
+    if (!Number.isSafeInteger(value) || value < 0) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            'Profile expectedRevision must be a non-negative safe integer'
+        )
+    }
+    return value
+}
+
+function profileAssessmentIssue(code: string, message: string, path = '/media'): ValidationIssue {
+    return { path, code, message, severity: 'error', source: 'capability' }
+}
+
+function assessWorkingDraftMedia(
+    profile: ChannelProfileDefinition,
+    content: unknown,
+    projectId: string,
+    subjectId: string,
+    media: Pick<MediaAssetStore, 'getAsset'> | undefined
+): readonly ValidationIssue[] {
+    if (!isRecord(content)) {
+        return [
+            profileAssessmentIssue(
+                'profile.content_not_object',
+                'The working draft content is not a JSON object',
+                ''
+            ),
+        ]
+    }
+
+    try {
+        resolveTargetMedia(profile, content, projectId, subjectId, media)
+        return []
+    } catch (error) {
+        return [
+            profileAssessmentIssue(
+                'profile.media_incompatible',
+                error instanceof Error ? error.message : 'Media is incompatible with the profile'
+            ),
+        ]
+    }
+}
+
+function assessPinnedTargetMedia(
+    profile: ChannelProfileDefinition,
+    content: unknown,
+    projectId: string,
+    subjectId: string,
+    media: Pick<MediaAssetStore, 'getAsset'> | undefined,
+    pinnedMedia: readonly TargetRevisionMediaRow[]
+): readonly ValidationIssue[] {
+    if (!isRecord(content)) {
+        return [
+            profileAssessmentIssue(
+                'profile.content_not_object',
+                'The pending target content is not a JSON object',
+                ''
+            ),
+        ]
+    }
+
+    let references: readonly TargetMediaReference[]
+    try {
+        references = extractTargetMediaReferences(profile, content)
+    } catch (error) {
+        return [
+            profileAssessmentIssue(
+                'profile.media_reference_invalid',
+                error instanceof Error ? error.message : 'Media references are invalid'
+            ),
+        ]
+    }
+
+    const issues: ValidationIssue[] = []
+    const referencesByBinding = new Map<string, TargetMediaReference[]>()
+    for (const reference of references) {
+        const bindingReferences = referencesByBinding.get(reference.bindingId) ?? []
+        bindingReferences.push(reference)
+        referencesByBinding.set(reference.bindingId, bindingReferences)
+    }
+
+    for (const capability of profile.capabilities.mediaFields) {
+        const bindingReferences = referencesByBinding.get(capability.bindingId) ?? []
+        if (bindingReferences.length < (capability.minItems ?? 0)) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_required',
+                    `Media field ${capability.bindingId} requires at least ${capability.minItems} item(s)`,
+                    `/capabilities/${capability.bindingId}`
+                )
+            )
+        }
+        if (bindingReferences.length > capability.maxItems) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_limit_exceeded',
+                    `Media field ${capability.bindingId} accepts at most ${capability.maxItems} item(s)`,
+                    `/capabilities/${capability.bindingId}`
+                )
+            )
+        }
+    }
+
+    if (references.length === 0) {
+        return issues
+    }
+
+    if (media === undefined) {
+        return [
+            profileAssessmentIssue(
+                'profile.media_service_unavailable',
+                'Media lifecycle service is required to assess pinned media'
+            ),
+        ]
+    }
+
+    if (pinnedMedia.length !== references.length) {
+        issues.push(
+            profileAssessmentIssue(
+                'profile.media_snapshot_mismatch',
+                'The persisted target media snapshot does not match its content'
+            )
+        )
+    }
+
+    const totalBytesByBinding = new Map<string, number>()
+    for (const [position, reference] of references.entries()) {
+        const pinned = pinnedMedia[position]
+        if (pinned === undefined) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_snapshot_missing',
+                    `No persisted media snapshot exists for ${reference.contentPath}`,
+                    reference.contentPath
+                )
+            )
+            continue
+        }
+        if (
+            pinned.position !== position ||
+            pinned.assetId !== reference.assetId ||
+            pinned.contentPath !== reference.contentPath ||
+            pinned.role !== reference.role
+        ) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_snapshot_mismatch',
+                    `The persisted media snapshot does not match ${reference.contentPath}`,
+                    reference.contentPath
+                )
+            )
+            continue
+        }
+
+        const asset = media.getAsset(projectId, reference.assetId, subjectId)
+        if (asset === null || asset.asset.state !== 'ready') {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_asset_unavailable',
+                    `Media asset ${reference.assetId} is not available for publication`,
+                    reference.contentPath
+                )
+            )
+            continue
+        }
+
+        const expectedAccessibilityText =
+            reference.accessibilityText ?? asset.asset.defaultAccessibilityText
+        if (pinned.accessibilityText !== expectedAccessibilityText) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_snapshot_mismatch',
+                    `The persisted accessibility text does not match ${reference.contentPath}`,
+                    reference.contentPath
+                )
+            )
+            continue
+        }
+
+        const representation = asset.representations.find(
+            candidate => candidate.id === pinned.representationId && candidate.state === 'ready'
+        )
+        if (representation === undefined) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_representation_unavailable',
+                    `Media representation ${pinned.representationId} is not ready`,
+                    reference.contentPath
+                )
+            )
+            continue
+        }
+
+        const capability = profile.capabilities.mediaFields.find(
+            candidate => candidate.bindingId === reference.bindingId
+        )
+        if (capability !== undefined && !supportsMediaCapability(representation, capability)) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_representation_incompatible',
+                    `Media representation ${pinned.representationId} is incompatible with field ${reference.bindingId}`,
+                    reference.contentPath
+                )
+            )
+        }
+        if (capability?.accessibilityTextRequired && pinned.accessibilityText === null) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_accessibility_required',
+                    `Media field ${reference.bindingId} requires accessibility text`,
+                    reference.contentPath
+                )
+            )
+        }
+        if (capability?.publicUrlRequired) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_public_url_required',
+                    `Media field ${reference.bindingId} requires a public URL, which is not available in the current storage contract`,
+                    reference.contentPath
+                )
+            )
+        }
+
+        const totalBytes = totalBytesByBinding.get(reference.bindingId) ?? 0
+        const nextTotalBytes = totalBytes + (representation.byteSize ?? 0)
+        if (capability?.maxTotalBytes !== undefined && nextTotalBytes > capability.maxTotalBytes) {
+            issues.push(
+                profileAssessmentIssue(
+                    'profile.media_total_size_exceeded',
+                    `Media field ${reference.bindingId} exceeds its total byte limit`,
+                    reference.contentPath
+                )
+            )
+        }
+        totalBytesByBinding.set(reference.bindingId, nextTotalBytes)
+    }
+
+    return issues
+}
+
 function toPublisher(row: PublicationChannelRow): Publisher {
     if (
         row.publisherId === null ||
@@ -1942,6 +3070,13 @@ function toPublication(row: PublicationRow): Publication {
         scheduledByActorId: row.scheduledByActorId,
         stateChangedByActorId: row.stateChangedByActorId,
         publishedByActorId: row.publishedByActorId,
+        lastAssessedProfileVersionId: row.lastAssessedProfileVersionId,
+        profileAssessmentIssues: [
+            ...parseJsonArray(
+                row.profileAssessmentIssuesJson,
+                'publication profile assessment issues'
+            ),
+        ],
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
@@ -1957,6 +3092,7 @@ function toWorkingDraft(row: WorkingDraftRow): PublicationWorkingDraft {
         content: parseJsonObject(row.contentJson, 'publication draft content'),
         reviewState: row.reviewState,
         validationIssues: parseJsonArray(row.validationIssuesJson, 'publication validation issues'),
+        lastAssessedProfileVersionId: row.lastAssessedProfileVersionId,
         revision: row.revision,
         updatedByActorId: row.updatedByActorId,
         createdAt: row.createdAt,

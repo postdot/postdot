@@ -101,6 +101,10 @@ describe('Herald API', () => {
                 '/health',
                 '/api/projects',
                 '/api/projects/{projectId}/channels',
+                '/api/projects/{projectId}/channels/{channelId}/profile',
+                '/api/projects/{projectId}/channels/{channelId}/profile-drafts',
+                '/api/projects/{projectId}/channels/{channelId}/profile-drafts/{profileVersionId}/preview',
+                '/api/projects/{projectId}/channels/{channelId}/profile-drafts/{profileVersionId}/activate',
                 '/api/projects/{projectId}/publishers',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/linkedin/connect',
                 '/api/oauth/linkedin/callback',
@@ -112,6 +116,105 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/audit-events',
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('creates, previews, and activates a channel profile draft through the API', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'profile-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Profile API Project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Profile API Channel' }),
+                }
+            )
+            const channelBody = (await channelResponse.json()) as { channel: { id: string } }
+
+            const stateResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/profile`,
+                cookie
+            )
+            expect(stateResponse.status).toBe(200)
+            const stateBody = (await stateResponse.json()) as {
+                active: { version: number; profile: Record<string, unknown> }
+                draft: unknown
+            }
+            expect(stateBody.active.version).toBe(1)
+            expect(stateBody.draft).toBeNull()
+
+            const profile = structuredClone(stateBody.active.profile)
+            const contentSchema = profile.contentSchema as {
+                properties: { body: { maxLength: number } }
+            }
+            contentSchema.properties.body.maxLength = 100
+            const capabilities = profile.capabilities as {
+                revision: string
+                textFields: Array<{ maxLength: number }>
+            }
+            capabilities.revision = 'manual-message-v2'
+            capabilities.textFields[0]!.maxLength = 100
+            profile.profileHash = 'sha256:herald-manual-message-v2'
+            profile.schemaHash = 'sha256:herald-manual-message-schema-v2'
+
+            const draftResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/profile-drafts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ profile }),
+                }
+            )
+            expect(draftResponse.status).toBe(200)
+            const draftBody = (await draftResponse.json()) as {
+                profile: { id: string; version: number; state: string; revision: number }
+            }
+            expect(draftBody.profile).toMatchObject({ version: 2, state: 'draft', revision: 1 })
+
+            const previewResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/profile-drafts/${draftBody.profile.id}/preview`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({}) }
+            )
+            expect(previewResponse.status).toBe(200)
+            expect(
+                (await previewResponse.json()) as { assessment: { hasReviewRequired: boolean } }
+            ).toEqual({
+                assessment: expect.objectContaining({ hasReviewRequired: false }),
+            })
+
+            const activateResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/profile-drafts/${draftBody.profile.id}/activate`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({ expectedRevision: 1 }) }
+            )
+            expect(activateResponse.status).toBe(200)
+            const activationBody = (await activateResponse.json()) as {
+                channel: { profileVersionId: string }
+                profile: { id: string; state: string; version: number }
+            }
+            expect(activationBody.profile).toMatchObject({
+                id: draftBody.profile.id,
+                state: 'active',
+                version: 2,
+            })
+            expect(activationBody.channel.profileVersionId).toBe(draftBody.profile.id)
         } finally {
             closeDatabase(database)
         }

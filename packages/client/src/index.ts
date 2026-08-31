@@ -3,6 +3,10 @@ import type { HeraldApp } from '@herald/api'
 import type {
     AuditEventResponse,
     ChannelResponse,
+    ChannelProfileActivationResponse,
+    ChannelProfileAssessmentResponse,
+    ChannelProfileStateResponse,
+    ChannelProfileVersionResponse,
     DuePublicationResponse,
     PostResponse,
     PublisherConnectionResponse,
@@ -39,6 +43,10 @@ export type HeraldClient = ReturnType<typeof createHeraldClient>
 
 export type Project = ProjectResponse
 export type Channel = ChannelResponse
+export type ChannelProfileVersion = ChannelProfileVersionResponse
+export type ChannelProfileState = ChannelProfileStateResponse
+export type ChannelProfileAssessment = ChannelProfileAssessmentResponse
+export type ChannelProfileActivation = ChannelProfileActivationResponse
 export type Post = PostResponse
 export type Publication = PublicationResponse
 export type DuePublication = DuePublicationResponse

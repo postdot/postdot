@@ -1,5 +1,11 @@
 import { createManualChannelProfile, sourceContentSchema } from '@herald/core'
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition, Publication } from '@herald/core'
+import type { ChannelProfileImpactAssessment } from '@herald/core'
+import type {
+    ChannelProfileActivationResult,
+    ChannelProfileState,
+    ChannelProfileVersion,
+} from '@herald/db'
 import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
 import { linkedinTextChannelProfile } from '@herald/linkedin'
 import type { Table } from 'drizzle-orm'
@@ -24,8 +30,103 @@ export const channelSchema = Type.Intersect([
     Type.Object({ profileId: Type.String({ minLength: 1 }) }),
 ])
 export const postSchema = createElysiaSelectSchema(posts)
-export const publicationSchema = createElysiaSelectSchema(publications)
+const publicationPersistenceSchema = createElysiaSelectSchema(publications)
+export const publicationSchema = Type.Unsafe<Publication>(
+    Type.Intersect([
+        Type.Omit(publicationPersistenceSchema, ['profileAssessmentIssuesJson']),
+        Type.Object({
+            profileAssessmentIssues: Type.Unsafe<readonly Record<string, unknown>[]>(
+                Type.Array(Type.Record(Type.String(), Type.Unknown()))
+            ),
+        }),
+    ])
+)
 export const auditEventSchema = createElysiaSelectSchema(auditEvents)
+
+const profileVersionStateSchema = Type.Union([
+    Type.Literal('draft'),
+    Type.Literal('active'),
+    Type.Literal('superseded'),
+    Type.Literal('disabled'),
+])
+
+const validationIssueSchema = Type.Object({
+    path: Type.String(),
+    code: Type.String(),
+    message: Type.String(),
+    severity: Type.Union([Type.Literal('error'), Type.Literal('warning')]),
+    source: Type.Union([
+        Type.Literal('schema'),
+        Type.Literal('schema_policy'),
+        Type.Literal('field_binding'),
+        Type.Literal('capability'),
+        Type.Literal('domain'),
+        Type.Literal('module'),
+    ]),
+})
+
+export const channelProfileVersionSchema = Type.Unsafe<ChannelProfileVersion>(
+    Type.Object({
+        id: Type.String({ minLength: 1 }),
+        projectId: Type.String({ minLength: 1 }),
+        channelId: Type.String({ minLength: 1 }),
+        profileId: Type.String({ minLength: 1 }),
+        version: Type.Integer({ minimum: 1 }),
+        origin: Type.Union([Type.Literal('built_in'), Type.Literal('custom')]),
+        state: profileVersionStateSchema,
+        revision: Type.Integer({ minimum: 1 }),
+        profile: Type.Record(Type.String(), Type.Unknown()),
+        createdByActorId: Type.String({ minLength: 1 }),
+        createdAt: Type.Integer({ minimum: 0 }),
+        updatedAt: Type.Integer({ minimum: 0 }),
+    })
+)
+
+const channelProfileImpactSchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    kind: Type.Union([Type.Literal('working_draft'), Type.Literal('pending_target')]),
+    state: Type.Union([Type.Literal('compatible'), Type.Literal('review_required')]),
+    issues: Type.Array(validationIssueSchema),
+})
+
+export const channelProfileAssessmentSchema = Type.Unsafe<ChannelProfileImpactAssessment>(
+    Type.Object({
+        currentProfileVersion: Type.Integer({ minimum: 1 }),
+        proposedProfileVersion: Type.Integer({ minimum: 1 }),
+        changes: Type.Array(
+            Type.Object({
+                kind: Type.Union([
+                    Type.Literal('schema'),
+                    Type.Literal('binding'),
+                    Type.Literal('capability'),
+                    Type.Literal('execution'),
+                ]),
+                path: Type.String(),
+                code: Type.String(),
+                message: Type.String(),
+            })
+        ),
+        workingDrafts: Type.Array(channelProfileImpactSchema),
+        pendingTargets: Type.Array(channelProfileImpactSchema),
+        hasReviewRequired: Type.Boolean(),
+    })
+)
+
+export const channelProfileStateSchema = Type.Unsafe<ChannelProfileState>(
+    Type.Object({
+        channel: channelSchema,
+        active: channelProfileVersionSchema,
+        draft: Type.Union([channelProfileVersionSchema, Type.Null()]),
+    })
+)
+
+export const channelProfileActivationSchema = Type.Unsafe<ChannelProfileActivationResult>(
+    Type.Object({
+        channel: channelSchema,
+        profile: channelProfileVersionSchema,
+        assessment: channelProfileAssessmentSchema,
+    })
+)
 
 export const duePublicationSchema = Type.Intersect([
     publicationSchema,
@@ -38,6 +139,10 @@ export const duePublicationSchema = Type.Intersect([
 
 export type ProjectResponse = Static<typeof projectSchema>
 export type ChannelResponse = Static<typeof channelSchema>
+export type ChannelProfileVersionResponse = Static<typeof channelProfileVersionSchema>
+export type ChannelProfileStateResponse = Static<typeof channelProfileStateSchema>
+export type ChannelProfileAssessmentResponse = Static<typeof channelProfileAssessmentSchema>
+export type ChannelProfileActivationResponse = Static<typeof channelProfileActivationSchema>
 export type PostResponse = Static<typeof postSchema>
 export type PublicationResponse = Static<typeof publicationSchema>
 export type DuePublicationResponse = Static<typeof duePublicationSchema>
@@ -55,6 +160,12 @@ export const publicationParams = Type.Object({
 export const channelParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
     channelId: Type.String({ minLength: 1 }),
+})
+
+export const channelProfileVersionParams = Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    channelId: Type.String({ minLength: 1 }),
+    profileVersionId: Type.String({ minLength: 1 }),
 })
 
 export const createProjectBody = Type.Object({
@@ -80,6 +191,15 @@ export const createChannelBody = Type.Object({
             }),
         ])
     ),
+})
+
+export const saveChannelProfileDraftBody = Type.Object({
+    profile: Type.Record(Type.String(), Type.Unknown()),
+    expectedRevision: Type.Optional(Type.Integer({ minimum: 0 })),
+})
+
+export const activateChannelProfileBody = Type.Object({
+    expectedRevision: Type.Optional(Type.Integer({ minimum: 1 })),
 })
 
 export const createPostBody = Type.Object({
