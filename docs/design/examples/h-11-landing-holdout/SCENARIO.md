@@ -25,18 +25,18 @@ distinction matters, and whether to open the workspace
 
 Hard gates:
 
-- [ ] The reader can identify Herald's product category and first action without the lab controls.
-- [ ] The landing composition does not reproduce the authenticated dashboard shell.
-- [ ] The source-to-publications relationship is visible with real product vocabulary.
-- [ ] The rendered page is checked at wide, tablet, and narrow widths without horizontal overflow.
+- [x] The reader can identify Herald's product category and first action without the lab controls.
+- [x] The landing composition does not reproduce the authenticated dashboard shell.
+- [x] The source-to-publications relationship is visible with real product vocabulary.
+- [x] The rendered page is checked at wide, tablet, and narrow widths without horizontal overflow.
 
 Observable criteria:
 
-- [ ] The page has a proposition rather than a decorative hero.
-- [ ] The identity survives a marketing composition: Cobalt remains a signal, foundations remain neutral, and surfaces do not become a card grid.
-- [ ] The relationship graphic feels specific to publication orchestration rather than a generic SaaS workflow.
-- [ ] Automatic and manual delivery are understandable without invented metrics or filler content.
-- [ ] The two candidates are meaningfully different in structure, not just palette or type.
+- [x] The page has a proposition rather than a decorative hero.
+- [x] The identity survives a marketing composition: Cobalt remains a signal, foundations remain neutral, and surfaces do not become a card grid.
+- [x] The relationship graphic feels specific to publication orchestration rather than a generic SaaS workflow.
+- [x] Automatic and manual delivery are understandable without invented metrics or filler content.
+- [x] The two candidates are meaningfully different in structure, not just palette or type.
 
 ## Runs
 

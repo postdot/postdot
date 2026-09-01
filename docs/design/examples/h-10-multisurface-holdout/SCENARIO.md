@@ -20,18 +20,18 @@ while switching between three different tasks
 
 Hard gates:
 
-- [ ] The product category and primary task remain legible on each surface.
-- [ ] The source-to-publications relationship remains visible without relying
+- [x] The product category and primary task remain legible on each surface.
+- [x] The source-to-publications relationship remains visible without relying
   on the lab notes.
 
 Observable criteria:
 
-- [ ] Calendar supports overview without becoming a generic calendar.
-- [ ] Queue supports prioritization without becoming an arbitrary metrics list.
-- [ ] Compose supports source editing while preserving destination differences.
-- [ ] The three surfaces share a visual identity without using the same layout
+- [x] Calendar supports overview without becoming a generic calendar.
+- [x] Queue supports prioritization without becoming an arbitrary metrics list.
+- [x] Compose supports source editing while preserving destination differences.
+- [x] The three surfaces share a visual identity without using the same layout
   or the same density everywhere.
-- [ ] The contextual right surface has a concrete job on each view.
+- [x] The contextual right surface has a concrete job on each view.
 
 ## Runs
 
