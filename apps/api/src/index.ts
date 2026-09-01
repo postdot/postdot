@@ -19,6 +19,17 @@ export type { HeraldApp } from './app'
 export { createPublisherRuntime } from './modules/publishers/runtime'
 export type { PublisherRuntimeOptions } from './modules/publishers/runtime'
 export type {
+    MediaAssetResponse,
+    MediaDeletionResponse,
+    MediaFinalizeResponse,
+    MediaIntentResponse,
+    MediaPendingResponse,
+    MediaReferenceResponse,
+    MediaRepresentationResponse,
+    MediaReservationResponse,
+    MediaUploadResponse,
+} from './modules/media/routes'
+export type {
     AuditEventResponse,
     ChannelResponse,
     ChannelProfileActivationResponse,

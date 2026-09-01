@@ -8,6 +8,15 @@ import type {
     ChannelProfileStateResponse,
     ChannelProfileVersionResponse,
     DuePublicationResponse,
+    MediaAssetResponse,
+    MediaDeletionResponse,
+    MediaFinalizeResponse,
+    MediaIntentResponse,
+    MediaPendingResponse,
+    MediaReferenceResponse,
+    MediaRepresentationResponse,
+    MediaReservationResponse,
+    MediaUploadResponse,
     PostResponse,
     PublicationEditorStateResponse,
     PublisherConnectionResponse,
@@ -52,6 +61,15 @@ export type ChannelProfileActivation = ChannelProfileActivationResponse
 export type Post = PostResponse
 export type Publication = PublicationResponse
 export type DuePublication = DuePublicationResponse
+export type MediaAsset = MediaAssetResponse
+export type MediaRepresentation = MediaRepresentationResponse
+export type MediaIntent = MediaIntentResponse
+export type MediaReference = MediaReferenceResponse
+export type MediaReservation = MediaReservationResponse
+export type MediaUpload = MediaUploadResponse
+export type MediaPending = MediaPendingResponse
+export type MediaFinalize = MediaFinalizeResponse
+export type MediaDeletion = MediaDeletionResponse
 export type PublicationEditorState = PublicationEditorStateResponse
 export type PublicationSummary = PublicationSummaryResponse
 export type AuditEvent = AuditEventResponse

@@ -7,6 +7,10 @@ import {
     type ChannelProfileState,
     type ChannelProfileVersion,
     type DuePublication,
+    type MediaFinalize,
+    type MediaReference,
+    type MediaReservation,
+    type MediaUpload,
     type Post,
     type PublicationEditorState,
     type PublisherConnection,
@@ -119,6 +123,58 @@ export const api = {
         return unwrap<{ channels: Channel[] }>(
             await client.api.projects({ projectId }).channels.get()
         )
+    },
+
+    async listMedia(projectId: string): Promise<{ media: MediaReference[] }> {
+        return unwrap<{ media: MediaReference[] }>(
+            await client.api.projects({ projectId }).media.get()
+        )
+    },
+
+    async getMedia(projectId: string, assetId: string): Promise<MediaReference> {
+        return unwrap<MediaReference>(
+            await client.api.projects({ projectId }).media({ assetId }).get()
+        )
+    },
+
+    async reserveMediaUpload(
+        projectId: string,
+        input: {
+            originalFilename: string
+            defaultAccessibilityText?: string
+            expectedSize?: number
+            contentType?: string
+        }
+    ): Promise<MediaReservation> {
+        return unwrap<MediaReservation>(
+            await client.api.projects({ projectId }).media.uploads.post(input)
+        )
+    },
+
+    async uploadMedia(projectId: string, intentId: string, file: File): Promise<MediaUpload> {
+        return requestAuth<MediaUpload>(
+            `/api/projects/${encodeURIComponent(projectId)}/media/uploads/${encodeURIComponent(intentId)}`,
+            {
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'content-type': file.type || 'application/octet-stream',
+                },
+            }
+        )
+    },
+
+    async finalizeMediaUpload(
+        projectId: string,
+        intentId: string
+    ): Promise<MediaFinalize | { status: 'pending'; media: MediaReservation }> {
+        return unwrap<MediaFinalize | { status: 'pending'; media: MediaReservation }>(
+            await client.api.projects({ projectId }).media.uploads({ intentId }).finalize.post()
+        )
+    },
+
+    mediaContentUrl(projectId: string, assetId: string): string {
+        return `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/content`
     },
 
     async getChannelProfileState(
@@ -315,6 +371,9 @@ export type {
     ChannelProfileState,
     ChannelProfileVersion,
     DuePublication,
+    MediaFinalize,
+    MediaReference,
+    MediaReservation,
     Post,
     PublicationEditorState,
     PublisherConnection,

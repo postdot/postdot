@@ -14,6 +14,7 @@ import {
 } from '@tanstack/react-router'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import {
     ApiError,
@@ -93,6 +94,7 @@ function DashboardPage() {
     const [postTitle, setPostTitle] = useState('')
     const [postContent, setPostContent] = useState('')
     const [publicationContent, setPublicationContent] = useState('')
+    const [sourceMedia, setSourceMedia] = useState<MediaSelection[]>([])
     const [publicationChannelId, setPublicationChannelId] = useState('')
     const [deliveryMode, setDeliveryMode] = useState<'manual' | 'automatic'>('manual')
     const [scheduledAt, setScheduledAt] = useState(defaultScheduleValue)
@@ -108,9 +110,11 @@ function DashboardPage() {
             setPublisherConnections([])
             setPublications([])
             setPublicationChannelId('')
+            setSourceMedia([])
             return
         }
 
+        setSourceMedia([])
         let active = true
         loadProjectData(selectedProjectId)
             .then(data => {
@@ -158,6 +162,10 @@ function DashboardPage() {
     async function handleCreatePost(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         if (selectedProjectId === null || publicationChannelId === '') return
+        if (postContent.trim() === '' && sourceMedia.length === 0) {
+            setError('Add source text or at least one media attachment.')
+            return
+        }
         const scheduledTimestamp = parseDateTimeLocal(scheduledAt)
         if (scheduledTimestamp === null || scheduledTimestamp === 'invalid') {
             setError('Choose a valid publication date.')
@@ -171,15 +179,17 @@ function DashboardPage() {
             copy === ''
                 ? undefined
                 : selectedChannel.profileId === 'linkedin'
-                  ? { commentary: copy }
-                  : { body: copy, media: [] }
+                  ? { commentary: copy, media: sourceMedia }
+                  : { body: copy, media: sourceMedia }
 
         await runAction(async () => {
             await api.createPost(selectedProjectId, {
                 title: postTitle.trim() === '' ? undefined : postTitle,
                 sourceContent: {
-                    body: { text: postContent, format: 'plain_text' },
-                    media: [],
+                    ...(postContent.trim() === ''
+                        ? {}
+                        : { body: { text: postContent, format: 'plain_text' as const } }),
+                    media: sourceMedia,
                 },
                 publications: [
                     {
@@ -193,6 +203,7 @@ function DashboardPage() {
             setPostTitle('')
             setPostContent('')
             setPublicationContent('')
+            setSourceMedia([])
             await refreshSelectedProject()
         })
     }
@@ -430,7 +441,6 @@ function DashboardPage() {
                                 <label className="grid gap-2 text-sm font-medium">
                                     Source content
                                     <textarea
-                                        required
                                         value={postContent}
                                         onChange={event => setPostContent(event.target.value)}
                                         placeholder="Write the source content…"
@@ -438,6 +448,12 @@ function DashboardPage() {
                                         className="resize-y rounded-lg border bg-background px-3 py-2 text-sm font-normal outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
                                     />
                                 </label>
+                                <MediaAttachmentPicker
+                                    projectId={selectedProject.id}
+                                    value={sourceMedia}
+                                    onChange={setSourceMedia}
+                                    disabled={pending}
+                                />
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <label className="grid gap-2 text-sm font-medium">
                                         Channel copy
