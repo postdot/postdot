@@ -58,6 +58,19 @@ Run the complete local merge gate before opening a pull request:
 bun run check
 ```
 
+The merge gate includes the browser integration suite. Install the Playwright
+Chromium binary once on a development machine before running it:
+
+```sh
+npx --no-install playwright install chromium
+```
+
+`bun run test:e2e` starts isolated Bun API and Vite processes with a temporary
+SQLite database and local media directory. The suite creates only disposable
+local data, never calls a real publisher, and removes its application data when
+it finishes. The Playwright runner requires Node.js 20 or newer; Herald's
+application processes continue to run on Bun.
+
 The HTTP CLI uses the same API as the dashboard. Sign in once, then export the
 session cookie printed by the command:
 

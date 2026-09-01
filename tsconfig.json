@@ -1,8 +1,8 @@
 {
     "extends": ["@tala-tools/tsconfig/bun-base.json"],
     "compilerOptions": {
-        "types": ["bun"]
+        "types": ["bun", "node"]
     },
-    "include": ["scripts/**/*.ts", "tsconfig.json"],
+    "include": ["e2e/**/*.ts", "playwright.config.ts", "scripts/**/*.ts", "tsconfig.json"],
     "exclude": ["apps", "packages", "node_modules", ".turbo", ".vscode"]
 }
