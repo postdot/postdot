@@ -18,12 +18,43 @@ test('persists mixed and media-only publications through the dashboard', async (
     const targetText = `E2E-33 target ${suffix}`
 
     await page.goto('/login')
+    await expect(
+        page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', {
+            name: 'Sign in',
+            exact: true,
+        })
+    ).toHaveCount(1)
     await page.getByRole('button', { name: 'Need an account?' }).click()
     await page.getByLabel('Name').fill('E2E-33 Operator')
     await page.getByLabel('Email').fill(`e2e-33-${suffix}@herald.local`)
     await page.getByLabel('Password').fill('e2e-33-password')
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await expect(
+        page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', {
+            name: 'Sign in',
+            exact: true,
+        })
+    ).toHaveCount(0)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const navigationLayout = await page
+        .getByRole('navigation', { name: 'Main navigation' })
+        .evaluate(element => {
+            const links = Array.from(element.querySelectorAll('a'))
+            const topOffsets = new Set(
+                links.map(link =>
+                    Math.round(
+                        (
+                            link as { getBoundingClientRect(): { top: number } }
+                        ).getBoundingClientRect().top
+                    )
+                )
+            )
+            return { linkCount: links.length, topOffsetCount: topOffsets.size }
+        })
+    expect(navigationLayout).toEqual({ linkCount: 3, topOffsetCount: 1 })
+    await page.setViewportSize({ width: 1280, height: 720 })
 
     await page.getByLabel('New project').fill(projectName)
     await page.getByRole('button', { name: 'Add project', exact: true }).click()
