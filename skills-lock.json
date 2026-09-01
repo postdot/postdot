@@ -49,6 +49,12 @@
       "skillPath": "SKILL.md",
       "computedHash": "380e7185d6bf13195fbedd8b1c59a0e11805357a62737ee35857887217055444"
     },
+    "solar-icons": {
+      "source": "saoudi-h/solar-icons",
+      "sourceType": "github",
+      "skillPath": "skills/solar-icons/SKILL.md",
+      "computedHash": "95c9b8274e8ebb96f98bf580e3b12836b628ecf76b315497c454cd51e0088a3e"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
