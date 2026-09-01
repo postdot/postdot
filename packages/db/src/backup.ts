@@ -379,12 +379,25 @@ function acquireMediaBackupFence(
             }
         },
         release() {
-            database
-                .query('DELETE FROM media_backup_fences WHERE id = 1 AND owner_id = ?')
-                .run(ownerId)
-            database.close()
+            try {
+                database
+                    .query('DELETE FROM media_backup_fences WHERE id = 1 AND owner_id = ?')
+                    .run(ownerId)
+            } catch (error) {
+                // A media restore atomically replaces the database path while this
+                // connection still points to the previous inode.
+                if (!isDatabaseMovedError(error)) throw error
+            } finally {
+                database.close()
+            }
         },
     }
+}
+
+function isDatabaseMovedError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false
+
+    return 'code' in error && error.code === 'SQLITE_READONLY_DBMOVED'
 }
 
 function clearMediaBackupFenceFromSnapshot(filename: string): void {

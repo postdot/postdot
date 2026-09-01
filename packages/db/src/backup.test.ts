@@ -146,6 +146,14 @@ describe('SQLite backup and restore', () => {
                 rootDirectory: restoredMediaPath,
                 maxObjectBytes: 2_000_000,
             })
+            const existingTarget = createDatabase(restoredPath)
+            runMigrations(existingTarget)
+            existingTarget.$client.run('create table restore_sentinel (value text not null)')
+            existingTarget.$client.run('insert into restore_sentinel values (?)', [
+                'before-restore',
+            ])
+            closeDatabase(existingTarget)
+
             await restoreWithMedia({
                 sourceDirectory: bundlePath,
                 databaseFilename: restoredPath,
@@ -161,6 +169,18 @@ describe('SQLite backup and restore', () => {
                     )
                     .get(reservation.asset.id)
             ).toEqual({ state: 'ready' })
+            expect(
+                restored.$client
+                    .query<{ name: string }, []>(
+                        "select name from sqlite_master where type = 'table' and name = 'restore_sentinel'"
+                    )
+                    .get()
+            ).toBeNull()
+            expect(
+                restored.$client.query('select count(*) as count from media_backup_fences').get()
+            ).toEqual({
+                count: 0,
+            })
             closeDatabase(restored)
             const restoredObject = await restoredStore.open(reservation.representation.objectKey)
             expect(restoredObject?.metadata.size).toBe(bytes.byteLength)
