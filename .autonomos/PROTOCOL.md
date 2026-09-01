@@ -1,4 +1,4 @@
-# AUTONOMOS PROTOCOL (v0.5.0-alpha)
+# AUTONOMOS PROTOCOL (v0.6.0-alpha)
 
 > This file defines the project's AI workflow contract. The workflows execute it. Do not duplicate workflow steps here.
 
@@ -11,6 +11,7 @@
 | Triage a problem or proposal     | Read the optional `/issue` workflow                                                |
 | Adopt existing project knowledge | Read the optional `/adopt` workflow                                                |
 | Audit accumulated drift          | Read the `/reconcile` workflow                                                     |
+| Design or critique a surface     | Read the optional `/design` workflow                                               |
 | End a session                    | Read the `/crystallize` workflow                                                   |
 | Get context                      | Read root `AGENT.md`, then only the selected scope's ancestor chain                |
 | Resolve objective                | Explicit user request first; otherwise resume `[/]` or pick highest-priority `[ ]` |
@@ -26,8 +27,16 @@
 | `worklogs/`     | `.autonomos/worklogs/`     | Historical session evidence, not current guidance |
 | `specs/`        | `.autonomos/specs/`        | Optional project-owned normative target state     |
 | `decisions/`    | `.autonomos/decisions/`    | Optional project-owned decision records (ADRs)    |
+| `DESIGN.md`     | Root or target scope      | Optional project-owned visual/interaction direction |
 | `PROTOCOL.md`   | `.autonomos/PROTOCOL.md`   | This file — read-only reference                   |
 | `manifest.json` | `.autonomos/manifest.json` | Protocol version metadata                         |
+
+## Design Direction Boundary
+
+`DESIGN.md` is optional project-owned direction, not a managed protocol
+artifact. Use `/design` when a surface needs direction, critique, or
+design-knowledge extraction; keep the project's identity and examples local.
+The workflow supplies routing and evidence rules, not a universal visual style.
 
 ## AGENT.md Format Rules
 

@@ -8,7 +8,7 @@
         "@herald/client": "workspace:*",
       },
       "devDependencies": {
-        "@autonomos/cli": "^0.5.0",
+        "@autonomos/cli": "^0.6.0",
         "@commitlint/cli": "21.2.2",
         "@commitlint/config-conventional": "21.2.2",
         "@playwright/test": "1.62.1",
@@ -204,9 +204,9 @@
     },
   },
   "packages": {
-    "@autonomos/cli": ["@autonomos/cli@0.5.0", "", { "dependencies": { "@autonomos/core": "0.5.0", "@inquirer/prompts": "^7.0.0", "commander": "^14.0.2", "picocolors": "1.1.1" }, "bin": { "autonomos": "dist/index.mjs" } }, "sha512-+VSpgdH8F8oK2fK075R9giVutS1eaqkjH0YjXHQokAMt3dXuu7Z+4IikyaBed+CaNGYXwsS6oMu2BXqZOg8ORg=="],
+    "@autonomos/cli": ["@autonomos/cli@0.6.0", "", { "dependencies": { "@autonomos/core": "0.6.0", "@inquirer/prompts": "^7.0.0", "commander": "^14.0.2", "picocolors": "1.1.1" }, "bin": { "autonomos": "dist/index.mjs" } }, "sha512-BiQxTP3dR2sStDoyCt86v3PMVMNj0xyrKbyi2fumRRwOVNYUyidGM56uUKDx6NmIL8vgexSBuv6uVoJx6HuqAQ=="],
 
-    "@autonomos/core": ["@autonomos/core@0.5.0", "", { "dependencies": { "js-yaml": "4.1.0", "zod": "3.24.1" } }, "sha512-pxnewjQzNx2SM7O2Nich/5A/UbetPu7oNmeBlYty8XdGBxNXE7ScZ51fi62u+/EQ0irutH8AXkOuQ45LxVDI6Q=="],
+    "@autonomos/core": ["@autonomos/core@0.6.0", "", { "dependencies": { "js-yaml": "4.1.0", "zod": "3.24.1" } }, "sha512-86f2QOZBQ7AfKRR/cTYXKALJ9Wx3CKYZhDO4pRM+gN/eTQlThbNlYXQP8zpyXefTCmgMsyH2J9yzkC2+LQdQHQ=="],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
