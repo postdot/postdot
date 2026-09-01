@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-palette="cobalt" data-grammar="surface" data-view="calendar">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Autonomos — H-10 Herald multi-surface holdout</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="atlas-header">
+      <div>
+        <p class="lab-kicker">Autonomos · Multi-surface holdout · H-10</p>
+        <h1>Herald</h1>
+        <p class="lab-note">Same contract, three tasks: scan the calendar, work the queue, compose a publication.</p>
+      </div>
+      <div class="header-controls">
+        <div class="theme-control"><span id="theme-mode">Dark primary</span><button id="theme-toggle" type="button">View light companion</button></div>
+      </div>
+    </header>
+
+    <main class="atlas-main">
+      <section class="holdout-toolbar" aria-label="Multi-surface holdout">
+        <div class="toolbar-copy"><p class="lab-kicker">Contract held constant</p><h2>One post, several jobs</h2><p>The product remains a dispatch desk: one source, several publications, concrete channels, and a next action. Only the primary task changes.</p></div>
+        <div class="holdout-principles"><div><strong>Calendar</strong><span>scan load and dates at a glance</span></div><div><strong>Queue</strong><span>handle what needs a decision</span></div><div><strong>Compose</strong><span>prepare the source and its destinations</span></div></div>
+      </section>
+
+      <section class="product-frame" aria-label="Herald multi-surface holdout">
+        <aside class="product-rail">
+          <div class="brand-mark" aria-label="Herald">H</div>
+          <nav class="rail-nav" aria-label="Herald navigation">
+            <a class="rail-link is-active" href="#calendar-view" data-view="calendar"><span class="rail-glyph" aria-hidden="true">▦</span><span>Calendar</span></a>
+            <a class="rail-link" href="#queue-view" data-view="queue"><span class="rail-glyph" aria-hidden="true">≡</span><span>Queue</span></a>
+            <a class="rail-link" href="#channels"><span class="rail-glyph" aria-hidden="true">◌</span><span>Channels</span></a>
+            <a class="rail-link" href="#media"><span class="rail-glyph" aria-hidden="true">▧</span><span>Media</span></a>
+            <a class="rail-link" href="#compose-view" data-view="compose"><span class="rail-glyph" aria-hidden="true">↗</span><span>Compose</span></a>
+          </nav>
+          <a class="rail-link rail-settings" href="#settings"><span class="rail-glyph" aria-hidden="true">⌁</span><span>Settings</span></a>
+        </aside>
+
+        <aside class="channel-panel" id="channels">
+          <div class="panel-heading"><div><p class="panel-kicker">Workspace</p><h2>Channels</h2></div><button class="icon-button" type="button" aria-label="Add channel">+</button></div>
+          <button class="create-post" type="button">Create post <span aria-hidden="true">↗</span></button>
+          <div class="channel-list" aria-label="Connected channels">
+            <div class="channel-row is-selected"><span class="channel-avatar channel-avatar-coral">in</span><span class="channel-copy"><strong>Tala Web</strong><small>LinkedIn member</small></span><span class="channel-count">2</span></div>
+            <div class="channel-row"><span class="channel-avatar channel-avatar-cyan">cf</span><span class="channel-copy"><strong>Community forum</strong><small>Manual message</small></span><span class="channel-count">1</span></div>
+            <div class="channel-row"><span class="channel-avatar channel-avatar-amber">pc</span><span class="channel-copy"><strong>Product changelog</strong><small>Manual message</small></span><span class="channel-count">1</span></div>
+            <div class="channel-row"><span class="channel-avatar channel-avatar-violet">rn</span><span class="channel-copy"><strong>Release notes</strong><small>Manual message</small></span><span class="channel-count">1</span></div>
+          </div>
+          <div class="channel-summary"><div><span>Destinations</span><strong>4</strong></div><div><span>Needs attention</span><strong class="attention-text">1</strong></div></div>
+          <div class="workspace-switcher"><span class="workspace-avatar">A</span><span>Autonomos release notes</span><span aria-hidden="true">⌄</span></div>
+        </aside>
+
+        <section class="calendar-workspace view-workspace" id="calendar-view" data-view-panel="calendar">
+          <header class="workspace-header"><div><p class="breadcrumb">Autonomos release notes</p><h2>Calendar</h2></div><div class="workspace-actions"><button class="plain-button" type="button">Today</button><div class="view-switch" aria-label="Calendar view"><span class="is-active">Month</span><span>Week</span></div><button class="primary-action" type="button">Create post</button></div></header>
+          <section class="source-bridge" aria-label="Source post and destinations"><article class="source-object"><div class="object-heading"><span class="object-mark" aria-hidden="true">1</span><span>Source post</span></div><h3>One source of truth for every destination.</h3><p>One post, four publication outcomes.</p><span class="object-meta">Post · 4 publications</span></article><div class="bridge-route" aria-hidden="true"><span></span><i></i><i></i><i></i><i></i></div><div class="destination-strip"><div class="destination-node"><span class="channel-avatar channel-avatar-coral">in</span><span>LinkedIn</span></div><div class="destination-node"><span class="channel-avatar channel-avatar-cyan">cf</span><span>Community</span></div><div class="destination-node"><span class="channel-avatar channel-avatar-amber">pc</span><span>Changelog</span></div><div class="destination-node"><span class="channel-avatar channel-avatar-violet">rn</span><span>Release notes</span></div></div></section>
+          <div class="calendar-heading"><div><button class="month-arrow" type="button" aria-label="Previous month">‹</button><h3>September 2026</h3><button class="month-arrow" type="button" aria-label="Next month">›</button></div><p><strong>3 scheduled</strong><span> · </span><span class="attention-text">1 needs attention</span></p></div>
+          <div class="calendar-grid" aria-label="September 2026 month overview"><div class="weekday">Monday</div><div class="weekday">Tuesday</div><div class="weekday">Wednesday</div><div class="weekday">Thursday</div><div class="weekday">Friday</div><div class="weekday">Saturday</div><div class="weekday">Sunday</div><div class="day-cell is-muted"><time>31</time><span class="month-name">Aug</span><div class="event-card event-published"><span>Release notes</span><strong>Published</strong></div></div><div class="day-cell"><time>1</time><div class="event-card event-scheduled"><span>LinkedIn · 09:30</span><strong>Source of truth for every destination</strong><em>Queued</em></div></div><div class="day-cell"><time>2</time></div><div class="day-cell"><time>3</time><div class="event-card event-due"><span>Community forum · now</span><strong>Media delivery is part of the publication lifecycle</strong><em>Due manual</em></div></div><div class="day-cell"><time>4</time><div class="event-card event-draft"><span>Product changelog</span><strong>Why Post and Publication stay separate</strong><em>Draft</em></div></div><div class="day-cell"><time>5</time></div><div class="day-cell"><time>6</time></div><div class="day-cell"><time>7</time><div class="event-card event-published"><span>Release notes</span><strong>The first provider contract is not the domain model</strong><em>Published</em></div></div><div class="day-cell"><time>8</time></div><div class="day-cell"><time>9</time></div><div class="day-cell"><time>10</time></div><div class="day-cell"><time>11</time></div><div class="day-cell"><time>12</time></div><div class="day-cell"><time>13</time></div><div class="day-cell"><time>14</time></div><div class="day-cell"><time>15</time></div><div class="day-cell"><time>16</time></div><div class="day-cell"><time>17</time></div><div class="day-cell"><time>18</time></div><div class="day-cell"><time>19</time></div><div class="day-cell"><time>20</time></div><div class="day-cell"><time>21</time></div><div class="day-cell"><time>22</time></div><div class="day-cell"><time>23</time></div><div class="day-cell"><time>24</time></div><div class="day-cell"><time>25</time></div><div class="day-cell"><time>26</time></div><div class="day-cell"><time>27</time></div><div class="day-cell"><time>28</time></div><div class="day-cell"><time>29</time></div><div class="day-cell"><time>30</time></div><div class="day-cell is-muted"><time>1</time><span class="month-name">Oct</span></div><div class="day-cell is-muted"><time>2</time><span class="month-name">Oct</span></div><div class="day-cell is-muted"><time>3</time><span class="month-name">Oct</span></div><div class="day-cell is-muted"><time>4</time><span class="month-name">Oct</span></div><div class="day-cell is-muted"><time>5</time><span class="month-name">Oct</span></div></div>
+        </section>
+
+        <section class="queue-workspace view-workspace" id="queue-view" data-view-panel="queue" hidden>
+          <header class="workspace-header"><div><p class="breadcrumb">Autonomos release notes</p><h2>Queue</h2></div><div class="workspace-actions"><button class="plain-button" type="button">All publications</button><button class="primary-action" type="button">Create post</button></div></header>
+          <div class="queue-summary"><div><strong>4</strong><span>publications in flight</span></div><div><strong>1</strong><span class="attention-text">needs attention</span></div><div><strong>3</strong><span>scheduled or published</span></div></div>
+          <div class="queue-list" aria-label="Publication queue">
+            <article class="queue-item queue-item-due"><div class="queue-item-top"><div class="queue-item-channel"><span class="channel-avatar channel-avatar-cyan">cf</span><div><strong>Community forum</strong><small>Now · Manual message</small></div></div><span class="status status-due">Due manual</span></div><h3>Media delivery is part of the publication lifecycle</h3><p>Review the source and publish the destination version.</p><button class="text-action" type="button">Open publication <span aria-hidden="true">→</span></button></article>
+            <article class="queue-item queue-item-scheduled"><div class="queue-item-top"><div class="queue-item-channel"><span class="channel-avatar channel-avatar-coral">in</span><div><strong>Tala Web</strong><small>Today · 09:30 · LinkedIn member</small></div></div><span class="status status-scheduled">Queued</span></div><h3>One source of truth for every destination</h3><p>One post is ready for the first scheduled publication.</p><button class="text-action" type="button">Open publication <span aria-hidden="true">→</span></button></article>
+            <article class="queue-item queue-item-draft"><div class="queue-item-top"><div class="queue-item-channel"><span class="channel-avatar channel-avatar-amber">pc</span><div><strong>Product changelog</strong><small>Tomorrow · Manual message</small></div></div><span class="status status-draft">Draft</span></div><h3>Why Post and Publication stay separate</h3><p>The destination copy still needs a final review.</p><button class="text-action" type="button">Open publication <span aria-hidden="true">→</span></button></article>
+            <article class="queue-item queue-item-published"><div class="queue-item-top"><div class="queue-item-channel"><span class="channel-avatar channel-avatar-violet">rn</span><div><strong>Release notes</strong><small>September 7 · Manual message</small></div></div><span class="status status-published">Published</span></div><h3>The first provider contract is not the domain model</h3><p>The destination version has been published successfully.</p><button class="text-action" type="button">View publication <span aria-hidden="true">→</span></button></article>
+          </div>
+        </section>
+
+        <section class="compose-workspace view-workspace" id="compose-view" data-view-panel="compose" hidden>
+          <header class="workspace-header"><div><p class="breadcrumb">Autonomos release notes · Source post</p><h2>Compose</h2></div><div class="workspace-actions"><button class="plain-button" type="button">Save draft</button><button class="primary-action" type="button">Queue post</button></div></header>
+          <div class="compose-layout">
+            <article class="source-editor"><div class="section-heading"><div><p class="panel-kicker">Source post</p><h3>One source of truth</h3></div><span class="editor-state">Saved</span></div><label class="editor-label" for="source-copy">Shared source content</label><textarea id="source-copy" rows="8">One source of truth for every destination.
+
+One post, four publication outcomes. Herald keeps the source distinct from each destination version.</textarea><div class="editor-footer"><span>Post · 4 publications</span><span>342 characters</span></div></article>
+            <section class="publication-targets" aria-label="Publication destinations"><div class="section-heading"><div><p class="panel-kicker">Destinations</p><h3>Publication versions</h3></div><span class="target-count">4</span></div><article class="target-row"><span class="channel-avatar channel-avatar-coral">in</span><div><strong>Tala Web</strong><small>LinkedIn member · ready</small></div><span class="status status-scheduled">Ready</span></article><article class="target-row"><span class="channel-avatar channel-avatar-cyan">cf</span><div><strong>Community forum</strong><small>Manual message · needs media</small></div><span class="status status-due">Review</span></article><article class="target-row"><span class="channel-avatar channel-avatar-amber">pc</span><div><strong>Product changelog</strong><small>Manual message · draft copy</small></div><span class="status status-draft">Draft</span></article><article class="target-row"><span class="channel-avatar channel-avatar-violet">rn</span><div><strong>Release notes</strong><small>Manual message · mapped</small></div><span class="status status-published">Mapped</span></article></section>
+          </div>
+        </section>
+
+        <aside class="action-panel" id="operator-panel">
+          <div class="operator-mode is-active" data-operator-view="calendar"><div class="panel-heading"><div><p class="panel-kicker">Operator view</p><h2>Next actions</h2></div><span class="attention-count">1</span></div><article class="attention-item"><div class="item-heading"><span class="status status-due">Due manual</span><span>Now</span></div><h3>Media delivery is part of the publication lifecycle</h3><p>Community forum · review the source and publish the destination version.</p><button class="panel-action" type="button">Review publication <span aria-hidden="true">→</span></button></article><div class="context-block compact"><span class="context-label">Context</span><strong>1 source post · 4 destinations</strong><p>The selected publication remains attached to its source.</p></div></div>
+          <div class="operator-mode" data-operator-view="queue" hidden><div class="panel-heading"><div><p class="panel-kicker">Selected publication</p><h2>Community forum</h2></div><span class="attention-count">1</span></div><div class="context-block context-primary"><span class="context-label">Source relation</span><strong>From “One source of truth”</strong><p>This destination needs its media asset before it can be published.</p></div><article class="attention-item"><div class="item-heading"><span class="status status-due">Due manual</span><span>Now</span></div><h3>Review the destination version</h3><p>Check the source, attach the media, then publish the forum message.</p><button class="panel-action" type="button">Open editor <span aria-hidden="true">→</span></button></article></div>
+          <div class="operator-mode" data-operator-view="compose" hidden><div class="panel-heading"><div><p class="panel-kicker">Publication coverage</p><h2>Review before queue</h2></div><span class="attention-count">1</span></div><div class="coverage-list"><div><span class="status status-scheduled">Ready</span><strong>1</strong><small>destination</small></div><div><span class="status status-due">Review</span><strong>1</strong><small>destination</small></div><div><span class="status status-draft">Draft</span><strong>1</strong><small>destination</small></div><div><span class="status status-published">Mapped</span><strong>1</strong><small>destination</small></div></div><div class="context-block compact"><span class="context-label">Next decision</span><strong>Resolve the forum media</strong><p>The source can remain shared while each publication is reviewed separately.</p></div></div>
+        </aside>
+      </section>
+
+      <section class="palette-notes"><article><p class="lab-kicker">Invariant</p><h2>The relationship stays visible</h2><p>Each surface keeps the same mental model: one source, several publications, channels, and states that can diverge.</p></article><article><p class="lab-kicker">Density changes</p><h2>The task changes the shape</h2><p>The calendar favors an overview, the queue favors decisions, and Compose favors editing the source and its destinations.</p></article><article><p class="lab-kicker">Holdout</p><h2>The system must hold</h2><p>A coherent identity does not mean that the three screens look alike; it means they feel like part of the same tool.</p></article></section>
+    </main>
+
+    <script>
+      const root = document.documentElement;
+      const themeToggle = document.querySelector("#theme-toggle");
+      const themeMode = document.querySelector("#theme-mode");
+      document.querySelectorAll(".rail-link[data-view]").forEach((button) => button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const key = button.dataset.view;
+        root.dataset.view = key;
+        document.querySelectorAll(".rail-link[data-view]").forEach((candidate) => candidate.classList.toggle("is-active", candidate === button));
+        document.querySelectorAll("[data-view-panel]").forEach((panel) => panel.toggleAttribute("hidden", panel.dataset.viewPanel !== key));
+        document.querySelectorAll("[data-operator-view]").forEach((panel) => panel.toggleAttribute("hidden", panel.dataset.operatorView !== key));
+        history.replaceState(null, "", `#${button.getAttribute("href").slice(1)}`);
+      }));
+      themeToggle.addEventListener("click", () => {
+        const light = root.dataset.theme !== "light";
+        root.dataset.theme = light ? "light" : "dark";
+        themeMode.textContent = light ? "Light companion" : "Dark primary";
+        themeToggle.textContent = light ? "Return to dark primary" : "View light companion";
+      });
+    </script>
+  </body>
+</html>

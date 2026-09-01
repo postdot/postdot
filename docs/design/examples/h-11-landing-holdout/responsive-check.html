@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>H-11 responsive check</title>
+    <style>
+      body { margin: 0; background: #dfe2e2; color: #1b2228; font: 14px system-ui, sans-serif; }
+      main { display: grid; gap: 24px; padding: 24px; }
+      section { width: min-content; }
+      h1, p { margin: 0 0 8px; }
+      iframe { display: block; border: 0; background: #111416; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); }
+      #tablet { width: 768px; height: 1000px; }
+      #mobile { width: 375px; height: 1000px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section><h1>Tablet · 768</h1><p>Dispatch narrative</p><iframe id="tablet" src="./index.html?v=4#dispatch" title="Herald landing at tablet width"></iframe></section>
+      <section><h1>Mobile · 375</h1><p>Dispatch narrative</p><iframe id="mobile" src="./index.html?v=4#dispatch" title="Herald landing at mobile width"></iframe></section>
+    </main>
+  </body>
+</html>
