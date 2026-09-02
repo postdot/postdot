@@ -150,6 +150,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/publications/due',
                 '/api/projects/{projectId}/publications/{publicationId}/editor',
                 '/api/projects/{projectId}/publications/{publicationId}/draft',
+                '/api/projects/{projectId}/publications/{publicationId}/draft/rebase',
                 '/api/projects/{projectId}/publications/{publicationId}/draft/promote',
                 '/api/projects/{projectId}/publications/{publicationId}/publish',
                 '/api/projects/{projectId}/publications/{publicationId}/reconcile',
@@ -427,7 +428,9 @@ describe('Herald API', () => {
             ])
 
             const publicationId = postBody.publications[0]?.id
+            const secondPublicationId = postBody.publications[1]?.id
             expect(publicationId).toBeString()
+            expect(secondPublicationId).toBeString()
             const editorResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/publications/${publicationId}/editor`,
@@ -501,6 +504,111 @@ describe('Herald API', () => {
                 draft: { revision: 2, content: { body: 'Edited manual copy', media: [] } },
                 selectedTarget: { content: { body: 'Manual copy', media: [] } },
             })
+
+            const siblingEditorResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${secondPublicationId}/editor`,
+                cookie
+            )
+            expect(siblingEditorResponse.status).toBe(200)
+            const siblingEditorBody = (await siblingEditorResponse.json()) as {
+                editor: {
+                    post: { sourceRevision: number }
+                    draft: {
+                        revision: number
+                        sourceRevision: number
+                        baseSourceContent: { body?: { text: string } }
+                        content: Record<string, unknown>
+                    }
+                }
+            }
+            expect(siblingEditorBody.editor).toMatchObject({
+                post: { sourceRevision: 2 },
+                draft: {
+                    revision: 1,
+                    sourceRevision: 1,
+                    baseSourceContent: {
+                        body: { text: 'A source post for multiple destinations.' },
+                    },
+                    content: { body: 'Second copy', media: [] },
+                },
+            })
+
+            const staleSiblingSaveResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${secondPublicationId}/draft`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        expectedRevision: 1,
+                        targetContent: { body: 'Stale sibling copy', media: [] },
+                    }),
+                }
+            )
+            expect(staleSiblingSaveResponse.status).toBe(409)
+
+            const rebaseResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${secondPublicationId}/draft/rebase`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ expectedRevision: 1 }),
+                }
+            )
+            expect(rebaseResponse.status).toBe(200)
+            const rebasedEditor = (await rebaseResponse.json()) as {
+                editor: {
+                    post: { sourceRevision: number }
+                    draft: {
+                        revision: number
+                        sourceRevision: number
+                        baseSourceContent: { body?: { text: string } }
+                        content: Record<string, unknown>
+                    }
+                }
+            }
+            expect(rebasedEditor.editor).toMatchObject({
+                post: { sourceRevision: 2 },
+                draft: {
+                    revision: 2,
+                    sourceRevision: 2,
+                    baseSourceContent: {
+                        body: { text: 'An edited source post for multiple destinations.' },
+                    },
+                    content: { body: 'Second copy', media: [] },
+                },
+            })
+
+            const idempotentRebaseResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${secondPublicationId}/draft/rebase`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ expectedRevision: 2 }),
+                }
+            )
+            expect(idempotentRebaseResponse.status).toBe(200)
+            expect(
+                (
+                    (await idempotentRebaseResponse.json()) as {
+                        editor: { draft: { revision: number; sourceRevision: number } }
+                    }
+                ).editor.draft
+            ).toMatchObject({ revision: 2, sourceRevision: 2 })
+
+            const invalidRebaseResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${secondPublicationId}/draft/rebase`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ expectedRevision: 0 }),
+                }
+            )
+            expect(invalidRebaseResponse.status).toBe(422)
 
             const staleSaveResponse = await jsonRequest(
                 app,
@@ -583,6 +691,9 @@ describe('Herald API', () => {
                 events: Array<{ action: string }>
             }
             expect(auditBody.events.map(event => event.action)).toContain('publication.published')
+            expect(auditBody.events.map(event => event.action)).toContain(
+                'publication.draft.rebased'
+            )
         } finally {
             closeDatabase(database)
         }

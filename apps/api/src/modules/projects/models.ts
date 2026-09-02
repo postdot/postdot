@@ -148,6 +148,7 @@ export const publicationWorkingDraftSchema = Type.Unsafe<PublicationWorkingDraft
         publicationId: Type.String({ minLength: 1 }),
         profileVersionId: Type.String({ minLength: 1 }),
         sourceRevision: Type.Integer({ minimum: 1 }),
+        baseSourceContent: sourceContentSchema,
         content: Type.Record(Type.String(), Type.Unknown()),
         reviewState: Type.Union([Type.Literal('compatible'), Type.Literal('review_required')]),
         validationIssues: Type.Array(Type.Record(Type.String(), Type.Unknown())),
@@ -291,6 +292,10 @@ export const savePublicationDraftBody = Type.Object({
     expectedRevision: Type.Integer({ minimum: 1 }),
     sourceContent: Type.Optional(sourceContentSchema),
     targetContent: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+})
+
+export const rebasePublicationDraftBody = Type.Object({
+    expectedRevision: Type.Integer({ minimum: 1 }),
 })
 
 export const promotePublicationDraftBody = Type.Object({

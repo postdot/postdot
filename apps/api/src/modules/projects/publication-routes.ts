@@ -12,6 +12,7 @@ import {
     publishPublicationBody,
     reconcilePublicationBody,
     promotePublicationDraftBody,
+    rebasePublicationDraftBody,
     savePublicationDraftBody,
 } from './models'
 import type { AuthenticatedElysia, ManualStore } from './types'
@@ -115,6 +116,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     400: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
+                    422: errorResponse,
                 },
                 detail: {
                     operationId: 'savePublicationDraft',
@@ -137,6 +139,51 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     expectedRevision: body.expectedRevision,
                     sourceContent: body.sourceContent,
                     targetContent: body.targetContent,
+                })
+                if (draft === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+
+                const editor = manualStore.getPublicationEditorState(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
+                if (editor === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+                return { editor }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/draft/rebase',
+            {
+                auth: true,
+                body: rebasePublicationDraftBody,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ editor: publicationEditorStateSchema }),
+                    400: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'rebasePublicationDraft',
+                    summary: 'Rebase a stale publication draft onto the current source',
+                    tags: ['Publications'],
+                },
+            },
+            ({ body, params, status, user }) => {
+                const draft = manualStore.rebasePublicationDraft({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                    expectedRevision: body.expectedRevision,
                 })
                 if (draft === null) {
                     return status(404, {

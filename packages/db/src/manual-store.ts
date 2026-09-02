@@ -130,6 +130,13 @@ export interface SavePublicationDraftInput {
     readonly targetContent?: TargetContent
 }
 
+export interface RebasePublicationDraftInput {
+    readonly projectId: string
+    readonly publicationId: string
+    readonly subjectId: string
+    readonly expectedRevision: number
+}
+
 export interface PromotePublicationDraftInput {
     readonly projectId: string
     readonly publicationId: string
@@ -183,6 +190,7 @@ export interface PublicationWorkingDraft {
     readonly publicationId: string
     readonly profileVersionId: string
     readonly sourceRevision: number
+    readonly baseSourceContent: SourceContent
     readonly content: TargetContent
     readonly reviewState: PublicationReviewState
     readonly validationIssues: readonly Record<string, unknown>[]
@@ -334,6 +342,7 @@ interface WorkingDraftRow {
     readonly publicationId: string
     readonly profileVersionId: string
     readonly sourceRevision: number
+    readonly baseSourceContentJson: string
     readonly contentJson: string
     readonly reviewState: PublicationReviewState
     readonly validationIssuesJson: string
@@ -581,6 +590,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                publication_id as publicationId,
                profile_version_id as profileVersionId,
                source_revision as sourceRevision,
+               base_source_content as baseSourceContentJson,
                content_json as contentJson,
                review_state as reviewState,
                validation_issues_json as validationIssuesJson,
@@ -917,6 +927,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             publicationId: string,
             profileVersionId: string,
             sourceRevision: number,
+            baseSourceContentJson: string,
             contentJson: string,
             reviewState: PublicationReviewState,
             validationIssuesJson: string,
@@ -931,6 +942,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             publication_id,
             profile_version_id,
             source_revision,
+            base_source_content,
             content_json,
             review_state,
             validation_issues_json,
@@ -939,7 +951,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             updated_by_actor_id,
             created_at,
             updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, ?10, ?11, ?11)
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, ?12)
     `)
     const insertTargetRevisionStatement = client.query<
         void,
@@ -1028,6 +1040,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         { changes: number },
         [
             sourceRevision: number,
+            baseSourceContentJson: string,
             contentJson: string,
             reviewState: PublicationReviewState,
             validationIssuesJson: string,
@@ -1041,16 +1054,39 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     >(`
         update publication_working_drafts
         set source_revision = ?1,
-            content_json = ?2,
-            review_state = ?3,
-            validation_issues_json = ?4,
-            last_assessed_profile_version_id = ?5,
+            base_source_content = ?2,
+            content_json = ?3,
+            review_state = ?4,
+            validation_issues_json = ?5,
+            last_assessed_profile_version_id = ?6,
             revision = revision + 1,
-            updated_by_actor_id = ?6,
-            updated_at = ?7
-        where project_id = ?8
-          and publication_id = ?9
-          and revision = ?10
+            updated_by_actor_id = ?7,
+            updated_at = ?8
+        where project_id = ?9
+          and publication_id = ?10
+          and revision = ?11
+    `)
+    const rebaseWorkingDraftStatement = client.query<
+        { changes: number },
+        [
+            sourceRevision: number,
+            baseSourceContentJson: string,
+            updatedByActorId: string,
+            updatedAt: number,
+            projectId: string,
+            publicationId: string,
+            expectedRevision: number,
+        ]
+    >(`
+        update publication_working_drafts
+        set source_revision = ?1,
+            base_source_content = ?2,
+            revision = revision + 1,
+            updated_by_actor_id = ?3,
+            updated_at = ?4
+        where project_id = ?5
+          and publication_id = ?6
+          and revision = ?7
     `)
     const updatePublicationAssessmentStatement = client.query<
         { changes: number },
@@ -2119,6 +2155,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                     publication.id,
                     entry.profileVersionId,
                     post.sourceRevision,
+                    canonicalJson(post.sourceContent),
                     entry.targetContentJson,
                     publication.reviewState,
                     JSON.stringify(entry.validationIssues),
@@ -2316,6 +2353,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
 
             const draftUpdate = updateWorkingDraftStatement.run(
                 sourceRevision,
+                sourceChanged ? sourceContentJson : draftRow.baseSourceContentJson,
                 targetContentJson,
                 reviewState,
                 JSON.stringify(validationIssues),
@@ -2337,6 +2375,88 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             if (updated === null)
                 throw new DomainInvariantError('invalid_input', 'Draft disappeared')
             return toWorkingDraft(updated)
+        }
+    )
+
+    const rebasePublicationDraftTransaction = client.transaction(
+        (input: RebasePublicationDraftInput): PublicationWorkingDraft | null => {
+            const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
+            const publicationRow = loadPublicationByIdStatement.get(
+                input.projectId,
+                input.publicationId
+            )
+            const draftRow = loadWorkingDraftStatement.get(input.projectId, input.publicationId)
+            if (actorRow === null || publicationRow === null || draftRow === null) return null
+            if (
+                ['ready', 'publishing', 'published', 'ambiguous', 'cancelled'].includes(
+                    publicationRow.state
+                )
+            ) {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Cannot rebase a ${publicationRow.state} publication`
+                )
+            }
+            if (input.expectedRevision !== draftRow.revision) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    `Publication draft ${input.publicationId} changed after revision ${input.expectedRevision}`
+                )
+            }
+
+            const postRow = loadPostSourceStatement.get(input.projectId, publicationRow.postId)
+            if (postRow === null) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Publication ${input.publicationId} has no source post`
+                )
+            }
+            if (postRow.sourceRevision < draftRow.sourceRevision) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Publication ${input.publicationId} has a source revision newer than its post`
+                )
+            }
+            if (postRow.sourceRevision === draftRow.sourceRevision) {
+                return toWorkingDraft(draftRow)
+            }
+
+            const timestamp = requireTimestamp(now(), 'now')
+            const update = rebaseWorkingDraftStatement.run(
+                postRow.sourceRevision,
+                postRow.sourceContentJson,
+                actorRow.id,
+                timestamp,
+                input.projectId,
+                input.publicationId,
+                input.expectedRevision
+            )
+            if (update.changes !== 1) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    `Publication draft ${input.publicationId} changed before it could be rebased`
+                )
+            }
+            insertAuditEventStatement.run(
+                createId(),
+                input.projectId,
+                actorRow.id,
+                'publication.draft.rebased',
+                'publication',
+                input.publicationId,
+                JSON.stringify({
+                    fromSourceRevision: draftRow.sourceRevision,
+                    toSourceRevision: postRow.sourceRevision,
+                    targetPreserved: true,
+                }),
+                timestamp
+            )
+
+            const rebased = loadWorkingDraftStatement.get(input.projectId, input.publicationId)
+            if (rebased === null) {
+                throw new DomainInvariantError('invalid_input', 'Draft disappeared after rebase')
+            }
+            return toWorkingDraft(rebased)
         }
     )
 
@@ -2892,6 +3012,16 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             })
         },
 
+        rebasePublicationDraft(input: RebasePublicationDraftInput): PublicationWorkingDraft | null {
+            return rebasePublicationDraftTransaction.immediate({
+                ...input,
+                projectId: requireNonBlank(input.projectId, 'projectId'),
+                publicationId: requireNonBlank(input.publicationId, 'publicationId'),
+                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
+                expectedRevision: requirePositiveRevision(input.expectedRevision),
+            })
+        },
+
         promotePublicationDraft(input: PromotePublicationDraftInput): Publication | null {
             return promotePublicationDraftTransaction.immediate({
                 ...input,
@@ -3425,6 +3555,7 @@ function toWorkingDraft(row: WorkingDraftRow): PublicationWorkingDraft {
         publicationId: row.publicationId,
         profileVersionId: row.profileVersionId,
         sourceRevision: row.sourceRevision,
+        baseSourceContent: parseSourceContent(row.baseSourceContentJson),
         content: parseJsonObject(row.contentJson, 'publication draft content'),
         reviewState: row.reviewState,
         validationIssues: parseJsonArray(row.validationIssuesJson, 'publication validation issues'),

@@ -343,6 +343,19 @@ export const api = {
         )
     },
 
+    async rebasePublicationDraft(
+        projectId: string,
+        publicationId: string,
+        expectedRevision: number
+    ): Promise<{ editor: PublicationEditorState }> {
+        return unwrap<{ editor: PublicationEditorState }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .draft.rebase.post({ expectedRevision })
+        )
+    },
+
     async publishManualPublication(
         projectId: string,
         publicationId: string,

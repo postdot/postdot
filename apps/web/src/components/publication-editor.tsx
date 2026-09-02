@@ -50,7 +50,7 @@ interface CapabilitySummary {
     readonly mediaFieldCount: number
 }
 
-type SaveState = 'saved' | 'saving' | 'local_only' | 'conflict' | 'error'
+type SaveState = 'saved' | 'saving' | 'rebasing' | 'local_only' | 'conflict' | 'error'
 
 const recoveryVersion = 2 as const
 
@@ -70,6 +70,8 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
         shouldRestoreInitialRecovery &&
         initialRecovery !== null &&
         initialRecovery.scheduleValue !== toDateTimeLocal(initialEditor.publication.scheduledAt)
+    const initialSourceConflict =
+        initialEditor.draft.sourceRevision !== initialEditor.post.sourceRevision
     const [editor, setEditor] = useState(initialEditor)
     const [sourceContent, setSourceContent] = useState<SourceContent>(() =>
         shouldRestoreInitialRecovery
@@ -84,14 +86,16 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     const [expectedRevision, setExpectedRevision] = useState(initialEditor.draft.revision)
     const [dirty, setDirty] = useState(recoveredContentDiffers)
     const [saveState, setSaveState] = useState<SaveState>(
-        recoveredContentDiffers ? 'local_only' : 'saved'
+        recoveredContentDiffers ? 'local_only' : initialSourceConflict ? 'conflict' : 'saved'
     )
     const [message, setMessage] = useState<string | null>(
         recoveredContentDiffers || recoveredScheduleDiffers
             ? 'A locally recovered copy is ready to be saved.'
-            : initialRecovery === null
-              ? null
-              : 'A previous local copy was kept because the server has newer work.'
+            : initialSourceConflict
+              ? `This draft is based on source revision ${initialEditor.draft.sourceRevision}, while the current source is revision ${initialEditor.post.sourceRevision}. Rebase it before saving or promoting.`
+              : initialRecovery === null
+                ? null
+                : 'A previous local copy was kept because the server has newer work.'
     )
     const [recoveryAvailable, setRecoveryAvailable] = useState(
         initialRecovery !== null && !shouldRestoreInitialRecovery
@@ -107,15 +111,17 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     const targetResult = useMemo(() => parseTargetText(targetText), [targetText])
     const sourceIssue = useMemo(() => sourceContentIssue(sourceContent), [sourceContent])
     const capabilitySummary = useMemo(() => getCapabilitySummary(editor.profile.profile), [editor])
+    const sourceConflict = editor.draft.sourceRevision !== editor.post.sourceRevision
     const draftDiffersFromTarget =
         editor.selectedTarget === null ||
         editor.draft.sourceRevision !== editor.selectedTarget.sourceRevision ||
         formatJson(editor.draft.content) !== formatJson(editor.selectedTarget.content)
     const hasLocalChanges = dirty || scheduleDirty
+    const isRebasing = saveState === 'rebasing'
 
     useEffect(() => {
         if (!hasLocalChanges) {
-            removeRecovery(recoveryKey)
+            if (!recoveryAvailable) removeRecovery(recoveryKey)
             return
         }
 
@@ -126,14 +132,22 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             targetText,
             scheduleValue,
         })
-    }, [expectedRevision, hasLocalChanges, recoveryKey, scheduleValue, sourceContent, targetText])
+    }, [
+        expectedRevision,
+        hasLocalChanges,
+        recoveryAvailable,
+        recoveryKey,
+        scheduleValue,
+        sourceContent,
+        targetText,
+    ])
 
     useEffect(() => {
         if (!dirty) return
 
         const generation = ++requestGeneration.current
-        if (sourceIssue !== null || targetResult.value === null) {
-            setSaveState('local_only')
+        if (sourceConflict || sourceIssue !== null || targetResult.value === null) {
+            setSaveState(sourceConflict ? 'conflict' : 'local_only')
             return
         }
         const targetContent = targetResult.value
@@ -178,6 +192,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
         expectedRevision,
         projectId,
         recoveryKey,
+        sourceConflict,
         sourceContent,
         sourceIssue,
         targetResult.value,
@@ -234,7 +249,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     }
 
     async function reloadServerVersion() {
-        requestGeneration.current += 1
+        const generation = ++requestGeneration.current
         const localSource = sourceContent
         const localTargetText = targetText
         const localRecovery = readRecovery(recoveryKey)
@@ -251,6 +266,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
 
         try {
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            if (generation !== requestGeneration.current) return
             setEditor(response.editor)
             setSourceContent(response.editor.post.sourceContent)
             setTargetText(formatJson(response.editor.draft.content))
@@ -258,9 +274,16 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt))
             setDirty(false)
             setScheduleDirty(false)
-            setSaveState('saved')
-            setMessage('The server version is loaded. Your previous local copy remains available.')
+            const refreshedSourceConflict =
+                response.editor.draft.sourceRevision !== response.editor.post.sourceRevision
+            setSaveState(refreshedSourceConflict ? 'conflict' : 'saved')
+            setMessage(
+                refreshedSourceConflict
+                    ? `The server version is loaded, but this draft still uses source revision ${response.editor.draft.sourceRevision}. Rebase it before writing again.`
+                    : 'The server version is loaded. Your previous local copy remains available.'
+            )
         } catch (caughtError) {
+            if (generation !== requestGeneration.current) return
             setSaveState('error')
             setMessage(errorMessage(caughtError))
         }
@@ -269,6 +292,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     function restoreRecovery() {
         const recovery = readRecovery(recoveryKey)
         if (recovery === null) return
+        requestGeneration.current += 1
         setSourceContent(recovery.sourceContent)
         setTargetText(recovery.targetText)
         setScheduleValue(recovery.scheduleValue)
@@ -278,11 +302,13 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             recovery.scheduleValue !== toDateTimeLocal(editor.publication.scheduledAt)
         setDirty(contentDiffers)
         setScheduleDirty(scheduleDiffers)
-        setSaveState(contentDiffers ? 'local_only' : 'saved')
+        setSaveState(sourceConflict ? 'conflict' : contentDiffers ? 'local_only' : 'saved')
         setMessage(
-            contentDiffers || scheduleDiffers
-                ? 'The recovered copy is active and ready for explicit promotion.'
-                : 'The recovered copy does not contain changes to apply.'
+            sourceConflict
+                ? 'The recovered copy is active for review, but the server draft must be rebased before it can be saved.'
+                : contentDiffers || scheduleDiffers
+                  ? 'The recovered copy is active and ready for explicit promotion.'
+                  : 'The recovered copy does not contain changes to apply.'
         )
         setRecoveryAvailable(false)
     }
@@ -291,9 +317,10 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
         const recovery = readRecovery(recoveryKey)
         if (recovery === null) return
 
-        requestGeneration.current += 1
+        const generation = ++requestGeneration.current
         try {
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            if (generation !== requestGeneration.current) return
             const contentDiffers = recoveryContentDiffers(recovery, response.editor)
             const scheduleDiffers =
                 recovery.scheduleValue !== toDateTimeLocal(response.editor.publication.scheduledAt)
@@ -304,21 +331,90 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             setExpectedRevision(response.editor.draft.revision)
             setDirty(contentDiffers)
             setScheduleDirty(scheduleDiffers)
-            setSaveState(contentDiffers ? 'local_only' : 'saved')
+            const refreshedSourceConflict =
+                response.editor.draft.sourceRevision !== response.editor.post.sourceRevision
+            setSaveState(
+                refreshedSourceConflict ? 'conflict' : contentDiffers ? 'local_only' : 'saved'
+            )
             setRecoveryAvailable(false)
             setMessage(
-                contentDiffers || scheduleDiffers
-                    ? 'Your local copy is restored against the latest server revision.'
-                    : 'The latest server revision already contains the local copy.'
+                refreshedSourceConflict
+                    ? 'Your local copy is loaded for review. Rebase the server draft before saving it.'
+                    : contentDiffers || scheduleDiffers
+                      ? 'Your local copy is restored against the latest server revision.'
+                      : 'The latest server revision already contains the local copy.'
             )
         } catch (caughtError) {
+            if (generation !== requestGeneration.current) return
+            setSaveState('error')
+            setMessage(errorMessage(caughtError))
+        }
+    }
+
+    async function rebaseToLatestSource() {
+        const generation = ++requestGeneration.current
+        const localRecovery = readRecovery(recoveryKey)
+        const hadLocalCopy = hasLocalChanges || localRecovery !== null
+        if (hasLocalChanges) {
+            writeRecovery(recoveryKey, {
+                version: recoveryVersion,
+                baseRevision: expectedRevision,
+                sourceContent,
+                targetText,
+                scheduleValue,
+            })
+        }
+        setRecoveryAvailable(hadLocalCopy)
+        setSaveState('rebasing')
+        setMessage('Rebasing the server draft onto the current source…')
+
+        try {
+            const response = await api.rebasePublicationDraft(
+                projectId,
+                editor.publication.id,
+                expectedRevision
+            )
+            if (generation !== requestGeneration.current) return
+            const rebasedSourceConflict =
+                response.editor.draft.sourceRevision !== response.editor.post.sourceRevision
+            setEditor(response.editor)
+            setSourceContent(response.editor.post.sourceContent)
+            setTargetText(formatJson(response.editor.draft.content))
+            setExpectedRevision(response.editor.draft.revision)
+            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt))
+            setDirty(false)
+            setScheduleDirty(false)
+            setSaveState(rebasedSourceConflict ? 'conflict' : 'saved')
+            setRecoveryAvailable(hadLocalCopy)
+            setMessage(
+                rebasedSourceConflict
+                    ? 'The shared source advanced again while the draft was being rebased. Review the conflict again before continuing.'
+                    : hadLocalCopy
+                      ? 'The server draft now uses the current source. Your local copy remains available for review.'
+                      : 'The server draft now uses the current source. Review the preserved target before promoting it.'
+            )
+        } catch (caughtError) {
+            if (generation !== requestGeneration.current) return
+            if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
+                setSaveState('conflict')
+                setMessage(
+                    'The draft changed before it could be rebased. Reload the server version and review the conflict again.'
+                )
+                return
+            }
             setSaveState('error')
             setMessage(errorMessage(caughtError))
         }
     }
 
     async function promoteDraft() {
-        if (dirty || saveState !== 'saved' || targetResult.value === null || sourceIssue !== null) {
+        if (
+            dirty ||
+            sourceConflict ||
+            saveState !== 'saved' ||
+            targetResult.value === null ||
+            sourceIssue !== null
+        ) {
             return
         }
 
@@ -413,16 +509,22 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                         A local recovery copy is available from an earlier editor session.
                     </p>
                     <div className="flex gap-2">
-                        <Button size="sm" variant="secondary" onClick={restoreRecovery}>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={restoreRecovery}
+                            disabled={isRebasing}>
                             Restore local copy
                         </Button>
                         <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => {
+                                requestGeneration.current += 1
                                 removeRecovery(recoveryKey)
                                 setRecoveryAvailable(false)
-                            }}>
+                            }}
+                            disabled={isRebasing}>
                             Discard local copy
                         </Button>
                     </div>
@@ -460,6 +562,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                             id="source-body"
                                             value={body?.text ?? ''}
                                             onChange={event => updateSourceText(event.target.value)}
+                                            disabled={isRebasing}
                                             rows={9}
                                             className="min-h-44 min-w-0 max-w-full text-sm leading-6"
                                         />
@@ -480,7 +583,9 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                                         value as 'plain_text' | 'markdown'
                                                     )
                                                 }>
-                                                <SelectTrigger id="source-format">
+                                                <SelectTrigger
+                                                    id="source-format"
+                                                    disabled={isRebasing}>
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent align="start">
@@ -507,6 +612,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                                     )
                                                 }
                                                 placeholder="Optional headline"
+                                                disabled={isRebasing}
                                                 className="min-w-0"
                                             />
                                         </Field>
@@ -523,6 +629,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                                 )
                                             }
                                             placeholder="Optional BCP 47 tag, for example en-US"
+                                            disabled={isRebasing}
                                             className="min-w-0"
                                         />
                                     </Field>
@@ -530,7 +637,9 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                         projectId={projectId}
                                         value={sourceContent.media}
                                         onChange={updateSourceMedia}
-                                        disabled={saveState === 'saving'}
+                                        disabled={
+                                            saveState === 'saving' || saveState === 'rebasing'
+                                        }
                                     />
                                 </div>
                             </CardContent>
@@ -580,6 +689,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                             setTargetText(event.target.value)
                                             setDirty(true)
                                         }}
+                                        disabled={isRebasing}
                                         spellCheck={false}
                                         rows={15}
                                         className="min-h-64 min-w-0 max-w-full resize-y bg-surface-field px-3 py-2 font-mono text-xs leading-6 text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
@@ -653,6 +763,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                                         )
                                                 )
                                             }}
+                                            disabled={isRebasing}
                                             className="min-w-0"
                                         />
                                         <FieldDescription className="text-xs">
@@ -664,6 +775,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                         onClick={() => void promoteDraft()}
                                         disabled={
                                             dirty ||
+                                            sourceConflict ||
                                             saveState !== 'saved' ||
                                             targetResult.value === null ||
                                             sourceIssue !== null
@@ -744,28 +856,65 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                         </div>
                     </section>
 
-                    {saveState === 'conflict' ? (
+                    {sourceConflict || saveState === 'conflict' ? (
                         <Alert
                             variant="destructive"
                             className="rounded-md border-destructive/35 bg-destructive/5 px-4 py-5">
-                            <AlertTitle>Reconcile before continuing</AlertTitle>
+                            <AlertTitle>
+                                {sourceConflict
+                                    ? 'Source revision needs review'
+                                    : 'Reconcile before continuing'}
+                            </AlertTitle>
                             <AlertDescription>
-                                Another editor committed a newer revision. Keep your local copy or
-                                load the server version before writing again.
+                                {sourceConflict
+                                    ? `This draft was authored from source revision ${editor.draft.sourceRevision}, but the shared post is now at revision ${editor.post.sourceRevision}. The target payload is preserved until you explicitly choose what to keep.`
+                                    : 'Another editor committed a newer draft revision. Keep your local copy or load the server version before writing again.'}
                             </AlertDescription>
+                            {sourceConflict ? (
+                                <div className="mt-4 grid min-w-0 gap-3 text-xs sm:grid-cols-2">
+                                    <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
+                                        <p className="font-medium text-foreground">
+                                            Draft source · revision {editor.draft.sourceRevision}
+                                        </p>
+                                        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
+                                            {formatJson(editor.draft.baseSourceContent)}
+                                        </pre>
+                                    </div>
+                                    <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
+                                        <p className="font-medium text-foreground">
+                                            Current source · revision {editor.post.sourceRevision}
+                                        </p>
+                                        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
+                                            {formatJson(editor.post.sourceContent)}
+                                        </pre>
+                                    </div>
+                                </div>
+                            ) : null}
                             <div className="mt-4 grid gap-2">
+                                {sourceConflict ? (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => void rebaseToLatestSource()}
+                                        disabled={isRebasing}>
+                                        Rebase draft to current source
+                                    </Button>
+                                ) : null}
                                 <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => void reloadServerVersion()}>
+                                    onClick={() => void reloadServerVersion()}
+                                    disabled={isRebasing}>
                                     Load server version
                                 </Button>
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={() => void restoreRecoveryAgainstLatestServer()}>
-                                    Restore local copy on latest version
-                                </Button>
+                                {recoveryAvailable || hasLocalChanges ? (
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => void restoreRecoveryAgainstLatestServer()}
+                                        disabled={isRebasing}>
+                                        Load local copy for review
+                                    </Button>
+                                ) : null}
                             </div>
                         </Alert>
                     ) : null}
@@ -787,11 +936,13 @@ function SaveIndicator({
             ? 'Saved'
             : state === 'saving'
               ? 'Saving…'
-              : state === 'local_only'
-                ? 'Local recovery only'
-                : state === 'conflict'
-                  ? 'Conflict'
-                  : 'Save failed'
+              : state === 'rebasing'
+                ? 'Rebasing…'
+                : state === 'local_only'
+                  ? 'Local recovery only'
+                  : state === 'conflict'
+                    ? 'Conflict'
+                    : 'Save failed'
 
     return (
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">

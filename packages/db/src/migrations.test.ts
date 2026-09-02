@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { eq } from 'drizzle-orm'
 
 import { closeDatabase, createDatabase } from './client'
+import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { session, user } from './schema'
 
@@ -60,9 +61,103 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(7)
+            expect(migrationCount?.count).toBe(8)
         } finally {
             closeDatabase(database)
+        }
+    })
+
+    it('backfills source snapshots and refuses unrecoverable stale legacy drafts', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => 1_800_000_000_000 })
+            const project = store.createProject({
+                name: 'Migration fixture',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Migration channel',
+            })
+            if (channel === null) throw new Error('The migration fixture channel is missing')
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Legacy source', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [{ channelId: channel.id }],
+            })
+            if (created === null) throw new Error('The migration fixture post is missing')
+
+            database.$client.exec(
+                'ALTER TABLE publication_working_drafts DROP COLUMN base_source_content'
+            )
+            database.$client
+                .query(
+                    'DELETE FROM __drizzle_migrations WHERE created_at = (SELECT max(created_at) FROM __drizzle_migrations)'
+                )
+                .run()
+            runMigrations(database)
+
+            const migrated = database.$client
+                .query<{ base_source_content: string }, []>(
+                    'SELECT base_source_content FROM publication_working_drafts'
+                )
+                .get()
+            expect(JSON.parse(migrated?.base_source_content ?? 'null')).toEqual({
+                body: { text: 'Legacy source', format: 'plain_text' },
+                media: [],
+            })
+        } finally {
+            closeDatabase(database)
+        }
+
+        const staleDatabase = createDatabase(':memory:')
+        try {
+            runMigrations(staleDatabase)
+            const store = createManualStore(staleDatabase, { now: () => 1_800_000_000_000 })
+            const project = store.createProject({
+                name: 'Stale migration fixture',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Stale migration channel',
+            })
+            if (channel === null) throw new Error('The stale migration channel is missing')
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Stale source', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [{ channelId: channel.id }],
+            })
+            if (created === null) throw new Error('The stale migration post is missing')
+            staleDatabase.$client
+                .query('UPDATE posts SET source_revision = 2 WHERE id = ?1')
+                .run(created.post.id)
+            staleDatabase.$client.exec(
+                'ALTER TABLE publication_working_drafts DROP COLUMN base_source_content'
+            )
+            staleDatabase.$client
+                .query(
+                    'DELETE FROM __drizzle_migrations WHERE created_at = (SELECT max(created_at) FROM __drizzle_migrations)'
+                )
+                .run()
+
+            expect(() => runMigrations(staleDatabase)).toThrow()
+        } finally {
+            closeDatabase(staleDatabase)
         }
     })
 

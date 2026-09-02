@@ -189,7 +189,7 @@
 ## [ISSUE-010] Define recovery for shared source revision conflicts
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: `packages/db/src/manual-store.ts` rejects a stale publication draft
   when the shared post source revision has advanced. The integration test in
   `packages/db/src/manual-store.test.ts` confirms that a sibling draft remains on
@@ -201,6 +201,15 @@
   user-visible reconciliation flow that preserves source and target work, explains
   conflicts, and never changes an already promoted or executing snapshot.
 - Tasks: DOMAIN-39
+- Resolution: ADR-027 is implemented. Working drafts now retain their source
+  snapshot, the API exposes an explicit project-scoped rebase operation guarded by
+  the draft revision, and the web editor preserves local recovery data while
+  presenting the source conflict for review. Rebase preserves target content,
+  schedule, delivery state, and execution state; it never promotes or rewrites a
+  target payload.
+- Verification: Database migration, store, API, and browser-editor integration
+  tests cover source snapshots, stale-draft rejection, explicit rebase,
+  idempotent retry, audit attribution, and fail-closed legacy migration.
 
 ## [ISSUE-011] Make execution history append-only and attributable
 

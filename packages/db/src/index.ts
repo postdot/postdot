@@ -73,6 +73,7 @@ export type {
     PublicationSummary,
     PublicationTargetRevision,
     SavePublicationDraftInput,
+    RebasePublicationDraftInput,
 } from './manual-store'
 export type {
     FinalizeMediaUploadInput,

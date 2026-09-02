@@ -931,6 +931,10 @@ export const publicationWorkingDrafts = sqliteTable(
         publicationId: text('publication_id').notNull(),
         profileVersionId: text('profile_version_id').notNull(),
         sourceRevision: integer('source_revision').notNull(),
+        baseSourceContent: text('base_source_content', { mode: 'json' })
+            .$type<SourceContent>()
+            .default(sql`'{}'`)
+            .notNull(),
         contentJson: text('content_json', { mode: 'json' })
             .$type<Readonly<Record<string, unknown>>>()
             .notNull(),

@@ -1030,7 +1030,47 @@ describe('manual workflow store', () => {
             ])
             expect(
                 store.getPublicationWorkingDraft(project.project.id, secondPublication.id, 'user-1')
-            ).toMatchObject({ revision: 1, sourceRevision: 1 })
+            ).toMatchObject({
+                revision: 1,
+                sourceRevision: 1,
+                baseSourceContent: sourceContent('Initial source'),
+                content: { body: 'Initial source', media: [] },
+            })
+
+            const rebased = store.rebasePublicationDraft({
+                projectId: project.project.id,
+                publicationId: secondPublication.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+            })
+            expect(rebased).toMatchObject({
+                revision: 2,
+                sourceRevision: 2,
+                baseSourceContent: sourceContent('First editor source'),
+                content: { body: 'Initial source', media: [] },
+            })
+
+            const idempotentRebase = store.rebasePublicationDraft({
+                projectId: project.project.id,
+                publicationId: secondPublication.id,
+                subjectId: 'user-1',
+                expectedRevision: 2,
+            })
+            expect(idempotentRebase).toMatchObject({ revision: 2, sourceRevision: 2 })
+            expect(
+                store
+                    .listAuditEvents(project.project.id, 'user-1')
+                    ?.filter(event => event.action === 'publication.draft.rebased')
+            ).toHaveLength(1)
+            expect(() =>
+                store.savePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: secondPublication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 1,
+                    targetContent: { body: 'Stale copy', media: [] },
+                })
+            ).toThrow('changed after revision 1')
         } finally {
             closeDatabase(database)
         }
