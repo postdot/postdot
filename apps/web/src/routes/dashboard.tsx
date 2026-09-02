@@ -19,7 +19,8 @@ import {
     type PublisherConnection,
     type PublicationSummary,
 } from '@/lib/api'
-import { parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
+import { parseDateTimeLocal } from '@/lib/date-time'
+import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
 
 interface ProjectData {
     readonly channels: Channel[]
@@ -87,11 +88,10 @@ function DashboardPage() {
     )
     const [postTitle, setPostTitle] = useState('')
     const [postContent, setPostContent] = useState('')
-    const [publicationContent, setPublicationContent] = useState('')
     const [sourceMedia, setSourceMedia] = useState<MediaSelection[]>([])
-    const [publicationChannelId, setPublicationChannelId] = useState('')
-    const [deliveryMode, setDeliveryMode] = useState<'manual' | 'automatic'>('manual')
-    const [scheduledAt, setScheduledAt] = useState(defaultScheduleValue)
+    const [publicationTargets, setPublicationTargets] = useState<PublicationTargetDraft[]>(() => [
+        createPublicationTarget(initialData.channels[0]?.id ?? ''),
+    ])
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -103,12 +103,13 @@ function DashboardPage() {
             setDuePublications([])
             setPublisherConnections([])
             setPublications([])
-            setPublicationChannelId('')
+            setPublicationTargets([createPublicationTarget()])
             setSourceMedia([])
             return
         }
 
         setSourceMedia([])
+        setPublicationTargets([createPublicationTarget()])
         let active = true
         loadProjectData(selectedProjectId)
             .then(data => {
@@ -117,7 +118,7 @@ function DashboardPage() {
                 setDuePublications(data.due)
                 setPublisherConnections(data.connections)
                 setPublications(data.publications)
-                setPublicationChannelId(current => current || data.channels[0]?.id || '')
+                setPublicationTargets([createPublicationTarget(data.channels[0]?.id ?? '')])
             })
             .catch(caughtError => {
                 if (active) setError(errorMessage(caughtError))
@@ -145,7 +146,13 @@ function DashboardPage() {
         await runAction(async () => {
             const response = await api.createChannel(selectedProjectId, channelName, channelProfile)
             setChannels(current => [...current, response.channel])
-            setPublicationChannelId(current => current || response.channel.id)
+            setPublicationTargets(current =>
+                current.map((target, index) =>
+                    index === 0 && target.channelId === ''
+                        ? { ...target, channelId: response.channel.id }
+                        : target
+                )
+            )
             setChannelName('')
             setChannelProfile('manual-message')
         })
@@ -153,26 +160,49 @@ function DashboardPage() {
 
     async function handleCreatePost(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        if (selectedProjectId === null || publicationChannelId === '') return
+        if (selectedProjectId === null) return
         if (postContent.trim() === '' && sourceMedia.length === 0) {
             setError('Add source text or at least one media attachment.')
             return
         }
-        const scheduledTimestamp = parseDateTimeLocal(scheduledAt)
-        if (scheduledTimestamp === null || scheduledTimestamp === 'invalid') {
-            setError('Choose a valid publication date.')
+        if (
+            publicationTargets.length === 0 ||
+            publicationTargets.some(target => target.channelId === '')
+        ) {
+            setError('Select a channel for each destination.')
             return
         }
 
-        const selectedChannel = channels.find(channel => channel.id === publicationChannelId)
-        if (selectedChannel === undefined) return
-        const copy = publicationContent.trim()
-        const targetContent =
-            copy === ''
-                ? undefined
-                : selectedChannel.profileId === 'linkedin'
-                  ? { commentary: copy, media: sourceMedia }
-                  : { body: copy, media: sourceMedia }
+        const publicationInputs = publicationTargets.map(target => {
+            const scheduledTimestamp = parseDateTimeLocal(target.scheduledAt)
+            if (scheduledTimestamp === null || scheduledTimestamp === 'invalid') return null
+
+            const selectedChannel = channels.find(channel => channel.id === target.channelId)
+            if (selectedChannel === undefined) return null
+
+            const copy = target.content.trim()
+            const targetContent =
+                copy === ''
+                    ? undefined
+                    : selectedChannel.profileId === 'linkedin'
+                      ? { commentary: copy, media: [...sourceMedia] }
+                      : { body: copy, media: [...sourceMedia] }
+
+            return {
+                channelId: target.channelId,
+                targetContent,
+                deliveryMode: target.deliveryMode,
+                scheduledAt: scheduledTimestamp,
+            }
+        })
+
+        if (publicationInputs.some(input => input === null)) {
+            setError('Choose a valid publication date and channel for each destination.')
+            return
+        }
+        const validPublicationInputs = publicationInputs.filter(
+            (input): input is NonNullable<typeof input> => input !== null
+        )
 
         await runAction(async () => {
             await api.createPost(selectedProjectId, {
@@ -183,19 +213,12 @@ function DashboardPage() {
                         : { body: { text: postContent, format: 'plain_text' as const } }),
                     media: sourceMedia,
                 },
-                publications: [
-                    {
-                        channelId: publicationChannelId,
-                        targetContent,
-                        deliveryMode,
-                        scheduledAt: scheduledTimestamp,
-                    },
-                ],
+                publications: validPublicationInputs,
             })
             setPostTitle('')
             setPostContent('')
-            setPublicationContent('')
             setSourceMedia([])
+            setPublicationTargets([createPublicationTarget(channels[0]?.id ?? '')])
             await refreshSelectedProject()
         })
     }
@@ -241,7 +264,9 @@ function DashboardPage() {
         setDuePublications(data.due)
         setPublisherConnections(data.connections)
         setPublications(data.publications)
-        setPublicationChannelId(current => current || data.channels[0]?.id || '')
+        setPublicationTargets(current =>
+            current.length === 0 ? [createPublicationTarget(data.channels[0]?.id ?? '')] : current
+        )
     }
 
     async function runAction(action: () => Promise<void>) {
@@ -279,7 +304,6 @@ function DashboardPage() {
                     channelProfile={channelProfile}
                     channels={channels}
                     connections={publisherConnections}
-                    deliveryMode={deliveryMode}
                     duePublications={duePublications}
                     error={error}
                     onChannelNameChange={setChannelName}
@@ -289,10 +313,7 @@ function DashboardPage() {
                     onDisconnectPublisher={handleDisconnectPublisher}
                     onPostContentChange={setPostContent}
                     onPostTitleChange={setPostTitle}
-                    onPublicationChannelChange={setPublicationChannelId}
-                    onPublicationContentChange={setPublicationContent}
-                    onDeliveryModeChange={setDeliveryMode}
-                    onScheduledAtChange={setScheduledAt}
+                    onPublicationTargetsChange={setPublicationTargets}
                     onSourceMediaChange={setSourceMedia}
                     onStartLinkedInConnection={handleStartLinkedInConnection}
                     onPublish={handlePublish}
@@ -300,19 +321,13 @@ function DashboardPage() {
                     postContent={postContent}
                     postTitle={postTitle}
                     project={selectedProject}
-                    publicationChannelId={publicationChannelId}
-                    publicationContent={publicationContent}
+                    publicationTargets={publicationTargets}
                     publications={publications}
-                    scheduledAt={scheduledAt}
                     sourceMedia={sourceMedia}
                 />
             )}
         </DashboardShell>
     )
-}
-
-function defaultScheduleValue() {
-    return toDateTimeLocal(Date.now() + 60 * 60 * 1000)
 }
 
 function errorMessage(error: unknown) {

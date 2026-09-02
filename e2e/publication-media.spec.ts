@@ -37,10 +37,12 @@ test('persists mixed and media-only publications through the dashboard', async (
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
     const channelName = `E2E-33 Channel ${suffix}`
+    const secondChannelName = `E2E-33 Second channel ${suffix}`
     const mixedTitle = `E2E-33 Mixed ${suffix}`
     const mediaOnlyTitle = `E2E-33 Media only ${suffix}`
     const sourceText = `E2E-33 source ${suffix}`
     const targetText = `E2E-33 target ${suffix}`
+    const secondTargetText = `E2E-33 second target ${suffix}`
 
     await page.goto('/login')
     await expect(
@@ -214,6 +216,12 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByLabel('New channel').fill(channelName)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     await expect(page.locator('li').filter({ hasText: channelName }).first()).toBeVisible()
+    const channelProfile = page.getByRole('combobox', { name: 'Profile', exact: true })
+    await channelProfile.click()
+    await page.getByRole('option', { name: 'LinkedIn text', exact: true }).click()
+    await page.getByLabel('New channel').fill(secondChannelName)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    await expect(page.locator('li').filter({ hasText: secondChannelName }).first()).toBeVisible()
     const channelSidebarLayout = await page
         .locator('[data-slot="sidebar-menu-item"]')
         .filter({ hasText: channelName })
@@ -254,10 +262,26 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByLabel('Post title').fill(mixedTitle)
     await page.getByLabel('Source content').fill(sourceText)
     await page.getByLabel('Channel copy').fill(targetText)
-    await page.getByRole('button', { name: 'Schedule manual publication', exact: true }).click()
+    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: 'Remove destination 3', exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Remove destination 3', exact: true }).click()
+    const secondPublicationChannel = page.getByRole('combobox', { name: 'Channel' }).nth(1)
+    await secondPublicationChannel.click()
+    await page.getByRole('option', { name: secondChannelName, exact: true }).click()
+    await page.getByLabel('Channel copy').nth(1).fill(secondTargetText)
+    const secondPublicationDelivery = page
+        .getByRole('combobox', { name: 'Delivery mode', exact: true })
+        .nth(1)
+    await secondPublicationDelivery.click()
+    await page.getByRole('option', { name: 'Automatic publication', exact: true }).click()
+    await page.getByLabel('Scheduled for').nth(1).fill('2030-01-01T10:00')
+    await page.getByRole('button', { name: 'Schedule 2 publications', exact: true }).click()
 
-    const mixedPublication = page.getByRole('link').filter({ hasText: mixedTitle }).first()
-    await expect(mixedPublication).toBeVisible()
+    const mixedPublications = page.getByRole('link').filter({ hasText: mixedTitle })
+    await expect(mixedPublications).toHaveCount(2)
 
     await publicationChannel.click()
     await page.getByRole('option', { name: channelName, exact: true }).click()
@@ -276,8 +300,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByRole('link').filter({ hasText: mixedTitle }).first()).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first()).toBeVisible()
 
-    await page.getByRole('link').filter({ hasText: mixedTitle }).first().click()
-    await expect(page.getByRole('heading', { name: mixedTitle })).toBeVisible()
+    await mixedPublications.filter({ hasText: channelName }).first().click()
+    await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Body', exact: true })).toHaveValue(sourceText)
     await expect(
         page.locator('article').filter({ hasText: mediaFilename }).first().getByRole('button')
@@ -288,6 +312,14 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(mixedTarget.media).toHaveLength(1)
     const assetId = mixedTarget.media[0]?.assetId
     expect(assetId).toEqual(expect.any(String))
+
+    await page.getByRole('link', { name: /Back to dashboard/ }).click()
+    await mixedPublications.filter({ hasText: secondChannelName }).first().click()
+    await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
+    const secondMixedTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
+    expect(secondMixedTarget.commentary).toBe(secondTargetText)
+    expect(secondMixedTarget.media).toHaveLength(1)
+    expect(secondMixedTarget.media[0]?.assetId).toBe(assetId)
 
     await page.getByRole('link', { name: /Back to dashboard/ }).click()
     await page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first().click()
@@ -305,6 +337,7 @@ test('persists mixed and media-only publications through the dashboard', async (
 
 interface TargetContent {
     readonly body?: string
+    readonly commentary?: string
     readonly media: readonly { readonly assetId: string }[]
 }
 

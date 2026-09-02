@@ -34,10 +34,11 @@ import { ListIcon } from '@solar-icons/react/bold/list'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { UserCheckIcon } from '@solar-icons/react/bold/user-check'
 import { Link } from '@tanstack/react-router'
-import type { FormEvent, ReactNode } from 'react'
+import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react'
 
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
+import { PublicationTargetList } from '@/components/publication-target-list'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import type {
     Channel,
@@ -46,9 +47,9 @@ import type {
     PublisherConnection,
     PublicationSummary,
 } from '@/lib/api'
+import type { PublicationTargetDraft } from '@/lib/publication-authoring'
 
 type ChannelProfile = 'manual-message' | 'linkedin'
-type DeliveryMode = 'manual' | 'automatic'
 type PublicationState = PublicationSummary['state']
 
 interface DashboardWorkspaceProps {
@@ -56,7 +57,6 @@ interface DashboardWorkspaceProps {
     readonly channelProfile: ChannelProfile
     readonly channels: readonly Channel[]
     readonly connections: readonly PublisherConnection[]
-    readonly deliveryMode: DeliveryMode
     readonly duePublications: readonly DuePublication[]
     readonly error: string | null
     readonly onChannelNameChange: (value: string) => void
@@ -66,10 +66,7 @@ interface DashboardWorkspaceProps {
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
     readonly onPostContentChange: (value: string) => void
     readonly onPostTitleChange: (value: string) => void
-    readonly onPublicationChannelChange: (value: string) => void
-    readonly onPublicationContentChange: (value: string) => void
-    readonly onDeliveryModeChange: (value: DeliveryMode) => void
-    readonly onScheduledAtChange: (value: string) => void
+    readonly onPublicationTargetsChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
     readonly onSourceMediaChange: (value: MediaSelection[]) => void
     readonly onStartLinkedInConnection: (channelId: string) => Promise<void>
     readonly onPublish: (publicationId: string) => Promise<void>
@@ -77,10 +74,8 @@ interface DashboardWorkspaceProps {
     readonly postContent: string
     readonly postTitle: string
     readonly project: Project | null
-    readonly publicationChannelId: string
-    readonly publicationContent: string
+    readonly publicationTargets: readonly PublicationTargetDraft[]
     readonly publications: readonly PublicationSummary[]
-    readonly scheduledAt: string
     readonly sourceMedia: readonly MediaSelection[]
 }
 
@@ -89,7 +84,6 @@ export function DashboardWorkspace({
     channelProfile,
     channels,
     connections,
-    deliveryMode,
     duePublications,
     error,
     onChannelNameChange,
@@ -99,10 +93,7 @@ export function DashboardWorkspace({
     onDisconnectPublisher,
     onPostContentChange,
     onPostTitleChange,
-    onPublicationChannelChange,
-    onPublicationContentChange,
-    onDeliveryModeChange,
-    onScheduledAtChange,
+    onPublicationTargetsChange,
     onSourceMediaChange,
     onStartLinkedInConnection,
     onPublish,
@@ -110,10 +101,8 @@ export function DashboardWorkspace({
     postContent,
     postTitle,
     project,
-    publicationChannelId,
-    publicationContent,
+    publicationTargets,
     publications,
-    scheduledAt,
     sourceMedia,
 }: DashboardWorkspaceProps) {
     const scheduledCount = publications.filter(
@@ -171,24 +160,17 @@ export function DashboardWorkspace({
             <div className="mt-6 grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_19rem] xl:items-start">
                 <div className="min-w-0 space-y-7">
                     <ComposeSection
-                        channelProfile={channelProfile}
                         channels={channels}
-                        deliveryMode={deliveryMode}
                         onCreatePost={onCreatePost}
-                        onDeliveryModeChange={onDeliveryModeChange}
                         onPostContentChange={onPostContentChange}
                         onPostTitleChange={onPostTitleChange}
-                        onPublicationChannelChange={onPublicationChannelChange}
-                        onPublicationContentChange={onPublicationContentChange}
-                        onScheduledAtChange={onScheduledAtChange}
+                        onPublicationTargetsChange={onPublicationTargetsChange}
                         onSourceMediaChange={onSourceMediaChange}
                         pending={pending}
                         postContent={postContent}
                         postTitle={postTitle}
                         project={project}
-                        publicationChannelId={publicationChannelId}
-                        publicationContent={publicationContent}
-                        scheduledAt={scheduledAt}
+                        publicationTargets={publicationTargets}
                         sourceMedia={sourceMedia}
                     />
 
@@ -224,44 +206,30 @@ export function DashboardWorkspace({
 }
 
 function ComposeSection({
-    channelProfile,
     channels,
-    deliveryMode,
     onCreatePost,
-    onDeliveryModeChange,
     onPostContentChange,
     onPostTitleChange,
-    onPublicationChannelChange,
-    onPublicationContentChange,
-    onScheduledAtChange,
+    onPublicationTargetsChange,
     onSourceMediaChange,
     pending,
     postContent,
     postTitle,
     project,
-    publicationChannelId,
-    publicationContent,
-    scheduledAt,
+    publicationTargets,
     sourceMedia,
 }: {
-    readonly channelProfile: ChannelProfile
     readonly channels: readonly Channel[]
-    readonly deliveryMode: DeliveryMode
     readonly onCreatePost: (event: FormEvent<HTMLFormElement>) => void
-    readonly onDeliveryModeChange: (value: DeliveryMode) => void
     readonly onPostContentChange: (value: string) => void
     readonly onPostTitleChange: (value: string) => void
-    readonly onPublicationChannelChange: (value: string) => void
-    readonly onPublicationContentChange: (value: string) => void
-    readonly onScheduledAtChange: (value: string) => void
+    readonly onPublicationTargetsChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
     readonly onSourceMediaChange: (value: MediaSelection[]) => void
     readonly pending: boolean
     readonly postContent: string
     readonly postTitle: string
     readonly project: Project | null
-    readonly publicationChannelId: string
-    readonly publicationContent: string
-    readonly scheduledAt: string
+    readonly publicationTargets: readonly PublicationTargetDraft[]
     readonly sourceMedia: readonly MediaSelection[]
 }) {
     return (
@@ -274,11 +242,13 @@ function ComposeSection({
                                 New publication
                             </CardTitle>
                             <CardDescription className="mt-2 max-w-2xl leading-6">
-                                Route one source to a destination and choose how it will be
-                                delivered.
+                                Route one source to several destinations, each with its own delivery
+                                plan.
                             </CardDescription>
                         </div>
-                        <span className="text-xs text-muted-foreground">Autosave in editor</span>
+                        <span className="text-xs text-muted-foreground">
+                            One source · multiple targets
+                        </span>
                     </div>
                 </CardHeader>
 
@@ -340,104 +310,34 @@ function ComposeSection({
                                 <div className="min-w-0 space-y-5 rounded-lg bg-muted p-5 shadow-surface sm:p-6">
                                     <div>
                                         <h3 className="font-heading text-base font-[580] leading-[1.03] tracking-[-0.04em]">
-                                            Destination
+                                            Destinations
                                         </h3>
+                                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                            Adapt the source independently for each channel.
+                                        </p>
                                     </div>
-                                    <FormField htmlFor="publication-channel" label="Channel">
-                                        <Select
-                                            required
-                                            items={Object.fromEntries(
-                                                channels.map(channel => [channel.id, channel.name])
-                                            )}
-                                            value={publicationChannelId || null}
-                                            onValueChange={value =>
-                                                onPublicationChannelChange(value ?? '')
-                                            }>
-                                            <SelectTrigger id="publication-channel">
-                                                <SelectValue placeholder="Select a channel" />
-                                            </SelectTrigger>
-                                            <SelectContent align="start">
-                                                {channels.map(channel => (
-                                                    <SelectItem key={channel.id} value={channel.id}>
-                                                        {channel.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </FormField>
-                                    <FormField
-                                        htmlFor="publication-content"
-                                        label="Channel copy"
-                                        hint={
-                                            channelProfile === 'linkedin'
-                                                ? 'Optional LinkedIn commentary override.'
-                                                : 'Optional target-specific override.'
-                                        }>
-                                        <Textarea
-                                            id="publication-content"
-                                            value={publicationContent}
-                                            onChange={event =>
-                                                onPublicationContentChange(event.target.value)
-                                            }
-                                            placeholder="Optional override"
-                                            rows={5}
-                                            className="min-h-32 leading-6"
-                                        />
-                                    </FormField>
-                                    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
-                                        <FormField htmlFor="delivery-mode" label="Delivery mode">
-                                            <Select
-                                                items={{
-                                                    manual: 'Manual publication',
-                                                    automatic: 'Automatic publication',
-                                                }}
-                                                value={deliveryMode}
-                                                onValueChange={value =>
-                                                    onDeliveryModeChange(value as DeliveryMode)
-                                                }>
-                                                <SelectTrigger id="delivery-mode">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent align="start">
-                                                    <SelectItem value="manual">
-                                                        Manual publication
-                                                    </SelectItem>
-                                                    <SelectItem value="automatic">
-                                                        Automatic publication
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </FormField>
-                                        <FormField
-                                            htmlFor="scheduled-for"
-                                            label="Scheduled for"
-                                            hint="Use the local time configured by your browser.">
-                                            <Input
-                                                id="scheduled-for"
-                                                required
-                                                type="datetime-local"
-                                                value={scheduledAt}
-                                                onChange={event =>
-                                                    onScheduledAtChange(event.target.value)
-                                                }
-                                            />
-                                        </FormField>
-                                    </div>
+                                    <PublicationTargetList
+                                        channels={channels}
+                                        disabled={pending}
+                                        onChange={onPublicationTargetsChange}
+                                        targets={publicationTargets}
+                                    />
                                 </div>
                             </div>
 
                             <div className="mt-7 flex flex-col justify-between gap-4 rounded-lg bg-muted p-4 sm:flex-row sm:items-center">
                                 <p className="max-w-xl text-sm text-muted-foreground">
-                                    {deliveryMode === 'automatic'
-                                        ? 'The worker will deliver this target when its channel connection is ready.'
-                                        : 'A human will complete this target from the due-work queue.'}
+                                    {publicationTargets.length === 1
+                                        ? publicationTargets[0]?.deliveryMode === 'automatic'
+                                            ? 'The worker will deliver this target when its channel connection is ready.'
+                                            : 'A human will complete this target from the due-work queue.'
+                                        : 'Each destination is scheduled independently and keeps its own delivery outcome.'}
                                 </p>
                                 <Button type="submit" disabled={pending || channels.length === 0}>
                                     <CalendarAddIcon aria-hidden="true" />
-                                    Schedule {deliveryMode === 'automatic'
-                                        ? 'automatic'
-                                        : 'manual'}{' '}
-                                    publication
+                                    {publicationTargets.length === 1
+                                        ? `Schedule ${publicationTargets[0]?.deliveryMode === 'automatic' ? 'automatic' : 'manual'} publication`
+                                        : `Schedule ${publicationTargets.length} publications`}
                                 </Button>
                             </div>
                         </form>

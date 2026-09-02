@@ -174,17 +174,28 @@
 ## [ISSUE-009] Complete multi-destination post authoring
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: The API and persistence boundary accept an array of publication inputs
-  for one source post, but `apps/web/src/routes/dashboard.tsx` currently submits
-  one publication from the main composer. This is recorded in the [AUDIT-37
-  worklog](worklogs/2026-09-02-AUDIT-37.md).
-- Impact: Herald's central promise of one source post feeding independently managed
-  destinations cannot be exercised through its primary authoring surface.
+  for one source post, and the primary web composer now exposes repeatable target
+  cards instead of a single publication form.
+- Impact: Before this slice, Herald's central promise of one source post feeding
+  independently managed destinations could not be exercised through its primary
+  authoring surface.
 - Desired outcome: A user can create and manage one source post with multiple
   channel publications, each retaining its own target content, schedule, delivery
   mode, validation state, and outcome.
 - Tasks: DOMAIN-39
+- Resolution: The dashboard composer now keeps one source draft and a repeatable
+  list of destination drafts. Each destination independently selects a channel,
+  optional target copy, delivery mode, and schedule; creation submits all targets
+  through the existing atomic `publications[]` API contract. The existing
+  publication editor and queue continue to manage each resulting target and its
+  persisted validation/outcome independently.
+- Verification: `e2e/publication-media.spec.ts` creates one source with two
+  destinations, distinct target content and schedules, manual and automatic
+  delivery modes, shared media, and repeat/remove interactions, then verifies
+  both persisted target payloads. Format, lint, typecheck, unit, browser, and
+  build gates pass.
 
 ## [ISSUE-010] Define recovery for shared source revision conflicts
 
