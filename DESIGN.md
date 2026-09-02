@@ -4,7 +4,7 @@ Status: accepted
 Scope: product-wide visual direction for the authenticated app and future
 public/documentation surfaces
 Owner: project owner
-Last accepted: 2026-09-01
+Last accepted: 2026-09-02
 
 This contract records the direction accepted after the H-06, H-08, H-09, and
 H-10 disposable calibration studies. It is a product direction, not a promise
@@ -29,8 +29,9 @@ future landing-page decisions remain explicit below.
   use. The authenticated app is an operational workspace, not a centered
   marketing canvas.
 - Known constraints: React/TanStack Router/Vite, Tailwind and `@herald/ui`,
-  Base UI, Solar Icons Linear, native-first motion policy, English product
-  copy, and the existing `Post` / `Publication` and `Channel` boundaries.
+  Base UI, Recursive Variable, Solar Icons Bold, native-first motion policy,
+  English product copy, and the existing `Post` / `Publication` and `Channel`
+  boundaries.
 - Assumptions to validate: the exact first-run workflow, navigation taxonomy,
   right-context surface, public audience, landing-page proposition, and
   primary conversion action.
@@ -66,7 +67,31 @@ future landing-page decisions remain explicit below.
   dominant task surface may coexist; a right contextual surface appears only
   when the current task gives it a concrete job. Calendar favors overview,
   Queue favors prioritization, and Compose favors source editing plus target
-  review.
+  review. Operational sections default to one clear title with compact
+  metadata or an action; an overline, icon, and explanatory paragraph are
+  optional content, not a heading formula.
+- Current shell candidate: the authenticated navigation uses the accessible
+  shadcn/Base UI Sidebar primitive for project context, workspace navigation,
+  channels, account actions, and a mobile drawer. Its default width, collapse
+  behavior, and final information density remain subject to rendered review.
+  The main scroll region includes the app header; the header stays sticky at
+  the top of that region without a decorative bottom rule. A restrained
+  shared surface shadow establishes its layer over the canvas.
+- Sidebar menu buttons that render a trailing status badge reserve the badge's
+  width before the channel label truncates. Collapsed icon mode overrides that
+  reservation so the icon control remains centered in the rail.
+- Component source versus visual system: shadcn/Base UI supplies accessible
+  behavior and composable primitives; it is not Herald's visual default. The
+  shared UI package owns the final radius, surface, typography, control, and
+  shadow tokens. Consuming pages should express product hierarchy rather than
+  repeatedly undoing generic component styles with local overrides.
+- Brand mark: the owner-supplied Herald bird is the shared product mark. Its
+  source belongs in `@herald/ui` under `src/assets/brand`, while the reusable
+  inline `HeraldLogo` component uses `currentColor` so the mark follows the
+  surrounding theme and surface. Brand placements must not fall back to an
+  invented lettermark. In the app rail, the mark is standalone and uses the
+  semantic brand color; a filled container is not part of the default chrome
+  treatment.
 - Geometry: surfaces establish boundaries before lines. Use restrained,
   low-radius geometry; do not turn every region into a rounded rectangle. A
   line is allowed when it expresses an axis, relation, control grouping,
@@ -75,21 +100,41 @@ future landing-page decisions remain explicit below.
 - Density: density follows the reader's task. Calendar can be spacious enough
   to scan a month; Queue can be denser for comparison; Compose gives the
   source and destination versions room to be edited and checked.
-- Type roles: use a humanist sans direction with clear display, heading, body,
-  label, and data roles. The current Geist Variable implementation is
-  provisional; type should support calm operational reading rather than act
-  as a personality substitute. Do not use all-caps tracking as the default
-  hierarchy device.
+- Type roles: use Recursive Variable as the accepted primary family with clear
+  display, heading, body, label, and data roles, followed by Inter Variable,
+  Adwaita Sans, Noto Sans, and system fallbacks. The current calibration uses
+  approximately 600 weight with tight tracking and near-unit line-height for
+  primary display headings, approximately 580 for secondary headings, and
+  approximately 650 with compact tracking for action labels. Type should
+  support calm operational reading rather than act as a personality
+  substitute. Do not use all-caps tracking as the default hierarchy device.
 - Color roles: dark is the primary app theme with a neutral near-black canvas,
   grayscale surfaces, readable text tiers, and restrained semantic colors.
   `Cobalt instrument` is the provisional brand/action accent. Color belongs
   to actions, channel identity, selection, and publication state before it
-  belongs to large backgrounds. A light companion must preserve the same role
-  mapping rather than become a separate visual language.
+  belongs to large backgrounds. The explicit light companion must preserve the
+  same role mapping rather than become a separate visual language. The
+  accepted surface palette is Graphite/Ash: near-achromatic charcoal roles in
+  dark mode and neutral ash roles in light mode, with a restrained warm-neutral
+  bias instead of blue-slate surfaces.
 - Surface/material: use value, spacing, and occasional depth to establish
   zones. Keep the main source object visually distinct because it carries the
   product's central relationship. Avoid gradients, glow, and shadow quotas
-  unless a real content or interaction need earns them.
+  unless a real content or interaction need earns them. Use explicit semantic
+  roles for canvas, raised surfaces, inset surfaces, fields, and overlays; a
+  restrained surface shadow or overlay shadow may distinguish levels without
+  turning every region into a bordered card.
+- Controls: fields use the field surface and its inset shadow as their default
+  boundary. A visible border is reserved for focus, invalid state, or a real
+  control grouping. Repeated form controls in one row share the same control
+  height and must not be vertically displaced by optional helper copy. A
+  secondary action should use the same shared control geometry as its peers;
+  media-library actions use a padded, rounded region rather than a border-only
+  strip.
+- Desktop density: prioritize the current authoring or review task and keep
+  secondary management surfaces compact. Reduce explanatory repetition before
+  reducing readable input space; mobile may stack the same information when
+  the viewport requires it.
 - Motion principles: follow ADR-024's native-first motion policy. Animate
   state or spatial change only when it improves orientation or feedback, and
   preserve the same meaning with reduced motion enabled.
@@ -175,15 +220,33 @@ building it; the current app contract must not silently decide those choices.
   `docs/design/examples/`; the associated renders and observations are
   recorded in the Autonomos DESIGN-02 worklog.
 - Rendered checks: disposable local browser studies at 1280 × 720, with dark
-  primary and light companion checks; actual production responsive migration
-  remains outstanding.
+  primary and light companion checks; the first authenticated production
+  candidate has desktop, collapsed-sidebar, mobile-drawer, and light-theme
+  evidence in the DESIGN-35 worklog. The current shared-token revision still
+  requires a fresh owner visual checkpoint before it is treated as accepted.
 - Open visual questions: exact app navigation, the right-context surface's
-  product value, final humanist sans choice, status treatment, landing-page
-  audience/proposition/action, and whether the Cobalt accent needs a secondary
-  brand companion.
+  product value, font-axis and weight fine-tuning, status treatment,
+  landing-page audience/proposition/action, and whether the Cobalt accent needs
+  a secondary brand companion.
+- Owner review note: the first authenticated shell candidate is directionally
+  valid but visually unfinished. A shared token/primitive correction is
+  required before treating its spacing, type, header, sidebar, and surface
+  treatment as a stable design-system expression.
+- Owner review note: the latest dashboard review rejected the repeated
+  marketing-style overline/icon/title/description stack as a default for an
+  operational app. The channel creation form also exposed inconsistent
+  surface corners, visible field borders, mismatched control heights, and
+  alignment caused by uneven helper text. These are system rules, not isolated
+  page exceptions.
 - Accepted changes: 2026-09-01 — Cobalt accent, neutral surface-led
   foundation, purposeful lines, rare depth, and task-dependent density —
-  accepted after H-10 owner review.
+  accepted after H-10 owner review; 2026-09-02 — Graphite/Ash low-chroma
+  surface palette accepted as the neutral refinement; 2026-09-02 — Recursive
+  Variable as the owner-selected type family, Solar Icons Bold as the shared
+  icon weight, and reserved sidebar badge space to prevent channel labels from
+  overlapping their status; 2026-09-02 — the owner-supplied Herald bird mark
+  accepted as the product logo, with an inline current-color implementation for
+  themed application surfaces and standalone app-rail treatment.
 
 ## Calibration
 
@@ -192,7 +255,8 @@ building it; the current app contract must not silently decide those choices.
 - Baseline: the pre-direction Tailwind dashboard and the H-09 linework
   comparison, using the same Herald fixture and wide viewport.
 - Current candidate: this contract plus Cobalt, neutral surface-led roles,
-  and task-dependent composition.
+  Recursive Variable, Solar Icons Bold, the Herald bird mark, and task-
+  dependent composition.
 - Observable rubric: product category is clear; source/publication relation is
   visible; each surface has one primary task; shared identity survives layout
   changes; borders and depth have a reason; wide and narrow layouts remain
@@ -203,10 +267,13 @@ building it; the current app contract must not silently decide those choices.
   multi-surface holdout.
 - Holdout result: H-10 passed the owner checkpoint for cross-surface identity;
   H-11 showed that the identity can transfer to a non-dashboard composition.
-  Production application and responsive evidence remain pending.
+  Production application evidence remains provisional and is refined through
+  the DESIGN-35 owner checkpoint.
 - Reference boundary: the archived HTML is calibration evidence, not a
   production route or component specification. Real landing proof, audience,
   proposition, and conversion decisions remain open.
-- Next experiment: create an actual Herald app shell using this contract,
-  then separately compare two landing-page compositions after the public
+- Next experiment: render the corrected authenticated shell against real
+  publication data, then separately recompose the long workflow forms to
+  reduce unnecessary scroll while preserving the source-to-destination
+  relationship. Compare landing-page compositions only after the public
   proposition and audience are known.

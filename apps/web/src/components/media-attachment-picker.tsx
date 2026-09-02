@@ -1,7 +1,18 @@
-import { CheckCircleIcon } from '@solar-icons/react/linear/check-circle'
-import { CloseCircleIcon } from '@solar-icons/react/linear/close-circle'
-import { CloudUploadIcon } from '@solar-icons/react/linear/cloud-upload'
-import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
+import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
+import { Button } from '@herald/ui/components/button'
+import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+} from '@herald/ui/components/empty'
+import { Field, FieldLabel } from '@herald/ui/components/field'
+import { Input } from '@herald/ui/components/input'
+import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { CloseIcon } from '@solar-icons/react/bold/close'
+import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
+import { UploadIcon } from '@solar-icons/react/bold/upload'
 import { useEffect, useId, useState, type ChangeEvent } from 'react'
 
 import { ApiError, api, type MediaReference } from '@/lib/api'
@@ -129,10 +140,10 @@ export function MediaAttachmentPicker({
     }
 
     return (
-        <div className="rounded-xl border bg-muted/20 p-4">
+        <div className="rounded-lg bg-muted p-4 sm:p-5">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div>
-                    <div className="flex items-center gap-2 text-sm font-semibold">
+                    <div className="flex items-center gap-2 text-sm font-medium">
                         <GalleryAddIcon aria-hidden="true" />
                         Media attachments
                     </div>
@@ -140,16 +151,15 @@ export function MediaAttachmentPicker({
                         Upload once, then reuse a verified asset across publication targets.
                     </p>
                 </div>
-                <label
-                    htmlFor={inputId}
-                    className={`inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-muted ${
-                        interactionDisabled
-                            ? 'pointer-events-none opacity-50'
-                            : 'focus-within:ring-3 focus-within:ring-ring/20'
-                    }`}>
-                    <CloudUploadIcon aria-hidden="true" />
+                <Button
+                    render={<label htmlFor={inputId} />}
+                    nativeButton={false}
+                    variant="secondary"
+                    size="default"
+                    className={interactionDisabled ? 'pointer-events-none opacity-50' : ''}>
+                    <UploadIcon aria-hidden="true" />
                     {uploading === null ? 'Upload media' : `Uploading ${uploading}…`}
-                </label>
+                </Button>
                 <input
                     id={inputId}
                     className="sr-only"
@@ -161,17 +171,26 @@ export function MediaAttachmentPicker({
             </div>
 
             {error !== null ? (
-                <p role="alert" className="mt-3 text-sm text-destructive">
-                    {error}
-                </p>
+                <Alert variant="destructive" className="mt-4 rounded-md">
+                    <AlertTitle>Media action failed</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
             ) : null}
 
             {loading ? (
                 <p className="mt-4 text-sm text-muted-foreground">Loading media library…</p>
             ) : assets.length === 0 ? (
-                <p className="mt-4 rounded-lg border border-dashed px-3 py-4 text-sm text-muted-foreground">
-                    No verified media assets yet.
-                </p>
+                <Empty className="mt-4 min-h-28 bg-surface-field px-4 py-5">
+                    <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                            <GalleryAddIcon aria-hidden="true" />
+                        </EmptyMedia>
+                        <EmptyTitle>No verified media assets</EmptyTitle>
+                        <EmptyDescription>
+                            Upload an image to make it available here.
+                        </EmptyDescription>
+                    </EmptyHeader>
+                </Empty>
             ) : (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {assets.map(asset => {
@@ -180,10 +199,8 @@ export function MediaAttachmentPicker({
                         return (
                             <article
                                 key={asset.asset.id}
-                                className={`rounded-lg border bg-background p-3 ${
-                                    selected === undefined
-                                        ? ''
-                                        : 'border-primary/60 ring-1 ring-primary/20'
+                                className={`rounded-md bg-surface-field p-3 shadow-field ${
+                                    selected === undefined ? '' : 'ring-2 ring-primary/35'
                                 }`}>
                                 <button
                                     type="button"
@@ -207,16 +224,21 @@ export function MediaAttachmentPicker({
                                     {selected === undefined ? (
                                         <span className="text-xs text-muted-foreground">Add</span>
                                     ) : (
-                                        <CheckCircleIcon
+                                        <CheckReadIcon
                                             aria-label="Attached"
                                             className="shrink-0 text-primary"
                                         />
                                     )}
                                 </button>
                                 {selected !== undefined ? (
-                                    <label className="mt-3 grid gap-1 text-xs font-medium">
-                                        Accessibility text
-                                        <input
+                                    <Field className="mt-3 gap-1">
+                                        <FieldLabel
+                                            className="text-xs"
+                                            htmlFor={`media-alt-${asset.asset.id}`}>
+                                            Accessibility text
+                                        </FieldLabel>
+                                        <Input
+                                            id={`media-alt-${asset.asset.id}`}
                                             value={selected.accessibilityText ?? ''}
                                             disabled={interactionDisabled}
                                             onChange={event =>
@@ -226,9 +248,9 @@ export function MediaAttachmentPicker({
                                                 )
                                             }
                                             placeholder="Describe this media when needed"
-                                            className="h-8 rounded-md border bg-background px-2 text-xs font-normal outline-none focus:border-ring focus:ring-3 focus:ring-ring/20"
+                                            className="h-8 text-xs"
                                         />
-                                    </label>
+                                    </Field>
                                 ) : null}
                             </article>
                         )
@@ -237,8 +259,8 @@ export function MediaAttachmentPicker({
             )}
 
             {value.some(item => !assets.some(asset => asset.asset.id === item.assetId)) ? (
-                <div className="mt-3 flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
-                    <CloseCircleIcon aria-hidden="true" className="mt-0.5 shrink-0" />
+                <div className="mt-3 flex items-start gap-2 rounded-md bg-state-attention/10 px-3 py-2 text-xs text-state-attention">
+                    <CloseIcon aria-hidden="true" className="mt-0.5 shrink-0" />
                     <p>Some selected assets are no longer in the current media library.</p>
                 </div>
             ) : null}
@@ -290,12 +312,12 @@ function MediaPreview({
                 src={api.mediaContentUrl(projectId, asset.asset.id)}
                 alt=""
                 loading="lazy"
-                className="size-12 rounded-md border object-cover"
+                className="size-12 rounded-md object-cover shadow-field"
             />
         )
     }
     return (
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-semibold uppercase text-muted-foreground">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground shadow-field">
             {representation?.family?.slice(0, 3) ?? 'file'}
         </span>
     )

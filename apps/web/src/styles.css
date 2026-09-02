@@ -3,3 +3,19 @@
 
 @source './';
 @source '../../../packages/ui/src';
+
+.herald-scrollbar-none {
+    scrollbar-width: none;
+}
+
+.herald-scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+
+html:has(.herald-dashboard) {
+    overflow: hidden;
+}
+
+body:has(.herald-dashboard) {
+    overflow: hidden;
+}

@@ -1,2 +1,2 @@
-export { Button, buttonVariants } from './components'
+export * from './components'
 export { cn } from './lib'

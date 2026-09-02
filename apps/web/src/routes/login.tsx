@@ -1,5 +1,5 @@
 import { Button } from '@herald/ui/components/button'
-import { LoginIcon } from '@solar-icons/react/linear/login'
+import { HeraldLogo } from '@herald/ui/components/herald-logo'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 
@@ -45,7 +45,7 @@ function LoginPage() {
         <section className="mx-auto max-w-md py-16 sm:py-24">
             <div className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8">
                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                    <LoginIcon aria-hidden="true" />
+                    <HeraldLogo className="size-8" />
                 </div>
                 <p className="mt-8 text-sm font-semibold uppercase tracking-[0.18em] text-primary">
                     {isSignUp ? 'Create an account' : 'Welcome back'}

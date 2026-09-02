@@ -1,5 +1,5 @@
 import { Button } from '@herald/ui/components/button'
-import { ArrowRightIcon } from '@solar-icons/react/linear/arrow-right'
+import { ArrowRightIcon } from '@solar-icons/react/bold/arrow-right'
 import { createFileRoute, Link } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/')({

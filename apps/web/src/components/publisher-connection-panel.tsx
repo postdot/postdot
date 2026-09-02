@@ -1,7 +1,16 @@
 import { Button } from '@herald/ui/components/button'
-import { AddCircleIcon } from '@solar-icons/react/linear/add-circle'
-import { CheckCircleIcon } from '@solar-icons/react/linear/check-circle'
+import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+} from '@herald/ui/components/empty'
+import { AddIcon } from '@solar-icons/react/bold/add'
+import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { LinkIcon } from '@solar-icons/react/bold/link'
 
+import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import type { Channel, PublisherConnection } from '@/lib/api'
 
 interface PublisherConnectionPanelProps {
@@ -24,25 +33,26 @@ export function PublisherConnectionPanel({
     )
 
     return (
-        <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
-            <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-primary">
-                    Automatic destinations
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                    Publisher connections
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                    Connect a LinkedIn member account to a channel when scheduled work should be
-                    published automatically.
-                </p>
-            </div>
+        <section id="publisher-connections" className="pt-1">
+            <DashboardSectionHeading
+                description="Automatic delivery requires a connection on supported channels."
+                meta={`${connections.length} connected`}
+                title="Publisher connections"
+            />
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-4 divide-y divide-border/70">
                 {channels.length === 0 ? (
-                    <p className="rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
-                        Create a channel before configuring an automatic destination.
-                    </p>
+                    <Empty className="min-h-32 bg-muted">
+                        <EmptyHeader>
+                            <EmptyMedia variant="icon">
+                                <LinkIcon aria-hidden="true" />
+                            </EmptyMedia>
+                            <EmptyTitle>No publisher connections</EmptyTitle>
+                            <EmptyDescription>
+                                Create a channel before configuring an automatic destination.
+                            </EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
                 ) : (
                     channels.map(channel => {
                         const connection = connectionsByChannel.get(channel.id)
@@ -50,13 +60,16 @@ export function PublisherConnectionPanel({
                         return (
                             <article
                                 key={channel.id}
-                                className="rounded-xl border p-4 sm:flex sm:items-center sm:justify-between sm:gap-5">
+                                className="flex flex-col gap-4 py-4 first:pt-1 last:pb-1 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
                                 <div className="min-w-0">
-                                    <div className="flex items-center gap-2 text-sm font-semibold">
+                                    <div className="flex items-center gap-2 text-sm font-medium">
                                         {connection === undefined ? (
-                                            <AddCircleIcon aria-hidden="true" />
+                                            <AddIcon aria-hidden="true" className="text-primary" />
                                         ) : (
-                                            <CheckCircleIcon aria-hidden="true" />
+                                            <CheckReadIcon
+                                                aria-hidden="true"
+                                                className="text-state-published"
+                                            />
                                         )}
                                         <span>{channel.name}</span>
                                     </div>
@@ -91,7 +104,7 @@ export function PublisherConnectionPanel({
                                                 void onStartLinkedInConnection(channel.id)
                                             }
                                             disabled={pending}>
-                                            <AddCircleIcon aria-hidden="true" />
+                                            <AddIcon aria-hidden="true" />
                                             Connect LinkedIn
                                         </Button>
                                     </div>

@@ -8,6 +8,31 @@ const mediaBytes = Buffer.from(
     'base64'
 )
 
+type LayoutRectangle = {
+    right: number
+    left: number
+    top: number
+    width: number
+    height: number
+}
+
+type LayoutElement = {
+    getBoundingClientRect: () => LayoutRectangle
+    parentElement: LayoutElement | null
+    querySelector: (selector: string) => LayoutElement | null
+    querySelectorAll: (selector: string) => ArrayLike<LayoutElement>
+}
+
+type LayoutView = {
+    getComputedStyle: (element: unknown) => {
+        borderWidth: string
+        boxShadow: string
+        padding: string
+        borderRadius: string
+        position: string
+    }
+}
+
 test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
@@ -36,10 +61,32 @@ test('persists mixed and media-only publications through the dashboard', async (
             exact: true,
         })
     ).toHaveCount(0)
+    const dashboardLogo = page.locator('a[aria-label="Herald workspace"] svg')
+    await expect(dashboardLogo).toHaveAttribute('viewBox', '0 0 189 189')
+    await expect(dashboardLogo.locator('[fill="currentColor"]')).toHaveCount(5)
+    await expect(page.locator('a[aria-label="Herald workspace"]')).toHaveCSS(
+        'background-color',
+        'rgba(0, 0, 0, 0)'
+    )
+
+    await expect(
+        page.getByRole('button', { name: 'Switch to light theme', exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await expect(page.locator('html')).toHaveClass(/\blight\b/)
+    await expect(
+        page.getByRole('button', { name: 'Switch to dark theme', exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
+
+    await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
+    await expect(page.getByText(`e2e-33-${suffix}@herald.local`, { exact: true })).toBeVisible()
+    await page.keyboard.press('Escape')
 
     await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
     const navigationLayout = await page
-        .getByRole('navigation', { name: 'Main navigation' })
+        .getByRole('navigation', { name: 'Workspace navigation' })
         .evaluate(element => {
             const links = Array.from(element.querySelectorAll('a'))
             const topOffsets = new Set(
@@ -53,19 +100,146 @@ test('persists mixed and media-only publications through the dashboard', async (
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(navigationLayout).toEqual({ linkCount: 3, topOffsetCount: 1 })
+    expect(navigationLayout).toEqual({ linkCount: 5, topOffsetCount: 5 })
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
 
-    await page.getByLabel('New project').fill(projectName)
-    await page.getByRole('button', { name: 'Add project', exact: true }).click()
-    await expect(page.getByLabel('Select project').locator('option:checked')).toHaveText(
+    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
+    const sidebarContainer = page.locator('[data-slot="sidebar-container"]')
+    await expect(sidebarContainer).toHaveCSS('width', '48px')
+    const collapsedSidebarLayout = await sidebarContainer.evaluate(container => {
+        const sidebar = container as unknown as LayoutElement
+        const containerRectangle = sidebar.getBoundingClientRect()
+        const buttons = Array.from(sidebar.querySelectorAll('[data-slot="sidebar-menu-button"]'))
+        return {
+            containerWidth: Math.round(containerRectangle.width),
+            buttons: buttons.map(button => {
+                const rectangle = button.getBoundingClientRect()
+                return {
+                    left: Math.round(rectangle.left),
+                    width: Math.round(rectangle.width),
+                }
+            }),
+        }
+    })
+    expect(collapsedSidebarLayout.containerWidth).toBe(48)
+    expect(collapsedSidebarLayout.buttons.length).toBeGreaterThan(0)
+    expect(
+        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 8 && width === 32)
+    ).toBe(true)
+    await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
+    await expect(sidebarContainer).toHaveCSS('width', '240px')
+
+    const shellLayout = await page.locator('[data-dashboard-scroll]').evaluate(scrollRegion => {
+        const scroll = scrollRegion as unknown as LayoutElement & {
+            ownerDocument: { defaultView: LayoutView }
+        }
+        const header = scroll.querySelector('[data-dashboard-header]')
+        const regionRectangle = scroll.getBoundingClientRect()
+        const headerRectangle = header?.getBoundingClientRect()
+        return {
+            headerIsChild: header?.parentElement === scrollRegion,
+            headerPosition:
+                header === null
+                    ? null
+                    : scroll.ownerDocument.defaultView.getComputedStyle(header).position,
+            headerShadow:
+                header === null
+                    ? null
+                    : scroll.ownerDocument.defaultView.getComputedStyle(header).boxShadow,
+            headerTop: headerRectangle === undefined ? null : Math.round(headerRectangle.top),
+            regionTop: Math.round(regionRectangle.top),
+        }
+    })
+    expect(shellLayout).toEqual({
+        headerIsChild: true,
+        headerPosition: 'sticky',
+        headerShadow: expect.any(String),
+        headerTop: 0,
+        regionTop: 0,
+    })
+    expect(shellLayout.headerShadow).not.toBe('none')
+
+    const channelForm = page.locator('form').filter({ has: page.locator('#new-channel-name') })
+    const channelFormLayout = await channelForm.evaluate(form => {
+        const controls = [
+            form.querySelector('#new-channel-name'),
+            form.querySelector('#new-channel-profile'),
+            form.querySelector('button[type="submit"]'),
+        ]
+        const rectangles = controls.map(control => {
+            if (!control) return null
+            const rectangle = control.getBoundingClientRect()
+            return { height: rectangle.height, top: rectangle.top }
+        })
+        return rectangles
+    })
+    expect(channelFormLayout).toEqual([
+        { height: 40, top: channelFormLayout[0]?.top },
+        { height: 40, top: channelFormLayout[0]?.top },
+        { height: 40, top: channelFormLayout[0]?.top },
+    ])
+
+    await page.getByText('Create project', { exact: true }).click()
+    const desktopProjectForm = page.locator('form').filter({ has: page.locator('#new-project') })
+    await page.locator('#new-project').fill(projectName)
+    await desktopProjectForm.getByRole('button', { name: 'Add project', exact: true }).click()
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
         projectName
     )
 
-    await page.getByLabel('New manual channel').fill(channelName)
+    const mediaLayout = await page.locator('#media > div').evaluate(media => {
+        const mediaElement = media as unknown as LayoutElement & {
+            ownerDocument: { defaultView: LayoutView }
+        }
+        const button = mediaElement.querySelector('[data-slot="button"]')
+        const mediaStyles = mediaElement.ownerDocument.defaultView.getComputedStyle(mediaElement)
+        const buttonStyles =
+            button === null ? null : mediaElement.ownerDocument.defaultView.getComputedStyle(button)
+        const buttonRectangle = button?.getBoundingClientRect()
+        return {
+            mediaPadding: mediaStyles.padding,
+            mediaRadius: mediaStyles.borderRadius,
+            buttonBorderWidth: buttonStyles?.borderWidth ?? null,
+            buttonHeight: buttonRectangle === undefined ? null : buttonRectangle.height,
+        }
+    })
+    expect(mediaLayout).toEqual({
+        mediaPadding: '20px',
+        mediaRadius: '6px',
+        buttonBorderWidth: '1px',
+        buttonHeight: 32,
+    })
+
+    await page.getByLabel('New channel').fill(channelName)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     await expect(page.locator('li').filter({ hasText: channelName }).first()).toBeVisible()
-    await page.getByLabel('Destination').selectOption({ label: channelName })
+    const channelSidebarLayout = await page
+        .locator('[data-slot="sidebar-menu-item"]')
+        .filter({ hasText: channelName })
+        .first()
+        .evaluate(item => {
+            const row = item as unknown as LayoutElement
+            const button = row.querySelector('[data-slot="sidebar-menu-button"]')
+            const label = button?.querySelector('span.truncate')
+            const badge = button?.querySelector('[data-slot="sidebar-menu-badge"]')
+            const labelRectangle = label?.getBoundingClientRect()
+            const badgeRectangle = badge?.getBoundingClientRect()
+            return {
+                overlap:
+                    labelRectangle === undefined || badgeRectangle === undefined
+                        ? null
+                        : Math.max(
+                              0,
+                              Math.min(labelRectangle.right, badgeRectangle.right) -
+                                  Math.max(labelRectangle.left, badgeRectangle.left)
+                          ),
+            }
+        })
+    expect(channelSidebarLayout).toEqual({ overlap: 0 })
+    const publicationChannel = page.getByRole('combobox', { name: 'Channel' })
+    await publicationChannel.click()
+    await page.getByRole('option', { name: channelName, exact: true }).click()
 
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
@@ -85,7 +259,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mixedPublication = page.getByRole('link').filter({ hasText: mixedTitle }).first()
     await expect(mixedPublication).toBeVisible()
 
-    await page.getByLabel('Destination').selectOption({ label: channelName })
+    await publicationChannel.click()
+    await page.getByRole('option', { name: channelName, exact: true }).click()
     await page.getByLabel('Post title').fill(mediaOnlyTitle)
     await page.getByRole('button', { name: new RegExp(mediaFilename) }).click()
     await expect(page.getByRole('button', { name: new RegExp(mediaFilename) })).toHaveAttribute(

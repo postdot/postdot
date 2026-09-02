@@ -1,4 +1,4 @@
-import { ArrowLeftIcon } from '@solar-icons/react/linear/arrow-left'
+import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
 import { createFileRoute, Link } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/about')({

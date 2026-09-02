@@ -59,6 +59,7 @@
         "@herald/ui": "workspace:*",
         "@solar-icons/react": "2.1.0",
         "@tanstack/react-router": "1.170.32",
+        "@wrksz/themes": "^2.0.0-beta.2",
         "react": "19.2.8",
         "react-dom": "19.2.8",
       },
@@ -181,7 +182,8 @@
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "1.7.0",
-        "@fontsource-variable/geist": "5.3.0",
+        "@fontsource-variable/recursive": "^5.3.0",
+        "@solar-icons/react": "2.1.0",
         "class-variance-authority": "0.7.1",
         "clsx": "2.1.1",
         "tailwind-merge": "3.6.0",
@@ -402,7 +404,7 @@
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.12", "", {}, "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww=="],
 
-    "@fontsource-variable/geist": ["@fontsource-variable/geist@5.3.0", "", {}, "sha512-j0m+vLQuG5XAYoHtGCVu0spvlGreR3EzpECUVzkFmI1mTVnAO38l/NEPDCFgZ177JxzYJCLSmTQibIiYPilGrA=="],
+    "@fontsource-variable/recursive": ["@fontsource-variable/recursive@5.3.0", "", {}, "sha512-4B4/lWCVeZgdbpJdIIU1sOVO/ECjjM673ohuxvyQ6uCK41TPlGzKRNokKY84noUgGYnpwc//MW4k2KrOMY19jQ=="],
 
     "@herald/api": ["@herald/api@workspace:apps/api"],
 
@@ -731,6 +733,8 @@
     "@typescript/typescript-win32-x64": ["@typescript/typescript-win32-x64@7.0.2", "", { "os": "win32", "cpu": "x64" }, "sha512-0BQ3HkAHHlKLSp1qRvf3SUhGpGsDuhB/jgFw75guyqbxJqEaS0Cw/VFO8i2nHglJUzQCRtMMR/IBAKE3ETMC4g=="],
 
     "@vitejs/plugin-react": ["@vitejs/plugin-react@6.1.1", "", { "dependencies": { "@rolldown/pluginutils": "^1.0.1" }, "peerDependencies": { "@rolldown/plugin-babel": "^0.1.7 || ^0.2.0", "babel-plugin-react-compiler": "^1.0.0", "oxc-transform-react": "^0.145.0", "vite": "^8.0.0" }, "optionalPeers": ["@rolldown/plugin-babel", "babel-plugin-react-compiler", "oxc-transform-react"] }, "sha512-yxLaQV9gkhS8ezJqCM6+ndU7mDY6gqAg75NQ+0IjwEI8IYOmQCgkRwHKVSfWXW076DsqMo0Dk+0FK1U+M5RgFw=="],
+
+    "@wrksz/themes": ["@wrksz/themes@2.0.0-beta.2", "", { "peerDependencies": { "next": ">=16.0.0", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0", "typescript": ">=5.9" }, "optionalPeers": ["next"] }, "sha512-r2BbXhP7yXT9UWLkuf+8c7RjvbC4SZCn4cHMcJMQpl8P69/JuyXlvolD0Ca/K8/Vyf3sZn57x/5M8q2VPHFajw=="],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 
