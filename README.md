@@ -135,9 +135,10 @@ credentials are project-owned and encrypted at rest using the required
 `HERALD_PUBLISHER_ENCRYPTION_KEY`; they must not be copied into the environment
 file or passed to the dashboard, CLI, or provider adapter by an operator.
 
-Generate the current text and LCOV coverage reports with `bun run test:coverage`.
-Coverage is reported for visibility; critical-path behavior, not a global percentage,
-is the merge requirement.
+Generate the current text and LCOV coverage reports for the Bun unit and integration
+suites with `bun run test:coverage`. Browser integration remains a separate
+Playwright run through `bun run test:e2e`. Coverage is reported for visibility;
+critical-path behavior, not a global percentage, is the merge requirement.
 
 On Linux x64, record the comparable M0 build and runtime footprint with:
 

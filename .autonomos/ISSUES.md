@@ -293,7 +293,7 @@
 ## [ISSUE-017] Repair the documented coverage command
 
 - Type: problem
-- Status: open
+- Status: accepted
 - Evidence: `bun run test:coverage` invokes `bun test --coverage`, which loads
   `e2e/publication-media.spec.ts` and fails because Playwright tests are not being
   executed by the Playwright runner. The regular `bun run check` gate remains green.
@@ -302,7 +302,7 @@
 - Desired outcome: The coverage command runs the intended unit and integration
   suites, produces its documented reports, and remains distinct from the browser
   integration runner.
-- Tasks: none
+- Tasks: QUAL-38
 
 ## [ISSUE-018] Document separate publisher-key recovery
 

@@ -18,7 +18,7 @@
         "test": "bun run test:unit && bun run test:e2e",
         "test:unit": "turbo test",
         "test:e2e": "playwright test",
-        "test:coverage": "bun test --coverage",
+        "test:coverage": "bun test --coverage --path-ignore-patterns='e2e/**'",
         "measure:footprint": "bun run build && bun run scripts/measure-footprint.ts",
         "clean": "turbo clean && rimraf node_modules",
         "check": "bun run format && bun run lint && bun run typecheck && bun run test && bun run build",
