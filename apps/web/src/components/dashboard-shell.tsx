@@ -39,6 +39,7 @@ import {
 } from '@herald/ui/components/sidebar'
 import { cn } from '@herald/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/bold/add'
+import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
 import { GalleryIcon } from '@solar-icons/react/bold/gallery'
 import { LinkIcon } from '@solar-icons/react/bold/link'
 import { ListIcon } from '@solar-icons/react/bold/list'
@@ -46,7 +47,7 @@ import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Widget2Icon } from '@solar-icons/react/bold/widget-2'
 import { Link, useLocation } from '@tanstack/react-router'
-import type { FormEvent, ReactNode } from 'react'
+import { useEffect, useRef, type FormEvent, type ReactNode } from 'react'
 
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Channel, Project, PublisherConnection, Session } from '@/lib/api'
@@ -87,6 +88,7 @@ export function DashboardShell({
     onProjectNameChange,
 }: DashboardShellProps) {
     const { pathname } = useLocation()
+    const scrollRegionRef = useRef<HTMLDivElement>(null)
     const isPublicationRoute = pathname.includes('/publications/')
     const activeSection = workspaceSection(pathname)
     const connectionsByChannel = new Map(
@@ -95,6 +97,10 @@ export function DashboardShell({
     const selectedProjectName =
         projects.find(project => project.id === selectedProjectId)?.name ?? 'No project selected'
     const userInitial = session.user.name.trim().charAt(0).toUpperCase() || 'H'
+
+    useEffect(() => {
+        scrollRegionRef.current?.scrollTo({ behavior: 'auto', left: 0, top: 0 })
+    }, [pathname])
 
     return (
         <SidebarProvider className="herald-dashboard h-svh min-h-0 overflow-hidden bg-background">
@@ -149,6 +155,13 @@ export function DashboardShell({
                                         destination="overview"
                                         icon={<Widget2Icon aria-hidden="true" />}
                                         label="Overview"
+                                        projectId={selectedProjectId}
+                                    />
+                                    <WorkspaceMenuItem
+                                        active={activeSection === 'calendar'}
+                                        destination="calendar"
+                                        icon={<CalendarMinimalisticIcon aria-hidden="true" />}
+                                        label="Calendar"
                                         projectId={selectedProjectId}
                                     />
                                     <WorkspaceMenuItem
@@ -275,7 +288,11 @@ export function DashboardShell({
             </Sidebar>
 
             <SidebarInset>
-                <div data-dashboard-scroll="true" className="min-h-0 flex-1 overflow-y-auto">
+                <div
+                    key={pathname}
+                    ref={scrollRegionRef}
+                    data-dashboard-scroll="true"
+                    className="min-h-0 flex-1 overflow-y-auto">
                     <header
                         data-dashboard-header="true"
                         className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 bg-background/95 px-4 shadow-surface backdrop-blur-sm sm:px-6 lg:px-8">
@@ -379,7 +396,7 @@ function WorkspaceMenuItem({
     )
 }
 
-type WorkspaceSection = 'overview' | 'compose' | 'queue' | 'channels' | 'media'
+type WorkspaceSection = 'overview' | 'calendar' | 'compose' | 'queue' | 'channels' | 'media'
 
 function workspaceLink(
     destination: WorkspaceSection,
@@ -419,6 +436,7 @@ function workspaceLink(
 }
 
 function workspaceSection(pathname: string): WorkspaceSection {
+    if (pathname.includes('/calendar')) return 'calendar'
     if (pathname.includes('/compose')) return 'compose'
     if (pathname.includes('/queue')) return 'queue'
     if (pathname.includes('/channels')) return 'channels'
@@ -427,6 +445,7 @@ function workspaceSection(pathname: string): WorkspaceSection {
 }
 
 function workspaceSectionLabel(section: WorkspaceSection) {
+    if (section === 'calendar') return 'Calendar'
     if (section === 'compose') return 'Compose'
     if (section === 'queue') return 'Queue'
     if (section === 'channels') return 'Channels'

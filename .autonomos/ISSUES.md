@@ -355,7 +355,7 @@
 - Desired outcome: A deliberate information architecture explains how overview,
   composition, queue, channels, media, and time-based planning fit together across
   desktop and small screens before the corresponding UI is expanded.
-- Tasks: DESIGN-36 (completed; calendar composition remains open)
+- Tasks: DESIGN-36 (completed), DESIGN-40 (completed)
 
 ## [ISSUE-020] Establish maintainability and refactor guardrails
 

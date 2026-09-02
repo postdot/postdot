@@ -206,7 +206,7 @@ export function formatSchedule(timestamp: number | null) {
     return new Date(timestamp).toLocaleString()
 }
 
-function publicationStateLabel(state: PublicationState) {
+export function publicationStateLabel(state: PublicationState) {
     if (state === 'scheduled') return 'Queued'
     if (state === 'ready') return 'Ready'
     if (state === 'publishing') return 'Publishing'

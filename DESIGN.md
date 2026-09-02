@@ -77,13 +77,21 @@ future landing-page decisions remain explicit below.
   the top of that region without a decorative bottom rule. A restrained
   shared surface shadow establishes its layer over the canvas.
 - Workspace routing: the authenticated shell is shared, but operational tasks
-  use separate project-scoped routes for Overview, Compose, Queue, Channels,
-  and Media. `/dashboard` resolves to the first available project overview,
+  use separate project-scoped routes for Overview, Calendar, Compose, Queue,
+  Channels, and Media. `/dashboard` resolves to the first available project overview,
   while `/dashboard/projects/:projectId/...` is the URL-authoritative context
   for a selected project. The publication editor remains nested under its
   project and returns to that project's Queue. The Queue is the current
-  planning surface; a calendar is a later composition with its own interaction
-  contract, not an implicit second view added to this route migration.
+  prioritization surface. The Calendar is a separate time-scanning surface
+  with its own interaction contract; it does not replace the Queue or become a
+  second scheduler.
+- Calendar planning contract (provisional): show one Monday-first month at a
+  time on desktop and tablet, with previous/next/today controls. Scheduled
+  publications are grouped by their local date and link to the existing
+  project publication editor; unscheduled work remains explicit outside the
+  date grid. On narrow screens, replace the compressed seven-column grid with
+  an agenda grouped by day. Manual and automatic destinations share the same
+  calendar, while delivery state and due-human work remain visible as state.
 - Sidebar menu buttons that render a trailing status badge reserve the badge's
   width before the channel label truncates. Collapsed icon mode overrides that
   reservation so the icon control remains centered in the rail.

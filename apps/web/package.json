@@ -10,6 +10,7 @@
         "format": "oxfmt --check .",
         "format:fix": "oxfmt --write .",
         "typecheck": "tsc --noEmit",
+        "test": "bun test",
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {

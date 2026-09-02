@@ -43,6 +43,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     const sourceText = `E2E-33 source ${suffix}`
     const targetText = `E2E-33 target ${suffix}`
     const secondTargetText = `E2E-33 second target ${suffix}`
+    const scheduledDateTime = localDateTimeInHours(2)
 
     await page.goto('/login')
     await expect(
@@ -102,7 +103,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(navigationLayout).toEqual({ linkCount: 5, topOffsetCount: 5 })
+    expect(navigationLayout).toEqual({ linkCount: 6, topOffsetCount: 6 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
 
@@ -175,6 +176,11 @@ test('persists mixed and media-only publications through the dashboard', async (
         scrollHeight: (scrollRegion as unknown as { scrollHeight: number }).scrollHeight,
     }))
     expect(overviewLayout.scrollHeight).toBeLessThanOrEqual(overviewLayout.clientHeight)
+
+    await page.getByRole('link', { name: 'Calendar', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
+    await expect(page.getByRole('heading', { name: 'Calendar', level: 1 })).toBeVisible()
+    await expect(page.getByText('No scheduled publications', { exact: true })).toBeVisible()
 
     await page.goto('/dashboard')
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
@@ -294,7 +300,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         .nth(1)
     await secondPublicationDelivery.click()
     await page.getByRole('option', { name: 'Automatic publication', exact: true }).click()
-    await page.getByLabel('Scheduled for').nth(1).fill('2030-01-01T10:00')
+    await page.getByLabel('Scheduled for').nth(1).fill(scheduledDateTime)
     await page.getByRole('button', { name: 'Schedule 2 publications', exact: true }).click()
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
@@ -316,6 +322,29 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const mediaOnlyPublication = page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first()
     await expect(mediaOnlyPublication).toBeVisible()
+
+    await page.getByRole('link', { name: 'Calendar', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
+    const calendarMonth = page.locator('[data-calendar-view="month"]')
+    await expect(calendarMonth).toBeVisible()
+    await expect(calendarMonth.getByRole('link').filter({ hasText: mixedTitle })).toHaveCount(2)
+    await page.getByRole('button', { name: 'Next month', exact: true }).click()
+    await expect(page.getByText(/Nothing is scheduled in /)).toBeVisible()
+    await page.getByRole('button', { name: 'Today', exact: true }).click()
+    await expect(calendarMonth.getByRole('link').filter({ hasText: mixedTitle })).toHaveCount(2)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
+    const calendarOverflow = await page
+        .locator('[data-dashboard-scroll]')
+        .evaluate(scrollRegion => ({
+            clientWidth: (scrollRegion as unknown as { clientWidth: number }).clientWidth,
+            scrollWidth: (scrollRegion as unknown as { scrollWidth: number }).scrollWidth,
+        }))
+    expect(calendarOverflow.scrollWidth).toBeLessThanOrEqual(calendarOverflow.clientWidth)
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await page.getByRole('link', { name: 'Queue', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/queue$/)
 
     await page.reload()
     await expect(page.getByRole('link').filter({ hasText: mixedTitle }).first()).toBeVisible()
@@ -373,4 +402,11 @@ function parseTargetContent(value: string): TargetContent {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function localDateTimeInHours(hours: number) {
+    const timestamp = Date.now() + hours * 60 * 60 * 1000
+    const date = new Date(timestamp)
+    const offset = date.getTimezoneOffset() * 60_000
+    return new Date(timestamp - offset).toISOString().slice(0, 16)
 }
