@@ -184,7 +184,7 @@
 - Desired outcome: A user can create and manage one source post with multiple
   channel publications, each retaining its own target content, schedule, delivery
   mode, validation state, and outcome.
-- Tasks: none
+- Tasks: DOMAIN-39
 
 ## [ISSUE-010] Define recovery for shared source revision conflicts
 
@@ -200,7 +200,7 @@
 - Desired outcome: Source edits across sibling publications have a deterministic,
   user-visible reconciliation flow that preserves source and target work, explains
   conflicts, and never changes an already promoted or executing snapshot.
-- Tasks: none
+- Tasks: DOMAIN-39
 
 ## [ISSUE-011] Make execution history append-only and attributable
 
