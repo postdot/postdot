@@ -300,15 +300,15 @@
 
 - Type: problem
 - Status: open
-- Evidence: `packages/db/src/manual-store.ts` is 3,742 lines and contains project,
-  channel/profile, post/draft, publication, media resolution, reconciliation, and
-  audit persistence for both manual and automatic flows.
+- Evidence at opening: `packages/db/src/manual-store.ts` was 3,742 lines and
+  contained project, channel/profile, post/draft, publication, media resolution,
+  reconciliation, and audit persistence for both manual and automatic flows.
 - Impact: The current unit is difficult to navigate, review, test, and safely modify
   for both humans and agents; its name also no longer describes its responsibility.
 - Desired outcome: Persistence code is organized into cohesive, discoverable units
   that preserve transaction boundaries and project invariants without introducing
   a generic repository abstraction or splitting code only by arbitrary line count.
-- Tasks: none
+- Tasks: MAINT-41 (completed)
 
 ## [ISSUE-017] Repair the documented coverage command
 
@@ -371,7 +371,7 @@
   and a periodic codebase audit that favors cohesive responsibilities, explicit
   dependencies, reusable behavior, and testable boundaries without enforcing an
   arbitrary file-size quota.
-- Tasks: none
+- Tasks: MAINT-41 (completed)
 
 ## [ISSUE-021] Validate the central publication loop through real use
 

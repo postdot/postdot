@@ -4,13 +4,9 @@ import {
     adaptSourceContentToProfile,
     assessChannelProfileChange,
     ChannelProfileCompiler,
-    createManualChannelProfile,
     DomainInvariantError,
-    createActor,
-    createChannel,
     createJob,
     createPost,
-    createProject,
     createPublication,
     extractTargetMediaReferences,
     requireNonBlank,
@@ -25,7 +21,6 @@ import {
     type MediaFieldCapability,
     type MediaRepresentation,
     type Post,
-    type Project,
     type Publication,
     type Publisher,
     type PublicationReviewState,
@@ -38,26 +33,39 @@ import {
 } from '@herald/core'
 
 import type { HeraldDatabase } from './client'
+import { toChannel, toProject } from './manual-store/project-channel-mappers'
+import { createProjectChannelStore } from './manual-store/project-channel-store'
+import type {
+    ActorRow,
+    AuditEventRow,
+    DuePublicationRow,
+    PostRow,
+    PostSourceRow,
+    ProfileImpactTargetRow,
+    ProfileImpactWorkingDraftRow,
+    ProfileRow,
+    PublicationChannelRow,
+    PublicationRow,
+    PublicationSummaryRow,
+    ResolvedTargetMedia,
+    TargetRevisionMediaRow,
+    TargetRevisionRow,
+    WorkingDraftRow,
+    ProjectRow,
+} from './manual-store/rows'
 import type { MediaAssetStore } from './media-asset-store'
+
+export type {
+    CreateChannelInput,
+    CreateProjectInput,
+    CreatedProject,
+} from './manual-store/project-channel-store'
 
 export interface ManualStoreOptions {
     readonly now?: () => number
     readonly createId?: () => string
     readonly media?: Pick<MediaAssetStore, 'getAsset'>
     readonly publicMediaUrlAvailable?: boolean
-}
-
-export interface CreateProjectInput {
-    readonly name: string
-    readonly subjectId: string
-    readonly displayName: string
-}
-
-export interface CreateChannelInput {
-    readonly projectId: string
-    readonly subjectId: string
-    readonly name: string
-    readonly profile?: ChannelProfileDefinition
 }
 
 export interface CreateChannelProfileDraftInput {
@@ -163,11 +171,6 @@ export interface ReconcileAmbiguousPublicationInput {
     readonly errorMessage?: string
 }
 
-export interface CreatedProject {
-    readonly project: Project
-    readonly actor: Actor
-}
-
 export interface CreatedPost {
     readonly post: Post
     readonly publications: readonly Publication[]
@@ -247,194 +250,6 @@ export interface AuditEvent {
     readonly createdAt: Timestamp
 }
 
-interface ProjectRow {
-    readonly id: string
-    readonly name: string
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-interface ActorRow {
-    readonly id: string
-    readonly projectId: string
-    readonly kind: Actor['kind']
-    readonly subjectId: string | null
-    readonly displayName: string
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-interface ChannelRow {
-    readonly id: string
-    readonly projectId: string
-    readonly name: string
-    readonly profileId: string
-    readonly profileVersionId: string
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-interface PublicationChannelRow extends ChannelRow {
-    readonly publisherId: string | null
-    readonly publisherKind: string | null
-    readonly publisherCreatedAt: number | null
-    readonly publisherUpdatedAt: number | null
-}
-
-interface PublicationRow {
-    readonly id: string
-    readonly projectId: string
-    readonly postId: string
-    readonly channelId: string
-    readonly targetRevisionId: string | null
-    readonly deliveryMode: DeliveryMode
-    readonly reviewState: PublicationReviewState
-    readonly state: Publication['state']
-    readonly scheduledAt: number | null
-    readonly publishedAt: number | null
-    readonly externalId: string | null
-    readonly externalUrl: string | null
-    readonly errorMessage: string | null
-    readonly createdByActorId: string
-    readonly scheduledByActorId: string | null
-    readonly stateChangedByActorId: string
-    readonly publishedByActorId: string | null
-    readonly lastAssessedProfileVersionId: string | null
-    readonly profileAssessmentIssuesJson: string
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-interface ProfileRow {
-    readonly id: string
-    readonly projectId: string
-    readonly channelId: string
-    readonly profileId: string
-    readonly version: number
-    readonly origin: ChannelProfileDefinition['origin']
-    readonly state: ChannelProfileVersionState
-    readonly revision: number
-    readonly profileJson: string
-    readonly profileHash: string
-    readonly schemaHash: string
-    readonly createdByActorId: string
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-interface PostSourceRow {
-    readonly id: string
-    readonly projectId: string
-    readonly sourceContentJson: string
-    readonly sourceRevision: number
-}
-
-interface PostRow extends PostSourceRow {
-    readonly title: string | null
-    readonly createdByActorId: string
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-interface WorkingDraftRow {
-    readonly id: string
-    readonly projectId: string
-    readonly publicationId: string
-    readonly profileVersionId: string
-    readonly sourceRevision: number
-    readonly baseSourceContentJson: string
-    readonly contentJson: string
-    readonly reviewState: PublicationReviewState
-    readonly validationIssuesJson: string
-    readonly lastAssessedProfileVersionId: string | null
-    readonly revision: number
-    readonly updatedByActorId: string
-    readonly createdAt: number
-    readonly updatedAt: number
-}
-
-interface ProfileImpactWorkingDraftRow {
-    readonly id: string
-    readonly publicationId: string
-    readonly contentJson: string
-    readonly deliveryMode: DeliveryMode
-    readonly revision: number
-}
-
-interface ProfileImpactTargetRow {
-    readonly id: string
-    readonly publicationId: string
-    readonly targetRevisionId: string
-    readonly contentJson: string
-    readonly deliveryMode: DeliveryMode
-    readonly scheduledAt: number | null
-    readonly state: Publication['state']
-}
-
-interface TargetRevisionMediaRow {
-    readonly id: string
-    readonly projectId: string
-    readonly targetRevisionId: string
-    readonly assetId: string
-    readonly representationId: string
-    readonly position: number
-    readonly contentPath: string
-    readonly role: string | null
-    readonly accessibilityText: string | null
-}
-
-interface TargetRevisionRow {
-    readonly id: string
-    readonly projectId: string
-    readonly publicationId: string
-    readonly sequence: number
-    readonly profileVersionId: string
-    readonly sourceRevision: number
-    readonly deliveryMode: DeliveryMode
-    readonly mediaReferenceCount: number
-    readonly contentJson: string
-    readonly contentHash: string
-    readonly profileHash: string
-    readonly schemaHash: string
-    readonly validationIssuesJson: string
-    readonly createdByActorId: string
-    readonly createdAt: number
-}
-
-interface DuePublicationRow extends PublicationRow {
-    readonly postTitle: string | null
-    readonly channelName: string
-    readonly targetContentJson: string
-}
-
-interface PublicationSummaryRow extends PublicationRow {
-    readonly postTitle: string | null
-    readonly channelName: string
-    readonly draftRevision: number
-    readonly draftReviewState: PublicationReviewState
-    readonly draftSourceRevision: number
-    readonly draftContentJson: string
-    readonly targetSourceRevision: number | null
-    readonly targetContentJson: string | null
-}
-
-interface ResolvedTargetMedia {
-    readonly reference: TargetMediaReference
-    readonly representation: MediaRepresentation
-    readonly accessibilityText: string | null
-}
-
-interface AuditEventRow {
-    readonly id: string
-    readonly projectId: string
-    readonly actorId: string
-    readonly action: string
-    readonly entityType: string
-    readonly entityId: string
-    readonly metadataJson: string | null
-    readonly createdAt: number
-}
-
 const publicationColumns = `
     publications.id,
     publications.project_id as projectId,
@@ -466,6 +281,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     const profileCompiler = new ChannelProfileCompiler()
     const media = options.media
     const publicMediaUrlAvailable = options.publicMediaUrlAvailable ?? false
+    const projectChannelStore = createProjectChannelStore(database, { now, createId })
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
         select id, name, created_at as createdAt, updated_at as updatedAt
@@ -739,31 +555,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
           and id = ?2
     `)
 
-    const insertProjectStatement = client.query<void, [id: string, name: string, now: number]>(`
-        insert into projects (id, name, created_at, updated_at)
-        values (?1, ?2, ?3, ?3)
-    `)
-    const insertActorStatement = client.query<
-        void,
-        [
-            id: string,
-            projectId: string,
-            kind: Actor['kind'],
-            subjectId: string | null,
-            displayName: string,
-            now: number,
-        ]
-    >(`
-        insert into actors (id, project_id, kind, subject_id, display_name, created_at, updated_at)
-        values (?1, ?2, ?3, ?4, ?5, ?6, ?6)
-    `)
-    const insertChannelStatement = client.query<
-        void,
-        [id: string, projectId: string, name: string, profileVersionId: string, now: number]
-    >(`
-        insert into channels (id, project_id, name, profile_version_id, created_at, updated_at)
-        values (?1, ?2, ?3, ?4, ?5, ?5)
-    `)
     const insertProfileStatement = client.query<
         void,
         [
@@ -1293,34 +1084,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         where id = ?1
           and project_id = ?2
           and state = 'ambiguous'
-    `)
-    const listProjectsStatement = client.query<ProjectRow, [subjectId: string]>(`
-        select distinct projects.id,
-               projects.name,
-               projects.created_at as createdAt,
-               projects.updated_at as updatedAt
-        from projects
-        inner join actors
-            on actors.project_id = projects.id
-           and actors.kind = 'human'
-           and actors.subject_id = ?1
-        order by projects.created_at, projects.id
-    `)
-    const listChannelsStatement = client.query<ChannelRow, [projectId: string]>(`
-        select channels.id,
-               channels.project_id as projectId,
-               channels.name,
-               channel_profile_versions.profile_id as profileId,
-               channels.profile_version_id as profileVersionId,
-               channels.created_at as createdAt,
-               channels.updated_at as updatedAt
-        from channels
-        inner join channel_profile_versions
-            on channel_profile_versions.project_id = channels.project_id
-           and channel_profile_versions.channel_id = channels.id
-           and channel_profile_versions.id = channels.profile_version_id
-        where channels.project_id = ?1
-        order by channels.created_at, channels.id
     `)
     const listDuePublicationsStatement = client.query<
         DuePublicationRow,
@@ -1863,129 +1626,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 profile: toProfileVersion(updatedProfile),
                 assessment: impact.assessment,
             }
-        }
-    )
-
-    const createProjectTransaction = client.transaction(
-        (input: CreateProjectInput): CreatedProject => {
-            const timestamp = requireTimestamp(now(), 'now')
-            const project = createProject({
-                id: createId(),
-                name: input.name,
-                now: timestamp,
-            })
-            const actor = createActor({
-                id: createId(),
-                project,
-                kind: 'human',
-                subjectId: input.subjectId,
-                displayName: input.displayName,
-                now: timestamp,
-            })
-            const systemActor = createActor({
-                id: `system:${project.id}`,
-                project,
-                kind: 'system',
-                subjectId: null,
-                displayName: 'Herald Worker',
-                now: timestamp,
-            })
-
-            insertProjectStatement.run(project.id, project.name, timestamp)
-            insertActorStatement.run(
-                actor.id,
-                project.id,
-                actor.kind,
-                actor.subjectId,
-                actor.displayName,
-                timestamp
-            )
-            insertActorStatement.run(
-                systemActor.id,
-                project.id,
-                systemActor.kind,
-                systemActor.subjectId,
-                systemActor.displayName,
-                timestamp
-            )
-            insertAuditEventStatement.run(
-                createId(),
-                project.id,
-                actor.id,
-                'project.created',
-                'project',
-                project.id,
-                JSON.stringify({ name: project.name }),
-                timestamp
-            )
-
-            return { project, actor }
-        }
-    )
-
-    const createChannelTransaction = client.transaction(
-        (input: CreateChannelInput): Channel | null => {
-            const actor = loadActorStatement.get(input.projectId, input.subjectId)
-            const projectRow = loadProjectStatement.get(input.projectId)
-            if (actor === null || projectRow === null) return null
-
-            const timestamp = requireTimestamp(now(), 'now')
-            const project = toProject(projectRow)
-            const profileResult = profileCompiler.compile(
-                input.profile ?? createManualChannelProfile()
-            )
-            if (!profileResult.ok) {
-                throw invalidProfileError(profileResult.issues)
-            }
-            const profile = profileResult.value.profile
-            const profileVersionId = createId()
-            const channel = createChannel({
-                id: createId(),
-                project,
-                name: input.name,
-                profileId: profile.id,
-                profileVersionId,
-                now: timestamp,
-            })
-
-            insertChannelStatement.run(
-                channel.id,
-                project.id,
-                channel.name,
-                channel.profileVersionId,
-                timestamp
-            )
-            insertProfileStatement.run(
-                profileVersionId,
-                project.id,
-                channel.id,
-                profile.id,
-                profile.version,
-                profile.origin,
-                'active',
-                1,
-                JSON.stringify(profile),
-                profile.profileHash,
-                profile.schemaHash,
-                actor.id,
-                timestamp
-            )
-            insertAuditEventStatement.run(
-                createId(),
-                project.id,
-                actor.id,
-                'channel.created',
-                'channel',
-                channel.id,
-                JSON.stringify({
-                    name: channel.name,
-                    profileId: profile.id,
-                    profileVersion: profile.version,
-                }),
-                timestamp
-            )
-
-            return channel
         }
     )
 
@@ -2808,27 +2448,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     )
 
     return {
-        createProject(input: CreateProjectInput): CreatedProject {
-            return createProjectTransaction.immediate({
-                ...input,
-                name: requireNonBlank(input.name, 'name'),
-                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-                displayName: requireNonBlank(input.displayName, 'displayName'),
-            })
-        },
-
-        listProjects(subjectId: string): Project[] {
-            return listProjectsStatement.all(requireNonBlank(subjectId, 'subjectId')).map(toProject)
-        },
-
-        createChannel(input: CreateChannelInput): Channel | null {
-            return createChannelTransaction.immediate({
-                ...input,
-                projectId: requireNonBlank(input.projectId, 'projectId'),
-                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-                name: requireNonBlank(input.name, 'name'),
-            })
-        },
+        ...projectChannelStore,
 
         getChannelProfileState(
             projectId: string,
@@ -2875,17 +2495,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 profileVersionId: requireNonBlank(input.profileVersionId, 'profileVersionId'),
                 subjectId: requireNonBlank(input.subjectId, 'subjectId'),
             })
-        },
-
-        listChannels(projectId: string, subjectId: string): Channel[] | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const actor = loadActorStatement.get(
-                normalizedProjectId,
-                requireNonBlank(subjectId, 'subjectId')
-            )
-            if (actor === null) return null
-
-            return listChannelsStatement.all(normalizedProjectId).map(toChannel)
         },
 
         createPost(input: CreatePostInput): CreatedPost | null {
@@ -3110,15 +2719,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     }
 }
 
-function toProject(row: ProjectRow): Project {
-    return {
-        id: row.id,
-        name: row.name,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    }
-}
-
 function toActor(row: ActorRow): Actor {
     return {
         id: row.id,
@@ -3126,18 +2726,6 @@ function toActor(row: ActorRow): Actor {
         kind: row.kind,
         subjectId: row.subjectId,
         displayName: row.displayName,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    }
-}
-
-function toChannel(row: ChannelRow): Channel {
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        name: row.name,
-        profileId: row.profileId,
-        profileVersionId: row.profileVersionId,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
