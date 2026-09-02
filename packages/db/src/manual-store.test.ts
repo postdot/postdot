@@ -284,6 +284,128 @@ describe('manual workflow store', () => {
         }
     })
 
+    it('rolls back publication outcomes when their audit persistence fails', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+        let triggerInstalled = false
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Outcome Rollback Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Manual Channel',
+            })
+            if (channel === null) throw new Error('The outcome rollback channel was not created')
+
+            const manualPublication = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('The manual publication must remain due'),
+                publications: [{ channelId: channel.id, scheduledAt: now }],
+            })
+            const manualPublicationId = manualPublication?.publications[0]?.id
+            if (manualPublicationId === undefined)
+                throw new Error('The manual outcome publication is missing')
+
+            database.$client.run(`
+                create temp trigger fail_publication_outcome_audit
+                before insert on audit_events
+                when NEW.action in ('publication.ready', 'publication.reconciled')
+                begin
+                    select raise(abort, 'forced publication outcome failure');
+                end
+            `)
+            triggerInstalled = true
+
+            expect(() =>
+                store.publishManualPublication({
+                    projectId: project.project.id,
+                    publicationId: manualPublicationId,
+                    subjectId: 'user-1',
+                    externalId: 'manual-outcome-1',
+                })
+            ).toThrow('forced publication outcome failure')
+            expect(
+                database
+                    .select({
+                        state: publications.state,
+                        publishedAt: publications.publishedAt,
+                        externalId: publications.externalId,
+                    })
+                    .from(publications)
+                    .where(eq(publications.id, manualPublicationId))
+                    .all()
+            ).toEqual([{ state: 'scheduled', publishedAt: null, externalId: null }])
+            expect(
+                database
+                    .select()
+                    .from(auditEvents)
+                    .where(eq(auditEvents.action, 'publication.ready'))
+                    .all()
+            ).toHaveLength(0)
+
+            const ambiguousPublication = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('The ambiguous publication must remain unresolved'),
+                publications: [{ channelId: channel.id, scheduledAt: now }],
+            })
+            const ambiguousPublicationId = ambiguousPublication?.publications[0]?.id
+            if (ambiguousPublicationId === undefined)
+                throw new Error('The ambiguous outcome publication is missing')
+            database
+                .update(publications)
+                .set({ state: 'ambiguous', errorMessage: 'The provider response was lost' })
+                .where(eq(publications.id, ambiguousPublicationId))
+                .run()
+
+            expect(() =>
+                store.reconcileAmbiguousPublication({
+                    projectId: project.project.id,
+                    publicationId: ambiguousPublicationId,
+                    subjectId: 'user-1',
+                    resolution: 'published',
+                    externalId: 'ambiguous-outcome-1',
+                })
+            ).toThrow('forced publication outcome failure')
+            expect(
+                database
+                    .select({
+                        state: publications.state,
+                        errorMessage: publications.errorMessage,
+                        externalId: publications.externalId,
+                    })
+                    .from(publications)
+                    .where(eq(publications.id, ambiguousPublicationId))
+                    .all()
+            ).toEqual([
+                {
+                    state: 'ambiguous',
+                    errorMessage: 'The provider response was lost',
+                    externalId: null,
+                },
+            ])
+            expect(
+                database
+                    .select()
+                    .from(auditEvents)
+                    .where(eq(auditEvents.action, 'publication.reconciled'))
+                    .all()
+            ).toHaveLength(0)
+        } finally {
+            if (triggerInstalled)
+                database.$client.run('drop trigger fail_publication_outcome_audit')
+            closeDatabase(database)
+        }
+    })
+
     it('rolls back an invalid post instead of leaving partial records', () => {
         const database = createDatabase(':memory:')
 

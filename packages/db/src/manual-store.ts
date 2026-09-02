@@ -8,7 +8,6 @@ import {
     extractTargetMediaReferences,
     requireNonBlank,
     requireTimestamp,
-    transitionPublication,
     type Channel,
     type ChannelProfileImpactAssessment,
     type ChannelProfileDefinition,
@@ -34,7 +33,6 @@ import {
     invalidProfileError,
     invalidTargetContentError,
     isRecord,
-    parseJsonObject,
     parseProfile,
 } from './manual-store/content-codec'
 import {
@@ -47,10 +45,10 @@ import {
 import { toChannel, toProject } from './manual-store/project-channel-mappers'
 import { createProjectChannelStore } from './manual-store/project-channel-store'
 import { createPublicationAuthoringStore } from './manual-store/publication-authoring-store'
+import { createPublicationOutcomeStore } from './manual-store/publication-outcome-store'
 import type {
     ActorRow,
     AuditEventRow,
-    DuePublicationRow,
     PostSourceRow,
     ProfileRow,
     PublicationChannelRow,
@@ -355,23 +353,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
           and state in ('pending', 'running')
         limit 1
     `)
-    const loadPublicationStatement = client.query<
-        PublicationRow,
-        [projectId: string, publicationId: string, now: number]
-    >(`
-        select ${publicationColumns}
-        from publications
-        inner join publication_target_revisions as target_revisions
-            on target_revisions.project_id = publications.project_id
-           and target_revisions.id = publications.target_revision_id
-           and target_revisions.publication_id = publications.id
-        where publications.project_id = ?1
-          and publications.id = ?2
-          and publications.state = 'scheduled'
-          and publications.delivery_mode = 'manual'
-          and publications.review_state = 'compatible'
-          and publications.scheduled_at <= ?3
-    `)
     const loadPublicationByIdStatement = client.query<
         PublicationRow,
         [projectId: string, publicationId: string]
@@ -651,99 +632,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         )
         values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
     `)
-    const publishPublicationStatement = client.query<
-        void,
-        [
-            publicationId: string,
-            projectId: string,
-            publishedAt: number,
-            actorId: string,
-            externalId: string | null,
-            externalUrl: string | null,
-        ]
-    >(`
-        update publications
-        set state = 'published',
-            published_at = ?3,
-            published_by_actor_id = ?4,
-            external_id = ?5,
-            external_url = ?6,
-            error_message = null,
-            state_changed_by_actor_id = ?4,
-            updated_at = ?3
-        where id = ?1
-          and project_id = ?2
-          and state = 'scheduled'
-    `)
-    const reconcilePublishedPublicationStatement = client.query<
-        { changes: number },
-        [
-            publicationId: string,
-            projectId: string,
-            publishedAt: number,
-            actorId: string,
-            externalId: string,
-            externalUrl: string | null,
-        ]
-    >(`
-        update publications
-        set state = 'published',
-            published_at = ?3,
-            published_by_actor_id = ?4,
-            external_id = ?5,
-            external_url = ?6,
-            error_message = null,
-            state_changed_by_actor_id = ?4,
-            updated_at = ?3
-        where id = ?1
-          and project_id = ?2
-          and state = 'ambiguous'
-    `)
-    const reconcileFailedPublicationStatement = client.query<
-        { changes: number },
-        [
-            publicationId: string,
-            projectId: string,
-            updatedAt: number,
-            actorId: string,
-            errorMessage: string,
-        ]
-    >(`
-        update publications
-        set state = 'failed',
-            error_message = ?5,
-            state_changed_by_actor_id = ?4,
-            updated_at = ?3
-        where id = ?1
-          and project_id = ?2
-          and state = 'ambiguous'
-    `)
-    const listDuePublicationsStatement = client.query<
-        DuePublicationRow,
-        [projectId: string, now: number]
-    >(`
-        select ${publicationColumns},
-               posts.title as postTitle,
-               channels.name as channelName,
-               target_revisions.content_json as targetContentJson
-        from publications
-        inner join posts
-            on posts.project_id = publications.project_id
-           and posts.id = publications.post_id
-        inner join channels
-            on channels.project_id = publications.project_id
-           and channels.id = publications.channel_id
-        inner join publication_target_revisions as target_revisions
-            on target_revisions.project_id = publications.project_id
-           and target_revisions.id = publications.target_revision_id
-           and target_revisions.publication_id = publications.id
-        where publications.project_id = ?1
-          and publications.state = 'scheduled'
-          and publications.delivery_mode = 'manual'
-          and publications.review_state = 'compatible'
-          and publications.scheduled_at <= ?2
-        order by publications.scheduled_at, publications.id
-    `)
     const listAuditEventsStatement = client.query<
         AuditEventRow,
         [projectId: string, limit: number]
@@ -918,6 +806,25 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 input.runAt,
                 input.createdAt
             ),
+        insertAuditEvent: input =>
+            insertAuditEventStatement.run(
+                input.id,
+                input.projectId,
+                input.actorId,
+                input.action,
+                input.entityType,
+                input.entityId,
+                input.metadataJson,
+                input.createdAt
+            ),
+    })
+
+    const publicationOutcomeStore = createPublicationOutcomeStore(database, {
+        now,
+        createId,
+        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+        loadPublication: (projectId, publicationId) =>
+            loadPublicationByIdStatement.get(projectId, publicationId),
         insertAuditEvent: input =>
             insertAuditEventStatement.run(
                 input.id,
@@ -1179,223 +1086,17 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         }
     )
 
-    const publishManualPublicationTransaction = client.transaction(
-        (input: PublishManualPublicationInput): Publication | null => {
-            const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
-            if (actorRow === null) return null
-
-            const timestamp = requireTimestamp(now(), 'now')
-            const row = loadPublicationStatement.get(
-                input.projectId,
-                input.publicationId,
-                timestamp
-            )
-            if (row === null) return null
-
-            const publication = toPublication(row)
-            const actor = toActor(actorRow)
-            const ready = transitionPublication({
-                publication,
-                to: 'ready',
-                actor,
-                now: timestamp,
-            })
-            const published = transitionPublication({
-                publication: ready,
-                to: 'published',
-                actor,
-                now: timestamp,
-                externalId: input.externalId,
-                externalUrl: input.externalUrl,
-            })
-
-            const result = publishPublicationStatement.run(
-                published.id,
-                published.projectId,
-                published.publishedAt as number,
-                published.publishedByActorId as string,
-                published.externalId,
-                published.externalUrl
-            )
-            if (result.changes !== 1) return null
-
-            insertAuditEventStatement.run(
-                createId(),
-                published.projectId,
-                actor.id,
-                'publication.ready',
-                'publication',
-                published.id,
-                JSON.stringify({ fromState: publication.state, toState: ready.state }),
-                timestamp
-            )
-            insertAuditEventStatement.run(
-                createId(),
-                published.projectId,
-                actor.id,
-                'publication.published',
-                'publication',
-                published.id,
-                JSON.stringify({
-                    fromState: ready.state,
-                    toState: published.state,
-                    externalId: published.externalId,
-                    externalUrl: published.externalUrl,
-                }),
-                timestamp
-            )
-
-            return published
-        }
-    )
-    const reconcileAmbiguousPublicationTransaction = client.transaction(
-        (input: ReconcileAmbiguousPublicationInput): ReconcileAmbiguousPublicationResult => {
-            const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
-            const row = loadPublicationByIdStatement.get(input.projectId, input.publicationId)
-            if (actorRow === null || row === null) return { kind: 'not_found' }
-            if (row.state !== 'ambiguous') return { kind: 'not_ambiguous' }
-
-            const timestamp = requireTimestamp(now(), 'now')
-            const publication = toPublication(row)
-            const actor = toActor(actorRow)
-            const reconciled =
-                input.resolution === 'published'
-                    ? transitionPublication({
-                          publication,
-                          to: 'published',
-                          actor,
-                          now: timestamp,
-                          externalId: requireNonBlank(input.externalId ?? '', 'externalId'),
-                          externalUrl:
-                              input.externalUrl === undefined
-                                  ? undefined
-                                  : requireNonBlank(input.externalUrl, 'externalUrl'),
-                      })
-                    : transitionPublication({
-                          publication,
-                          to: 'failed',
-                          actor,
-                          now: timestamp,
-                          errorMessage: requireNonBlank(input.errorMessage ?? '', 'errorMessage'),
-                      })
-
-            const result =
-                reconciled.state === 'published'
-                    ? reconcilePublishedPublicationStatement.run(
-                          reconciled.id,
-                          reconciled.projectId,
-                          reconciled.publishedAt as number,
-                          reconciled.publishedByActorId as string,
-                          reconciled.externalId as string,
-                          reconciled.externalUrl
-                      )
-                    : reconcileFailedPublicationStatement.run(
-                          reconciled.id,
-                          reconciled.projectId,
-                          reconciled.updatedAt,
-                          reconciled.stateChangedByActorId,
-                          reconciled.errorMessage as string
-                      )
-
-            if (result.changes !== 1) {
-                throw new DomainInvariantError(
-                    'claim_mismatch',
-                    `Could not reconcile publication ${reconciled.id}`
-                )
-            }
-
-            insertAuditEventStatement.run(
-                createId(),
-                reconciled.projectId,
-                actor.id,
-                'publication.reconciled',
-                'publication',
-                reconciled.id,
-                JSON.stringify({
-                    fromState: publication.state,
-                    toState: reconciled.state,
-                    externalId: reconciled.externalId,
-                    externalUrl: reconciled.externalUrl,
-                    errorMessage: reconciled.errorMessage,
-                }),
-                timestamp
-            )
-
-            return { kind: 'reconciled', publication: reconciled }
-        }
-    )
-
     return {
         ...projectChannelStore,
         ...channelProfileStore,
         ...publicationAuthoringStore,
+        ...publicationOutcomeStore,
 
         createPost(input: CreatePostInput): CreatedPost | null {
             return createPostTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
                 subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-            })
-        },
-
-        listDueManualPublications(
-            projectId: string,
-            subjectId: string,
-            at?: number
-        ): DueManualPublication[] | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const actor = loadActorStatement.get(
-                normalizedProjectId,
-                requireNonBlank(subjectId, 'subjectId')
-            )
-            if (actor === null) return null
-
-            const timestamp = requireTimestamp(at ?? now(), 'now')
-            return listDuePublicationsStatement.all(normalizedProjectId, timestamp).map(row => ({
-                ...toPublication(row),
-                postTitle: row.postTitle,
-                channelName: row.channelName,
-                targetContent: parseJsonObject(row.targetContentJson, 'publication target content'),
-            }))
-        },
-
-        publishManualPublication(input: PublishManualPublicationInput): Publication | null {
-            return publishManualPublicationTransaction.immediate({
-                ...input,
-                projectId: requireNonBlank(input.projectId, 'projectId'),
-                publicationId: requireNonBlank(input.publicationId, 'publicationId'),
-                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-                externalId:
-                    input.externalId === undefined
-                        ? undefined
-                        : requireNonBlank(input.externalId, 'externalId'),
-                externalUrl:
-                    input.externalUrl === undefined
-                        ? undefined
-                        : requireNonBlank(input.externalUrl, 'externalUrl'),
-            })
-        },
-
-        reconcileAmbiguousPublication(
-            input: ReconcileAmbiguousPublicationInput
-        ): ReconcileAmbiguousPublicationResult {
-            return reconcileAmbiguousPublicationTransaction.immediate({
-                ...input,
-                projectId: requireNonBlank(input.projectId, 'projectId'),
-                publicationId: requireNonBlank(input.publicationId, 'publicationId'),
-                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-                externalId:
-                    input.externalId === undefined
-                        ? undefined
-                        : requireNonBlank(input.externalId, 'externalId'),
-                externalUrl:
-                    input.externalUrl === undefined
-                        ? undefined
-                        : requireNonBlank(input.externalUrl, 'externalUrl'),
-                errorMessage:
-                    input.errorMessage === undefined
-                        ? undefined
-                        : requireNonBlank(input.errorMessage, 'errorMessage'),
             })
         },
 

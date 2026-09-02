@@ -308,7 +308,7 @@
 - Desired outcome: Persistence code is organized into cohesive, discoverable units
   that preserve transaction boundaries and project invariants without introducing
   a generic repository abstraction or splitting code only by arbitrary line count.
-- Tasks: MAINT-41 (completed), MAINT-42 (completed), MAINT-43 (completed)
+- Tasks: MAINT-41 (completed), MAINT-42 (completed), MAINT-43 (completed), MAINT-44 (completed)
 
 ## [ISSUE-017] Repair the documented coverage command
 
@@ -371,7 +371,7 @@
   and a periodic codebase audit that favors cohesive responsibilities, explicit
   dependencies, reusable behavior, and testable boundaries without enforcing an
   arbitrary file-size quota.
-- Tasks: MAINT-41 (completed), MAINT-42 (completed), MAINT-43 (completed)
+- Tasks: MAINT-41 (completed), MAINT-42 (completed), MAINT-43 (completed), MAINT-44 (completed)
 
 ## [ISSUE-021] Validate the central publication loop through real use
 
