@@ -170,3 +170,198 @@
   keeps the default `3000` port, and alternate local ports are documented for both
   processes. Migration conflicts involving an existing schema object now fail
   closed with actionable context; no idempotent SQL or automatic reset was added.
+
+## [ISSUE-009] Complete multi-destination post authoring
+
+- Type: problem
+- Status: open
+- Evidence: The API and persistence boundary accept an array of publication inputs
+  for one source post, but `apps/web/src/routes/dashboard.tsx` currently submits
+  one publication from the main composer. This is recorded in the [AUDIT-37
+  worklog](worklogs/2026-09-02-AUDIT-37.md).
+- Impact: Herald's central promise of one source post feeding independently managed
+  destinations cannot be exercised through its primary authoring surface.
+- Desired outcome: A user can create and manage one source post with multiple
+  channel publications, each retaining its own target content, schedule, delivery
+  mode, validation state, and outcome.
+- Tasks: none
+
+## [ISSUE-010] Define recovery for shared source revision conflicts
+
+- Type: problem
+- Status: open
+- Evidence: `packages/db/src/manual-store.ts` rejects a stale publication draft
+  when the shared post source revision has advanced. The integration test in
+  `packages/db/src/manual-store.test.ts` confirms that a sibling draft remains on
+  the old revision and has no recovery operation.
+- Impact: The fail-closed concurrency invariant prevents silent data loss, but a
+  legitimate editor can be left unable to continue without an explicit recovery
+  path.
+- Desired outcome: Source edits across sibling publications have a deterministic,
+  user-visible reconciliation flow that preserves source and target work, explains
+  conflicts, and never changes an already promoted or executing snapshot.
+- Tasks: none
+
+## [ISSUE-011] Make execution history append-only and attributable
+
+- Type: problem
+- Status: open
+- Evidence: `packages/db/src/workflow-store.ts` updates the current publication and
+  job rows for success, retry, failure, and ambiguous recovery, but does not append
+  corresponding `audit_events` records. `packages/db/src/domain-schema.ts` stores a
+  current job attempt counter and error rather than a durable attempt history.
+- Impact: Operators cannot reconstruct the complete execution sequence or inspect
+  each attempt after a retry and state fields have been overwritten.
+- Desired outcome: Every automatic execution attempt, outcome, retry, ambiguity,
+  and recovery is durably attributable and reconstructable while current lifecycle
+  state remains efficient to query.
+- Tasks: none
+
+## [ISSUE-012] Expose truthful runtime readiness
+
+- Type: problem
+- Status: open
+- Evidence: `/health` in `apps/api/src/modules/health/routes.ts` always returns
+  `status: ok`, while `packages/core/src/scheduler.ts` has a terminal `failed`
+  state and the worker and media maintenance runtimes are started independently
+  in `apps/api/src/index.ts`.
+- Impact: A running HTTP process can appear healthy while scheduled publications no
+  longer execute, delaying detection of a broken deployment.
+- Desired outcome: Herald defines and exposes clear liveness and readiness
+  semantics that reflect the operational state relevant to serving requests and
+  executing durable work.
+- Tasks: none
+
+## [ISSUE-013] Complete project access and machine identity
+
+- Type: problem
+- Status: open
+- Evidence: Projects currently expose access through the creating user's actor;
+  there are no project membership, invitation, or project-token models or routes.
+  The CLI authenticates with `HERALD_SESSION_COOKIE`, while `SPEC-002` lists
+  project-scoped API tokens in the operable milestone. Better Auth remains limited
+  to application email/password authentication.
+- Impact: Herald cannot yet provide a deliberate access model for trusted humans,
+  scripts, and agents before the instance is exposed beyond local development.
+- Desired outcome: The instance has an explicit bootstrap policy and project access
+  model, including attributable machine access where required, without coupling
+  project ownership or publisher credentials to Better Auth account rows.
+- Tasks: none
+
+## [ISSUE-014] Make web project context URL-authoritative
+
+- Type: problem
+- Status: open
+- Evidence: The `/dashboard` loader initializes project data from `projects[0]`,
+  while the nested publication editor receives its own `$projectId`. The shell
+  keeps the selected project and related data in local state.
+- Impact: Direct links or reloads for a publication belonging to another project
+  can show a mismatched project context and make navigation state unreliable.
+- Desired outcome: The selected project is stable across direct navigation, reloads,
+  nested editors, and shell actions, with one authoritative route/data model.
+- Tasks: none
+
+## [ISSUE-015] Provide schema-aware target editing
+
+- Type: problem
+- Status: open
+- Evidence: `apps/web/src/components/publication-editor.tsx` currently exposes the
+  target payload through a raw JSON textarea even though channel profiles already
+  provide bounded schemas, field bindings, capabilities, and normalized validation
+  issues.
+- Impact: Human users must understand internal target JSON instead of receiving an
+  editor that reflects the selected channel and its constraints.
+- Desired outcome: The web editor presents usable, reactive controls for supported
+  channel fields and constraints, preserves manual and runtime-defined channels,
+  and keeps the same server-side validation and immutable promotion boundary.
+- Tasks: none
+
+## [ISSUE-016] Split persistence by coherent use-case boundaries
+
+- Type: problem
+- Status: open
+- Evidence: `packages/db/src/manual-store.ts` is 3,742 lines and contains project,
+  channel/profile, post/draft, publication, media resolution, reconciliation, and
+  audit persistence for both manual and automatic flows.
+- Impact: The current unit is difficult to navigate, review, test, and safely modify
+  for both humans and agents; its name also no longer describes its responsibility.
+- Desired outcome: Persistence code is organized into cohesive, discoverable units
+  that preserve transaction boundaries and project invariants without introducing
+  a generic repository abstraction or splitting code only by arbitrary line count.
+- Tasks: none
+
+## [ISSUE-017] Repair the documented coverage command
+
+- Type: problem
+- Status: open
+- Evidence: `bun run test:coverage` invokes `bun test --coverage`, which loads
+  `e2e/publication-media.spec.ts` and fails because Playwright tests are not being
+  executed by the Playwright runner. The regular `bun run check` gate remains green.
+- Impact: The documented coverage workflow is not reproducible and can mislead
+  contributors about the quality signal it produces.
+- Desired outcome: The coverage command runs the intended unit and integration
+  suites, produces its documented reports, and remains distinct from the browser
+  integration runner.
+- Tasks: none
+
+## [ISSUE-018] Document separate publisher-key recovery
+
+- Type: problem
+- Status: open
+- Evidence: `ADR-012` correctly keeps the publisher encryption key outside SQLite
+  and its backups, but the backup and restore procedure in `README.md` does not
+  explain how the operator preserves and restores that key alongside an application
+  bundle.
+- Impact: Restoring database and media bytes without the deployment key makes stored
+  publisher credentials unusable, even though the data archive itself is valid.
+- Desired outcome: The recovery runbook and its verification procedure make the
+  separately managed encryption key an explicit part of a complete Herald recovery
+  without placing the secret in the archive.
+- Tasks: none
+
+## [ISSUE-019] Define the operational planning experience
+
+- Type: proposal
+- Status: open
+- Evidence: Herald currently presents operational work through dashboard sections
+  and publication lists. A calendar or timeline has not been designed, and the
+  owner identified the need to rethink information hierarchy and scroll behavior
+  before adding more incremental web surfaces.
+- Impact: Adding more controls and sections without a coherent planning model can
+  make scheduling and review fragmented, dense, or unnecessarily tiring to use.
+- Desired outcome: A deliberate information architecture explains how overview,
+  composition, queue, channels, media, and time-based planning fit together across
+  desktop and small screens before the corresponding UI is expanded.
+- Tasks: none
+
+## [ISSUE-020] Establish maintainability and refactor guardrails
+
+- Type: proposal
+- Status: open
+- Evidence: The independent audit identified one large persistence unit, while the
+  current project does not yet record a cross-cutting review method for module
+  responsibility, cohesion, test seams, or safe extraction across backend and
+  frontend code.
+- Impact: Future autonomous sessions may keep appending to convenient files and
+  components until the product becomes difficult to reason about or safely evolve.
+- Desired outcome: Herald has lightweight, evidence-based structural review rules
+  and a periodic codebase audit that favors cohesive responsibilities, explicit
+  dependencies, reusable behavior, and testable boundaries without enforcing an
+  arbitrary file-size quota.
+- Tasks: none
+
+## [ISSUE-021] Validate the central publication loop through real use
+
+- Type: proposal
+- Status: open
+- Evidence: The repository has deterministic unit, integration, browser, and
+  provider tests, but the continuous product direction has not yet been validated
+  through a sustained real workflow using multiple destinations and the dashboard,
+  API, and CLI together.
+- Impact: Technical foundations can appear complete while the real publication
+  manager still requires a parallel tracker or awkward manual workarounds.
+- Desired outcome: Herald periodically exercises and records the complete intended
+  publication workflow in realistic use, including automatic and manual channels,
+  failures, edits, and recovery, without reintroducing a release-oriented MVP
+  boundary.
+- Tasks: none
