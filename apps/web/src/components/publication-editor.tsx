@@ -460,10 +460,11 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             <div className="flex flex-col justify-between gap-5 pb-7 sm:flex-row sm:items-end">
                 <div>
                     <Link
-                        to="/dashboard"
+                        to="/dashboard/projects/$projectId/queue"
+                        params={{ projectId }}
                         className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
                         <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                        Back to dashboard
+                        Back to queue
                     </Link>
                     <p className="mt-6 text-xs font-medium text-muted-foreground">
                         Publication editor

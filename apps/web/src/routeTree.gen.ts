@@ -13,6 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboard/projects/$projectId'
+import { Route as DashboardProjectsProjectIdChannelsRouteImport } from './routes/dashboard/projects/$projectId/channels'
+import { Route as DashboardProjectsProjectIdComposeRouteImport } from './routes/dashboard/projects/$projectId/compose'
+import { Route as DashboardProjectsProjectIdMediaRouteImport } from './routes/dashboard/projects/$projectId/media'
+import { Route as DashboardProjectsProjectIdOverviewRouteImport } from './routes/dashboard/projects/$projectId/overview'
+import { Route as DashboardProjectsProjectIdQueueRouteImport } from './routes/dashboard/projects/$projectId/queue'
 import { Route as DashboardProjectsProjectIdPublicationsPublicationIdRouteImport } from './routes/dashboard/projects/$projectId/publications/$publicationId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,11 +41,47 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardProjectsProjectIdRoute =
+  DashboardProjectsProjectIdRouteImport.update({
+    id: '/projects/$projectId',
+    path: '/projects/$projectId',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardProjectsProjectIdChannelsRoute =
+  DashboardProjectsProjectIdChannelsRouteImport.update({
+    id: '/channels',
+    path: '/channels',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
+const DashboardProjectsProjectIdComposeRoute =
+  DashboardProjectsProjectIdComposeRouteImport.update({
+    id: '/compose',
+    path: '/compose',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
+const DashboardProjectsProjectIdMediaRoute =
+  DashboardProjectsProjectIdMediaRouteImport.update({
+    id: '/media',
+    path: '/media',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
+const DashboardProjectsProjectIdOverviewRoute =
+  DashboardProjectsProjectIdOverviewRouteImport.update({
+    id: '/overview',
+    path: '/overview',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
+const DashboardProjectsProjectIdQueueRoute =
+  DashboardProjectsProjectIdQueueRouteImport.update({
+    id: '/queue',
+    path: '/queue',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
 const DashboardProjectsProjectIdPublicationsPublicationIdRoute =
   DashboardProjectsProjectIdPublicationsPublicationIdRouteImport.update({
-    id: '/projects/$projectId/publications/$publicationId',
-    path: '/projects/$projectId/publications/$publicationId',
-    getParentRoute: () => DashboardRoute,
+    id: '/publications/$publicationId',
+    path: '/publications/$publicationId',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -47,6 +89,12 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
+  '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
+  '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
+  '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
+  '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
 }
 export interface FileRoutesByTo {
@@ -54,6 +102,12 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
+  '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
+  '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
+  '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
+  '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
 }
 export interface FileRoutesById {
@@ -62,6 +116,12 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
+  '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
+  '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
+  '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
+  '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
+  '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
 }
 export interface FileRouteTypes {
@@ -71,6 +131,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/dashboard'
     | '/login'
+    | '/dashboard/projects/$projectId'
+    | '/dashboard/projects/$projectId/channels'
+    | '/dashboard/projects/$projectId/compose'
+    | '/dashboard/projects/$projectId/media'
+    | '/dashboard/projects/$projectId/overview'
+    | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/publications/$publicationId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -78,6 +144,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/dashboard'
     | '/login'
+    | '/dashboard/projects/$projectId'
+    | '/dashboard/projects/$projectId/channels'
+    | '/dashboard/projects/$projectId/compose'
+    | '/dashboard/projects/$projectId/media'
+    | '/dashboard/projects/$projectId/overview'
+    | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/publications/$publicationId'
   id:
     | '__root__'
@@ -85,6 +157,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/dashboard'
     | '/login'
+    | '/dashboard/projects/$projectId'
+    | '/dashboard/projects/$projectId/channels'
+    | '/dashboard/projects/$projectId/compose'
+    | '/dashboard/projects/$projectId/media'
+    | '/dashboard/projects/$projectId/overview'
+    | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/publications/$publicationId'
   fileRoutesById: FileRoutesById
 }
@@ -125,23 +203,92 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/projects/$projectId': {
+      id: '/dashboard/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/dashboard/projects/$projectId'
+      preLoaderRoute: typeof DashboardProjectsProjectIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/projects/$projectId/channels': {
+      id: '/dashboard/projects/$projectId/channels'
+      path: '/channels'
+      fullPath: '/dashboard/projects/$projectId/channels'
+      preLoaderRoute: typeof DashboardProjectsProjectIdChannelsRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
+    '/dashboard/projects/$projectId/compose': {
+      id: '/dashboard/projects/$projectId/compose'
+      path: '/compose'
+      fullPath: '/dashboard/projects/$projectId/compose'
+      preLoaderRoute: typeof DashboardProjectsProjectIdComposeRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
+    '/dashboard/projects/$projectId/media': {
+      id: '/dashboard/projects/$projectId/media'
+      path: '/media'
+      fullPath: '/dashboard/projects/$projectId/media'
+      preLoaderRoute: typeof DashboardProjectsProjectIdMediaRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
+    '/dashboard/projects/$projectId/overview': {
+      id: '/dashboard/projects/$projectId/overview'
+      path: '/overview'
+      fullPath: '/dashboard/projects/$projectId/overview'
+      preLoaderRoute: typeof DashboardProjectsProjectIdOverviewRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
+    '/dashboard/projects/$projectId/queue': {
+      id: '/dashboard/projects/$projectId/queue'
+      path: '/queue'
+      fullPath: '/dashboard/projects/$projectId/queue'
+      preLoaderRoute: typeof DashboardProjectsProjectIdQueueRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
     '/dashboard/projects/$projectId/publications/$publicationId': {
       id: '/dashboard/projects/$projectId/publications/$publicationId'
-      path: '/projects/$projectId/publications/$publicationId'
+      path: '/publications/$publicationId'
       fullPath: '/dashboard/projects/$projectId/publications/$publicationId'
       preLoaderRoute: typeof DashboardProjectsProjectIdPublicationsPublicationIdRouteImport
-      parentRoute: typeof DashboardRoute
+      parentRoute: typeof DashboardProjectsProjectIdRoute
     }
   }
 }
 
-interface DashboardRouteChildren {
+interface DashboardProjectsProjectIdRouteChildren {
+  DashboardProjectsProjectIdChannelsRoute: typeof DashboardProjectsProjectIdChannelsRoute
+  DashboardProjectsProjectIdComposeRoute: typeof DashboardProjectsProjectIdComposeRoute
+  DashboardProjectsProjectIdMediaRoute: typeof DashboardProjectsProjectIdMediaRoute
+  DashboardProjectsProjectIdOverviewRoute: typeof DashboardProjectsProjectIdOverviewRoute
+  DashboardProjectsProjectIdQueueRoute: typeof DashboardProjectsProjectIdQueueRoute
   DashboardProjectsProjectIdPublicationsPublicationIdRoute: typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
 }
 
+const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteChildren =
+  {
+    DashboardProjectsProjectIdChannelsRoute:
+      DashboardProjectsProjectIdChannelsRoute,
+    DashboardProjectsProjectIdComposeRoute:
+      DashboardProjectsProjectIdComposeRoute,
+    DashboardProjectsProjectIdMediaRoute: DashboardProjectsProjectIdMediaRoute,
+    DashboardProjectsProjectIdOverviewRoute:
+      DashboardProjectsProjectIdOverviewRoute,
+    DashboardProjectsProjectIdQueueRoute: DashboardProjectsProjectIdQueueRoute,
+    DashboardProjectsProjectIdPublicationsPublicationIdRoute:
+      DashboardProjectsProjectIdPublicationsPublicationIdRoute,
+  }
+
+const DashboardProjectsProjectIdRouteWithChildren =
+  DashboardProjectsProjectIdRoute._addFileChildren(
+    DashboardProjectsProjectIdRouteChildren,
+  )
+
+interface DashboardRouteChildren {
+  DashboardProjectsProjectIdRoute: typeof DashboardProjectsProjectIdRouteWithChildren
+}
+
 const DashboardRouteChildren: DashboardRouteChildren = {
-  DashboardProjectsProjectIdPublicationsPublicationIdRoute:
-    DashboardProjectsProjectIdPublicationsPublicationIdRoute,
+  DashboardProjectsProjectIdRoute: DashboardProjectsProjectIdRouteWithChildren,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

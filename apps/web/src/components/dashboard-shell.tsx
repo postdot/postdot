@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Avatar, AvatarFallback } from '@herald/ui/components/avatar'
 import { Button } from '@herald/ui/components/button'
 import {
@@ -54,6 +55,7 @@ interface DashboardShellProps {
     readonly children: ReactNode
     readonly channels: readonly Channel[]
     readonly dueCount: number
+    readonly error: string | null
     readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
     readonly onProjectChange: (projectId: string | null) => void
     readonly onSignOut: () => void
@@ -71,6 +73,7 @@ export function DashboardShell({
     children,
     channels,
     dueCount,
+    error,
     onCreateProject,
     onProjectChange,
     onSignOut,
@@ -85,6 +88,7 @@ export function DashboardShell({
 }: DashboardShellProps) {
     const { pathname } = useLocation()
     const isPublicationRoute = pathname.includes('/publications/')
+    const activeSection = workspaceSection(pathname)
     const connectionsByChannel = new Map(
         publisherConnections.map(connection => [connection.channelId, connection])
     )
@@ -97,12 +101,22 @@ export function DashboardShell({
             <Sidebar collapsible="icon" className="!border-0">
                 <SidebarHeader className="gap-4 p-3 group-data-[collapsible=icon]:p-2">
                     <div className="flex items-center gap-2">
-                        <Link
-                            to="/dashboard"
-                            aria-label="Herald workspace"
-                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75">
-                            <HeraldLogo className="size-7" />
-                        </Link>
+                        {selectedProjectId === null ? (
+                            <Link
+                                to="/dashboard"
+                                aria-label="Herald workspace"
+                                className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75">
+                                <HeraldLogo className="size-7" />
+                            </Link>
+                        ) : (
+                            <Link
+                                to="/dashboard/projects/$projectId/overview"
+                                params={{ projectId: selectedProjectId }}
+                                aria-label="Herald workspace"
+                                className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75">
+                                <HeraldLogo className="size-7" />
+                            </Link>
+                        )}
                         <div className="min-w-0 group-data-[collapsible=icon]:hidden">
                             <p className="truncate text-sm font-semibold tracking-tight">Herald</p>
                             <p className="truncate text-xs text-muted-foreground">
@@ -131,31 +145,39 @@ export function DashboardShell({
                             <nav aria-label="Workspace navigation">
                                 <SidebarMenu>
                                     <WorkspaceMenuItem
-                                        active={!isPublicationRoute}
-                                        href="#overview"
+                                        active={activeSection === 'overview'}
+                                        destination="overview"
                                         icon={<Widget2Icon aria-hidden="true" />}
                                         label="Overview"
+                                        projectId={selectedProjectId}
                                     />
                                     <WorkspaceMenuItem
-                                        href="#compose"
+                                        destination="compose"
                                         icon={<PenIcon aria-hidden="true" />}
                                         label="Compose"
+                                        projectId={selectedProjectId}
+                                        active={activeSection === 'compose'}
                                     />
                                     <WorkspaceMenuItem
-                                        active={isPublicationRoute}
-                                        href="#publications"
+                                        active={activeSection === 'queue' || isPublicationRoute}
+                                        destination="queue"
                                         icon={<ListIcon aria-hidden="true" />}
                                         label="Queue"
+                                        projectId={selectedProjectId}
                                     />
                                     <WorkspaceMenuItem
-                                        href="#channels"
+                                        destination="channels"
                                         icon={<LinkIcon aria-hidden="true" />}
                                         label="Channels"
+                                        projectId={selectedProjectId}
+                                        active={activeSection === 'channels'}
                                     />
                                     <WorkspaceMenuItem
-                                        href="#media"
+                                        destination="media"
                                         icon={<GalleryIcon aria-hidden="true" />}
                                         label="Media"
+                                        projectId={selectedProjectId}
+                                        active={activeSection === 'media'}
                                     />
                                 </SidebarMenu>
                             </nav>
@@ -165,7 +187,7 @@ export function DashboardShell({
                     <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                         <SidebarGroupLabel className="px-2">Channels</SidebarGroupLabel>
                         <SidebarGroupAction
-                            render={<a href="#channels" aria-label="Manage channels" />}
+                            render={workspaceLink('channels', selectedProjectId, 'Manage channels')}
                             title="Manage channels">
                             <AddIcon aria-hidden="true" />
                         </SidebarGroupAction>
@@ -188,7 +210,10 @@ export function DashboardShell({
                                         return (
                                             <SidebarMenuItem key={channel.id}>
                                                 <SidebarMenuButton
-                                                    render={<a href="#channels" />}
+                                                    render={workspaceLink(
+                                                        'channels',
+                                                        selectedProjectId
+                                                    )}
                                                     tooltip={channel.name}>
                                                     <span
                                                         className={cn(
@@ -265,7 +290,9 @@ export function DashboardShell({
                             />
                             <div className="flex min-w-0 items-center gap-2 text-sm">
                                 <span className="truncate text-muted-foreground">
-                                    {isPublicationRoute ? 'Publication editor' : 'Herald workspace'}
+                                    {isPublicationRoute
+                                        ? 'Publication editor'
+                                        : workspaceSectionLabel(activeSection)}
                                 </span>
                                 <span className="text-muted-foreground/50" aria-hidden="true">
                                     /
@@ -309,6 +336,16 @@ export function DashboardShell({
                             </DropdownMenu>
                         </div>
                     </header>
+                    {error ? (
+                        <div className="px-4 pt-4 sm:px-6 lg:px-8">
+                            <Alert
+                                variant="destructive"
+                                className="rounded-md border-state-failed/35 bg-state-failed/10">
+                                <AlertTitle>Workspace action failed</AlertTitle>
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        </div>
+                    ) : null}
                     {children}
                 </div>
             </SidebarInset>
@@ -318,19 +355,21 @@ export function DashboardShell({
 
 function WorkspaceMenuItem({
     active = false,
-    href,
+    destination,
     icon,
     label,
+    projectId,
 }: {
     readonly active?: boolean
-    readonly href: string
+    readonly destination: WorkspaceSection
     readonly icon: ReactNode
     readonly label: string
+    readonly projectId: string | null
 }) {
     return (
         <SidebarMenuItem>
             <SidebarMenuButton
-                render={<a href={href} aria-current={active ? 'page' : undefined} />}
+                render={workspaceLink(destination, projectId, undefined, active)}
                 isActive={active}
                 tooltip={label}>
                 {icon}
@@ -338,6 +377,61 @@ function WorkspaceMenuItem({
             </SidebarMenuButton>
         </SidebarMenuItem>
     )
+}
+
+type WorkspaceSection = 'overview' | 'compose' | 'queue' | 'channels' | 'media'
+
+function workspaceLink(
+    destination: WorkspaceSection,
+    projectId: string | null,
+    ariaLabel?: string,
+    active = false
+) {
+    if (projectId === null) {
+        return (
+            <Link
+                to="/dashboard"
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'overview') {
+        return (
+            <Link
+                to="/dashboard/projects/$projectId/overview"
+                params={{ projectId }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    return (
+        <Link
+            to={`/dashboard/projects/$projectId/${destination}`}
+            params={{ projectId }}
+            aria-label={ariaLabel}
+            aria-current={active ? 'page' : undefined}
+        />
+    )
+}
+
+function workspaceSection(pathname: string): WorkspaceSection {
+    if (pathname.includes('/compose')) return 'compose'
+    if (pathname.includes('/queue')) return 'queue'
+    if (pathname.includes('/channels')) return 'channels'
+    if (pathname.includes('/media')) return 'media'
+    return 'overview'
+}
+
+function workspaceSectionLabel(section: WorkspaceSection) {
+    if (section === 'compose') return 'Compose'
+    if (section === 'queue') return 'Queue'
+    if (section === 'channels') return 'Channels'
+    if (section === 'media') return 'Media'
+    return 'Overview'
 }
 
 function ProjectContext({

@@ -140,7 +140,7 @@ export function MediaAttachmentPicker({
     }
 
     return (
-        <div className="rounded-lg bg-muted p-4 sm:p-5">
+        <div data-media-picker="true" className="rounded-lg bg-muted p-4 sm:p-5">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div>
                     <div className="flex items-center gap-2 text-sm font-medium">
