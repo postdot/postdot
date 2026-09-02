@@ -1,0 +1,23 @@
+export const publicationColumns = `
+    publications.id,
+    publications.project_id as projectId,
+    publications.post_id as postId,
+    publications.channel_id as channelId,
+    publications.target_revision_id as targetRevisionId,
+    publications.delivery_mode as deliveryMode,
+    publications.review_state as reviewState,
+    publications.state,
+    publications.scheduled_at as scheduledAt,
+    publications.published_at as publishedAt,
+    publications.external_id as externalId,
+    publications.external_url as externalUrl,
+    publications.error_message as errorMessage,
+    publications.created_by_actor_id as createdByActorId,
+    publications.scheduled_by_actor_id as scheduledByActorId,
+    publications.state_changed_by_actor_id as stateChangedByActorId,
+    publications.published_by_actor_id as publishedByActorId,
+    publications.last_assessed_profile_version_id as lastAssessedProfileVersionId,
+    publications.profile_assessment_issues_json as profileAssessmentIssuesJson,
+    publications.created_at as createdAt,
+    publications.updated_at as updatedAt
+`

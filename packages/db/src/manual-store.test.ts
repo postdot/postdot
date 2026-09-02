@@ -8,6 +8,7 @@ import { createManualStore } from './manual-store'
 import type { MediaAssetReference } from './media-asset-store'
 import { runMigrations } from './migrations'
 import {
+    auditEvents,
     channelProfileVersions,
     jobs,
     mediaAssets,
@@ -520,6 +521,114 @@ describe('manual workflow store', () => {
                 })
             ).toThrow('changed after revision 1')
         } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('rolls back a promotion when a late persistence effect fails', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+        let triggerInstalled = false
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Promotion Rollback Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Automatic Channel',
+                profile: automaticTestProfile,
+            })
+            if (channel === null) throw new Error('The rollback test channel was not created')
+
+            database
+                .insert(publishers)
+                .values({
+                    id: 'promotion-rollback-publisher',
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    kind: 'future-provider',
+                })
+                .run()
+
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Rollback source'),
+                publications: [
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        scheduledAt: now + 60_000,
+                    },
+                ],
+            })
+            if (created === null) throw new Error('The rollback test post was not created')
+            const publication = created.publications[0]
+            if (publication === undefined) throw new Error('The rollback publication is missing')
+
+            database.$client.run(`
+                create temp trigger fail_publication_promotion_audit
+                before insert on audit_events
+                when NEW.action = 'publication.target_promoted'
+                begin
+                    select raise(abort, 'forced publication promotion failure');
+                end
+            `)
+            triggerInstalled = true
+
+            expect(() =>
+                store.promotePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 1,
+                    scheduledAt: now + 120_000,
+                })
+            ).toThrow('forced publication promotion failure')
+
+            expect(
+                database
+                    .select({
+                        targetRevisionId: publications.targetRevisionId,
+                        state: publications.state,
+                        scheduledAt: publications.scheduledAt,
+                    })
+                    .from(publications)
+                    .where(eq(publications.id, publication.id))
+                    .all()
+            ).toEqual([
+                {
+                    targetRevisionId: publication.targetRevisionId,
+                    state: 'scheduled',
+                    scheduledAt: now + 60_000,
+                },
+            ])
+            expect(
+                database
+                    .select()
+                    .from(publicationTargetRevisions)
+                    .where(eq(publicationTargetRevisions.publicationId, publication.id))
+                    .all()
+            ).toHaveLength(1)
+            expect(
+                database.select().from(jobs).where(eq(jobs.publicationId, publication.id)).all()
+            ).toEqual([expect.objectContaining({ state: 'pending', runAt: now + 60_000 })])
+            expect(
+                database
+                    .select()
+                    .from(auditEvents)
+                    .where(eq(auditEvents.action, 'publication.target_promoted'))
+                    .all()
+            ).toHaveLength(0)
+        } finally {
+            if (triggerInstalled)
+                database.$client.run('drop trigger fail_publication_promotion_audit')
             closeDatabase(database)
         }
     })

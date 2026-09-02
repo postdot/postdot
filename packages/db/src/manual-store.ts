@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-
 import {
     adaptSourceContentToProfile,
     ChannelProfileCompiler,
@@ -11,7 +9,6 @@ import {
     requireNonBlank,
     requireTimestamp,
     transitionPublication,
-    type Actor,
     type Channel,
     type ChannelProfileImpactAssessment,
     type ChannelProfileDefinition,
@@ -21,36 +18,48 @@ import {
     type MediaRepresentation,
     type Post,
     type Publication,
-    type Publisher,
     type PublicationReviewState,
     type SourceContent,
     type TargetContent,
     type TargetMediaReference,
     type Timestamp,
     type ValidationIssue,
-    validateSourceContent,
 } from '@herald/core'
 
 import type { HeraldDatabase } from './client'
 import { createChannelProfileStore } from './manual-store/channel-profile-store'
+import {
+    canonicalJson,
+    contentHash,
+    invalidProfileError,
+    invalidTargetContentError,
+    isRecord,
+    parseJsonObject,
+    parseProfile,
+} from './manual-store/content-codec'
+import {
+    toActor,
+    toAuditEvent,
+    toProfileVersion,
+    toPublication,
+    toPublisher,
+} from './manual-store/mappers'
 import { toChannel, toProject } from './manual-store/project-channel-mappers'
 import { createProjectChannelStore } from './manual-store/project-channel-store'
+import { createPublicationAuthoringStore } from './manual-store/publication-authoring-store'
 import type {
     ActorRow,
     AuditEventRow,
     DuePublicationRow,
-    PostRow,
     PostSourceRow,
     ProfileRow,
     PublicationChannelRow,
     PublicationRow,
-    PublicationSummaryRow,
     ResolvedTargetMedia,
     TargetRevisionMediaRow,
-    TargetRevisionRow,
-    WorkingDraftRow,
     ProjectRow,
 } from './manual-store/rows'
+import { publicationColumns } from './manual-store/sql-fragments'
 import type { MediaAssetStore } from './media-asset-store'
 
 export type {
@@ -248,30 +257,6 @@ export interface AuditEvent {
     readonly createdAt: Timestamp
 }
 
-const publicationColumns = `
-    publications.id,
-    publications.project_id as projectId,
-    publications.post_id as postId,
-    publications.channel_id as channelId,
-    publications.target_revision_id as targetRevisionId,
-    publications.delivery_mode as deliveryMode,
-    publications.review_state as reviewState,
-    publications.state,
-    publications.scheduled_at as scheduledAt,
-    publications.published_at as publishedAt,
-    publications.external_id as externalId,
-    publications.external_url as externalUrl,
-    publications.error_message as errorMessage,
-    publications.created_by_actor_id as createdByActorId,
-    publications.scheduled_by_actor_id as scheduledByActorId,
-    publications.state_changed_by_actor_id as stateChangedByActorId,
-    publications.published_by_actor_id as publishedByActorId,
-    publications.last_assessed_profile_version_id as lastAssessedProfileVersionId,
-    publications.profile_assessment_issues_json as profileAssessmentIssuesJson,
-    publications.created_at as createdAt,
-    publications.updated_at as updatedAt
-`
-
 export function createManualStore(database: HeraldDatabase, options: ManualStoreOptions = {}) {
     const client = database.$client
     const now = options.now ?? Date.now
@@ -358,74 +343,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         from posts
         where project_id = ?1
           and id = ?2
-    `)
-    const loadPostStatement = client.query<PostRow, [projectId: string, postId: string]>(`
-        select id,
-               project_id as projectId,
-               title,
-               source_content as sourceContentJson,
-               source_revision as sourceRevision,
-               created_by_actor_id as createdByActorId,
-               created_at as createdAt,
-               updated_at as updatedAt
-        from posts
-        where project_id = ?1
-          and id = ?2
-    `)
-    const loadWorkingDraftStatement = client.query<
-        WorkingDraftRow,
-        [projectId: string, publicationId: string]
-    >(`
-        select id,
-               project_id as projectId,
-               publication_id as publicationId,
-               profile_version_id as profileVersionId,
-               source_revision as sourceRevision,
-               base_source_content as baseSourceContentJson,
-               content_json as contentJson,
-               review_state as reviewState,
-               validation_issues_json as validationIssuesJson,
-               last_assessed_profile_version_id as lastAssessedProfileVersionId,
-               revision,
-               updated_by_actor_id as updatedByActorId,
-               created_at as createdAt,
-               updated_at as updatedAt
-        from publication_working_drafts
-        where project_id = ?1
-          and publication_id = ?2
-    `)
-    const loadTargetRevisionStatement = client.query<
-        TargetRevisionRow,
-        [projectId: string, targetRevisionId: string, publicationId: string]
-    >(`
-        select id,
-               project_id as projectId,
-               publication_id as publicationId,
-               sequence,
-               profile_version_id as profileVersionId,
-               source_revision as sourceRevision,
-               delivery_mode as deliveryMode,
-               media_reference_count as mediaReferenceCount,
-               content_json as contentJson,
-               content_hash as contentHash,
-               profile_hash as profileHash,
-               schema_hash as schemaHash,
-               validation_issues_json as validationIssuesJson,
-               created_by_actor_id as createdByActorId,
-               created_at as createdAt
-        from publication_target_revisions
-        where project_id = ?1
-          and id = ?2
-          and publication_id = ?3
-    `)
-    const nextTargetRevisionSequenceStatement = client.query<
-        { sequence: number | null },
-        [projectId: string, publicationId: string]
-    >(`
-        select max(sequence) as sequence
-        from publication_target_revisions
-        where project_id = ?1
-          and publication_id = ?2
     `)
     const loadActiveJobStatement = client.query<
         { id: string; state: 'pending' | 'running' },
@@ -628,75 +545,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             created_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
     `)
-    const updatePostSourceStatement = client.query<
-        { changes: number },
-        [
-            sourceContentJson: string,
-            sourceRevision: number,
-            updatedAt: number,
-            projectId: string,
-            postId: string,
-        ]
-    >(`
-        update posts
-        set source_content = ?1,
-            source_revision = ?2,
-            updated_at = ?3
-        where project_id = ?4
-          and id = ?5
-    `)
-    const updateWorkingDraftStatement = client.query<
-        { changes: number },
-        [
-            sourceRevision: number,
-            baseSourceContentJson: string,
-            contentJson: string,
-            reviewState: PublicationReviewState,
-            validationIssuesJson: string,
-            lastAssessedProfileVersionId: string | null,
-            updatedByActorId: string,
-            updatedAt: number,
-            projectId: string,
-            publicationId: string,
-            expectedRevision: number,
-        ]
-    >(`
-        update publication_working_drafts
-        set source_revision = ?1,
-            base_source_content = ?2,
-            content_json = ?3,
-            review_state = ?4,
-            validation_issues_json = ?5,
-            last_assessed_profile_version_id = ?6,
-            revision = revision + 1,
-            updated_by_actor_id = ?7,
-            updated_at = ?8
-        where project_id = ?9
-          and publication_id = ?10
-          and revision = ?11
-    `)
-    const rebaseWorkingDraftStatement = client.query<
-        { changes: number },
-        [
-            sourceRevision: number,
-            baseSourceContentJson: string,
-            updatedByActorId: string,
-            updatedAt: number,
-            projectId: string,
-            publicationId: string,
-            expectedRevision: number,
-        ]
-    >(`
-        update publication_working_drafts
-        set source_revision = ?1,
-            base_source_content = ?2,
-            revision = revision + 1,
-            updated_by_actor_id = ?3,
-            updated_at = ?4
-        where project_id = ?5
-          and publication_id = ?6
-          and revision = ?7
-    `)
     const updatePublicationAssessmentStatement = client.query<
         { changes: number },
         [
@@ -763,39 +611,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         where project_id = ?2
           and id = ?3
           and state = 'pending'
-    `)
-    const promotePublicationStatement = client.query<
-        { changes: number },
-        [
-            targetRevisionId: string,
-            state: 'draft' | 'scheduled',
-            scheduledAt: number | null,
-            scheduledByActorId: string | null,
-            actorId: string,
-            updatedAt: number,
-            projectId: string,
-            publicationId: string,
-        ]
-    >(`
-        update publications
-        set target_revision_id = ?1,
-            state = ?2,
-            review_state = 'compatible',
-            profile_assessment_issues_json = '[]',
-            last_assessed_profile_version_id = (
-                select profile_version_id
-                from publication_working_drafts
-                where publication_working_drafts.project_id = publications.project_id
-                  and publication_working_drafts.publication_id = publications.id
-            ),
-            scheduled_at = ?3,
-            scheduled_by_actor_id = ?4,
-            error_message = null,
-            state_changed_by_actor_id = ?5,
-            updated_at = ?6
-        where project_id = ?7
-          and id = ?8
-          and state in ('draft', 'scheduled', 'failed')
     `)
     const insertJobStatement = client.query<
         void,
@@ -929,41 +744,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
           and publications.scheduled_at <= ?2
         order by publications.scheduled_at, publications.id
     `)
-    const listPublicationSummariesStatement = client.query<
-        PublicationSummaryRow,
-        [projectId: string, limit: number]
-    >(`
-        select ${publicationColumns},
-               posts.title as postTitle,
-               channels.name as channelName,
-               working_drafts.revision as draftRevision,
-               working_drafts.review_state as draftReviewState,
-               working_drafts.source_revision as draftSourceRevision,
-               working_drafts.content_json as draftContentJson,
-               target_revisions.source_revision as targetSourceRevision,
-               target_revisions.content_json as targetContentJson
-        from publications
-        inner join posts
-            on posts.project_id = publications.project_id
-           and posts.id = publications.post_id
-        inner join channels
-            on channels.project_id = publications.project_id
-           and channels.id = publications.channel_id
-        inner join publication_working_drafts as working_drafts
-            on working_drafts.project_id = publications.project_id
-           and working_drafts.publication_id = publications.id
-        left join publication_target_revisions as target_revisions
-            on target_revisions.project_id = publications.project_id
-           and target_revisions.id = publications.target_revision_id
-           and target_revisions.publication_id = publications.id
-        where publications.project_id = ?1
-        order by
-            case when publications.scheduled_at is null then 1 else 0 end,
-            publications.scheduled_at,
-            publications.updated_at desc,
-            publications.id
-        limit ?2
-    `)
     const listAuditEventsStatement = client.query<
         AuditEventRow,
         [projectId: string, limit: number]
@@ -1052,6 +832,92 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             })
             insertJobStatement.run(job.id, job.projectId, job.publicationId, job.runAt, timestamp)
         },
+        insertAuditEvent: input =>
+            insertAuditEventStatement.run(
+                input.id,
+                input.projectId,
+                input.actorId,
+                input.action,
+                input.entityType,
+                input.entityId,
+                input.metadataJson,
+                input.createdAt
+            ),
+    })
+
+    const publicationAuthoringStore = createPublicationAuthoringStore(database, {
+        now,
+        createId,
+        profileCompiler,
+        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+        loadPublication: (projectId, publicationId) =>
+            loadPublicationByIdStatement.get(projectId, publicationId),
+        loadPostSource: (projectId, postId) => loadPostSourceStatement.get(projectId, postId),
+        loadChannel: (projectId, channelId) => loadChannelStatement.get(projectId, channelId),
+        loadProfile: (projectId, profileId) => loadProfileStatement.get(projectId, profileId),
+        loadActiveJob: (projectId, publicationId) =>
+            loadActiveJobStatement.get(projectId, publicationId),
+        assessWorkingDraftMedia: (profile, content, projectId, subjectId) =>
+            assessWorkingDraftMedia(
+                profile,
+                content,
+                projectId,
+                subjectId,
+                media,
+                publicMediaUrlAvailable
+            ),
+        resolveTargetMedia: (profile, content, projectId, subjectId) =>
+            resolveTargetMedia(
+                profile,
+                content,
+                projectId,
+                subjectId,
+                media,
+                publicMediaUrlAvailable
+            ),
+        updatePendingJob: (projectId, jobId, runAt, updatedAt) =>
+            updatePendingJobStatement.run(runAt, updatedAt, projectId, jobId).changes === 1,
+        cancelPendingJob: (projectId, jobId, completedAt) =>
+            cancelPendingJobStatement.run(completedAt, projectId, jobId).changes === 1,
+        insertTargetRevision: input =>
+            insertTargetRevisionStatement.run(
+                input.id,
+                input.projectId,
+                input.publicationId,
+                input.sequence,
+                input.profileVersionId,
+                input.sourceRevision,
+                input.deliveryMode,
+                input.mediaReferenceCount,
+                input.contentJson,
+                input.contentHash,
+                input.profileHash,
+                input.schemaHash,
+                input.validationIssuesJson,
+                input.createdByActorId,
+                input.createdAt
+            ),
+        insertTargetRevisionMedia: input =>
+            insertTargetRevisionMediaStatement.run(
+                input.id,
+                input.projectId,
+                input.targetRevisionId,
+                input.assetId,
+                input.representationId,
+                input.position,
+                input.contentPath,
+                input.role,
+                input.accessibilityText,
+                input.createdAt
+            ),
+        insertJob: input =>
+            insertJobStatement.run(
+                input.id,
+                input.projectId,
+                input.publicationId,
+                input.runAt,
+                input.createdAt
+            ),
         insertAuditEvent: input =>
             insertAuditEventStatement.run(
                 input.id,
@@ -1313,430 +1179,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         }
     )
 
-    const savePublicationDraftTransaction = client.transaction(
-        (input: SavePublicationDraftInput): PublicationWorkingDraft | null => {
-            if (input.sourceContent === undefined && input.targetContent === undefined) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    'A publication draft must include sourceContent or targetContent'
-                )
-            }
-
-            const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
-            const publicationRow = loadPublicationByIdStatement.get(
-                input.projectId,
-                input.publicationId
-            )
-            if (actorRow === null || publicationRow === null) return null
-            if (
-                ['ready', 'publishing', 'published', 'ambiguous', 'cancelled'].includes(
-                    publicationRow.state
-                )
-            ) {
-                throw new DomainInvariantError(
-                    'invalid_transition',
-                    `Cannot edit a ${publicationRow.state} publication`
-                )
-            }
-
-            const draftRow = loadWorkingDraftStatement.get(input.projectId, input.publicationId)
-            const postRow = loadPostSourceStatement.get(input.projectId, publicationRow.postId)
-            if (draftRow === null || postRow === null) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `Publication ${input.publicationId} has incomplete draft state`
-                )
-            }
-            const channelRow = loadChannelStatement.get(input.projectId, publicationRow.channelId)
-            const profileRow = loadProfileStatement.get(input.projectId, draftRow.profileVersionId)
-            if (
-                channelRow === null ||
-                profileRow === null ||
-                profileRow.channelId !== channelRow.id
-            ) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `Publication ${input.publicationId} has no available profile`
-                )
-            }
-            if (input.expectedRevision !== draftRow.revision) {
-                throw new DomainInvariantError(
-                    'write_conflict',
-                    `Publication draft ${input.publicationId} changed after revision ${input.expectedRevision}`
-                )
-            }
-            if (postRow.sourceRevision !== draftRow.sourceRevision) {
-                throw new DomainInvariantError(
-                    'write_conflict',
-                    `Source post ${postRow.id} changed after this publication draft was loaded`
-                )
-            }
-            const profileResult = profileCompiler.compile(parseProfile(profileRow.profileJson))
-            if (!profileResult.ok) throw invalidProfileError(profileResult.issues)
-
-            const sourceContent =
-                input.sourceContent ?? parseSourceContent(postRow.sourceContentJson)
-            const sourceResult = validateSourceContent(sourceContent)
-            if (!sourceResult.ok) throw invalidSourceContentError(sourceResult.issues)
-            const targetContent =
-                input.targetContent ??
-                adaptSourceContentToProfile(sourceResult.value, profileResult.value.profile)
-            if (!isRecord(targetContent)) {
-                throw new DomainInvariantError(
-                    'invalid_content',
-                    'Publication target content must be a JSON object'
-                )
-            }
-            const validation = profileResult.value.validate(targetContent)
-            const mediaIssues = assessWorkingDraftMedia(
-                profileResult.value.profile,
-                targetContent,
-                input.projectId,
-                input.subjectId,
-                media,
-                publicMediaUrlAvailable
-            )
-            const validationIssues = [...validation.issues, ...mediaIssues]
-            const reviewState: PublicationReviewState =
-                validation.ok && mediaIssues.length === 0 ? 'compatible' : 'review_required'
-            const timestamp = requireTimestamp(now(), 'now')
-            const sourceContentJson = canonicalJson(sourceResult.value)
-            const storedSourceContentJson = canonicalJson(
-                parseSourceContent(postRow.sourceContentJson)
-            )
-            const sourceChanged =
-                input.sourceContent !== undefined && sourceContentJson !== storedSourceContentJson
-            const sourceRevision = sourceChanged
-                ? postRow.sourceRevision + 1
-                : postRow.sourceRevision
-            const targetContentJson = canonicalJson(targetContent)
-
-            if (sourceChanged) {
-                const sourceUpdate = updatePostSourceStatement.run(
-                    sourceContentJson,
-                    sourceRevision,
-                    timestamp,
-                    input.projectId,
-                    publicationRow.postId
-                )
-                if (sourceUpdate.changes !== 1) {
-                    throw new DomainInvariantError(
-                        'claim_mismatch',
-                        `Could not update source post ${publicationRow.postId}`
-                    )
-                }
-            }
-
-            const draftUpdate = updateWorkingDraftStatement.run(
-                sourceRevision,
-                sourceChanged ? sourceContentJson : draftRow.baseSourceContentJson,
-                targetContentJson,
-                reviewState,
-                JSON.stringify(validationIssues),
-                draftRow.profileVersionId,
-                actorRow.id,
-                timestamp,
-                input.projectId,
-                input.publicationId,
-                input.expectedRevision
-            )
-            if (draftUpdate.changes !== 1) {
-                throw new DomainInvariantError(
-                    'write_conflict',
-                    `Publication draft ${input.publicationId} changed before it could be saved`
-                )
-            }
-
-            const updated = loadWorkingDraftStatement.get(input.projectId, input.publicationId)
-            if (updated === null)
-                throw new DomainInvariantError('invalid_input', 'Draft disappeared')
-            return toWorkingDraft(updated)
-        }
-    )
-
-    const rebasePublicationDraftTransaction = client.transaction(
-        (input: RebasePublicationDraftInput): PublicationWorkingDraft | null => {
-            const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
-            const publicationRow = loadPublicationByIdStatement.get(
-                input.projectId,
-                input.publicationId
-            )
-            const draftRow = loadWorkingDraftStatement.get(input.projectId, input.publicationId)
-            if (actorRow === null || publicationRow === null || draftRow === null) return null
-            if (
-                ['ready', 'publishing', 'published', 'ambiguous', 'cancelled'].includes(
-                    publicationRow.state
-                )
-            ) {
-                throw new DomainInvariantError(
-                    'invalid_transition',
-                    `Cannot rebase a ${publicationRow.state} publication`
-                )
-            }
-            if (input.expectedRevision !== draftRow.revision) {
-                throw new DomainInvariantError(
-                    'write_conflict',
-                    `Publication draft ${input.publicationId} changed after revision ${input.expectedRevision}`
-                )
-            }
-
-            const postRow = loadPostSourceStatement.get(input.projectId, publicationRow.postId)
-            if (postRow === null) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `Publication ${input.publicationId} has no source post`
-                )
-            }
-            if (postRow.sourceRevision < draftRow.sourceRevision) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `Publication ${input.publicationId} has a source revision newer than its post`
-                )
-            }
-            if (postRow.sourceRevision === draftRow.sourceRevision) {
-                return toWorkingDraft(draftRow)
-            }
-
-            const timestamp = requireTimestamp(now(), 'now')
-            const update = rebaseWorkingDraftStatement.run(
-                postRow.sourceRevision,
-                postRow.sourceContentJson,
-                actorRow.id,
-                timestamp,
-                input.projectId,
-                input.publicationId,
-                input.expectedRevision
-            )
-            if (update.changes !== 1) {
-                throw new DomainInvariantError(
-                    'write_conflict',
-                    `Publication draft ${input.publicationId} changed before it could be rebased`
-                )
-            }
-            insertAuditEventStatement.run(
-                createId(),
-                input.projectId,
-                actorRow.id,
-                'publication.draft.rebased',
-                'publication',
-                input.publicationId,
-                JSON.stringify({
-                    fromSourceRevision: draftRow.sourceRevision,
-                    toSourceRevision: postRow.sourceRevision,
-                    targetPreserved: true,
-                }),
-                timestamp
-            )
-
-            const rebased = loadWorkingDraftStatement.get(input.projectId, input.publicationId)
-            if (rebased === null) {
-                throw new DomainInvariantError('invalid_input', 'Draft disappeared after rebase')
-            }
-            return toWorkingDraft(rebased)
-        }
-    )
-
-    const promotePublicationDraftTransaction = client.transaction(
-        (input: PromotePublicationDraftInput): Publication | null => {
-            const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
-            const publicationRow = loadPublicationByIdStatement.get(
-                input.projectId,
-                input.publicationId
-            )
-            const draftRow = loadWorkingDraftStatement.get(input.projectId, input.publicationId)
-            if (actorRow === null || publicationRow === null || draftRow === null) return null
-            if (input.expectedRevision !== draftRow.revision) {
-                throw new DomainInvariantError(
-                    'write_conflict',
-                    `Publication draft ${input.publicationId} changed after revision ${input.expectedRevision}`
-                )
-            }
-            if (
-                ['ready', 'publishing', 'published', 'ambiguous', 'cancelled'].includes(
-                    publicationRow.state
-                )
-            ) {
-                throw new DomainInvariantError(
-                    'invalid_transition',
-                    `Cannot promote a ${publicationRow.state} publication`
-                )
-            }
-
-            const postRow = loadPostSourceStatement.get(input.projectId, publicationRow.postId)
-            if (postRow === null) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `Publication ${input.publicationId} has no source post`
-                )
-            }
-            if (postRow.sourceRevision !== draftRow.sourceRevision) {
-                throw new DomainInvariantError(
-                    'write_conflict',
-                    `Source post ${postRow.id} changed after this publication draft was loaded`
-                )
-            }
-
-            const profileRow = loadProfileStatement.get(input.projectId, draftRow.profileVersionId)
-            const channelRow = loadChannelStatement.get(input.projectId, publicationRow.channelId)
-            if (
-                channelRow === null ||
-                profileRow === null ||
-                profileRow.channelId !== channelRow.id
-            ) {
-                throw new DomainInvariantError('invalid_input', 'Profile unavailable')
-            }
-            const profileResult = profileCompiler.compile(parseProfile(profileRow.profileJson))
-            if (!profileResult.ok) throw invalidProfileError(profileResult.issues)
-            const content = parseJsonObject(draftRow.contentJson, 'publication draft content')
-            const validation = profileResult.value.validate(content)
-            if (!validation.ok) throw invalidTargetContentError(validation.issues)
-            const targetMedia = resolveTargetMedia(
-                profileResult.value.profile,
-                content,
-                input.projectId,
-                input.subjectId,
-                media,
-                publicMediaUrlAvailable
-            )
-
-            const timestamp = requireTimestamp(now(), 'now')
-            const contentJson = canonicalJson(content)
-            const activeJob = loadActiveJobStatement.get(input.projectId, input.publicationId)
-            if (activeJob?.state === 'running') {
-                throw new DomainInvariantError(
-                    'invalid_transition',
-                    `Cannot promote publication ${input.publicationId} while its job is running`
-                )
-            }
-            const scheduledAt =
-                input.scheduledAt === undefined
-                    ? publicationRow.scheduledAt
-                    : input.scheduledAt === null
-                      ? null
-                      : requireTimestamp(input.scheduledAt, 'scheduledAt')
-            if (scheduledAt !== null && scheduledAt < timestamp) {
-                throw new DomainInvariantError('invalid_time', 'scheduledAt must not be before now')
-            }
-            const nextState: 'draft' | 'scheduled' = scheduledAt === null ? 'draft' : 'scheduled'
-            const targetRevisionId = createId()
-            const sequence =
-                (nextTargetRevisionSequenceStatement.get(input.projectId, input.publicationId)
-                    ?.sequence ?? 0) + 1
-            insertTargetRevisionStatement.run(
-                targetRevisionId,
-                input.projectId,
-                input.publicationId,
-                sequence,
-                draftRow.profileVersionId,
-                draftRow.sourceRevision,
-                publicationRow.deliveryMode,
-                targetMedia.length,
-                contentJson,
-                contentHash(content),
-                profileResult.value.profile.profileHash,
-                profileResult.value.profile.schemaHash,
-                JSON.stringify(validation.issues),
-                actorRow.id,
-                timestamp
-            )
-            for (const [position, mediaReference] of targetMedia.entries()) {
-                insertTargetRevisionMediaStatement.run(
-                    createId(),
-                    input.projectId,
-                    targetRevisionId,
-                    mediaReference.reference.assetId,
-                    mediaReference.representation.id,
-                    position,
-                    mediaReference.reference.contentPath,
-                    mediaReference.reference.role,
-                    mediaReference.accessibilityText,
-                    timestamp
-                )
-            }
-
-            const promoted = promotePublicationStatement.run(
-                targetRevisionId,
-                nextState,
-                scheduledAt,
-                scheduledAt === null ? null : actorRow.id,
-                actorRow.id,
-                timestamp,
-                input.projectId,
-                input.publicationId
-            )
-            if (promoted.changes !== 1) {
-                throw new DomainInvariantError(
-                    'claim_mismatch',
-                    `Could not promote publication ${input.publicationId}`
-                )
-            }
-
-            if (nextState === 'scheduled' && publicationRow.deliveryMode === 'automatic') {
-                if (activeJob !== null) {
-                    const updatedJob = updatePendingJobStatement.run(
-                        scheduledAt as number,
-                        timestamp,
-                        input.projectId,
-                        activeJob.id
-                    )
-                    if (updatedJob.changes !== 1) {
-                        throw new DomainInvariantError(
-                            'claim_mismatch',
-                            `Could not reschedule job ${activeJob.id}`
-                        )
-                    }
-                } else if (channelRow !== null && channelRow.publisherId !== null) {
-                    const job = createJob({
-                        id: createId(),
-                        publication: {
-                            ...toPublication({
-                                ...publicationRow,
-                                targetRevisionId,
-                                reviewState: 'compatible',
-                                state: nextState,
-                            }),
-                        },
-                        publisher: toPublisher(channelRow),
-                        runAt: scheduledAt as number,
-                        now: timestamp,
-                    })
-                    insertJobStatement.run(
-                        job.id,
-                        job.projectId,
-                        job.publicationId,
-                        job.runAt,
-                        timestamp
-                    )
-                }
-            } else if (activeJob !== null) {
-                const cancelledJob = cancelPendingJobStatement.run(
-                    timestamp,
-                    input.projectId,
-                    activeJob.id
-                )
-                if (cancelledJob.changes !== 1) {
-                    throw new DomainInvariantError(
-                        'claim_mismatch',
-                        `Could not cancel job ${activeJob.id}`
-                    )
-                }
-            }
-
-            insertAuditEventStatement.run(
-                createId(),
-                input.projectId,
-                actorRow.id,
-                'publication.target_promoted',
-                'publication',
-                input.publicationId,
-                JSON.stringify({ targetRevisionId, sequence, scheduledAt }),
-                timestamp
-            )
-            const updated = loadPublicationByIdStatement.get(input.projectId, input.publicationId)
-            return updated === null ? null : toPublication(updated)
-        }
-    )
-
     const publishManualPublicationTransaction = client.transaction(
         (input: PublishManualPublicationInput): Publication | null => {
             const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
@@ -1886,148 +1328,13 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     return {
         ...projectChannelStore,
         ...channelProfileStore,
+        ...publicationAuthoringStore,
 
         createPost(input: CreatePostInput): CreatedPost | null {
             return createPostTransaction.immediate({
                 ...input,
                 projectId: requireNonBlank(input.projectId, 'projectId'),
                 subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-            })
-        },
-
-        getPublicationWorkingDraft(
-            projectId: string,
-            publicationId: string,
-            subjectId: string
-        ): PublicationWorkingDraft | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedPublicationId = requireNonBlank(publicationId, 'publicationId')
-            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-            if (loadActorStatement.get(normalizedProjectId, normalizedSubjectId) === null) {
-                return null
-            }
-
-            const draft = loadWorkingDraftStatement.get(
-                normalizedProjectId,
-                normalizedPublicationId
-            )
-            return draft === null ? null : toWorkingDraft(draft)
-        },
-
-        getPublicationEditorState(
-            projectId: string,
-            publicationId: string,
-            subjectId: string
-        ): PublicationEditorState | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedPublicationId = requireNonBlank(publicationId, 'publicationId')
-            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-            if (loadActorStatement.get(normalizedProjectId, normalizedSubjectId) === null) {
-                return null
-            }
-
-            const publicationRow = loadPublicationByIdStatement.get(
-                normalizedProjectId,
-                normalizedPublicationId
-            )
-            const draftRow = loadWorkingDraftStatement.get(
-                normalizedProjectId,
-                normalizedPublicationId
-            )
-            if (publicationRow === null || draftRow === null) return null
-
-            const postRow = loadPostStatement.get(normalizedProjectId, publicationRow.postId)
-            const channelRow = loadChannelStatement.get(
-                normalizedProjectId,
-                publicationRow.channelId
-            )
-            const profileRow = loadProfileStatement.get(
-                normalizedProjectId,
-                draftRow.profileVersionId
-            )
-            if (
-                postRow === null ||
-                channelRow === null ||
-                profileRow === null ||
-                profileRow.channelId !== channelRow.id
-            ) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `Publication ${normalizedPublicationId} has incomplete editor state`
-                )
-            }
-
-            const selectedTarget =
-                publicationRow.targetRevisionId === null
-                    ? null
-                    : loadTargetRevisionStatement.get(
-                          normalizedProjectId,
-                          publicationRow.targetRevisionId,
-                          normalizedPublicationId
-                      )
-            if (publicationRow.targetRevisionId !== null && selectedTarget === null) {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `Publication ${normalizedPublicationId} points to a missing target revision`
-                )
-            }
-
-            return {
-                publication: toPublication(publicationRow),
-                post: toPost(postRow),
-                channel: toChannel(channelRow),
-                profile: toProfileVersion(profileRow),
-                draft: toWorkingDraft(draftRow),
-                selectedTarget: selectedTarget === null ? null : toTargetRevision(selectedTarget),
-            }
-        },
-
-        listPublicationSummaries(
-            projectId: string,
-            subjectId: string
-        ): PublicationSummary[] | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            if (
-                loadActorStatement.get(
-                    normalizedProjectId,
-                    requireNonBlank(subjectId, 'subjectId')
-                ) === null
-            ) {
-                return null
-            }
-
-            return listPublicationSummariesStatement
-                .all(normalizedProjectId, 100)
-                .map(toPublicationSummary)
-        },
-
-        savePublicationDraft(input: SavePublicationDraftInput): PublicationWorkingDraft | null {
-            return savePublicationDraftTransaction.immediate({
-                ...input,
-                projectId: requireNonBlank(input.projectId, 'projectId'),
-                publicationId: requireNonBlank(input.publicationId, 'publicationId'),
-                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-                expectedRevision: requirePositiveRevision(input.expectedRevision),
-            })
-        },
-
-        rebasePublicationDraft(input: RebasePublicationDraftInput): PublicationWorkingDraft | null {
-            return rebasePublicationDraftTransaction.immediate({
-                ...input,
-                projectId: requireNonBlank(input.projectId, 'projectId'),
-                publicationId: requireNonBlank(input.publicationId, 'publicationId'),
-                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-                expectedRevision: requirePositiveRevision(input.expectedRevision),
-            })
-        },
-
-        promotePublicationDraft(input: PromotePublicationDraftInput): Publication | null {
-            return promotePublicationDraftTransaction.immediate({
-                ...input,
-                projectId: requireNonBlank(input.projectId, 'projectId'),
-                publicationId: requireNonBlank(input.publicationId, 'publicationId'),
-                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
-                expectedRevision: requirePositiveRevision(input.expectedRevision),
             })
         },
 
@@ -2106,49 +1413,6 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
 
             return listAuditEventsStatement.all(normalizedProjectId, limit).map(toAuditEvent)
         },
-    }
-}
-
-function toActor(row: ActorRow): Actor {
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        kind: row.kind,
-        subjectId: row.subjectId,
-        displayName: row.displayName,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    }
-}
-
-function toProfileVersion(row: ProfileRow): ChannelProfileVersion {
-    const profile = parseProfile(row.profileJson)
-    if (
-        profile.id !== row.profileId ||
-        profile.version !== row.version ||
-        profile.origin !== row.origin ||
-        profile.profileHash !== row.profileHash ||
-        profile.schemaHash !== row.schemaHash
-    ) {
-        throw new DomainInvariantError(
-            'invalid_content',
-            `Stored channel profile ${row.id} metadata does not match its definition`
-        )
-    }
-
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        channelId: row.channelId,
-        profileId: row.profileId,
-        version: row.version,
-        origin: row.origin,
-        state: row.state,
-        revision: row.revision,
-        profile,
-        createdByActorId: row.createdByActorId,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
     }
 }
 
@@ -2386,215 +1650,6 @@ function assessPinnedTargetMedia(
     return issues
 }
 
-function toPublisher(row: PublicationChannelRow): Publisher {
-    if (
-        row.publisherId === null ||
-        row.publisherKind === null ||
-        row.publisherCreatedAt === null ||
-        row.publisherUpdatedAt === null
-    ) {
-        throw new DomainInvariantError(
-            'invalid_input',
-            'A publisher row is incomplete for an automated publication'
-        )
-    }
-
-    return {
-        id: row.publisherId,
-        projectId: row.projectId,
-        channelId: row.id,
-        kind: row.publisherKind,
-        createdAt: row.publisherCreatedAt,
-        updatedAt: row.publisherUpdatedAt,
-    }
-}
-
-function toPublication(row: PublicationRow): Publication {
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        postId: row.postId,
-        channelId: row.channelId,
-        targetRevisionId: row.targetRevisionId,
-        deliveryMode: row.deliveryMode,
-        reviewState: row.reviewState,
-        state: row.state,
-        scheduledAt: row.scheduledAt,
-        publishedAt: row.publishedAt,
-        externalId: row.externalId,
-        externalUrl: row.externalUrl,
-        errorMessage: row.errorMessage,
-        createdByActorId: row.createdByActorId,
-        scheduledByActorId: row.scheduledByActorId,
-        stateChangedByActorId: row.stateChangedByActorId,
-        publishedByActorId: row.publishedByActorId,
-        lastAssessedProfileVersionId: row.lastAssessedProfileVersionId,
-        profileAssessmentIssues: [
-            ...parseJsonArray(
-                row.profileAssessmentIssuesJson,
-                'publication profile assessment issues'
-            ),
-        ],
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    }
-}
-
-function toPost(row: PostRow): Post {
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        title: row.title,
-        sourceContent: parseSourceContent(row.sourceContentJson),
-        sourceRevision: row.sourceRevision,
-        createdByActorId: row.createdByActorId,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    }
-}
-
-function toTargetRevision(row: TargetRevisionRow): PublicationTargetRevision {
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        publicationId: row.publicationId,
-        sequence: row.sequence,
-        profileVersionId: row.profileVersionId,
-        sourceRevision: row.sourceRevision,
-        deliveryMode: row.deliveryMode,
-        mediaReferenceCount: row.mediaReferenceCount,
-        content: parseJsonObject(row.contentJson, 'publication target content'),
-        contentHash: row.contentHash,
-        profileHash: row.profileHash,
-        schemaHash: row.schemaHash,
-        validationIssues: parseJsonArray(
-            row.validationIssuesJson,
-            'publication target validation issues'
-        ),
-        createdByActorId: row.createdByActorId,
-        createdAt: row.createdAt,
-    }
-}
-
-function toPublicationSummary(row: PublicationSummaryRow): PublicationSummary {
-    return {
-        ...toPublication(row),
-        postTitle: row.postTitle,
-        channelName: row.channelName,
-        draftRevision: row.draftRevision,
-        draftReviewState: row.draftReviewState,
-        draftDiffersFromTarget:
-            row.targetContentJson === null ||
-            row.draftSourceRevision !== row.targetSourceRevision ||
-            row.draftContentJson !== row.targetContentJson,
-    }
-}
-
-function toWorkingDraft(row: WorkingDraftRow): PublicationWorkingDraft {
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        publicationId: row.publicationId,
-        profileVersionId: row.profileVersionId,
-        sourceRevision: row.sourceRevision,
-        baseSourceContent: parseSourceContent(row.baseSourceContentJson),
-        content: parseJsonObject(row.contentJson, 'publication draft content'),
-        reviewState: row.reviewState,
-        validationIssues: parseJsonArray(row.validationIssuesJson, 'publication validation issues'),
-        lastAssessedProfileVersionId: row.lastAssessedProfileVersionId,
-        revision: row.revision,
-        updatedByActorId: row.updatedByActorId,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-    }
-}
-
-function toAuditEvent(row: AuditEventRow): AuditEvent {
-    return {
-        id: row.id,
-        projectId: row.projectId,
-        actorId: row.actorId,
-        action: row.action,
-        entityType: row.entityType,
-        entityId: row.entityId,
-        metadataJson: row.metadataJson,
-        createdAt: row.createdAt,
-    }
-}
-
-function parseProfile(value: string): ChannelProfileDefinition {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(value)
-    } catch {
-        throw new DomainInvariantError(
-            'invalid_content',
-            'Stored channel profile is not valid JSON'
-        )
-    }
-    if (!isRecord(parsed)) {
-        throw new DomainInvariantError('invalid_content', 'Stored channel profile is not an object')
-    }
-    return parsed as unknown as ChannelProfileDefinition
-}
-
-function parseSourceContent(value: string): SourceContent {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(value)
-    } catch {
-        throw new DomainInvariantError('invalid_content', 'Stored source content is not valid JSON')
-    }
-    return parsed as SourceContent
-}
-
-function parseJsonObject(value: string, label: string): TargetContent {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(value)
-    } catch {
-        throw new DomainInvariantError('invalid_content', `${label} is not valid JSON`)
-    }
-    if (!isRecord(parsed)) {
-        throw new DomainInvariantError('invalid_content', `${label} must be a JSON object`)
-    }
-    return parsed
-}
-
-function parseJsonArray(value: string, label: string): readonly Record<string, unknown>[] {
-    let parsed: unknown
-    try {
-        parsed = JSON.parse(value)
-    } catch {
-        throw new DomainInvariantError('invalid_content', `${label} is not valid JSON`)
-    }
-    if (!Array.isArray(parsed) || !parsed.every(isRecord)) {
-        throw new DomainInvariantError('invalid_content', `${label} must be an array of objects`)
-    }
-    return parsed
-}
-
-function invalidProfileError(issues: readonly ValidationIssue[]): DomainInvariantError {
-    return new DomainInvariantError(
-        'invalid_content',
-        `Channel profile is invalid: ${issues.map(issue => issue.message).join('; ')}`
-    )
-}
-
-function invalidSourceContentError(issues: readonly ValidationIssue[]): DomainInvariantError {
-    return new DomainInvariantError(
-        'invalid_content',
-        `Source content is invalid: ${issues.map(issue => issue.message).join('; ')}`
-    )
-}
-
-function invalidTargetContentError(issues: readonly ValidationIssue[]): DomainInvariantError {
-    return new DomainInvariantError(
-        'invalid_content',
-        `Publication target content is invalid: ${issues.map(issue => issue.message).join('; ')}`
-    )
-}
-
 function resolveTargetMedia(
     profile: ChannelProfileDefinition,
     content: TargetContent,
@@ -2767,49 +1822,4 @@ function matchesMimeType(contentType: string, pattern: string): boolean {
 
 function mediaContentError(message: string): DomainInvariantError {
     return new DomainInvariantError('invalid_content', message)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function contentHash(value: TargetContent): string {
-    return `sha256:${createHash('sha256').update(canonicalJson(value)).digest('hex')}`
-}
-
-function canonicalJson(value: unknown, seen: WeakSet<object> = new WeakSet()): string {
-    if (value === null || typeof value === 'boolean' || typeof value === 'string') {
-        return JSON.stringify(value)
-    }
-    if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value)
-    if (value !== null && typeof value === 'object') {
-        if (seen.has(value)) {
-            throw new DomainInvariantError('invalid_content', 'Content must not contain cycles')
-        }
-        seen.add(value)
-    }
-    if (Array.isArray(value)) {
-        const serialized = `[${value.map(item => canonicalJson(item, seen)).join(',')}]`
-        seen.delete(value)
-        return serialized
-    }
-    if (isRecord(value)) {
-        const serialized = `{${Object.keys(value)
-            .sort()
-            .map(key => `${JSON.stringify(key)}:${canonicalJson(value[key], seen)}`)
-            .join(',')}}`
-        seen.delete(value)
-        return serialized
-    }
-    throw new DomainInvariantError('invalid_content', 'Content must contain only JSON values')
-}
-
-function requirePositiveRevision(value: number): number {
-    if (!Number.isSafeInteger(value) || value < 1) {
-        throw new DomainInvariantError(
-            'invalid_input',
-            'expectedRevision must be a positive safe integer'
-        )
-    }
-    return value
 }
