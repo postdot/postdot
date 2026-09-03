@@ -3,7 +3,6 @@ import {
     requireNonBlank,
     requireTimestamp,
     type ChannelProfileDefinition,
-    type ChannelProfileImpactAssessment,
     type ChannelProfileCompiler,
     type ChannelProfileVersionState,
     type PublicationReviewState,
@@ -14,12 +13,13 @@ import type { HeraldDatabase } from '../client'
 import type {
     ActivateChannelProfileInput,
     ChannelProfileActivationResult,
-    ChannelProfileState,
     ChannelProfileVersion,
     CreateChannelProfileDraftInput,
-    PreviewChannelProfileActivationInput,
 } from '../manual-store'
-import { createChannelProfileImpactAssessor } from './channel-profile-impact'
+import {
+    assertActiveAndDraftProfiles,
+    createChannelProfileReadStore,
+} from './channel-profile-read-store'
 import { invalidProfileError } from './content-codec'
 import { toChannel } from './project-channel-mappers'
 import type { ActorRow, ProfileRow, PublicationChannelRow, TargetRevisionMediaRow } from './rows'
@@ -102,30 +102,17 @@ export function createChannelProfileStore(
     options: ChannelProfileStoreOptions
 ) {
     const client = database.$client
-
-    const loadDraftProfileStatement = client.query<
-        ProfileRow,
-        [projectId: string, channelId: string]
-    >(`
-        select id,
-               project_id as projectId,
-               channel_id as channelId,
-               profile_id as profileId,
-               version,
-               origin,
-               state,
-               revision,
-               profile_json as profileJson,
-               profile_hash as profileHash,
-               schema_hash as schemaHash,
-               created_by_actor_id as createdByActorId,
-               created_at as createdAt,
-               updated_at as updatedAt
-        from channel_profile_versions
-        where project_id = ?1
-          and channel_id = ?2
-          and state = 'draft'
-    `)
+    const profileReadStore = createChannelProfileReadStore(database, {
+        loadActor: options.loadActor,
+        loadChannel: options.loadChannel,
+        loadProfile: options.loadProfile,
+        parseProfile: options.parseProfile,
+        toProfileVersion: options.toProfileVersion,
+        validateWorkingDraftMedia: options.validateWorkingDraftMedia,
+        validatePinnedTargetMedia: options.validatePinnedTargetMedia,
+    })
+    const loadDraftProfile = profileReadStore.loadDraftProfile
+    const assessChannelProfileImpact = profileReadStore.assessChannelProfileImpact
     const insertProfileStatement = client.query<
         void,
         [
@@ -219,12 +206,6 @@ export function createChannelProfileStore(
           and profile_version_id = ?5
     `)
 
-    const assessChannelProfileImpact = createChannelProfileImpactAssessor(database, {
-        parseProfile: options.parseProfile,
-        validateWorkingDraftMedia: options.validateWorkingDraftMedia,
-        validatePinnedTargetMedia: options.validatePinnedTargetMedia,
-    })
-
     const createChannelProfileDraftTransaction = client.transaction(
         (input: CreateChannelProfileDraftInput): ChannelProfileVersion | null => {
             const actor = options.loadActor(input.projectId, input.subjectId)
@@ -246,7 +227,7 @@ export function createChannelProfileStore(
 
             const profile = profileResult.value.profile
             const timestamp = requireTimestamp(options.now(), 'now')
-            const existingDraft = loadDraftProfileStatement.get(input.projectId, input.channelId)
+            const existingDraft = loadDraftProfile(input.projectId, input.channelId)
 
             if (existingDraft !== null) {
                 if (expectedRevision === undefined || expectedRevision !== existingDraft.revision) {
@@ -521,34 +502,7 @@ export function createChannelProfileStore(
     )
 
     return {
-        getChannelProfileState(
-            projectId: string,
-            channelId: string,
-            subjectId: string
-        ): ChannelProfileState | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            const normalizedChannelId = requireNonBlank(channelId, 'channelId')
-            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
-            if (options.loadActor(normalizedProjectId, normalizedSubjectId) === null) return null
-
-            const channelRow = options.loadChannel(normalizedProjectId, normalizedChannelId)
-            if (channelRow === null) return null
-
-            const activeRow = options.loadProfile(normalizedProjectId, channelRow.profileVersionId)
-            if (activeRow === null || activeRow.state !== 'active') {
-                throw new DomainInvariantError(
-                    'invalid_input',
-                    `Channel ${normalizedChannelId} has no active profile`
-                )
-            }
-
-            const draftRow = loadDraftProfileStatement.get(normalizedProjectId, normalizedChannelId)
-            return {
-                channel: toChannel(channelRow),
-                active: options.toProfileVersion(activeRow),
-                draft: draftRow === null ? null : options.toProfileVersion(draftRow),
-            }
-        },
+        ...profileReadStore.api,
 
         createChannelProfileDraft(
             input: CreateChannelProfileDraftInput
@@ -559,49 +513,6 @@ export function createChannelProfileStore(
                 channelId: requireNonBlank(input.channelId, 'channelId'),
                 subjectId: requireNonBlank(input.subjectId, 'subjectId'),
             })
-        },
-
-        previewChannelProfileActivation(
-            input: PreviewChannelProfileActivationInput
-        ): ChannelProfileImpactAssessment | null {
-            const normalizedProjectId = requireNonBlank(input.projectId, 'projectId')
-            const normalizedChannelId = requireNonBlank(input.channelId, 'channelId')
-            const normalizedProfileVersionId = requireNonBlank(
-                input.profileVersionId,
-                'profileVersionId'
-            )
-            const normalizedSubjectId = requireNonBlank(input.subjectId, 'subjectId')
-            const actor = options.loadActor(normalizedProjectId, normalizedSubjectId)
-            const channelRow = options.loadChannel(normalizedProjectId, normalizedChannelId)
-            if (actor === null || channelRow === null) return null
-
-            const loadedActiveRow = options.loadProfile(
-                normalizedProjectId,
-                channelRow.profileVersionId
-            )
-            const loadedDraftRow = options.loadProfile(
-                normalizedProjectId,
-                normalizedProfileVersionId
-            )
-            const { activeRow, draftRow } = assertActiveAndDraftProfiles(
-                {
-                    ...input,
-                    projectId: normalizedProjectId,
-                    channelId: normalizedChannelId,
-                    profileVersionId: normalizedProfileVersionId,
-                    subjectId: normalizedSubjectId,
-                },
-                loadedActiveRow,
-                loadedDraftRow
-            )
-
-            return assessChannelProfileImpact(
-                normalizedProjectId,
-                normalizedChannelId,
-                activeRow,
-                draftRow,
-                normalizedSubjectId
-            ).assessment
         },
 
         activateChannelProfile(
@@ -615,33 +526,6 @@ export function createChannelProfileStore(
                 subjectId: requireNonBlank(input.subjectId, 'subjectId'),
             })
         },
-    }
-}
-
-function assertActiveAndDraftProfiles(
-    input: PreviewChannelProfileActivationInput,
-    activeRow: ProfileRow | null,
-    draftRow: ProfileRow | null
-): {
-    readonly activeRow: ProfileRow & { readonly state: 'active' }
-    readonly draftRow: ProfileRow & { readonly state: 'draft' }
-} {
-    if (activeRow === null || activeRow.state !== 'active') {
-        throw new DomainInvariantError(
-            'invalid_input',
-            `Channel ${input.channelId} has no active profile`
-        )
-    }
-    if (draftRow === null || draftRow.channelId !== input.channelId || draftRow.state !== 'draft') {
-        throw new DomainInvariantError(
-            'invalid_input',
-            `Profile ${input.profileVersionId} is not a draft for channel ${input.channelId}`
-        )
-    }
-
-    return {
-        activeRow: activeRow as ProfileRow & { readonly state: 'active' },
-        draftRow: draftRow as ProfileRow & { readonly state: 'draft' },
     }
 }
 
