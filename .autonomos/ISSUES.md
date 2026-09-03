@@ -283,7 +283,7 @@
 ## [ISSUE-013] Complete project access and machine identity
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: Projects currently expose access through the creating user's actor;
   there are no project membership, invitation, or project-token models or routes.
   The CLI authenticates with `HERALD_SESSION_COOKIE`, while `SPEC-002` lists
@@ -294,7 +294,19 @@
 - Desired outcome: The instance has an explicit bootstrap policy and project access
   model, including attributable machine access where required, without coupling
   project ownership or publisher credentials to Better Auth account rows.
-- Tasks: none
+- Tasks: ACCESS-14 (completed)
+- Resolution: Herald now supports project-scoped opaque bearer tokens with
+  hash-only persistence, optional expiry, durable revocation, one-time secret
+  disclosure, and project-scoped `api_token` actors. Human sessions manage the
+  tokens; machine tokens use ordinary project operations but cannot create
+  projects, manage tokens, or start interactive LinkedIn OAuth flows. Better Auth
+  remains limited to human email/password authentication.
+- Decision: [ADR-030](decisions/ADR-030-project-scoped-machine-access.md)
+- Verification: Database and API integration tests cover secret handling,
+  project isolation, expiry, revocation, actor attribution, human-only management,
+  bearer precedence, OAuth session-only behavior, and OpenAPI security metadata.
+  The full format, lint, typecheck, unit/integration, browser E2E, and build gate
+  passed.
 
 ## [ISSUE-014] Make web project context URL-authoritative
 

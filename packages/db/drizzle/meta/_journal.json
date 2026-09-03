@@ -57,6 +57,13 @@
             "when": 1788372994223,
             "tag": "0007_yellow_bastion",
             "breakpoints": true
+        },
+        {
+            "idx": 8,
+            "version": "6",
+            "when": 1788442062715,
+            "tag": "0008_daffy_marvel_boy",
+            "breakpoints": true
         }
     ]
 }

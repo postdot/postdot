@@ -70,6 +70,50 @@ export const actors = sqliteTable(
     ]
 )
 
+export const projectAccessTokens = sqliteTable(
+    'project_access_tokens',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        actorId: text('actor_id').notNull(),
+        name: text('name').notNull(),
+        tokenPrefix: text('token_prefix').notNull(),
+        tokenHash: text('token_hash').notNull(),
+        expiresAt: integer('expires_at'),
+        revokedAt: integer('revoked_at'),
+        createdByActorId: text('created_by_actor_id').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('project_access_tokens_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('project_access_tokens_token_hash_uidx').on(table.tokenHash),
+        index('project_access_tokens_project_revoked_idx').on(table.projectId, table.revokedAt),
+        foreignKey({
+            name: 'project_access_tokens_project_actor_fk',
+            columns: [table.projectId, table.actorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'project_access_tokens_project_creator_fk',
+            columns: [table.projectId, table.createdByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check('project_access_tokens_name_nonblank', sql`length(trim(${table.name})) > 0`),
+        check('project_access_tokens_prefix_nonblank', sql`length(trim(${table.tokenPrefix})) > 0`),
+        check('project_access_tokens_hash_nonblank', sql`length(trim(${table.tokenHash})) > 0`),
+        check(
+            'project_access_tokens_expiry_valid',
+            sql`${table.expiresAt} is null or ${table.expiresAt} > ${table.createdAt}`
+        ),
+        check(
+            'project_access_tokens_revocation_valid',
+            sql`${table.revokedAt} is null or ${table.revokedAt} >= ${table.createdAt}`
+        ),
+    ]
+)
+
 export const channels = sqliteTable(
     'channels',
     {

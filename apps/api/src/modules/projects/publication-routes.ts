@@ -29,6 +29,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 params: projectParams,
                 response: {
                     200: Type.Object({ publications: Type.Array(publicationSummarySchema) }),
+                    401: errorResponse,
                     404: errorResponse,
                 },
                 detail: {
@@ -54,6 +55,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 params: projectParams,
                 response: {
                     200: Type.Object({ publications: Type.Array(duePublicationSchema) }),
+                    401: errorResponse,
                     404: errorResponse,
                 },
                 detail: {
@@ -83,6 +85,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 response: {
                     200: Type.Object({ editor: publicationEditorStateSchema }),
                     400: errorResponse,
+                    401: errorResponse,
                     404: errorResponse,
                 },
                 detail: {
@@ -114,6 +117,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 response: {
                     200: Type.Object({ editor: publicationEditorStateSchema }),
                     400: errorResponse,
+                    401: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                     422: errorResponse,
@@ -168,6 +172,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 response: {
                     200: Type.Object({ editor: publicationEditorStateSchema }),
                     400: errorResponse,
+                    401: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                     422: errorResponse,
@@ -213,6 +218,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 response: {
                     200: Type.Object({ editor: publicationEditorStateSchema }),
                     400: errorResponse,
+                    401: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -257,6 +263,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 params: publicationParams,
                 response: {
                     200: Type.Object({ publication: publicationSchema }),
+                    401: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -293,6 +300,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 params: publicationParams,
                 response: {
                     200: Type.Object({ publication: publicationSchema }),
+                    401: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },

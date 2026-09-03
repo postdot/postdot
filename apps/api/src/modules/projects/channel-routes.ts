@@ -21,6 +21,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 params: projectParams,
                 response: {
                     200: Type.Object({ channels: Type.Array(channelSchema) }),
+                    401: errorResponse,
                     404: errorResponse,
                 },
                 detail: {
@@ -47,6 +48,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 params: projectParams,
                 response: {
                     201: Type.Object({ channel: channelSchema }),
+                    401: errorResponse,
                     404: errorResponse,
                     422: errorResponse,
                 },

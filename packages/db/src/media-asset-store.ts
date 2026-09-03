@@ -260,12 +260,12 @@ export function createMediaAssetStore(
     validateDuration(deletionGracePeriodMs, 'deletionGracePeriodMs', true)
     validateInspectionLimits(inspectionLimits, mediaStore.maxObjectBytes)
 
-    const loadHumanActorStatement = client.query<{ id: string }, [string, string]>(`
+    const loadProjectActorStatement = client.query<{ id: string }, [string, string]>(`
         select id
         from actors
         where project_id = ?1
           and subject_id = ?2
-          and kind = 'human'
+          and kind in ('human', 'agent', 'api_token')
         limit 1
     `)
     const loadAssetStatement = client.query<MediaAssetRow, [string, string]>(`
@@ -852,7 +852,7 @@ export function createMediaAssetStore(
     }
 
     function hasProjectAccess(projectId: string, subjectId: string): boolean {
-        return loadHumanActorStatement.get(projectId, subjectId) !== null
+        return loadProjectActorStatement.get(projectId, subjectId) !== null
     }
 
     function readMedia(projectId: string, assetId: string): MediaAssetReference | null {
@@ -1104,7 +1104,7 @@ export function createMediaAssetStore(
         reserveUpload(input: ReserveMediaUploadInput): MediaUploadReservation | null {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
-            const actor = loadHumanActorStatement.get(projectId, subjectId)
+            const actor = loadProjectActorStatement.get(projectId, subjectId)
             if (actor === null) return null
 
             const createdAt = requireTimestamp(now(), 'now')

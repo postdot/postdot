@@ -1,6 +1,12 @@
 import { createAuth } from '@herald/auth'
 import { createCustomHttpTransport } from '@herald/custom-http'
-import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@herald/db'
+import {
+    closeDatabase,
+    createDatabase,
+    createMediaAssetStore,
+    createProjectAccessTokenStore,
+    runMigrations,
+} from '@herald/db'
 
 import { createApp } from './app'
 import { createHeraldConfig, decodeHexKey } from './config'
@@ -31,6 +37,7 @@ export type {
 } from './modules/media/routes'
 export type {
     AuditEventResponse,
+    CreatedProjectAccessTokenResponse,
     ChannelResponse,
     ChannelProfileActivationResponse,
     ChannelProfileAssessmentResponse,
@@ -41,6 +48,8 @@ export type {
     PublicationEditorStateResponse,
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
+    ProjectAccessTokenResponse,
+    ProjectAccessTokensResponse,
     ProjectResponse,
     PublicationResponse,
     PublicationSummaryResponse,
@@ -49,6 +58,7 @@ export type {
 async function startServer(config = createHeraldConfig()) {
     const database = createDatabase(config.database.fileName)
     runMigrations(database, config.database.migrationsDirectory)
+    const accessTokens = createProjectAccessTokenStore(database)
     const media = createMediaAssetStore(database, createConfiguredMediaStore(config.media), {
         uploadIntentTtlMs: config.media.uploadIntentTtlMs,
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
@@ -97,6 +107,7 @@ async function startServer(config = createHeraldConfig()) {
         mediaPublicDelivery,
         logging: config.logging,
         onWorkScheduled: worker.replan,
+        accessTokens,
         runtime: {
             scheduler: worker.scheduler,
             mediaMaintenance,

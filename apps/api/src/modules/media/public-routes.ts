@@ -20,6 +20,7 @@ export function createPublicMediaRoutes(media: MediaAssetStore, delivery: MediaP
                 operationId: 'streamPublicMedia',
                 summary: 'Stream media through a short-lived signed URL',
                 tags: ['Media'],
+                security: [],
                 responses: {
                     200: {
                         description: 'The verified media bytes',

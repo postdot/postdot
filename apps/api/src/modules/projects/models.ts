@@ -47,6 +47,17 @@ export const publicationSchema = Type.Unsafe<Publication>(
 )
 export const auditEventSchema = createElysiaSelectSchema(auditEvents)
 
+export const projectAccessTokenSchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    projectId: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1, maxLength: 100 }),
+    tokenPrefix: Type.String({ minLength: 1 }),
+    expiresAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+    revokedAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+    createdAt: Type.Integer({ minimum: 0 }),
+    updatedAt: Type.Integer({ minimum: 0 }),
+})
+
 const profileVersionStateSchema = Type.Union([
     Type.Literal('draft'),
     Type.Literal('active'),
@@ -219,9 +230,15 @@ export type DuePublicationResponse = Static<typeof duePublicationSchema>
 export type PublicationEditorStateResponse = Static<typeof publicationEditorStateSchema>
 export type PublicationSummaryResponse = Static<typeof publicationSummarySchema>
 export type AuditEventResponse = Static<typeof auditEventSchema>
+export type ProjectAccessTokenResponse = Static<typeof projectAccessTokenSchema>
 
 export const projectParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
+})
+
+export const projectAccessTokenParams = Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    tokenId: Type.String({ minLength: 1 }),
 })
 
 export const publicationParams = Type.Object({
@@ -243,6 +260,26 @@ export const channelProfileVersionParams = Type.Object({
 export const createProjectBody = Type.Object({
     name: Type.String({ minLength: 1 }),
 })
+
+export const createProjectAccessTokenBody = Type.Object({
+    name: Type.String({ minLength: 1, maxLength: 100 }),
+    expiresAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
+})
+
+export const createdProjectAccessTokenSchema = Type.Object({
+    accessToken: projectAccessTokenSchema,
+    token: Type.String({
+        minLength: 1,
+        description: 'The plaintext token. It is returned only once when the token is created.',
+    }),
+})
+
+export const projectAccessTokensSchema = Type.Object({
+    accessTokens: Type.Array(projectAccessTokenSchema),
+})
+
+export type CreatedProjectAccessTokenResponse = Static<typeof createdProjectAccessTokenSchema>
+export type ProjectAccessTokensResponse = Static<typeof projectAccessTokensSchema>
 
 export const createChannelBody = Type.Object({
     name: Type.String({ minLength: 1 }),

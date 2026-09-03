@@ -14,6 +14,7 @@ import {
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 
+import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
 import type { PublisherRuntime } from '../publishers/runtime'
 import {
     errorResponse,
@@ -24,7 +25,6 @@ import {
     publisherConnectionsSchema,
     publisherDisconnectedSchema,
 } from './models'
-import type { AuthenticatedElysia } from './types'
 
 export function registerPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -44,6 +44,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 params: projectParams,
                 response: {
                     200: publisherConnectionsSchema,
+                    401: errorResponse,
                     404: errorResponse,
                 },
                 detail: {
@@ -78,6 +79,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 response: {
                     200: customHttpConnectionResponse,
                     400: errorResponse,
+                    401: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -124,7 +126,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     })
                 }
 
-                const actorId = publisherStore.getHumanActorId(params.projectId, user.id)
+                const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
                 if (actorId === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -193,6 +195,8 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 }),
                 response: {
                     200: linkedInConnectionSchema,
+                    401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                     503: errorResponse,
@@ -201,9 +205,19 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     operationId: 'startLinkedInPublisherConnection',
                     summary: 'Start the LinkedIn publisher connection flow',
                     tags: ['Channels'],
+                    security: sessionSecurity,
                 },
             },
-            async ({ params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session') {
+                    return status(403, {
+                        error: {
+                            code: 'forbidden',
+                            message: 'Human authentication is required to connect LinkedIn',
+                        },
+                    })
+                }
+
                 if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -228,7 +242,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     })
                 }
 
-                const actorId = publisherStore.getHumanActorId(params.projectId, user.id)
+                const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
                 if (actorId === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -295,9 +309,22 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     operationId: 'completeLinkedInPublisherConnection',
                     summary: 'Complete a LinkedIn publisher connection flow',
                     tags: ['Channels'],
+                    security: sessionSecurity,
+                    responses: {
+                        401: {
+                            description: 'Human authentication is required',
+                            content: {
+                                'application/json': { schema: errorResponse },
+                            },
+                        },
+                    },
                 },
             },
-            async ({ request, user }) => {
+            async ({ authMethod, request, user }) => {
+                if (authMethod !== 'session') {
+                    return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
+                }
+
                 if (linkedin === undefined) {
                     return redirectPublisher(
                         publisher.webOrigin,
@@ -325,7 +352,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
                 }
 
-                const actorId = publisherStore.getHumanActorId(pendingAttempt.projectId, user.id)
+                const actorId = publisherStore.getProjectActorId(pendingAttempt.projectId, user.id)
                 if (actorId !== pendingAttempt.connectedByActorId) {
                     return redirectPublisher(
                         publisher.webOrigin,
@@ -447,6 +474,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 }),
                 response: {
                     200: publisherDisconnectedSchema,
+                    401: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },

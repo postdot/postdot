@@ -5,6 +5,7 @@ import {
     type HeraldDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
+    type ProjectAccessTokenStore,
 } from '@herald/db'
 import { Elysia } from 'elysia'
 
@@ -28,6 +29,7 @@ export interface HeraldAppOptions {
     readonly logging?: HeraldLoggingConfig
     readonly onWorkScheduled?: () => void
     readonly runtime?: HealthRoutesOptions['runtime']
+    readonly accessTokens?: ProjectAccessTokenStore
 }
 
 function createDomainApp({
@@ -40,6 +42,7 @@ function createDomainApp({
     logging,
     onWorkScheduled,
     runtime,
+    accessTokens,
 }: HeraldAppOptions) {
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
@@ -65,6 +68,25 @@ function createDomainApp({
                         description:
                             'The HTTP API for the lightweight, self-hosted Herald publication orchestrator.',
                     },
+                    components: {
+                        securitySchemes: {
+                            bearerAuth: {
+                                type: 'http',
+                                scheme: 'bearer',
+                                bearerFormat: 'Herald project access token',
+                                description:
+                                    'A project-scoped machine token sent as Authorization: Bearer <token>.',
+                            },
+                            sessionCookie: {
+                                type: 'apiKey',
+                                in: 'cookie',
+                                name: 'better-auth.session_token',
+                                description:
+                                    'The Better Auth email/password session cookie used by the web application.',
+                            },
+                        },
+                    },
+                    security: [{ bearerAuth: [] }, { sessionCookie: [] }],
                     tags: [
                         { name: 'System', description: 'Service health and runtime information.' },
                         { name: 'Projects', description: 'Project lifecycle and access.' },
@@ -89,6 +111,7 @@ function createDomainApp({
                 media,
                 logger,
                 onWorkScheduled,
+                accessTokens,
             })
         )
         .use(publicMediaRoutes)
@@ -111,6 +134,7 @@ export function createApp({
     logging,
     onWorkScheduled,
     runtime,
+    accessTokens,
 }: HeraldAppOptions) {
     return createDomainApp({
         auth,
@@ -122,5 +146,6 @@ export function createApp({
         logging,
         onWorkScheduled,
         runtime,
+        accessTokens,
     }).use(createAuthRoutes(auth))
 }

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@herald/auth'
 import type { ChannelProfileDefinition } from '@herald/core'
-import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
+import {
+    closeDatabase,
+    createDatabase,
+    createProjectAccessTokenStore,
+    runMigrations,
+} from '@herald/db'
 import { publications, publisherCredentials, user as authUser } from '@herald/db/schema'
 import { createLinkedInMemberProfileClient } from '@herald/linkedin'
 import type { OAuthAuthorizationServer } from '@herald/oauth'
@@ -66,6 +71,12 @@ type OpenApiResponse = {
     }
 }
 
+type OpenApiOperation = {
+    readonly operationId?: string
+    readonly responses?: Record<string, OpenApiResponse>
+    readonly security?: readonly Record<string, readonly string[]>[]
+}
+
 function createFixture(
     options: {
         readonly linkedin?: PublisherRuntimeOptions['linkedin']
@@ -82,15 +93,17 @@ function createFixture(
         linkedin: options.linkedin,
     })
     const auth = createAuth(database, { baseURL, secret })
+    const accessTokens = createProjectAccessTokenStore(database, { now: () => now })
     const app = createApp({
         auth,
         database,
         publisher,
         manualStore: { now: () => now },
         runtime: options.runtime,
+        accessTokens,
     })
 
-    return { app, database, publisher }
+    return { accessTokens, app, database, publisher }
 }
 
 async function signUp(app: ReturnType<typeof createApp>, email = 'operator@herald.local') {
@@ -122,6 +135,24 @@ async function jsonRequest(
 ) {
     const headers = new Headers(init.headers)
     headers.set('cookie', cookie)
+    if (init.body !== undefined) headers.set('content-type', 'application/json')
+
+    return app.handle(
+        new Request(`${baseURL}${path}`, {
+            ...init,
+            headers,
+        })
+    )
+}
+
+async function bearerRequest(
+    app: ReturnType<typeof createApp>,
+    path: string,
+    token: string,
+    init: RequestInit = {}
+) {
+    const headers = new Headers(init.headers)
+    headers.set('authorization', `Bearer ${token}`)
     if (init.body !== undefined) headers.set('content-type', 'application/json')
 
     return app.handle(
@@ -249,13 +280,18 @@ describe('Herald API', () => {
             expect(response.status).toBe(200)
 
             const specification = (await response.json()) as {
+                readonly components?: {
+                    readonly securitySchemes?: Record<string, Record<string, unknown>>
+                }
+                readonly security?: readonly Record<string, readonly string[]>[]
                 readonly paths: Record<
                     string,
                     {
-                        readonly get?: {
-                            readonly operationId?: string
-                            readonly responses?: Record<string, OpenApiResponse>
-                        }
+                        readonly delete?: OpenApiOperation
+                        readonly get?: OpenApiOperation
+                        readonly patch?: OpenApiOperation
+                        readonly post?: OpenApiOperation
+                        readonly put?: OpenApiOperation
                     }
                 >
             }
@@ -263,6 +299,8 @@ describe('Herald API', () => {
                 '/health',
                 '/ready',
                 '/api/projects',
+                '/api/projects/{projectId}/access-tokens',
+                '/api/projects/{projectId}/access-tokens/{tokenId}',
                 '/api/projects/{projectId}/channels',
                 '/api/projects/{projectId}/channels/{channelId}/profile',
                 '/api/projects/{projectId}/channels/{channelId}/profile-drafts',
@@ -292,6 +330,34 @@ describe('Herald API', () => {
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
             expect(specification.paths['/ready']?.get?.operationId).toBe('getReadiness')
+            expect(specification.components?.securitySchemes).toEqual({
+                bearerAuth: {
+                    bearerFormat: 'Herald project access token',
+                    description:
+                        'A project-scoped machine token sent as Authorization: Bearer <token>.',
+                    scheme: 'bearer',
+                    type: 'http',
+                },
+                sessionCookie: {
+                    description:
+                        'The Better Auth email/password session cookie used by the web application.',
+                    in: 'cookie',
+                    name: 'better-auth.session_token',
+                    type: 'apiKey',
+                },
+            })
+            expect(specification.security).toEqual([{ bearerAuth: [] }, { sessionCookie: [] }])
+            expect(specification.paths['/health']?.get?.security).toEqual([])
+            expect(specification.paths['/api/projects']?.get?.security).toBeUndefined()
+            expect(
+                specification.paths['/api/projects/{projectId}/access-tokens']?.post?.security
+            ).toEqual([{ sessionCookie: [] }])
+            expect(
+                Object.keys(
+                    specification.paths['/api/projects/{projectId}/access-tokens']?.post
+                        ?.responses ?? {}
+                )
+            ).toEqual(expect.arrayContaining(['400', '401', '403', '404', '422', '503']))
             expect(Object.keys(specification.paths['/ready']?.get?.responses ?? {})).toEqual([
                 '200',
                 '503',
@@ -476,6 +542,138 @@ describe('Herald API', () => {
                 authentication: { kind: 'none' },
             })
             expect(JSON.stringify(connectionBody)).not.toContain(secret)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('creates and authenticates project tokens without impersonating their creator', async () => {
+        const { accessTokens, app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'access-token-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Machine access project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const projectId = projectBody.project.id
+
+            const createTokenResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/access-tokens`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Release agent' }),
+                }
+            )
+            expect(createTokenResponse.status).toBe(201)
+            const createdBody = (await createTokenResponse.json()) as {
+                accessToken: { id: string; name: string; tokenPrefix: string }
+                token: string
+            }
+            expect(createdBody.accessToken).toMatchObject({
+                name: 'Release agent',
+                tokenPrefix: expect.stringMatching(/^herald_pat_v1_[A-Za-z0-9_-]{12}$/),
+            })
+            expect(createdBody.token.length).toBeGreaterThan(40)
+
+            const listedResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/access-tokens`,
+                cookie
+            )
+            expect(listedResponse.status).toBe(200)
+            const listedBody = await listedResponse.json()
+            expect(listedBody).toEqual({
+                accessTokens: [
+                    expect.objectContaining({
+                        id: createdBody.accessToken.id,
+                        name: 'Release agent',
+                        tokenPrefix: createdBody.accessToken.tokenPrefix,
+                        revokedAt: null,
+                    }),
+                ],
+            })
+            expect(JSON.stringify(listedBody)).not.toContain(createdBody.token)
+
+            const authentication = accessTokens.authenticate(createdBody.token)
+            expect(authentication).not.toBeNull()
+
+            const projectListResponse = await bearerRequest(app, '/api/projects', createdBody.token)
+            expect(projectListResponse.status).toBe(200)
+            expect(await projectListResponse.json()).toEqual({
+                projects: [expect.objectContaining({ id: projectId })],
+            })
+
+            const channelResponse = await bearerRequest(
+                app,
+                `/api/projects/${projectId}/channels`,
+                createdBody.token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Agent destination' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+
+            const auditResponse = await bearerRequest(
+                app,
+                `/api/projects/${projectId}/audit-events`,
+                createdBody.token
+            )
+            expect(auditResponse.status).toBe(200)
+            const auditBody = (await auditResponse.json()) as {
+                events: Array<{ action: string; actorId: string }>
+            }
+            expect(
+                auditBody.events.find(event => event.action === 'channel.created')?.actorId
+            ).toBe(authentication?.actorId)
+
+            const tokenListResponse = await bearerRequest(
+                app,
+                `/api/projects/${projectId}/access-tokens`,
+                createdBody.token
+            )
+            expect(tokenListResponse.status).toBe(403)
+
+            const projectCreationResponse = await bearerRequest(
+                app,
+                '/api/projects',
+                createdBody.token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Should not be created by a token' }),
+                }
+            )
+            expect(projectCreationResponse.status).toBe(403)
+
+            const invalidBearerHeaders = new Headers({
+                authorization: 'Bearer invalid-token',
+                cookie,
+            })
+            const invalidBearerResponse = await app.handle(
+                new Request(`${baseURL}/api/projects`, { headers: invalidBearerHeaders })
+            )
+            expect(invalidBearerResponse.status).toBe(401)
+
+            const revokeResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/access-tokens/${createdBody.accessToken.id}`,
+                cookie,
+                { method: 'DELETE' }
+            )
+            expect(revokeResponse.status).toBe(200)
+            expect(
+                (await revokeResponse.json()) as {
+                    accessToken: { revokedAt: number | null }
+                }
+            ).toEqual({ accessToken: expect.objectContaining({ revokedAt: now }) })
+            expect(accessTokens.authenticate(createdBody.token)).toBeNull()
+
+            const revokedResponse = await bearerRequest(app, '/api/projects', createdBody.token)
+            expect(revokedResponse.status).toBe(401)
         } finally {
             closeDatabase(database)
         }
@@ -874,7 +1072,7 @@ describe('Herald API', () => {
             tokenEndpoint: new URL('/token', provider.url).toString(),
             pkce: 'disabled',
         }
-        const { app, database } = createFixture({
+        const { accessTokens, app, database } = createFixture({
             linkedin: {
                 clientId: 'linkedin-client-id',
                 clientSecret: 'linkedin-client-secret',
@@ -907,6 +1105,37 @@ describe('Herald API', () => {
             const channelBody = (await channelResponse.json()) as {
                 channel: { id: string }
             }
+
+            const accessTokenResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/access-tokens`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'LinkedIn automation agent' }),
+                }
+            )
+            expect(accessTokenResponse.status).toBe(201)
+            const accessTokenBody = (await accessTokenResponse.json()) as { token: string }
+            expect(accessTokens.authenticate(accessTokenBody.token)).not.toBeNull()
+
+            const tokenConnectionStartResponse = await bearerRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/linkedin/connect`,
+                accessTokenBody.token,
+                { method: 'POST' }
+            )
+            expect(tokenConnectionStartResponse.status).toBe(403)
+
+            const tokenCallbackResponse = await bearerRequest(
+                app,
+                '/api/oauth/linkedin/callback',
+                accessTokenBody.token
+            )
+            expect(tokenCallbackResponse.status).toBe(303)
+            expect(tokenCallbackResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=invalid_callback'
+            )
 
             const missingChannelResponse = await jsonRequest(
                 app,

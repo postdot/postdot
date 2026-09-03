@@ -2,6 +2,7 @@ import { treaty, type Treaty } from '@elysiajs/eden'
 import type { HeraldApp } from '@herald/api'
 import type {
     AuditEventResponse,
+    CreatedProjectAccessTokenResponse,
     ChannelResponse,
     ChannelProfileActivationResponse,
     ChannelProfileAssessmentResponse,
@@ -21,6 +22,8 @@ import type {
     PublicationEditorStateResponse,
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
+    ProjectAccessTokenResponse,
+    ProjectAccessTokensResponse,
     ProjectResponse,
     PublicationResponse,
     PublicationSummaryResponse,
@@ -73,5 +76,8 @@ export type MediaDeletion = MediaDeletionResponse
 export type PublicationEditorState = PublicationEditorStateResponse
 export type PublicationSummary = PublicationSummaryResponse
 export type AuditEvent = AuditEventResponse
+export type CreatedProjectAccessToken = CreatedProjectAccessTokenResponse
+export type ProjectAccessToken = ProjectAccessTokenResponse
+export type ProjectAccessTokens = ProjectAccessTokensResponse
 export type PublisherConnection = PublisherConnectionResponse
 export type PublisherConnections = PublisherConnectionsResponse

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -6,8 +7,30 @@ import { eq } from 'drizzle-orm'
 
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
-import { runMigrations } from './migrations'
+import { defaultMigrationsFolder, runMigrations } from './migrations'
 import { session, user } from './schema'
+
+interface MigrationJournal {
+    readonly entries: readonly {
+        readonly tag: string
+        readonly when: number
+    }[]
+}
+
+function unapplyMigrations(database: ReturnType<typeof createDatabase>, tags: readonly string[]) {
+    const journal = JSON.parse(
+        readFileSync(join(defaultMigrationsFolder, 'meta/_journal.json'), 'utf8')
+    ) as MigrationJournal
+
+    for (const tag of tags) {
+        const entry = journal.entries.find(candidate => candidate.tag === tag)
+        if (entry === undefined) throw new Error(`Migration ${tag} is missing from the journal`)
+
+        database.$client
+            .query('DELETE FROM __drizzle_migrations WHERE created_at = ?1')
+            .run(entry.when)
+    }
+}
 
 describe('database migrations', () => {
     it('applies the committed migration exactly once', () => {
@@ -41,6 +64,7 @@ describe('database migrations', () => {
                 'media_upload_intents',
                 'oauth_authorization_attempts',
                 'posts',
+                'project_access_tokens',
                 'projects',
                 'provider_media_deliveries',
                 'publication_execution_revision_media',
@@ -61,7 +85,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(8)
+            expect(migrationCount?.count).toBe(9)
         } finally {
             closeDatabase(database)
         }
@@ -98,11 +122,8 @@ describe('database migrations', () => {
             database.$client.exec(
                 'ALTER TABLE publication_working_drafts DROP COLUMN base_source_content'
             )
-            database.$client
-                .query(
-                    'DELETE FROM __drizzle_migrations WHERE created_at = (SELECT max(created_at) FROM __drizzle_migrations)'
-                )
-                .run()
+            database.$client.exec('DROP TABLE project_access_tokens')
+            unapplyMigrations(database, ['0007_yellow_bastion', '0008_daffy_marvel_boy'])
             runMigrations(database)
 
             const migrated = database.$client
@@ -149,11 +170,8 @@ describe('database migrations', () => {
             staleDatabase.$client.exec(
                 'ALTER TABLE publication_working_drafts DROP COLUMN base_source_content'
             )
-            staleDatabase.$client
-                .query(
-                    'DELETE FROM __drizzle_migrations WHERE created_at = (SELECT max(created_at) FROM __drizzle_migrations)'
-                )
-                .run()
+            staleDatabase.$client.exec('DROP TABLE project_access_tokens')
+            unapplyMigrations(staleDatabase, ['0007_yellow_bastion', '0008_daffy_marvel_boy'])
 
             expect(() => runMigrations(staleDatabase)).toThrow()
         } finally {

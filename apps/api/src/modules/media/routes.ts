@@ -178,6 +178,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 body: reserveMediaUploadBody,
                 response: {
                     201: mediaReservationSchema,
+                    401: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
                 },
@@ -213,6 +214,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 response: {
                     200: uploadedResponse,
                     400: errorResponse,
+                    401: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                     503: errorResponse,
@@ -274,6 +276,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 response: {
                     200: finalizedResponse,
                     202: pendingResponse,
+                    401: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
                 },
@@ -312,6 +315,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 params: mediaProjectParams,
                 response: {
                     200: Type.Object({ media: Type.Array(mediaReferenceSchema) }),
+                    401: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
                 },
@@ -350,6 +354,14 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                                         type: 'string',
                                         format: 'binary',
                                     } as OpenAPIV3.SchemaObject,
+                                },
+                            },
+                        },
+                        401: {
+                            description: 'Authentication required',
+                            content: {
+                                'application/json': {
+                                    schema: errorResponse,
                                 },
                             },
                         },
@@ -403,6 +415,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 params: mediaAssetParams,
                 response: {
                     200: mediaReferenceSchema,
+                    401: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
                 },
@@ -431,6 +444,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 response: {
                     200: deletionResponse,
                     202: deletionResponse,
+                    401: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
                 },

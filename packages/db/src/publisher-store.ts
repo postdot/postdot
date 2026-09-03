@@ -230,7 +230,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
         from actors
         where project_id = ?1
           and subject_id = ?2
-          and kind = 'human'
+          and kind in ('human', 'agent', 'api_token')
         order by created_at, id
         limit 1
     `)
@@ -707,7 +707,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
             )
         },
 
-        getHumanActorId(projectId: string, subjectId: string): string | null {
+        getProjectActorId(projectId: string, subjectId: string): string | null {
             const actor = loadActorStatement.get(
                 requireNonBlank(projectId, 'projectId'),
                 requireNonBlank(subjectId, 'subjectId')

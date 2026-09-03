@@ -63,7 +63,7 @@ export function createProjectChannelStore(
         from actors
         where project_id = ?1
           and subject_id = ?2
-          and kind = 'human'
+          and kind in ('human', 'agent', 'api_token')
         order by created_at, id
         limit 1
     `)
@@ -75,7 +75,7 @@ export function createProjectChannelStore(
         from projects
         inner join actors
             on actors.project_id = projects.id
-           and actors.kind = 'human'
+           and actors.kind in ('human', 'agent', 'api_token')
            and actors.subject_id = ?1
         order by projects.created_at, projects.id
     `)

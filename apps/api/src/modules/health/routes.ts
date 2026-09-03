@@ -59,6 +59,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
                     operationId: 'getHealth',
                     summary: 'Check API liveness',
                     tags: ['System'],
+                    security: [],
                 },
             },
             () => ({ status: 'ok' as const })
@@ -74,6 +75,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
                     operationId: 'getReadiness',
                     summary: 'Check runtime readiness',
                     tags: ['System'],
+                    security: [],
                     responses: {
                         503: {
                             description: 'The process is live but not ready for durable work',

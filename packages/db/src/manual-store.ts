@@ -255,7 +255,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         from actors
         where project_id = ?1
           and subject_id = ?2
-          and kind = 'human'
+          and kind in ('human', 'agent', 'api_token')
         order by created_at, id
         limit 1
     `)

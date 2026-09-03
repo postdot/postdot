@@ -19,6 +19,7 @@ export {
     publisherCredentialEnvelopeVersion,
 } from './publisher-credential-crypto'
 export { createPublisherCredentialStore } from './publisher-credential-store'
+export { createProjectAccessTokenStore } from './project-access-token-store'
 export {
     createAuthorizationAttemptStore,
     defaultAuthorizationAttemptTtlMs,
@@ -48,6 +49,15 @@ export type {
     CreateAuthorizationAttemptInput,
     CreateAuthorizationAttemptResult,
 } from './oauth-authorization-attempt-store'
+export type {
+    CreateProjectAccessTokenInput,
+    CreatedProjectAccessToken,
+    ProjectAccessToken,
+    ProjectAccessTokenAuthentication,
+    ProjectAccessTokenStore,
+    ProjectAccessTokenStoreOptions,
+    RevokeProjectAccessTokenInput,
+} from './project-access-token-store'
 export type {
     AuditEvent,
     ActivateChannelProfileInput,

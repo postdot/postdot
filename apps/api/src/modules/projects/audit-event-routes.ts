@@ -14,6 +14,7 @@ export function registerAuditEventRoutes<const Routes extends Record<string, unk
             params: projectParams,
             response: {
                 200: Type.Object({ events: Type.Array(auditEventSchema) }),
+                401: errorResponse,
                 404: errorResponse,
             },
             detail: {
