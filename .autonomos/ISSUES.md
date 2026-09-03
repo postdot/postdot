@@ -253,7 +253,7 @@
 ## [ISSUE-012] Expose truthful runtime readiness
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: `/health` in `apps/api/src/modules/health/routes.ts` always returns
   `status: ok`, while `packages/core/src/scheduler.ts` has a terminal `failed`
   state and the worker and media maintenance runtimes are started independently
@@ -263,7 +263,22 @@
 - Desired outcome: Herald defines and exposes clear liveness and readiness
   semantics that reflect the operational state relevant to serving requests and
   executing durable work.
-- Tasks: none
+- Tasks: OPS-13 (completed)
+- Resolution: Herald now separates the public `/health` liveness endpoint from
+  the `/ready` readiness endpoint. Readiness probes SQLite and reports the
+  publication scheduler and media reconciliation runtime states, returning 503
+  while a required check is absent, stopped, or failed. Media maintenance now
+  exposes lifecycle state and recovers to started after a successful later run.
+  The production asset fallback protects `/ready` as a server path, and the
+  container liveness check remains intentionally attached to `/health`.
+- Decision: [ADR-029](decisions/ADR-029-separate-liveness-and-readiness.md)
+- Verification: API integration tests cover missing and active runtimes,
+  scheduler failure, database failure, liveness independence, and OpenAPI
+  registration. Media runtime tests cover lifecycle, failure, and restart
+  recovery. The full format, lint, typecheck, unit/integration, browser E2E,
+  and build gate passed. A real production-bundle smoke test returned 200 from
+  `/health` and `/ready`, and 404 for an unknown `/ready` path instead of the
+  SPA fallback.
 
 ## [ISSUE-013] Complete project access and machine identity
 

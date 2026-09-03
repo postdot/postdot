@@ -97,15 +97,19 @@ async function startServer(config = createHeraldConfig()) {
         mediaPublicDelivery,
         logging: config.logging,
         onWorkScheduled: worker.replan,
+        runtime: {
+            scheduler: worker.scheduler,
+            mediaMaintenance,
+        },
     })
     const app =
         config.environment === 'production'
             ? baseApp.use(await createWebAssets(config.web.assetsDirectory))
             : baseApp
 
-    app.listen(config.server.port)
     worker.start()
     mediaMaintenance.start()
+    app.listen(config.server.port)
 
     let shuttingDown = false
     const shutdown = async () => {

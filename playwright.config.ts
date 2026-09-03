@@ -49,7 +49,7 @@ export default defineConfig({
     webServer: [
         {
             command: 'bun ./scripts/e2e-api.ts',
-            url: `${apiOrigin}/health`,
+            url: `${apiOrigin}/ready`,
             timeout: 120_000,
             reuseExistingServer: false,
             env: apiEnvironment,

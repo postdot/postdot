@@ -29,6 +29,11 @@ describe('Herald web assets', () => {
             )
             expect(unknownServerPathResponse.status).toBe(404)
 
+            const unknownReadinessPathResponse = await app.handle(
+                new Request('http://localhost/ready/unknown')
+            )
+            expect(unknownReadinessPathResponse.status).toBe(404)
+
             const unknownAssetResponse = await app.handle(
                 new Request('http://localhost/assets/missing.js')
             )

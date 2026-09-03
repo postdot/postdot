@@ -24,6 +24,14 @@ The API publishes interactive documentation at <http://localhost:3000/openapi>
 and its machine-readable specification at <http://localhost:3000/openapi/json>.
 The API validates its required runtime configuration at startup.
 
+`GET /health` is the public liveness check: a successful response means that the
+HTTP process can answer requests. `GET /ready` is the public readiness check: it
+probes SQLite and reports the publication scheduler and media-maintenance
+runtime states. It returns `503` while any required runtime is not configured,
+stopped, recovering, or failed. The container healthcheck uses `/health`;
+deployment routing and monitoring can use `/ready` when durable-work readiness
+is required.
+
 `BETTER_AUTH_URL` is the canonical origin of the API and `HERALD_WEB_ORIGIN` is
 the origin of the browser application. During development they use different
 ports because the API listens on `3000` and the Vite development server listens
@@ -167,12 +175,13 @@ docker run --rm --init \
   --env HERALD_WEB_ORIGIN=http://localhost:3000 \
   --env LOG_LEVEL=silent \
   --env LOG_PRETTY=false \
-  herald:local
+herald:local
 ```
 
 The image contains the bundled API, the Bun runtime, the built dashboard, and the
 committed Drizzle migrations. The SQLite database lives in `/data`. Check the
-running container with `curl http://localhost:3000/health` and open
+running container with `curl http://localhost:3000/health` and
+`curl http://localhost:3000/ready`, then open
 `http://localhost:3000/` for the dashboard. This packaging path is the current
 OPS-10 deployment baseline.
 The example reuses the local environment file for convenience; deployment setups

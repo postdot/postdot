@@ -50,7 +50,28 @@ const customWebhookProfile: ChannelProfileDefinition = {
     },
 }
 
-function createFixture(options: { readonly linkedin?: PublisherRuntimeOptions['linkedin'] } = {}) {
+type HealthRuntime = NonNullable<Parameters<typeof createApp>[0]['runtime']>
+type OpenApiResponse = {
+    readonly description?: string
+    readonly content?: {
+        readonly 'application/json'?: {
+            readonly schema?: {
+                readonly allOf?: readonly {
+                    readonly properties?: {
+                        readonly status?: { readonly const?: string }
+                    }
+                }[]
+            }
+        }
+    }
+}
+
+function createFixture(
+    options: {
+        readonly linkedin?: PublisherRuntimeOptions['linkedin']
+        readonly runtime?: HealthRuntime
+    } = {}
+) {
     const database = createDatabase(':memory:')
     runMigrations(database)
     const publisher = createPublisherRuntime(database, {
@@ -61,7 +82,13 @@ function createFixture(options: { readonly linkedin?: PublisherRuntimeOptions['l
         linkedin: options.linkedin,
     })
     const auth = createAuth(database, { baseURL, secret })
-    const app = createApp({ auth, database, publisher, manualStore: { now: () => now } })
+    const app = createApp({
+        auth,
+        database,
+        publisher,
+        manualStore: { now: () => now },
+        runtime: options.runtime,
+    })
 
     return { app, database, publisher }
 }
@@ -122,6 +149,98 @@ describe('Herald API', () => {
         }
     })
 
+    it('reports readiness only when the database and runtimes are active', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const response = await app.handle(new Request(`${baseURL}/ready`))
+            expect(response.status).toBe(503)
+            expect(await response.json()).toEqual({
+                status: 'not_ready',
+                checks: {
+                    database: 'ok',
+                    scheduler: 'not_configured',
+                    mediaMaintenance: 'not_configured',
+                },
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('reports ready for an active scheduler and media runtime', async () => {
+        const { app, database } = createFixture({
+            runtime: {
+                scheduler: { state: 'started' },
+                mediaMaintenance: { state: 'started' },
+            },
+        })
+
+        try {
+            const response = await app.handle(new Request(`${baseURL}/ready`))
+            expect(response.status).toBe(200)
+            expect(await response.json()).toEqual({
+                status: 'ready',
+                checks: {
+                    database: 'ok',
+                    scheduler: 'started',
+                    mediaMaintenance: 'started',
+                },
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('reports runtime failure without hiding the live HTTP process', async () => {
+        const { app, database } = createFixture({
+            runtime: {
+                scheduler: { state: 'failed' },
+                mediaMaintenance: { state: 'started' },
+            },
+        })
+
+        try {
+            const response = await app.handle(new Request(`${baseURL}/health`))
+            expect(response.status).toBe(200)
+            expect(await response.json()).toEqual({ status: 'ok' })
+
+            const readinessResponse = await app.handle(new Request(`${baseURL}/ready`))
+            expect(readinessResponse.status).toBe(503)
+            expect(await readinessResponse.json()).toEqual({
+                status: 'not_ready',
+                checks: {
+                    database: 'ok',
+                    scheduler: 'failed',
+                    mediaMaintenance: 'started',
+                },
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('reports a database failure as not ready', async () => {
+        const { app, database } = createFixture({
+            runtime: {
+                scheduler: { state: 'started' },
+                mediaMaintenance: { state: 'started' },
+            },
+        })
+        closeDatabase(database)
+
+        const response = await app.handle(new Request(`${baseURL}/ready`))
+        expect(response.status).toBe(503)
+        expect(await response.json()).toEqual({
+            status: 'not_ready',
+            checks: {
+                database: 'failed',
+                scheduler: 'started',
+                mediaMaintenance: 'started',
+            },
+        })
+    })
+
     it('publishes an OpenAPI inventory for the typed Herald routes', async () => {
         const { app, database } = createFixture()
 
@@ -130,10 +249,19 @@ describe('Herald API', () => {
             expect(response.status).toBe(200)
 
             const specification = (await response.json()) as {
-                readonly paths: Record<string, { readonly get?: { readonly operationId?: string } }>
+                readonly paths: Record<
+                    string,
+                    {
+                        readonly get?: {
+                            readonly operationId?: string
+                            readonly responses?: Record<string, OpenApiResponse>
+                        }
+                    }
+                >
             }
             expect(Object.keys(specification.paths)).toEqual([
                 '/health',
+                '/ready',
                 '/api/projects',
                 '/api/projects/{projectId}/channels',
                 '/api/projects/{projectId}/channels/{channelId}/profile',
@@ -163,6 +291,17 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/audit-events',
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
+            expect(specification.paths['/ready']?.get?.operationId).toBe('getReadiness')
+            expect(Object.keys(specification.paths['/ready']?.get?.responses ?? {})).toEqual([
+                '200',
+                '503',
+            ])
+            expect(readOpenApiStatus(specification.paths['/ready']?.get?.responses?.['200'])).toBe(
+                'ready'
+            )
+            expect(readOpenApiStatus(specification.paths['/ready']?.get?.responses?.['503'])).toBe(
+                'not_ready'
+            )
         } finally {
             closeDatabase(database)
         }
@@ -959,3 +1098,9 @@ describe('Herald API', () => {
         }
     })
 })
+
+function readOpenApiStatus(response: OpenApiResponse | undefined): string | undefined {
+    return response?.content?.['application/json']?.schema?.allOf?.find(
+        part => part.properties?.status !== undefined
+    )?.properties?.status?.const
+}

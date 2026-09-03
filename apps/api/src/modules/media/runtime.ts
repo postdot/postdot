@@ -35,7 +35,16 @@ export function createConfiguredMediaStore(config: HeraldConfig['media']): Media
     })
 }
 
+export type MediaReconciliationRuntimeState =
+    | 'idle'
+    | 'started'
+    | 'running'
+    | 'recovering'
+    | 'stopped'
+    | 'failed'
+
 export interface MediaReconciliationRuntime {
+    readonly state: MediaReconciliationRuntimeState
     start(): void
     stop(): void
 }
@@ -56,14 +65,21 @@ export function createMediaReconciliationRuntime(
 
     let timer: ReturnType<typeof setInterval> | undefined
     let running = false
+    let recoveryRequired = false
+    let state: MediaReconciliationRuntimeState = 'idle'
     const handleError = options.onError ?? defaultMediaReconciliationErrorHandler
 
     const reconcile = async () => {
         if (running) return
         running = true
+        state = recoveryRequired ? 'recovering' : 'running'
         try {
             await media.reconcile()
+            recoveryRequired = false
+            if (timer !== undefined) state = 'started'
         } catch (error) {
+            recoveryRequired = true
+            state = timer === undefined ? 'stopped' : 'failed'
             handleError(error)
         } finally {
             running = false
@@ -71,14 +87,19 @@ export function createMediaReconciliationRuntime(
     }
 
     return {
+        get state() {
+            return state
+        },
         start() {
             if (timer !== undefined) return
             timer = setInterval(() => void reconcile(), intervalMs)
+            state = recoveryRequired ? 'recovering' : 'started'
         },
         stop() {
             if (timer === undefined) return
             clearInterval(timer)
             timer = undefined
+            state = 'stopped'
         },
     }
 }

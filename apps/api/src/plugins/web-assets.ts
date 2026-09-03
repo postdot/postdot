@@ -2,7 +2,7 @@ import { join } from 'node:path'
 
 import { staticPlugin } from '@elysia/static'
 
-const serverPathPrefixes = ['/api', '/openapi', '/health']
+const serverPathPrefixes = ['/api', '/openapi', '/health', '/ready']
 
 export async function createWebAssets(directory: string) {
     const indexPath = join(directory, 'index.html')

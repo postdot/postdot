@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
+const e2eApiOrigin = `http://127.0.0.1:${process.env.HERALD_E2E_API_PORT ?? '3101'}`
+
 const mediaFilename = 'herald-e2e-pixel.png'
 const mediaBytes = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
@@ -33,7 +35,10 @@ type LayoutView = {
     }
 }
 
-test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
+test('persists mixed and media-only publications through the dashboard', async ({
+    page,
+    request,
+}) => {
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
     const channelName = `E2E-33 Channel ${suffix}`
@@ -44,6 +49,17 @@ test('persists mixed and media-only publications through the dashboard', async (
     const targetText = `E2E-33 target ${suffix}`
     const secondTargetText = `E2E-33 second target ${suffix}`
     const scheduledDateTime = localDateTimeInHours(2)
+
+    const readinessResponse = await request.get(`${e2eApiOrigin}/ready`)
+    expect(readinessResponse.status()).toBe(200)
+    expect(await readinessResponse.json()).toEqual({
+        status: 'ready',
+        checks: {
+            database: 'ok',
+            scheduler: 'started',
+            mediaMaintenance: 'started',
+        },
+    })
 
     await page.goto('/login')
     await expect(

@@ -19,20 +19,57 @@ describe('media runtime maintenance', () => {
         }
         const runtime = createMediaReconciliationRuntime(media, { intervalMs: 5 })
 
+        expect(runtime.state).toBe('idle')
         runtime.start()
         runtime.start()
+        expect(runtime.state).toBe('started')
         await new Promise(resolve => setTimeout(resolve, 20))
         expect(calls).toBe(1)
+        expect(runtime.state).toBe('running')
 
         release?.()
         await new Promise(resolve => setTimeout(resolve, 10))
         expect(calls).toBe(2)
+        expect(runtime.state).toBe('running')
         release?.()
+        await new Promise(resolve => setTimeout(resolve, 10))
+        expect(runtime.state).toBe('running')
 
         runtime.stop()
+        expect(runtime.state).toBe('stopped')
         const callsAfterStop = calls
         await new Promise(resolve => setTimeout(resolve, 15))
         expect(calls).toBe(callsAfterStop)
+    })
+
+    it('marks failed reconciliation and can recover when restarted', async () => {
+        let calls = 0
+        const failure = new Error('storage unavailable')
+        const errors: unknown[] = []
+        const runtime = createMediaReconciliationRuntime(
+            {
+                reconcile: async () => {
+                    calls += 1
+                    if (calls === 1) throw failure
+                    return { expiredUploads: 0, missingObjects: 0, deletedAssets: 0 }
+                },
+            },
+            { intervalMs: 50, onError: error => errors.push(error) }
+        )
+
+        runtime.start()
+        await new Promise(resolve => setTimeout(resolve, 70))
+        expect(runtime.state).toBe('failed')
+        expect(errors).toEqual([failure])
+
+        runtime.stop()
+        runtime.start()
+        expect(runtime.state).toBe('recovering')
+        await new Promise(resolve => setTimeout(resolve, 70))
+        expect(runtime.state).toBe('started')
+        expect(calls).toBe(2)
+
+        runtime.stop()
     })
 
     it('rejects an invalid reconciliation interval', () => {

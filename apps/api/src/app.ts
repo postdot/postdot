@@ -9,7 +9,7 @@ import {
 import { Elysia } from 'elysia'
 
 import type { HeraldLoggingConfig } from './config'
-import { createHealthRoutes } from './modules/health/routes'
+import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/routes'
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
 import { createProjectModule } from './modules/projects'
@@ -27,6 +27,7 @@ export interface HeraldAppOptions {
     readonly manualStore?: ManualStoreOptions
     readonly logging?: HeraldLoggingConfig
     readonly onWorkScheduled?: () => void
+    readonly runtime?: HealthRoutesOptions['runtime']
 }
 
 function createDomainApp({
@@ -38,6 +39,7 @@ function createDomainApp({
     manualStore: manualStoreOptions,
     logging,
     onWorkScheduled,
+    runtime,
 }: HeraldAppOptions) {
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
@@ -78,7 +80,7 @@ function createDomainApp({
             })
         )
         .use(createErrorHandler())
-        .use(createHealthRoutes())
+        .use(createHealthRoutes({ database, runtime }))
         .use(
             createProjectModule({
                 auth,
@@ -108,6 +110,7 @@ export function createApp({
     manualStore: manualStoreOptions,
     logging,
     onWorkScheduled,
+    runtime,
 }: HeraldAppOptions) {
     return createDomainApp({
         auth,
@@ -118,5 +121,6 @@ export function createApp({
         manualStore: manualStoreOptions,
         logging,
         onWorkScheduled,
+        runtime,
     }).use(createAuthRoutes(auth))
 }
