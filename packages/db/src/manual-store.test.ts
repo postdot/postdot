@@ -14,6 +14,7 @@ import {
     mediaAssets,
     mediaRepresentations,
     posts,
+    publicationRevisionMedia,
     publicationTargetRevisions,
     publicationWorkingDrafts,
     publications,
@@ -435,6 +436,115 @@ describe('manual workflow store', () => {
                 count: 1,
             })
         } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('rolls back all creation records when a late persistence effect fails', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+        let triggerInstalled = false
+
+        try {
+            runMigrations(database)
+            const media = {
+                getAsset(
+                    currentProjectId: string,
+                    assetId: string,
+                    _subjectId: string
+                ): MediaAssetReference | null {
+                    return assetId === 'asset-1' ? createReadyMedia(currentProjectId, now) : null
+                },
+            }
+            const store = createManualStore(database, { now: () => now, media })
+            const project = store.createProject({
+                name: 'Creation Rollback Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Automatic Media Channel',
+                profile: createMediaProfile(1, ['image'], ['image/jpeg']),
+            })
+            if (channel === null) throw new Error('The creation rollback channel was not created')
+
+            const readyMedia = createReadyMedia(project.project.id, now, project.actor.id)
+            database.insert(mediaAssets).values(readyMedia.asset).run()
+            const readyRepresentation = readyMedia.representations[0]
+            if (readyRepresentation === undefined) {
+                throw new Error('The creation rollback media representation is missing')
+            }
+            database
+                .insert(mediaRepresentations)
+                .values({ ...readyRepresentation, recipeJson: null })
+                .run()
+            database
+                .insert(publishers)
+                .values({
+                    id: 'creation-rollback-publisher',
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    kind: 'media-provider',
+                })
+                .run()
+
+            database.$client.run(`
+                create temp trigger fail_publication_creation_audit
+                before insert on audit_events
+                when NEW.action = 'publication.created'
+                begin
+                    select raise(abort, 'forced publication creation failure');
+                end
+            `)
+            triggerInstalled = true
+
+            expect(() =>
+                store.createPost({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    sourceContent: {
+                        body: { text: 'Creation rollback source', format: 'plain_text' },
+                        media: [{ assetId: 'asset-1' }],
+                    },
+                    publications: [
+                        {
+                            channelId: channel.id,
+                            deliveryMode: 'automatic',
+                            targetContent: {
+                                body: 'Creation rollback target',
+                                media: [{ assetId: 'asset-1' }],
+                            },
+                            scheduledAt: now + 60_000,
+                        },
+                    ],
+                })
+            ).toThrow('forced publication creation failure')
+
+            expect(database.select().from(posts).all()).toHaveLength(0)
+            expect(database.select().from(publications).all()).toHaveLength(0)
+            expect(database.select().from(publicationWorkingDrafts).all()).toHaveLength(0)
+            expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(0)
+            expect(database.select().from(publicationRevisionMedia).all()).toHaveLength(0)
+            expect(database.select().from(jobs).all()).toHaveLength(0)
+            expect(
+                database
+                    .select()
+                    .from(auditEvents)
+                    .where(eq(auditEvents.action, 'post.created'))
+                    .all()
+            ).toHaveLength(0)
+            expect(
+                database
+                    .select()
+                    .from(auditEvents)
+                    .where(eq(auditEvents.action, 'publication.created'))
+                    .all()
+            ).toHaveLength(0)
+        } finally {
+            if (triggerInstalled)
+                database.$client.run('drop trigger fail_publication_creation_audit')
             closeDatabase(database)
         }
     })
