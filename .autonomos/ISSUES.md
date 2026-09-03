@@ -447,11 +447,13 @@
 - Evidence: The repository has deterministic unit, integration, browser, and
   provider tests, but the continuous product direction has not yet been validated
   through a sustained real workflow using multiple destinations and the dashboard,
-  API, and CLI together.
+  API, and CLI together. EVAL-53 established and exercised the safe local
+  validation loop; the automatic-provider stage remains gated by an explicit
+  destination and action-time approval.
 - Impact: Technical foundations can appear complete while the real publication
   manager still requires a parallel tracker or awkward manual workarounds.
 - Desired outcome: Herald periodically exercises and records the complete intended
   publication workflow in realistic use, including automatic and manual channels,
   failures, edits, and recovery, without reintroducing a release-oriented MVP
   boundary.
-- Tasks: none
+- Tasks: EVAL-53 (completed; repeat periodically)

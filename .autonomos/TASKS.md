@@ -26,6 +26,7 @@
 - [x] **[E2E-33]** Add reproducible browser integration coverage for mixed and media-only publications `Priority: 🟠` `Complexity: L`
 - [x] **[WEB-52]** Replace raw target JSON editing with a schema-aware publication editor `Priority: 🟠` `Complexity: L`
 - [x] **[OPS-16]** Document separate publisher-key recovery with application backups `Priority: 🟠` `Complexity: S`
+- [x] **[EVAL-53]** Define and exercise a safe real-use publication validation loop `Priority: 🔴` `Complexity: M`
 
 ## 🔮 Backlog
 

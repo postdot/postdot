@@ -374,6 +374,13 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.locator('article').filter({ hasText: mediaFilename }).first().getByRole('button')
     ).toHaveAttribute('aria-pressed', 'true')
 
+    const promotedSchedule = localDateTimeInHours(4)
+    await page.locator('#deliver-at').fill(promotedSchedule)
+    await page.getByRole('button', { name: 'Apply draft to target', exact: true }).click()
+    await expect(page.locator('#deliver-at')).toHaveValue(promotedSchedule)
+    await page.reload()
+    await expect(page.locator('#deliver-at')).toHaveValue(promotedSchedule)
+
     const mixedTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
     expect(mixedTarget.body).toBe(targetText)
     expect(mixedTarget.media).toHaveLength(1)
