@@ -471,7 +471,12 @@ exists` error. At the same time, the Vite development proxy always targets port
   publication workflow in realistic use, including automatic and manual channels,
   failures, edits, and recovery, without reintroducing a release-oriented MVP
   boundary.
-- Tasks: EVAL-53 (completed; repeat periodically), EVAL-54 (blocked pending live approval), PUB-55 (completed)
+- Tasks: EVAL-53 (completed; repeat periodically), EVAL-54 (completed), PUB-55 (completed)
+- EVAL-54 completed the automatic-provider stage with an operator-approved,
+  organization-scoped LinkedIn smoke test. The provider acknowledged the text
+  publication, Herald persisted the successful job and publication outcome, and
+  the dashboard displayed the target as published. This issue remains open as
+  a recurring validation practice rather than a one-time implementation task.
 
 ## [ISSUE-022] Separate LinkedIn authorization principals from publication destinations
 
@@ -490,7 +495,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   adapter builds the corresponding author and media-owner URN, while the
   encrypted credential remains the project-owned authorization of the member who
   granted access.
-- Tasks: PUB-55 (completed), EVAL-54 (blocked until an action-time destination and content are approved)
+- Tasks: PUB-55 (completed), EVAL-54 (completed)
 - Decision: [ADR-031](decisions/ADR-031-separate-linkedin-principal-and-destination.md)
 - Resolution: LinkedIn credentials now retain the OAuth member principal while
   each project publisher connection records an explicit member or organization
