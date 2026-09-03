@@ -19,6 +19,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
+import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import { ApiError, api, type PublicationEditorState } from '@/lib/api'
 import { parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 import { updateTargetMedia } from '@/lib/target-media'
@@ -112,6 +113,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     const sourceIssue = useMemo(() => sourceContentIssue(sourceContent), [sourceContent])
     const capabilitySummary = useMemo(() => getCapabilitySummary(editor.profile.profile), [editor])
     const sourceConflict = editor.draft.sourceRevision !== editor.post.sourceRevision
+    const draftRequiresReview = editor.draft.reviewState !== 'compatible'
     const draftDiffersFromTarget =
         editor.selectedTarget === null ||
         editor.draft.sourceRevision !== editor.selectedTarget.sourceRevision ||
@@ -411,6 +413,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
         if (
             dirty ||
             sourceConflict ||
+            draftRequiresReview ||
             saveState !== 'saved' ||
             targetResult.value === null ||
             sourceIssue !== null
@@ -681,21 +684,20 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                     </Badge>
                                 </div>
 
-                                <Field className="mt-6 min-w-0 gap-1.5">
-                                    <FieldLabel htmlFor="target-json">Target JSON</FieldLabel>
-                                    <Textarea
-                                        id="target-json"
-                                        value={targetText}
-                                        onChange={event => {
-                                            setTargetText(event.target.value)
-                                            setDirty(true)
-                                        }}
-                                        disabled={isRebasing}
-                                        spellCheck={false}
-                                        rows={15}
-                                        className="min-h-64 min-w-0 max-w-full resize-y bg-surface-field px-3 py-2 font-mono text-xs leading-6 text-foreground placeholder:text-muted-foreground focus-visible:border-primary"
-                                    />
-                                </Field>
+                                <PublicationTargetEditor
+                                    profile={editor.profile.profile}
+                                    target={targetResult.value}
+                                    rawText={targetText}
+                                    onTargetChange={next => {
+                                        setTargetText(formatJson(next))
+                                        setDirty(true)
+                                    }}
+                                    onRawTextChange={value => {
+                                        setTargetText(value)
+                                        setDirty(true)
+                                    }}
+                                    disabled={isRebasing}
+                                />
                                 {targetResult.error ? (
                                     <Alert variant="destructive" className="mt-4 rounded-md">
                                         <AlertTitle>Invalid target JSON</AlertTitle>
@@ -740,6 +742,12 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                             immutable target revision used by manual delivery or the
                                             worker.
                                         </p>
+                                        {draftRequiresReview ? (
+                                            <p className="mt-3 max-w-2xl text-sm leading-6 text-state-attention">
+                                                Resolve the profile validation issues before
+                                                applying this draft to the selected target.
+                                            </p>
+                                        ) : null}
                                     </div>
                                     <span className="text-sm text-muted-foreground">
                                         {draftDiffersFromTarget
@@ -777,6 +785,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                         disabled={
                                             dirty ||
                                             sourceConflict ||
+                                            draftRequiresReview ||
                                             saveState !== 'saved' ||
                                             targetResult.value === null ||
                                             sourceIssue !== null

@@ -368,7 +368,8 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
     await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Body', exact: true })).toHaveValue(sourceText)
+    await expect(page.locator('#source-body')).toHaveValue(sourceText)
+    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
     await expect(
         page.locator('article').filter({ hasText: mediaFilename }).first().getByRole('button')
     ).toHaveAttribute('aria-pressed', 'true')
@@ -382,6 +383,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await mixedPublications.filter({ hasText: secondChannelName }).first().click()
     await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
+    await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
+        secondTargetText
+    )
     const secondMixedTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
     expect(secondMixedTarget.commentary).toBe(secondTargetText)
     expect(secondMixedTarget.media).toHaveLength(1)
@@ -390,7 +394,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first().click()
     await expect(page.getByRole('heading', { name: mediaOnlyTitle })).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Body', exact: true })).toHaveValue('')
+    await expect(page.locator('#source-body')).toHaveValue('')
     await expect(
         page.locator('article').filter({ hasText: mediaFilename }).first().getByRole('button')
     ).toHaveAttribute('aria-pressed', 'true')

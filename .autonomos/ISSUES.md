@@ -333,17 +333,30 @@
 ## [ISSUE-015] Provide schema-aware target editing
 
 - Type: problem
-- Status: open
-- Evidence: `apps/web/src/components/publication-editor.tsx` currently exposes the
-  target payload through a raw JSON textarea even though channel profiles already
-  provide bounded schemas, field bindings, capabilities, and normalized validation
-  issues.
+- Status: resolved
+- Evidence: The publication editor previously exposed the target payload through
+  only a raw JSON textarea even though channel profiles already provided bounded
+  schemas, field bindings, capabilities, and normalized validation issues.
 - Impact: Human users must understand internal target JSON instead of receiving an
   editor that reflects the selected channel and its constraints.
 - Desired outcome: The web editor presents usable, reactive controls for supported
   channel fields and constraints, preserves manual and runtime-defined channels,
   and keeps the same server-side validation and immutable promotion boundary.
-- Tasks: none
+- Tasks: WEB-52 (completed)
+- Resolution: The editor now projects declared schema properties and field
+  bindings into bounded controls for text, numbers, booleans, primitive
+  enumerations, string lists, and ordered media. Nested scalar properties are
+  supported through JSON Pointer updates; ambiguous compositions, unsupported
+  shapes, and provider-specific payloads remain available through the preserved
+  Advanced JSON escape hatch. The server remains authoritative for validation,
+  and the interface blocks explicit promotion while a draft is marked
+  `review_required`.
+- Verification: Added metadata and JSON Pointer unit coverage for schema
+  projection, local references, capability intersections, nested fields,
+  invalid compositions, optional values, and provider-field preservation. The
+  focused media publication browser scenario and the full `bun run check` gate
+  passed, including formatting, lint, strict typecheck, unit/integration tests,
+  browser integration, and package builds.
 
 ## [ISSUE-016] Split persistence by coherent use-case boundaries
 

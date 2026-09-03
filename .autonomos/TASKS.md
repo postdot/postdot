@@ -24,6 +24,7 @@
 - [x] **[DOMAIN-21]** Persist drafts, immutable target and execution revisions, profile versions, and review state `Priority: 🔴` `Complexity: L`
 - [x] **[E2E-32]** Prove the post-merge local media publication path through the dashboard `Priority: 🟠` `Complexity: M`
 - [x] **[E2E-33]** Add reproducible browser integration coverage for mixed and media-only publications `Priority: 🟠` `Complexity: L`
+- [x] **[WEB-52]** Replace raw target JSON editing with a schema-aware publication editor `Priority: 🟠` `Complexity: L`
 
 ## 🔮 Backlog
 
