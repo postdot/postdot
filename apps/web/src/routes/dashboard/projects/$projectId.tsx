@@ -34,7 +34,7 @@ function ProjectDashboardRoute() {
     const { project, ...initialData } = Route.useLoaderData()
 
     return (
-        <ProjectDashboardProvider initialData={initialData} project={project}>
+        <ProjectDashboardProvider key={project.id} initialData={initialData} project={project}>
             <ProjectDashboardFrame />
         </ProjectDashboardProvider>
     )
@@ -57,7 +57,7 @@ function ProjectDashboardFrame() {
             projectName={global.projectName}
             projects={global.projects}
             publisherConnections={projectDashboard.connections}
-            selectedProjectId={projectDashboard.project.id}
+            selectedProject={projectDashboard.project}
             session={global.session}
             publicationsCount={projectDashboard.publications.length}>
             <Outlet />

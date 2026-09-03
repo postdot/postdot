@@ -399,6 +399,40 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(mediaOnlyTarget.body).toBeUndefined()
     expect(mediaOnlyTarget.media).toHaveLength(1)
     expect(mediaOnlyTarget.media[0]?.assetId).toBe(assetId)
+
+    const firstProjectId = projectIdFromUrl(page.url())
+    const secondProjectName = `E2E-51 Second project ${suffix}`
+    await page.getByText('Create project', { exact: true }).click()
+    await page.locator('#new-project').fill(secondProjectName)
+    await page
+        .locator('form')
+        .filter({ has: page.locator('#new-project') })
+        .getByRole('button', { name: 'Add project', exact: true })
+        .click()
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+        secondProjectName
+    )
+    const secondProjectId = projectIdFromUrl(page.url())
+    expect(secondProjectId).not.toBe(firstProjectId)
+
+    await page.getByRole('link', { name: 'Channels', exact: true }).click()
+    await expect(page.getByText('No channels yet.', { exact: true })).toBeVisible()
+    await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
+
+    await page.goto(`/dashboard/projects/${firstProjectId}/channels`)
+    await expect(
+        page.locator('#publisher-connections').getByText(channelName, { exact: true })
+    ).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+        projectName
+    )
+
+    await page.goto(`/dashboard/projects/${secondProjectId}/channels`)
+    await expect(page.getByText('No channels yet.', { exact: true })).toBeVisible()
+    await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+        secondProjectName
+    )
 })
 
 interface TargetContent {
@@ -418,6 +452,15 @@ function parseTargetContent(value: string): TargetContent {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function projectIdFromUrl(value: string): string {
+    const match = new URL(value).pathname.match(/^\/dashboard\/projects\/([^/]+)/)
+    if (match?.[1] === undefined) {
+        throw new Error(`Expected a project route, received ${value}`)
+    }
+
+    return match[1]
 }
 
 function localDateTimeInHours(hours: number) {

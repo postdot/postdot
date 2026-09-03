@@ -311,7 +311,7 @@
 ## [ISSUE-014] Make web project context URL-authoritative
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: The `/dashboard` loader initializes project data from `projects[0]`,
   while the nested publication editor receives its own `$projectId`. The shell
   keeps the selected project and related data in local state.
@@ -319,7 +319,16 @@
   can show a mismatched project context and make navigation state unreliable.
 - Desired outcome: The selected project is stable across direct navigation, reloads,
   nested editors, and shell actions, with one authoritative route/data model.
-- Tasks: none
+- Tasks: WEB-51 (completed)
+- Resolution: The project route now passes its URL-resolved `Project` directly to
+  the authenticated shell instead of making the shell infer the selected project
+  from the global project list. The project dashboard provider is keyed by the
+  resolved project identity, so changing project parameters cannot retain the
+  previous project's operational data or compose state.
+- Verification: The browser integration scenario switches between two projects,
+  validates isolated channel data, visits both project URLs directly, and checks
+  the selected project context after navigation. The full format, lint, strict
+  typecheck, unit/integration, browser, and build gate passed.
 
 ## [ISSUE-015] Provide schema-aware target editing
 

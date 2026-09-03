@@ -64,7 +64,7 @@ interface DashboardShellProps {
     readonly projectName: string
     readonly projects: readonly Project[]
     readonly publisherConnections: readonly PublisherConnection[]
-    readonly selectedProjectId: string | null
+    readonly selectedProject: Project | null
     readonly session: Session
     readonly publicationsCount: number
     readonly onProjectNameChange: (value: string) => void
@@ -82,7 +82,7 @@ export function DashboardShell({
     projectName,
     projects,
     publisherConnections,
-    selectedProjectId,
+    selectedProject,
     session,
     publicationsCount,
     onProjectNameChange,
@@ -94,8 +94,8 @@ export function DashboardShell({
     const connectionsByChannel = new Map(
         publisherConnections.map(connection => [connection.channelId, connection])
     )
-    const selectedProjectName =
-        projects.find(project => project.id === selectedProjectId)?.name ?? 'No project selected'
+    const selectedProjectId = selectedProject?.id ?? null
+    const selectedProjectName = selectedProject?.name ?? 'No project selected'
     const userInitial = session.user.name.trim().charAt(0).toUpperCase() || 'H'
 
     useEffect(() => {
