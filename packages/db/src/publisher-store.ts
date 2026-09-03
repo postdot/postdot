@@ -14,6 +14,12 @@ import {
 
 import type { HeraldDatabase } from './client'
 
+export interface PublisherConnectionDestination {
+    readonly type: 'member' | 'organization'
+    readonly id: string
+    readonly name: string | null
+}
+
 export interface CreatePublisherConnectionInput {
     readonly projectId: string
     readonly channelId: string
@@ -22,6 +28,7 @@ export interface CreatePublisherConnectionInput {
     readonly credentialId: string
     readonly endpointUrl?: string | null
     readonly authentication?: CustomHttpAuthentication | null
+    readonly destination?: PublisherConnectionDestination
 }
 
 export interface DisconnectPublisherConnectionInput {
@@ -39,6 +46,7 @@ export interface PublisherConnection {
     readonly credentialId: string
     readonly endpointUrl: string | null
     readonly authentication: CustomHttpAuthentication | null
+    readonly destination: PublisherConnectionDestination | null
     readonly providerId: string
     readonly externalAccountId: string
     readonly externalAccountName: string | null
@@ -88,6 +96,7 @@ export interface PublisherExecutionTarget {
     readonly kind: string
     readonly credentialId: string
     readonly externalAccountId: string
+    readonly destination: PublisherConnectionDestination | null
     readonly providerId: string
     readonly credentialState: 'active' | 'reconnect_required' | 'revoked'
     readonly credentialExpiresAt: number | null
@@ -149,12 +158,15 @@ interface CredentialRow {
 
 interface PublisherConnectionRow extends Omit<
     PublisherConnection,
-    'externalAccountName' | 'scopes' | 'state' | 'authentication'
+    'externalAccountName' | 'scopes' | 'state' | 'authentication' | 'destination'
 > {
     readonly externalAccountName: string | null
     readonly scopesJson: string
     readonly state: 'active' | 'reconnect_required' | 'revoked'
     readonly authenticationJson: string | null
+    readonly destinationType: string | null
+    readonly destinationId: string | null
+    readonly destinationName: string | null
 }
 
 interface PublisherRow {
@@ -167,11 +179,14 @@ interface ChannelProfileRow {
 
 interface PublisherExecutionTargetRow extends Omit<
     PublisherExecutionTarget,
-    'content' | 'media' | 'profile' | 'authentication'
+    'content' | 'media' | 'profile' | 'authentication' | 'destination'
 > {
     readonly contentJson: string
     readonly profileJson: string
     readonly authenticationJson: string | null
+    readonly destinationType: string | null
+    readonly destinationId: string | null
+    readonly destinationName: string | null
 }
 
 interface ScheduledPublicationRow {
@@ -293,6 +308,9 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
         publisher_connections.credential_id as credentialId,
         publisher_connections.endpoint_url as endpointUrl,
         publisher_connections.authentication_json as authenticationJson,
+        publisher_connections.destination_type as destinationType,
+        publisher_connections.destination_id as destinationId,
+        publisher_connections.destination_name as destinationName,
         publisher_credentials.provider_id as providerId,
         publisher_credentials.external_account_id as externalAccountId,
         publisher_credentials.external_account_name as externalAccountName,
@@ -354,6 +372,9 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                publisher_connections.credential_id as credentialId,
                publisher_connections.endpoint_url as endpointUrl,
                publisher_connections.authentication_json as authenticationJson,
+               publisher_connections.destination_type as destinationType,
+               publisher_connections.destination_id as destinationId,
+               publisher_connections.destination_name as destinationName,
                publisher_credentials.external_account_id as externalAccountId,
                publisher_credentials.provider_id as providerId,
                publisher_credentials.state as credentialState,
@@ -486,6 +507,9 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
             credentialId: string,
             endpointUrl: string | null,
             authenticationJson: string | null,
+            destinationType: string | null,
+            destinationId: string | null,
+            destinationName: string | null,
             connectedByActorId: string,
             timestamp: number,
         ]
@@ -497,10 +521,13 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
             credential_id,
             endpoint_url,
             authentication_json,
+            destination_type,
+            destination_id,
+            destination_name,
             connected_by_actor_id,
             created_at,
             updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)
     `)
     const insertJobStatement = client.query<
         void,
@@ -566,7 +593,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 return { kind: 'credential_unavailable' }
             }
 
-            const connectionSettings = normalizeConnectionSettings(input)
+            const connectionSettings = normalizeConnectionSettings(input, credentialRow)
             if (!connectionSettings.valid) return { kind: 'invalid_connection' }
 
             const profileRow = loadChannelProfileStatement.get(
@@ -613,6 +640,9 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 connectionSettings.authentication === null
                     ? null
                     : JSON.stringify(connectionSettings.authentication),
+                connectionSettings.destination?.type ?? null,
+                connectionSettings.destination?.id ?? null,
+                connectionSettings.destination?.name ?? null,
                 actor.id,
                 timestamp
             )
@@ -650,6 +680,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                     ...credentialFields(credentialRow),
                     endpointUrl: connectionSettings.endpointUrl,
                     authentication: connectionSettings.authentication,
+                    destination: connectionSettings.destination,
                     connectedByActorId: actor.id,
                     createdAt: timestamp,
                     updatedAt: timestamp,
@@ -758,6 +789,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 kind: row.kind,
                 credentialId: row.credentialId,
                 externalAccountId: row.externalAccountId,
+                destination: parseDestination(row),
                 providerId: row.providerId,
                 credentialState: row.credentialState,
                 credentialExpiresAt: row.credentialExpiresAt,
@@ -859,11 +891,15 @@ function isCompatiblePublisherProfile(profileJson: string, kind: string): boolea
         : execution.kind === 'built_in' && execution.contractId === kind
 }
 
-function normalizeConnectionSettings(input: CreatePublisherConnectionInput):
+function normalizeConnectionSettings(
+    input: CreatePublisherConnectionInput,
+    credential: CredentialRow
+):
     | {
           readonly valid: true
           readonly endpointUrl: string | null
           readonly authentication: CustomHttpAuthentication | null
+          readonly destination: PublisherConnectionDestination | null
       }
     | { readonly valid: false } {
     const endpointUrl = input.endpointUrl ?? null
@@ -880,13 +916,38 @@ function normalizeConnectionSettings(input: CreatePublisherConnectionInput):
     }
 
     if (input.kind === 'custom_http') {
-        return endpointUrl !== null && authentication !== null
-            ? { valid: true, endpointUrl, authentication }
+        return endpointUrl !== null && authentication !== null && input.destination === undefined
+            ? { valid: true, endpointUrl, authentication, destination: null }
             : { valid: false }
     }
-    return endpointUrl === null && authentication === null
-        ? { valid: true, endpointUrl, authentication }
-        : { valid: false }
+
+    if (endpointUrl !== null || authentication !== null) return { valid: false }
+    if (input.kind !== 'linkedin' && input.destination !== undefined) return { valid: false }
+
+    const destination =
+        input.destination ??
+        (input.kind === 'linkedin'
+            ? {
+                  type: 'member',
+                  id: credential.externalAccountId,
+                  name: credential.externalAccountName,
+              }
+            : null)
+    if (destination !== null && !isValidLinkedInDestination(destination)) {
+        return { valid: false }
+    }
+    return { valid: true, endpointUrl, authentication, destination }
+}
+
+function isValidLinkedInDestination(destination: PublisherConnectionDestination): boolean {
+    return (
+        (destination.type === 'member' || destination.type === 'organization') &&
+        destination.id.trim().length > 0 &&
+        !/\s/.test(destination.id) &&
+        !destination.id.startsWith('urn:') &&
+        (destination.type !== 'organization' || /^[1-9]\d*$/.test(destination.id)) &&
+        (destination.name === null || destination.name.trim().length > 0)
+    )
 }
 
 function parseProfile(value: string): ChannelProfileDefinition {
@@ -948,8 +1009,35 @@ function toPublisherConnection(row: PublisherConnectionRow): PublisherConnection
         }),
         endpointUrl: row.endpointUrl,
         authentication: parseAuthentication(row.authenticationJson),
+        destination: parseDestination(row),
         connectedByActorId: row.connectedByActorId,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
+    }
+}
+
+function parseDestination(
+    row: Pick<PublisherConnectionRow, 'destinationType' | 'destinationId' | 'destinationName'>
+): PublisherConnectionDestination | null {
+    if (
+        row.destinationType === null &&
+        row.destinationId === null &&
+        row.destinationName === null
+    ) {
+        return null
+    }
+    if (row.destinationType === null || row.destinationId === null) {
+        throw new Error('Stored publisher connection destination is incomplete')
+    }
+    if (row.destinationType !== 'member' && row.destinationType !== 'organization') {
+        throw new Error('Stored publisher connection destination type is invalid')
+    }
+    return {
+        type: row.destinationType,
+        id: requireNonBlank(row.destinationId, 'destination id'),
+        name:
+            row.destinationName === null
+                ? null
+                : requireNonBlank(row.destinationName, 'destination name'),
     }
 }

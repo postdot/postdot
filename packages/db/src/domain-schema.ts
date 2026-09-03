@@ -353,6 +353,7 @@ export const oauthAuthorizationAttempts = sqliteTable(
         callbackUri: text('callback_uri').notNull(),
         scopes: text('scopes', { mode: 'json' }).$type<readonly string[]>().notNull(),
         returnPath: text('return_path').notNull(),
+        contextJson: text('context_json').default('{}').notNull(),
         stateDigest: blob('state_digest', { mode: 'buffer' }).notNull(),
         status: text('status', { enum: oauthAuthorizationAttemptStatuses })
             .default('pending')
@@ -399,6 +400,10 @@ export const oauthAuthorizationAttempts = sqliteTable(
         check(
             'oauth_authorization_attempts_scopes_json_array',
             sql`json_valid(${table.scopes}) and json_type(${table.scopes}) = 'array'`
+        ),
+        check(
+            'oauth_authorization_attempts_context_json_object',
+            sql`json_valid(${table.contextJson}) and json_type(${table.contextJson}) = 'object'`
         ),
         check(
             'oauth_authorization_attempts_state_digest_length',
@@ -460,6 +465,9 @@ export const publisherConnections = sqliteTable(
         authenticationJson: text('authentication_json', {
             mode: 'json',
         }).$type<CustomHttpAuthentication | null>(),
+        destinationType: text('destination_type'),
+        destinationId: text('destination_id'),
+        destinationName: text('destination_name'),
         connectedByActorId: text('connected_by_actor_id').notNull(),
         ...timestamps(),
     },
@@ -495,6 +503,17 @@ export const publisherConnections = sqliteTable(
         check(
             'publisher_connections_authentication_json_object',
             sql`${table.authenticationJson} is null or (json_valid(${table.authenticationJson}) and json_type(${table.authenticationJson}) = 'object')`
+        ),
+        check(
+            'publisher_connections_destination_pair_valid',
+            sql`(
+                (${table.destinationType} is null and ${table.destinationId} is null and ${table.destinationName} is null)
+                or (${table.destinationType} is not null
+                    and length(trim(${table.destinationType})) > 0
+                    and ${table.destinationId} is not null
+                    and length(trim(${table.destinationId})) > 0
+                    and (${table.destinationName} is null or length(trim(${table.destinationName})) > 0))
+            )`
         ),
     ]
 )

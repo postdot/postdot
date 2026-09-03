@@ -1,3 +1,5 @@
+import type { LinkedInDestination } from './contract'
+
 export interface LinkedInTextPostPayload {
     readonly author: string
     readonly commentary: string
@@ -30,12 +32,12 @@ export interface LinkedInImagePostPayload {
     readonly isReshareDisabledByAuthor: false
 }
 
-export function createLinkedInMemberTextPostPayload(input: {
-    readonly memberId: string
+export function createLinkedInTextPostPayload(input: {
+    readonly destination: LinkedInDestination
     readonly commentary: string
 }): LinkedInTextPostPayload {
     return {
-        author: `urn:li:person:${input.memberId}`,
+        author: createLinkedInDestinationUrn(input.destination),
         commentary: input.commentary,
         visibility: 'PUBLIC',
         distribution: {
@@ -48,8 +50,8 @@ export function createLinkedInMemberTextPostPayload(input: {
     }
 }
 
-export function createLinkedInMemberImagePostPayload(input: {
-    readonly memberId: string
+export function createLinkedInImagePostPayload(input: {
+    readonly destination: LinkedInDestination
     readonly commentary: string
     readonly imageId: string
     readonly accessibilityText?: string | null
@@ -57,7 +59,7 @@ export function createLinkedInMemberImagePostPayload(input: {
     const accessibilityText = input.accessibilityText?.trim()
 
     return {
-        author: `urn:li:person:${input.memberId}`,
+        author: createLinkedInDestinationUrn(input.destination),
         commentary: input.commentary,
         visibility: 'PUBLIC',
         distribution: {
@@ -74,4 +76,8 @@ export function createLinkedInMemberImagePostPayload(input: {
         lifecycleState: 'PUBLISHED',
         isReshareDisabledByAuthor: false,
     }
+}
+
+export function createLinkedInDestinationUrn(destination: LinkedInDestination): string {
+    return `urn:li:${destination.type === 'member' ? 'person' : 'organization'}:${destination.id}`
 }

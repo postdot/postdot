@@ -9,8 +9,10 @@ import {
     LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT,
     LINKEDIN_OAUTH_ISSUER,
     LINKEDIN_OAUTH_TOKEN_ENDPOINT,
+    createLinkedInOrganizationClient,
     createLinkedInMemberProfileClient,
     type LinkedInMemberProfileClient,
+    type LinkedInOrganizationClient,
 } from '@herald/linkedin'
 import { clientSecretPost, validateReturnPath, type OAuthAuthorizationServer } from '@herald/oauth'
 
@@ -24,6 +26,7 @@ export interface PublisherRuntimeOptions {
         readonly clientSecret: string
         readonly authorizationServer?: OAuthAuthorizationServer
         readonly profileClient?: LinkedInMemberProfileClient
+        readonly organizationClient?: LinkedInOrganizationClient
     }
     readonly now?: () => number
     readonly createId?: () => string
@@ -59,6 +62,8 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
                   clientAuthentication: clientSecretPost(options.linkedin.clientSecret),
                   profileClient:
                       options.linkedin.profileClient ?? createLinkedInMemberProfileClient(),
+                  organizationClient:
+                      options.linkedin.organizationClient ?? createLinkedInOrganizationClient(),
               }
 
     return {

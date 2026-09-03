@@ -32,6 +32,10 @@ export interface Session {
     }
 }
 
+export type LinkedInConnectionDestination =
+    | { readonly type: 'member' }
+    | { readonly type: 'organization'; readonly id: string }
+
 export class ApiError extends Error {
     readonly status: number
     readonly code: string
@@ -240,13 +244,14 @@ export const api = {
 
     async startLinkedInPublisherConnection(
         projectId: string,
-        channelId: string
+        channelId: string,
+        destination?: LinkedInConnectionDestination
     ): Promise<{ provider: 'linkedin'; scopes: string[]; authorizationUrl: string }> {
         return unwrap<{ provider: 'linkedin'; scopes: string[]; authorizationUrl: string }>(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
-                .publisher.linkedin.connect.post()
+                .publisher.linkedin.connect.post(destination === undefined ? {} : { destination })
         )
     },
 

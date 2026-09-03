@@ -9,7 +9,10 @@ import {
     runMigrations,
 } from '@herald/db'
 import { publications, publisherCredentials, user as authUser } from '@herald/db/schema'
-import { createLinkedInMemberProfileClient } from '@herald/linkedin'
+import {
+    createLinkedInMemberProfileClient,
+    createLinkedInOrganizationClient,
+} from '@herald/linkedin'
 import type { OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
@@ -1240,6 +1243,131 @@ describe('Herald API', () => {
                     .from(publisherCredentials)
                     .all()
             ).toEqual([{ state: 'active' }])
+        } finally {
+            provider.stop()
+            closeDatabase(database)
+        }
+    })
+
+    it('verifies and stores an explicit LinkedIn organization destination', async () => {
+        const provider = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                const url = new URL(request.url)
+                if (url.pathname === '/token') {
+                    return Response.json({
+                        access_token: 'linkedin-organization-access-token',
+                        refresh_token: 'linkedin-organization-refresh-token',
+                        expires_in: 3600,
+                        scope: 'openid profile w_organization_social rw_organization_admin',
+                        token_type: 'Bearer',
+                    })
+                }
+                if (url.pathname === '/v2/userinfo') {
+                    return Response.json({ sub: 'member-42', name: 'Herald Operator' })
+                }
+                if (url.pathname === '/rest/organizations/12345') {
+                    expect(request.headers.get('authorization')).toBe(
+                        'Bearer linkedin-organization-access-token'
+                    )
+                    return Response.json({ id: 12345, localizedName: 'Tala Web' })
+                }
+                return new Response('not found', { status: 404 })
+            },
+        })
+        const providerOrigin = provider.url.origin
+        const authorizationServer: OAuthAuthorizationServer = {
+            issuer: providerOrigin,
+            authorizationEndpoint: new URL('/authorize', provider.url).toString(),
+            tokenEndpoint: new URL('/token', provider.url).toString(),
+            pkce: 'disabled',
+        }
+        const { app, database } = createFixture({
+            linkedin: {
+                clientId: 'linkedin-client-id',
+                clientSecret: 'linkedin-client-secret',
+                authorizationServer,
+                profileClient: createLinkedInMemberProfileClient({ baseUrl: providerOrigin }),
+                organizationClient: createLinkedInOrganizationClient({ baseUrl: providerOrigin }),
+            },
+        })
+
+        try {
+            const cookie = await signUp(app, 'organization-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Organization Project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Tala Web Page', profile: 'linkedin' }),
+                }
+            )
+            const channelBody = (await channelResponse.json()) as { channel: { id: string } }
+
+            const startResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/linkedin/connect`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        destination: { type: 'organization', id: '12345' },
+                    }),
+                }
+            )
+            expect(startResponse.status).toBe(200)
+            const startBody = (await startResponse.json()) as {
+                scopes: string[]
+                authorizationUrl: string
+            }
+            expect(startBody.scopes).toEqual([
+                'openid',
+                'profile',
+                'rw_organization_admin',
+                'w_organization_social',
+            ])
+            const authorizationUrl = new URL(startBody.authorizationUrl)
+            expect(authorizationUrl.searchParams.get('scope')).toBe(
+                'openid profile rw_organization_admin w_organization_social'
+            )
+            const state = authorizationUrl.searchParams.get('state')
+            expect(state).toBeString()
+
+            const callbackResponse = await app.handle(
+                new Request(
+                    `${baseURL}/api/oauth/linkedin/callback?code=organization-authorization-code&state=${encodeURIComponent(state ?? '')}`,
+                    { headers: { cookie } }
+                )
+            )
+            expect(callbackResponse.status).toBe(303)
+            expect(callbackResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=connected'
+            )
+
+            const listResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publishers`,
+                cookie
+            )
+            expect(listResponse.status).toBe(200)
+            const listBody = (await listResponse.json()) as {
+                connections: Array<Record<string, unknown>>
+            }
+            expect(listBody.connections[0]).toMatchObject({
+                externalAccountId: 'member-42',
+                destination: {
+                    type: 'organization',
+                    id: '12345',
+                    name: 'Tala Web',
+                },
+                scopes: ['openid', 'profile', 'rw_organization_admin', 'w_organization_social'],
+            })
         } finally {
             provider.stop()
             closeDatabase(database)

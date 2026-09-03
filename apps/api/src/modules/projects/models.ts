@@ -368,6 +368,14 @@ export const publisherConnectionSchema = Type.Object({
     kind: Type.String({ minLength: 1 }),
     credentialId: Type.String({ minLength: 1 }),
     endpointUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    destination: Type.Union([
+        Type.Object({
+            type: Type.Union([Type.Literal('member'), Type.Literal('organization')]),
+            id: Type.String({ minLength: 1 }),
+            name: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+        }),
+        Type.Null(),
+    ]),
     authentication: Type.Union([
         Type.Object({ kind: Type.Literal('none') }),
         Type.Object({ kind: Type.Literal('bearer') }),
@@ -397,6 +405,18 @@ export const linkedInConnectionSchema = Type.Object({
     provider: Type.Literal('linkedin'),
     scopes: Type.Array(Type.String({ minLength: 1 })),
     authorizationUrl: Type.String({ minLength: 1 }),
+})
+
+export const linkedInConnectionBody = Type.Object({
+    destination: Type.Optional(
+        Type.Union([
+            Type.Object({ type: Type.Literal('member') }),
+            Type.Object({
+                type: Type.Literal('organization'),
+                id: Type.String({ minLength: 1, maxLength: 64 }),
+            }),
+        ])
+    ),
 })
 
 export const customHttpConnectionBody = Type.Object({

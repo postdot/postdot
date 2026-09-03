@@ -6,18 +6,23 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@herald/ui/components/empty'
+import { Input } from '@herald/ui/components/input'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { LinkIcon } from '@solar-icons/react/bold/link'
+import { useState } from 'react'
 
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
-import type { Channel, PublisherConnection } from '@/lib/api'
+import type { Channel, LinkedInConnectionDestination, PublisherConnection } from '@/lib/api'
 
 interface PublisherConnectionPanelProps {
     readonly channels: readonly Channel[]
     readonly connections: readonly PublisherConnection[]
     readonly pending: boolean
-    readonly onStartLinkedInConnection: (channelId: string) => Promise<void>
+    readonly onStartLinkedInConnection: (
+        channelId: string,
+        destination?: LinkedInConnectionDestination
+    ) => Promise<void>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
 }
 
@@ -28,6 +33,7 @@ export function PublisherConnectionPanel({
     onStartLinkedInConnection,
     onDisconnectPublisher,
 }: PublisherConnectionPanelProps) {
+    const [organizationIds, setOrganizationIds] = useState<Record<string, string>>({})
     const connectionsByChannel = new Map(
         connections.map(connection => [connection.channelId, connection])
     )
@@ -83,9 +89,9 @@ export function PublisherConnectionPanel({
                                         </p>
                                     ) : (
                                         <p className="mt-2 text-sm text-muted-foreground">
-                                            LinkedIn member ·{' '}
-                                            {connection.externalAccountName ??
-                                                connection.externalAccountId}
+                                            {connection.destination?.type === 'organization'
+                                                ? `LinkedIn page · ${connection.destination.name ?? connection.destination.id}`
+                                                : `LinkedIn member · ${connection.externalAccountName ?? connection.externalAccountId}`}
                                         </p>
                                     )}
                                     {connection !== undefined && connection.state !== 'active' ? (
@@ -97,7 +103,7 @@ export function PublisherConnectionPanel({
                                 </div>
 
                                 {channel.profileId === 'linkedin' && connection === undefined ? (
-                                    <div className="mt-4 grid gap-3 sm:mt-0 sm:min-w-72">
+                                    <div className="mt-4 grid gap-4 sm:mt-0 sm:min-w-80">
                                         <Button
                                             size="sm"
                                             onClick={() =>
@@ -107,6 +113,51 @@ export function PublisherConnectionPanel({
                                             <AddIcon aria-hidden="true" />
                                             Connect LinkedIn
                                         </Button>
+                                        <form
+                                            className="grid gap-2"
+                                            onSubmit={event => {
+                                                event.preventDefault()
+                                                const id = organizationIds[channel.id]?.trim()
+                                                if (id === undefined || id.length === 0) return
+                                                void onStartLinkedInConnection(channel.id, {
+                                                    type: 'organization',
+                                                    id,
+                                                })
+                                            }}>
+                                            <label
+                                                className="text-xs text-muted-foreground"
+                                                htmlFor={`linkedin-organization-${channel.id}`}>
+                                                Connect a LinkedIn page
+                                            </label>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    id={`linkedin-organization-${channel.id}`}
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]+"
+                                                    placeholder="Organization ID"
+                                                    value={organizationIds[channel.id] ?? ''}
+                                                    onChange={event =>
+                                                        setOrganizationIds(current => ({
+                                                            ...current,
+                                                            [channel.id]: event.target.value,
+                                                        }))
+                                                    }
+                                                    aria-describedby={`linkedin-organization-help-${channel.id}`}
+                                                />
+                                                <Button
+                                                    type="submit"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled={pending}>
+                                                    Connect page
+                                                </Button>
+                                            </div>
+                                            <p
+                                                id={`linkedin-organization-help-${channel.id}`}
+                                                className="text-xs text-muted-foreground">
+                                                The page is checked before the connection is saved.
+                                            </p>
+                                        </form>
                                     </div>
                                 ) : channel.profileId === 'linkedin' && connection !== undefined ? (
                                     <Button

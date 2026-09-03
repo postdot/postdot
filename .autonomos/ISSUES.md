@@ -154,7 +154,7 @@
 - Evidence: A local database created from an earlier migration history contains
   tables and migration records that do not match the five migrations currently
   committed. Starting the API then fails with a low-level `table account already
-  exists` error. At the same time, the Vite development proxy always targets port
+exists` error. At the same time, the Vite development proxy always targets port
   `3000`, which is already used by another local project, so the Herald dashboard
   sends API requests to the wrong server when Herald's API is unavailable.
 - Impact: A new contributor or operator cannot tell whether startup failed because
@@ -471,4 +471,28 @@
   publication workflow in realistic use, including automatic and manual channels,
   failures, edits, and recovery, without reintroducing a release-oriented MVP
   boundary.
-- Tasks: EVAL-53 (completed; repeat periodically), EVAL-54 (blocked: destination identity unresolved)
+- Tasks: EVAL-53 (completed; repeat periodically), EVAL-54 (blocked pending live approval), PUB-55 (completed)
+
+## [ISSUE-022] Separate LinkedIn authorization principals from publication destinations
+
+- Type: problem
+- Status: resolved
+- Evidence: The current LinkedIn publisher stores the authenticated member ID as
+  the only external account identity and uses it as the Posts API author. This
+  makes a controlled validation publish to a company page impossible: the OAuth
+  principal and the page that should publish are different LinkedIn entities.
+- Impact: Herald could publish to the wrong LinkedIn destination while the
+  connection appears healthy. Storing the page identity on the OAuth credential
+  would also prevent one authorized member credential from safely serving several
+  project channels or pages.
+- Desired outcome: A LinkedIn connection explicitly records whether its
+  publication destination is a member or an organization page. The provider
+  adapter builds the corresponding author and media-owner URN, while the
+  encrypted credential remains the project-owned authorization of the member who
+  granted access.
+- Tasks: PUB-55 (completed), EVAL-54 (blocked until an action-time destination and content are approved)
+- Decision: [ADR-031](decisions/ADR-031-separate-linkedin-principal-and-destination.md)
+- Resolution: LinkedIn credentials now retain the OAuth member principal while
+  each project publisher connection records an explicit member or organization
+  destination. Organization IDs are permission-checked after OAuth, and both
+  text and image delivery use the persisted destination URN.

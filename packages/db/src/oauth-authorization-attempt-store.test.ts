@@ -80,7 +80,10 @@ describe('OAuth authorization attempt store', () => {
 
         try {
             const input = await createAttemptInput(fixture, 'raw-state-value')
-            const result = await fixture.store.createAuthorizationAttempt(input)
+            const result = await fixture.store.createAuthorizationAttempt({
+                ...input,
+                context: { destination: { type: 'organization', id: '12345' } },
+            })
 
             expect(result.kind).toBe('created')
             if (result.kind !== 'created') return
@@ -90,6 +93,7 @@ describe('OAuth authorization attempt store', () => {
                 connectedByActorId: fixture.project.actor.id,
                 providerId: 'linkedin',
                 scopes: ['openid', 'w_member_social'],
+                context: { destination: { type: 'organization', id: '12345' } },
                 expiresAt: now + 60_000,
             })
             expect(result.attempt).not.toHaveProperty('state')

@@ -9,7 +9,7 @@ import {
 
 const input = {
     accessToken: 'access-token-secret',
-    memberId: 'member-42',
+    destination: { type: 'member' as const, id: 'member-42' },
     commentary: 'Hello from Herald',
 } as const
 
@@ -92,6 +92,29 @@ describe('LinkedIn text publisher', () => {
         expect(() => createLinkedInTextPublisher({ apiVersion: 'latest' })).toThrow('YYYYMM format')
     })
 
+    it('uses an organization destination without changing the OAuth principal', async () => {
+        let payload: Record<string, unknown> | undefined
+        const publisher = createPublisher(async (_input, init) => {
+            payload = JSON.parse(String(init?.body)) as Record<string, unknown>
+            return new Response(null, {
+                status: 201,
+                headers: { 'x-restli-id': 'urn:li:share:organization-post-42' },
+            })
+        })
+
+        await expect(
+            publisher.publishText({
+                accessToken: input.accessToken,
+                destination: { type: 'organization', id: '12345' },
+                commentary: input.commentary,
+            })
+        ).resolves.toMatchObject({
+            type: 'published',
+            externalId: 'urn:li:share:organization-post-42',
+        })
+        expect(payload?.author).toBe('urn:li:organization:12345')
+    })
+
     it('returns a permanent input failure without dispatching a request', async () => {
         let calls = 0
         const publisher = createPublisher(async () => {
@@ -106,6 +129,25 @@ describe('LinkedIn text publisher', () => {
             effectOccurred: false,
             code: 'invalid_input',
             errorMessage: 'LinkedIn commentary must not be blank',
+        })
+        expect(calls).toBe(0)
+    })
+
+    it('rejects malformed organization identifiers before dispatch', async () => {
+        let calls = 0
+        const publisher = createPublisher(async () => {
+            calls += 1
+            return new Response(null, { status: 201 })
+        })
+
+        const outcome = await publisher.publishText({
+            ...input,
+            destination: { type: 'organization', id: 'org-42' },
+        })
+
+        expect(outcome).toMatchObject({
+            type: 'permanent_failure',
+            code: 'invalid_input',
         })
         expect(calls).toBe(0)
     })
@@ -239,7 +281,7 @@ describe('LinkedIn image publisher', () => {
 
         const uploadOutcome = await publisher.uploadImage({
             accessToken: input.accessToken,
-            memberId: input.memberId,
+            destination: input.destination,
             media: {
                 contentType: 'image/png',
                 size: imageBytes.byteLength,
@@ -248,7 +290,7 @@ describe('LinkedIn image publisher', () => {
         })
         const publishOutcome = await publisher.publishImage({
             accessToken: input.accessToken,
-            memberId: input.memberId,
+            destination: input.destination,
             commentary: input.commentary,
             imageId,
             accessibilityText: '  Herald image  ',
@@ -307,7 +349,7 @@ describe('LinkedIn image publisher', () => {
 
         const outcome = await publisher.uploadImage({
             accessToken: input.accessToken,
-            memberId: input.memberId,
+            destination: input.destination,
             media: {
                 contentType: 'image/png',
                 size: 0,
@@ -337,7 +379,7 @@ describe('LinkedIn image publisher', () => {
 
         const outcome = await publisher.uploadImage({
             accessToken: input.accessToken,
-            memberId: input.memberId,
+            destination: input.destination,
             media: {
                 contentType: 'image/png',
                 size: imageBytes.byteLength,
@@ -359,7 +401,7 @@ describe('LinkedIn image publisher', () => {
         await expect(
             rateLimited.uploadImage({
                 accessToken: input.accessToken,
-                memberId: input.memberId,
+                destination: input.destination,
                 media: {
                     contentType: 'image/png',
                     size: imageBytes.byteLength,
@@ -390,7 +432,7 @@ describe('LinkedIn image publisher', () => {
         await expect(
             providerFailure.uploadImage({
                 accessToken: input.accessToken,
-                memberId: input.memberId,
+                destination: input.destination,
                 media: {
                     contentType: 'image/png',
                     size: imageBytes.byteLength,
@@ -415,7 +457,7 @@ describe('LinkedIn image publisher', () => {
         await expect(
             publisher.uploadImage({
                 accessToken: input.accessToken,
-                memberId: input.memberId,
+                destination: input.destination,
                 media: {
                     contentType: 'image/png',
                     size: imageBytes.byteLength,

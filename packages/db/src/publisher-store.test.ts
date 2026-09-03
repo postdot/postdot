@@ -154,6 +154,11 @@ describe('publisher connection store', () => {
                 providerId: 'linkedin',
                 scopes: ['openid', 'profile', 'w_member_social'],
                 state: 'active',
+                destination: {
+                    type: 'member',
+                    id: 'member-42',
+                    name: 'Herald Operator',
+                },
             })
             expect(result.connection).not.toHaveProperty('accessToken')
             expect(result.connection).not.toHaveProperty('refreshToken')
@@ -167,6 +172,71 @@ describe('publisher connection store', () => {
                     .all()
                     .map(row => row.table)
             ).not.toContain('account')
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('persists an organization destination separately from the OAuth member', async () => {
+        const fixture = await createFixture()
+
+        try {
+            const credential = await createCredential(fixture, {
+                scopes: ['openid', 'profile', 'w_organization_social', 'rw_organization_admin'],
+            })
+            const result = fixture.publisherStore.createPublisherConnection({
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
+                subjectId: 'user-1',
+                kind: 'linkedin',
+                credentialId: credential.id,
+                destination: {
+                    type: 'organization',
+                    id: '12345',
+                    name: 'Tala Web',
+                },
+            })
+
+            expect(result.kind).toBe('created')
+            if (result.kind !== 'created') return
+            expect(result.connection.externalAccountId).toBe('member-42')
+            expect(result.connection.destination).toEqual({
+                type: 'organization',
+                id: '12345',
+                name: 'Tala Web',
+            })
+            expect(
+                fixture.publisherStore.listPublisherConnections(
+                    fixture.project.project.id,
+                    'user-1'
+                )
+            ).toMatchObject([
+                {
+                    destination: { type: 'organization', id: '12345', name: 'Tala Web' },
+                },
+            ])
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('rejects destinations on custom HTTP and unknown publisher connections', async () => {
+        const fixture = await createFixture()
+
+        try {
+            const credential = await createCredential(fixture, { providerId: 'custom_http' })
+            expect(
+                fixture.publisherStore.createPublisherConnection({
+                    projectId: fixture.project.project.id,
+                    channelId: fixture.channel.id,
+                    subjectId: 'user-1',
+                    kind: 'custom_http',
+                    credentialId: credential.id,
+                    endpointUrl: 'https://example.test',
+                    authentication: { kind: 'none' },
+                    destination: { type: 'member', id: 'member-42', name: null },
+                })
+            ).toEqual({ kind: 'invalid_connection' })
         } finally {
             closeDatabase(fixture.database)
         }

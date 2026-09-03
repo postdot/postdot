@@ -17,6 +17,7 @@ export interface CreateAuthorizationAttemptInput {
     readonly callbackUri: string
     readonly scopes: readonly string[]
     readonly returnPath: string
+    readonly context?: Readonly<Record<string, unknown>>
     readonly stateDigest: Uint8Array
     readonly codeVerifier: string | null
 }
@@ -30,6 +31,7 @@ export interface AuthorizationAttempt {
     readonly callbackUri: string
     readonly scopes: readonly string[]
     readonly returnPath: string
+    readonly context: Readonly<Record<string, unknown>>
     readonly expiresAt: number
     readonly createdAt: number
 }
@@ -77,6 +79,7 @@ interface AuthorizationAttemptRow {
     readonly callbackUri: string
     readonly scopesJson: string
     readonly returnPath: string
+    readonly contextJson: string
     readonly status: AuthorizationAttemptStatus
     readonly pkceEncryptionVersion: number | null
     readonly pkceEncryptionKeyId: string | null
@@ -95,6 +98,7 @@ const attemptColumns = `
     callback_uri as callbackUri,
     scopes as scopesJson,
     return_path as returnPath,
+    context_json as contextJson,
     status,
     pkce_encryption_version as pkceEncryptionVersion,
     pkce_encryption_key_id as pkceEncryptionKeyId,
@@ -116,6 +120,29 @@ function parseScopes(scopesJson: string): readonly string[] {
     return normalizeScopes(parsed)
 }
 
+function parseContext(contextJson: string): Readonly<Record<string, unknown>> {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(contextJson)
+    } catch {
+        throw new Error('Stored OAuth authorization attempt context is not valid JSON')
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Stored OAuth authorization attempt context must be a JSON object')
+    }
+    return parsed as Readonly<Record<string, unknown>>
+}
+
+function serializeContext(context: Readonly<Record<string, unknown>> | undefined): string {
+    try {
+        const serialized = JSON.stringify(context ?? {})
+        if (serialized === undefined) throw new Error('undefined JSON')
+        return serialized
+    } catch {
+        throw new Error('OAuth authorization attempt context must be JSON serializable')
+    }
+}
+
 function toAttempt(row: AuthorizationAttemptRow): AuthorizationAttempt {
     return {
         id: row.id,
@@ -126,6 +153,7 @@ function toAttempt(row: AuthorizationAttemptRow): AuthorizationAttempt {
         callbackUri: row.callbackUri,
         scopes: parseScopes(row.scopesJson),
         returnPath: row.returnPath,
+        context: parseContext(row.contextJson),
         expiresAt: row.expiresAt,
         createdAt: row.createdAt,
     }
@@ -232,6 +260,7 @@ export function createAuthorizationAttemptStore(
             callbackUri: string,
             scopesJson: string,
             returnPath: string,
+            contextJson: string,
             stateDigest: Uint8Array,
             encryptionVersion: number | null,
             encryptionKeyId: string | null,
@@ -250,6 +279,7 @@ export function createAuthorizationAttemptStore(
             callback_uri,
             scopes,
             return_path,
+            context_json,
             state_digest,
             status,
             pkce_encryption_version,
@@ -260,7 +290,7 @@ export function createAuthorizationAttemptStore(
             created_at,
             updated_at
         ) values (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'pending', ?10, ?11, ?12, ?13, ?14, ?15, ?15
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'pending', ?11, ?12, ?13, ?14, ?15, ?16, ?16
         )
         on conflict (state_digest) do nothing
     `)
@@ -337,6 +367,7 @@ export function createAuthorizationAttemptStore(
             const callbackUri = requireNonBlank(input.callbackUri, 'callbackUri')
             const returnPath = validateReturnPath(input.returnPath)
             const scopes = normalizeScopes(input.scopes)
+            const contextJson = serializeContext(input.context)
             const stateDigest = requireStateDigest(input.stateDigest)
             const codeVerifier = requireCodeVerifier(input.codeVerifier)
             if (loadBindingStatement.get(projectId, channelId, connectedByActorId) === null) {
@@ -356,6 +387,7 @@ export function createAuthorizationAttemptStore(
                 callbackUri,
                 scopes,
                 returnPath,
+                context: parseContext(contextJson),
                 expiresAt: timestamp + ttlMs,
                 createdAt: timestamp,
             }
@@ -375,6 +407,7 @@ export function createAuthorizationAttemptStore(
                 attempt.callbackUri,
                 JSON.stringify(attempt.scopes),
                 attempt.returnPath,
+                contextJson,
                 stateDigest,
                 verifier?.version ?? null,
                 verifier?.keyId ?? null,

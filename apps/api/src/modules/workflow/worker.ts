@@ -27,6 +27,7 @@ import {
     LINKEDIN_PROVIDER,
     readLinkedInTextContent,
     type LinkedInImagePublisher,
+    type LinkedInDestination,
     type LinkedInTextPublisher,
 } from '@herald/linkedin'
 import {
@@ -251,17 +252,22 @@ async function performExternalEffect(input: {
         return permanentFailure('The publisher account access token is unavailable')
     }
 
+    const destination = toLinkedInDestination(target.destination)
+    if (destination === null) {
+        return permanentFailure('The LinkedIn publication destination is unavailable')
+    }
+
     const outcome =
         target.media.length === 0
             ? await publishLinkedInText({
                   accessToken,
-                  memberId: target.externalAccountId,
+                  destination,
                   content: target.content,
                   publisher: linkedInPublisher,
               })
             : await publishLinkedInImage({
                   accessToken,
-                  memberId: target.externalAccountId,
+                  destination,
                   target,
                   media: input.media,
                   publisher: linkedInImagePublisher,
@@ -283,7 +289,7 @@ async function performExternalEffect(input: {
 
 async function publishLinkedInText(input: {
     readonly accessToken: string
-    readonly memberId: string
+    readonly destination: LinkedInDestination
     readonly content: Readonly<Record<string, unknown>>
     readonly publisher: LinkedInTextPublisher
 }): Promise<ExternalEffectOutcome> {
@@ -294,14 +300,14 @@ async function publishLinkedInText(input: {
 
     return input.publisher.publishText({
         accessToken: input.accessToken,
-        memberId: input.memberId,
+        destination: input.destination,
         commentary,
     })
 }
 
 async function publishLinkedInImage(input: {
     readonly accessToken: string
-    readonly memberId: string
+    readonly destination: LinkedInDestination
     readonly target: PublisherExecutionTarget
     readonly media: MediaAssetStore | undefined
     readonly publisher: LinkedInImagePublisher
@@ -309,7 +315,7 @@ async function publishLinkedInImage(input: {
     readonly now: number
 }): Promise<ExternalEffectOutcome> {
     if (input.target.media.length !== 1) {
-        return permanentFailure('LinkedIn member image posts require exactly one image')
+        return permanentFailure('LinkedIn image posts require exactly one image')
     }
     const targetMedia = input.target.media[0]
     if (targetMedia === undefined) {
@@ -358,7 +364,7 @@ async function publishLinkedInImage(input: {
     if (current.state === 'uploaded' && current.remoteMediaId !== null) {
         return input.publisher.publishImage({
             accessToken: input.accessToken,
-            memberId: input.memberId,
+            destination: input.destination,
             commentary,
             imageId: current.remoteMediaId,
             accessibilityText: targetMedia.accessibilityText,
@@ -375,7 +381,7 @@ async function publishLinkedInImage(input: {
         if (completed?.state === 'uploaded' && completed.remoteMediaId !== null) {
             return input.publisher.publishImage({
                 accessToken: input.accessToken,
-                memberId: input.memberId,
+                destination: input.destination,
                 commentary,
                 imageId: completed.remoteMediaId,
                 accessibilityText: targetMedia.accessibilityText,
@@ -444,7 +450,7 @@ async function publishLinkedInImage(input: {
     try {
         upload = await input.publisher.uploadImage({
             accessToken: input.accessToken,
-            memberId: input.memberId,
+            destination: input.destination,
             media: {
                 contentType: targetMedia.contentType,
                 size: targetMedia.byteSize,
@@ -503,11 +509,28 @@ async function publishLinkedInImage(input: {
 
     return input.publisher.publishImage({
         accessToken: input.accessToken,
-        memberId: input.memberId,
+        destination: input.destination,
         commentary,
         imageId: upload.remoteMediaId,
         accessibilityText: targetMedia.accessibilityText,
     })
+}
+
+function toLinkedInDestination(
+    value: PublisherExecutionTarget['destination']
+): LinkedInDestination | null {
+    if (value === null) return null
+    if (value.type !== 'member' && value.type !== 'organization') return null
+    const id = value.id.trim()
+    if (
+        id.length === 0 ||
+        /\s/.test(id) ||
+        id.startsWith('urn:') ||
+        (value.type === 'organization' && !/^[1-9]\d*$/.test(id))
+    ) {
+        return null
+    }
+    return { type: value.type, id }
 }
 
 async function performCustomHttpEffect(

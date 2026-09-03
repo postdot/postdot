@@ -13,6 +13,7 @@ import {
     api,
     type Channel,
     type DuePublication,
+    type LinkedInConnectionDestination,
     type Project,
     type PublisherConnection,
     type PublicationSummary,
@@ -102,7 +103,10 @@ export interface ProjectDashboardContextValue extends ProjectData {
     readonly onPostTitleChange: (value: string) => void
     readonly onPublicationTargetsChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
     readonly onSourceMediaChange: (value: MediaSelection[]) => void
-    readonly onStartLinkedInConnection: (channelId: string) => Promise<void>
+    readonly onStartLinkedInConnection: (
+        channelId: string,
+        destination?: LinkedInConnectionDestination
+    ) => Promise<void>
     readonly onPublish: (publicationId: string) => Promise<void>
     readonly pending: boolean
     readonly postContent: string
@@ -225,11 +229,15 @@ export function ProjectDashboardProvider({
         })
     }
 
-    async function handleStartLinkedInConnection(channelId: string) {
+    async function handleStartLinkedInConnection(
+        channelId: string,
+        destination?: LinkedInConnectionDestination
+    ) {
         await runAction(async () => {
             const { authorizationUrl } = await api.startLinkedInPublisherConnection(
                 project.id,
-                channelId
+                channelId,
+                destination
             )
             window.location.assign(authorizationUrl)
         })

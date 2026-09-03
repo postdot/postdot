@@ -4,6 +4,7 @@ export const LINKEDIN_PROVIDER = 'linkedin' as const
 export const LINKEDIN_API_BASE_URL = 'https://api.linkedin.com'
 export const LINKEDIN_POSTS_PATH = '/rest/posts'
 export const LINKEDIN_IMAGES_PATH = '/rest/images'
+export const LINKEDIN_ORGANIZATIONS_PATH = '/rest/organizations'
 export const LINKEDIN_USERINFO_PATH = '/v2/userinfo'
 export const LINKEDIN_OAUTH_ISSUER = 'https://www.linkedin.com/oauth'
 export const LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT =
@@ -11,8 +12,20 @@ export const LINKEDIN_OAUTH_AUTHORIZATION_ENDPOINT =
 export const LINKEDIN_OAUTH_TOKEN_ENDPOINT = 'https://www.linkedin.com/oauth/v2/accessToken'
 export const LINKEDIN_RESTLI_PROTOCOL_VERSION = '2.0.0'
 export const LINKEDIN_DEFAULT_API_VERSION = '202608'
-export const LINKEDIN_REQUIRED_SCOPES = ['openid', 'profile', 'w_member_social'] as const
+export const LINKEDIN_MEMBER_REQUIRED_SCOPES = ['openid', 'profile', 'w_member_social'] as const
+export const LINKEDIN_ORGANIZATION_REQUIRED_SCOPES = [
+    'openid',
+    'profile',
+    'w_organization_social',
+    'rw_organization_admin',
+] as const
+/** @deprecated Use LINKEDIN_MEMBER_REQUIRED_SCOPES for member connections. */
+export const LINKEDIN_REQUIRED_SCOPES = LINKEDIN_MEMBER_REQUIRED_SCOPES
 export const LINKEDIN_DEFAULT_TIMEOUT_MS = 30_000
+
+export type LinkedInDestination =
+    | { readonly type: 'member'; readonly id: string }
+    | { readonly type: 'organization'; readonly id: string }
 
 export type LinkedInPermanentFailureCode =
     | 'invalid_input'
@@ -70,7 +83,7 @@ export type LinkedInMediaUploadOutcome =
 
 export interface PublishLinkedInTextInput {
     readonly accessToken: string
-    readonly memberId: string
+    readonly destination: LinkedInDestination
     readonly commentary: string
 }
 
@@ -92,7 +105,7 @@ export interface LinkedInTextPublisher {
 
 export interface PublishLinkedInImageUploadInput {
     readonly accessToken: string
-    readonly memberId: string
+    readonly destination: LinkedInDestination
     readonly media: {
         readonly contentType: 'image/jpeg' | 'image/png'
         readonly size: number
@@ -102,7 +115,7 @@ export interface PublishLinkedInImageUploadInput {
 
 export interface PublishLinkedInImagePostInput {
     readonly accessToken: string
-    readonly memberId: string
+    readonly destination: LinkedInDestination
     readonly commentary: string
     readonly imageId: string
     readonly accessibilityText?: string | null
@@ -127,4 +140,16 @@ export interface LinkedInMemberProfile {
 
 export interface LinkedInMemberProfileClient {
     getProfile(accessToken: string): Promise<LinkedInMemberProfile>
+}
+
+export interface LinkedInOrganizationProfile {
+    readonly id: string
+    readonly name: string | null
+}
+
+export interface LinkedInOrganizationClient {
+    getOrganization(
+        accessToken: string,
+        organizationId: string
+    ): Promise<LinkedInOrganizationProfile>
 }

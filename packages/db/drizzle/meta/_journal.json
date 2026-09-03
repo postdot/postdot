@@ -64,6 +64,13 @@
             "when": 1788442062715,
             "tag": "0008_daffy_marvel_boy",
             "breakpoints": true
+        },
+        {
+            "idx": 9,
+            "version": "6",
+            "when": 1788455510950,
+            "tag": "0009_legal_bucky",
+            "breakpoints": true
         }
     ]
 }

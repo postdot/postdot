@@ -196,7 +196,7 @@ describe('publication worker', () => {
                 connectedByActorId: project.actor.id,
                 providerId: 'linkedin',
                 externalAccountId: 'member-42',
-                scopes: ['openid', 'profile', 'w_member_social'],
+                scopes: ['openid', 'profile', 'w_organization_social', 'rw_organization_admin'],
                 accessToken: 'linkedin-access-token',
             })
             expect(credential.kind).toBe('created')
@@ -210,6 +210,11 @@ describe('publication worker', () => {
                     subjectId: 'user-1',
                     kind: 'linkedin',
                     credentialId: credential.credential.id,
+                    destination: {
+                        type: 'organization',
+                        id: '12345',
+                        name: 'Tala Web',
+                    },
                 }).kind
             ).toBe('created')
 
@@ -288,7 +293,7 @@ describe('publication worker', () => {
                 )
             ).toBe(true)
             expect(JSON.parse(requests[0]?.body ?? '{}')).toMatchObject({
-                author: 'urn:li:person:member-42',
+                author: 'urn:li:organization:12345',
                 commentary: 'First LinkedIn publication',
             })
 

@@ -114,6 +114,7 @@ export type {
     CreatePublisherConnectionResult,
     DisconnectPublisherConnectionInput,
     DisconnectPublisherConnectionResult,
+    PublisherConnectionDestination,
     PublisherConnection,
     PublisherExecutionMedia,
     PublisherExecutionTarget,

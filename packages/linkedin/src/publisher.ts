@@ -20,8 +20,9 @@ import {
     type PublishLinkedInTextInput,
 } from './contract'
 import {
-    createLinkedInMemberImagePostPayload,
-    createLinkedInMemberTextPostPayload,
+    createLinkedInDestinationUrn,
+    createLinkedInImagePostPayload,
+    createLinkedInTextPostPayload,
 } from './payload'
 
 export function createLinkedInTextPublisher(
@@ -53,8 +54,8 @@ export function createLinkedInTextPublisher(
                             'x-restli-protocol-version': LINKEDIN_RESTLI_PROTOCOL_VERSION,
                         },
                         body: JSON.stringify(
-                            createLinkedInMemberTextPostPayload({
-                                memberId: input.memberId.trim(),
+                            createLinkedInTextPostPayload({
+                                destination: normalizeDestination(input.destination),
                                 commentary: input.commentary,
                             })
                         ),
@@ -113,7 +114,9 @@ export function createLinkedInImagePublisher(
                         headers: linkedInJsonHeaders(input.accessToken, apiVersion),
                         body: JSON.stringify({
                             initializeUploadRequest: {
-                                owner: `urn:li:person:${input.memberId.trim()}`,
+                                owner: createLinkedInDestinationUrn(
+                                    normalizeDestination(input.destination)
+                                ),
                             },
                         }),
                         signal: controller.signal,
@@ -230,8 +233,8 @@ export function createLinkedInImagePublisher(
                         method: 'POST',
                         headers: linkedInJsonHeaders(input.accessToken, apiVersion),
                         body: JSON.stringify(
-                            createLinkedInMemberImagePostPayload({
-                                memberId: input.memberId.trim(),
+                            createLinkedInImagePostPayload({
+                                destination: normalizeDestination(input.destination),
                                 commentary: input.commentary,
                                 imageId: input.imageId.trim(),
                                 accessibilityText: input.accessibilityText,
@@ -268,14 +271,9 @@ function validateInput(input: PublishLinkedInTextInput): LinkedInPublishOutcome 
     if (input.accessToken.trim().length === 0) {
         return permanentFailure('invalid_input', 'LinkedIn accessToken must not be blank')
     }
-    if (input.memberId.trim().length === 0 || /\s/.test(input.memberId)) {
-        return permanentFailure('invalid_input', 'LinkedIn memberId must be a non-whitespace value')
-    }
-    if (input.memberId.startsWith('urn:')) {
-        return permanentFailure(
-            'invalid_input',
-            'LinkedIn memberId must be the provider member identifier, not a URN'
-        )
+    const destinationError = validateDestination(input.destination)
+    if (destinationError !== null) {
+        return permanentFailure(destinationError.code, destinationError.errorMessage)
     }
     if (input.commentary.trim().length === 0) {
         return permanentFailure('invalid_input', 'LinkedIn commentary must not be blank')
@@ -526,7 +524,7 @@ function ambiguousMediaFailure(
 function validateImageUploadInput(
     input: PublishLinkedInImageUploadInput
 ): LinkedInMediaUploadOutcome | null {
-    const commonError = validateCommonInput(input.accessToken, input.memberId)
+    const commonError = validateCommonInput(input.accessToken, input.destination)
     if (commonError !== null) {
         return mediaPermanentFailure(commonError.code, commonError.errorMessage)
     }
@@ -548,7 +546,7 @@ function validateImageUploadInput(
 function validateImagePostInput(
     input: PublishLinkedInImagePostInput
 ): LinkedInPublishOutcome | null {
-    const commonError = validateCommonInput(input.accessToken, input.memberId)
+    const commonError = validateCommonInput(input.accessToken, input.destination)
     if (commonError !== null) {
         return permanentFailure(commonError.code, commonError.errorMessage)
     }
@@ -563,24 +561,48 @@ function validateImagePostInput(
 
 function validateCommonInput(
     accessToken: string,
-    memberId: string
+    destination: PublishLinkedInImageUploadInput['destination']
 ): { readonly code: LinkedInPermanentFailureCode; readonly errorMessage: string } | null {
     if (accessToken.trim().length === 0) {
         return { code: 'invalid_input', errorMessage: 'LinkedIn accessToken must not be blank' }
     }
-    if (memberId.trim().length === 0 || /\s/.test(memberId)) {
+    return validateDestination(destination)
+}
+
+function validateDestination(
+    destination: PublishLinkedInTextInput['destination']
+): { readonly code: LinkedInPermanentFailureCode; readonly errorMessage: string } | null {
+    if (destination.id.trim().length === 0 || /\s/.test(destination.id)) {
         return {
             code: 'invalid_input',
-            errorMessage: 'LinkedIn memberId must be a non-whitespace value',
+            errorMessage: 'LinkedIn destination id must be a non-whitespace value',
         }
     }
-    if (memberId.startsWith('urn:')) {
+    if (destination.id.startsWith('urn:')) {
         return {
             code: 'invalid_input',
-            errorMessage: 'LinkedIn memberId must be the provider member identifier, not a URN',
+            errorMessage: 'LinkedIn destination id must be an identifier, not a URN',
+        }
+    }
+    if (destination.type === 'organization' && !/^[1-9]\d*$/.test(destination.id)) {
+        return {
+            code: 'invalid_input',
+            errorMessage: 'LinkedIn organization destination id must be a positive numeric value',
+        }
+    }
+    if (destination.type !== 'member' && destination.type !== 'organization') {
+        return {
+            code: 'invalid_input',
+            errorMessage: 'LinkedIn destination type is not supported',
         }
     }
     return null
+}
+
+function normalizeDestination(
+    destination: PublishLinkedInTextInput['destination']
+): PublishLinkedInTextInput['destination'] {
+    return { ...destination, id: destination.id.trim() }
 }
 
 function linkedInJsonHeaders(accessToken: string, apiVersion: string): Record<string, string> {

@@ -1,8 +1,11 @@
 import { isCustomHttpAuthentication } from '@herald/core'
 import { CUSTOM_HTTP_PUBLISHER_KIND, normalizeCustomHttpEndpoint } from '@herald/custom-http'
+import type { PublisherConnectionDestination } from '@herald/db'
 import {
     LINKEDIN_PROVIDER,
-    LINKEDIN_REQUIRED_SCOPES,
+    LINKEDIN_MEMBER_REQUIRED_SCOPES,
+    LINKEDIN_ORGANIZATION_REQUIRED_SCOPES,
+    LinkedInOrganizationError,
     type LinkedInMemberProfile,
 } from '@herald/linkedin'
 import {
@@ -20,6 +23,7 @@ import {
     errorResponse,
     customHttpConnectionBody,
     customHttpConnectionResponse,
+    linkedInConnectionBody,
     linkedInConnectionSchema,
     projectParams,
     publisherConnectionsSchema,
@@ -193,8 +197,10 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     projectId: Type.String({ minLength: 1 }),
                     channelId: Type.String({ minLength: 1 }),
                 }),
+                body: Type.Optional(linkedInConnectionBody),
                 response: {
                     200: linkedInConnectionSchema,
+                    400: errorResponse,
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
@@ -208,7 +214,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, {
                         error: {
@@ -249,12 +255,25 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     })
                 }
 
+                const destination = normalizeLinkedInConnectionDestination(body?.destination)
+                if (destination === null) {
+                    return status(400, {
+                        error: {
+                            code: 'invalid_destination',
+                            message: 'The LinkedIn destination is invalid',
+                        },
+                    })
+                }
+
                 try {
                     const authorization = await createAuthorizationRequest({
                         authorizationServer: linkedin.authorizationServer,
                         clientId: linkedin.clientId,
                         callbackUri: publisher.callbackUri,
-                        scopes: LINKEDIN_REQUIRED_SCOPES,
+                        scopes:
+                            destination.type === 'organization'
+                                ? LINKEDIN_ORGANIZATION_REQUIRED_SCOPES
+                                : LINKEDIN_MEMBER_REQUIRED_SCOPES,
                     })
                     const attempt = await authorizationAttemptStore.createAuthorizationAttempt({
                         projectId: params.projectId,
@@ -264,6 +283,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         callbackUri: publisher.callbackUri,
                         scopes: authorization.scopes,
                         returnPath: '/dashboard',
+                        context: { destination },
                         stateDigest: await digestAuthorizationState(authorization.state),
                         codeVerifier: authorization.codeVerifier,
                     })
@@ -379,6 +399,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     | 'validate_response'
                     | 'exchange_authorization_code'
                     | 'fetch_profile'
+                    | 'fetch_destination'
                     | 'save_credential'
                     | 'create_connection' = 'validate_response'
                 try {
@@ -399,6 +420,33 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     })
                     callbackStage = 'fetch_profile'
                     const profile = await linkedin.profileClient.getProfile(tokenSet.accessToken)
+                    callbackStage = 'fetch_destination'
+                    const requestedDestination = readLinkedInAuthorizationDestination(
+                        consumed.attempt.context
+                    )
+                    if (requestedDestination === null) {
+                        return redirectPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            'invalid_callback'
+                        )
+                    }
+                    const destination =
+                        requestedDestination.type === 'organization'
+                            ? await linkedin.organizationClient.getOrganization(
+                                  tokenSet.accessToken,
+                                  requestedDestination.id
+                              )
+                            : {
+                                  type: 'member',
+                                  id: profile.id,
+                                  name: profile.name,
+                              }
+                    const normalizedDestination: PublisherConnectionDestination = {
+                        type: requestedDestination.type,
+                        id: destination.id,
+                        name: destination.name,
+                    }
                     const expiresAt = tokenExpiry(publisher.now(), tokenSet.expiresInSeconds)
                     callbackStage = 'save_credential'
                     const credential = await savePublisherCredential({
@@ -427,6 +475,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         subjectId: user.id,
                         kind: LINKEDIN_PROVIDER,
                         credentialId: credential.id,
+                        destination: normalizedDestination,
                     })
                     if (connection.kind !== 'created') {
                         return redirectPublisher(
@@ -459,7 +508,9 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     return redirectPublisher(
                         publisher.webOrigin,
                         consumed.attempt.returnPath,
-                        'provider_unavailable'
+                        isInvalidLinkedInDestinationError(error)
+                            ? 'invalid_destination'
+                            : 'provider_unavailable'
                     )
                 }
             }
@@ -629,6 +680,46 @@ function redactErrorMessage(message: string): string {
         .slice(0, 500)
 }
 
+type LinkedInAuthorizationDestination =
+    | { readonly type: 'member' }
+    | { readonly type: 'organization'; readonly id: string }
+
+function normalizeLinkedInConnectionDestination(
+    value:
+        | { readonly type: 'member' }
+        | { readonly type: 'organization'; readonly id: string }
+        | undefined
+): LinkedInAuthorizationDestination | null {
+    if (value === undefined || value.type === 'member') return { type: 'member' }
+    const id = value.id.trim()
+    return isPositiveNumericIdentifier(id) ? { type: 'organization', id } : null
+}
+
+function readLinkedInAuthorizationDestination(
+    context: Readonly<Record<string, unknown>>
+): LinkedInAuthorizationDestination | null {
+    const value = context.destination
+    if (value === undefined) return null
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
+
+    const destination = value as Record<string, unknown>
+    if (destination.type === 'member') return { type: 'member' }
+    if (destination.type !== 'organization' || typeof destination.id !== 'string') return null
+
+    const id = destination.id.trim()
+    return isPositiveNumericIdentifier(id) ? { type: 'organization', id } : null
+}
+
+function isPositiveNumericIdentifier(value: string): boolean {
+    return /^[1-9]\d*$/.test(value)
+}
+
+function isInvalidLinkedInDestinationError(error: unknown): boolean {
+    return (
+        error instanceof LinkedInOrganizationError && (error.status === 403 || error.status === 404)
+    )
+}
+
 function redirectPublisher(
     webOrigin: string,
     returnPath: string,
@@ -636,6 +727,7 @@ function redirectPublisher(
         | 'connected'
         | 'already_used'
         | 'invalid_callback'
+        | 'invalid_destination'
         | 'provider_unavailable'
         | 'publisher_exists'
         | 'incompatible_profile'
