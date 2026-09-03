@@ -138,15 +138,19 @@ versioned [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/market
 using the [LinkedIn Images API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api)
 for verified JPEG and PNG uploads. The opt-in smoke-test procedure above remains
 text-only until a disposable image test is explicitly approved.
-Better Auth is used only for Herald email/password sessions. Publisher OAuth
-credentials are project-owned and encrypted at rest using the required
-`HERALD_PUBLISHER_ENCRYPTION_KEY`; they must not be copied into the environment
-file or passed to the dashboard, CLI, or provider adapter by an operator.
+Better Auth is used only for Herald email/password sessions. Publisher access and
+refresh tokens are project-owned and encrypted at rest using the required
+`HERALD_PUBLISHER_ENCRYPTION_KEY`; token material must not be copied into the
+environment file or passed to the dashboard, CLI, or provider adapter by an
+operator. The encryption key itself is deployment configuration and must be
+provided to the API through a separately managed secret.
 
 Generate the current text and LCOV coverage reports for the Bun unit and integration
 suites with `bun run test:coverage`. Browser integration remains a separate
 Playwright run through `bun run test:e2e`. Coverage is reported for visibility;
 critical-path behavior, not a global percentage, is the merge requirement.
+
+## Production deployment and recovery
 
 On Linux x64, record the comparable M0 build and runtime footprint with:
 
@@ -211,6 +215,42 @@ docker run --rm \
 
 The commands without `--media` remain available for database-only recovery, but do
 not include stored media objects.
+
+### Publisher encryption key recovery
+
+A complete Herald recovery consists of the application bundle and the separately
+managed publisher encryption key. The `--media` bundle intentionally does not
+contain `HERALD_PUBLISHER_ENCRYPTION_KEY`; it contains encrypted publisher
+credential envelopes that cannot be used without the deployment key.
+
+Before creating a backup:
+
+1. Preserve the exact `HERALD_PUBLISHER_ENCRYPTION_KEY` in a secret manager or
+   offline escrow with access and retention controls separate from the backup
+   directory.
+2. Record `HERALD_PUBLISHER_ENCRYPTION_KEY_ID` with the backup metadata, but never
+   record the key value in the bundle, source control, logs, or command arguments.
+3. Protect the application bundle as sensitive data: it contains the database,
+   media, and encrypted credential material even though it does not contain the
+   decryption key.
+
+To recover publisher credentials:
+
+1. Stop Herald and restore the database and media bundle.
+2. Configure the same key and matching `HERALD_PUBLISHER_ENCRYPTION_KEY_ID` in
+   the deployment environment before starting the application.
+3. Start Herald and verify `/health` and `/ready`.
+4. Use the dashboard to confirm that the expected project connections are still
+   present. These endpoints and the connection list validate runtime and metadata;
+   they do not prove that a publisher secret can be decrypted.
+5. If credential recovery must be proven, perform one intentionally approved
+   provider operation against a controlled destination and verify its provider
+   acknowledgement and Herald audit outcome. Do not use a live destination solely
+   as a restore probe; if the outcome is uncertain, reconcile it before retrying.
+
+Do not generate a replacement key during restore: a new key cannot decrypt existing
+publisher credentials. If the original key is permanently lost, the credentials
+are unrecoverable and each affected publisher must be reconnected deliberately.
 
 The current workspace contains:
 

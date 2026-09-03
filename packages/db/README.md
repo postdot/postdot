@@ -41,3 +41,15 @@ Stop the application before restoring the complete bundle:
 ```sh
 bun apps/api/src/index.ts restore --media --database ./herald.sqlite --input ./backups/herald.bundle
 ```
+
+The complete bundle does not contain `HERALD_PUBLISHER_ENCRYPTION_KEY`. A complete
+application recovery therefore also requires the exact deployment key and its
+matching `HERALD_PUBLISHER_ENCRYPTION_KEY_ID`, preserved separately in a secret
+manager or offline escrow. Never put the key in the bundle, source control, logs,
+or command arguments. Restore the database and media with Herald stopped, inject
+the original key before starting the application, and verify publisher credentials
+with an intentionally approved provider operation when such verification is
+required. A replacement key cannot decrypt existing credentials.
+
+See the [publisher encryption key recovery runbook](../../README.md#publisher-encryption-key-recovery)
+for the complete operator procedure.

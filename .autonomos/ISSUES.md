@@ -402,7 +402,12 @@
 - Desired outcome: The recovery runbook and its verification procedure make the
   separately managed encryption key an explicit part of a complete Herald recovery
   without placing the secret in the archive.
-- Tasks: none
+- Tasks: OPS-16 (completed)
+- Resolution: The root recovery runbook now treats the publisher encryption key
+  and its key ID as separately managed recovery material, explains the restore
+  sequence and verification boundary, and distinguishes the key from encrypted
+  credential data in the application bundle. The database package README links
+  to the same procedure. No secret value is stored in repository artifacts.
 
 ## [ISSUE-019] Define the operational planning experience
 
