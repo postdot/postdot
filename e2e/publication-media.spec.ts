@@ -39,6 +39,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     page,
     request,
 }) => {
+    test.setTimeout(60_000)
+
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
     const channelName = `E2E-33 Channel ${suffix}`

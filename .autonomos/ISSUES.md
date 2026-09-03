@@ -361,7 +361,7 @@
 ## [ISSUE-016] Split persistence by coherent use-case boundaries
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence at opening: `packages/db/src/manual-store.ts` was 3,742 lines and
   contained project, channel/profile, post/draft, publication, media resolution,
   reconciliation, and audit persistence for both manual and automatic flows.
@@ -371,6 +371,12 @@
   that preserve transaction boundaries and project invariants without introducing
   a generic repository abstraction or splitting code only by arbitrary line count.
 - Tasks: MAINT-41 (completed), MAINT-42 (completed), MAINT-43 (completed), MAINT-44 (completed), MAINT-45 (completed), MAINT-46 (completed), MAINT-47 (completed), MAINT-48 (completed), MAINT-49 (completed), MAINT-50 (completed)
+- Resolution: MAINT-41 through MAINT-50 extracted project, channel, profile,
+  publication, media, reconciliation, and read-model responsibilities into
+  cohesive persistence units while preserving the stable manual-store facade,
+  SQLite transaction boundaries, and domain invariants. The extraction was
+  evidence-driven and did not introduce a generic repository abstraction or an
+  arbitrary file-size rule.
 
 ## [ISSUE-017] Repair the documented coverage command
 
@@ -392,7 +398,7 @@
 ## [ISSUE-018] Document separate publisher-key recovery
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: `ADR-012` correctly keeps the publisher encryption key outside SQLite
   and its backups, but the backup and restore procedure in `README.md` does not
   explain how the operator preserves and restores that key alongside an application
@@ -412,7 +418,7 @@
 ## [ISSUE-019] Define the operational planning experience
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: Herald currently presents operational work through dashboard sections
   and publication lists. A calendar or timeline has not been designed, and the
   owner identified the need to rethink information hierarchy and scroll behavior
@@ -423,11 +429,16 @@
   composition, queue, channels, media, and time-based planning fit together across
   desktop and small screens before the corresponding UI is expanded.
 - Tasks: DESIGN-36 (completed), DESIGN-40 (completed)
+- Resolution: DESIGN-36 established the route-oriented workspace and dedicated
+  task surfaces, while DESIGN-40 added the project-scoped calendar planning
+  surface with desktop, tablet, and mobile compositions. Both preserve the
+  existing publication and scheduling boundaries; further planning affordances
+  remain separate product work.
 
 ## [ISSUE-020] Establish maintainability and refactor guardrails
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The independent audit identified one large persistence unit, while the
   current project does not yet record a cross-cutting review method for module
   responsibility, cohesion, test seams, or safe extraction across backend and
@@ -439,6 +450,10 @@
   dependencies, reusable behavior, and testable boundaries without enforcing an
   arbitrary file-size quota.
 - Tasks: MAINT-41 (completed), MAINT-42 (completed), MAINT-43 (completed), MAINT-44 (completed), MAINT-45 (completed), MAINT-46 (completed), MAINT-47 (completed), MAINT-48 (completed), MAINT-49 (completed), MAINT-50 (completed)
+- Resolution: The maintenance sequence recorded responsibility maps, preserved
+  transaction ownership, and extracted the verified persistence seams behind
+  explicit dependencies. The resulting guardrail is evidence-based cohesion
+  and testability, not a blanket line-count target or generic repository layer.
 
 ## [ISSUE-021] Validate the central publication loop through real use
 
@@ -456,4 +471,4 @@
   publication workflow in realistic use, including automatic and manual channels,
   failures, edits, and recovery, without reintroducing a release-oriented MVP
   boundary.
-- Tasks: EVAL-53 (completed; repeat periodically)
+- Tasks: EVAL-53 (completed; repeat periodically), EVAL-54 (blocked: destination identity unresolved)
