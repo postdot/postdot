@@ -525,7 +525,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                created_at as createdAt
         from audit_events
         where project_id = ?1
-        order by created_at desc, id desc
+        order by created_at desc, audit_events.rowid desc
         limit ?2
     `)
 

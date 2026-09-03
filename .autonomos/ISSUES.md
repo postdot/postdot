@@ -225,7 +225,7 @@
 ## [ISSUE-011] Make execution history append-only and attributable
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: `packages/db/src/workflow-store.ts` updates the current publication and
   job rows for success, retry, failure, and ambiguous recovery, but does not append
   corresponding `audit_events` records. `packages/db/src/domain-schema.ts` stores a
@@ -235,7 +235,20 @@
 - Desired outcome: Every automatic execution attempt, outcome, retry, ambiguity,
   and recovery is durably attributable and reconstructable while current lifecycle
   state remains efficient to query.
-- Tasks: none
+- Tasks: WORK-11 (completed)
+- Resolution: The workflow store now records claims, effect-boundary transitions,
+  successes, retries, terminal failures, direct ambiguities, cancellations, and
+  expired-claim recovery through the existing project-scoped `audit_events`
+  journal. Events use a stable `publication.execution.*` action vocabulary and
+  structured non-secret metadata while current job and publication rows remain
+  the efficient lifecycle projections. Each event is persisted in the same
+  transaction as its state transition.
+- Decision: [ADR-028](decisions/ADR-028-use-audit-events-as-execution-journal.md)
+- Verification: Workflow integration tests cover every execution outcome,
+  pre- and post-effect lease recovery, retry attempt history, cancellation,
+  stale fences, duplicate completion, and rollback when audit persistence fails.
+  The full repository format, lint, typecheck, unit/integration, browser E2E,
+  and build gate passes.
 
 ## [ISSUE-012] Expose truthful runtime readiness
 

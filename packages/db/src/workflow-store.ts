@@ -14,6 +14,11 @@ import {
 } from '@herald/core'
 
 import type { HeraldDatabase } from './client'
+import {
+    automaticExecutionAuditActions,
+    serializeAutomaticExecutionAuditMetadata,
+    type AutomaticExecutionAuditAction,
+} from './execution-audit'
 
 interface ClaimDueJobInput {
     readonly actorId: string
@@ -26,6 +31,7 @@ interface RunningJobRow {
     readonly id: string
     readonly projectId: string
     readonly publicationId: string
+    readonly attempts: number
     readonly claimToken: string
     readonly claimedByActorId: string
     readonly leaseExpiresAt: number
@@ -37,6 +43,7 @@ interface CancellableJobRow {
     readonly id: string
     readonly projectId: string
     readonly publicationId: string
+    readonly attempts: number
 }
 
 interface SystemActorRow {
@@ -116,6 +123,56 @@ export function createWorkflowStore(database: HeraldDatabase) {
         values (?1, ?2, 'system', ?3, ?4, ?4)
         on conflict(id) do nothing
     `)
+    const insertExecutionAuditEventStatement = client.query<
+        void,
+        [
+            id: string,
+            projectId: string,
+            actorId: string,
+            action: AutomaticExecutionAuditAction,
+            publicationId: string,
+            metadataJson: string,
+            occurredAt: number,
+        ]
+    >(`
+        insert into audit_events (
+            id,
+            project_id,
+            actor_id,
+            action,
+            entity_type,
+            entity_id,
+            metadata_json,
+            created_at
+        ) values (?1, ?2, ?3, ?4, 'publication', ?5, ?6, ?7)
+    `)
+
+    const insertExecutionAuditEvent = (input: {
+        readonly id: string
+        readonly projectId: string
+        readonly actorId: string
+        readonly action: AutomaticExecutionAuditAction
+        readonly publicationId: string
+        readonly jobId: string
+        readonly attempt: number
+        readonly occurredAt: number
+        readonly details?: Readonly<Record<string, unknown>>
+    }): void => {
+        insertExecutionAuditEventStatement.run(
+            input.id,
+            input.projectId,
+            input.actorId,
+            input.action,
+            input.publicationId,
+            serializeAutomaticExecutionAuditMetadata({
+                ...input.details,
+                jobId: input.jobId,
+                attempt: input.attempt,
+                occurredAt: input.occurredAt,
+            }),
+            input.occurredAt
+        )
+    }
 
     const nextEventStatement = client.query<{ eventAt: number | null }, []>(`
         select min(event_at) as eventAt
@@ -183,6 +240,34 @@ export function createWorkflowStore(database: HeraldDatabase) {
         returning ${claimedJobColumns}
     `)
 
+    const claimNextDueTransaction = client.transaction((input: ClaimDueJobInput): Job | null => {
+        const claimed = claimNextDueStatement.get(
+            input.claimToken,
+            input.actorId,
+            input.now,
+            input.leaseExpiresAt
+        )
+        if (claimed === null) return null
+
+        insertExecutionAuditEvent({
+            id: createId(),
+            projectId: claimed.projectId,
+            actorId: input.actorId,
+            action: automaticExecutionAuditActions.claimed,
+            publicationId: claimed.publicationId,
+            jobId: claimed.id,
+            attempt: claimed.attempts,
+            occurredAt: input.now,
+            details: {
+                fromState: 'pending',
+                toState: 'running',
+                leaseExpiresAt: input.leaseExpiresAt,
+            },
+        })
+
+        return claimed
+    })
+
     const loadRunningJobStatement = client.query<
         RunningJobRow,
         [jobId: string, claimToken: string, now: number]
@@ -190,6 +275,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         select jobs.id,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
+               jobs.attempts as attempts,
                jobs.claim_token as claimToken,
                jobs.claimed_by_actor_id as claimedByActorId,
                jobs.lease_expires_at as leaseExpiresAt,
@@ -482,6 +568,22 @@ export function createWorkflowStore(database: HeraldDatabase) {
                 )
             }
 
+            insertExecutionAuditEvent({
+                id: createId(),
+                projectId: runningJob.projectId,
+                actorId: runningJob.claimedByActorId,
+                action: automaticExecutionAuditActions.effectStarted,
+                publicationId: runningJob.publicationId,
+                jobId: runningJob.id,
+                attempt: runningJob.attempts,
+                occurredAt: now,
+                details: {
+                    fromState: runningJob.publicationState,
+                    toState: 'publishing',
+                    effectStartedAt: now,
+                },
+            })
+
             return true
         }
     )
@@ -493,6 +595,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         select jobs.id,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
+               jobs.attempts as attempts,
                jobs.claim_token as claimToken,
                jobs.claimed_by_actor_id as claimedByActorId,
                jobs.lease_expires_at as leaseExpiresAt,
@@ -640,18 +743,35 @@ export function createWorkflowStore(database: HeraldDatabase) {
             let publicationChanges: number
             let jobChanges: number
             let persisted: PersistedEffectOutcome
+            let auditAction: AutomaticExecutionAuditAction
+            let auditDetails: Readonly<Record<string, unknown>>
 
             if (input.outcome.type === 'published') {
+                const externalId = normalizeOptionalResult(input.outcome.externalId, 'externalId')
+                const externalUrl = normalizeOptionalResult(
+                    input.outcome.externalUrl,
+                    'externalUrl'
+                )
                 publicationChanges = publishPublicationStatement.run(
                     completedAt,
                     job.claimedByActorId,
-                    normalizeOptionalResult(input.outcome.externalId, 'externalId'),
-                    normalizeOptionalResult(input.outcome.externalUrl, 'externalUrl'),
+                    externalId,
+                    externalUrl,
                     job.projectId,
                     job.publicationId
                 ).changes
                 jobChanges = succeedJobStatement.run(completedAt, job.id, job.claimToken).changes
                 persisted = 'published'
+                auditAction = automaticExecutionAuditActions.succeeded
+                auditDetails = {
+                    fromState: 'publishing',
+                    toState: 'published',
+                    outcome: input.outcome.type,
+                    completedAt,
+                    effectStartedAt: job.effectStartedAt,
+                    externalId,
+                    externalUrl,
+                }
             } else {
                 const errorMessage = requireNonBlank(input.outcome.errorMessage, 'errorMessage')
                 const retryAt =
@@ -680,6 +800,17 @@ export function createWorkflowStore(database: HeraldDatabase) {
                         job.claimToken
                     ).changes
                     persisted = 'retry_scheduled'
+                    auditAction = automaticExecutionAuditActions.retryScheduled
+                    auditDetails = {
+                        fromState: 'publishing',
+                        toState: 'ready',
+                        outcome: input.outcome.type,
+                        effectOccurred: false,
+                        errorMessage,
+                        completedAt,
+                        effectStartedAt: job.effectStartedAt,
+                        retryAt,
+                    }
                 } else {
                     const publicationState =
                         input.outcome.type === 'ambiguous' ? 'ambiguous' : 'failed'
@@ -698,6 +829,22 @@ export function createWorkflowStore(database: HeraldDatabase) {
                         job.claimToken
                     ).changes
                     persisted = publicationState
+                    auditAction =
+                        publicationState === 'ambiguous'
+                            ? automaticExecutionAuditActions.ambiguous
+                            : automaticExecutionAuditActions.failed
+                    auditDetails = {
+                        fromState: 'publishing',
+                        toState: publicationState,
+                        outcome: input.outcome.type,
+                        effectOccurred:
+                            input.outcome.type === 'ambiguous'
+                                ? undefined
+                                : input.outcome.effectOccurred,
+                        errorMessage,
+                        completedAt,
+                        effectStartedAt: job.effectStartedAt,
+                    }
                 }
             }
 
@@ -707,6 +854,18 @@ export function createWorkflowStore(database: HeraldDatabase) {
                     `Could not complete the external effect for job ${job.id}`
                 )
             }
+
+            insertExecutionAuditEvent({
+                id: createId(),
+                projectId: job.projectId,
+                actorId: job.claimedByActorId,
+                action: auditAction,
+                publicationId: job.publicationId,
+                jobId: job.id,
+                attempt: job.attempts,
+                occurredAt: completedAt,
+                details: auditDetails,
+            })
 
             return persisted
         }
@@ -718,7 +877,8 @@ export function createWorkflowStore(database: HeraldDatabase) {
     >(`
         select jobs.id,
                jobs.project_id as projectId,
-               jobs.publication_id as publicationId
+               jobs.publication_id as publicationId,
+               jobs.attempts as attempts
         from jobs
         inner join publications
             on publications.project_id = jobs.project_id
@@ -775,6 +935,21 @@ export function createWorkflowStore(database: HeraldDatabase) {
                 )
             }
 
+            insertExecutionAuditEvent({
+                id: createId(),
+                projectId: job.projectId,
+                actorId,
+                action: automaticExecutionAuditActions.cancelled,
+                publicationId: job.publicationId,
+                jobId: job.id,
+                attempt: job.attempts,
+                occurredAt: now,
+                details: {
+                    toState: 'cancelled',
+                    cancelledAt: now,
+                },
+            })
+
             return true
         }
     )
@@ -783,6 +958,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         select jobs.id,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
+               jobs.attempts as attempts,
                jobs.claim_token as claimToken,
                jobs.claimed_by_actor_id as claimedByActorId,
                jobs.lease_expires_at as leaseExpiresAt,
@@ -871,6 +1047,23 @@ export function createWorkflowStore(database: HeraldDatabase) {
                             `Could not recover expired claim for job ${claim.id}`
                         )
                     }
+                    insertExecutionAuditEvent({
+                        id: createId(),
+                        projectId: claim.projectId,
+                        actorId: claim.claimedByActorId,
+                        action: automaticExecutionAuditActions.claimRecovered,
+                        publicationId: claim.publicationId,
+                        jobId: claim.id,
+                        attempt: claim.attempts,
+                        occurredAt: now,
+                        details: {
+                            fromState: 'running',
+                            toState: 'pending',
+                            recoveredAt: now,
+                            runAt: now,
+                            reason: 'lease_expired_before_effect_boundary',
+                        },
+                    })
                     requeuedJobIds.push(claim.id)
                     continue
                 }
@@ -895,6 +1088,24 @@ export function createWorkflowStore(database: HeraldDatabase) {
                         `Could not fail expired claim for job ${claim.id}`
                     )
                 }
+                insertExecutionAuditEvent({
+                    id: createId(),
+                    projectId: claim.projectId,
+                    actorId: claim.claimedByActorId,
+                    action: automaticExecutionAuditActions.ambiguityRecovered,
+                    publicationId: claim.publicationId,
+                    jobId: claim.id,
+                    attempt: claim.attempts,
+                    occurredAt: now,
+                    details: {
+                        fromState: 'publishing',
+                        toState: 'ambiguous',
+                        recoveredAt: now,
+                        reason: 'lease_expired_after_effect_boundary',
+                        errorMessage: ambiguousError,
+                        effectStartedAt: claim.effectStartedAt,
+                    },
+                })
                 ambiguousJobIds.push(claim.id)
             }
 
@@ -947,14 +1158,12 @@ export function createWorkflowStore(database: HeraldDatabase) {
                 throw new DomainInvariantError('invalid_time', 'leaseExpiresAt must be after now')
             }
 
-            return (
-                claimNextDueStatement.get(
-                    requireNonBlank(input.claimToken, 'claimToken'),
-                    requireNonBlank(input.actorId, 'actorId'),
-                    now,
-                    leaseExpiresAt
-                ) ?? null
-            )
+            return claimNextDueTransaction.immediate({
+                actorId: requireNonBlank(input.actorId, 'actorId'),
+                claimToken: requireNonBlank(input.claimToken, 'claimToken'),
+                now,
+                leaseExpiresAt,
+            })
         },
 
         startExternalEffect(jobId: string, claimToken: string, now: number): boolean {

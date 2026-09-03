@@ -14,6 +14,7 @@ import type { HeraldDatabase } from './client'
 import { closeDatabase, createDatabase } from './client'
 import { runMigrations } from './migrations'
 import {
+    auditEvents,
     actors,
     channelProfileVersions,
     channels,
@@ -28,6 +29,25 @@ import {
 import { createWorkflowStore } from './workflow-store'
 
 const dueAt = 1_800_000_000_000
+
+function executionAuditEvents(database: HeraldDatabase, publicationId: string) {
+    return database
+        .select()
+        .from(auditEvents)
+        .where(eq(auditEvents.entityId, publicationId))
+        .all()
+        .filter(event => event.action.startsWith('publication.execution.'))
+}
+
+function executionAuditActions(database: HeraldDatabase, publicationId: string) {
+    return executionAuditEvents(database, publicationId).map(event => event.action)
+}
+
+function executionAuditMetadata(database: HeraldDatabase, publicationId: string) {
+    return executionAuditEvents(database, publicationId).map(event =>
+        JSON.parse(event.metadataJson!)
+    )
+}
 
 const testProfile = {
     id: 'workflow-test',
@@ -266,6 +286,28 @@ describe('workflow store', () => {
             expect(job?.effectStartedAt).toBe(dueAt + 1)
             expect(publication?.state).toBe('publishing')
             expect(publication?.stateChangedByActorId).toBe(fixture.systemActorId)
+            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+                'publication.execution.claimed',
+                'publication.execution.effect_started',
+            ])
+            expect(executionAuditMetadata(database, fixture.publicationId)).toEqual([
+                {
+                    fromState: 'pending',
+                    toState: 'running',
+                    leaseExpiresAt: dueAt + 60_000,
+                    jobId: fixture.jobId,
+                    attempt: 1,
+                    occurredAt: dueAt,
+                },
+                {
+                    fromState: 'scheduled',
+                    toState: 'publishing',
+                    effectStartedAt: dueAt + 1,
+                    jobId: fixture.jobId,
+                    attempt: 1,
+                    occurredAt: dueAt + 1,
+                },
+            ])
         } finally {
             closeDatabase(database)
         }
@@ -330,6 +372,19 @@ describe('workflow store', () => {
             expect(job?.claimToken).toBeNull()
             expect(job?.runAt).toBe(dueAt + 60_000)
             expect(publication?.state).toBe('scheduled')
+            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+                'publication.execution.claimed',
+                'publication.execution.claim_recovered',
+            ])
+            expect(executionAuditMetadata(database, fixture.publicationId)[1]).toMatchObject({
+                fromState: 'running',
+                toState: 'pending',
+                recoveredAt: dueAt + 60_000,
+                runAt: dueAt + 60_000,
+                reason: 'lease_expired_before_effect_boundary',
+                jobId: fixture.jobId,
+                attempt: 1,
+            })
         } finally {
             closeDatabase(database)
         }
@@ -374,6 +429,20 @@ describe('workflow store', () => {
                     outcome: { type: 'published' },
                 })
             ).toBeNull()
+            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+                'publication.execution.claimed',
+                'publication.execution.effect_started',
+                'publication.execution.ambiguity_recovered',
+            ])
+            expect(executionAuditMetadata(database, fixture.publicationId)[2]).toMatchObject({
+                fromState: 'publishing',
+                toState: 'ambiguous',
+                recoveredAt: dueAt + 60_000,
+                reason: 'lease_expired_after_effect_boundary',
+                errorMessage: 'Worker claim expired after the external-effect boundary',
+                jobId: fixture.jobId,
+                attempt: 1,
+            })
             expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
         } finally {
             closeDatabase(database)
@@ -472,6 +541,109 @@ describe('workflow store', () => {
             expect(publication?.publishedAt).toBe(dueAt + 2)
             expect(publication?.publishedByActorId).toBe(fixture.systemActorId)
             expect(publication?.externalId).toBe('remote-success')
+            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+                'publication.execution.claimed',
+                'publication.execution.effect_started',
+                'publication.execution.succeeded',
+            ])
+            expect(executionAuditMetadata(database, fixture.publicationId)[2]).toMatchObject({
+                fromState: 'publishing',
+                toState: 'published',
+                outcome: 'published',
+                completedAt: dueAt + 2,
+                effectStartedAt: dueAt + 1,
+                externalId: 'remote-success',
+                externalUrl: 'https://example.com/remote-success',
+                jobId: fixture.jobId,
+                attempt: 1,
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('rolls back execution transitions when their audit event cannot be persisted', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const fixture = seedDueJob(database, 'audit-rollback')
+            const store = createWorkflowStore(database)
+
+            database.$client.run(`
+                create temp trigger fail_workflow_claim_audit
+                before insert on audit_events
+                when NEW.action = 'publication.execution.claimed'
+                begin
+                    select raise(abort, 'workflow claim audit failure');
+                end
+            `)
+
+            expect(() =>
+                store.claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'claim-audit-rollback',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
+            ).toThrow('workflow claim audit failure')
+            const [unclaimedJob] = database
+                .select()
+                .from(jobs)
+                .where(eq(jobs.id, fixture.jobId))
+                .all()
+            expect(unclaimedJob?.state).toBe('pending')
+            expect(unclaimedJob?.attempts).toBe(0)
+            expect(executionAuditEvents(database, fixture.publicationId)).toEqual([])
+
+            database.$client.run('drop trigger fail_workflow_claim_audit')
+            expect(
+                store.claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'claim-audit-rollback',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
+            ).not.toBeNull()
+            expect(
+                store.startExternalEffect(fixture.jobId, 'claim-audit-rollback', dueAt + 1)
+            ).toBe(true)
+
+            database.$client.run(`
+                create temp trigger fail_workflow_completion_audit
+                before insert on audit_events
+                when NEW.action = 'publication.execution.succeeded'
+                begin
+                    select raise(abort, 'workflow completion audit failure');
+                end
+            `)
+
+            expect(() =>
+                store.completeExternalEffect({
+                    jobId: fixture.jobId,
+                    claimToken: 'claim-audit-rollback',
+                    completedAt: dueAt + 2,
+                    outcome: { type: 'published' },
+                })
+            ).toThrow('workflow completion audit failure')
+
+            const [runningJob] = database
+                .select()
+                .from(jobs)
+                .where(eq(jobs.id, fixture.jobId))
+                .all()
+            const [publishingPublication] = database
+                .select()
+                .from(publications)
+                .where(eq(publications.id, fixture.publicationId))
+                .all()
+            expect(runningJob?.state).toBe('running')
+            expect(runningJob?.effectStartedAt).toBe(dueAt + 1)
+            expect(publishingPublication?.state).toBe('publishing')
+            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+                'publication.execution.claimed',
+                'publication.execution.effect_started',
+            ])
         } finally {
             closeDatabase(database)
         }
@@ -555,6 +727,29 @@ describe('workflow store', () => {
             expect(job?.errorMessage).toContain('rejected')
             expect(publication?.state).toBe('failed')
             expect(store.getNextEventAt()).toBeNull()
+            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+                'publication.execution.claimed',
+                'publication.execution.effect_started',
+                'publication.execution.retry_scheduled',
+                'publication.execution.claimed',
+                'publication.execution.effect_started',
+                'publication.execution.failed',
+            ])
+            const retryAuditMetadata = executionAuditMetadata(database, fixture.publicationId)
+            expect(retryAuditMetadata[2]).toMatchObject({
+                outcome: 'retryable_failure',
+                effectOccurred: false,
+                errorMessage: 'Provider rejected the request before accepting it',
+                retryAt: dueAt + 1_000,
+                attempt: 1,
+            })
+            expect(retryAuditMetadata[5]).toMatchObject({
+                outcome: 'retryable_failure',
+                effectOccurred: false,
+                errorMessage: 'Provider rejected the request before accepting it',
+                attempt: 2,
+                toState: 'failed',
+            })
             expect(
                 database.$client
                     .query<{ targetRevisionId: string; contentJson: string }, []>(
@@ -606,6 +801,17 @@ describe('workflow store', () => {
             expect(job?.state).toBe('failed')
             expect(publication?.state).toBe('ambiguous')
             expect(publication?.errorMessage).toContain('response lost')
+            expect(executionAuditActions(database, fixture.publicationId)).toEqual([
+                'publication.execution.claimed',
+                'publication.execution.effect_started',
+                'publication.execution.ambiguous',
+            ])
+            expect(executionAuditMetadata(database, fixture.publicationId)[2]).toMatchObject({
+                outcome: 'ambiguous',
+                toState: 'ambiguous',
+                errorMessage: 'External effect threw after its durable boundary: response lost',
+                attempt: 1,
+            })
         } finally {
             closeDatabase(database)
         }
@@ -656,6 +862,13 @@ describe('workflow store', () => {
             expect(cancelledPublication?.state).toBe('cancelled')
             expect(cancelledPublication?.stateChangedByActorId).toBe(pending.humanActorId)
             expect(runningJob?.state).toBe('running')
+            expect(executionAuditActions(database, pending.publicationId)).toEqual([
+                'publication.execution.cancelled',
+            ])
+            expect(executionAuditActions(database, running.publicationId)).toEqual([
+                'publication.execution.claimed',
+                'publication.execution.effect_started',
+            ])
             expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
         } finally {
             closeDatabase(database)
