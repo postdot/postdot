@@ -5,6 +5,7 @@ import {
     requireTimestamp,
 } from './invariants'
 import { validateSourceContent, type SourceContent } from './source-content'
+import { requireProjectTimeZone, type ProjectTimeZone } from './time-zone'
 
 export const actorKinds = ['human', 'agent', 'api_token', 'system'] as const
 export const publicationStates = [
@@ -42,6 +43,7 @@ interface ProjectEntity extends Entity {
 
 export interface Project extends Entity {
     readonly name: string
+    readonly timeZone: ProjectTimeZone
 }
 
 export interface Actor extends ProjectEntity {
@@ -135,10 +137,13 @@ function projectEntityFields(input: CreateEntityInput, project: Project): Projec
     }
 }
 
-export function createProject(input: CreateEntityInput & { readonly name: string }): Project {
+export function createProject(
+    input: CreateEntityInput & { readonly name: string; readonly timeZone?: string }
+): Project {
     return {
         ...entityFields(input),
         name: requireNonBlank(input.name, 'name'),
+        timeZone: requireProjectTimeZone(input.timeZone),
     }
 }
 

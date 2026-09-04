@@ -119,8 +119,14 @@ export const api = {
         return unwrap<{ projects: Project[] }>(await client.api.projects.get())
     },
 
-    async createProject(name: string): Promise<{ project: Project }> {
-        return unwrap<{ project: Project }>(await client.api.projects.post({ name }))
+    async createProject(name: string, timeZone?: string): Promise<{ project: Project }> {
+        return unwrap<{ project: Project }>(
+            await client.api.projects.post(timeZone === undefined ? { name } : { name, timeZone })
+        )
+    },
+
+    async updateProjectTimeZone(projectId: string, timeZone: string): Promise<Project> {
+        return unwrap<Project>(await client.api.projects({ projectId }).patch({ timeZone }))
     },
 
     async listChannels(projectId: string): Promise<{ channels: Channel[] }> {

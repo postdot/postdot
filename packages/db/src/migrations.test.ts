@@ -85,7 +85,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(10)
+            expect(migrationCount?.count).toBe(11)
         } finally {
             closeDatabase(database)
         }
@@ -122,11 +122,13 @@ describe('database migrations', () => {
             database.$client.exec(
                 'ALTER TABLE publication_working_drafts DROP COLUMN base_source_content'
             )
+            database.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             database.$client.exec('DROP TABLE project_access_tokens')
             unapplyMigrations(database, [
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
                 '0009_legal_bucky',
+                '0010_typical_zeigeist',
             ])
             runMigrations(database)
 
@@ -174,11 +176,13 @@ describe('database migrations', () => {
             staleDatabase.$client.exec(
                 'ALTER TABLE publication_working_drafts DROP COLUMN base_source_content'
             )
+            staleDatabase.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             staleDatabase.$client.exec('DROP TABLE project_access_tokens')
             unapplyMigrations(staleDatabase, [
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
                 '0009_legal_bucky',
+                '0010_typical_zeigeist',
             ])
 
             expect(() => runMigrations(staleDatabase)).toThrow()

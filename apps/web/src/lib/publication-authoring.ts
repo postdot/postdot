@@ -10,12 +10,12 @@ export interface PublicationTargetDraft {
     readonly scheduledAt: string
 }
 
-export function createPublicationTarget(channelId = ''): PublicationTargetDraft {
+export function createPublicationTarget(channelId = '', timeZone = 'UTC'): PublicationTargetDraft {
     return {
         id: crypto.randomUUID(),
         channelId,
         content: '',
         deliveryMode: 'manual',
-        scheduledAt: toDateTimeLocal(Date.now() + 60 * 60 * 1000),
+        scheduledAt: toDateTimeLocal(Date.now() + 60 * 60 * 1000, timeZone),
     }
 }

@@ -22,10 +22,12 @@ import {
 
 export function PublicationCalendarPage() {
     const { due, project, publications } = useProjectDashboard()
-    const [monthCursor, setMonthCursor] = useState(() => startOfCalendarMonth())
+    const [monthCursor, setMonthCursor] = useState(() =>
+        startOfCalendarMonth(new Date(), project.timeZone)
+    )
     const month = useMemo(
-        () => createCalendarMonth(monthCursor, publications),
-        [monthCursor, publications]
+        () => createCalendarMonth(monthCursor, publications, new Date(), project.timeZone),
+        [monthCursor, project.timeZone, publications]
     )
     const scheduledPublications = publications.filter(
         publication => publication.scheduledAt !== null
@@ -40,7 +42,7 @@ export function PublicationCalendarPage() {
     }
 
     function goToToday() {
-        setMonthCursor(startOfCalendarMonth())
+        setMonthCursor(startOfCalendarMonth(new Date(), project.timeZone))
     }
 
     return (
@@ -60,7 +62,9 @@ export function PublicationCalendarPage() {
                     </Button>
                 }
                 title="Calendar">
-                <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    {project.name} · {project.timeZone}
+                </p>
             </DashboardPageHeader>
 
             <div

@@ -14,6 +14,7 @@ import { UserCheckIcon } from '@solar-icons/react/bold/user-check'
 import { Link } from '@tanstack/react-router'
 
 import type { DuePublication, PublicationSummary } from '@/lib/api'
+import { formatProjectDateTime } from '@/lib/date-time'
 
 export type PublicationState = PublicationSummary['state']
 
@@ -21,10 +22,12 @@ export function PublicationList({
     emptyDescription = 'Compose a source post to start the queue.',
     emptyTitle = 'No publications yet',
     publications,
+    timeZone,
 }: {
     readonly emptyDescription?: string
     readonly emptyTitle?: string
     readonly publications: readonly PublicationSummary[]
+    readonly timeZone: string
 }) {
     if (publications.length === 0) {
         return (
@@ -43,13 +46,23 @@ export function PublicationList({
     return (
         <div className="mt-4 divide-y divide-border/70">
             {publications.map(publication => (
-                <PublicationRow key={publication.id} publication={publication} />
+                <PublicationRow
+                    key={publication.id}
+                    publication={publication}
+                    timeZone={timeZone}
+                />
             ))}
         </div>
     )
 }
 
-export function PublicationRow({ publication }: { readonly publication: PublicationSummary }) {
+export function PublicationRow({
+    publication,
+    timeZone,
+}: {
+    readonly publication: PublicationSummary
+    readonly timeZone: string
+}) {
     return (
         <Link
             to="/dashboard/projects/$projectId/publications/$publicationId"
@@ -81,7 +94,7 @@ export function PublicationRow({ publication }: { readonly publication: Publicat
                     <PublicationStatus state={publication.state} />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                    {formatSchedule(publication.scheduledAt)}
+                    {formatSchedule(publication.scheduledAt, timeZone)}
                     {publication.draftDiffersFromTarget ? ' · draft changes pending' : ''}
                 </p>
             </div>
@@ -97,10 +110,12 @@ export function AttentionPanel({
     duePublications,
     onPublish,
     pending,
+    timeZone,
 }: {
     readonly duePublications: readonly DuePublication[]
     readonly onPublish: (publicationId: string) => Promise<void>
     readonly pending: boolean
+    readonly timeZone: string
 }) {
     return (
         <aside className="min-w-0 rounded-lg bg-muted p-5 shadow-surface xl:sticky xl:top-6 xl:p-6">
@@ -140,7 +155,7 @@ export function AttentionPanel({
                                         {publication.channelName}
                                     </p>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        {formatSchedule(publication.scheduledAt)}
+                                        {formatSchedule(publication.scheduledAt, timeZone)}
                                     </p>
                                 </div>
                                 <PublicationStatus state={publication.state} due />
@@ -201,9 +216,8 @@ export function channelProfileLabel(profileId: string) {
     return profileId
 }
 
-export function formatSchedule(timestamp: number | null) {
-    if (timestamp === null) return 'Unscheduled'
-    return new Date(timestamp).toLocaleString()
+export function formatSchedule(timestamp: number | null, timeZone = 'UTC') {
+    return formatProjectDateTime(timestamp, timeZone)
 }
 
 export function publicationStateLabel(state: PublicationState) {

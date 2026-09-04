@@ -34,7 +34,9 @@ export function DashboardOverview() {
                     </Button>
                 }
                 title="Overview">
-                <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    {project.name} · {project.timeZone}
+                </p>
             </DashboardPageHeader>
 
             <div
@@ -78,10 +80,16 @@ export function DashboardOverview() {
                     <PublicationList
                         emptyDescription="Start with one source post, then route it to the channels that need it."
                         publications={recentPublications}
+                        timeZone={project.timeZone}
                     />
                 </section>
 
-                <AttentionPanel duePublications={due} onPublish={onPublish} pending={pending} />
+                <AttentionPanel
+                    duePublications={due}
+                    onPublish={onPublish}
+                    pending={pending}
+                    timeZone={project.timeZone}
+                />
             </div>
         </main>
     )

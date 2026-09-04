@@ -6,6 +6,7 @@ import {
     createProject,
     DomainInvariantError,
     requireNonBlank,
+    requireProjectTimeZone,
     requireTimestamp,
     type Actor,
     type Channel,
@@ -21,6 +22,13 @@ export interface CreateProjectInput {
     readonly name: string
     readonly subjectId: string
     readonly displayName: string
+    readonly timeZone?: string
+}
+
+export interface UpdateProjectTimeZoneInput {
+    readonly projectId: string
+    readonly subjectId: string
+    readonly timeZone: string
 }
 
 export interface CreateChannelInput {
@@ -48,7 +56,7 @@ export function createProjectChannelStore(
     const profileCompiler = new ChannelProfileCompiler()
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
-        select id, name, created_at as createdAt, updated_at as updatedAt
+        select id, name, time_zone as timeZone, created_at as createdAt, updated_at as updatedAt
         from projects
         where id = ?1
     `)
@@ -70,6 +78,7 @@ export function createProjectChannelStore(
     const listProjectsStatement = client.query<ProjectRow, [subjectId: string]>(`
         select distinct projects.id,
                projects.name,
+               projects.time_zone as timeZone,
                projects.created_at as createdAt,
                projects.updated_at as updatedAt
         from projects
@@ -95,9 +104,21 @@ export function createProjectChannelStore(
         where channels.project_id = ?1
         order by channels.created_at, channels.id
     `)
-    const insertProjectStatement = client.query<void, [id: string, name: string, now: number]>(`
-        insert into projects (id, name, created_at, updated_at)
-        values (?1, ?2, ?3, ?3)
+    const insertProjectStatement = client.query<
+        void,
+        [id: string, name: string, timeZone: string, now: number]
+    >(`
+        insert into projects (id, name, time_zone, created_at, updated_at)
+        values (?1, ?2, ?3, ?4, ?4)
+    `)
+    const updateProjectTimeZoneStatement = client.query<
+        { readonly changes: number },
+        [timeZone: string, updatedAt: number, projectId: string]
+    >(`
+        update projects
+        set time_zone = ?1,
+            updated_at = ?2
+        where id = ?3
     `)
     const insertActorStatement = client.query<
         void,
@@ -186,6 +207,7 @@ export function createProjectChannelStore(
             const project = createProject({
                 id: options.createId(),
                 name: input.name,
+                timeZone: input.timeZone,
                 now: timestamp,
             })
             const actor = createActor({
@@ -205,7 +227,7 @@ export function createProjectChannelStore(
                 now: timestamp,
             })
 
-            insertProjectStatement.run(project.id, project.name, timestamp)
+            insertProjectStatement.run(project.id, project.name, project.timeZone, timestamp)
             insertActorStatement.run(
                 actor.id,
                 project.id,
@@ -234,6 +256,35 @@ export function createProjectChannelStore(
             )
 
             return { project, actor }
+        }
+    )
+
+    const updateProjectTimeZoneTransaction = client.transaction(
+        (input: UpdateProjectTimeZoneInput): Project | null => {
+            const actor = loadActorStatement.get(input.projectId, input.subjectId)
+            const projectRow = loadProjectStatement.get(input.projectId)
+            if (actor === null || projectRow === null) return null
+
+            const timeZone = requireProjectTimeZone(input.timeZone)
+            const project = toProject(projectRow)
+            if (project.timeZone === timeZone) return project
+
+            const timestamp = requireTimestamp(options.now(), 'now')
+            const update = updateProjectTimeZoneStatement.run(timeZone, timestamp, project.id)
+            if (update.changes !== 1) return null
+
+            insertAuditEventStatement.run(
+                options.createId(),
+                project.id,
+                actor.id,
+                'project.timezone_updated',
+                'project',
+                project.id,
+                JSON.stringify({ from: project.timeZone, to: timeZone }),
+                timestamp
+            )
+
+            return { ...project, timeZone, updatedAt: timestamp }
         }
     )
 
@@ -318,6 +369,15 @@ export function createProjectChannelStore(
 
         listProjects(subjectId: string): Project[] {
             return listProjectsStatement.all(requireNonBlank(subjectId, 'subjectId')).map(toProject)
+        },
+
+        updateProjectTimeZone(input: UpdateProjectTimeZoneInput): Project | null {
+            return updateProjectTimeZoneTransaction.immediate({
+                ...input,
+                projectId: requireNonBlank(input.projectId, 'projectId'),
+                subjectId: requireNonBlank(input.subjectId, 'subjectId'),
+                timeZone: requireProjectTimeZone(input.timeZone),
+            })
         },
 
         createChannel(input: CreateChannelInput): Channel | null {

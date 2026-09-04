@@ -259,6 +259,11 @@ export const channelProfileVersionParams = Type.Object({
 
 export const createProjectBody = Type.Object({
     name: Type.String({ minLength: 1 }),
+    timeZone: Type.Optional(Type.String({ minLength: 1 })),
+})
+
+export const updateProjectBody = Type.Object({
+    timeZone: Type.String({ minLength: 1 }),
 })
 
 export const createProjectAccessTokenBody = Type.Object({

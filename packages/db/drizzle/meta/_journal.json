@@ -71,6 +71,13 @@
             "when": 1788455510950,
             "tag": "0009_legal_bucky",
             "breakpoints": true
+        },
+        {
+            "idx": 10,
+            "version": "6",
+            "when": 1788551801884,
+            "tag": "0010_typical_zeigeist",
+            "breakpoints": true
         }
     ]
 }

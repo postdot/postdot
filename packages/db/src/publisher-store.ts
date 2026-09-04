@@ -123,6 +123,7 @@ export type DisconnectPublisherConnectionResult =
 interface ProjectRow {
     readonly id: string
     readonly name: string
+    readonly timeZone: string
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -230,7 +231,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
     const createId = options.createId ?? (() => crypto.randomUUID())
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
-        select id, name, created_at as createdAt, updated_at as updatedAt
+        select id, name, time_zone as timeZone, created_at as createdAt, updated_at as updatedAt
         from projects
         where id = ?1
     `)
@@ -845,6 +846,7 @@ function toProject(row: ProjectRow): Project {
     return {
         id: row.id,
         name: row.name,
+        timeZone: row.timeZone,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
