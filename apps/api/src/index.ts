@@ -17,6 +17,8 @@ import {
     createMediaReconciliationRuntime,
 } from './modules/media/runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
+import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
+import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
 import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
 
@@ -85,10 +87,14 @@ async function startServer(config = createHeraldConfig()) {
     const customHttpTransport = createCustomHttpTransport({
         privateDestinations: config.customHttp.privateDestinations,
     })
+    const builtInProviderRegistry = createBuiltInProviderRegistry([
+        createLinkedInProviderAdapter({ oauth: publisher.linkedin }),
+    ])
     const worker = createPublicationWorker({
         database,
         publisherStore: publisher.publisherStore,
         publisherCredentialStore: publisher.credentialStore,
+        builtInProviderRegistry,
         media,
         customHttpTransport,
         resolveCustomHttpMediaUrl: (mediaReference, context) =>
@@ -97,7 +103,6 @@ async function startServer(config = createHeraldConfig()) {
                 assetId: mediaReference.assetId,
                 representationId: mediaReference.representationId,
             }),
-        linkedinOAuth: publisher.linkedin,
     })
     const baseApp = createApp({
         auth,

@@ -3,4 +3,8 @@ export * from './payload'
 export { createLinkedInOrganizationClient, LinkedInOrganizationError } from './organization'
 export { createLinkedInMemberProfileClient, LinkedInProfileError } from './profile'
 export { createLinkedInImagePublisher, createLinkedInTextPublisher } from './publisher'
-export { linkedinChannelProfile, readLinkedInTextContent } from './channel-profile'
+export {
+    LINKEDIN_EXECUTION_CONTRACT_REVISION,
+    linkedinChannelProfile,
+    readLinkedInTextContent,
+} from './channel-profile'

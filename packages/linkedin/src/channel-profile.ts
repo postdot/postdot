@@ -1,7 +1,11 @@
 import type { ChannelProfileDefinition } from '@herald/core'
 
+import { LINKEDIN_PROVIDER } from './contract'
+
+export const LINKEDIN_EXECUTION_CONTRACT_REVISION = 'member-post-v2'
+
 export const linkedinChannelProfile: ChannelProfileDefinition = {
-    id: 'linkedin',
+    id: LINKEDIN_PROVIDER,
     version: 2,
     profileHash: 'sha256:herald-linkedin-member-post-v2',
     schemaHash: 'sha256:herald-linkedin-member-post-schema-v2',
@@ -55,7 +59,11 @@ export const linkedinChannelProfile: ChannelProfileDefinition = {
         ],
         relations: [],
     },
-    execution: { kind: 'built_in', contractId: 'linkedin', revision: 'member-post-v2' },
+    execution: {
+        kind: 'built_in',
+        contractId: LINKEDIN_PROVIDER,
+        revision: LINKEDIN_EXECUTION_CONTRACT_REVISION,
+    },
 }
 
 export function readLinkedInTextContent(content: Readonly<Record<string, unknown>>): string | null {

@@ -27,6 +27,8 @@ import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
 import { createMediaPublicDelivery } from '../media/public-delivery'
+import { createLinkedInProviderAdapter } from './providers/linkedin'
+import { createBuiltInProviderRegistry } from './providers/registry'
 import { createPublicationWorker } from './worker'
 
 const now = 1_800_000_000_000
@@ -305,7 +307,9 @@ describe('publication worker', () => {
                     let sequence = 0
                     return () => `worker-claim-${++sequence}`
                 })(),
-                linkedInPublisher: publisher,
+                builtInProviderRegistry: createBuiltInProviderRegistry([
+                    createLinkedInProviderAdapter({ textPublisher: publisher }),
+                ]),
                 retryPolicy: {
                     nextRunAt: ({ attempts, failedAt }) =>
                         attempts === 1 ? failedAt + 60_000 : null,
@@ -442,7 +446,9 @@ describe('publication worker', () => {
                 database,
                 publisherStore,
                 publisherCredentialStore: credentialStore,
-                linkedInPublisher: publisher,
+                builtInProviderRegistry: createBuiltInProviderRegistry([
+                    createLinkedInProviderAdapter({ textPublisher: publisher }),
+                ]),
                 now: () => currentTime,
                 leaseDuration: 5 * 60_000,
                 createClaimToken: (() => {
@@ -620,7 +626,9 @@ describe('publication worker', () => {
                 publisherStore,
                 publisherCredentialStore: credentialStore,
                 media,
-                linkedInImagePublisher: imagePublisher,
+                builtInProviderRegistry: createBuiltInProviderRegistry([
+                    createLinkedInProviderAdapter({ imagePublisher }),
+                ]),
                 providerMediaDeliveryStore,
                 createClaimToken: () => 'image-worker-claim',
                 retryPolicy: {
@@ -757,6 +765,7 @@ describe('publication worker', () => {
                 database,
                 publisherStore,
                 publisherCredentialStore: credentialStore,
+                builtInProviderRegistry: createBuiltInProviderRegistry([]),
                 customHttpTransport: createCustomHttpTransport({
                     privateDestinations: [
                         {
@@ -918,6 +927,7 @@ describe('publication worker', () => {
                 database,
                 publisherStore,
                 publisherCredentialStore: credentialStore,
+                builtInProviderRegistry: createBuiltInProviderRegistry([]),
                 media,
                 customHttpTransport: createCustomHttpTransport({
                     privateDestinations: [
@@ -1095,6 +1105,7 @@ describe('publication worker', () => {
                 database,
                 publisherStore,
                 publisherCredentialStore: credentialStore,
+                builtInProviderRegistry: createBuiltInProviderRegistry([]),
                 media,
                 customHttpTransport: createCustomHttpTransport({
                     requester,
@@ -1218,12 +1229,16 @@ describe('publication worker', () => {
                 database,
                 publisherStore,
                 publisherCredentialStore: credentialStore,
-                linkedinOAuth: {
-                    authorizationServer,
-                    clientId: 'linkedin-client-id',
-                    clientAuthentication: clientSecretPost('linkedin-client-secret'),
-                },
-                linkedInPublisher: publisher,
+                builtInProviderRegistry: createBuiltInProviderRegistry([
+                    createLinkedInProviderAdapter({
+                        oauth: {
+                            authorizationServer,
+                            clientId: 'linkedin-client-id',
+                            clientAuthentication: clientSecretPost('linkedin-client-secret'),
+                        },
+                        textPublisher: publisher,
+                    }),
+                ]),
                 now: () => now,
             })
 
