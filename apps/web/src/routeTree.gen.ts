@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboard/projects/$projectId'
+import { Route as DashboardProjectsProjectIdAccessRouteImport } from './routes/dashboard/projects/$projectId/access'
 import { Route as DashboardProjectsProjectIdCalendarRouteImport } from './routes/dashboard/projects/$projectId/calendar'
 import { Route as DashboardProjectsProjectIdChannelsRouteImport } from './routes/dashboard/projects/$projectId/channels'
 import { Route as DashboardProjectsProjectIdComposeRouteImport } from './routes/dashboard/projects/$projectId/compose'
@@ -41,6 +42,12 @@ const DashboardProjectsProjectIdRoute =
     id: '/projects/$projectId',
     path: '/projects/$projectId',
     getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardProjectsProjectIdAccessRoute =
+  DashboardProjectsProjectIdAccessRouteImport.update({
+    id: '/access',
+    path: '/access',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
 const DashboardProjectsProjectIdCalendarRoute =
   DashboardProjectsProjectIdCalendarRouteImport.update({
@@ -90,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
   '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
@@ -103,6 +111,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
   '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
@@ -117,6 +126,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
   '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
     | '/dashboard/projects/$projectId/compose'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
     | '/dashboard/projects/$projectId/compose'
@@ -158,6 +170,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
     | '/dashboard/projects/$projectId/compose'
@@ -202,6 +215,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/projects/$projectId'
       preLoaderRoute: typeof DashboardProjectsProjectIdRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/projects/$projectId/access': {
+      id: '/dashboard/projects/$projectId/access'
+      path: '/access'
+      fullPath: '/dashboard/projects/$projectId/access'
+      preLoaderRoute: typeof DashboardProjectsProjectIdAccessRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
     }
     '/dashboard/projects/$projectId/calendar': {
       id: '/dashboard/projects/$projectId/calendar'
@@ -256,6 +276,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface DashboardProjectsProjectIdRouteChildren {
+  DashboardProjectsProjectIdAccessRoute: typeof DashboardProjectsProjectIdAccessRoute
   DashboardProjectsProjectIdCalendarRoute: typeof DashboardProjectsProjectIdCalendarRoute
   DashboardProjectsProjectIdChannelsRoute: typeof DashboardProjectsProjectIdChannelsRoute
   DashboardProjectsProjectIdComposeRoute: typeof DashboardProjectsProjectIdComposeRoute
@@ -267,6 +288,8 @@ interface DashboardProjectsProjectIdRouteChildren {
 
 const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteChildren =
   {
+    DashboardProjectsProjectIdAccessRoute:
+      DashboardProjectsProjectIdAccessRoute,
     DashboardProjectsProjectIdCalendarRoute:
       DashboardProjectsProjectIdCalendarRoute,
     DashboardProjectsProjectIdChannelsRoute:

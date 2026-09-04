@@ -2,7 +2,12 @@ import { describe, expect, it } from 'bun:test'
 
 import { createApp, createPublisherRuntime } from '@herald/api'
 import { createAuth } from '@herald/auth'
-import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
+import {
+    closeDatabase,
+    createDatabase,
+    createProjectAccessTokenStore,
+    runMigrations,
+} from '@herald/db'
 
 import { createHeraldClient } from './index'
 
@@ -15,6 +20,12 @@ describe('Herald client', () => {
         expect(client.api.projects.get).toBeFunction()
         expect(client.api.projects.post).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).patch).toBeFunction()
+        expect(client.api.projects({ projectId: 'project-1' })['access-tokens'].get).toBeFunction()
+        expect(client.api.projects({ projectId: 'project-1' })['access-tokens'].post).toBeFunction()
+        expect(
+            client.api.projects({ projectId: 'project-1' })['access-tokens']({ tokenId: 'token-1' })
+                .delete
+        ).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).publishers.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).channels.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).media.get).toBeFunction()
@@ -47,6 +58,7 @@ describe('Herald client', () => {
             publisherEncryptionKey: new Uint8Array(32).fill(7),
             publisherEncryptionKeyId: 'test-v1',
         })
+        const accessTokens = createProjectAccessTokenStore(database)
         const app = createApp({
             auth: createAuth(database, {
                 baseURL: 'http://localhost:3000',
@@ -54,6 +66,7 @@ describe('Herald client', () => {
             }),
             database,
             publisher,
+            accessTokens,
         })
 
         try {
@@ -90,8 +103,62 @@ describe('Herald client', () => {
 
             expect(response.error).toBeNull()
             expect(response.data).toEqual({ projects: [] })
+
+            const createdProject = await client.api.projects.post({ name: 'Machine access' })
+            expect(createdProject.error).toBeNull()
+            const projectId = (createdProject.data as { project: { id: string } }).project.id
+            const createdToken = await client.api.projects({ projectId })['access-tokens'].post({
+                name: 'Client test token',
+            })
+            expect(createdToken.error).toBeNull()
+            const token = (createdToken.data as { token: string }).token
+
+            const machineClient = createHeraldClient('http://localhost:3000', {
+                token,
+                fetcher: (input, init) => {
+                    const url =
+                        typeof input === 'string'
+                            ? input
+                            : input instanceof URL
+                              ? input.href
+                              : input.url
+                    return app.handle(new Request(url, init))
+                },
+            })
+            const machineProjects = await machineClient.api.projects.get()
+            expect(machineProjects.error).toBeNull()
+            expect(machineProjects.data).toEqual({
+                projects: [expect.objectContaining({ id: projectId })],
+            })
+
+            const deniedTokenList = await machineClient.api
+                .projects({ projectId })
+                ['access-tokens'].get()
+            expect(deniedTokenList.status).toBe(403)
         } finally {
             closeDatabase(database)
         }
+    })
+
+    it('sends a project bearer token through the typed client', async () => {
+        let authorization: string | null = null
+        const client = createHeraldClient('http://localhost:3000', {
+            token: 'herald_pat_v1_test-token',
+            fetcher: async (input, init) => {
+                const request =
+                    typeof input === 'string'
+                        ? new Request(input, init)
+                        : input instanceof URL
+                          ? new Request(input.href, init)
+                          : new Request(input.url, init)
+                authorization = request.headers.get('authorization')
+                return Response.json({ projects: [] })
+            },
+        })
+
+        const response = await client.api.projects.get()
+
+        expect(response.error).toBeNull()
+        expect(authorization === 'Bearer herald_pat_v1_test-token').toBe(true)
     })
 })

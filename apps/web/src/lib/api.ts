@@ -13,6 +13,7 @@ import {
     type MediaUpload,
     type Post,
     type PublicationEditorState,
+    type ProjectAccessToken,
     type PublisherConnection,
     type Project,
     type Publication,
@@ -127,6 +128,32 @@ export const api = {
 
     async updateProjectTimeZone(projectId: string, timeZone: string): Promise<Project> {
         return unwrap<Project>(await client.api.projects({ projectId }).patch({ timeZone }))
+    },
+
+    async listProjectAccessTokens(
+        projectId: string
+    ): Promise<{ accessTokens: ProjectAccessToken[] }> {
+        return unwrap<{ accessTokens: ProjectAccessToken[] }>(
+            await client.api.projects({ projectId })['access-tokens'].get()
+        )
+    },
+
+    async createProjectAccessToken(
+        projectId: string,
+        name: string
+    ): Promise<{ accessToken: ProjectAccessToken; token: string }> {
+        return unwrap<{ accessToken: ProjectAccessToken; token: string }>(
+            await client.api.projects({ projectId })['access-tokens'].post({ name })
+        )
+    },
+
+    async revokeProjectAccessToken(
+        projectId: string,
+        tokenId: string
+    ): Promise<{ accessToken: ProjectAccessToken }> {
+        return unwrap<{ accessToken: ProjectAccessToken }>(
+            await client.api.projects({ projectId })['access-tokens']({ tokenId }).delete()
+        )
     },
 
     async listChannels(projectId: string): Promise<{ channels: Channel[] }> {
@@ -400,6 +427,7 @@ export type {
     MediaReservation,
     Post,
     PublicationEditorState,
+    ProjectAccessToken,
     PublisherConnection,
     Project,
     Publication,
