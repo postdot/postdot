@@ -50,6 +50,7 @@ export function PublicationCalendarMonth({
                             day={day}
                             duePublicationIds={duePublicationIds}
                             key={day.dateKey}
+                            timeZone={month.timeZone}
                         />
                     ))
                 )}
@@ -94,6 +95,7 @@ export function PublicationCalendarAgenda({
                                         due={duePublicationIds.has(publication.id)}
                                         key={publication.id}
                                         publication={publication}
+                                        timeZone={month.timeZone}
                                     />
                                 ))}
                             </div>
@@ -132,9 +134,11 @@ export function CalendarEmptyState({
 function CalendarDayCell({
     day,
     duePublicationIds,
+    timeZone,
 }: {
     readonly day: CalendarDay
     readonly duePublicationIds: ReadonlySet<string>
+    readonly timeZone: string
 }) {
     return (
         <div
@@ -166,6 +170,7 @@ function CalendarDayCell({
                         due={duePublicationIds.has(publication.id)}
                         key={publication.id}
                         publication={publication}
+                        timeZone={timeZone}
                     />
                 ))}
             </div>
@@ -177,17 +182,19 @@ function CalendarPublicationLink({
     compact = false,
     due,
     publication,
+    timeZone,
 }: {
     readonly compact?: boolean
     readonly due: boolean
     readonly publication: PublicationSummary
+    readonly timeZone: string
 }) {
     const title = publication.postTitle ?? 'Untitled post'
     const state = due ? 'Due manual' : publicationStateLabel(publication.state)
 
     return (
         <Link
-            aria-label={`${title}, ${publication.channelName}, ${state}, ${formatSchedule(publication.scheduledAt)}`}
+            aria-label={`${title}, ${publication.channelName}, ${state}, ${formatSchedule(publication.scheduledAt, timeZone)}`}
             className={cn(
                 'group flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-[background-color,color] hover:bg-background/75 hover:text-foreground focus-visible:bg-background/75 focus-visible:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
                 compact ? 'items-start' : 'gap-3 px-2.5 py-2.5'
@@ -218,7 +225,9 @@ function CalendarPublicationLink({
                 </span>
                 <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.68rem] text-muted-foreground">
                     <span className="truncate">{publication.channelName}</span>
-                    <span className="shrink-0">{formatTime(publication.scheduledAt)}</span>
+                    <span className="shrink-0">
+                        {formatTime(publication.scheduledAt, timeZone)}
+                    </span>
                     {!compact ? <PublicationStatus due={due} state={publication.state} /> : null}
                 </span>
             </span>
@@ -237,14 +246,17 @@ function formatDayLabel(date: Date) {
         day: 'numeric',
         month: 'short',
         weekday: 'long',
+        timeZone: 'UTC',
     }).format(date)
 }
 
-function formatTime(timestamp: number | null) {
+function formatTime(timestamp: number | null, timeZone: string) {
     if (timestamp === null) return 'No time'
-    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(
-        new Date(timestamp)
-    )
+    return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone,
+    }).format(new Date(timestamp))
 }
 
 export function duePublicationIds(publications: readonly DuePublication[]) {

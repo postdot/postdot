@@ -47,7 +47,9 @@ export function PublicationComposer() {
                     </Button>
                 }
                 title="Compose">
-                <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    {project.name} · {project.timeZone}
+                </p>
             </DashboardPageHeader>
 
             {error ? (
@@ -131,6 +133,7 @@ export function PublicationComposer() {
                                 disabled={pending}
                                 onChange={onPublicationTargetsChange}
                                 targets={publicationTargets}
+                                timeZone={project.timeZone}
                             />
                         </div>
                     </section>

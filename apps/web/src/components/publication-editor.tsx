@@ -21,7 +21,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import { ApiError, api, type PublicationEditorState } from '@/lib/api'
-import { parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
+import {
+    dateTimeLocalErrorMessage,
+    formatProjectDateTime,
+    parseDateTimeLocal,
+    toDateTimeLocal,
+} from '@/lib/date-time'
 import { updateTargetMedia } from '@/lib/target-media'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']
@@ -30,14 +35,16 @@ type Profile = PublicationEditorState['profile']['profile']
 interface PublicationEditorProps {
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
+    readonly timeZone: string
 }
 
 interface RecoveryBuffer {
-    readonly version: 2
+    readonly version: 3
     readonly baseRevision: number
     readonly sourceContent: SourceContent
     readonly targetText: string
     readonly scheduleValue: string
+    readonly timeZone: string
 }
 
 interface CapabilityField {
@@ -53,14 +60,17 @@ interface CapabilitySummary {
 
 type SaveState = 'saved' | 'saving' | 'rebasing' | 'local_only' | 'conflict' | 'error'
 
-const recoveryVersion = 2 as const
+const recoveryVersion = 3 as const
 
-export function PublicationEditor({ projectId, initialEditor }: PublicationEditorProps) {
+export function PublicationEditor({ projectId, initialEditor, timeZone }: PublicationEditorProps) {
     const recoveryKey = useMemo(
         () => createRecoveryKey(projectId, initialEditor.publication.id),
         [projectId, initialEditor.publication.id]
     )
-    const initialRecovery = useMemo(() => readRecovery(recoveryKey), [recoveryKey])
+    const initialRecovery = useMemo(
+        () => readRecovery(recoveryKey, timeZone),
+        [recoveryKey, timeZone]
+    )
     const shouldRestoreInitialRecovery =
         initialRecovery !== null && initialRecovery.baseRevision >= initialEditor.draft.revision
     const recoveredContentDiffers =
@@ -70,7 +80,8 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     const recoveredScheduleDiffers =
         shouldRestoreInitialRecovery &&
         initialRecovery !== null &&
-        initialRecovery.scheduleValue !== toDateTimeLocal(initialEditor.publication.scheduledAt)
+        initialRecovery.scheduleValue !==
+            toDateTimeLocal(initialEditor.publication.scheduledAt, timeZone)
     const initialSourceConflict =
         initialEditor.draft.sourceRevision !== initialEditor.post.sourceRevision
     const [editor, setEditor] = useState(initialEditor)
@@ -104,7 +115,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     const [scheduleValue, setScheduleValue] = useState(
         shouldRestoreInitialRecovery && initialRecovery !== null
             ? initialRecovery.scheduleValue
-            : toDateTimeLocal(initialEditor.publication.scheduledAt)
+            : toDateTimeLocal(initialEditor.publication.scheduledAt, timeZone)
     )
     const [scheduleDirty, setScheduleDirty] = useState(recoveredScheduleDiffers)
     const requestGeneration = useRef(0)
@@ -133,6 +144,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             sourceContent,
             targetText,
             scheduleValue,
+            timeZone,
         })
     }, [
         expectedRevision,
@@ -142,6 +154,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
         scheduleValue,
         sourceContent,
         targetText,
+        timeZone,
     ])
 
     useEffect(() => {
@@ -254,7 +267,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
         const generation = ++requestGeneration.current
         const localSource = sourceContent
         const localTargetText = targetText
-        const localRecovery = readRecovery(recoveryKey)
+        const localRecovery = readRecovery(recoveryKey, timeZone)
         if (hasLocalChanges) {
             writeRecovery(recoveryKey, {
                 version: recoveryVersion,
@@ -262,6 +275,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                 sourceContent: localSource,
                 targetText: localTargetText,
                 scheduleValue,
+                timeZone,
             })
         }
         setRecoveryAvailable(hasLocalChanges || localRecovery !== null)
@@ -273,7 +287,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             setSourceContent(response.editor.post.sourceContent)
             setTargetText(formatJson(response.editor.draft.content))
             setExpectedRevision(response.editor.draft.revision)
-            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt))
+            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt, timeZone))
             setDirty(false)
             setScheduleDirty(false)
             const refreshedSourceConflict =
@@ -292,7 +306,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     }
 
     function restoreRecovery() {
-        const recovery = readRecovery(recoveryKey)
+        const recovery = readRecovery(recoveryKey, timeZone)
         if (recovery === null) return
         requestGeneration.current += 1
         setSourceContent(recovery.sourceContent)
@@ -301,7 +315,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
         setExpectedRevision(editor.draft.revision)
         const contentDiffers = recoveryContentDiffers(recovery, editor)
         const scheduleDiffers =
-            recovery.scheduleValue !== toDateTimeLocal(editor.publication.scheduledAt)
+            recovery.scheduleValue !== toDateTimeLocal(editor.publication.scheduledAt, timeZone)
         setDirty(contentDiffers)
         setScheduleDirty(scheduleDiffers)
         setSaveState(sourceConflict ? 'conflict' : contentDiffers ? 'local_only' : 'saved')
@@ -316,7 +330,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
     }
 
     async function restoreRecoveryAgainstLatestServer() {
-        const recovery = readRecovery(recoveryKey)
+        const recovery = readRecovery(recoveryKey, timeZone)
         if (recovery === null) return
 
         const generation = ++requestGeneration.current
@@ -325,7 +339,8 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             if (generation !== requestGeneration.current) return
             const contentDiffers = recoveryContentDiffers(recovery, response.editor)
             const scheduleDiffers =
-                recovery.scheduleValue !== toDateTimeLocal(response.editor.publication.scheduledAt)
+                recovery.scheduleValue !==
+                toDateTimeLocal(response.editor.publication.scheduledAt, timeZone)
             setEditor(response.editor)
             setSourceContent(recovery.sourceContent)
             setTargetText(recovery.targetText)
@@ -355,7 +370,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
 
     async function rebaseToLatestSource() {
         const generation = ++requestGeneration.current
-        const localRecovery = readRecovery(recoveryKey)
+        const localRecovery = readRecovery(recoveryKey, timeZone)
         const hadLocalCopy = hasLocalChanges || localRecovery !== null
         if (hasLocalChanges) {
             writeRecovery(recoveryKey, {
@@ -364,6 +379,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                 sourceContent,
                 targetText,
                 scheduleValue,
+                timeZone,
             })
         }
         setRecoveryAvailable(hadLocalCopy)
@@ -383,7 +399,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             setSourceContent(response.editor.post.sourceContent)
             setTargetText(formatJson(response.editor.draft.content))
             setExpectedRevision(response.editor.draft.revision)
-            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt))
+            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt, timeZone))
             setDirty(false)
             setScheduleDirty(false)
             setSaveState(rebasedSourceConflict ? 'conflict' : 'saved')
@@ -421,9 +437,9 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             return
         }
 
-        const scheduledAt = parseSchedule(scheduleValue)
-        if (scheduledAt === 'invalid') {
-            setMessage('Choose a valid schedule or leave it empty for an unscheduled draft.')
+        const scheduledAt = parseSchedule(scheduleValue, timeZone)
+        if (typeof scheduledAt === 'string') {
+            setMessage(dateTimeLocalErrorMessage(scheduledAt))
             return
         }
 
@@ -437,7 +453,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
             )
             setEditor(response.editor)
             setExpectedRevision(response.editor.draft.revision)
-            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt))
+            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt, timeZone))
             setDirty(false)
             setScheduleDirty(false)
             setSaveState('saved')
@@ -768,7 +784,8 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                                 setScheduleDirty(
                                                     value !==
                                                         toDateTimeLocal(
-                                                            editor.publication.scheduledAt
+                                                            editor.publication.scheduledAt,
+                                                            timeZone
                                                         )
                                                 )
                                             }}
@@ -776,7 +793,8 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                             className="min-w-0"
                                         />
                                         <FieldDescription className="text-xs">
-                                            Clear the value to keep this publication as a draft.
+                                            Project time · {timeZone}. Clear the value to keep this
+                                            publication as a draft.
                                         </FieldDescription>
                                     </Field>
                                     <Button
@@ -822,7 +840,7 @@ export function PublicationEditor({ projectId, initialEditor }: PublicationEdito
                                     </dd>
                                     <dt className="text-muted-foreground">Scheduled</dt>
                                     <dd className="font-medium">
-                                        {formatSchedule(editor.publication.scheduledAt)}
+                                        {formatSchedule(editor.publication.scheduledAt, timeZone)}
                                     </dd>
                                 </dl>
                                 <pre className="max-h-72 max-w-full overflow-auto rounded-md bg-surface-field p-3 font-mono text-xs leading-5 shadow-field">
@@ -972,7 +990,7 @@ function createRecoveryKey(projectId: string, publicationId: string) {
     return `herald:publication-editor:v${recoveryVersion}:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`
 }
 
-function readRecovery(key: string): RecoveryBuffer | null {
+function readRecovery(key: string, timeZone: string): RecoveryBuffer | null {
     try {
         const value: unknown = JSON.parse(window.localStorage.getItem(key) ?? 'null')
         if (!isRecord(value) || value.version !== recoveryVersion) return null
@@ -985,6 +1003,7 @@ function readRecovery(key: string): RecoveryBuffer | null {
         }
         if (typeof value.targetText !== 'string' || !isRecord(value.sourceContent)) return null
         if (typeof value.scheduleValue !== 'string') return null
+        if (value.timeZone !== timeZone) return null
         if (!Array.isArray(value.sourceContent.media)) return null
         return {
             version: recoveryVersion,
@@ -992,6 +1011,7 @@ function readRecovery(key: string): RecoveryBuffer | null {
             sourceContent: value.sourceContent as SourceContent,
             targetText: value.targetText,
             scheduleValue: value.scheduleValue,
+            timeZone,
         }
     } catch {
         return null
@@ -1080,12 +1100,15 @@ function formatJson(value: unknown) {
     return JSON.stringify(value, null, 2)
 }
 
-function parseSchedule(value: string): number | null | 'invalid' {
-    return parseDateTimeLocal(value)
+function parseSchedule(
+    value: string,
+    timeZone: string
+): number | null | 'invalid' | 'nonexistent' | 'ambiguous' {
+    return parseDateTimeLocal(value, timeZone)
 }
 
-function formatSchedule(timestamp: number | null) {
-    return timestamp === null ? 'Unscheduled' : new Date(timestamp).toLocaleString()
+function formatSchedule(timestamp: number | null, timeZone: string) {
+    return formatProjectDateTime(timestamp, timeZone)
 }
 
 function errorMessage(error: unknown) {

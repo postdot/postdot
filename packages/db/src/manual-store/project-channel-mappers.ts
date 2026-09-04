@@ -6,6 +6,7 @@ export function toProject(row: ProjectRow): Project {
     return {
         id: row.id,
         name: row.name,
+        timeZone: row.timeZone,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }

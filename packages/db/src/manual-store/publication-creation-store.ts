@@ -83,7 +83,7 @@ export function createPublicationCreationStore(
     const client = database.$client
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
-        select id, name, created_at as createdAt, updated_at as updatedAt
+        select id, name, time_zone as timeZone, created_at as createdAt, updated_at as updatedAt
         from projects
         where id = ?1
     `)

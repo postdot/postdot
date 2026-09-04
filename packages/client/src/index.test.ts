@@ -14,6 +14,7 @@ describe('Herald client', () => {
 
         expect(client.api.projects.get).toBeFunction()
         expect(client.api.projects.post).toBeFunction()
+        expect(client.api.projects({ projectId: 'project-1' }).patch).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).publishers.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).channels.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).media.get).toBeFunction()

@@ -302,6 +302,7 @@ describe('Herald API', () => {
                 '/health',
                 '/ready',
                 '/api/projects',
+                '/api/projects/{projectId}',
                 '/api/projects/{projectId}/access-tokens',
                 '/api/projects/{projectId}/access-tokens/{tokenId}',
                 '/api/projects/{projectId}/channels',
@@ -371,6 +372,60 @@ describe('Herald API', () => {
             expect(readOpenApiStatus(specification.paths['/ready']?.get?.responses?.['503'])).toBe(
                 'not_ready'
             )
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('persists and updates the project scheduling timezone through the API', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'timezone-operator@herald.local')
+            const createResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Timezone API Project',
+                    timeZone: 'America/New_York',
+                }),
+            })
+            expect(createResponse.status).toBe(201)
+            const created = (await createResponse.json()) as {
+                project: { id: string; timeZone: string }
+            }
+            expect(created.project.timeZone).toBe('America/New_York')
+
+            const updateResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ timeZone: 'Europe/Paris' }),
+                }
+            )
+            expect(updateResponse.status).toBe(200)
+            expect(await updateResponse.json()).toMatchObject({
+                id: created.project.id,
+                timeZone: 'Europe/Paris',
+            })
+
+            const invalidResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ timeZone: '+02:00' }),
+                }
+            )
+            expect(invalidResponse.status).toBe(400)
+            expect(await invalidResponse.json()).toEqual({
+                error: {
+                    code: 'invalid_input',
+                    message: 'timeZone must be a valid IANA time zone identifier',
+                },
+            })
         } finally {
             closeDatabase(database)
         }

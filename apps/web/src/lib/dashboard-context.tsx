@@ -18,7 +18,11 @@ import {
     type PublisherConnection,
     type PublicationSummary,
 } from '@/lib/api'
-import { parseDateTimeLocal } from '@/lib/date-time'
+import {
+    dateTimeLocalErrorMessage,
+    parseDateTimeLocal,
+    type DateTimeLocalError,
+} from '@/lib/date-time'
 import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
 import type { MediaSelection } from '@/lib/target-media'
 
@@ -134,7 +138,7 @@ export function ProjectDashboardProvider({
     const [postContent, setPostContent] = useState('')
     const [sourceMedia, setSourceMedia] = useState<MediaSelection[]>([])
     const [publicationTargets, setPublicationTargets] = useState<PublicationTargetDraft[]>(() => [
-        createPublicationTarget(initialData.channels[0]?.id ?? ''),
+        createPublicationTarget(initialData.channels[0]?.id ?? '', project.timeZone),
     ])
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -172,9 +176,13 @@ export function ProjectDashboardProvider({
             return
         }
 
+        let scheduleError: DateTimeLocalError | null = null
         const publicationInputs = publicationTargets.map(target => {
-            const scheduledTimestamp = parseDateTimeLocal(target.scheduledAt)
-            if (scheduledTimestamp === null || scheduledTimestamp === 'invalid') return null
+            const scheduledTimestamp = parseDateTimeLocal(target.scheduledAt, project.timeZone)
+            if (typeof scheduledTimestamp !== 'number') {
+                if (typeof scheduledTimestamp === 'string') scheduleError = scheduledTimestamp
+                return null
+            }
 
             const selectedChannel = data.channels.find(channel => channel.id === target.channelId)
             if (selectedChannel === undefined) return null
@@ -196,7 +204,11 @@ export function ProjectDashboardProvider({
         })
 
         if (publicationInputs.some(input => input === null)) {
-            setError('Choose a valid publication date and channel for each destination.')
+            setError(
+                scheduleError === null
+                    ? 'Choose a valid publication date and channel for each destination.'
+                    : dateTimeLocalErrorMessage(scheduleError)
+            )
             return
         }
         const validPublicationInputs = publicationInputs.filter(
@@ -217,7 +229,9 @@ export function ProjectDashboardProvider({
             setPostTitle('')
             setPostContent('')
             setSourceMedia([])
-            setPublicationTargets([createPublicationTarget(data.channels[0]?.id ?? '')])
+            setPublicationTargets([
+                createPublicationTarget(data.channels[0]?.id ?? '', project.timeZone),
+            ])
             await refreshProject()
         })
     }
@@ -255,7 +269,7 @@ export function ProjectDashboardProvider({
         setData(nextData)
         setPublicationTargets(current =>
             current.length === 0
-                ? [createPublicationTarget(nextData.channels[0]?.id ?? '')]
+                ? [createPublicationTarget(nextData.channels[0]?.id ?? '', project.timeZone)]
                 : current
         )
     }

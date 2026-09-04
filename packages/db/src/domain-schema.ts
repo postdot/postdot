@@ -42,6 +42,7 @@ export const projects = sqliteTable(
     {
         id: text('id').primaryKey(),
         name: text('name').notNull(),
+        timeZone: text('time_zone').notNull().default('UTC'),
         ...timestamps(),
     },
     table => [check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`)]

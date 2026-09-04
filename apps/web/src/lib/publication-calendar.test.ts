@@ -6,6 +6,7 @@ import {
     createCalendarMonth,
     getUnscheduledPublications,
     groupScheduledPublications,
+    startOfCalendarMonth,
     shiftCalendarMonth,
     toDateKey,
 } from './publication-calendar'
@@ -21,7 +22,11 @@ function publication(id: string, scheduledAt: number | null, postTitle = id) {
 
 describe('publication calendar', () => {
     test('builds a stable Monday-first six-week month grid', () => {
-        const month = createCalendarMonth(new Date(2026, 8, 1), [], new Date(2026, 8, 12))
+        const month = createCalendarMonth(
+            new Date(Date.UTC(2026, 8, 1, 12)),
+            [],
+            new Date(Date.UTC(2026, 8, 12, 12))
+        )
 
         expect(month.label).toBe('September 2026')
         expect(month.days).toHaveLength(42)
@@ -33,8 +38,8 @@ describe('publication calendar', () => {
     })
 
     test('groups only scheduled publications by local date and sorts them', () => {
-        const first = new Date(2026, 8, 12, 9, 0).getTime()
-        const second = new Date(2026, 8, 12, 11, 0).getTime()
+        const first = Date.UTC(2026, 8, 12, 9, 0)
+        const second = Date.UTC(2026, 8, 12, 11, 0)
         const grouped = groupScheduledPublications([
             publication('later', second, 'Later'),
             publication('unscheduled', null),
@@ -48,8 +53,11 @@ describe('publication calendar', () => {
 
     test('keeps unscheduled work outside the calendar date map', () => {
         const unscheduled = publication('unscheduled', null)
-        const scheduled = publication('scheduled', new Date(2026, 8, 12).getTime())
-        const month = createCalendarMonth(new Date(2026, 8, 1), [unscheduled, scheduled])
+        const scheduled = publication('scheduled', Date.UTC(2026, 8, 12, 12))
+        const month = createCalendarMonth(new Date(Date.UTC(2026, 8, 1, 12)), [
+            unscheduled,
+            scheduled,
+        ])
 
         expect(getUnscheduledPublications([unscheduled, scheduled])).toEqual([unscheduled])
         expect(month.days.find(day => day.dateKey === '2026-09-12')?.publications).toEqual([
@@ -58,7 +66,30 @@ describe('publication calendar', () => {
     })
 
     test('shifts month cursors across year boundaries', () => {
-        expect(shiftCalendarMonth(new Date(2026, 11, 1), 1)).toEqual(new Date(2027, 0, 1))
-        expect(shiftCalendarMonth(new Date(2027, 0, 1), -1)).toEqual(new Date(2026, 11, 1))
+        expect(shiftCalendarMonth(new Date(Date.UTC(2026, 11, 1, 12)), 1)).toEqual(
+            new Date(Date.UTC(2027, 0, 1, 12))
+        )
+        expect(shiftCalendarMonth(new Date(Date.UTC(2027, 0, 1, 12)), -1)).toEqual(
+            new Date(Date.UTC(2026, 11, 1, 12))
+        )
+    })
+
+    test('groups a publication by its project date near UTC midnight', () => {
+        const scheduled = publication('evening', Date.UTC(2026, 8, 13, 1, 30))
+        const grouped = groupScheduledPublications([scheduled], 'America/New_York')
+
+        expect(grouped.get('2026-09-12')?.map(item => item.id)).toEqual(['evening'])
+        expect(toDateKey(new Date(scheduled.scheduledAt as number), 'America/New_York')).toBe(
+            '2026-09-12'
+        )
+    })
+
+    test('starts the calendar month from the project timezone', () => {
+        const monthStart = startOfCalendarMonth(
+            new Date(Date.UTC(2026, 8, 1, 1, 0)),
+            'America/New_York'
+        )
+
+        expect(monthStart).toEqual(new Date(Date.UTC(2026, 7, 1, 12)))
     })
 })

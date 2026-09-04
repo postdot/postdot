@@ -61,6 +61,7 @@ export interface PublisherCredentialStoreOptions {
 interface ProjectRow {
     readonly id: string
     readonly name: string
+    readonly timeZone: string
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -156,6 +157,7 @@ function toProject(row: ProjectRow): Project {
     return {
         id: row.id,
         name: row.name,
+        timeZone: row.timeZone,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
@@ -209,7 +211,7 @@ export function createPublisherCredentialStore(
     const createId = options.createId ?? (() => crypto.randomUUID())
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
-        select id, name, created_at as createdAt, updated_at as updatedAt
+        select id, name, time_zone as timeZone, created_at as createdAt, updated_at as updatedAt
         from projects
         where id = ?1
     `)

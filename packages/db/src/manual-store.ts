@@ -44,6 +44,7 @@ export type {
     CreateChannelInput,
     CreateProjectInput,
     CreatedProject,
+    UpdateProjectTimeZoneInput,
 } from './manual-store/project-channel-store'
 
 export interface ManualStoreOptions {

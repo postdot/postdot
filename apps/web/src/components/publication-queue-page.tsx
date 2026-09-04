@@ -31,7 +31,9 @@ export function PublicationQueuePage() {
                     </Button>
                 }
                 title="Queue">
-                <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    {project.name} · {project.timeZone}
+                </p>
             </DashboardPageHeader>
 
             <div
@@ -56,9 +58,14 @@ export function PublicationQueuePage() {
             <div className="mt-7 grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
                 <section className="min-w-0">
                     <DashboardSectionHeading title="All publications" />
-                    <PublicationList publications={publications} />
+                    <PublicationList publications={publications} timeZone={project.timeZone} />
                 </section>
-                <AttentionPanel duePublications={due} onPublish={onPublish} pending={pending} />
+                <AttentionPanel
+                    duePublications={due}
+                    onPublish={onPublish}
+                    pending={pending}
+                    timeZone={project.timeZone}
+                />
             </div>
         </main>
     )

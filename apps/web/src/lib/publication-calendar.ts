@@ -1,4 +1,5 @@
 import type { PublicationSummary } from '@/lib/api'
+import { getZonedDateTimeParts } from '@/lib/date-time'
 
 export const calendarWeekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 
@@ -15,29 +16,31 @@ export interface CalendarMonth {
     readonly days: readonly CalendarDay[]
     readonly label: string
     readonly month: number
+    readonly timeZone: string
     readonly year: number
 }
 
 export function createCalendarMonth(
     cursor: Date,
     publications: readonly PublicationSummary[],
-    today = new Date()
+    today = new Date(),
+    timeZone = 'UTC'
 ): CalendarMonth {
-    const year = cursor.getFullYear()
-    const month = cursor.getMonth()
-    const monthStart = new Date(year, month, 1)
+    const year = cursor.getUTCFullYear()
+    const month = cursor.getUTCMonth()
+    const monthStart = createCivilDate(year, month, 1)
     const gridStart = startOfMondayWeek(monthStart)
-    const publicationsByDate = groupScheduledPublications(publications)
-    const todayKey = toDateKey(today)
+    const publicationsByDate = groupScheduledPublications(publications, timeZone)
+    const todayKey = toDateKey(today, timeZone)
     const days = Array.from({ length: 42 }, (_, index) => {
         const date = addDays(gridStart, index)
-        const dateKey = toDateKey(date)
+        const dateKey = toCivilDateKey(date)
 
         return {
             date,
             dateKey,
-            dayOfMonth: date.getDate(),
-            isCurrentMonth: date.getMonth() === month,
+            dayOfMonth: date.getUTCDate(),
+            isCurrentMonth: date.getUTCMonth() === month,
             isToday: dateKey === todayKey,
             publications: publicationsByDate.get(dateKey) ?? [],
         }
@@ -45,21 +48,27 @@ export function createCalendarMonth(
 
     return {
         days,
-        label: new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(
-            monthStart
-        ),
+        label: new Intl.DateTimeFormat('en-US', {
+            month: 'long',
+            timeZone: 'UTC',
+            year: 'numeric',
+        }).format(monthStart),
         month,
+        timeZone,
         year,
     }
 }
 
-export function groupScheduledPublications(publications: readonly PublicationSummary[]) {
+export function groupScheduledPublications(
+    publications: readonly PublicationSummary[],
+    timeZone = 'UTC'
+) {
     const grouped = new Map<string, PublicationSummary[]>()
 
     for (const publication of publications) {
         if (publication.scheduledAt === null) continue
 
-        const dateKey = toDateKey(new Date(publication.scheduledAt))
+        const dateKey = toDateKey(new Date(publication.scheduledAt), timeZone)
         const current = grouped.get(dateKey) ?? []
         current.push(publication)
         grouped.set(dateKey, current)
@@ -77,24 +86,29 @@ export function getUnscheduledPublications(publications: readonly PublicationSum
 }
 
 export function shiftCalendarMonth(cursor: Date, offset: number) {
-    return new Date(cursor.getFullYear(), cursor.getMonth() + offset, 1)
+    return createCivilDate(cursor.getUTCFullYear(), cursor.getUTCMonth() + offset, 1)
 }
 
-export function startOfCalendarMonth(date = new Date()) {
-    return new Date(date.getFullYear(), date.getMonth(), 1)
+export function startOfCalendarMonth(date = new Date(), timeZone = 'UTC') {
+    const parts = getZonedDateTimeParts(date.getTime(), timeZone)
+    return createCivilDate(parts.year, parts.month - 1, 1)
 }
 
-export function toDateKey(date: Date) {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+export function toDateKey(date: Date, timeZone = 'UTC') {
+    const parts = getZonedDateTimeParts(date.getTime(), timeZone)
+    return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
+}
+
+function createCivilDate(year: number, month: number, day: number) {
+    return new Date(Date.UTC(year, month, day, 12))
+}
+
+function toCivilDateKey(date: Date) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
 }
 
 function addDays(date: Date, amount: number) {
-    const result = new Date(date)
-    result.setDate(result.getDate() + amount)
-    return result
+    return createCivilDate(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + amount)
 }
 
 function comparePublications(left: PublicationSummary, right: PublicationSummary) {
@@ -111,8 +125,6 @@ function comparePublications(left: PublicationSummary, right: PublicationSummary
 }
 
 function startOfMondayWeek(date: Date) {
-    const result = new Date(date)
-    const daysSinceMonday = (result.getDay() + 6) % 7
-    result.setDate(result.getDate() - daysSinceMonday)
-    return result
+    const daysSinceMonday = (date.getUTCDay() + 6) % 7
+    return addDays(date, -daysSinceMonday)
 }

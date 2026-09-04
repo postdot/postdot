@@ -25,6 +25,7 @@ interface PublicationTargetListProps {
     readonly disabled: boolean
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
     readonly targets: readonly PublicationTargetDraft[]
+    readonly timeZone: string
 }
 
 export function PublicationTargetList({
@@ -32,6 +33,7 @@ export function PublicationTargetList({
     disabled,
     onChange,
     targets,
+    timeZone,
 }: PublicationTargetListProps) {
     function updateTarget(id: string, patch: Partial<PublicationTargetDraft>) {
         onChange(currentTargets =>
@@ -40,7 +42,7 @@ export function PublicationTargetList({
     }
 
     function addTarget() {
-        onChange(currentTargets => [...currentTargets, createPublicationTarget()])
+        onChange(currentTargets => [...currentTargets, createPublicationTarget('', timeZone)])
     }
 
     function removeTarget(id: string) {
@@ -63,6 +65,7 @@ export function PublicationTargetList({
                     onRemove={() => removeTarget(target.id)}
                     target={target}
                     removable={targets.length > 1}
+                    timeZone={timeZone}
                 />
             ))}
 
@@ -82,6 +85,7 @@ function PublicationTargetCard({
     onRemove,
     removable,
     target,
+    timeZone,
 }: {
     readonly channels: readonly Channel[]
     readonly disabled: boolean
@@ -90,6 +94,7 @@ function PublicationTargetCard({
     readonly onRemove: () => void
     readonly removable: boolean
     readonly target: PublicationTargetDraft
+    readonly timeZone: string
 }) {
     const channel = channels.find(candidate => candidate.id === target.channelId)
     const fieldPrefix = `publication-target-${target.id}`
@@ -177,7 +182,7 @@ function PublicationTargetCard({
                 <TargetField
                     htmlFor={`${fieldPrefix}-schedule`}
                     label="Scheduled for"
-                    hint="Local browser time.">
+                    hint={`Project time · ${timeZone}`}>
                     <Input
                         id={`${fieldPrefix}-schedule`}
                         required
