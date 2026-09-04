@@ -121,6 +121,40 @@ describe('domain construction', () => {
         )
     })
 
+    test('rejects new publications and publishers for archived channels', () => {
+        const { project, channel, actor, post } = createFixture()
+        const archivedChannel = {
+            ...channel,
+            state: 'archived' as const,
+            archivedAt: now,
+            revision: 2,
+        }
+
+        expectInvariant(
+            () =>
+                createPublication({
+                    id: 'archived-publication',
+                    project,
+                    post,
+                    channel: archivedChannel,
+                    createdBy: actor,
+                    now,
+                }),
+            'invalid_transition'
+        )
+        expectInvariant(
+            () =>
+                createPublisher({
+                    id: 'archived-publisher',
+                    project,
+                    channel: archivedChannel,
+                    kind: 'mastodon',
+                    now,
+                }),
+            'invalid_transition'
+        )
+    })
+
     test('keeps the source post separate from the target revision pointer', () => {
         const fixture = createFixture()
         const publication = createPublication({

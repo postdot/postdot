@@ -211,6 +211,12 @@ export function createChannelProfileStore(
             const actor = options.loadActor(input.projectId, input.subjectId)
             const channelRow = options.loadChannel(input.projectId, input.channelId)
             if (actor === null || channelRow === null) return null
+            if (channelRow.state !== 'active') {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Cannot edit the profile of an ${channelRow.state} channel`
+                )
+            }
 
             const activeRow = options.loadProfile(input.projectId, channelRow.profileVersionId)
             if (activeRow === null || activeRow.state !== 'active') {
@@ -327,6 +333,12 @@ export function createChannelProfileStore(
             const actor = options.loadActor(input.projectId, input.subjectId)
             const channelRow = options.loadChannel(input.projectId, input.channelId)
             if (actor === null || channelRow === null) return null
+            if (channelRow.state !== 'active') {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Cannot activate a profile on an ${channelRow.state} channel`
+                )
+            }
 
             const { activeRow, draftRow } = assertActiveAndDraftProfiles(
                 input,

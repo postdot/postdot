@@ -166,6 +166,12 @@ export function createPublicationAuthoringStore(
                     `Publication ${input.publicationId} has no available profile`
                 )
             }
+            if (channelRow.state !== 'active') {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Cannot edit a publication for an ${channelRow.state} channel`
+                )
+            }
             if (input.expectedRevision !== draftRow.revision) {
                 throw new DomainInvariantError(
                     'write_conflict',
@@ -289,6 +295,19 @@ export function createPublicationAuthoringStore(
                 throw new DomainInvariantError(
                     'invalid_input',
                     `Publication ${input.publicationId} has no source post`
+                )
+            }
+            const channelRow = options.loadChannel(input.projectId, publicationRow.channelId)
+            if (channelRow === null) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `Publication ${input.publicationId} has no channel`
+                )
+            }
+            if (channelRow.state !== 'active') {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Cannot rebase a publication for an ${channelRow.state} channel`
                 )
             }
             if (postRow.sourceRevision < draftRow.sourceRevision) {

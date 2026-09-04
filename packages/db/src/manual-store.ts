@@ -17,6 +17,7 @@ import {
 } from '@herald/core'
 
 import type { HeraldDatabase } from './client'
+import { createChannelLifecycleStore } from './manual-store/channel-lifecycle-store'
 import { createChannelProfileStore } from './manual-store/channel-profile-store'
 import { parseProfile } from './manual-store/content-codec'
 import { toAuditEvent, toProfileVersion, toPublication, toPublisher } from './manual-store/mappers'
@@ -40,6 +41,15 @@ import type {
 import { publicationColumns } from './manual-store/sql-fragments'
 import type { MediaAssetStore } from './media-asset-store'
 
+export type {
+    ArchiveChannelInput,
+    ChannelLifecycleBlockerCode,
+    ChannelLifecycleUpdateResult,
+    DeleteChannelInput,
+    DeleteChannelResult,
+    RenameChannelInput,
+    RestoreChannelInput,
+} from './manual-store/channel-lifecycle-store'
 export type {
     CreateChannelInput,
     CreateProjectInput,
@@ -244,6 +254,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     const media = options.media
     const publicMediaUrlAvailable = options.publicMediaUrlAvailable ?? false
     const projectChannelStore = createProjectChannelStore(database, { now, createId })
+    const channelLifecycleStore = createChannelLifecycleStore(database, { now, createId })
 
     const loadActorStatement = client.query<ActorRow, [projectId: string, subjectId: string]>(`
         select id,
@@ -269,6 +280,9 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                channels.name,
                channel_profiles.profile_id as profileId,
                channels.profile_version_id as profileVersionId,
+               channels.state,
+               channels.archived_at as archivedAt,
+               channels.revision,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt,
                publishers.id as publisherId,
@@ -766,6 +780,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
 
     return {
         ...projectChannelStore,
+        ...channelLifecycleStore,
         ...channelProfileStore,
         ...publicationCreationStore,
         ...publicationAuthoringStore,

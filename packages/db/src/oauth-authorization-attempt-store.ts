@@ -240,6 +240,7 @@ export function createAuthorizationAttemptStore(
             on actors.project_id = projects.id
            and actors.id = ?3
         where projects.id = ?1
+          and channels.state = 'active'
     `)
     const loadAttemptByStateStatement = client.query<
         AuthorizationAttemptRow,

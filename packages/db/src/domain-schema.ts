@@ -12,6 +12,7 @@ import {
     publicationStates,
     publisherCredentialStates,
     channelProfileVersionStates,
+    channelStates,
     type ChannelProfileDefinition,
     type CustomHttpAuthentication,
     type SourceContent,
@@ -124,6 +125,9 @@ export const channels = sqliteTable(
             .references(() => projects.id, { onDelete: 'cascade' }),
         name: text('name').notNull(),
         profileVersionId: text('profile_version_id').notNull(),
+        state: text('state', { enum: channelStates }).default('active').notNull(),
+        archivedAt: integer('archived_at'),
+        revision: integer('revision').default(1).notNull(),
         ...timestamps(),
     },
     table => [
@@ -133,6 +137,13 @@ export const channels = sqliteTable(
             sql`length(trim(${table.profileVersionId})) > 0`
         ),
         check('channels_name_nonblank', sql`length(trim(${table.name})) > 0`),
+        check('channels_state_valid', sql`${table.state} in ('active', 'archived')`),
+        check(
+            'channels_archived_timestamp_valid',
+            sql`(${table.state} = 'active' and ${table.archivedAt} is null)
+                or (${table.state} = 'archived' and ${table.archivedAt} is not null)`
+        ),
+        check('channels_revision_positive', sql`${table.revision} > 0`),
     ]
 )
 

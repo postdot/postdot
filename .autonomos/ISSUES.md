@@ -738,7 +738,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-033] Complete web onboarding and lifecycle for runtime-defined channels
 
 - Type: problem
-- Status: open
+- Status: accepted
 - Evidence: The API and domain support versioned runtime-defined channel profiles,
   while the web channel creation surface currently offers only manual-message and
   LinkedIn choices. The channel list does not provide channel rename, archival, or
@@ -752,7 +752,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   runtime-defined channels through the same versioned profile and impact-
   assessment contract, with explicit lifecycle semantics and no loss of existing
   publication or credential invariants.
-- Tasks: CHANNEL-67
+- Tasks: CHANNEL-71 (lifecycle foundation), CHANNEL-67 (web onboarding and lifecycle)
 - Related decisions: ADR-013, ADR-020, ADR-021
 
 ## [ISSUE-034] Create publications directly from calendar planning

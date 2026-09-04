@@ -33,6 +33,9 @@ export interface ChannelRow {
     readonly name: string
     readonly profileId: string
     readonly profileVersionId: string
+    readonly state: 'active' | 'archived'
+    readonly archivedAt: number | null
+    readonly revision: number
     readonly createdAt: number
     readonly updatedAt: number
 }

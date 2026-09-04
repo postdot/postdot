@@ -1,5 +1,6 @@
 import {
     ChannelProfileCompiler,
+    DomainInvariantError,
     createPublisher,
     requireNonBlank,
     requireTimestamp,
@@ -144,6 +145,9 @@ interface ChannelRow {
     readonly name: string
     readonly profileId: string
     readonly profileVersionId: string
+    readonly state: 'active' | 'archived'
+    readonly archivedAt: number | null
+    readonly revision: number
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -256,6 +260,9 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                channels.name,
                channel_profiles.profile_id as profileId,
                channels.profile_version_id as profileVersionId,
+               channels.state,
+               channels.archived_at as archivedAt,
+               channels.revision,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt
         from channels
@@ -585,6 +592,12 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
             if (projectRow === null || actorRow === null || channelRow === null) {
                 return { kind: 'not_found' }
             }
+            if (channelRow.state !== 'active') {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Cannot connect a publisher to an ${channelRow.state} channel`
+                )
+            }
 
             const credentialRow = loadCredentialStatement.get(input.projectId, input.credentialId)
             if (credentialRow === null || credentialRow.providerId !== input.kind) {
@@ -871,6 +884,9 @@ function toChannel(row: ChannelRow): Channel {
         name: row.name,
         profileId: row.profileId,
         profileVersionId: row.profileVersionId,
+        state: row.state,
+        archivedAt: row.archivedAt,
+        revision: row.revision,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }

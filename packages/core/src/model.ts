@@ -20,6 +20,7 @@ export const publicationStates = [
 ] as const
 export const jobStates = ['pending', 'running', 'succeeded', 'failed', 'cancelled'] as const
 export const publisherCredentialStates = ['active', 'reconnect_required', 'revoked'] as const
+export const channelStates = ['active', 'archived'] as const
 export const deliveryModes = ['manual', 'automatic'] as const
 export const publicationReviewStates = ['compatible', 'review_required'] as const
 
@@ -27,6 +28,7 @@ export type ActorKind = (typeof actorKinds)[number]
 export type PublicationState = (typeof publicationStates)[number]
 export type JobState = (typeof jobStates)[number]
 export type PublisherCredentialState = (typeof publisherCredentialStates)[number]
+export type ChannelState = (typeof channelStates)[number]
 export type DeliveryMode = (typeof deliveryModes)[number]
 export type PublicationReviewState = (typeof publicationReviewStates)[number]
 export type Timestamp = number
@@ -56,6 +58,9 @@ export interface Channel extends ProjectEntity {
     readonly name: string
     readonly profileId: string
     readonly profileVersionId: string
+    readonly state: ChannelState
+    readonly archivedAt: Timestamp | null
+    readonly revision: number
 }
 
 export interface Publisher extends ProjectEntity {
@@ -183,6 +188,9 @@ export function createChannel(
         name: requireNonBlank(input.name, 'name'),
         profileId: requireNonBlank(input.profileId, 'profileId'),
         profileVersionId: requireNonBlank(input.profileVersionId, 'profileVersionId'),
+        state: 'active',
+        archivedAt: null,
+        revision: 1,
     }
 }
 
@@ -194,6 +202,12 @@ export function createPublisher(
     }
 ): Publisher {
     requireSameProject(input.project.id, input.channel.projectId, 'channel')
+    if (input.channel.state !== 'active') {
+        throw new DomainInvariantError(
+            'invalid_transition',
+            `Cannot create a publisher for an ${input.channel.state} channel`
+        )
+    }
 
     return {
         ...projectEntityFields(input, input.project),
@@ -281,6 +295,12 @@ export function createPublication(
     requireSameProject(input.project.id, input.post.projectId, 'post')
     requireSameProject(input.project.id, input.channel.projectId, 'channel')
     requireSameProject(input.project.id, input.createdBy.projectId, 'createdBy actor')
+    if (input.channel.state !== 'active') {
+        throw new DomainInvariantError(
+            'invalid_transition',
+            `Cannot create a publication for an ${input.channel.state} channel`
+        )
+    }
 
     const scheduledAt =
         input.scheduledAt === null || input.scheduledAt === undefined

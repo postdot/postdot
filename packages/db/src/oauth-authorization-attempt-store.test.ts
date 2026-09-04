@@ -50,6 +50,7 @@ function createFixture() {
 
     return {
         database,
+        manualStore,
         project,
         channel,
         cipher,
@@ -75,6 +76,27 @@ async function createAttemptInput(fixture: ReturnType<typeof createFixture>, sta
 }
 
 describe('OAuth authorization attempt store', () => {
+    it('rejects authorization attempts for archived channels', async () => {
+        const fixture = createFixture()
+
+        try {
+            const archived = fixture.manualStore.archiveChannel({
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+            })
+            expect(archived).toMatchObject({ kind: 'updated' })
+
+            const result = await fixture.store.createAuthorizationAttempt(
+                await createAttemptInput(fixture, 'archived-channel')
+            )
+            expect(result).toEqual({ kind: 'not_found' })
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
     it('stores only a state digest and encrypted PKCE verifier', async () => {
         const fixture = createFixture()
 

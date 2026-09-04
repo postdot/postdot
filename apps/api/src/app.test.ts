@@ -306,6 +306,9 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/access-tokens',
                 '/api/projects/{projectId}/access-tokens/{tokenId}',
                 '/api/projects/{projectId}/channels',
+                '/api/projects/{projectId}/channels/{channelId}',
+                '/api/projects/{projectId}/channels/{channelId}/archive',
+                '/api/projects/{projectId}/channels/{channelId}/restore',
                 '/api/projects/{projectId}/channels/{channelId}/profile',
                 '/api/projects/{projectId}/channels/{channelId}/profile-drafts',
                 '/api/projects/{projectId}/channels/{channelId}/profile-drafts/{profileVersionId}/preview',
@@ -544,6 +547,139 @@ describe('Herald API', () => {
                 version: 2,
             })
             expect(activationBody.channel.profileVersionId).toBe(draftBody.profile.id)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('exposes guarded channel lifecycle operations through the API', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'channel-lifecycle-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Channel lifecycle API project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Initial channel' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const channelBody = (await channelResponse.json()) as {
+                channel: { id: string; revision: number; state: string }
+            }
+            expect(channelBody.channel).toMatchObject({ revision: 1, state: 'active' })
+
+            const renameResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ name: 'Renamed channel', expectedRevision: 1 }),
+                }
+            )
+            expect(renameResponse.status).toBe(200)
+            const renamedBody = (await renameResponse.json()) as {
+                channel: { name: string; revision: number }
+            }
+            expect(renamedBody.channel).toMatchObject({ name: 'Renamed channel', revision: 2 })
+
+            const staleRenameResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ name: 'Stale channel', expectedRevision: 1 }),
+                }
+            )
+            expect(staleRenameResponse.status).toBe(409)
+            expect(await staleRenameResponse.json()).toMatchObject({
+                error: { code: 'write_conflict' },
+            })
+
+            const activeDeleteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}`,
+                cookie,
+                {
+                    method: 'DELETE',
+                    body: JSON.stringify({ expectedRevision: 2 }),
+                }
+            )
+            expect(activeDeleteResponse.status).toBe(409)
+            expect(await activeDeleteResponse.json()).toEqual({
+                error: {
+                    code: 'channel_lifecycle_conflict',
+                    message: 'The channel cannot be deleted while these blockers exist',
+                    blockers: ['must_be_archived'],
+                },
+            })
+
+            const archiveResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/archive`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ expectedRevision: 2 }),
+                }
+            )
+            expect(archiveResponse.status).toBe(200)
+            const archivedBody = (await archiveResponse.json()) as {
+                channel: { state: string; archivedAt: number | null; revision: number }
+            }
+            expect(archivedBody.channel).toMatchObject({
+                state: 'archived',
+                archivedAt: now,
+                revision: 3,
+            })
+
+            const restoreResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/restore`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ expectedRevision: 3 }),
+                }
+            )
+            expect(restoreResponse.status).toBe(200)
+            expect(await restoreResponse.json()).toMatchObject({
+                channel: { state: 'active', archivedAt: null, revision: 4 },
+            })
+
+            const archiveAgainResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/archive`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ expectedRevision: 4 }),
+                }
+            )
+            expect(archiveAgainResponse.status).toBe(200)
+
+            const deleteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}`,
+                cookie,
+                {
+                    method: 'DELETE',
+                    body: JSON.stringify({ expectedRevision: 5 }),
+                }
+            )
+            expect(deleteResponse.status).toBe(200)
+            expect(await deleteResponse.json()).toEqual({ deleted: true })
         } finally {
             closeDatabase(database)
         }

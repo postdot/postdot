@@ -19,6 +19,9 @@ export function toChannel(row: ChannelRow): Channel {
         name: row.name,
         profileId: row.profileId,
         profileVersionId: row.profileVersionId,
+        state: row.state,
+        archivedAt: row.archivedAt,
+        revision: row.revision,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
