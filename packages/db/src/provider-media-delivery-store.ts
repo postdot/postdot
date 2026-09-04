@@ -31,6 +31,7 @@ export interface ReserveProviderMediaDeliveryInput {
     readonly executionMediaId: string
     readonly publisherId: string
     readonly providerId: string
+    readonly at?: number
 }
 
 export interface StartProviderMediaDeliveryInput {
@@ -205,7 +206,7 @@ export function createProviderMediaDeliveryStore(
             const executionMediaId = requireNonBlank(input.executionMediaId, 'executionMediaId')
             const publisherId = requireNonBlank(input.publisherId, 'publisherId')
             const providerId = requireNonBlank(input.providerId, 'providerId')
-            const timestamp = requireTimestamp(now(), 'now')
+            const timestamp = requireTimestamp(input.at ?? now(), 'at')
             insertStatement.run(
                 createId(),
                 projectId,

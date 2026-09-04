@@ -29,7 +29,8 @@
 - [x] **[EVAL-53]** Define and exercise a safe real-use publication validation loop `Priority: 🔴` `Complexity: M`
 - [x] **[EVAL-54]** Reconcile completed operational issues and validate one controlled automatic-publication loop `Priority: 🔴` `Complexity: M`
 - [x] **[SCHED-56]** Verify and harden schedule input persistence through ordinary browser interaction `Priority: 🔴` `Complexity: M`
-- [ ] **[EVAL-57]** Validate one controlled automatic LinkedIn image publication loop `Priority: 🔴` `Complexity: M`
+- [/] **[EVAL-57]** Validate one controlled automatic LinkedIn image publication loop `Priority: 🔴` `Complexity: M`
+- [/] **[FIX-58]** Align provider media delivery timestamps with the workflow processing clock `Priority: 🔴` `Complexity: S`
 - [x] **[PUB-55]** Add explicit LinkedIn member and organization-page destinations `Priority: 🔴` `Complexity: L`
 
 ## 🔮 Backlog

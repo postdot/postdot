@@ -13,6 +13,7 @@ import {
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
+    createProviderMediaDeliveryStore,
     runMigrations,
 } from '@herald/db'
 import { providerMediaDeliveries, publications } from '@herald/db/schema'
@@ -478,12 +479,16 @@ describe('publication worker', () => {
                     })
                 },
             })
+            const providerMediaDeliveryStore = createProviderMediaDeliveryStore(database, {
+                now: () => now + 1,
+            })
             const worker = createPublicationWorker({
                 database,
                 publisherStore,
                 publisherCredentialStore: credentialStore,
                 media,
                 linkedInImagePublisher: imagePublisher,
+                providerMediaDeliveryStore,
                 createClaimToken: () => 'image-worker-claim',
                 retryPolicy: {
                     nextRunAt: ({ failedAt }) => failedAt + 1,

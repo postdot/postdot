@@ -343,6 +343,7 @@ async function publishLinkedInImage(input: {
         executionMediaId: targetMedia.id,
         publisherId: input.target.publisherId,
         providerId: LINKEDIN_PROVIDER,
+        at: input.now,
     })
     if (delivery.state === 'ambiguous') {
         return ambiguousFailure(

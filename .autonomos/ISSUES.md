@@ -501,3 +501,20 @@ exists` error. At the same time, the Vite development proxy always targets port
   each project publisher connection records an explicit member or organization
   destination. Organization IDs are permission-checked after OAuth, and both
   text and image delivery use the persisted destination URN.
+
+## [ISSUE-023] Keep provider media delivery timestamps on one workflow clock
+
+- Type: problem
+- Status: open
+- Evidence: A real automatic image-publication attempt created the provider
+  media delivery with the store's wall clock, then started it with the logical
+  workflow processing timestamp. A millisecond skew caused the SQLite timestamp
+  invariant to reject the transition before the provider upload call.
+- Impact: A valid automatic image publication can be classified as ambiguous and
+  stop the worker even though the provider request was never reached. The same
+  clock split can affect delayed or batched processing whenever a delivery store
+  clock advances between operations.
+- Desired outcome: Every provider media delivery mutation in one workflow run
+  uses the same validated processing timestamp, while direct store callers keep
+  a safe wall-clock default. A regression test must cover a skewed store clock.
+- Tasks: FIX-58 (in progress), EVAL-57 (in progress)
