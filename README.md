@@ -92,6 +92,26 @@ bun run herald publications due --project <project-id> --json
 Use `bun run herald --help` for the available project, channel, publication, and
 audit commands. Set `HERALD_URL` or pass `--base-url` when the API is not local.
 
+Project access tokens are created and revoked through a human session. The full
+secret is printed only by the create command, so copy it into a secret manager
+before leaving the command output:
+
+```sh
+bun run herald access-tokens create --project <project-id> --name release-agent
+bun run herald access-tokens list --project <project-id> --json
+bun run herald access-tokens revoke --project <project-id> --token-id <token-id>
+```
+
+Use a project token for ordinary machine operations through `HERALD_PROJECT_TOKEN`
+or `--token`. Project tokens cannot create projects, manage tokens, or start
+interactive publisher OAuth flows:
+
+```sh
+export HERALD_PROJECT_TOKEN='paste-the-token-once'
+bun run herald projects list --json
+bun run herald publications due --project <project-id> --json
+```
+
 ### Opt-in LinkedIn smoke test
 
 The LinkedIn publisher smoke test creates a real public member post. It is never

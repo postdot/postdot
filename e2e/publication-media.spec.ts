@@ -116,7 +116,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(navigationLayout).toEqual({ linkCount: 6, topOffsetCount: 6 })
+    expect(navigationLayout).toEqual({ linkCount: 7, topOffsetCount: 7 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
 
@@ -189,6 +189,33 @@ test('persists mixed and media-only publications through the dashboard', async (
         scrollHeight: (scrollRegion as unknown as { scrollHeight: number }).scrollHeight,
     }))
     expect(overviewLayout.scrollHeight).toBeLessThanOrEqual(overviewLayout.clientHeight)
+
+    await page.getByRole('link', { name: 'Access', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/access$/)
+    await expect(page.getByRole('heading', { name: 'Project access', level: 1 })).toBeVisible()
+
+    const tokenName = `E2E-68 token ${suffix}`
+    await page.getByLabel('Name', { exact: true }).fill(tokenName)
+    await page.getByRole('button', { name: 'Create token', exact: true }).click()
+    await expect(
+        page.getByRole('heading', { name: `Token created for ${tokenName}` })
+    ).toBeVisible()
+    const tokenSecret = await page.locator('code').innerText()
+    expect(tokenSecret).toMatch(/^herald_pat_v1_/)
+    await expect(page.getByText('Shown once', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(page.locator('code')).toHaveCount(0)
+    await expect(page.getByText(tokenName, { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Revoke', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Revoke this token?' })).toBeVisible()
+    await page.getByRole('button', { name: 'Revoke token', exact: true }).click()
+    await expect(
+        page
+            .getByRole('listitem')
+            .filter({ hasText: tokenName })
+            .getByRole('button', { name: 'Revoked', exact: true })
+    ).toBeVisible()
 
     await page.getByRole('link', { name: 'Calendar', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)

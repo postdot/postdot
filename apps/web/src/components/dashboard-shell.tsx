@@ -41,6 +41,7 @@ import { cn } from '@herald/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
 import { GalleryIcon } from '@solar-icons/react/bold/gallery'
+import { KeyMinimalisticIcon } from '@solar-icons/react/bold/key-minimalistic'
 import { LinkIcon } from '@solar-icons/react/bold/link'
 import { ListIcon } from '@solar-icons/react/bold/list'
 import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
@@ -191,6 +192,13 @@ export function DashboardShell({
                                         label="Media"
                                         projectId={selectedProjectId}
                                         active={activeSection === 'media'}
+                                    />
+                                    <WorkspaceMenuItem
+                                        destination="access"
+                                        icon={<KeyMinimalisticIcon aria-hidden="true" />}
+                                        label="Access"
+                                        projectId={selectedProjectId}
+                                        active={activeSection === 'access'}
                                     />
                                 </SidebarMenu>
                             </nav>
@@ -396,7 +404,14 @@ function WorkspaceMenuItem({
     )
 }
 
-type WorkspaceSection = 'overview' | 'calendar' | 'compose' | 'queue' | 'channels' | 'media'
+type WorkspaceSection =
+    | 'overview'
+    | 'calendar'
+    | 'compose'
+    | 'queue'
+    | 'channels'
+    | 'media'
+    | 'access'
 
 function workspaceLink(
     destination: WorkspaceSection,
@@ -441,6 +456,7 @@ function workspaceSection(pathname: string): WorkspaceSection {
     if (pathname.includes('/queue')) return 'queue'
     if (pathname.includes('/channels')) return 'channels'
     if (pathname.includes('/media')) return 'media'
+    if (pathname.includes('/access')) return 'access'
     return 'overview'
 }
 
@@ -450,6 +466,7 @@ function workspaceSectionLabel(section: WorkspaceSection) {
     if (section === 'queue') return 'Queue'
     if (section === 'channels') return 'Channels'
     if (section === 'media') return 'Media'
+    if (section === 'access') return 'Access'
     return 'Overview'
 }
 

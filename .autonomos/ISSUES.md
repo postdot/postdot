@@ -707,12 +707,12 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-032] Expose project machine access through supported operator clients
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: Project-scoped bearer-token storage, authentication, OpenAPI routes,
-  revocation, and actor attribution are implemented. The web API client and
-  dashboard do not expose token management, and `scripts/herald.ts` accepts only
-  a human session cookie rather than a project bearer token or token-management
-  commands.
+  revocation, actor attribution, and operator-client integration are implemented.
+  The typed client accepts project bearer tokens, the CLI supports ordinary
+  bearer-authenticated operations and human-session token management, and the
+  authenticated dashboard exposes the same token lifecycle.
 - Impact: Operators cannot use the accepted project-token boundary conveniently
   from the supported web and CLI surfaces, which limits unattended scripts and
   agents and encourages session-cookie workarounds.
@@ -721,7 +721,19 @@ exists` error. At the same time, the Vite development proxy always targets port
   boundary, while ordinary project operations accept the bearer token and keep
   plaintext secrets out of logs and persistent state.
 - Tasks: ACCESS-68
+- Resolution: `@herald/client`, the supported CLI, and the authenticated web
+  application now cover project token creation, one-time display, metadata
+  listing, and revocation. Ordinary client and CLI project operations can send
+  the project bearer token; token management deliberately uses a human session.
+  The plaintext value remains in process/UI memory only after creation and is
+  never returned by metadata operations or written to persistent state.
 - Related decision: ADR-030
+- Verification: Client, CLI, database, and API integration tests cover bearer
+  propagation, human-only management, one-time secret handling, metadata
+  redaction, and project isolation. The browser E2E flow creates a disposable
+  token, verifies that the secret disappears after dismissal, and revokes it.
+  The full format, lint, typecheck, unit/integration, browser E2E, and build gate
+  passed.
 
 ## [ISSUE-033] Complete web onboarding and lifecycle for runtime-defined channels
 

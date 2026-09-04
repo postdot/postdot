@@ -34,6 +34,7 @@ type HeraldFetcher = (input: string | URL | Request, init?: RequestInit) => Prom
 export interface HeraldClientOptions {
     readonly cookie?: string
     readonly headers?: ConstructorParameters<typeof Headers>[0]
+    readonly token?: string
     readonly fetcher?: HeraldFetcher
 }
 
@@ -43,6 +44,7 @@ export function createHeraldClient(
 ): Treaty.Create<HeraldApp> {
     const headers = new Headers(options.headers)
     if (options.cookie !== undefined) headers.set('cookie', options.cookie)
+    if (options.token !== undefined) headers.set('authorization', `Bearer ${options.token}`)
 
     return treaty<HeraldApp>(baseURL, {
         fetch: {
