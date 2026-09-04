@@ -677,3 +677,125 @@ exists` error. At the same time, the Vite development proxy always targets port
   authentication and operational application routes. The browser contract now
   covers both root redirects and waits for the authenticated dashboard to
   finish loading before starting a second navigation.
+
+## [ISSUE-031] Support path-authenticated custom HTTP receivers safely
+
+- Type: question
+- Status: open
+- Evidence: Custom HTTP connections currently store and validate one origin-only
+  endpoint. The declarative mapped HTTP contract can construct bounded path and
+  query values beneath that origin, but the connection secret can only be applied
+  through the supported authentication header modes. Some webhook-style receivers
+  identify the destination through a secret-bearing path rather than a header.
+- Impact: A receiver that requires a path credential cannot be onboarded through
+  the current custom HTTP contract without either rejecting a valid integration or
+  placing sensitive URL material in the endpoint metadata. Broadly allowing
+  path-bearing endpoints would also contradict the accepted secret and egress
+  boundaries.
+- Desired outcome: Herald has a deliberate, bounded contract for receivers whose
+  authentication or routing requires URL components, while preserving origin-only
+  network authority, encrypted-secret handling, SSRF protections, redaction, and
+  immutable execution semantics.
+- Tasks: to be triaged
+- Related decisions: ADR-017, ADR-018
+
+## [ISSUE-032] Expose project machine access through supported operator clients
+
+- Type: problem
+- Status: open
+- Evidence: Project-scoped bearer-token storage, authentication, OpenAPI routes,
+  revocation, and actor attribution are implemented. The web API client and
+  dashboard do not expose token management, and `scripts/herald.ts` accepts only
+  a human session cookie rather than a project bearer token or token-management
+  commands.
+- Impact: Operators cannot use the accepted project-token boundary conveniently
+  from the supported web and CLI surfaces, which limits unattended scripts and
+  agents and encourages session-cookie workarounds.
+- Desired outcome: Supported operator clients can create, display once, list, and
+  revoke project-scoped tokens through the existing human-only management
+  boundary, while ordinary project operations accept the bearer token and keep
+  plaintext secrets out of logs and persistent state.
+- Tasks: to be triaged
+- Related decision: ADR-030
+
+## [ISSUE-033] Complete web onboarding and lifecycle for runtime-defined channels
+
+- Type: problem
+- Status: open
+- Evidence: The API and domain support versioned runtime-defined channel profiles,
+  while the web channel creation surface currently offers only manual-message and
+  LinkedIn choices. The channel list does not provide channel rename, archival, or
+  deletion actions, and custom profile authoring is not exposed as a complete web
+  workflow.
+- Impact: The primary client does not represent the channel model that Herald
+  already persists. Users cannot manage runtime-defined destinations or their
+  lifecycle coherently from the application, and provider-specific workarounds
+  would undermine the channel/profile boundary.
+- Desired outcome: The web application can onboard and manage built-in and
+  runtime-defined channels through the same versioned profile and impact-
+  assessment contract, with explicit lifecycle semantics and no loss of existing
+  publication or credential invariants.
+- Tasks: to be triaged
+- Related decisions: ADR-013, ADR-020, ADR-021
+
+## [ISSUE-034] Create publications directly from calendar planning
+
+- Type: proposal
+- Status: open
+- Evidence: The project calendar currently presents scheduled publications and
+  planning states, but an empty day does not start composition with that date
+  carried into the scheduling flow.
+- Impact: Calendar users must leave the planning surface and re-enter the date
+  manually, adding friction to the central scheduling workflow.
+- Desired outcome: A calendar interaction can start a new publication with an
+  explicit date context while preserving the editor's draft, validation, and
+  promotion boundaries across desktop and small screens.
+- Tasks: to be triaged
+- Related issue: ISSUE-019
+
+## [ISSUE-035] Define project scheduling timezone semantics
+
+- Type: question
+- Status: open
+- Evidence: The web editor renders and edits scheduled timestamps in the browser's
+  local timezone. Herald does not yet expose a project timezone policy or show the
+  timezone used when a schedule is authored and displayed.
+- Impact: The same publication can appear at different local wall-clock times on
+  different devices, and a future timezone choice cannot be added safely without
+  deciding how existing timestamps and calendar boundaries are interpreted.
+- Desired outcome: Herald has an explicit scheduling-timezone contract covering
+  storage, authoring, calendar display, device changes, and migration of existing
+  scheduled data before timezone-aware UI is implemented.
+- Tasks: to be triaged
+
+## [ISSUE-036] Provide an intentional MCP operator surface
+
+- Type: proposal
+- Status: open
+- Evidence: The domain and API contracts already provide reusable validation,
+  publication, project, channel, and audit operations, while the repository does
+  not yet provide a first-class MCP server for those operations.
+- Impact: External agents cannot use Herald through a dedicated protocol surface
+  without building their own API integration and reproducing authentication and
+  validation assumptions.
+- Desired outcome: A future MCP surface reuses the API/domain contracts, preserves
+  project-scoped authorization and actor attribution, and exposes only operations
+  whose external side effects and confirmation semantics are explicit.
+- Tasks: to be triaged
+
+## [ISSUE-037] Add reusable built-in channel profile presets
+
+- Type: proposal
+- Status: open
+- Evidence: Runtime-defined profiles intentionally allow complete custom schemas,
+  while common provider shapes are currently represented by individually defined
+  built-in profiles. The audit identified reusable presets for recurring channel
+  families as a potential acceleration path.
+- Impact: Creating a familiar custom destination can require repeating a profile
+  definition, and future built-in coverage may duplicate capability knowledge
+  without a deliberate preset boundary.
+- Desired outcome: Herald can offer editable, versioned starting profiles for
+  common channel families without making presets live authorities or restricting
+  fully runtime-defined custom channels.
+- Tasks: to be triaged
+- Related decisions: ADR-013, ADR-020, ADR-021
