@@ -63,26 +63,21 @@ test('persists mixed and media-only publications through the dashboard', async (
         },
     })
 
-    await page.goto('/login')
+    await page.goto('/')
+    await expect(page).toHaveURL(/\/login$/)
     await expect(
-        page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', {
-            name: 'Sign in',
-            exact: true,
-        })
-    ).toHaveCount(1)
+        page.getByRole('heading', { name: 'Sign in to Herald.', exact: true })
+    ).toBeVisible()
     await page.getByRole('button', { name: 'Need an account?' }).click()
     await page.getByLabel('Name').fill('E2E-33 Operator')
     await page.getByLabel('Email').fill(`e2e-33-${suffix}@herald.local`)
     await page.getByLabel('Password').fill('e2e-33-password')
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
-    await expect(
-        page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', {
-            name: 'Sign in',
-            exact: true,
-        })
-    ).toHaveCount(0)
     const dashboardLogo = page.locator('a[aria-label="Herald workspace"] svg')
+    await expect(dashboardLogo).toBeVisible()
+    await page.goto('/')
+    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
     await expect(dashboardLogo).toHaveAttribute('viewBox', '0 0 189 189')
     await expect(dashboardLogo.locator('[fill="currentColor"]')).toHaveCount(5)
     await expect(page.locator('a[aria-label="Herald workspace"]')).toHaveCSS(

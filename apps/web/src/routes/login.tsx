@@ -1,6 +1,6 @@
 import { Button } from '@herald/ui/components/button'
 import { HeraldLogo } from '@herald/ui/components/herald-logo'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 
 import { ApiError, api } from '@/lib/api'
@@ -102,7 +102,7 @@ function LoginPage() {
                     </Button>
                 </form>
 
-                <div className="mt-6 flex items-center justify-between text-sm">
+                <div className="mt-6 text-sm">
                     <button
                         type="button"
                         className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
@@ -112,11 +112,6 @@ function LoginPage() {
                         }}>
                         {isSignUp ? 'Already have an account?' : 'Need an account?'}
                     </button>
-                    <Link
-                        to="/"
-                        className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-                        Back home
-                    </Link>
                 </div>
             </div>
         </section>

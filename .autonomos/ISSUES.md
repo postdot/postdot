@@ -652,3 +652,28 @@ exists` error. At the same time, the Vite development proxy always targets port
   server, browser, credential, or merge ownership.
 - Tasks: META-62
 - Related issues: ISSUE-024
+
+## [ISSUE-030] Restrict current web entry points to the authenticated application
+
+- Type: problem
+- Status: resolved
+- Evidence: The SPA still exposes a marketing-style `/` page and an `/about`
+  page with public navigation, even though Herald is currently being developed
+  as an authenticated operational application. The accepted design direction
+  keeps any landing or documentation surface future-facing and separate from
+  the current app shell.
+- Impact: Public composition and navigation add an obsolete product boundary,
+  dilute the authenticated workspace entry point, and can cause future reviews
+  to spend time on a surface that is intentionally out of the current scope.
+- Desired outcome: The current web application exposes only authentication and
+  operational application surfaces. The root entry point resolves the current
+  session to login or the dashboard, while future public and documentation
+  surfaces remain a separate, explicitly authorized product task.
+- Tasks: WEB-63
+- Resolution: The root route now redirects unauthenticated sessions to
+  `/login` and authenticated sessions to `/dashboard`. The temporary marketing
+  root and `/about` route were removed, the root layout now only hosts shared
+  application providers, and the generated route tree contains only
+  authentication and operational application routes. The browser contract now
+  covers both root redirects and waits for the authenticated dashboard to
+  finish loading before starting a second navigation.
