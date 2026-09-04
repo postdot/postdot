@@ -143,6 +143,33 @@ export const channelProfileActivationSchema = Type.Unsafe<ChannelProfileActivati
     })
 )
 
+const channelLifecycleBlockerSchema = Type.Union([
+    Type.Literal('active_work'),
+    Type.Literal('pending_authorization'),
+    Type.Literal('publications'),
+    Type.Literal('publisher'),
+    Type.Literal('must_be_archived'),
+])
+
+export const channelLifecycleConflictResponse = Type.Object({
+    error: Type.Object({
+        code: Type.Literal('channel_lifecycle_conflict'),
+        message: Type.String(),
+        blockers: Type.Array(channelLifecycleBlockerSchema),
+    }),
+})
+
+export const channelLifecycleBody = Type.Object({
+    expectedRevision: Type.Integer({ minimum: 1 }),
+})
+
+export const renameChannelBody = Type.Object({
+    name: Type.String({ minLength: 1 }),
+    expectedRevision: Type.Integer({ minimum: 1 }),
+})
+
+export const channelDeletedSchema = Type.Object({ deleted: Type.Literal(true) })
+
 export const duePublicationSchema = Type.Intersect([
     publicationSchema,
     Type.Object({

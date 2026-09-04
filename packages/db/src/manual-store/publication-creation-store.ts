@@ -284,6 +284,12 @@ export function createPublicationCreationStore(
                         `Channel ${publicationInput.channelId} does not belong to project`
                     )
                 }
+                if (channelRow.state !== 'active') {
+                    throw new DomainInvariantError(
+                        'invalid_transition',
+                        `Cannot create a publication for an ${channelRow.state} channel`
+                    )
+                }
 
                 const profileRow = options.loadProfile(project.id, channelRow.profileVersionId)
                 if (profileRow === null || profileRow.channelId !== channelRow.id) {

@@ -94,6 +94,9 @@ export function createProjectChannelStore(
                channels.name,
                channel_profiles.profile_id as profileId,
                channels.profile_version_id as profileVersionId,
+               channels.state,
+               channels.archived_at as archivedAt,
+               channels.revision,
                channels.created_at as createdAt,
                channels.updated_at as updatedAt
         from channels
@@ -136,10 +139,28 @@ export function createProjectChannelStore(
     `)
     const insertChannelStatement = client.query<
         void,
-        [id: string, projectId: string, name: string, profileVersionId: string, now: number]
+        [
+            id: string,
+            projectId: string,
+            name: string,
+            profileVersionId: string,
+            state: Channel['state'],
+            archivedAt: number | null,
+            revision: number,
+            now: number,
+        ]
     >(`
-        insert into channels (id, project_id, name, profile_version_id, created_at, updated_at)
-        values (?1, ?2, ?3, ?4, ?5, ?5)
+        insert into channels (
+            id,
+            project_id,
+            name,
+            profile_version_id,
+            state,
+            archived_at,
+            revision,
+            created_at,
+            updated_at
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
     `)
     const insertProfileStatement = client.query<
         void,
@@ -321,6 +342,9 @@ export function createProjectChannelStore(
                 project.id,
                 channel.name,
                 channel.profileVersionId,
+                channel.state,
+                channel.archivedAt,
+                channel.revision,
                 timestamp
             )
             insertProfileStatement.run(

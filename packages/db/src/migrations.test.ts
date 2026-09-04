@@ -32,6 +32,29 @@ function unapplyMigrations(database: ReturnType<typeof createDatabase>, tags: re
     }
 }
 
+function revertChannelLifecycleMigration(database: ReturnType<typeof createDatabase>) {
+    database.$client.exec(`
+        PRAGMA foreign_keys=OFF;
+        CREATE TABLE herald_legacy_channels (
+            id text PRIMARY KEY NOT NULL,
+            project_id text NOT NULL,
+            name text NOT NULL,
+            profile_version_id text NOT NULL,
+            created_at integer NOT NULL,
+            updated_at integer NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE cascade
+        );
+        INSERT INTO herald_legacy_channels (
+            id, project_id, name, profile_version_id, created_at, updated_at
+        )
+        SELECT id, project_id, name, profile_version_id, created_at, updated_at
+        FROM channels;
+        DROP TABLE channels;
+        ALTER TABLE herald_legacy_channels RENAME TO channels;
+        CREATE UNIQUE INDEX channels_project_id_id_uidx ON channels (project_id, id);
+    `)
+}
+
 describe('database migrations', () => {
     it('applies the committed migration exactly once', () => {
         const database = createDatabase(':memory:')
@@ -85,7 +108,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(11)
+            expect(migrationCount?.count).toBe(12)
         } finally {
             closeDatabase(database)
         }
@@ -124,11 +147,13 @@ describe('database migrations', () => {
             )
             database.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             database.$client.exec('DROP TABLE project_access_tokens')
+            revertChannelLifecycleMigration(database)
             unapplyMigrations(database, [
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
                 '0009_legal_bucky',
                 '0010_typical_zeigeist',
+                '0011_deep_captain_britain',
             ])
             runMigrations(database)
 
@@ -178,11 +203,13 @@ describe('database migrations', () => {
             )
             staleDatabase.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             staleDatabase.$client.exec('DROP TABLE project_access_tokens')
+            revertChannelLifecycleMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
                 '0009_legal_bucky',
                 '0010_typical_zeigeist',
+                '0011_deep_captain_britain',
             ])
 
             expect(() => runMigrations(staleDatabase)).toThrow()

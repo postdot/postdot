@@ -10,6 +10,7 @@ export type {
 export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
 export { createManualStore } from './manual-store'
+export { channelLifecycleBlockerCodes } from './manual-store/channel-lifecycle-store'
 export { createMediaAssetStore } from './media-asset-store'
 export { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
 export { createPublisherStore } from './publisher-store'
@@ -59,8 +60,11 @@ export type {
     RevokeProjectAccessTokenInput,
 } from './project-access-token-store'
 export type {
+    ArchiveChannelInput,
     AuditEvent,
     ActivateChannelProfileInput,
+    ChannelLifecycleBlockerCode,
+    ChannelLifecycleUpdateResult,
     ChannelProfileActivationResult,
     ChannelProfileState,
     ChannelProfileVersion,
@@ -71,6 +75,8 @@ export type {
     CreateProjectInput,
     CreatedPost,
     CreatedProject,
+    DeleteChannelInput,
+    DeleteChannelResult,
     DueManualPublication,
     ManualStoreOptions,
     PromotePublicationDraftInput,
@@ -78,12 +84,14 @@ export type {
     PreviewChannelProfileActivationInput,
     ReconcileAmbiguousPublicationInput,
     ReconcileAmbiguousPublicationResult,
+    RenameChannelInput,
     PublicationWorkingDraft,
     PublicationEditorState,
     PublicationSummary,
     PublicationTargetRevision,
     SavePublicationDraftInput,
     RebasePublicationDraftInput,
+    RestoreChannelInput,
 } from './manual-store'
 export type {
     FinalizeMediaUploadInput,

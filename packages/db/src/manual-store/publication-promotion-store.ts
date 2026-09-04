@@ -213,6 +213,12 @@ export function createPublicationPromotionStore(
             ) {
                 throw new DomainInvariantError('invalid_input', 'Profile unavailable')
             }
+            if (channelRow.state !== 'active') {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    `Cannot promote a publication for an ${channelRow.state} channel`
+                )
+            }
             const profileResult = options.profileCompiler.compile(
                 parseProfile(profileRow.profileJson)
             )
