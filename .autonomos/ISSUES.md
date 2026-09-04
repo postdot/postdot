@@ -596,7 +596,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-027] Isolate built-in provider execution behind an explicit contract
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The workflow worker currently dispatches the known built-in
   providers from central code, including provider-specific credential refresh
   and destination handling.
@@ -607,7 +607,12 @@ exists` error. At the same time, the Vite development proxy always targets port
   provider port or registry for credential resolution, capability validation,
   execution, and outcome mapping, while preserving channel-owned profiles and
   avoiding a universal provider DSL.
-- Tasks: PROVIDER-69
+- Tasks: PROVIDER-69 (completed)
+- Resolution: The worker now dispatches built-in execution through an explicit
+  provider registry and contract. Provider-specific credential resolution,
+  destination handling, execution, and outcome mapping live behind the provider
+  boundary, while channel-owned profiles remain separate. The implementation was
+  integrated through PR #70.
 
 ## [ISSUE-028] Verify pinned media bytes on every delivery path
 
@@ -756,7 +761,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-035] Define project scheduling timezone semantics
 
 - Type: question
-- Status: open
+- Status: resolved
 - Evidence: The web editor renders and edits scheduled timestamps in the browser's
   local timezone. Herald does not yet expose a project timezone policy or show the
   timezone used when a schedule is authored and displayed.
@@ -766,7 +771,14 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: Herald has an explicit scheduling-timezone contract covering
   storage, authoring, calendar display, device changes, and migration of existing
   scheduled data before timezone-aware UI is implemented.
-- Tasks: TIME-70
+- Tasks: TIME-70 (completed)
+- Related decision: ADR-032
+- Resolution: Projects now persist a validated canonical IANA timezone with UTC as
+  the deterministic default. Web authoring, calendar grouping, queue, overview, and
+  attention surfaces use that project timezone, while stored schedule instants and
+  scheduler execution remain unchanged. Nonexistent and ambiguous DST local times
+  fail closed, project timezone changes are audited without moving existing
+  instants, and the API exposes the update boundary.
 
 ## [ISSUE-036] Provide an intentional MCP operator surface
 
