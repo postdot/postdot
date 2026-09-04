@@ -471,12 +471,17 @@ exists` error. At the same time, the Vite development proxy always targets port
   publication workflow in realistic use, including automatic and manual channels,
   failures, edits, and recovery, without reintroducing a release-oriented MVP
   boundary.
-- Tasks: EVAL-53 (completed; repeat periodically), EVAL-54 (completed), PUB-55 (completed)
+- Tasks: EVAL-53 (completed; repeat periodically), EVAL-54 (completed), PUB-55 (completed), EVAL-57 (completed; repeat periodically)
 - EVAL-54 completed the automatic-provider stage with an operator-approved,
   organization-scoped LinkedIn smoke test. The provider acknowledged the text
   publication, Herald persisted the successful job and publication outcome, and
   the dashboard displayed the target as published. This issue remains open as
   a recurring validation practice rather than a one-time implementation task.
+- EVAL-57 completed the automatic image-provider stage with an operator-approved
+  disposable publication. The provider acknowledged the image delivery, Herald
+  persisted the successful media checkpoint and publication outcome, and the
+  dashboard displayed the target as published. This remains a recurring
+  validation practice rather than a release gate.
 
 ## [ISSUE-022] Separate LinkedIn authorization principals from publication destinations
 
@@ -505,7 +510,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-023] Keep provider media delivery timestamps on one workflow clock
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: A real automatic image-publication attempt created the provider
   media delivery with the store's wall clock, then started it with the logical
   workflow processing timestamp. A millisecond skew caused the SQLite timestamp
@@ -517,4 +522,11 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: Every provider media delivery mutation in one workflow run
   uses the same validated processing timestamp, while direct store callers keep
   a safe wall-clock default. A regression test must cover a skewed store clock.
-- Tasks: FIX-58 (in progress), EVAL-57 (in progress)
+- Tasks: FIX-58 (completed), EVAL-57 (completed)
+- Resolution: FIX-58 now passes the workflow processing timestamp into provider
+  media reservation, while direct store callers retain a validated wall-clock
+  default. The skewed-clock regression test passed, and a subsequent approved
+  automatic image publication reached the provider successfully. Herald
+  persisted the publication as published, the job as succeeded, and the media
+  delivery as uploaded. The first failed attempt remains an explicit local
+  ambiguous record and was not retried blindly.
