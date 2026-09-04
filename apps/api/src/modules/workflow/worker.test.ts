@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { ChannelProfileDefinition } from '@herald/core'
+import type { ChannelProfileDefinition, DeclarativeHttpExecutionContract } from '@herald/core'
 import { createCustomHttpTransport } from '@herald/custom-http'
 import {
     closeDatabase,
@@ -143,6 +143,34 @@ const customMappedMediaProfile: ChannelProfileDefinition = {
                 retryableStatuses: [429],
                 rejectedStatuses: [400],
                 ambiguousStatuses: [500],
+            },
+        },
+    },
+}
+
+const customMultipartMediaProfile: ChannelProfileDefinition = {
+    ...customMappedMediaProfile,
+    id: 'custom-multipart-media',
+    profileHash: 'sha256:custom-multipart-media-profile-v1',
+    schemaHash: 'sha256:custom-multipart-media-schema-v1',
+    capabilities: {
+        ...customMappedMediaProfile.capabilities,
+        mediaFields: [
+            {
+                ...customMappedMediaProfile.capabilities.mediaFields[0]!,
+                publicUrlRequired: false,
+            },
+        ],
+    },
+    execution: {
+        ...(customMappedMediaProfile.execution as DeclarativeHttpExecutionContract),
+        contractId: 'custom-multipart-media',
+        request: {
+            ...(customMappedMediaProfile.execution as DeclarativeHttpExecutionContract).request!,
+            body: {
+                kind: 'multipart',
+                fields: { commentary: { kind: 'content', pointer: '/commentary' } },
+                media: [{ fieldName: 'media', pointer: '/media' }],
             },
         },
     },
@@ -836,6 +864,150 @@ describe('publication worker', () => {
             ).toEqual([{ state: 'published' }])
         } finally {
             receiver.stop()
+            closeDatabase(database)
+            await rm(rootDirectory, { recursive: true, force: true })
+        }
+    })
+
+    it('rejects changed custom HTTP media bytes before making a request', async () => {
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-custom-media-checksum-'))
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const media = createMediaAssetStore(
+                database,
+                createLocalMediaStore({
+                    storeId: 'local-test',
+                    rootDirectory,
+                    maxObjectBytes: 2_000_000,
+                }),
+                { now: () => now, deletionGracePeriodMs: 0 }
+            )
+            const manualStore = createManualStore(database, { now: () => now, media })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => now,
+            })
+            const publisherStore = createPublisherStore(database, {
+                credentialRevoker: credentialStore,
+                now: () => now,
+            })
+            const project = manualStore.createProject({
+                name: 'Custom HTTP Checksum Project',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            const bytes = createPng()
+            const reservation = media.reserveUpload({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                originalFilename: 'image.png',
+                expectedSize: bytes.byteLength,
+                contentType: 'image/png',
+            })
+            expect(reservation).not.toBeNull()
+            if (reservation === null)
+                throw new Error('The checksum test reservation was not created')
+            expect(
+                (
+                    await media.upload({
+                        projectId: project.project.id,
+                        subjectId: 'user-1',
+                        intentId: reservation.intent.id,
+                        source: new Blob([bytes]).stream(),
+                    })
+                ).kind
+            ).toBe('uploaded')
+            const finalized = await media.finalizeUpload({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                intentId: reservation.intent.id,
+            })
+            expect(finalized.kind).toBe('ready')
+            if (finalized.kind !== 'ready') throw new Error('The checksum test media was not ready')
+
+            const changedBytes = new Uint8Array(bytes)
+            changedBytes[changedBytes.length - 1]! ^= 0xff
+            await Bun.write(
+                join(rootDirectory, ...finalized.reservation.representation.objectKey.split('/')),
+                changedBytes
+            )
+
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Custom HTTP Checksum Receiver',
+                profile: customMultipartMediaProfile,
+            })
+            expect(channel).not.toBeNull()
+            if (channel === null) throw new Error('The checksum test channel was not created')
+            const credential = await credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'custom_http',
+                externalAccountId: 'checksum-receiver',
+                externalAccountName: 'Custom HTTP Checksum Receiver',
+                scopes: [],
+                accessToken: 'custom-http-checksum-secret-with-at-least-32-characters',
+                expiresAt: null,
+            })
+            expect(credential.kind).toBe('created')
+            if (credential.kind !== 'created')
+                throw new Error('The checksum test credential was not created')
+            expect(
+                publisherStore.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'user-1',
+                    kind: 'custom_http',
+                    credentialId: credential.credential.id,
+                    endpointUrl: 'https://receiver.example.test',
+                    authentication: { kind: 'none' },
+                }).kind
+            ).toBe('created')
+            const post = manualStore.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Checksum guarded delivery', format: 'plain_text' },
+                    media: [{ assetId: reservation.asset.id }],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
+                ],
+            })
+            expect(post).not.toBeNull()
+
+            const requests: unknown[] = []
+            const requester = {
+                request: async (request: unknown) => {
+                    requests.push(request)
+                    return { status: 201, headers: {}, body: '', bodyTruncated: false }
+                },
+            }
+            const worker = createPublicationWorker({
+                database,
+                publisherStore,
+                publisherCredentialStore: credentialStore,
+                media,
+                customHttpTransport: createCustomHttpTransport({
+                    requester,
+                    resolveHostname: async () => [{ address: '8.8.8.8', family: 4 }],
+                }),
+                now: () => now,
+            })
+            await worker.processDueEvents(now)
+
+            expect(requests).toHaveLength(0)
+            expect(
+                database
+                    .select({ state: publications.state })
+                    .from(publications)
+                    .where(eq(publications.projectId, project.project.id))
+                    .all()
+            ).toEqual([{ state: 'failed' }])
+        } finally {
             closeDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })
         }

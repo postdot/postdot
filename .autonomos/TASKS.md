@@ -82,4 +82,5 @@
 - [x] **[MAINT-50]** Extract channel-profile reads without weakening profile mutation transactions `Priority: 🔴` `Complexity: M`
 - [x] **[AUDIT-37]** Reconcile independent architecture audits against the current product state `Priority: 🔴` `Complexity: L`
 - [x] **[WEB-51]** Make the web project context URL-authoritative `Priority: 🔴` `Complexity: M`
-- [ ] **[META-61]** Validate the complete parallel agent lifecycle and finalize orchestration policy `Priority: 🟠` `Complexity: M`
+- [x] **[META-61]** Validate the complete parallel agent lifecycle and finalize orchestration policy `Priority: 🟠` `Complexity: M`
+- [ ] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M`

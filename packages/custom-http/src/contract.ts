@@ -61,6 +61,7 @@ export interface CustomHttpMediaDescriptor {
 export interface OpenedCustomHttpMedia {
     readonly size: number
     readonly contentType: string
+    readonly sha256: string
     readonly stream: ReadableStream<Uint8Array>
 }
 

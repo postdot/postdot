@@ -563,6 +563,11 @@ function multipartBody(
                         `Media ${field.part.media.assetId} content type changed before delivery`
                     )
                 }
+                if (opened.sha256 !== field.part.media.sha256) {
+                    throw new Error(
+                        `Media ${field.part.media.assetId} checksum changed before delivery`
+                    )
+                }
                 const reader = opened.stream.getReader()
                 try {
                     while (true) {
@@ -570,6 +575,13 @@ function multipartBody(
                         if (next.done) break
                         await emit(next.value)
                     }
+                } catch (error) {
+                    try {
+                        await reader.cancel(error)
+                    } catch {
+                        // Preserve the original multipart write failure.
+                    }
+                    throw error
                 } finally {
                     reader.releaseLock()
                 }

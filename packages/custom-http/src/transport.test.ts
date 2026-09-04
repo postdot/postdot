@@ -275,6 +275,7 @@ describe('custom HTTP transport', () => {
                             return {
                                 size: media.byteSize,
                                 contentType: media.contentType,
+                                sha256: media.sha256,
                                 stream: new ReadableStream({
                                     start(controller) {
                                         controller.enqueue(new TextEncoder().encode('image-bytes'))

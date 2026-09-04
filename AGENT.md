@@ -24,7 +24,7 @@ content generator.
 - **Container inputs:** Update the manifest-only workspace `COPY` list in `Dockerfile` whenever an app or package is added, removed, or renamed, then validate a fresh production image build.
 - **Repository hygiene:** Treat user conversations, personal context, and one-off analysis as private by default. Track only durable, implementation-relevant, public-ready guidance. Comparative research is allowed only when it is deliberately scoped to a repository artifact.
 
-### Parallel Agent Protocol (Pilot)
+### Parallel Agent Protocol (Operational policy)
 
 - The orchestrator owns the canonical checkout, shared development servers, live browser validation, external-provider actions, integration, pull-request decisions, merges, branch deletion, and advancement of `main`.
 - Before dispatch, each mission records its Autonomos task ID, base commit, worktree and branch, semantic ownership, allowed paths, forbidden paths and resources, acceptance criteria, permitted checks, stop condition, report format, and cleanup owner.
@@ -35,8 +35,8 @@ content generator.
 - Parallel missions require non-overlapping semantic ownership and explicit acceptance criteria. The orchestrator updates each contribution against the current canonical head, integrates one mission at a time, runs the complete gate, then updates Autonomos tracking and cleans up the worktree and branch.
 - Worktrees do not receive secrets by default. Any runtime work must use isolated ports, database files, and media roots; ignored credential files remain outside worktrees unless explicitly required and approved.
 - The orchestrator may periodically dispatch an independent high-reasoning Sol review with a neutral prompt. The reviewer may recommend changes but cannot edit, merge, or authorize external effects.
-- If the worktree-task control path does not provide a durable task identity and observable status, the orchestrator records the degraded fallback and does not claim that the complete lifecycle has been validated or adopt the process permanently until identity, cancellation, attribution, and cleanup are proven.
-- These rules are a pilot. `META-61` must exercise the complete implementation-to-cleanup lifecycle before this section can become permanent project policy.
+- If a worktree-task control path does not provide a durable task identity and observable status, the orchestrator uses an explicit-worktree fallback and records the sub-agent identity, status snapshots, base commit, worktree path, branch, scope, checks, result, and cleanup evidence. The fallback must not claim that the app-managed task path itself is observable or controllable.
+- `META-61` validated the complete implementation-to-review-to-cleanup lifecycle with the explicit-worktree fallback and a bounded product change. These rules are operational for that fallback. The app-managed task-control path remains gated by `META-62` until identity, status, cancellation, attribution, visibility, and cleanup are proven end to end.
 
 ### Decision Discipline
 

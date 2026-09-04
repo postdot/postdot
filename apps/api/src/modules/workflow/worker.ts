@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import {
     createExponentialRetryPolicy,
     NextEventScheduler,
@@ -19,6 +21,7 @@ import {
     type createPublisherStore,
     type HeraldDatabase,
     type MediaAssetStore,
+    type PublisherExecutionMedia,
     type PublisherExecutionTarget,
 } from '@herald/db'
 import {
@@ -412,11 +415,7 @@ async function publishLinkedInImage(input: {
 
     let opened: Awaited<ReturnType<MediaAssetStore['openRepresentationContent']>>
     try {
-        opened = await input.media.openRepresentationContent(
-            input.target.projectId,
-            targetMedia.assetId,
-            targetMedia.representationId
-        )
+        opened = await openVerifiedPinnedMedia(input.media, input.target.projectId, targetMedia)
     } catch {
         return failLinkedInImageDelivery(
             input,
@@ -426,14 +425,7 @@ async function publishLinkedInImage(input: {
             false
         )
     }
-    if (
-        opened === null ||
-        opened.representation.storeId !== targetMedia.storeId ||
-        opened.representation.objectKey !== targetMedia.objectKey ||
-        opened.size !== targetMedia.byteSize ||
-        opened.contentType !== targetMedia.contentType ||
-        opened.sha256 !== targetMedia.sha256
-    ) {
+    if (opened === null) {
         const failed = input.providerMediaDeliveryStore.fail({
             projectId: input.target.projectId,
             deliveryId: started.id,
@@ -568,17 +560,41 @@ async function performCustomHttpEffect(
                           opened.representation.storeId !== media.storeId ||
                           opened.representation.objectKey !== media.objectKey ||
                           opened.size !== media.byteSize ||
-                          opened.contentType !== media.contentType
+                          opened.contentType !== media.contentType ||
+                          opened.sha256 !== media.sha256
                       ) {
+                          await cancelMediaStream(opened)
                           return null
                       }
                       return {
                           size: opened.size,
                           contentType: opened.contentType,
+                          sha256: opened.sha256,
                           stream: opened.stream,
                       }
                   },
               }
+
+    if (target.profile.execution.request?.body?.kind === 'multipart') {
+        if (input.media === undefined && target.media.length > 0) {
+            return permanentFailure('Media lifecycle service is required for custom HTTP media')
+        }
+        for (const media of target.media) {
+            let verified: boolean
+            try {
+                verified = await verifyPinnedMediaContent(input.media!, target.projectId, media)
+            } catch {
+                return retryableFailure(
+                    'The pinned custom HTTP media representation could not be read; retry is safe'
+                )
+            }
+            if (!verified) {
+                return permanentFailure(
+                    'The pinned custom HTTP media representation is unavailable or changed'
+                )
+            }
+        }
+    }
 
     return input.customHttpTransport.deliver({
         execution: target.profile.execution,
@@ -607,6 +623,105 @@ async function performCustomHttpEffect(
                 ? undefined
                 : (media, context) => input.resolveCustomHttpMediaUrl!(media, context),
     })
+}
+
+type PinnedMedia = Pick<
+    PublisherExecutionMedia,
+    'assetId' | 'representationId' | 'contentType' | 'byteSize' | 'sha256' | 'storeId' | 'objectKey'
+>
+
+type OpenedMediaContent = Awaited<ReturnType<MediaAssetStore['openRepresentationContent']>>
+
+async function verifyPinnedMediaContent(
+    mediaStore: MediaAssetStore,
+    projectId: string,
+    targetMedia: PinnedMedia
+): Promise<boolean> {
+    const opened = await mediaStore.openRepresentationContent(
+        projectId,
+        targetMedia.assetId,
+        targetMedia.representationId
+    )
+    if (!matchesPinnedMediaMetadata(opened, targetMedia)) {
+        await cancelMediaStream(opened)
+        return false
+    }
+
+    const checksum = await readMediaStreamChecksum(opened.stream)
+    return checksum.size === targetMedia.byteSize && checksum.sha256 === targetMedia.sha256
+}
+
+async function openVerifiedPinnedMedia(
+    mediaStore: MediaAssetStore,
+    projectId: string,
+    targetMedia: PinnedMedia
+): Promise<OpenedMediaContent> {
+    if (!(await verifyPinnedMediaContent(mediaStore, projectId, targetMedia))) return null
+
+    const opened = await mediaStore.openRepresentationContent(
+        projectId,
+        targetMedia.assetId,
+        targetMedia.representationId
+    )
+    if (!matchesPinnedMediaMetadata(opened, targetMedia)) {
+        await cancelMediaStream(opened)
+        return null
+    }
+    return opened
+}
+
+function matchesPinnedMediaMetadata(
+    opened: OpenedMediaContent,
+    targetMedia: PinnedMedia
+): opened is NonNullable<OpenedMediaContent> {
+    return (
+        opened !== null &&
+        opened.representation.storeId === targetMedia.storeId &&
+        opened.representation.objectKey === targetMedia.objectKey &&
+        opened.size === targetMedia.byteSize &&
+        opened.contentType === targetMedia.contentType &&
+        opened.sha256 === targetMedia.sha256
+    )
+}
+
+async function cancelMediaStream(opened: OpenedMediaContent): Promise<void> {
+    if (opened === null) return
+    try {
+        await opened.stream.cancel()
+    } catch {
+        // Preserve the metadata or checksum failure that caused the cancellation.
+    }
+}
+
+async function readMediaStreamChecksum(
+    stream: ReadableStream<Uint8Array>
+): Promise<{ readonly size: number; readonly sha256: string }> {
+    const hash = createHash('sha256')
+    const reader = stream.getReader()
+    let size = 0
+
+    try {
+        while (true) {
+            const result = await reader.read()
+            if (result.done) break
+            if (!(result.value instanceof Uint8Array)) {
+                throw new Error('Media storage yielded invalid bytes')
+            }
+            size += result.value.byteLength
+            hash.update(result.value)
+        }
+    } catch (error) {
+        try {
+            await reader.cancel(error)
+        } catch {
+            // Preserve the original read failure.
+        }
+        throw error
+    } finally {
+        reader.releaseLock()
+    }
+
+    return { size, sha256: hash.digest('hex') }
 }
 
 function permanentFailure(

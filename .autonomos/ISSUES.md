@@ -534,7 +534,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-024] Establish serialized orchestration for parallel agent work
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: Herald now has several independent implementation and review
   surfaces, while local development servers, SQLite and media paths, browser
   state, external provider credentials, the canonical checkout, and merge
@@ -546,13 +546,22 @@ exists` error. At the same time, the Vite development proxy always targets port
   one orchestrator, isolates implementation missions in dedicated worktrees,
   serializes integration through one queue, provides a read-only independent
   review path, and keeps secrets and external side effects out of worker tasks.
-- Tasks: META-60 (completed), META-61
+- Tasks: META-60 (completed), META-61 (completed)
 - Pilot result: The ownership, isolation, and independent-review principles
   worked for two read-only missions. The worktree-task control path returned
   preparation identifiers without a durable task identity, so the pilot did not
   prove status monitoring, cancellation, attribution, or cleanup through that
-  path. META-61 is required before permanent adoption.
-- Related issues: ISSUE-025, ISSUE-026, ISSUE-027, ISSUE-028
+  path. META-61 then validated an explicit-worktree fallback with a bounded
+  implementation worker, a stale-base integration, an independent Sol-High
+  review, a complete repository gate, and deterministic worktree and branch
+  cleanup. The fallback is now the operational policy; the app-managed
+  task-control path remains gated by META-62 and is not used as the default.
+- Resolution: The root AGENT.md now assigns shared resources and integration to
+  one orchestrator, requires explicit mission contracts and disjoint semantic
+  ownership, restricts worker checks and effects, and records the full worker
+  lifecycle. The fallback records the sub-agent identity, status, base commit,
+  worktree, branch, scope, checks, result, and cleanup evidence.
+- Related issues: ISSUE-025, ISSUE-026, ISSUE-027, ISSUE-028, ISSUE-029
 
 ## [ISSUE-025] Isolate concurrent local and test runtime resources
 
@@ -603,7 +612,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-028] Verify pinned media bytes on every delivery path
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: The custom HTTP media delivery path checks persisted identity, key,
   size, and content type but does not enforce the pinned SHA-256 comparison that
   the LinkedIn delivery path performs.
@@ -612,4 +621,29 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: Every delivery adapter verifies the pinned representation
   checksum before entering its external-effect boundary, with a regression test
   covering changed bytes that preserve size and content type.
-- Tasks: to be triaged
+- Tasks: META-61 (completed)
+- Resolution: The custom HTTP media contract now carries the pinned checksum;
+  the worker hashes the actual bounded representation stream before LinkedIn
+  upload and custom multipart dispatch, then reopens the stream for delivery.
+  The multipart transport checks the returned checksum and cancels streams on
+  rejected media or write failures. Same-size, changed-byte media is rejected
+  before the custom HTTP requester is called, and preflight storage read errors
+  remain retryable. Conditional storage reads or verified spooling remain a
+  follow-up for closing the small time-of-check/time-of-use window.
+
+## [ISSUE-029] Prove visible control for app-managed worktree missions
+
+- Type: problem
+- Status: open
+- Evidence: The Codex app-managed worktree task path previously returned
+  preparation identifiers without a durable task identity that the orchestrator
+  could use for status, cancellation, attribution, visibility, and cleanup.
+- Impact: The orchestrator cannot safely promise that a delegated worktree task
+  is observable or controllable by the operator, even though the explicit
+  worktree fallback is traceable and safe.
+- Desired outcome: A controlled mission proves durable task identity, observable
+  progress and final status, cancellation, attribution, operator visibility,
+  and cleanup for an app-managed worktree task without granting it shared
+  server, browser, credential, or merge ownership.
+- Tasks: META-62
+- Related issues: ISSUE-024
