@@ -372,6 +372,111 @@ describe('publication worker', () => {
         }
     })
 
+    it('uses a fresh processing time for each event in a long-running batch', async () => {
+        let currentTime = now
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const manualStore = createManualStore(database, { now: () => currentTime })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => currentTime,
+            })
+            const publisherStore = createPublisherStore(database, {
+                credentialRevoker: credentialStore,
+                now: () => currentTime,
+            })
+            const project = manualStore.createProject({
+                name: 'Worker Clock Project',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'LinkedIn Member',
+                profile: linkedinChannelProfile,
+            })
+            expect(channel).not.toBeNull()
+            if (channel === null) throw new Error('The worker clock channel was not created')
+
+            const credential = await credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'linkedin',
+                externalAccountId: 'member-42',
+                scopes: ['openid', 'profile', 'w_member_social'],
+                accessToken: 'linkedin-access-token',
+            })
+            expect(credential.kind).toBe('created')
+            if (credential.kind !== 'created')
+                throw new Error('The worker clock credential was not created')
+
+            expect(
+                publisherStore.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'user-1',
+                    kind: 'linkedin',
+                    credentialId: credential.credential.id,
+                }).kind
+            ).toBe('created')
+
+            expect(createPostAt(manualStore, project.project.id, channel.id, now)).not.toBeNull()
+            expect(createPostAt(manualStore, project.project.id, channel.id, now)).not.toBeNull()
+
+            let requestCount = 0
+            const publisher = createLinkedInTextPublisher({
+                baseUrl: 'https://linkedin.test',
+                fetcher: async () => {
+                    requestCount += 1
+                    if (requestCount === 1) currentTime = now + 60_000
+                    return new Response(null, {
+                        status: 201,
+                        headers: { 'x-restli-id': `urn:li:post:clock-${requestCount}` },
+                    })
+                },
+            })
+            const worker = createPublicationWorker({
+                database,
+                publisherStore,
+                publisherCredentialStore: credentialStore,
+                linkedInPublisher: publisher,
+                now: () => currentTime,
+                leaseDuration: 5 * 60_000,
+                createClaimToken: (() => {
+                    let sequence = 0
+                    return () => `clock-claim-${++sequence}`
+                })(),
+            })
+
+            await worker.processDueEvents(now)
+
+            expect(
+                database.$client
+                    .query<{ claimedAt: number; completedAt: number }, []>(`
+                        select claimed_at as claimedAt,
+                               completed_at as completedAt
+                        from jobs
+                        order by started_at, id
+                    `)
+                    .all()
+            ).toEqual([
+                {
+                    claimedAt: now,
+                    completedAt: now + 60_000,
+                },
+                {
+                    claimedAt: now + 60_000,
+                    completedAt: now + 60_000,
+                },
+            ])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('uploads and publishes a LinkedIn image through the real worker and SQLite state', async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-linkedin-image-'))
         const database = createDatabase(':memory:')

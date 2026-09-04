@@ -94,10 +94,10 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
     const createClaimToken = options.createClaimToken ?? (() => crypto.randomUUID())
 
     const processDueEvents = async (at: number) => {
-        const timestamp = at
+        const processingNow = () => Math.max(at, now())
 
         for (const projectId of workflowStore.listProjectIds()) {
-            const actorId = workflowStore.ensureSystemActor(projectId, timestamp)
+            const actorId = workflowStore.ensureSystemActor(projectId, processingNow())
             if (actorId === null) continue
 
             while (true) {
@@ -119,9 +119,9 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
                             customHttpTransport,
                             resolveCustomHttpMediaUrl: options.resolveCustomHttpMediaUrl,
                             linkedinOAuth: options.linkedinOAuth,
-                            now: timestamp,
+                            now: processingNow(),
                         }),
-                    now: () => timestamp,
+                    now: processingNow,
                 })
 
                 if (result.jobId === null || result.outcome === 'claim_lost') break

@@ -919,6 +919,73 @@ describe('manual workflow store', () => {
         }
     })
 
+    it('rejects an invalid scheduled media target before persisting the publication', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const media = {
+                getAsset(
+                    _projectId: string,
+                    _assetId: string,
+                    _subjectId: string
+                ): MediaAssetReference | null {
+                    return null
+                },
+            }
+            const store = createManualStore(database, { now: () => now, media })
+            const project = store.createProject({
+                name: 'Scheduled Media Validation Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Scheduled Media Channel',
+                profile: createMediaProfile(1, ['image'], ['image/jpeg']),
+            })
+            if (channel === null) throw new Error('The scheduled media channel was not created')
+
+            database
+                .insert(publishers)
+                .values({
+                    id: 'scheduled-media-publisher',
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    kind: 'media-provider',
+                })
+                .run()
+
+            expect(() =>
+                store.createPost({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    sourceContent: sourceContent('Scheduled media source'),
+                    publications: [
+                        {
+                            channelId: channel.id,
+                            deliveryMode: 'automatic',
+                            targetContent: {
+                                body: 'Scheduled media target',
+                                media: [{ assetId: 'missing-asset' }],
+                            },
+                            scheduledAt: now + 60_000,
+                        },
+                    ],
+                })
+            ).toThrow('Media asset missing-asset is not available for publication')
+
+            expect(database.select().from(posts).all()).toEqual([])
+            expect(database.select().from(publications).all()).toEqual([])
+            expect(database.select().from(publicationTargetRevisions).all()).toEqual([])
+            expect(database.select().from(jobs).all()).toEqual([])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('versions a channel profile and re-assesses persisted work on activation', () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000

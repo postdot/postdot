@@ -231,6 +231,80 @@ describe('workflow store', () => {
         }
     })
 
+    it('does not wake or claim work for a disabled target profile', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const fixture = seedDueJob(database, 'disabled')
+            database
+                .update(channelProfileVersions)
+                .set({ state: 'disabled' })
+                .where(eq(channelProfileVersions.id, fixture.profileVersionId))
+                .run()
+
+            const store = createWorkflowStore(database)
+            expect(store.getNextEventAt()).toBeNull()
+            expect(
+                store.claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'claim-disabled',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
+            ).toBeNull()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('fails closed when a target profile is disabled after claiming and before the effect boundary', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const fixture = seedDueJob(database, 'disabled-after-claim')
+            const store = createWorkflowStore(database)
+            expect(
+                store.claimNextDueJob({
+                    actorId: fixture.systemActorId,
+                    claimToken: 'claim-disabled-after-claim',
+                    now: dueAt,
+                    leaseExpiresAt: dueAt + 60_000,
+                })
+            ).not.toBeNull()
+
+            database
+                .update(channelProfileVersions)
+                .set({ state: 'disabled' })
+                .where(eq(channelProfileVersions.id, fixture.profileVersionId))
+                .run()
+
+            expect(() =>
+                store.startExternalEffect(fixture.jobId, 'claim-disabled-after-claim', dueAt + 1)
+            ).toThrow('no valid target revision to execute')
+            expect(
+                database
+                    .select()
+                    .from(publicationExecutionRevisions)
+                    .where(eq(publicationExecutionRevisions.jobId, fixture.jobId))
+                    .all()
+            ).toEqual([])
+            expect(database.select().from(jobs).where(eq(jobs.id, fixture.jobId)).all()).toEqual([
+                expect.objectContaining({ state: 'running', effectStartedAt: null }),
+            ])
+            expect(
+                database
+                    .select()
+                    .from(publications)
+                    .where(eq(publications.id, fixture.publicationId))
+                    .all()
+            ).toEqual([expect.objectContaining({ state: 'scheduled' })])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('claims one due job atomically and fences stale workers', () => {
         const database = createDatabase(':memory:')
 

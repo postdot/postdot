@@ -607,7 +607,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   provider port or registry for credential resolution, capability validation,
   execution, and outcome mapping, while preserving channel-owned profiles and
   avoiding a universal provider DSL.
-- Tasks: to be triaged
+- Tasks: PROVIDER-69
 
 ## [ISSUE-028] Verify pinned media bytes on every delivery path
 
@@ -715,7 +715,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   revoke project-scoped tokens through the existing human-only management
   boundary, while ordinary project operations accept the bearer token and keep
   plaintext secrets out of logs and persistent state.
-- Tasks: to be triaged
+- Tasks: ACCESS-68
 - Related decision: ADR-030
 
 ## [ISSUE-033] Complete web onboarding and lifecycle for runtime-defined channels
@@ -735,7 +735,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   runtime-defined channels through the same versioned profile and impact-
   assessment contract, with explicit lifecycle semantics and no loss of existing
   publication or credential invariants.
-- Tasks: to be triaged
+- Tasks: CHANNEL-67
 - Related decisions: ADR-013, ADR-020, ADR-021
 
 ## [ISSUE-034] Create publications directly from calendar planning
@@ -766,7 +766,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: Herald has an explicit scheduling-timezone contract covering
   storage, authoring, calendar display, device changes, and migration of existing
   scheduled data before timezone-aware UI is implemented.
-- Tasks: to be triaged
+- Tasks: TIME-70
 
 ## [ISSUE-036] Provide an intentional MCP operator surface
 
@@ -799,3 +799,23 @@ exists` error. At the same time, the Vite development proxy always targets port
   fully runtime-defined custom channels.
 - Tasks: to be triaged
 - Related decisions: ADR-013, ADR-020, ADR-021
+
+## [ISSUE-038] Prevent execution of disabled channel profiles
+
+- Type: problem
+- Status: resolved
+- Evidence: The workflow claim and pre-effect execution paths resolved a persisted
+  target profile without requiring its state to remain executable. The accepted
+  publication-content contract allows a security correction to disable a profile
+  immediately and states that a disabled contract cannot be re-approved.
+- Impact: A scheduled target could remain claimable after its referenced profile was
+  disabled, which weakened the fail-closed execution boundary for security or
+  provider-compatibility corrections.
+- Desired outcome: Pending work and pre-effect execution reject disabled profile
+  versions while preserving already-started execution records for reconciliation.
+- Tasks: QUAL-65 (completed)
+- Related specification: [SPEC-004](specs/SPEC-004-publication-content-boundary.md)
+- Resolution: Workflow wake-up, job claiming, target loading, and pre-effect
+  execution now require a non-disabled channel profile version. Started execution
+  records remain loadable for reconciliation, and regression coverage verifies both
+  the claim boundary and the disable-after-claim race.

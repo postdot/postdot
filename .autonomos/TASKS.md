@@ -83,6 +83,15 @@
 - [x] **[AUDIT-37]** Reconcile independent architecture audits against the current product state `Priority: 🔴` `Complexity: L`
 - [x] **[WEB-51]** Make the web project context URL-authoritative `Priority: 🔴` `Complexity: M`
 - [x] **[META-61]** Validate the complete parallel agent lifecycle and finalize orchestration policy `Priority: 🟠` `Complexity: M`
-- [/] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M`
+- [!] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M`
 - [x] **[WEB-63]** Restrict web entry points to the authenticated application and authentication surfaces `Priority: 🟠` `Complexity: S`
 - [x] **[AUDIT-64]** Reconcile the second independent product audit against the current product state `Priority: 🔴` `Complexity: L`
+- [x] **[QUAL-65]** Add regression coverage for verified audit boundaries `Priority: 🔴` `Complexity: M`
+- [x] **[PLAN-66]** Prepare the next product sprint and isolated implementation missions `Priority: 🔴` `Complexity: M`
+
+## 🧭 Next Sprint
+
+- [ ] **[CHANNEL-67]** Complete web onboarding and lifecycle for runtime-defined channels `Priority: 🔴` `Complexity: XL`
+- [ ] **[ACCESS-68]** Expose project machine access through supported operator clients `Priority: 🔴` `Complexity: L`
+- [ ] **[PROVIDER-69]** Isolate built-in provider execution behind an explicit contract `Priority: 🟠` `Complexity: M`
+- [ ] **[TIME-70]** Define project scheduling timezone semantics before calendar expansion `Priority: 🔴` `Complexity: M`

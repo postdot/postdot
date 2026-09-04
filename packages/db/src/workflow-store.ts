@@ -185,10 +185,18 @@ export function createWorkflowStore(database: HeraldDatabase) {
             inner join publishers
                 on publishers.project_id = publications.project_id
                and publishers.channel_id = publications.channel_id
+            inner join publication_target_revisions as target_revisions
+                on target_revisions.project_id = publications.project_id
+               and target_revisions.id = publications.target_revision_id
+               and target_revisions.publication_id = publications.id
+            inner join channel_profile_versions as channel_profiles
+                on channel_profiles.project_id = target_revisions.project_id
+               and channel_profiles.id = target_revisions.profile_version_id
             where jobs.state = 'pending'
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
               and publications.target_revision_id is not null
+              and channel_profiles.state <> 'disabled'
 
             union all
 
@@ -223,6 +231,13 @@ export function createWorkflowStore(database: HeraldDatabase) {
             inner join publishers
                 on publishers.project_id = publications.project_id
                and publishers.channel_id = publications.channel_id
+            inner join publication_target_revisions as target_revisions
+                on target_revisions.project_id = publications.project_id
+               and target_revisions.id = publications.target_revision_id
+               and target_revisions.publication_id = publications.id
+            inner join channel_profile_versions as channel_profiles
+                on channel_profiles.project_id = target_revisions.project_id
+               and channel_profiles.id = target_revisions.profile_version_id
             inner join actors
                 on actors.project_id = jobs.project_id
                and actors.id = ?2
@@ -233,6 +248,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
               and publications.delivery_mode = 'automatic'
               and publications.review_state = 'compatible'
               and publications.target_revision_id is not null
+              and channel_profiles.state <> 'disabled'
             order by jobs.run_at, jobs.id
             limit 1
         )
@@ -374,6 +390,10 @@ export function createWorkflowStore(database: HeraldDatabase) {
             on revisions.project_id = publications.project_id
            and revisions.id = publications.target_revision_id
            and revisions.publication_id = publications.id
+        inner join channel_profile_versions as channel_profiles
+            on channel_profiles.project_id = revisions.project_id
+           and channel_profiles.id = revisions.profile_version_id
+           and channel_profiles.state <> 'disabled'
         where jobs.id = ?2
           and jobs.state = 'running'
           and jobs.claim_token = ?3
@@ -432,6 +452,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         inner join channel_profile_versions as channel_profiles
             on channel_profiles.project_id = revisions.project_id
            and channel_profiles.id = revisions.profile_version_id
+           and channel_profiles.state <> 'disabled'
         where revisions.project_id = ?1
           and revisions.id = ?2
     `)
