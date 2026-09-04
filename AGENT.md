@@ -24,6 +24,20 @@ content generator.
 - **Container inputs:** Update the manifest-only workspace `COPY` list in `Dockerfile` whenever an app or package is added, removed, or renamed, then validate a fresh production image build.
 - **Repository hygiene:** Treat user conversations, personal context, and one-off analysis as private by default. Track only durable, implementation-relevant, public-ready guidance. Comparative research is allowed only when it is deliberately scoped to a repository artifact.
 
+### Parallel Agent Protocol (Pilot)
+
+- The orchestrator owns the canonical checkout, shared development servers, live browser validation, external-provider actions, integration, pull-request decisions, merges, branch deletion, and advancement of `main`.
+- Before dispatch, each mission records its Autonomos task ID, base commit, worktree and branch, semantic ownership, allowed paths, forbidden paths and resources, acceptance criteria, permitted checks, stop condition, report format, and cleanup owner.
+- Shared governance files and hotspots—including `.autonomos/`, root configuration, lockfiles, migrations, central dispatch code, and integration metadata—are reserved for one owner at a time; file-level separation alone does not make two missions independent.
+- Implementation workers run in dedicated Codex-managed Git worktrees with explicitly scoped missions. They may inspect the repository, change only their assigned scope, run named deterministic checks that do not require shared services, commit their own branch when implementation is requested, and report evidence. They must not merge, modify `main`, start shared development servers, use real provider credentials, or trigger external side effects.
+- Review workers are read-only by default. They receive only the context needed for the review and return findings with severity, evidence, and file references. Findings become implementation work only after orchestrator triage.
+- Safe worker checks are limited to read-only inspection and explicitly isolated package-local format, lint, typecheck, and unit/integration checks. Browser and E2E runs, development servers, restore/backup operations, container validation, real-provider validation, external network calls, default shared ports, default database/media paths, and commands that delete shared or fixed temporary paths belong to the orchestrator.
+- Parallel missions require non-overlapping semantic ownership and explicit acceptance criteria. The orchestrator updates each contribution against the current canonical head, integrates one mission at a time, runs the complete gate, then updates Autonomos tracking and cleans up the worktree and branch.
+- Worktrees do not receive secrets by default. Any runtime work must use isolated ports, database files, and media roots; ignored credential files remain outside worktrees unless explicitly required and approved.
+- The orchestrator may periodically dispatch an independent high-reasoning Sol review with a neutral prompt. The reviewer may recommend changes but cannot edit, merge, or authorize external effects.
+- If the worktree-task control path does not provide a durable task identity and observable status, the orchestrator records the degraded fallback and does not claim that the complete lifecycle has been validated or adopt the process permanently until identity, cancellation, attribution, and cleanup are proven.
+- These rules are a pilot. `META-61` must exercise the complete implementation-to-cleanup lifecycle before this section can become permanent project policy.
+
 ### Decision Discipline
 
 - Autonomy authorizes execution within accepted boundaries; it does not authorize silent decisions about product scope, architecture, data ownership, security, lifecycle semantics, or public contracts.

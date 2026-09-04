@@ -530,3 +530,86 @@ exists` error. At the same time, the Vite development proxy always targets port
   persisted the publication as published, the job as succeeded, and the media
   delivery as uploaded. The first failed attempt remains an explicit local
   ambiguous record and was not retried blindly.
+
+## [ISSUE-024] Establish serialized orchestration for parallel agent work
+
+- Type: proposal
+- Status: open
+- Evidence: Herald now has several independent implementation and review
+  surfaces, while local development servers, SQLite and media paths, browser
+  state, external provider credentials, the canonical checkout, and merge
+  operations remain shared resources.
+- Impact: Uncoordinated agents can race on ports or local state, create
+  conflicting changes, duplicate external effects, or integrate work before it
+  has been independently reviewed.
+- Desired outcome: A tested operating model assigns shared-resource ownership to
+  one orchestrator, isolates implementation missions in dedicated worktrees,
+  serializes integration through one queue, provides a read-only independent
+  review path, and keeps secrets and external side effects out of worker tasks.
+- Tasks: META-60 (completed), META-61
+- Pilot result: The ownership, isolation, and independent-review principles
+  worked for two read-only missions. The worktree-task control path returned
+  preparation identifiers without a durable task identity, so the pilot did not
+  prove status monitoring, cancellation, attribution, or cleanup through that
+  path. META-61 is required before permanent adoption.
+- Related issues: ISSUE-025, ISSUE-026, ISSUE-027, ISSUE-028
+
+## [ISSUE-025] Isolate concurrent local and test runtime resources
+
+- Type: problem
+- Status: open
+- Evidence: The browser test configuration uses a shared temporary data root
+  that startup and teardown remove, while development and E2E commands rely on
+  conventional ports and local database/media paths.
+- Impact: Overlapping workers or test runs can collide on ports, erase another
+  run's SQLite/media state, or execute against the wrong local runtime.
+- Desired outcome: Each concurrent test or explicitly isolated runtime receives
+  its own temporary data and media roots and reserved ports, with teardown
+  limited to resources owned by that run. Shared/default paths remain a
+  serialized orchestrator concern until then.
+- Tasks: to be triaged
+
+## [ISSUE-026] Enforce runtime quiescence before backup restore
+
+- Type: problem
+- Status: open
+- Evidence: The restore path can replace the database and media state while the
+  API, scheduler, or maintenance runtime may still hold open resources. The
+  operator documentation asks for a stop but the restore operation does not
+  enforce quiescence.
+- Impact: A live process can retain stale SQLite or media handles and diverge
+  from the restored state, leaving an inconsistent runtime that is difficult to
+  diagnose.
+- Desired outcome: Restore has an explicit fail-closed quiescence boundary and
+  a verified operator lifecycle for stopping, restoring, and restarting Herald.
+- Tasks: to be triaged
+
+## [ISSUE-027] Isolate built-in provider execution behind an explicit contract
+
+- Type: proposal
+- Status: open
+- Evidence: The workflow worker currently dispatches the known built-in
+  providers from central code, including provider-specific credential refresh
+  and destination handling.
+- Impact: Adding another built-in channel can enlarge a central hotspot and
+  accidentally inherit assumptions that belong to a different provider, making
+  provider missions harder to isolate safely.
+- Desired outcome: Before the next built-in channel, evaluate a small explicit
+  provider port or registry for credential resolution, capability validation,
+  execution, and outcome mapping, while preserving channel-owned profiles and
+  avoiding a universal provider DSL.
+- Tasks: to be triaged
+
+## [ISSUE-028] Verify pinned media bytes on every delivery path
+
+- Type: problem
+- Status: open
+- Evidence: The custom HTTP media delivery path checks persisted identity, key,
+  size, and content type but does not enforce the pinned SHA-256 comparison that
+  the LinkedIn delivery path performs.
+- Impact: A same-size object with a matching content type could be delivered
+  after its bytes changed, weakening the immutable representation guarantee.
+- Desired outcome: Every delivery adapter verifies the pinned representation
+  checksum before entering its external-effect boundary, with a regression test
+  covering changed bytes that preserve size and content type.
+- Tasks: to be triaged

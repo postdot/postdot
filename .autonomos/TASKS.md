@@ -32,6 +32,7 @@
 - [x] **[EVAL-57]** Validate one controlled automatic LinkedIn image publication loop `Priority: 🔴` `Complexity: M`
 - [x] **[FIX-58]** Align provider media delivery timestamps with the workflow processing clock `Priority: 🔴` `Complexity: S`
 - [x] **[PUB-55]** Add explicit LinkedIn member and organization-page destinations `Priority: 🔴` `Complexity: L`
+- [x] **[META-60]** Pilot serialized orchestration with parallel Codex worktrees and review agents `Priority: 🟠` `Complexity: M`
 
 ## 🔮 Backlog
 
@@ -81,3 +82,4 @@
 - [x] **[MAINT-50]** Extract channel-profile reads without weakening profile mutation transactions `Priority: 🔴` `Complexity: M`
 - [x] **[AUDIT-37]** Reconcile independent architecture audits against the current product state `Priority: 🔴` `Complexity: L`
 - [x] **[WEB-51]** Make the web project context URL-authoritative `Priority: 🔴` `Complexity: M`
+- [ ] **[META-61]** Validate the complete parallel agent lifecycle and finalize orchestration policy `Priority: 🟠` `Complexity: M`
