@@ -638,6 +638,11 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Evidence: The Codex app-managed worktree task path previously returned
   preparation identifiers without a durable task identity that the orchestrator
   could use for status, cancellation, attribution, visibility, and cleanup.
+- Current experiment (2026-09-04): the multi-agent control plane returned an
+  orchestrator-side agent identifier and accepted an interruption request, but
+  the agent did not appear in the Codex task list and the final result was
+  reported as technical `completed` while its report was marked interrupted.
+  This proves neither operator visibility nor unambiguous cancellation.
 - Impact: The orchestrator cannot safely promise that a delegated worktree task
   is observable or controllable by the operator, even though the explicit
   worktree fallback is traceable and safe.
