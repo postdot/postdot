@@ -21,6 +21,7 @@ export { createManualStore } from './manual-store'
 export { channelLifecycleBlockerCodes } from './manual-store/channel-lifecycle-store'
 export { createMediaAssetStore } from './media-asset-store'
 export { createNotificationStore } from './notification-store'
+export { createNotificationDeliveryStore } from './notification-delivery-store'
 export { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
 export { createPublisherStore } from './publisher-store'
 export {
@@ -126,6 +127,15 @@ export type {
     ProjectNotificationsResult,
     UpdateNotificationPreferenceInput,
 } from './notification-store'
+export type {
+    CreateNotificationDestinationInput,
+    NotificationDelivery,
+    NotificationDeliveryProjectionResult,
+    NotificationDeliveryStore,
+    NotificationDestination,
+    NotificationDeliveryStoreOptions,
+    SubscribeNotificationDestinationInput,
+} from './notification-delivery-store'
 export type {
     CompleteProviderMediaDeliveryInput,
     FailProviderMediaDeliveryInput,

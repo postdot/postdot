@@ -2,9 +2,12 @@ import { describe, expect, test } from 'bun:test'
 
 import {
     createExponentialRetryPolicy,
+    processNextExternalEffect,
     processNextWorkflowEvent,
     type CompleteExternalEffectInput,
     type ExternalEffectOutcome,
+    type ExternalEffectExecutorStore,
+    type ExternalEffectWork,
     type Job,
     type PersistedEffectOutcome,
     type WorkflowExecutorStore,
@@ -61,6 +64,36 @@ class FakeExecutorStore implements WorkflowExecutorStore {
     }
 }
 
+interface TestDelivery extends ExternalEffectWork {
+    readonly transportId: string
+}
+
+class FakeDeliveryStore implements ExternalEffectExecutorStore<TestDelivery> {
+    work: TestDelivery | null = {
+        id: 'delivery-one',
+        attempts: 1,
+        transportId: 'test',
+    }
+    completedInput: CompleteExternalEffectInput | null = null
+
+    recoverExpiredClaims() {
+        return { requeuedJobIds: [], ambiguousJobIds: [] }
+    }
+
+    claimNextDueJob(): TestDelivery | null {
+        return this.work
+    }
+
+    startExternalEffect(): boolean {
+        return true
+    }
+
+    completeExternalEffect(input: CompleteExternalEffectInput): PersistedEffectOutcome {
+        this.completedInput = input
+        return 'published'
+    }
+}
+
 const noRetry = createExponentialRetryPolicy({
     maxAttempts: 1,
     initialDelay: 1_000,
@@ -97,6 +130,32 @@ describe('retry policy', () => {
 })
 
 describe('workflow executor', () => {
+    test('executes a non-publication work item through the generic boundary', async () => {
+        const store = new FakeDeliveryStore()
+        const received: { current: TestDelivery | null } = { current: null }
+
+        const result = await processNextExternalEffect({
+            store,
+            actorId: 'system-one',
+            leaseDuration: 60_000,
+            retryPolicy: noRetry,
+            createClaimToken: () => 'claim-one',
+            performExternalEffect: work => {
+                received.current = work
+                return { type: 'published', externalId: 'message-one' }
+            },
+            now: () => time,
+        })
+
+        expect(result.workId).toBe('delivery-one')
+        expect(received.current?.id).toBe('delivery-one')
+        expect(received.current?.transportId).toBe('test')
+        expect(store.completedInput?.outcome).toEqual({
+            type: 'published',
+            externalId: 'message-one',
+        })
+    })
+
     test('persists a confirmed publication result', async () => {
         const { result, store } = await executeWith({
             type: 'published',

@@ -760,6 +760,9 @@ exists` error. At the same time, the Vite development proxy always targets port
   publication or credential invariants.
 - Tasks: CHANNEL-71 (lifecycle foundation), CHANNEL-67 (web onboarding and lifecycle)
 - Related decisions: ADR-013, ADR-020, ADR-021
+- Resolution: The web client now creates built-in and runtime-defined channels through
+  the shared profile boundary and exposes guarded rename, archive, restore, deletion,
+  profile drafting, impact preview, and activation operations.
 
 ## [ISSUE-034] Create publications directly from calendar planning
 
@@ -1036,7 +1039,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-046] Build a persistent notification inbox from durable project facts
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: Herald now exposes a durable, versioned project fact journal, but users
   cannot yet receive or acknowledge actionable publication outcomes. Audit records do
   not contain recipients, preferences, presentation state, or delivery state and must
@@ -1061,3 +1064,53 @@ channels` with a foreign-key constraint error even though a fresh empty database
   operations remain idempotent and project-isolated. The authenticated API exposes
   stable keyset pagination, unread count, archived history, and preference management;
   machine credentials cannot impersonate a human notification recipient.
+
+## [ISSUE-047] Deliver recipient notifications through optional external transports
+
+- Type: proposal
+- Status: resolved
+- Evidence: Herald now has a durable fact journal and recipient-owned in-app inbox, but
+  no recoverable path can deliver selected outcomes to an external notification
+  destination. Ntfy, Telegram, email, and webhook integrations would otherwise be
+  tempted to call providers directly from publication or inbox code.
+- Impact: External notification latency and failures could enter publication
+  transactions, retries could duplicate visible messages, and transport-specific
+  configuration could leak into the domain without a shared delivery boundary.
+- Desired outcome: Project human actors can own optional transport destinations and
+  per-kind subscriptions. A separate projector creates immutable delivery work from
+  durable facts, and a reusable fenced executor handles leases, known-safe retries,
+  permanent failures, and ambiguous outcomes without weakening publication workflows.
+- Scope boundary: NOTIFY-81 proves the transport-neutral destination, subscription,
+  outbox, and executor semantics with deterministic tests. It does not add web UI,
+  send a real notification, or make Ntfy a core dependency; the Ntfy adapter and its
+  authenticated management API follow in a separate task.
+- Tasks: NOTIFY-81
+- Related decisions: ADR-009, ADR-037, ADR-038, ADR-039
+
+- Resolution: Herald now persists project-human external destinations, explicit
+  per-kind subscriptions, durable projection cursors, immutable delivery
+  snapshots, atomic claims, lease recovery, and explicit retry/ambiguity
+  semantics behind a reusable external-effect executor. No real transport,
+  provider credential, or web UI was introduced. `NOTIFY-82` gates the secret
+  boundary required before a provider adapter can be configured.
+
+## [ISSUE-048] Add an encrypted secret boundary for external notification destinations
+
+- Type: proposal
+- Status: accepted
+- Evidence: NOTIFY-81 deliberately stores only bounded public destination configuration;
+  external delivery transports will eventually need bearer tokens, topic credentials,
+  or other provider secrets. Persisting those values in the public configuration JSON
+  would duplicate plaintext secrets into destination metadata and immutable delivery
+  snapshots.
+- Impact: A transport adapter introduced before a dedicated secret boundary could leak
+  credentials through metadata reads, backups, logs, or delivery history.
+- Desired outcome: External notification destinations expose safe metadata and retain
+  provider credentials behind Herald's deployment-owned encrypted-secret boundary.
+  Delivery snapshots must reference the secret envelope without copying plaintext into
+  public configuration or transport-neutral history.
+- Scope boundary: This issue does not select a provider, credential format, or
+  management API. It must be resolved before a real Ntfy, Telegram, email, or similar
+  transport can be configured.
+- Tasks: NOTIFY-82
+- Related decisions: ADR-016, ADR-039

@@ -37,17 +37,24 @@ export interface CompleteExternalEffectInput {
     readonly retryAt?: number | null
 }
 
-export interface WorkflowExecutorStore {
+export interface ExternalEffectWork {
+    readonly id: string
+    readonly attempts: number
+}
+
+export interface ExternalEffectExecutorStore<Work extends ExternalEffectWork> {
     recoverExpiredClaims(now: number): ExpiredClaimRecovery
     claimNextDueJob(input: {
         readonly actorId: string
         readonly claimToken: string
         readonly now: number
         readonly leaseExpiresAt: number
-    }): Job | null
+    }): Work | null
     startExternalEffect(jobId: string, claimToken: string, now: number): boolean
     completeExternalEffect(input: CompleteExternalEffectInput): PersistedEffectOutcome | null
 }
+
+export type WorkflowExecutorStore = ExternalEffectExecutorStore<Job>
 
 export interface RetryPolicyInput {
     readonly attempts: number
@@ -70,9 +77,27 @@ export interface ProcessWorkflowEventOptions {
     readonly now?: () => number
 }
 
+export interface ProcessExternalEffectOptions<Work extends ExternalEffectWork> {
+    readonly store: ExternalEffectExecutorStore<Work>
+    readonly actorId: string
+    readonly leaseDuration: number
+    readonly retryPolicy: RetryPolicy
+    readonly createClaimToken: () => string
+    readonly performExternalEffect: (
+        work: Work
+    ) => ExternalEffectOutcome | Promise<ExternalEffectOutcome>
+    readonly now?: () => number
+}
+
 export interface ProcessWorkflowEventResult {
     readonly recovery: ExpiredClaimRecovery
     readonly jobId: string | null
+    readonly outcome: PersistedEffectOutcome | 'idle' | 'claim_lost'
+}
+
+export interface ProcessExternalEffectResult {
+    readonly recovery: ExpiredClaimRecovery
+    readonly workId: string | null
     readonly outcome: PersistedEffectOutcome | 'idle' | 'claim_lost'
 }
 
@@ -111,29 +136,40 @@ export function createExponentialRetryPolicy(options: ExponentialRetryPolicyOpti
 export async function processNextWorkflowEvent(
     options: ProcessWorkflowEventOptions
 ): Promise<ProcessWorkflowEventResult> {
+    const result = await processNextExternalEffect(options)
+    return {
+        recovery: result.recovery,
+        jobId: result.workId,
+        outcome: result.outcome,
+    }
+}
+
+export async function processNextExternalEffect<Work extends ExternalEffectWork>(
+    options: ProcessExternalEffectOptions<Work>
+): Promise<ProcessExternalEffectResult> {
     const now = options.now ?? Date.now
     const claimedAt = requireTimestamp(now(), 'now')
     const leaseDuration = requirePositiveSafeInteger(options.leaseDuration, 'leaseDuration')
     const leaseExpiresAt = requireTimestamp(claimedAt + leaseDuration, 'leaseExpiresAt')
     const recovery = options.store.recoverExpiredClaims(claimedAt)
     const claimToken = requireNonBlank(options.createClaimToken(), 'claimToken')
-    const job = options.store.claimNextDueJob({
+    const work = options.store.claimNextDueJob({
         actorId: requireNonBlank(options.actorId, 'actorId'),
         claimToken,
         now: claimedAt,
         leaseExpiresAt,
     })
 
-    if (job === null) return { recovery, jobId: null, outcome: 'idle' }
+    if (work === null) return { recovery, workId: null, outcome: 'idle' }
 
     const effectStartedAt = requireTimestamp(now(), 'now')
-    if (!options.store.startExternalEffect(job.id, claimToken, effectStartedAt)) {
-        return { recovery, jobId: job.id, outcome: 'claim_lost' }
+    if (!options.store.startExternalEffect(work.id, claimToken, effectStartedAt)) {
+        return { recovery, workId: work.id, outcome: 'claim_lost' }
     }
 
     let outcome: ExternalEffectOutcome
     try {
-        outcome = await options.performExternalEffect(job)
+        outcome = await options.performExternalEffect(work)
     } catch (error) {
         outcome = {
             type: 'ambiguous',
@@ -144,7 +180,7 @@ export async function processNextWorkflowEvent(
     const completedAt = requireTimestamp(now(), 'now')
     const retryAt =
         outcome.type === 'retryable_failure'
-            ? options.retryPolicy.nextRunAt({ attempts: job.attempts, failedAt: completedAt })
+            ? options.retryPolicy.nextRunAt({ attempts: work.attempts, failedAt: completedAt })
             : null
 
     if (retryAt !== null && retryAt < completedAt) {
@@ -152,7 +188,7 @@ export async function processNextWorkflowEvent(
     }
 
     const persisted = options.store.completeExternalEffect({
-        jobId: job.id,
+        jobId: work.id,
         claimToken,
         completedAt,
         outcome,
@@ -161,7 +197,7 @@ export async function processNextWorkflowEvent(
 
     return {
         recovery,
-        jobId: job.id,
+        workId: work.id,
         outcome: persisted ?? 'claim_lost',
     }
 }
