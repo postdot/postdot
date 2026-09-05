@@ -88,6 +88,12 @@ function revertEventJournalMigration(database: ReturnType<typeof createDatabase>
 
 function revertNotificationMigration(database: ReturnType<typeof createDatabase>) {
     database.$client.exec(`
+        DROP TABLE notification_deliveries;
+        DROP TABLE notification_delivery_projection_cursors;
+        DROP TABLE notification_subscriptions;
+        DROP TABLE notification_destinations;
+    `)
+    database.$client.exec(`
         DROP TABLE notifications;
         DROP TABLE notification_projection_cursors;
         DROP TABLE notification_preferences;
@@ -125,8 +131,12 @@ describe('database migrations', () => {
                 'media_backup_fences',
                 'media_representations',
                 'media_upload_intents',
+                'notification_deliveries',
+                'notification_delivery_projection_cursors',
+                'notification_destinations',
                 'notification_preferences',
                 'notification_projection_cursors',
+                'notification_subscriptions',
                 'notifications',
                 'oauth_authorization_attempts',
                 'posts',
@@ -152,7 +162,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(15)
+            expect(migrationCount?.count).toBe(17)
         } finally {
             closeDatabase(database)
         }
@@ -203,6 +213,8 @@ describe('database migrations', () => {
                 '0012_wet_typhoid_mary',
                 '0013_vengeful_namor',
                 '0014_parallel_synch',
+                '0015_crazy_the_call',
+                '0016_funny_rage',
             ])
             runMigrations(database)
 
@@ -274,6 +286,8 @@ describe('database migrations', () => {
                 '0012_wet_typhoid_mary',
                 '0013_vengeful_namor',
                 '0014_parallel_synch',
+                '0015_crazy_the_call',
+                '0016_funny_rage',
             ])
 
             expect(() => runMigrations(staleDatabase)).toThrow()

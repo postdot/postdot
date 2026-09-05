@@ -34,6 +34,14 @@ import {
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
 const channelProfileStates = channelProfileVersionStates
+const notificationDestinationStates = ['active', 'disabled'] as const
+const notificationDeliveryStates = [
+    'pending',
+    'running',
+    'delivered',
+    'failed',
+    'ambiguous',
+] as const
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
@@ -1755,6 +1763,218 @@ export const notifications = sqliteTable(
         check(
             'notifications_archived_at_valid',
             sql`${table.archivedAt} is null or ${table.archivedAt} >= ${table.createdAt}`
+        ),
+    ]
+)
+
+export const notificationDestinations = sqliteTable(
+    'notification_destinations',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        recipientActorId: text('recipient_actor_id').notNull(),
+        transportId: text('transport_id').notNull(),
+        label: text('label').notNull(),
+        configurationJson: text('configuration_json', { mode: 'json' })
+            .$type<Readonly<Record<string, unknown>>>()
+            .notNull(),
+        state: text('state', { enum: notificationDestinationStates }).default('active').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('notification_destinations_project_id_id_uidx').on(table.projectId, table.id),
+        index('notification_destinations_project_actor_state_idx').on(
+            table.projectId,
+            table.recipientActorId,
+            table.state
+        ),
+        foreignKey({
+            name: 'notification_destinations_project_actor_fk',
+            columns: [table.projectId, table.recipientActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('cascade'),
+        check(
+            'notification_destinations_transport_nonblank',
+            sql`length(trim(${table.transportId})) > 0`
+        ),
+        check('notification_destinations_label_nonblank', sql`length(trim(${table.label})) > 0`),
+        check(
+            'notification_destinations_configuration_object',
+            sql`json_valid(${table.configurationJson}) and json_type(${table.configurationJson}) = 'object'`
+        ),
+        check(
+            'notification_destinations_state_valid',
+            sql`${table.state} in ('active', 'disabled')`
+        ),
+    ]
+)
+
+export const notificationSubscriptions = sqliteTable(
+    'notification_subscriptions',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        destinationId: text('destination_id').notNull(),
+        kind: text('kind', { enum: notificationKinds }).notNull(),
+        enabled: integer('enabled', { mode: 'boolean' }).default(true).notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('notification_subscriptions_project_destination_kind_uidx').on(
+            table.projectId,
+            table.destinationId,
+            table.kind
+        ),
+        foreignKey({
+            name: 'notification_subscriptions_project_destination_fk',
+            columns: [table.projectId, table.destinationId],
+            foreignColumns: [notificationDestinations.projectId, notificationDestinations.id],
+        }).onDelete('cascade'),
+        check(
+            'notification_subscriptions_kind_valid',
+            sql`${table.kind} in ('publication_published', 'publication_failed', 'publication_ambiguous')`
+        ),
+    ]
+)
+
+export const notificationDeliveryProjectionCursors = sqliteTable(
+    'notification_delivery_projection_cursors',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        projection: text('projection').notNull(),
+        cursor: text('cursor'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('notification_delivery_cursors_project_projection_uidx').on(
+            table.projectId,
+            table.projection
+        ),
+        check(
+            'notification_delivery_cursors_projection_nonblank',
+            sql`length(trim(${table.projection})) > 0`
+        ),
+        check(
+            'notification_delivery_cursors_cursor_nonblank',
+            sql`${table.cursor} is null or length(trim(${table.cursor})) > 0`
+        ),
+    ]
+)
+
+export const notificationDeliveries = sqliteTable(
+    'notification_deliveries',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        destinationId: text('destination_id').notNull(),
+        sourceEventId: text('source_event_id').notNull(),
+        transportId: text('transport_id').notNull(),
+        configurationJson: text('configuration_json', { mode: 'json' })
+            .$type<Readonly<Record<string, unknown>>>()
+            .notNull(),
+        kind: text('kind', { enum: notificationKinds }).notNull(),
+        severity: text('severity', { enum: notificationSeverities }).notNull(),
+        subjectType: text('subject_type').notNull(),
+        subjectId: text('subject_id').notNull(),
+        title: text('title').notNull(),
+        body: text('body').notNull(),
+        state: text('state', { enum: notificationDeliveryStates }).default('pending').notNull(),
+        attemptCount: integer('attempt_count').default(0).notNull(),
+        nextAttemptAt: integer('next_attempt_at').notNull(),
+        leaseToken: text('lease_token'),
+        leaseExpiresAt: integer('lease_expires_at'),
+        effectStartedAt: integer('effect_started_at'),
+        deliveredAt: integer('delivered_at'),
+        failedAt: integer('failed_at'),
+        ambiguousAt: integer('ambiguous_at'),
+        externalId: text('external_id'),
+        lastError: text('last_error'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('notification_deliveries_project_destination_source_uidx').on(
+            table.projectId,
+            table.destinationId,
+            table.sourceEventId
+        ),
+        index('notification_deliveries_project_due_idx').on(
+            table.projectId,
+            table.state,
+            table.nextAttemptAt
+        ),
+        index('notification_deliveries_project_destination_idx').on(
+            table.projectId,
+            table.destinationId,
+            table.createdAt
+        ),
+        foreignKey({
+            name: 'notification_deliveries_project_destination_fk',
+            columns: [table.projectId, table.destinationId],
+            foreignColumns: [notificationDestinations.projectId, notificationDestinations.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'notification_deliveries_project_source_event_fk',
+            columns: [table.projectId, table.sourceEventId],
+            foreignColumns: [auditEvents.projectId, auditEvents.id],
+        }).onDelete('cascade'),
+        check(
+            'notification_deliveries_transport_nonblank',
+            sql`length(trim(${table.transportId})) > 0`
+        ),
+        check(
+            'notification_deliveries_configuration_object',
+            sql`json_valid(${table.configurationJson}) and json_type(${table.configurationJson}) = 'object'`
+        ),
+        check(
+            'notification_deliveries_kind_valid',
+            sql`${table.kind} in ('publication_published', 'publication_failed', 'publication_ambiguous')`
+        ),
+        check(
+            'notification_deliveries_severity_valid',
+            sql`${table.severity} in ('success', 'warning', 'error')`
+        ),
+        check(
+            'notification_deliveries_subject_type_nonblank',
+            sql`length(trim(${table.subjectType})) > 0`
+        ),
+        check(
+            'notification_deliveries_subject_id_nonblank',
+            sql`length(trim(${table.subjectId})) > 0`
+        ),
+        check('notification_deliveries_title_nonblank', sql`length(trim(${table.title})) > 0`),
+        check('notification_deliveries_body_nonblank', sql`length(trim(${table.body})) > 0`),
+        check(
+            'notification_deliveries_state_valid',
+            sql`${table.state} in ('pending', 'running', 'delivered', 'failed', 'ambiguous')`
+        ),
+        check('notification_deliveries_attempt_count_valid', sql`${table.attemptCount} >= 0`),
+        check(
+            'notification_deliveries_next_attempt_valid',
+            sql`${table.nextAttemptAt} >= ${table.createdAt}`
+        ),
+        check(
+            'notification_deliveries_lease_valid',
+            sql`(
+            (${table.leaseToken} is null and ${table.leaseExpiresAt} is null)
+            or (${table.leaseToken} is not null and ${table.leaseExpiresAt} is not null and ${table.leaseExpiresAt} >= ${table.createdAt})
+        )`
+        ),
+        check(
+            'notification_deliveries_terminal_time_valid',
+            sql`(
+            (${table.deliveredAt} is null or ${table.deliveredAt} >= ${table.createdAt})
+            and (${table.failedAt} is null or ${table.failedAt} >= ${table.createdAt})
+            and (${table.ambiguousAt} is null or ${table.ambiguousAt} >= ${table.createdAt})
+        )`
         ),
     ]
 )
