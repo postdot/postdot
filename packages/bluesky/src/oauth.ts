@@ -83,8 +83,17 @@ export function createBlueskyRuntimeImplementation(): RuntimeImplementation {
             return WebcryptoKey.generate([algorithm], undefined, { extractable: true })
         },
         getRandomValues: length => crypto.getRandomValues(new Uint8Array(length)),
-        digest: (data, algorithm) =>
-            crypto.subtle.digest(algorithm.name, data).then(value => new Uint8Array(value)),
+        digest: (data, algorithm) => {
+            const webCryptoAlgorithm =
+                algorithm.name === 'sha256'
+                    ? 'SHA-256'
+                    : algorithm.name === 'sha384'
+                      ? 'SHA-384'
+                      : 'SHA-512'
+            return crypto.subtle
+                .digest(webCryptoAlgorithm, data)
+                .then(value => new Uint8Array(value))
+        },
     }
 }
 
@@ -189,6 +198,27 @@ export function createBlueskyStateStore(store: SerializedBlueskyStore): StateSto
         },
         del: store.del,
         clear: store.clear,
+    }
+}
+
+export function createBlueskyStateStoreWithKeyCapture(store: SerializedBlueskyStore): {
+    readonly stateStore: StateStore
+    getCapturedKey(): string | undefined
+} {
+    let capturedKey: string | undefined
+    const stateStore = createBlueskyStateStore({
+        ...store,
+        async set(key, value) {
+            capturedKey = key
+            await store.set(key, value)
+        },
+    })
+
+    return {
+        stateStore,
+        getCapturedKey() {
+            return capturedKey
+        },
     }
 }
 

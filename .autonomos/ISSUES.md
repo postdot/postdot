@@ -975,3 +975,23 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: CHANNEL-77
 - Related issue: ISSUE-041
 - Related decision: ADR-036 (accepted)
+
+## [ISSUE-044] Preserve the AT Protocol OAuth state when PAR hides it from the authorization URL
+
+- Type: problem
+- Status: accepted
+- Evidence: A live Bluesky authorization request uses a pushed authorization request
+  (PAR). The official `@atproto/oauth-client` stores the generated OAuth state in its
+  state store, while the returned authorization URL contains only `client_id` and
+  `request_uri`. The web connection route previously attempted to read `state` from
+  that URL and returned `provider_unavailable` before redirecting to Bluesky.
+- Impact: The real Bluesky connection flow could not start against an OAuth server
+  using PAR, despite the provider metadata, handle resolution, and Bun runtime being
+  valid. This boundary is provider-critical because the callback must recover the
+  exact state required for PKCE and DPoP validation.
+- Desired outcome: The connection flow persists the exact internal OAuth state key
+  produced by the provider client, independently of whether authorization parameters
+  are returned directly or through PAR, and the callback continues to restore the
+  encrypted provider state without exposing secrets.
+- Tasks: CHANNEL-78
+- Related issue: ISSUE-041

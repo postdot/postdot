@@ -5,7 +5,9 @@ import type { Session } from '@atproto/oauth-client'
 import {
     createBlueskyOAuthClient,
     createBlueskySessionStore,
+    createBlueskyRuntimeImplementation,
     createBlueskyStateStore,
+    createBlueskyStateStoreWithKeyCapture,
     serializeBlueskySession,
 } from './oauth'
 
@@ -26,6 +28,17 @@ function memoryStore() {
 }
 
 describe('Bluesky OAuth runtime', () => {
+    it('maps OAuth digest names to Bun Web Crypto names', async () => {
+        const digest = await createBlueskyRuntimeImplementation().digest(
+            new TextEncoder().encode('herald'),
+            { name: 'sha256' }
+        )
+
+        expect(Buffer.from(digest).toString('hex')).toBe(
+            '1c85bf7d3c260817db543a95c0e52d02563b5dd4dbd8bd656de82c8a0c0610b2'
+        )
+    })
+
     it('constructs the official portable client under Bun', () => {
         const client = createBlueskyOAuthClient({
             clientMetadata: {
@@ -49,6 +62,24 @@ describe('Bluesky OAuth runtime', () => {
             'https://herald.example.com/oauth/client-metadata.json'
         )
         expect(client.responseMode).toBe('query')
+    })
+
+    it('captures the internal state key used by pushed authorization requests', async () => {
+        const serialized = memoryStore()
+        const { getCapturedKey, stateStore } = createBlueskyStateStoreWithKeyCapture(serialized)
+        const key = await (
+            await import('@atproto/jwk-webcrypto')
+        ).WebcryptoKey.generate(['ES256'], undefined, { extractable: true })
+
+        await stateStore.set('oauth-state', {
+            iss: 'https://bsky.social',
+            dpopKey: key,
+            authMethod: { method: 'none' },
+            verifier: 'verifier',
+        })
+
+        expect(getCapturedKey()).toBe('oauth-state')
+        expect(await stateStore.get('oauth-state')).toBeDefined()
     })
 
     it('serializes an extractable DPoP session without exposing it in the public shape', async () => {

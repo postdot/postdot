@@ -5,6 +5,7 @@ import {
     createBlueskyMemoryStore,
     createBlueskySessionStore,
     createBlueskyStateStore,
+    createBlueskyStateStoreWithKeyCapture,
     readBlueskySessionTokenSet,
 } from '@herald/bluesky'
 import { digestAuthorizationState } from '@herald/oauth'
@@ -93,16 +94,18 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                 }
 
                 try {
-                    const stateStore = createBlueskyMemoryStore()
+                    const serializedStateStore = createBlueskyMemoryStore()
+                    const { getCapturedKey, stateStore } =
+                        createBlueskyStateStoreWithKeyCapture(serializedStateStore)
                     const sessionStore = createBlueskyMemoryStore()
                     const client = createBlueskyOAuthClient({
                         clientMetadata: bluesky.clientMetadata,
                         handleResolver: bluesky.handleResolver,
-                        stateStore: createBlueskyStateStore(stateStore),
+                        stateStore,
                         sessionStore: createBlueskySessionStore(sessionStore),
                     })
                     const authorizationUrl = await client.authorize(body.handle.trim())
-                    const state = authorizationUrl.searchParams.get('state')
+                    const state = getCapturedKey() ?? authorizationUrl.searchParams.get('state')
                     if (state === null || state.length === 0) {
                         return status(503, {
                             error: {
@@ -112,7 +115,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         })
                     }
 
-                    const providerState = await stateStore.get(state)
+                    const providerState = await serializedStateStore.get(state)
                     if (providerState === undefined) {
                         return status(503, {
                             error: {
