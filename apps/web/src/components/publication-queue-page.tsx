@@ -6,8 +6,9 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
-import { AttentionPanel, PublicationList } from '@/components/dashboard-publication-parts'
+import { PublicationList } from '@/components/dashboard-publication-parts'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
+import { PublicationAttentionPanel } from '@/components/publication-attention-panel'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { filterQueuePublications, isQueueFilter, type QueueFilter } from '@/lib/publication-queue'
@@ -99,7 +100,7 @@ export function PublicationQueuePage() {
                     />
                 </section>
                 {due.length > 0 ? (
-                    <AttentionPanel
+                    <PublicationAttentionPanel
                         duePublications={due}
                         onPublish={onPublish}
                         pending={pending}
