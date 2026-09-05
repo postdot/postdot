@@ -17,6 +17,7 @@ const defaultListLimit = 50
 const maximumListLimit = 100
 const defaultProjectionLimit = 100
 const maximumProjectionLimit = 500
+const notificationCursorPrefix = 'notification:'
 
 interface HumanActorRow {
     readonly id: string
@@ -62,6 +63,12 @@ export interface ListNotificationsInput {
     readonly subjectId: string
     readonly includeArchived?: boolean
     readonly limit?: number
+    readonly before?: string | null
+}
+
+export interface NotificationInboxPage {
+    readonly items: readonly ProjectNotification[]
+    readonly nextCursor: string | null
 }
 
 export interface UpdateNotificationPreferenceInput {
@@ -152,12 +159,24 @@ export function createNotificationStore(
     `
     const listNotificationsStatement = client.query<
         NotificationRow,
-        [projectId: string, actorId: string, includeArchived: number, limit: number]
+        [
+            projectId: string,
+            actorId: string,
+            includeArchived: number,
+            beforeCreatedAt: number | null,
+            beforeId: string | null,
+            limit: number,
+        ]
     >(`
         select ${notificationColumns} from notifications
         where project_id = ?1 and recipient_actor_id = ?2
           and (?3 = 1 or archived_at is null)
-        order by created_at desc, id desc limit ?4
+          and (
+              ?4 is null
+              or created_at < ?4
+              or (created_at = ?4 and id < ?5)
+          )
+        order by created_at desc, id desc limit ?6
     `)
     const countUnreadStatement = client.query<
         { readonly count: number },
@@ -300,7 +319,7 @@ export function createNotificationStore(
             return projectTransaction.immediate(normalizedProjectId, limit)
         },
 
-        list(input: ListNotificationsInput): readonly ProjectNotification[] | null {
+        list(input: ListNotificationsInput): NotificationInboxPage | null {
             const actor = resolveHumanActor(input.projectId, input.subjectId)
             if (actor === null) return null
             const limit = input.limit ?? defaultListLimit
@@ -310,9 +329,23 @@ export function createNotificationStore(
                     `notification list limit must be between 1 and ${maximumListLimit}`
                 )
             }
-            return listNotificationsStatement
-                .all(input.projectId, actor.id, input.includeArchived === true ? 1 : 0, limit)
-                .map(toNotification)
+            const before = parseNotificationCursor(input.before)
+            const rows = listNotificationsStatement.all(
+                input.projectId,
+                actor.id,
+                input.includeArchived === true ? 1 : 0,
+                before?.createdAt ?? null,
+                before?.id ?? null,
+                limit + 1
+            )
+            const hasMore = rows.length > limit
+            const items = rows.slice(0, limit).map(toNotification)
+            const last = hasMore ? items.at(-1) : undefined
+            return {
+                items,
+                nextCursor:
+                    last === undefined ? null : encodeNotificationCursor(last.createdAt, last.id),
+            }
         },
 
         countUnread(projectId: string, subjectId: string): number | null {
@@ -329,7 +362,14 @@ export function createNotificationStore(
             const actor = resolveHumanActor(projectId, subjectId)
             if (actor === null) return null
             const id = requireNonBlank(notificationId, 'notificationId')
-            markReadStatement.run(requireTimestamp(now(), 'now'), id, projectId, actor.id)
+            const existing = loadNotificationStatement.get(id, projectId, actor.id)
+            if (existing === null) return null
+            markReadStatement.run(
+                Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
+                id,
+                projectId,
+                actor.id
+            )
             const row = loadNotificationStatement.get(id, projectId, actor.id)
             return row === null ? null : toNotification(row)
         },
@@ -342,7 +382,14 @@ export function createNotificationStore(
             const actor = resolveHumanActor(projectId, subjectId)
             if (actor === null) return null
             const id = requireNonBlank(notificationId, 'notificationId')
-            archiveStatement.run(requireTimestamp(now(), 'now'), id, projectId, actor.id)
+            const existing = loadNotificationStatement.get(id, projectId, actor.id)
+            if (existing === null) return null
+            archiveStatement.run(
+                Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
+                id,
+                projectId,
+                actor.id
+            )
             const row = loadNotificationStatement.get(id, projectId, actor.id)
             return row === null ? null : toNotification(row)
         },
@@ -384,6 +431,39 @@ export function createNotificationStore(
 }
 
 export type NotificationStore = ReturnType<typeof createNotificationStore>
+
+function encodeNotificationCursor(createdAt: number, id: string): string {
+    return `${notificationCursorPrefix}${createdAt}:${encodeURIComponent(id)}`
+}
+
+function parseNotificationCursor(
+    cursor: string | null | undefined
+): { readonly createdAt: number; readonly id: string } | null {
+    if (cursor === null || cursor === undefined) return null
+    if (!cursor.startsWith(notificationCursorPrefix)) {
+        throw new DomainInvariantError('invalid_input', 'notification cursor is invalid')
+    }
+    const separator = cursor.indexOf(':', notificationCursorPrefix.length)
+    if (separator < 0) {
+        throw new DomainInvariantError('invalid_input', 'notification cursor is invalid')
+    }
+    const createdAt = Number(cursor.slice(notificationCursorPrefix.length, separator))
+    let id: string
+    try {
+        id = decodeURIComponent(cursor.slice(separator + 1))
+    } catch {
+        throw new DomainInvariantError('invalid_input', 'notification cursor is invalid')
+    }
+    if (
+        !Number.isSafeInteger(createdAt) ||
+        createdAt < 0 ||
+        id.length === 0 ||
+        encodeNotificationCursor(createdAt, id) !== cursor
+    ) {
+        throw new DomainInvariantError('invalid_input', 'notification cursor is invalid')
+    }
+    return { createdAt, id }
+}
 
 function toNotification(row: NotificationRow): ProjectNotification {
     return createProjectNotification({

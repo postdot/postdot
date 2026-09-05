@@ -6,6 +6,7 @@ import { sessionSecurity } from '../../plugins/auth'
 import { errorResponse, projectParams } from './models'
 import {
     notificationInboxSchema,
+    notificationInboxQuery,
     notificationParams,
     notificationPreferenceParams,
     notificationPreferenceSchema,
@@ -34,6 +35,7 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
             {
                 auth: true,
                 params: projectParams,
+                query: notificationInboxQuery,
                 response: {
                     200: notificationInboxSchema,
                     401: errorResponse,
@@ -47,17 +49,21 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status, user }) => {
+            ({ authMethod, params, query, status, user }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                const items = notifications.list({
+                const page = notifications.list({
                     projectId: params.projectId,
                     subjectId: user.id,
+                    before: query.before,
+                    limit: query.limit,
+                    includeArchived: query.view === 'all',
                 })
                 const unreadCount = notifications.countUnread(params.projectId, user.id)
-                if (items === null || unreadCount === null) return status(404, notFoundResponse)
+                if (page === null || unreadCount === null) return status(404, notFoundResponse)
                 return {
-                    notifications: items.map(toNotificationResponse),
+                    notifications: page.items.map(toNotificationResponse),
                     unreadCount,
+                    nextCursor: page.nextCursor,
                 }
             }
         )

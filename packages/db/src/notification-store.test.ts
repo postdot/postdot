@@ -122,7 +122,7 @@ describe('notification store', () => {
                         projectId: fixture.project.project.id,
                         subjectId: 'human-1',
                     })
-                    ?.map(notification => notification.kind)
+                    ?.items.map(notification => notification.kind)
             ).toEqual(['publication_ambiguous'])
         } finally {
             closeDatabase(fixture.database)
@@ -159,7 +159,7 @@ describe('notification store', () => {
                         projectId: fixture.project.project.id,
                         subjectId: 'human-1',
                     })
-                    ?.map(notification => notification.sourceEventId)
+                    ?.items.map(notification => notification.sourceEventId)
             ).toEqual(['event-supported'])
         } finally {
             closeDatabase(fixture.database)
@@ -206,7 +206,7 @@ describe('notification store', () => {
             const notification = fixture.notifications.list({
                 projectId: fixture.project.project.id,
                 subjectId: 'human-1',
-            })?.[0]
+            })?.items[0]
             expect(notification).toBeDefined()
             expect(fixture.notifications.countUnread(fixture.project.project.id, 'human-1')).toBe(1)
 
@@ -233,8 +233,15 @@ describe('notification store', () => {
                 fixture.notifications.list({
                     projectId: fixture.project.project.id,
                     subjectId: 'human-1',
-                })
+                })?.items
             ).toEqual([])
+            expect(
+                fixture.notifications.list({
+                    projectId: fixture.project.project.id,
+                    subjectId: 'human-1',
+                    includeArchived: true,
+                })?.items[0]?.id
+            ).toBe(notification?.id)
             expect(
                 fixture.notifications.markRead(
                     fixture.project.project.id,
@@ -263,6 +270,60 @@ describe('notification store', () => {
                     subjectId: 'unknown',
                 })
             ).toBeNull()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('paginates more than the default limit at one timestamp without gaps or duplicates', () => {
+        const fixture = createFixture()
+        try {
+            for (let index = 0; index < 55; index += 1) {
+                appendPublicationEvent(fixture, {
+                    id: `event-${index}`,
+                    name: 'publication.execution.succeeded',
+                })
+            }
+            fixture.notifications.project(fixture.project.project.id)
+
+            const ids: string[] = []
+            let before: string | null | undefined
+            do {
+                const page = fixture.notifications.list({
+                    projectId: fixture.project.project.id,
+                    subjectId: 'human-1',
+                    limit: 20,
+                    before,
+                })
+                expect(page).not.toBeNull()
+                ids.push(...(page?.items.map(item => item.id) ?? []))
+                before = page?.nextCursor
+            } while (before !== null && before !== undefined)
+
+            expect(ids).toHaveLength(55)
+            expect(new Set(ids).size).toBe(55)
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('rejects malformed inbox cursors', () => {
+        const fixture = createFixture()
+        try {
+            for (const before of [
+                'invalid',
+                'notification:1',
+                'notification:01:item',
+                'notification:1:',
+            ]) {
+                expect(() =>
+                    fixture.notifications.list({
+                        projectId: fixture.project.project.id,
+                        subjectId: 'human-1',
+                        before,
+                    })
+                ).toThrow(DomainInvariantError)
+            }
         } finally {
             closeDatabase(fixture.database)
         }

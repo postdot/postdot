@@ -26,6 +26,13 @@ export const notificationSchema = Type.Object({
 export const notificationInboxSchema = Type.Object({
     notifications: Type.Array(notificationSchema),
     unreadCount: Type.Integer({ minimum: 0 }),
+    nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+})
+
+export const notificationInboxQuery = Type.Object({
+    before: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    view: Type.Optional(Type.Union([Type.Literal('active'), Type.Literal('all')])),
 })
 
 export const notificationPreferenceSchema = Type.Object({

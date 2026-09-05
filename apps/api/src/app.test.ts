@@ -442,20 +442,42 @@ describe('Herald API', () => {
                 subject: { type: 'publication', id: 'publication-1' },
                 occurredAt: now,
             })
+            createEventJournalStore(database).append({
+                id: 'notification-api-event-2',
+                projectId: created.project.id,
+                actorId: actor?.id ?? '',
+                name: 'publication.execution.ambiguous',
+                version: 1,
+                subject: { type: 'publication', id: 'publication-2' },
+                occurredAt: now,
+            })
             notifications.project(created.project.id)
 
             const inboxResponse = await jsonRequest(
                 app,
-                `/api/projects/${created.project.id}/notifications`,
+                `/api/projects/${created.project.id}/notifications?limit=1`,
                 cookie
             )
             expect(inboxResponse.status).toBe(200)
             const inbox = (await inboxResponse.json()) as {
                 unreadCount: number
                 notifications: Array<{ id: string; kind: string; readAt: number | null }>
+                nextCursor: string | null
             }
-            expect(inbox.unreadCount).toBe(1)
-            expect(inbox.notifications[0]?.kind).toBe('publication_failed')
+            expect(inbox.unreadCount).toBe(2)
+            expect(inbox.notifications).toHaveLength(1)
+            expect(inbox.nextCursor).not.toBeNull()
+
+            const nextInboxResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications?limit=1&before=${encodeURIComponent(inbox.nextCursor ?? '')}`,
+                cookie
+            )
+            expect(nextInboxResponse.status).toBe(200)
+            const nextInbox = (await nextInboxResponse.json()) as typeof inbox
+            expect(nextInbox.notifications).toHaveLength(1)
+            expect(nextInbox.notifications[0]?.id).not.toBe(inbox.notifications[0]?.id)
+            expect(nextInbox.nextCursor).toBeNull()
 
             const notificationId = inbox.notifications[0]?.id ?? ''
             const readResponse = await jsonRequest(
@@ -468,6 +490,34 @@ describe('Herald API', () => {
             expect((await readResponse.json()) as { readAt: number | null }).toMatchObject({
                 readAt: now + 1_000,
             })
+
+            const archiveResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications/${notificationId}/archive`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(archiveResponse.status).toBe(200)
+            const activeInboxResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications`,
+                cookie
+            )
+            expect(
+                ((await activeInboxResponse.json()) as typeof inbox).notifications.map(
+                    item => item.id
+                )
+            ).not.toContain(notificationId)
+            const completeInboxResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications?view=all`,
+                cookie
+            )
+            expect(
+                ((await completeInboxResponse.json()) as typeof inbox).notifications.map(
+                    item => item.id
+                )
+            ).toContain(notificationId)
 
             const preferenceResponse = await jsonRequest(
                 app,

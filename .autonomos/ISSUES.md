@@ -744,7 +744,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-033] Complete web onboarding and lifecycle for runtime-defined channels
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The API and domain support versioned runtime-defined channel profiles,
   while the web channel creation surface currently offers only manual-message and
   LinkedIn choices. The channel list does not provide channel rename, archival, or
@@ -1055,3 +1055,9 @@ channels` with a foreign-key constraint error even though a fresh empty database
   source event actor as the recipient.
 - Tasks: NOTIFY-80
 - Related decisions: ADR-037, ADR-038
+- Resolution: Herald now projects a versioned allowlist of durable publication outcomes
+  into project- and human-recipient-owned inbox items. Projection writes and cursor
+  advancement are atomic, preferences suppress only future items, and read/archive
+  operations remain idempotent and project-isolated. The authenticated API exposes
+  stable keyset pagination, unread count, archived history, and preference management;
+  machine credentials cannot impersonate a human notification recipient.

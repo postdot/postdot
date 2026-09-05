@@ -120,6 +120,7 @@ export type {
 export type {
     ListNotificationsInput,
     NotificationPreference,
+    NotificationInboxPage,
     NotificationStore,
     NotificationStoreOptions,
     ProjectNotificationsResult,
