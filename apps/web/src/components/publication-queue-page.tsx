@@ -1,5 +1,6 @@
 import { Button } from '@herald/ui/components/button'
 import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
+import { cn } from '@herald/ui/lib/utils'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -81,7 +82,11 @@ export function PublicationQueuePage() {
                 </TabsList>
             </Tabs>
 
-            <div className="mt-7 grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+            <div
+                className={cn(
+                    'mt-7 grid min-w-0 gap-7',
+                    due.length > 0 && 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start'
+                )}>
                 <section className="min-w-0">
                     <DashboardSectionHeading
                         meta={`${visiblePublications.length} publication${visiblePublications.length === 1 ? '' : 's'}`}
@@ -93,12 +98,14 @@ export function PublicationQueuePage() {
                         timeZone={project.timeZone}
                     />
                 </section>
-                <AttentionPanel
-                    duePublications={due}
-                    onPublish={onPublish}
-                    pending={pending}
-                    timeZone={project.timeZone}
-                />
+                {due.length > 0 ? (
+                    <AttentionPanel
+                        duePublications={due}
+                        onPublish={onPublish}
+                        pending={pending}
+                        timeZone={project.timeZone}
+                    />
+                ) : null}
             </div>
         </main>
     )
