@@ -4,6 +4,7 @@ import { Elysia } from 'elysia'
 import { Type } from 'typebox'
 
 import type { MediaReconciliationRuntimeState } from '../media/runtime'
+import type { NotificationProjectionRuntimeState } from '../notifications/runtime'
 
 const runtimeStateSchema = Type.Union([
     Type.Literal('not_configured'),
@@ -20,6 +21,7 @@ const readinessChecksSchema = Type.Object({
         database: Type.Union([Type.Literal('ok'), Type.Literal('failed')]),
         scheduler: runtimeStateSchema,
         mediaMaintenance: runtimeStateSchema,
+        notifications: runtimeStateSchema,
     }),
 })
 
@@ -37,11 +39,13 @@ type ReadinessChecks = {
     readonly database: 'ok' | 'failed'
     readonly scheduler: SchedulerState | 'not_configured'
     readonly mediaMaintenance: MediaReconciliationRuntimeState | 'not_configured'
+    readonly notifications: NotificationProjectionRuntimeState | 'not_configured'
 }
 
 type HealthRuntime = {
     readonly scheduler?: { readonly state: SchedulerState }
     readonly mediaMaintenance?: { readonly state: MediaReconciliationRuntimeState }
+    readonly notifications?: { readonly state: NotificationProjectionRuntimeState }
 }
 
 export interface HealthRoutesOptions {
@@ -88,6 +92,7 @@ export function createHealthRoutes({ database, runtime }: HealthRoutesOptions) {
                     database: readDatabaseStatus(database),
                     scheduler: runtime?.scheduler?.state ?? 'not_configured',
                     mediaMaintenance: runtime?.mediaMaintenance?.state ?? 'not_configured',
+                    notifications: runtime?.notifications?.state ?? 'not_configured',
                 }
                 if (isReady(checks)) return { status: 'ready' as const, checks }
                 return status(503, { status: 'not_ready' as const, checks })
@@ -108,12 +113,17 @@ function isReady(checks: ReadinessChecks) {
     return (
         checks.database === 'ok' &&
         isActiveRuntime(checks.scheduler) &&
-        isActiveRuntime(checks.mediaMaintenance)
+        isActiveRuntime(checks.mediaMaintenance) &&
+        isActiveRuntime(checks.notifications)
     )
 }
 
 function isActiveRuntime(
-    state: SchedulerState | MediaReconciliationRuntimeState | 'not_configured'
+    state:
+        | SchedulerState
+        | MediaReconciliationRuntimeState
+        | NotificationProjectionRuntimeState
+        | 'not_configured'
 ) {
     return state === 'started' || state === 'running'
 }

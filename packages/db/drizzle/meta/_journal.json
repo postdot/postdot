@@ -99,6 +99,13 @@
             "when": 1788633823962,
             "tag": "0013_vengeful_namor",
             "breakpoints": true
+        },
+        {
+            "idx": 14,
+            "version": "6",
+            "when": 1788642728653,
+            "tag": "0014_parallel_synch",
+            "breakpoints": true
         }
     ]
 }

@@ -5,6 +5,8 @@ import type { ChannelProfileDefinition } from '@herald/core'
 import {
     closeDatabase,
     createDatabase,
+    createEventJournalStore,
+    createNotificationStore,
     createProjectAccessTokenStore,
     runMigrations,
 } from '@herald/db'
@@ -101,6 +103,7 @@ function createFixture(
     })
     const auth = createAuth(database, { baseURL, secret })
     const accessTokens = createProjectAccessTokenStore(database, { now: () => now })
+    const notifications = createNotificationStore(database, { now: () => now + 1_000 })
     const app = createApp({
         auth,
         database,
@@ -108,9 +111,10 @@ function createFixture(
         manualStore: { now: () => now },
         runtime: options.runtime,
         accessTokens,
+        notifications,
     })
 
-    return { accessTokens, app, database, publisher }
+    return { accessTokens, app, database, notifications, publisher }
 }
 
 async function signUp(app: ReturnType<typeof createApp>, email = 'operator@herald.local') {
@@ -210,6 +214,7 @@ describe('Herald API', () => {
                     database: 'ok',
                     scheduler: 'not_configured',
                     mediaMaintenance: 'not_configured',
+                    notifications: 'not_configured',
                 },
             })
         } finally {
@@ -222,6 +227,7 @@ describe('Herald API', () => {
             runtime: {
                 scheduler: { state: 'started' },
                 mediaMaintenance: { state: 'started' },
+                notifications: { state: 'started' },
             },
         })
 
@@ -234,6 +240,7 @@ describe('Herald API', () => {
                     database: 'ok',
                     scheduler: 'started',
                     mediaMaintenance: 'started',
+                    notifications: 'started',
                 },
             })
         } finally {
@@ -246,6 +253,7 @@ describe('Herald API', () => {
             runtime: {
                 scheduler: { state: 'failed' },
                 mediaMaintenance: { state: 'started' },
+                notifications: { state: 'started' },
             },
         })
 
@@ -262,6 +270,7 @@ describe('Herald API', () => {
                     database: 'ok',
                     scheduler: 'failed',
                     mediaMaintenance: 'started',
+                    notifications: 'started',
                 },
             })
         } finally {
@@ -274,6 +283,7 @@ describe('Herald API', () => {
             runtime: {
                 scheduler: { state: 'started' },
                 mediaMaintenance: { state: 'started' },
+                notifications: { state: 'started' },
             },
         })
         closeDatabase(database)
@@ -286,6 +296,7 @@ describe('Herald API', () => {
                 database: 'failed',
                 scheduler: 'started',
                 mediaMaintenance: 'started',
+                notifications: 'started',
             },
         })
     })
@@ -350,6 +361,11 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/media',
                 '/api/projects/{projectId}/media/{assetId}/content',
                 '/api/projects/{projectId}/media/{assetId}',
+                '/api/projects/{projectId}/notifications',
+                '/api/projects/{projectId}/notifications/{notificationId}/read',
+                '/api/projects/{projectId}/notifications/{notificationId}/archive',
+                '/api/projects/{projectId}/notification-preferences',
+                '/api/projects/{projectId}/notification-preferences/{kind}',
                 '/api/projects/{projectId}/audit-events',
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
@@ -392,6 +408,131 @@ describe('Herald API', () => {
             expect(readOpenApiStatus(specification.paths['/ready']?.get?.responses?.['503'])).toBe(
                 'not_ready'
             )
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('exposes a human-only persistent notification inbox and preferences', async () => {
+        const { app, database, notifications } = createFixture()
+
+        try {
+            const cookie = await signUp(app)
+            const createProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Notification project' }),
+            })
+            expect(createProjectResponse.status).toBe(201)
+            const created = (await createProjectResponse.json()) as {
+                project: { id: string }
+            }
+            const actor = database.$client
+                .query<{ id: string }, [string]>(
+                    `select id from actors where project_id = ?1 and kind = 'human'`
+                )
+                .get(created.project.id)
+            expect(actor).toBeDefined()
+
+            createEventJournalStore(database).append({
+                id: 'notification-api-event',
+                projectId: created.project.id,
+                actorId: actor?.id ?? '',
+                name: 'publication.execution.failed',
+                version: 1,
+                subject: { type: 'publication', id: 'publication-1' },
+                occurredAt: now,
+            })
+            createEventJournalStore(database).append({
+                id: 'notification-api-event-2',
+                projectId: created.project.id,
+                actorId: actor?.id ?? '',
+                name: 'publication.execution.ambiguous',
+                version: 1,
+                subject: { type: 'publication', id: 'publication-2' },
+                occurredAt: now,
+            })
+            notifications.project(created.project.id)
+
+            const inboxResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications?limit=1`,
+                cookie
+            )
+            expect(inboxResponse.status).toBe(200)
+            const inbox = (await inboxResponse.json()) as {
+                unreadCount: number
+                notifications: Array<{ id: string; kind: string; readAt: number | null }>
+                nextCursor: string | null
+            }
+            expect(inbox.unreadCount).toBe(2)
+            expect(inbox.notifications).toHaveLength(1)
+            expect(inbox.nextCursor).not.toBeNull()
+
+            const nextInboxResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications?limit=1&before=${encodeURIComponent(inbox.nextCursor ?? '')}`,
+                cookie
+            )
+            expect(nextInboxResponse.status).toBe(200)
+            const nextInbox = (await nextInboxResponse.json()) as typeof inbox
+            expect(nextInbox.notifications).toHaveLength(1)
+            expect(nextInbox.notifications[0]?.id).not.toBe(inbox.notifications[0]?.id)
+            expect(nextInbox.nextCursor).toBeNull()
+
+            const notificationId = inbox.notifications[0]?.id ?? ''
+            const readResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications/${notificationId}/read`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(readResponse.status).toBe(200)
+            expect((await readResponse.json()) as { readAt: number | null }).toMatchObject({
+                readAt: now + 1_000,
+            })
+
+            const archiveResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications/${notificationId}/archive`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(archiveResponse.status).toBe(200)
+            const activeInboxResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications`,
+                cookie
+            )
+            expect(
+                ((await activeInboxResponse.json()) as typeof inbox).notifications.map(
+                    item => item.id
+                )
+            ).not.toContain(notificationId)
+            const completeInboxResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notifications?view=all`,
+                cookie
+            )
+            expect(
+                ((await completeInboxResponse.json()) as typeof inbox).notifications.map(
+                    item => item.id
+                )
+            ).toContain(notificationId)
+
+            const preferenceResponse = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/notification-preferences/publication_failed`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ inAppEnabled: false }),
+                }
+            )
+            expect(preferenceResponse.status).toBe(200)
+            expect(await preferenceResponse.json()).toEqual({
+                kind: 'publication_failed',
+                inAppEnabled: false,
+            })
         } finally {
             closeDatabase(database)
         }
@@ -848,6 +989,13 @@ describe('Herald API', () => {
                 createdBody.token
             )
             expect(tokenListResponse.status).toBe(403)
+
+            const notificationResponse = await bearerRequest(
+                app,
+                `/api/projects/${projectId}/notifications`,
+                createdBody.token
+            )
+            expect(notificationResponse.status).toBe(403)
 
             const projectCreationResponse = await bearerRequest(
                 app,

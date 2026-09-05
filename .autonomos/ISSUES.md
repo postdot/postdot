@@ -744,7 +744,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-033] Complete web onboarding and lifecycle for runtime-defined channels
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The API and domain support versioned runtime-defined channel profiles,
   while the web channel creation surface currently offers only manual-message and
   LinkedIn choices. The channel list does not provide channel rename, archival, or
@@ -1032,3 +1032,32 @@ channels` with a foreign-key constraint error even though a fresh empty database
   package exposes an opaque-cursor reader isolated by project. Populated migration,
   append ordering, cursor reuse, transaction rollback, and public audit compatibility
   are covered by the repository gate.
+
+## [ISSUE-046] Build a persistent notification inbox from durable project facts
+
+- Type: proposal
+- Status: accepted
+- Evidence: Herald now exposes a durable, versioned project fact journal, but users
+  cannot yet receive or acknowledge actionable publication outcomes. Audit records do
+  not contain recipients, preferences, presentation state, or delivery state and must
+  not be repurposed as an inbox.
+- Impact: Failures and ambiguous publication outcomes remain discoverable only by
+  actively inspecting the queue or audit history. Adding Ntfy, Telegram, email, or
+  another notification surface directly to workflow code would duplicate policy and
+  weaken delivery recovery.
+- Desired outcome: Project-scoped human actors receive idempotent persistent inbox
+  items projected from an explicit allowlist of high-value event names and versions.
+  Notification preferences and read/archive state are stored separately from the fact
+  journal. Authenticated API operations expose the inbox without coupling delivery
+  transports to publication workflows.
+- Scope boundary: NOTIFY-80 does not add a web interface or external transport. It does
+  not notify machine or system actors, make notifications event-sourced, or infer the
+  source event actor as the recipient.
+- Tasks: NOTIFY-80
+- Related decisions: ADR-037, ADR-038
+- Resolution: Herald now projects a versioned allowlist of durable publication outcomes
+  into project- and human-recipient-owned inbox items. Projection writes and cursor
+  advancement are atomic, preferences suppress only future items, and read/archive
+  operations remain idempotent and project-isolated. The authenticated API exposes
+  stable keyset pagination, unread count, archived history, and preference management;
+  machine credentials cannot impersonate a human notification recipient.

@@ -4,6 +4,7 @@ import {
     closeDatabase,
     createDatabase,
     createMediaAssetStore,
+    createNotificationStore,
     createProjectAccessTokenStore,
     runMigrations,
 } from '@herald/db'
@@ -16,6 +17,7 @@ import {
     createConfiguredMediaStore,
     createMediaReconciliationRuntime,
 } from './modules/media/runtime'
+import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
 import { createBlueskyProviderAdapter } from './modules/workflow/providers/bluesky'
 import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
@@ -57,11 +59,18 @@ export type {
     PublicationResponse,
     PublicationSummaryResponse,
 } from './modules/projects/models'
+export type {
+    NotificationInboxResponse,
+    NotificationPreferenceResponse,
+    NotificationResponse,
+} from './modules/projects/notification-models'
 
 async function startServer(config = createHeraldConfig()) {
     const database = createDatabase(config.database.fileName)
     runMigrations(database, config.database.migrationsDirectory)
     const accessTokens = createProjectAccessTokenStore(database)
+    const notifications = createNotificationStore(database)
+    const notificationProjection = createNotificationProjectionRuntime(notifications)
     const media = createMediaAssetStore(database, createConfiguredMediaStore(config.media), {
         uploadIntentTtlMs: config.media.uploadIntentTtlMs,
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
@@ -116,9 +125,11 @@ async function startServer(config = createHeraldConfig()) {
         logging: config.logging,
         onWorkScheduled: worker.replan,
         accessTokens,
+        notifications,
         runtime: {
             scheduler: worker.scheduler,
             mediaMaintenance,
+            notifications: notificationProjection,
         },
     })
     const app =
@@ -128,6 +139,7 @@ async function startServer(config = createHeraldConfig()) {
 
     worker.start()
     mediaMaintenance.start()
+    notificationProjection.start()
     app.listen(config.server.port)
 
     let shuttingDown = false
@@ -137,6 +149,7 @@ async function startServer(config = createHeraldConfig()) {
 
         worker.stop()
         mediaMaintenance.stop()
+        notificationProjection.stop()
         await app.stop()
         closeDatabase(database)
     }
