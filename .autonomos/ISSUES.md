@@ -928,6 +928,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   app-password behavior is assumed silently.
 - Tasks: CHANNEL-75 (after PROVIDER-74)
 - Related issue: ISSUE-040
+- Related decision: ADR-036 (proposed)
 
 ## [ISSUE-042] Treat the web application as a dedicated client architecture project
 
