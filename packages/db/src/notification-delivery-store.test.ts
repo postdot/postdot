@@ -110,6 +110,11 @@ describe('notification delivery store', () => {
                     subjectId: 'human-1',
                 })?.items
             ).toEqual([])
+            expect(() =>
+                fixture.database.$client.run(
+                    `delete from notification_destinations where id = '${destination.id}'`
+                )
+            ).toThrow()
         } finally {
             closeDatabase(fixture.database)
         }
@@ -319,6 +324,18 @@ describe('notification delivery store', () => {
                     .list(fixture.project.project.id, 'human-1')
                     ?.find(item => item.id === retryClaim.id)?.state
             ).toBe('pending')
+
+            const retryAttempt = fixture.deliveries.claimNextDueJob({
+                actorId: 'system-1',
+                claimToken: 'claim-retry-attempt',
+                now: operationTime + 100,
+                leaseExpiresAt: operationTime + 200,
+            })
+            if (retryAttempt === null) throw new Error('The retry attempt was not claimed')
+            expect(fixture.deliveries.recoverExpiredClaims(operationTime + 201)).toEqual({
+                requeuedJobIds: [retryAttempt.id],
+                ambiguousJobIds: [],
+            })
 
             const retryPolicy = createExponentialRetryPolicy({
                 maxAttempts: 3,

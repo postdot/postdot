@@ -23,7 +23,7 @@ CREATE TABLE `notification_deliveries` (
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`project_id`,`destination_id`) REFERENCES `notification_destinations`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`destination_id`) REFERENCES `notification_destinations`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
 	FOREIGN KEY (`project_id`,`source_event_id`) REFERENCES `audit_events`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
 	CONSTRAINT "notification_deliveries_kind_valid" CHECK("notification_deliveries"."kind" in ('publication_published', 'publication_failed', 'publication_ambiguous')),
 	CONSTRAINT "notification_deliveries_severity_valid" CHECK("notification_deliveries"."severity" in ('success', 'warning', 'error')),

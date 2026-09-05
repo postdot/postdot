@@ -1920,7 +1920,7 @@ export const notificationDeliveries = sqliteTable(
             name: 'notification_deliveries_project_destination_fk',
             columns: [table.projectId, table.destinationId],
             foreignColumns: [notificationDestinations.projectId, notificationDestinations.id],
-        }).onDelete('cascade'),
+        }).onDelete('restrict'),
         foreignKey({
             name: 'notification_deliveries_project_source_event_fk',
             columns: [table.projectId, table.sourceEventId],

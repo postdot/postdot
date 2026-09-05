@@ -31,6 +31,12 @@ bounded public configuration, and an optional encrypted secret envelope. A
 destination/kind subscription is explicit. Account-global defaults may be layered over
 this project-scoped ownership later without coupling destinations to Better Auth tables.
 
+The current NOTIFY-81 store persists public configuration only. It does not expose a
+transport management API or accept provider credentials; a real adapter must wait for
+the encrypted secret boundary recorded in NOTIFY-82. Delivery rows retain a restricted
+reference to their destination so disabling is the supported lifecycle operation and a
+future hard-delete cannot erase a running or ambiguous effect.
+
 Outbox insertion and projection-cursor advancement are atomic. A
 project/destination/source-event uniqueness constraint makes replay idempotent. Delivery
 workers claim due rows with a lease and commit an effect-started boundary before calling
@@ -54,6 +60,9 @@ write publication or journal state directly.
 - Use Ntfy `sequence_id` as universal idempotency: rejected because it controls
   notification replacement/deletion semantics and is not documented as a general
   exactly-once request key.
+- Cascade-delete a destination with its delivery history: rejected because a running
+  external effect could be deleted before Herald classifies its outcome. Destinations
+  are disabled first; hard deletion requires an explicit retention policy.
 
 ## Consequences
 
@@ -63,6 +72,8 @@ write publication or journal state directly.
   deduplication, and recovery are durable.
 - Transport secrets require the deployment-owned encrypted-secret boundary before a
   real adapter can be configured.
+- Public destination configuration is not a secret store and must never be used to
+  smuggle bearer tokens or provider credentials into a transport.
 - A post-boundary crash is visible as ambiguous instead of being silently duplicated.
 
 ## Verification

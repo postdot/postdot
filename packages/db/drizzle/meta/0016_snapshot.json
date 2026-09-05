@@ -2060,7 +2060,7 @@
                     "tableTo": "notification_destinations",
                     "columnsFrom": ["project_id", "destination_id"],
                     "columnsTo": ["project_id", "id"],
-                    "onDelete": "cascade",
+                    "onDelete": "restrict",
                     "onUpdate": "no action"
                 },
                 "notification_deliveries_project_source_event_fk": {

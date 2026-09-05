@@ -375,7 +375,7 @@ export function createNotificationDeliveryStore(
     >(`
         update notification_deliveries
         set state = 'pending', next_attempt_at = ?1, lease_token = null,
-            lease_expires_at = null, last_error = ?3, updated_at = ?2
+            lease_expires_at = null, effect_started_at = null, last_error = ?3, updated_at = ?2
         where id = ?4 and state = 'running' and lease_token = ?5
     `)
     const completeFailedStatement = client.query<

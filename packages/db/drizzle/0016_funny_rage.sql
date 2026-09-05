@@ -26,7 +26,7 @@ CREATE TABLE `__new_notification_deliveries` (
 	`created_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL,
 	FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`project_id`,`destination_id`) REFERENCES `notification_destinations`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`project_id`,`destination_id`) REFERENCES `notification_destinations`(`project_id`,`id`) ON UPDATE no action ON DELETE restrict,
 	FOREIGN KEY (`project_id`,`source_event_id`) REFERENCES `audit_events`(`project_id`,`id`) ON UPDATE no action ON DELETE cascade,
 	CONSTRAINT "notification_deliveries_transport_nonblank" CHECK(length(trim("__new_notification_deliveries"."transport_id")) > 0),
 	CONSTRAINT "notification_deliveries_configuration_object" CHECK(json_valid("__new_notification_deliveries"."configuration_json") and json_type("__new_notification_deliveries"."configuration_json") = 'object'),

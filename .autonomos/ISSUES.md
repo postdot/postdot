@@ -1086,3 +1086,24 @@ channels` with a foreign-key constraint error even though a fresh empty database
   authenticated management API follow in a separate task.
 - Tasks: NOTIFY-81
 - Related decisions: ADR-009, ADR-037, ADR-038, ADR-039
+
+## [ISSUE-048] Add an encrypted secret boundary for external notification destinations
+
+- Type: proposal
+- Status: accepted
+- Evidence: NOTIFY-81 deliberately stores only bounded public destination configuration;
+  external delivery transports will eventually need bearer tokens, topic credentials,
+  or other provider secrets. Persisting those values in the public configuration JSON
+  would duplicate plaintext secrets into destination metadata and immutable delivery
+  snapshots.
+- Impact: A transport adapter introduced before a dedicated secret boundary could leak
+  credentials through metadata reads, backups, logs, or delivery history.
+- Desired outcome: External notification destinations expose safe metadata and retain
+  provider credentials behind Herald's deployment-owned encrypted-secret boundary.
+  Delivery snapshots must reference the secret envelope without copying plaintext into
+  public configuration or transport-neutral history.
+- Scope boundary: This issue does not select a provider, credential format, or
+  management API. It must be resolved before a real Ntfy, Telegram, email, or similar
+  transport can be configured.
+- Tasks: NOTIFY-82
+- Related decisions: ADR-016, ADR-039
