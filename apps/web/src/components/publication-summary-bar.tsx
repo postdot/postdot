@@ -21,7 +21,14 @@ export function PublicationSummaryBar({
             className="flex flex-wrap items-center gap-x-5 gap-y-1.5 bg-muted px-3 py-2.5 text-sm text-muted-foreground sm:px-4">
             {items.map(item => (
                 <span className={cn(item.attention && 'text-state-attention')} key={item.id}>
-                    <strong className="font-medium text-current">{item.value}</strong> {item.label}
+                    <strong
+                        className={cn(
+                            'font-medium',
+                            item.attention ? 'text-current' : 'text-foreground'
+                        )}>
+                        {item.value}
+                    </strong>{' '}
+                    {item.label}
                 </span>
             ))}
         </div>
