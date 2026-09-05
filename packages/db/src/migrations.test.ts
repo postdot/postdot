@@ -52,6 +52,7 @@ function revertChannelLifecycleMigration(database: ReturnType<typeof createDatab
         DROP TABLE channels;
         ALTER TABLE herald_legacy_channels RENAME TO channels;
         CREATE UNIQUE INDEX channels_project_id_id_uidx ON channels (project_id, id);
+        PRAGMA foreign_keys=ON;
     `)
 }
 

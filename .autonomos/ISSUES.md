@@ -764,7 +764,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-034] Create publications directly from calendar planning
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The project calendar currently presents scheduled publications and
   planning states, but an empty day does not start composition with that date
   carried into the scheduling flow.
@@ -773,8 +773,15 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: A calendar interaction can start a new publication with an
   explicit date context while preserving the editor's draft, validation, and
   promotion boundaries across desktop and small screens.
-- Tasks: to be triaged
+- Tasks: WEB-72 (calendar-to-compose date context)
 - Related issue: ISSUE-019
+- Resolution: Empty calendar days now open the project compose route with a
+  validated civil date in the URL. The composer initializes the first target
+  at 09:00 in the project timezone while keeping the schedule editable; the
+  calendar header and mobile date control provide the same explicit context.
+  Existing publication links still open their detail route, and no publication
+  is created until the owner submits the form.
+- Verification: The focused browser flow and the full repository gate pass.
 
 ## [ISSUE-035] Define project scheduling timezone semantics
 
@@ -849,3 +856,30 @@ exists` error. At the same time, the Vite development proxy always targets port
   execution now require a non-disabled channel profile version. Started execution
   records remain loadable for reconciliation, and regression coverage verifies both
   the claim boundary and the disable-after-claim race.
+
+## [ISSUE-039] Apply SQLite schema-rebuild migrations to populated databases
+
+- Type: problem
+- Status: resolved
+- Evidence: Migration `0011_deep_captain_britain` rebuilds the `channels` table while
+  existing publications, publishers, and profile records reference it. The SQL
+  correctly requests `PRAGMA foreign_keys=OFF`, but Drizzle starts its SQLite
+  migration transaction before executing that statement. SQLite ignores the pragma
+  change inside the transaction, so a populated local database fails at `DROP TABLE
+  channels` with a foreign-key constraint error even though a fresh empty database
+  succeeds.
+- Impact: A normal development restart can fail after a schema evolution as soon as
+  the local database contains real project data. Resetting the database would hide
+  the migration defect and discard useful local validation state.
+- Desired outcome: Trusted SQLite migrations can perform their committed table
+  rebuilds against populated development databases, while foreign-key enforcement
+  remains active during normal application work and the final schema is checked
+  before migration startup completes.
+- Tasks: OPS-73 (completed)
+- Related issue: ISSUE-008
+- Resolution: The migration runner now disables foreign-key enforcement before
+  Drizzle opens its migration transaction, runs `PRAGMA foreign_key_check` after the
+  migration, and restores the previous pragma state. Regression coverage applies the
+  channel lifecycle migration to a populated database with foreign keys enabled. The
+  existing local database migrated from 11 to 12 entries without losing its 3
+  projects, 5 channels, or 8 publications.

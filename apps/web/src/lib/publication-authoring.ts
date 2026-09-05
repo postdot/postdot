@@ -2,6 +2,8 @@ import { toDateTimeLocal } from '@/lib/date-time'
 
 export type DeliveryMode = 'manual' | 'automatic'
 
+const calendarDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/
+
 export interface PublicationTargetDraft {
     readonly id: string
     readonly channelId: string
@@ -10,12 +12,45 @@ export interface PublicationTargetDraft {
     readonly scheduledAt: string
 }
 
-export function createPublicationTarget(channelId = '', timeZone = 'UTC'): PublicationTargetDraft {
+export function createPublicationTarget(
+    channelId = '',
+    timeZone = 'UTC',
+    calendarDate?: string
+): PublicationTargetDraft {
     return {
         id: crypto.randomUUID(),
         channelId,
         content: '',
         deliveryMode: 'manual',
-        scheduledAt: toDateTimeLocal(Date.now() + 60 * 60 * 1000, timeZone),
+        scheduledAt:
+            calendarDateTimeLocal(calendarDate) ??
+            toDateTimeLocal(Date.now() + 60 * 60 * 1000, timeZone),
     }
+}
+
+export function parseCalendarDate(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined
+
+    const match = calendarDatePattern.exec(value)
+    if (match === null) return undefined
+
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    if (year < 1 || year > 9999 || month < 1 || month > 12) return undefined
+
+    const candidate = new Date(0)
+    candidate.setUTCFullYear(year, month - 1, day)
+    candidate.setUTCHours(0, 0, 0, 0)
+
+    return candidate.getUTCFullYear() === year &&
+        candidate.getUTCMonth() === month - 1 &&
+        candidate.getUTCDate() === day
+        ? value
+        : undefined
+}
+
+export function calendarDateTimeLocal(value: unknown): string | undefined {
+    const calendarDate = parseCalendarDate(value)
+    return calendarDate === undefined ? undefined : `${calendarDate}T09:00`
 }
