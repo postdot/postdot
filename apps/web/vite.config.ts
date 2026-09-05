@@ -8,6 +8,7 @@ import { defineConfig, loadEnv } from 'vite'
 export default defineConfig(({ mode }) => {
     const environment = loadEnv(mode, process.cwd(), '')
     const apiOrigin = parseApiOrigin(environment.HERALD_API_ORIGIN)
+    const allowedHost = parseAllowedHost(environment.HERALD_VITE_ALLOWED_HOST)
 
     return {
         build: {
@@ -27,6 +28,7 @@ export default defineConfig(({ mode }) => {
             },
         },
         server: {
+            ...(allowedHost === undefined ? {} : { allowedHosts: [allowedHost] }),
             port: 5173,
             proxy: {
                 '/api': apiOrigin,
@@ -56,4 +58,13 @@ function parseApiOrigin(value: string | undefined): string {
     }
 
     return url.origin
+}
+
+function parseAllowedHost(value: string | undefined): string | undefined {
+    const host = value?.trim()
+    if (host === undefined || host === '') return undefined
+    if (host.includes('/') || host.includes(':') || host.includes(' ')) {
+        throw new Error('HERALD_VITE_ALLOWED_HOST must be a hostname without a scheme or port')
+    }
+    return host
 }
