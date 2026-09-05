@@ -1,7 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
-import { Card, CardContent } from '@herald/ui/components/card'
 import { cn } from '@herald/ui/lib/utils'
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
 import { Link } from '@tanstack/react-router'
@@ -10,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { type MediaSelection } from '@/components/media-attachment-picker'
 import { PublicationEditorPromotionSection } from '@/components/publication-editor-promotion-section'
 import { PublicationEditorSourceSection } from '@/components/publication-editor-source-section'
-import { PublicationTargetEditor } from '@/components/publication-target-editor'
+import { PublicationEditorTargetSection } from '@/components/publication-editor-target-section'
 import { ApiError, api, type PublicationEditorState } from '@/lib/api'
 import {
     dateTimeLocalErrorMessage,
@@ -554,81 +552,25 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
                         onMediaChange={updateSourceMedia}
                     />
 
-                    <section className="min-w-0">
-                        <Card>
-                            <CardContent className="p-6 sm:p-7">
-                                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                                    <div>
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Channel target
-                                        </p>
-                                        <h2 className="mt-2 font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                            Editable structured payload
-                                        </h2>
-                                        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                                            The channel profile owns this shape. JSON keeps custom
-                                            channels expressive without inventing a new table for
-                                            every destination.
-                                        </p>
-                                    </div>
-                                    <Badge
-                                        variant="outline"
-                                        className={
-                                            editor.draft.reviewState === 'compatible'
-                                                ? 'border-0 bg-transparent px-0 text-state-published'
-                                                : 'border-0 bg-transparent px-0 text-state-attention'
-                                        }>
-                                        <span
-                                            className="size-1.5 rounded-full bg-current"
-                                            aria-hidden="true"
-                                        />
-                                        {editor.draft.reviewState === 'compatible'
-                                            ? 'Compatible'
-                                            : 'Review required'}
-                                    </Badge>
-                                </div>
-
-                                <PublicationTargetEditor
-                                    profile={editor.profile.profile}
-                                    target={targetResult.value}
-                                    rawText={targetText}
-                                    onTargetChange={next => {
-                                        setTargetText(formatJson(next))
-                                        setDirty(true)
-                                    }}
-                                    onRawTextChange={value => {
-                                        setTargetText(value)
-                                        setDirty(true)
-                                    }}
-                                    disabled={isRebasing}
-                                />
-                                {targetResult.error ? (
-                                    <Alert variant="destructive" className="mt-4 rounded-md">
-                                        <AlertTitle>Invalid target JSON</AlertTitle>
-                                        <AlertDescription>{targetResult.error}</AlertDescription>
-                                    </Alert>
-                                ) : null}
-                                {editor.draft.validationIssues.length > 0 ? (
-                                    <Alert className="mt-4 rounded-md border-state-attention/35 bg-state-attention/10">
-                                        <AlertTitle>
-                                            The profile reported validation issues
-                                        </AlertTitle>
-                                        <AlertDescription>
-                                            <ul className="mt-1 space-y-1">
-                                                {editor.draft.validationIssues.map(
-                                                    (issue, index) => (
-                                                        <li key={`${issueCode(issue)}-${index}`}>
-                                                            {issueMessage(issue)}
-                                                        </li>
-                                                    )
-                                                )}
-                                            </ul>
-                                        </AlertDescription>
-                                    </Alert>
-                                ) : null}
-                            </CardContent>
-                        </Card>
-                    </section>
+                    <PublicationEditorTargetSection
+                        profile={editor.profile.profile}
+                        reviewState={editor.draft.reviewState}
+                        validationIssues={editor.draft.validationIssues}
+                        target={targetResult.value}
+                        targetText={targetText}
+                        disabled={isRebasing}
+                        onTargetChange={next => {
+                            setTargetText(formatJson(next))
+                            setDirty(true)
+                        }}
+                        onRawTextChange={value => {
+                            setTargetText(value)
+                            setDirty(true)
+                        }}
+                        targetError={targetResult.error}
+                        issueCode={issueCode}
+                        issueMessage={issueMessage}
+                    />
 
                     <PublicationEditorPromotionSection
                         timeZone={timeZone}
