@@ -1581,7 +1581,8 @@ export const providerMediaDeliveries = sqliteTable(
 export const auditEvents = sqliteTable(
     'audit_events',
     {
-        id: text('id').primaryKey(),
+        sequence: integer('sequence').primaryKey(),
+        id: text('id').notNull(),
         projectId: text('project_id')
             .notNull()
             .references(() => projects.id, { onDelete: 'cascade' }),
@@ -1590,9 +1591,14 @@ export const auditEvents = sqliteTable(
         entityType: text('entity_type').notNull(),
         entityId: text('entity_id').notNull(),
         metadataJson: text('metadata_json'),
+        eventVersion: integer('event_version').default(1).notNull(),
+        correlationId: text('correlation_id'),
+        causationId: text('causation_id'),
         createdAt: integer('created_at').default(epochMilliseconds).notNull(),
     },
     table => [
+        uniqueIndex('audit_events_id_uidx').on(table.id),
+        index('audit_events_project_id_sequence_idx').on(table.projectId, table.sequence),
         index('audit_events_project_id_created_at_idx').on(table.projectId, table.createdAt),
         index('audit_events_project_id_entity_idx').on(
             table.projectId,
@@ -1607,5 +1613,18 @@ export const auditEvents = sqliteTable(
         check('audit_events_action_nonblank', sql`length(trim(${table.action})) > 0`),
         check('audit_events_entity_type_nonblank', sql`length(trim(${table.entityType})) > 0`),
         check('audit_events_entity_id_nonblank', sql`length(trim(${table.entityId})) > 0`),
+        check('audit_events_event_version_valid', sql`${table.eventVersion} > 0`),
+        check(
+            'audit_events_metadata_json_valid',
+            sql`${table.metadataJson} is null or (json_valid(${table.metadataJson}) and json_type(${table.metadataJson}) = 'object')`
+        ),
+        check(
+            'audit_events_correlation_id_nonblank',
+            sql`${table.correlationId} is null or length(trim(${table.correlationId})) > 0`
+        ),
+        check(
+            'audit_events_causation_id_nonblank',
+            sql`${table.causationId} is null or length(trim(${table.causationId})) > 0`
+        ),
     ]
 )

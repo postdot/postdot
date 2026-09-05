@@ -56,6 +56,36 @@ function revertChannelLifecycleMigration(database: ReturnType<typeof createDatab
     `)
 }
 
+function revertEventJournalMigration(database: ReturnType<typeof createDatabase>) {
+    database.$client.exec(`
+        PRAGMA foreign_keys=OFF;
+        CREATE TABLE herald_legacy_audit_events (
+            id text PRIMARY KEY NOT NULL,
+            project_id text NOT NULL,
+            actor_id text NOT NULL,
+            action text NOT NULL,
+            entity_type text NOT NULL,
+            entity_id text NOT NULL,
+            metadata_json text,
+            created_at integer NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE cascade,
+            FOREIGN KEY (project_id, actor_id) REFERENCES actors(project_id, id) ON DELETE restrict
+        );
+        INSERT INTO herald_legacy_audit_events (
+            id, project_id, actor_id, action, entity_type, entity_id, metadata_json, created_at
+        )
+        SELECT id, project_id, actor_id, action, entity_type, entity_id, metadata_json, created_at
+        FROM audit_events;
+        DROP TABLE audit_events;
+        ALTER TABLE herald_legacy_audit_events RENAME TO audit_events;
+        CREATE INDEX audit_events_project_id_created_at_idx
+            ON audit_events (project_id, created_at);
+        CREATE INDEX audit_events_project_id_entity_idx
+            ON audit_events (project_id, entity_type, entity_id);
+        PRAGMA foreign_keys=ON;
+    `)
+}
+
 describe('database migrations', () => {
     it('applies the committed migration exactly once', () => {
         const database = createDatabase(':memory:')
@@ -109,7 +139,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(13)
+            expect(migrationCount?.count).toBe(14)
         } finally {
             closeDatabase(database)
         }
@@ -149,6 +179,7 @@ describe('database migrations', () => {
             database.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             database.$client.exec('DROP TABLE project_access_tokens')
             revertChannelLifecycleMigration(database)
+            revertEventJournalMigration(database)
             unapplyMigrations(database, [
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
@@ -156,6 +187,7 @@ describe('database migrations', () => {
                 '0010_typical_zeigeist',
                 '0011_deep_captain_britain',
                 '0012_wet_typhoid_mary',
+                '0013_vengeful_namor',
             ])
             runMigrations(database)
 
@@ -168,6 +200,16 @@ describe('database migrations', () => {
                 body: { text: 'Legacy source', format: 'plain_text' },
                 media: [],
             })
+            expect(
+                database.$client
+                    .query<{ event_version: number; correlation_id: string | null }, []>(
+                        `select event_version, correlation_id
+                         from audit_events
+                         order by sequence
+                         limit 1`
+                    )
+                    .get()
+            ).toEqual({ event_version: 1, correlation_id: null })
         } finally {
             closeDatabase(database)
         }
@@ -206,6 +248,7 @@ describe('database migrations', () => {
             staleDatabase.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             staleDatabase.$client.exec('DROP TABLE project_access_tokens')
             revertChannelLifecycleMigration(staleDatabase)
+            revertEventJournalMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
@@ -213,6 +256,7 @@ describe('database migrations', () => {
                 '0010_typical_zeigeist',
                 '0011_deep_captain_britain',
                 '0012_wet_typhoid_mary',
+                '0013_vengeful_namor',
             ])
 
             expect(() => runMigrations(staleDatabase)).toThrow()

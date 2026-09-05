@@ -6,6 +6,7 @@ import type {
     ChannelProfileActivationResult,
     ChannelProfileState,
     ChannelProfileVersion,
+    AuditEvent,
     PublicationEditorState,
     PublicationSummary,
     PublicationTargetRevision,
@@ -46,7 +47,19 @@ export const publicationSchema = Type.Unsafe<Publication>(
         }),
     ])
 )
-export const auditEventSchema = createElysiaSelectSchema(auditEvents)
+const auditEventPersistenceSchema = createElysiaSelectSchema(auditEvents)
+export const auditEventSchema = Type.Unsafe<AuditEvent>(
+    Type.Pick(auditEventPersistenceSchema, [
+        'id',
+        'projectId',
+        'actorId',
+        'action',
+        'entityType',
+        'entityId',
+        'metadataJson',
+        'createdAt',
+    ])
+)
 
 export const projectAccessTokenSchema = Type.Object({
     id: Type.String({ minLength: 1 }),

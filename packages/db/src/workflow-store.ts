@@ -132,6 +132,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
             action: AutomaticExecutionAuditAction,
             publicationId: string,
             metadataJson: string,
+            correlationId: string,
             occurredAt: number,
         ]
     >(`
@@ -143,8 +144,10 @@ export function createWorkflowStore(database: HeraldDatabase) {
             entity_type,
             entity_id,
             metadata_json,
+            event_version,
+            correlation_id,
             created_at
-        ) values (?1, ?2, ?3, ?4, 'publication', ?5, ?6, ?7)
+        ) values (?1, ?2, ?3, ?4, 'publication', ?5, ?6, 1, ?7, ?8)
     `)
 
     const insertExecutionAuditEvent = (input: {
@@ -170,6 +173,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                 attempt: input.attempt,
                 occurredAt: input.occurredAt,
             }),
+            input.jobId,
             input.occurredAt
         )
     }

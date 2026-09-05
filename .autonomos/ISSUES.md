@@ -1001,3 +1001,28 @@ channels` with a foreign-key constraint error even though a fresh empty database
   encrypted provider state without exposing secrets.
 - Tasks: CHANNEL-78
 - Related issue: ISSUE-041
+
+## [ISSUE-045] Define a durable domain-event contract without duplicating Herald's history
+
+- Type: proposal
+- Status: accepted
+- Evidence: Herald already commits project-scoped `audit_events` atomically with
+  publication, channel, credential, and execution transitions. The notification and
+  analytics inventory identified a need for versioned facts that durable projections
+  can consume, but the current records have no explicit schema version, correlation
+  context, or typed read boundary.
+- Impact: Treating process callbacks as an event bus would lose work after restart,
+  while adding an independent event table would duplicate the same facts and force
+  every state transition to maintain two append-only histories. Treating the audit API
+  itself as a notification queue would instead conflate provenance, recipient state,
+  and delivery reliability.
+- Desired outcome: Keep one append-only SQLite journal and strengthen its records with
+  an explicit event version and optional correlation and causation identifiers. Expose
+  a framework-independent domain-event envelope and a private ordered journal reader
+  for durable projections. Audit remains the operator-facing view; notifications and
+  external deliveries own separate projections, cursors, deduplication, and retries.
+- Scope boundary: Herald does not become event sourced. Existing current-state tables
+  remain authoritative, the public audit API keeps its current semantics, and EVENT-79
+  does not introduce notification preferences or an external transport.
+- Tasks: EVENT-79
+- Related decisions: ADR-028, ADR-037
