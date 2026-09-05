@@ -74,6 +74,8 @@ const environmentDefinitions = {
     HERALD_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
     LINKEDIN_CLIENT_ID: env.optionalString({ minLength: 1 }),
     LINKEDIN_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
+    BLUESKY_CLIENT_METADATA_URL: env.optionalString({ minLength: 1 }),
+    BLUESKY_HANDLE_RESOLVER: env.url({ defaultValue: 'https://bsky.social' }),
     HERALD_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
     HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
@@ -133,6 +135,10 @@ export interface HeraldConfig {
             readonly clientId: string
             readonly clientSecret: string
         }
+        readonly bluesky?: {
+            readonly clientMetadataUrl: string
+            readonly handleResolver: string
+        }
     }
     readonly customHttp: {
         readonly privateDestinations: readonly PrivateDestinationRule[]
@@ -188,6 +194,25 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
                   clientSecret: environment.LINKEDIN_CLIENT_SECRET,
               }
             : undefined
+    const bluesky =
+        environment.BLUESKY_CLIENT_METADATA_URL === undefined
+            ? undefined
+            : (() => {
+                  validateHttpsUrl(
+                      environment.BLUESKY_CLIENT_METADATA_URL!,
+                      'BLUESKY_CLIENT_METADATA_URL'
+                  )
+                  const authUrl = new URL(environment.BETTER_AUTH_URL)
+                  if (authUrl.protocol === 'http:' && authUrl.hostname === 'localhost') {
+                      throw new Error(
+                          'BETTER_AUTH_URL must use 127.0.0.1 or HTTPS when Bluesky OAuth is enabled'
+                      )
+                  }
+                  return {
+                      clientMetadataUrl: environment.BLUESKY_CLIENT_METADATA_URL!,
+                      handleResolver: environment.BLUESKY_HANDLE_RESOLVER,
+                  }
+              })()
     const customHttpPrivateDestinations = parsePrivateDestinationRules(
         environment.HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS
     )
@@ -240,7 +265,10 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             publisherEncryptionKey: environment.HERALD_PUBLISHER_ENCRYPTION_KEY,
             publisherEncryptionKeyId: environment.HERALD_PUBLISHER_ENCRYPTION_KEY_ID,
         },
-        publishers: linkedin === undefined ? {} : { linkedin },
+        publishers: {
+            ...(linkedin === undefined ? {} : { linkedin }),
+            ...(bluesky === undefined ? {} : { bluesky }),
+        },
         customHttp: {
             privateDestinations: customHttpPrivateDestinations,
         },
@@ -253,6 +281,25 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             level: environment.LOG_LEVEL,
             pretty: environment.LOG_PRETTY,
         },
+    }
+}
+
+function validateHttpUrl(value: string, variableName: string): void {
+    let parsed: URL
+    try {
+        parsed = new URL(value)
+    } catch {
+        throw new Error(`${variableName} must be an absolute URL`)
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error(`${variableName} must use http or https`)
+    }
+}
+
+function validateHttpsUrl(value: string, variableName: string): void {
+    validateHttpUrl(value, variableName)
+    if (new URL(value).protocol !== 'https:') {
+        throw new Error(`${variableName} must use https`)
     }
 }
 

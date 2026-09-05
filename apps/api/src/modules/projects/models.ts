@@ -1,3 +1,4 @@
+import { blueskyChannelProfile } from '@herald/bluesky'
 import { createManualChannelProfile, sourceContentSchema } from '@herald/core'
 import type { ChannelProfileDefinition, Publication } from '@herald/core'
 import type { ChannelProfileImpactAssessment } from '@herald/core'
@@ -319,6 +320,7 @@ export const createChannelBody = Type.Object({
         Type.Union([
             Type.Literal('manual-message'),
             Type.Literal('linkedin'),
+            Type.Literal('bluesky'),
             Type.Object({
                 id: Type.String({ minLength: 1 }),
                 version: Type.Integer({ minimum: 1 }),
@@ -374,6 +376,7 @@ export const promotePublicationDraftBody = Type.Object({
 
 export function resolveChannelProfile(profile: unknown): ChannelProfileDefinition {
     if (profile === 'linkedin') return linkedinChannelProfile
+    if (profile === 'bluesky') return blueskyChannelProfile
     if (profile === undefined || profile === 'manual-message') {
         return createManualChannelProfile()
     }
@@ -402,7 +405,11 @@ export const publisherConnectionSchema = Type.Object({
     endpointUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
     destination: Type.Union([
         Type.Object({
-            type: Type.Union([Type.Literal('member'), Type.Literal('organization')]),
+            type: Type.Union([
+                Type.Literal('account'),
+                Type.Literal('member'),
+                Type.Literal('organization'),
+            ]),
             id: Type.String({ minLength: 1 }),
             name: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
         }),
@@ -449,6 +456,16 @@ export const linkedInConnectionBody = Type.Object({
             }),
         ])
     ),
+})
+
+export const blueskyConnectionSchema = Type.Object({
+    provider: Type.Literal('bluesky'),
+    scopes: Type.Array(Type.String({ minLength: 1 })),
+    authorizationUrl: Type.String({ minLength: 1 }),
+})
+
+export const blueskyConnectionBody = Type.Object({
+    handle: Type.String({ minLength: 1, maxLength: 253 }),
 })
 
 export const customHttpConnectionBody = Type.Object({

@@ -264,6 +264,8 @@ export const publisherCredentials = sqliteTable(
         accessTokenNonce: blob('access_token_nonce', { mode: 'buffer' }),
         refreshTokenCiphertext: blob('refresh_token_ciphertext', { mode: 'buffer' }),
         refreshTokenNonce: blob('refresh_token_nonce', { mode: 'buffer' }),
+        providerSessionCiphertext: blob('provider_session_ciphertext', { mode: 'buffer' }),
+        providerSessionNonce: blob('provider_session_nonce', { mode: 'buffer' }),
         revision: integer('revision').default(1).notNull(),
         ...timestamps(),
     },
@@ -338,6 +340,8 @@ export const publisherCredentials = sqliteTable(
                     and ${table.accessTokenNonce} is null
                     and ${table.refreshTokenCiphertext} is null
                     and ${table.refreshTokenNonce} is null
+                    and ${table.providerSessionCiphertext} is null
+                    and ${table.providerSessionNonce} is null
                 )`
         ),
         check(
@@ -347,6 +351,14 @@ export const publisherCredentials = sqliteTable(
                     and ${table.refreshTokenNonce} is not null
                     and length(${table.refreshTokenCiphertext}) > 16
                     and length(${table.refreshTokenNonce}) = 12)`
+        ),
+        check(
+            'publisher_credentials_provider_session_envelope_valid',
+            sql`(${table.providerSessionCiphertext} is null and ${table.providerSessionNonce} is null)
+                or (${table.providerSessionCiphertext} is not null
+                    and ${table.providerSessionNonce} is not null
+                    and length(${table.providerSessionCiphertext}) > 16
+                    and length(${table.providerSessionNonce}) = 12)`
         ),
         check('publisher_credentials_revision_valid', sql`${table.revision} > 0`),
     ]
@@ -374,6 +386,10 @@ export const oauthAuthorizationAttempts = sqliteTable(
         pkceEncryptionKeyId: text('pkce_encryption_key_id'),
         pkceVerifierCiphertext: blob('pkce_verifier_ciphertext', { mode: 'buffer' }),
         pkceVerifierNonce: blob('pkce_verifier_nonce', { mode: 'buffer' }),
+        providerStateEncryptionVersion: integer('provider_state_encryption_version'),
+        providerStateEncryptionKeyId: text('provider_state_encryption_key_id'),
+        providerStateCiphertext: blob('provider_state_ciphertext', { mode: 'buffer' }),
+        providerStateNonce: blob('provider_state_nonce', { mode: 'buffer' }),
         expiresAt: integer('expires_at').notNull(),
         completedAt: integer('completed_at'),
         ...timestamps(),
@@ -452,6 +468,23 @@ export const oauthAuthorizationAttempts = sqliteTable(
                             and length(${table.pkceVerifierNonce}) = 12
                         )
                     )
+                    and (
+                        (
+                            ${table.providerStateEncryptionVersion} is null
+                            and ${table.providerStateEncryptionKeyId} is null
+                            and ${table.providerStateCiphertext} is null
+                            and ${table.providerStateNonce} is null
+                        ) or (
+                            ${table.providerStateEncryptionVersion} is not null
+                            and ${table.providerStateEncryptionVersion} > 0
+                            and ${table.providerStateEncryptionKeyId} is not null
+                            and length(trim(${table.providerStateEncryptionKeyId})) > 0
+                            and ${table.providerStateCiphertext} is not null
+                            and length(${table.providerStateCiphertext}) > 16
+                            and ${table.providerStateNonce} is not null
+                            and length(${table.providerStateNonce}) = 12
+                        )
+                    )
                 ) or (
                     ${table.status} in ('consumed', 'expired')
                     and ${table.completedAt} is not null
@@ -459,6 +492,10 @@ export const oauthAuthorizationAttempts = sqliteTable(
                     and ${table.pkceEncryptionKeyId} is null
                     and ${table.pkceVerifierCiphertext} is null
                     and ${table.pkceVerifierNonce} is null
+                    and ${table.providerStateEncryptionVersion} is null
+                    and ${table.providerStateEncryptionKeyId} is null
+                    and ${table.providerStateCiphertext} is null
+                    and ${table.providerStateNonce} is null
                 )`
         ),
     ]

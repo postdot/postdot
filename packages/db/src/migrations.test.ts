@@ -109,7 +109,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(12)
+            expect(migrationCount?.count).toBe(13)
         } finally {
             closeDatabase(database)
         }
@@ -155,6 +155,7 @@ describe('database migrations', () => {
                 '0009_legal_bucky',
                 '0010_typical_zeigeist',
                 '0011_deep_captain_britain',
+                '0012_wet_typhoid_mary',
             ])
             runMigrations(database)
 
@@ -211,6 +212,7 @@ describe('database migrations', () => {
                 '0009_legal_bucky',
                 '0010_typical_zeigeist',
                 '0011_deep_captain_britain',
+                '0012_wet_typhoid_mary',
             ])
 
             expect(() => runMigrations(staleDatabase)).toThrow()

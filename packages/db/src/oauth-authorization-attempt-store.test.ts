@@ -166,6 +166,49 @@ describe('OAuth authorization attempt store', () => {
         }
     })
 
+    it('stores provider OAuth state encrypted and releases it only on a valid callback', async () => {
+        const fixture = createFixture()
+
+        try {
+            const providerState = JSON.stringify({
+                iss: 'https://bsky.social',
+                dpopJwk: { kty: 'EC', crv: 'P-256', d: 'private-key' },
+            })
+            const input = {
+                ...(await createAttemptInput(fixture, 'provider-state')),
+                providerId: 'bluesky',
+                providerState,
+            } as const
+            const created = await fixture.store.createAuthorizationAttempt(input)
+            expect(created.kind).toBe('created')
+
+            const stored = fixture.database.select().from(oauthAuthorizationAttempts).get()
+            expect(stored?.providerStateEncryptionVersion).toBe(1)
+            expect(stored?.providerStateEncryptionKeyId).toBe('primary')
+            expect(stored?.providerStateCiphertext?.byteLength ?? 0).toBeGreaterThan(16)
+            expect(stored?.providerStateNonce).toHaveLength(12)
+            expect(JSON.stringify(stored)).not.toContain(providerState)
+
+            const consumed = await fixture.store.consumeAuthorizationAttempt({
+                stateDigest: input.stateDigest,
+                connectedByActorId: input.connectedByActorId,
+                providerId: input.providerId,
+                callbackUri: input.callbackUri,
+            })
+            expect(consumed).toMatchObject({ kind: 'consumed', providerState })
+
+            const consumedRow = fixture.database.select().from(oauthAuthorizationAttempts).get()
+            expect(consumedRow).toMatchObject({
+                providerStateEncryptionVersion: null,
+                providerStateEncryptionKeyId: null,
+                providerStateCiphertext: null,
+                providerStateNonce: null,
+            })
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
     it('consumes once, returns the verifier internally, and erases its envelope', async () => {
         const fixture = createFixture()
 

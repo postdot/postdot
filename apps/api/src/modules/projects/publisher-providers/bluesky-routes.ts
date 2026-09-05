@@ -1,0 +1,431 @@
+import {
+    BLUESKY_PROVIDER,
+    BLUESKY_REQUIRED_SCOPES,
+    createBlueskyOAuthClient,
+    createBlueskyMemoryStore,
+    createBlueskySessionStore,
+    createBlueskyStateStore,
+    readBlueskySessionTokenSet,
+} from '@herald/bluesky'
+import { digestAuthorizationState } from '@herald/oauth'
+import type { Logger } from 'pino'
+import { Type } from 'typebox'
+
+import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth'
+import type { PublisherRuntime } from '../../publishers/runtime'
+import { blueskyConnectionBody, blueskyConnectionSchema, errorResponse } from '../models'
+
+export function registerBlueskyPublisherRoutes<const Routes extends Record<string, unknown>>(
+    app: AuthenticatedElysia<Routes>,
+    publisher: PublisherRuntime,
+    options: {
+        readonly logger?: Logger
+        readonly onWorkScheduled?: () => void
+    } = {}
+) {
+    const { authorizationAttemptStore, credentialStore, bluesky, publisherStore } = publisher
+
+    return app
+        .post(
+            '/api/projects/:projectId/channels/:channelId/publisher/bluesky/connect',
+            {
+                auth: true,
+                params: Type.Object({
+                    projectId: Type.String({ minLength: 1 }),
+                    channelId: Type.String({ minLength: 1 }),
+                }),
+                body: blueskyConnectionBody,
+                response: {
+                    200: blueskyConnectionSchema,
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'startBlueskyPublisherConnection',
+                    summary: 'Start the Bluesky publisher connection flow',
+                    tags: ['Channels'],
+                    security: sessionSecurity,
+                },
+            },
+            async ({ authMethod, body, params, status, user }) => {
+                if (authMethod !== 'session') {
+                    return status(403, {
+                        error: {
+                            code: 'forbidden',
+                            message: 'Human authentication is required to connect Bluesky',
+                        },
+                    })
+                }
+
+                if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+
+                if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+                    return status(409, {
+                        error: {
+                            code: 'publisher_exists',
+                            message: 'This channel already has a publisher',
+                        },
+                    })
+                }
+
+                if (bluesky === undefined) {
+                    return status(503, {
+                        error: {
+                            code: 'provider_unavailable',
+                            message: 'Bluesky publisher connection is not configured',
+                        },
+                    })
+                }
+
+                const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
+                if (actorId === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+
+                try {
+                    const stateStore = createBlueskyMemoryStore()
+                    const sessionStore = createBlueskyMemoryStore()
+                    const client = createBlueskyOAuthClient({
+                        clientMetadata: bluesky.clientMetadata,
+                        handleResolver: bluesky.handleResolver,
+                        stateStore: createBlueskyStateStore(stateStore),
+                        sessionStore: createBlueskySessionStore(sessionStore),
+                    })
+                    const authorizationUrl = await client.authorize(body.handle.trim())
+                    const state = authorizationUrl.searchParams.get('state')
+                    if (state === null || state.length === 0) {
+                        return status(503, {
+                            error: {
+                                code: 'provider_unavailable',
+                                message: 'Bluesky did not return an authorization state',
+                            },
+                        })
+                    }
+
+                    const providerState = await stateStore.get(state)
+                    if (providerState === undefined) {
+                        return status(503, {
+                            error: {
+                                code: 'provider_unavailable',
+                                message: 'Bluesky authorization state could not be stored',
+                            },
+                        })
+                    }
+
+                    const attempt = await authorizationAttemptStore.createAuthorizationAttempt({
+                        projectId: params.projectId,
+                        channelId: params.channelId,
+                        connectedByActorId: actorId,
+                        providerId: BLUESKY_PROVIDER,
+                        callbackUri: bluesky.callbackUri,
+                        scopes: BLUESKY_REQUIRED_SCOPES,
+                        returnPath: '/dashboard',
+                        context: { handle: body.handle.trim() },
+                        stateDigest: await digestAuthorizationState(state),
+                        codeVerifier: null,
+                        providerState,
+                    })
+                    if (attempt.kind !== 'created') {
+                        return status(503, {
+                            error: {
+                                code: 'provider_unavailable',
+                                message: 'Bluesky publisher connection is not available',
+                            },
+                        })
+                    }
+
+                    return {
+                        provider: BLUESKY_PROVIDER,
+                        scopes: [...BLUESKY_REQUIRED_SCOPES],
+                        authorizationUrl: authorizationUrl.toString(),
+                    }
+                } catch (error) {
+                    logBlueskyFlowError(
+                        options.logger,
+                        {
+                            channelId: params.channelId,
+                            projectId: params.projectId,
+                            stage: 'authorization_request',
+                        },
+                        error
+                    )
+                    return status(503, {
+                        error: {
+                            code: 'provider_unavailable',
+                            message: 'Bluesky publisher connection is not available',
+                        },
+                    })
+                }
+            }
+        )
+        .get(
+            '/api/oauth/bluesky/callback',
+            {
+                auth: true,
+                detail: {
+                    operationId: 'completeBlueskyPublisherConnection',
+                    summary: 'Complete a Bluesky publisher connection flow',
+                    tags: ['Channels'],
+                    security: sessionSecurity,
+                    responses: {
+                        401: {
+                            description: 'Human authentication is required',
+                            content: {
+                                'application/json': { schema: errorResponse },
+                            },
+                        },
+                    },
+                },
+            },
+            async ({ authMethod, request, user }) => {
+                if (authMethod !== 'session') {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        '/dashboard',
+                        'invalid_callback'
+                    )
+                }
+
+                if (bluesky === undefined) {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        '/dashboard',
+                        'provider_unavailable'
+                    )
+                }
+
+                const parameters = new URL(request.url).searchParams
+                const state = parameters.get('state')
+                if (state === null || state.length === 0) {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        '/dashboard',
+                        'invalid_callback'
+                    )
+                }
+
+                let stateDigest: Uint8Array
+                try {
+                    stateDigest = await digestAuthorizationState(state)
+                } catch {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        '/dashboard',
+                        'invalid_callback'
+                    )
+                }
+
+                const pendingAttempt =
+                    authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
+                if (pendingAttempt === null || pendingAttempt.providerId !== BLUESKY_PROVIDER) {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        '/dashboard',
+                        'invalid_callback'
+                    )
+                }
+
+                const actorId = publisherStore.getProjectActorId(pendingAttempt.projectId, user.id)
+                if (actorId !== pendingAttempt.connectedByActorId) {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'invalid_callback'
+                    )
+                }
+
+                const consumed = await authorizationAttemptStore.consumeAuthorizationAttempt({
+                    stateDigest,
+                    connectedByActorId: actorId,
+                    providerId: BLUESKY_PROVIDER,
+                    callbackUri: bluesky.callbackUri,
+                })
+                if (consumed.kind !== 'consumed') {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        consumed.kind === 'already_used' ? 'already_used' : 'invalid_callback'
+                    )
+                }
+                if (consumed.providerState === null) {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        consumed.attempt.returnPath,
+                        'invalid_callback'
+                    )
+                }
+
+                let callbackStage:
+                    | 'restore_state'
+                    | 'complete_callback'
+                    | 'save_credential'
+                    | 'create_connection' = 'restore_state'
+                try {
+                    const stateStore = createBlueskyMemoryStore([[state, consumed.providerState]])
+                    const sessionStore = createBlueskyMemoryStore()
+                    const client = createBlueskyOAuthClient({
+                        clientMetadata: bluesky.clientMetadata,
+                        handleResolver: bluesky.handleResolver,
+                        stateStore: createBlueskyStateStore(stateStore),
+                        sessionStore: createBlueskySessionStore(sessionStore),
+                    })
+                    callbackStage = 'complete_callback'
+                    const callback = await client.callback(parameters)
+                    const serializedSession = await sessionStore.get(callback.session.did)
+                    if (serializedSession === undefined) {
+                        return redirectBlueskyPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            'provider_unavailable'
+                        )
+                    }
+
+                    callbackStage = 'save_credential'
+                    const tokenSet = readBlueskySessionTokenSet(serializedSession)
+                    if (tokenSet === null || tokenSet.sub !== callback.session.did) {
+                        return redirectBlueskyPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            'provider_unavailable'
+                        )
+                    }
+
+                    const credential = await credentialStore.createPublisherCredential({
+                        projectId: consumed.attempt.projectId,
+                        connectedByActorId: consumed.attempt.connectedByActorId,
+                        providerId: BLUESKY_PROVIDER,
+                        externalAccountId: callback.session.did,
+                        externalAccountName: readHandle(consumed.attempt.context),
+                        scopes: [...BLUESKY_REQUIRED_SCOPES],
+                        accessToken: tokenSet.accessToken,
+                        refreshToken: tokenSet.refreshToken,
+                        providerSession: serializedSession,
+                        expiresAt: tokenExpiry(tokenSet.expiresAt, publisher.now()),
+                    })
+                    if (credential.kind !== 'created') {
+                        return redirectBlueskyPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            'provider_unavailable'
+                        )
+                    }
+
+                    callbackStage = 'create_connection'
+                    const connection = publisherStore.createPublisherConnection({
+                        projectId: consumed.attempt.projectId,
+                        channelId: consumed.attempt.channelId,
+                        subjectId: user.id,
+                        kind: BLUESKY_PROVIDER,
+                        credentialId: credential.credential.id,
+                        destination: {
+                            type: 'account',
+                            id: callback.session.did,
+                            name: readHandle(consumed.attempt.context),
+                        },
+                    })
+                    if (connection.kind !== 'created') {
+                        return redirectBlueskyPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            connection.kind === 'publisher_exists'
+                                ? 'publisher_exists'
+                                : connection.kind === 'incompatible_profile'
+                                  ? 'incompatible_profile'
+                                  : 'provider_unavailable'
+                        )
+                    }
+
+                    options.onWorkScheduled?.()
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        consumed.attempt.returnPath,
+                        'connected'
+                    )
+                } catch (error) {
+                    logBlueskyFlowError(
+                        options.logger,
+                        {
+                            channelId: consumed.attempt.channelId,
+                            projectId: consumed.attempt.projectId,
+                            stage: callbackStage,
+                        },
+                        error
+                    )
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        consumed.attempt.returnPath,
+                        'provider_unavailable'
+                    )
+                }
+            }
+        )
+}
+
+function tokenExpiry(expiresAt: string | null, now: number): number | null {
+    if (expiresAt === null) return null
+    const timestamp = Date.parse(expiresAt)
+    return Number.isSafeInteger(timestamp) && timestamp > now ? timestamp : null
+}
+
+function readHandle(context: Readonly<Record<string, unknown>>): string | null {
+    const handle = context.handle
+    if (typeof handle !== 'string') return null
+    const normalized = handle.trim()
+    return normalized.length === 0 ? null : normalized
+}
+
+function logBlueskyFlowError(
+    logger: Logger | undefined,
+    fields: { readonly channelId: string; readonly projectId: string; readonly stage: string },
+    error: unknown
+) {
+    logger?.error(
+        {
+            ...fields,
+            provider: BLUESKY_PROVIDER,
+            error:
+                error instanceof Error ? { name: error.name, message: redact(error.message) } : {},
+        },
+        'Bluesky publisher flow failed'
+    )
+}
+
+function redact(message: string): string {
+    return message
+        .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+        .replace(
+            /\b(access_token|refresh_token|client_secret|code_verifier|state)=\S+/gi,
+            '$1=[redacted]'
+        )
+        .replace(/\s+/g, ' ')
+        .slice(0, 500)
+}
+
+function redirectBlueskyPublisher(
+    webOrigin: string,
+    returnPath: string,
+    result:
+        | 'connected'
+        | 'already_used'
+        | 'invalid_callback'
+        | 'provider_unavailable'
+        | 'publisher_exists'
+        | 'incompatible_profile'
+) {
+    const destination = new URL(returnPath, webOrigin)
+    destination.searchParams.set('publisher', result)
+    return new Response(null, {
+        status: 303,
+        headers: { location: destination.toString() },
+    })
+}

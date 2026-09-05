@@ -261,6 +261,41 @@ describe('Herald configuration', () => {
         })
     })
 
+    it('normalizes the optional Bluesky OAuth client metadata configuration', () => {
+        expect(
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                BETTER_AUTH_URL: 'https://api.example.test',
+                BLUESKY_CLIENT_METADATA_URL:
+                    'https://app.example.test/oauth/bluesky/client-metadata.json',
+                BLUESKY_HANDLE_RESOLVER: 'https://bsky.example.test',
+            }).publishers.bluesky
+        ).toEqual({
+            clientMetadataUrl: 'https://app.example.test/oauth/bluesky/client-metadata.json',
+            handleResolver: 'https://bsky.example.test',
+        })
+
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                BLUESKY_CLIENT_METADATA_URL: 'http://localhost:3000/oauth/client-metadata.json',
+            })
+        ).toThrow('BLUESKY_CLIENT_METADATA_URL must use https')
+
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                BLUESKY_CLIENT_METADATA_URL: 'https://app.example.test/oauth/client-metadata.json',
+            })
+        ).toThrow('BETTER_AUTH_URL must use 127.0.0.1 or HTTPS')
+    })
+
     it('rejects an invalid publisher encryption key', () => {
         expect(() =>
             createHeraldConfig({

@@ -62,6 +62,7 @@ export interface TextFieldCapability {
     readonly acceptedSourceFormats: readonly SourceTextFormat[]
     readonly minLength?: number
     readonly maxLength: number
+    readonly maxGraphemes?: number
 }
 
 export interface MediaDimensionCapability {
@@ -462,6 +463,16 @@ function validateCapabilities(profile: ChannelProfileDefinition): ValidationIssu
                 )
             )
         }
+        if (invalidOptionalPositiveInteger(capability.maxGraphemes)) {
+            issues.push(
+                profileIssue(
+                    `${path}/maxGraphemes`,
+                    'capability.limit_invalid',
+                    'Text maxGraphemes must be a non-negative safe integer',
+                    'capability'
+                )
+            )
+        }
         if (
             invalidOptionalPositiveInteger(capability.minLength) ||
             invalidRange(capability.minLength, capability.maxLength)
@@ -710,6 +721,52 @@ function schemaValidationIssues(
     }))
 }
 
+function graphemeCount(value: string): number {
+    return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value))
+        .length
+}
+
+function capabilityValidationIssues(
+    profile: ChannelProfileDefinition,
+    content: Readonly<Record<string, unknown>>
+): ValidationIssue[] {
+    const issues: ValidationIssue[] = []
+
+    for (const capability of profile.capabilities.textFields) {
+        if (capability.maxGraphemes === undefined) continue
+
+        const binding = profile.fieldBindings.find(
+            candidate =>
+                candidate.id === capability.bindingId && candidate.semantic !== 'ordered_media'
+        )
+        if (binding === undefined) continue
+
+        let value: unknown = content
+        for (const segment of decodeJsonPointer(binding.path)) {
+            if (!isRecord(value) || !(segment in value)) {
+                value = undefined
+                break
+            }
+            value = value[segment]
+        }
+        if (typeof value !== 'string') continue
+
+        const count = graphemeCount(value)
+        if (count > capability.maxGraphemes) {
+            issues.push(
+                profileIssue(
+                    binding.path,
+                    'content.grapheme_limit',
+                    `Text must contain at most ${capability.maxGraphemes} graphemes`,
+                    'capability'
+                )
+            )
+        }
+    }
+
+    return issues
+}
+
 function createCompiledProfile(
     profile: ChannelProfileDefinition,
     validator: RuntimeSchemaValidator
@@ -721,6 +778,12 @@ function createCompiledProfile(
         if (!validator.Check(content)) {
             return validationFailure(schemaValidationIssues(validator, content))
         }
+
+        const capabilityIssues = capabilityValidationIssues(
+            profile,
+            content as Readonly<Record<string, unknown>>
+        )
+        if (hasValidationErrors(capabilityIssues)) return validationFailure(capabilityIssues)
 
         return validationSuccess(content as Readonly<Record<string, unknown>>)
     }

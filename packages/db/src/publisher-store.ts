@@ -16,7 +16,7 @@ import {
 import type { HeraldDatabase } from './client'
 
 export interface PublisherConnectionDestination {
-    readonly type: 'member' | 'organization'
+    readonly type: 'account' | 'member' | 'organization'
     readonly id: string
     readonly name: string | null
 }
@@ -1052,7 +1052,11 @@ function parseDestination(
     if (row.destinationType === null || row.destinationId === null) {
         throw new Error('Stored publisher connection destination is incomplete')
     }
-    if (row.destinationType !== 'member' && row.destinationType !== 'organization') {
+    if (
+        row.destinationType !== 'account' &&
+        row.destinationType !== 'member' &&
+        row.destinationType !== 'organization'
+    ) {
         throw new Error('Stored publisher connection destination type is invalid')
     }
     return {

@@ -41,6 +41,10 @@
       "path": "packages/linkedin",
     },
     {
+      "name": "bluesky",
+      "path": "packages/bluesky",
+    },
+    {
       "name": "media",
       "path": "packages/media",
     },

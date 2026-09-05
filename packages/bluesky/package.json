@@ -1,0 +1,36 @@
+{
+    "name": "@herald/bluesky",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Bluesky and AT Protocol publishing adapter for Herald",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+        "lint": "oxlint --deny-warnings .",
+        "lint:fix": "oxlint --fix .",
+        "format": "oxfmt --check .",
+        "format:fix": "oxfmt --write .",
+        "typecheck": "tsc --noEmit",
+        "test": "bun test",
+        "clean": "rimraf dist .turbo"
+    },
+    "dependencies": {
+        "@atproto/api": "0.20.42",
+        "@atproto/jwk-jose": "0.2.4",
+        "@atproto/jwk-webcrypto": "0.3.4",
+        "@atproto/oauth-client": "0.8.4",
+        "@herald/core": "workspace:*"
+    },
+    "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
+        "typescript": "7.0.2"
+    },
+    "engines": {
+        "bun": ">=1.4"
+    }
+}

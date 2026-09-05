@@ -17,6 +17,7 @@ import {
     createMediaReconciliationRuntime,
 } from './modules/media/runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
+import { createBlueskyProviderAdapter } from './modules/workflow/providers/bluesky'
 import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
 import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
 import { createPublicationWorker } from './modules/workflow/worker'
@@ -83,11 +84,13 @@ async function startServer(config = createHeraldConfig()) {
         publisherEncryptionKey: decodeHexKey(config.security.publisherEncryptionKey),
         publisherEncryptionKeyId: config.security.publisherEncryptionKeyId,
         linkedin: config.publishers.linkedin,
+        bluesky: config.publishers.bluesky,
     })
     const customHttpTransport = createCustomHttpTransport({
         privateDestinations: config.customHttp.privateDestinations,
     })
     const builtInProviderRegistry = createBuiltInProviderRegistry([
+        createBlueskyProviderAdapter({ oauth: publisher.bluesky }),
         createLinkedInProviderAdapter({ oauth: publisher.linkedin }),
     ])
     const worker = createPublicationWorker({

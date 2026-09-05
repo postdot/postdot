@@ -20,6 +20,8 @@ export interface CreateAuthorizationAttemptInput {
     readonly context?: Readonly<Record<string, unknown>>
     readonly stateDigest: Uint8Array
     readonly codeVerifier: string | null
+    /** Serialized provider-owned state, encrypted at rest when present. */
+    readonly providerState?: string | null
 }
 
 export interface AuthorizationAttempt {
@@ -53,6 +55,7 @@ export type ConsumeAuthorizationAttemptResult =
           readonly kind: 'consumed'
           readonly attempt: AuthorizationAttempt
           readonly codeVerifier: string | null
+          readonly providerState: string | null
       }
     | { readonly kind: 'not_found' }
     | { readonly kind: 'mismatch' }
@@ -85,6 +88,10 @@ interface AuthorizationAttemptRow {
     readonly pkceEncryptionKeyId: string | null
     readonly pkceVerifierCiphertext: Uint8Array | null
     readonly pkceVerifierNonce: Uint8Array | null
+    readonly providerStateEncryptionVersion: number | null
+    readonly providerStateEncryptionKeyId: string | null
+    readonly providerStateCiphertext: Uint8Array | null
+    readonly providerStateNonce: Uint8Array | null
     readonly expiresAt: number
     readonly createdAt: number
 }
@@ -104,6 +111,10 @@ const attemptColumns = `
     pkce_encryption_key_id as pkceEncryptionKeyId,
     pkce_verifier_ciphertext as pkceVerifierCiphertext,
     pkce_verifier_nonce as pkceVerifierNonce,
+    provider_state_encryption_version as providerStateEncryptionVersion,
+    provider_state_encryption_key_id as providerStateEncryptionKeyId,
+    provider_state_ciphertext as providerStateCiphertext,
+    provider_state_nonce as providerStateNonce,
     expires_at as expiresAt,
     created_at as createdAt
 `
@@ -216,6 +227,38 @@ function pkceEnvelope(row: AuthorizationAttemptRow): EncryptedPublisherSecret | 
     }
 }
 
+function providerStateEnvelope(row: AuthorizationAttemptRow): EncryptedPublisherSecret | null {
+    const {
+        providerStateEncryptionVersion,
+        providerStateEncryptionKeyId,
+        providerStateCiphertext,
+        providerStateNonce,
+    } = row
+    if (
+        providerStateEncryptionVersion === null &&
+        providerStateEncryptionKeyId === null &&
+        providerStateCiphertext === null &&
+        providerStateNonce === null
+    ) {
+        return null
+    }
+    if (
+        providerStateEncryptionVersion === null ||
+        providerStateEncryptionKeyId === null ||
+        providerStateCiphertext === null ||
+        providerStateNonce === null
+    ) {
+        throw new Error('Pending OAuth authorization attempt has incomplete provider state')
+    }
+
+    return {
+        version: providerStateEncryptionVersion as EncryptedPublisherSecret['version'],
+        keyId: providerStateEncryptionKeyId,
+        ciphertext: providerStateCiphertext,
+        nonce: providerStateNonce,
+    }
+}
+
 export function createAuthorizationAttemptStore(
     database: HeraldDatabase,
     options: AuthorizationAttemptStoreOptions
@@ -267,6 +310,10 @@ export function createAuthorizationAttemptStore(
             encryptionKeyId: string | null,
             verifierCiphertext: Uint8Array | null,
             verifierNonce: Uint8Array | null,
+            providerStateEncryptionVersion: number | null,
+            providerStateEncryptionKeyId: string | null,
+            providerStateCiphertext: Uint8Array | null,
+            providerStateNonce: Uint8Array | null,
             expiresAt: number,
             timestamp: number,
         ]
@@ -287,11 +334,15 @@ export function createAuthorizationAttemptStore(
             pkce_encryption_key_id,
             pkce_verifier_ciphertext,
             pkce_verifier_nonce,
+            provider_state_encryption_version,
+            provider_state_encryption_key_id,
+            provider_state_ciphertext,
+            provider_state_nonce,
             expires_at,
             created_at,
             updated_at
         ) values (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'pending', ?11, ?12, ?13, ?14, ?15, ?16, ?16
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'pending', ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?20
         )
         on conflict (state_digest) do nothing
     `)
@@ -312,6 +363,10 @@ export function createAuthorizationAttemptStore(
             pkce_encryption_key_id = null,
             pkce_verifier_ciphertext = null,
             pkce_verifier_nonce = null,
+            provider_state_encryption_version = null,
+            provider_state_encryption_key_id = null,
+            provider_state_ciphertext = null,
+            provider_state_nonce = null,
             updated_at = ?1
         where id = ?2
           and connected_by_actor_id = ?3
@@ -331,6 +386,10 @@ export function createAuthorizationAttemptStore(
             pkce_encryption_key_id = null,
             pkce_verifier_ciphertext = null,
             pkce_verifier_nonce = null,
+            provider_state_encryption_version = null,
+            provider_state_encryption_key_id = null,
+            provider_state_ciphertext = null,
+            provider_state_nonce = null,
             updated_at = ?1
         where id = ?2
           and status = 'pending'
@@ -344,6 +403,10 @@ export function createAuthorizationAttemptStore(
             pkce_encryption_key_id = null,
             pkce_verifier_ciphertext = null,
             pkce_verifier_nonce = null,
+            provider_state_encryption_version = null,
+            provider_state_encryption_key_id = null,
+            provider_state_ciphertext = null,
+            provider_state_nonce = null,
             updated_at = ?1
         where status = 'pending'
           and expires_at <= ?1
@@ -371,6 +434,10 @@ export function createAuthorizationAttemptStore(
             const contextJson = serializeContext(input.context)
             const stateDigest = requireStateDigest(input.stateDigest)
             const codeVerifier = requireCodeVerifier(input.codeVerifier)
+            const providerState =
+                input.providerState === null || input.providerState === undefined
+                    ? null
+                    : input.providerState
             if (loadBindingStatement.get(projectId, channelId, connectedByActorId) === null) {
                 return { kind: 'not_found' }
             }
@@ -399,6 +466,13 @@ export function createAuthorizationAttemptStore(
                           { recordId: attempt.id, providerId, field: 'pkce_verifier' },
                           codeVerifier
                       )
+            const providerStateEnvelope =
+                providerState === null
+                    ? null
+                    : await cipher.encrypt(
+                          { recordId: attempt.id, providerId, field: 'provider_state' },
+                          providerState
+                      )
             const inserted = insertAttemptStatement.run(
                 attempt.id,
                 attempt.projectId,
@@ -414,6 +488,10 @@ export function createAuthorizationAttemptStore(
                 verifier?.keyId ?? null,
                 verifier?.ciphertext ?? null,
                 verifier?.nonce ?? null,
+                providerStateEnvelope?.version ?? null,
+                providerStateEnvelope?.keyId ?? null,
+                providerStateEnvelope?.ciphertext ?? null,
+                providerStateEnvelope?.nonce ?? null,
                 attempt.expiresAt,
                 timestamp
             )
@@ -451,6 +529,7 @@ export function createAuthorizationAttemptStore(
             }
 
             const verifier = pkceEnvelope(row)
+            const providerState = providerStateEnvelope(row)
             const consumed = consumeAttemptStatement.run(
                 timestamp,
                 row.id,
@@ -479,6 +558,17 @@ export function createAuthorizationAttemptStore(
                                   field: 'pkce_verifier',
                               },
                               verifier
+                          ),
+                providerState:
+                    providerState === null
+                        ? null
+                        : await cipher.decrypt(
+                              {
+                                  recordId: row.id,
+                                  providerId: row.providerId,
+                                  field: 'provider_state',
+                              },
+                              providerState
                           ),
             }
         },

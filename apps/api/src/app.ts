@@ -14,6 +14,7 @@ import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/r
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
 import { createProjectModule } from './modules/projects'
+import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-routes'
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
 import { createErrorHandler } from './plugins/error-handler'
@@ -58,6 +59,7 @@ function createDomainApp({
     const logger = logging?.enabled === true ? createHeraldLogger(logging) : undefined
 
     return new Elysia({ name: 'herald-api' })
+        .use(createBlueskyMetadataRoutes(publisher))
         .use(createRequestLogger(logging, logger))
         .use(
             openapi({

@@ -1,3 +1,4 @@
+import { createBlueskyClientMetadata } from '@herald/bluesky'
 import {
     createAuthorizationAttemptStore,
     createPublisherCredentialCipher,
@@ -16,6 +17,7 @@ import {
 } from '@herald/linkedin'
 import { clientSecretPost, validateReturnPath, type OAuthAuthorizationServer } from '@herald/oauth'
 
+import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
 import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
 
 export interface PublisherRuntimeOptions {
@@ -30,6 +32,10 @@ export interface PublisherRuntimeOptions {
         readonly profileClient?: LinkedInMemberProfileClient
         readonly organizationClient?: LinkedInOrganizationClient
     }
+    readonly bluesky?: {
+        readonly clientMetadataUrl: string
+        readonly handleResolver: string
+    }
     readonly now?: () => number
     readonly createId?: () => string
 }
@@ -38,6 +44,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
     const callbackUri = new URL('/api/oauth/linkedin/callback', options.apiOrigin).toString()
+    const blueskyCallbackUri = new URL('/api/oauth/bluesky/callback', options.apiOrigin).toString()
     const cipher = createPublisherCredentialCipher({
         keyId: options.publisherEncryptionKeyId,
         key: options.publisherEncryptionKey,
@@ -46,6 +53,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
     const publisherStore = createPublisherStore(database, {
         credentialRevoker: credentialStore,
         connectionPolicies: {
+            bluesky: blueskyPublisherConnectionPolicy,
             linkedin: linkedInPublisherConnectionPolicy,
         },
         now,
@@ -70,6 +78,19 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
                   organizationClient:
                       options.linkedin.organizationClient ?? createLinkedInOrganizationClient(),
               }
+    const bluesky =
+        options.bluesky === undefined
+            ? undefined
+            : {
+                  callbackUri: blueskyCallbackUri,
+                  clientMetadata: createBlueskyClientMetadata({
+                      clientId: options.bluesky.clientMetadataUrl,
+                      clientName: 'Herald',
+                      clientUri: options.webOrigin,
+                      redirectUri: blueskyCallbackUri,
+                  }),
+                  handleResolver: options.bluesky.handleResolver,
+              }
 
     return {
         apiOrigin: options.apiOrigin,
@@ -80,6 +101,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         credentialStore,
         authorizationAttemptStore,
         linkedin,
+        bluesky,
     }
 }
 

@@ -94,6 +94,10 @@ function createFixture(
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
         linkedin: options.linkedin,
+        bluesky: {
+            clientMetadataUrl: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
+            handleResolver: 'https://bsky.social',
+        },
     })
     const auth = createAuth(database, { baseURL, secret })
     const accessTokens = createProjectAccessTokenStore(database, { now: () => now })
@@ -174,6 +178,17 @@ describe('Herald API', () => {
             const healthResponse = await app.handle(new Request(`${baseURL}/health`))
             expect(healthResponse.status).toBe(200)
             expect(await healthResponse.json()).toEqual({ status: 'ok' })
+
+            const metadataResponse = await app.handle(
+                new Request(`${baseURL}/oauth/bluesky/client-metadata.json`)
+            )
+            expect(metadataResponse.status).toBe(200)
+            expect(await metadataResponse.json()).toMatchObject({
+                client_id: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
+                redirect_uris: [`${baseURL}/api/oauth/bluesky/callback`],
+                token_endpoint_auth_method: 'none',
+                dpop_bound_access_tokens: true,
+            })
 
             const authResponse = await app.handle(new Request(`${baseURL}/api/auth/ok`))
             expect(authResponse.status).toBe(200)
@@ -317,6 +332,8 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/channels/{channelId}/publisher/custom-http/connect',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/linkedin/connect',
                 '/api/oauth/linkedin/callback',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/bluesky/connect',
+                '/api/oauth/bluesky/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publications',

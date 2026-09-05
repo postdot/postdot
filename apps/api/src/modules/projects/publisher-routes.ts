@@ -13,6 +13,7 @@ import {
     publisherConnectionsSchema,
     publisherDisconnectedSchema,
 } from './models'
+import { registerBlueskyPublisherRoutes } from './publisher-providers/bluesky-routes'
 import { registerLinkedInPublisherRoutes } from './publisher-providers/linkedin-routes'
 
 export function registerPublisherRoutes<const Routes extends Record<string, unknown>>(
@@ -174,7 +175,11 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
             }
         )
 
-    return registerLinkedInPublisherRoutes(routes, publisher, options).delete(
+    return registerBlueskyPublisherRoutes(
+        registerLinkedInPublisherRoutes(routes, publisher, options),
+        publisher,
+        options
+    ).delete(
         '/api/projects/:projectId/channels/:channelId/publisher',
         {
             auth: true,

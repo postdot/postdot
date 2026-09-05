@@ -25,6 +25,8 @@ export interface CreatePublisherCredentialInput {
     readonly scopes?: readonly string[]
     readonly accessToken: string
     readonly refreshToken?: string | null
+    /** Serialized provider-owned session state, encrypted at rest when present. */
+    readonly providerSession?: string | null
     readonly expiresAt?: number | null
 }
 
@@ -39,6 +41,8 @@ export interface ReplacePublisherCredentialTokensInput {
     readonly accessToken: string
     /** Undefined preserves the current refresh token; null removes it. */
     readonly refreshToken?: string | null
+    /** Undefined preserves the current provider session; null removes it. */
+    readonly providerSession?: string | null
     readonly expiresAt: number | null
 }
 
@@ -50,6 +54,7 @@ export type ReplacePublisherCredentialTokensResult =
 export interface PublisherCredentialSecrets {
     readonly accessToken: string
     readonly refreshToken: string | null
+    readonly providerSession: string | null
 }
 
 export interface PublisherCredentialStoreOptions {
@@ -97,6 +102,8 @@ interface CredentialSecretRow extends CredentialMetadataRow {
     readonly accessTokenNonce: Uint8Array | null
     readonly refreshTokenCiphertext: Uint8Array | null
     readonly refreshTokenNonce: Uint8Array | null
+    readonly providerSessionCiphertext: Uint8Array | null
+    readonly providerSessionNonce: Uint8Array | null
     readonly revision: number
 }
 
@@ -122,6 +129,8 @@ const secretColumns = `
     access_token_nonce as accessTokenNonce,
     refresh_token_ciphertext as refreshTokenCiphertext,
     refresh_token_nonce as refreshTokenNonce,
+    provider_session_ciphertext as providerSessionCiphertext,
+    provider_session_nonce as providerSessionNonce,
     revision
 `
 
@@ -177,11 +186,20 @@ function toActor(row: ActorRow): Actor {
 
 function envelopeFromRow(
     row: CredentialSecretRow,
-    field: PublisherSecretField
+    field: Extract<PublisherSecretField, 'access_token' | 'refresh_token' | 'provider_session'>
 ): EncryptedPublisherSecret | null {
     const ciphertext =
-        field === 'access_token' ? row.accessTokenCiphertext : row.refreshTokenCiphertext
-    const nonce = field === 'access_token' ? row.accessTokenNonce : row.refreshTokenNonce
+        field === 'access_token'
+            ? row.accessTokenCiphertext
+            : field === 'refresh_token'
+              ? row.refreshTokenCiphertext
+              : row.providerSessionCiphertext
+    const nonce =
+        field === 'access_token'
+            ? row.accessTokenNonce
+            : field === 'refresh_token'
+              ? row.refreshTokenNonce
+              : row.providerSessionNonce
 
     if (ciphertext === null && nonce === null) return null
     if (
@@ -285,6 +303,8 @@ export function createPublisherCredentialStore(
             accessTokenNonce: Uint8Array,
             refreshTokenCiphertext: Uint8Array | null,
             refreshTokenNonce: Uint8Array | null,
+            providerSessionCiphertext: Uint8Array | null,
+            providerSessionNonce: Uint8Array | null,
             timestamp: number,
         ]
     >(`
@@ -304,10 +324,12 @@ export function createPublisherCredentialStore(
             access_token_nonce,
             refresh_token_ciphertext,
             refresh_token_nonce,
+            provider_session_ciphertext,
+            provider_session_nonce,
             created_at,
             updated_at
         ) values (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18
         )
         on conflict (project_id, provider_id, external_account_id) do nothing
     `)
@@ -320,6 +342,8 @@ export function createPublisherCredentialStore(
             accessTokenNonce: Uint8Array,
             refreshTokenCiphertext: Uint8Array | null,
             refreshTokenNonce: Uint8Array | null,
+            providerSessionCiphertext: Uint8Array | null,
+            providerSessionNonce: Uint8Array | null,
             expiresAt: number | null,
             timestamp: number,
             projectId: string,
@@ -334,13 +358,15 @@ export function createPublisherCredentialStore(
             access_token_nonce = ?4,
             refresh_token_ciphertext = ?5,
             refresh_token_nonce = ?6,
-            expires_at = ?7,
+            provider_session_ciphertext = ?7,
+            provider_session_nonce = ?8,
+            expires_at = ?9,
             state = 'active',
             revision = revision + 1,
-            updated_at = ?8
-        where project_id = ?9
-          and id = ?10
-          and revision = ?11
+            updated_at = ?10
+        where project_id = ?11
+          and id = ?12
+          and revision = ?13
     `)
     const markReconnectRequiredStatement = client.query<
         { changes: number },
@@ -367,6 +393,8 @@ export function createPublisherCredentialStore(
             access_token_nonce = null,
             refresh_token_ciphertext = null,
             refresh_token_nonce = null,
+            provider_session_ciphertext = null,
+            provider_session_nonce = null,
             revision = revision + 1,
             updated_at = ?1
         where project_id = ?2
@@ -386,6 +414,8 @@ export function createPublisherCredentialStore(
             access_token_nonce = null,
             refresh_token_ciphertext = null,
             refresh_token_nonce = null,
+            provider_session_ciphertext = null,
+            provider_session_nonce = null,
             revision = revision + 1,
             updated_at = ?1
         where project_id = ?2
@@ -454,6 +484,17 @@ export function createPublisherCredentialStore(
                           },
                           input.refreshToken
                       )
+            const providerSession =
+                input.providerSession === null || input.providerSession === undefined
+                    ? null
+                    : await cipher.encrypt(
+                          {
+                              recordId: credential.id,
+                              providerId: credential.providerId,
+                              field: 'provider_session',
+                          },
+                          input.providerSession
+                      )
 
             const inserted = insertCredentialStatement.run(
                 credential.id,
@@ -471,6 +512,8 @@ export function createPublisherCredentialStore(
                 accessToken.nonce,
                 refreshToken?.ciphertext ?? null,
                 refreshToken?.nonce ?? null,
+                providerSession?.ciphertext ?? null,
+                providerSession?.nonce ?? null,
                 timestamp
             )
 
@@ -521,6 +564,7 @@ export function createPublisherCredentialStore(
                 throw new Error('Active publisher credential has no access token')
             }
             const refreshToken = envelopeFromRow(row, 'refresh_token')
+            const providerSession = envelopeFromRow(row, 'provider_session')
             const context = { recordId: row.id, providerId: row.providerId } as const
 
             return {
@@ -534,6 +578,13 @@ export function createPublisherCredentialStore(
                         : await cipher.decrypt(
                               { ...context, field: 'refresh_token' },
                               refreshToken
+                          ),
+                providerSession:
+                    providerSession === null
+                        ? null
+                        : await cipher.decrypt(
+                              { ...context, field: 'provider_session' },
+                              providerSession
                           ),
             }
         },
@@ -564,6 +615,22 @@ export function createPublisherCredentialStore(
                           )
             }
 
+            let providerSessionValue = input.providerSession
+            if (providerSessionValue === undefined) {
+                const existingProviderSession = envelopeFromRow(row, 'provider_session')
+                providerSessionValue =
+                    existingProviderSession === null
+                        ? null
+                        : await cipher.decrypt(
+                              {
+                                  recordId: row.id,
+                                  providerId: row.providerId,
+                                  field: 'provider_session',
+                              },
+                              existingProviderSession
+                          )
+            }
+
             const accessToken = await cipher.encrypt(
                 {
                     recordId: row.id,
@@ -583,6 +650,17 @@ export function createPublisherCredentialStore(
                           },
                           refreshTokenValue
                       )
+            const providerSession =
+                providerSessionValue === null
+                    ? null
+                    : await cipher.encrypt(
+                          {
+                              recordId: row.id,
+                              providerId: row.providerId,
+                              field: 'provider_session',
+                          },
+                          providerSessionValue
+                      )
             const timestamp = requireTimestamp(now(), 'now')
             const result = replaceTokensStatement.run(
                 accessToken.version,
@@ -591,6 +669,8 @@ export function createPublisherCredentialStore(
                 accessToken.nonce,
                 refreshToken?.ciphertext ?? null,
                 refreshToken?.nonce ?? null,
+                providerSession?.ciphertext ?? null,
+                providerSession?.nonce ?? null,
                 expiresAt,
                 timestamp,
                 projectId,

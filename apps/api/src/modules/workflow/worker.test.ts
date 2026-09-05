@@ -1261,6 +1261,7 @@ describe('publication worker', () => {
             ).resolves.toEqual({
                 accessToken: 'refreshed-access-token',
                 refreshToken: 'old-refresh-token',
+                providerSession: null,
             })
             expect(
                 credentialStore.getPublisherCredential(project.project.id, credential.credential.id)

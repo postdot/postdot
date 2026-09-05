@@ -62,6 +62,7 @@ describe('publisher credential store', () => {
             })
             const accessToken = 'unique-plaintext-access-token-for-file-scan'
             const refreshToken = 'unique-plaintext-refresh-token-for-file-scan'
+            const providerSession = 'unique-plaintext-provider-session-for-file-scan'
 
             expect(
                 (
@@ -72,6 +73,7 @@ describe('publisher credential store', () => {
                         externalAccountId: 'member-file',
                         accessToken,
                         refreshToken,
+                        providerSession,
                     })
                 ).kind
             ).toBe('created')
@@ -81,6 +83,7 @@ describe('publisher credential store', () => {
             const databaseBytes = Buffer.from(await Bun.file(databasePath).arrayBuffer())
             expect(databaseBytes.includes(Buffer.from(accessToken))).toBe(false)
             expect(databaseBytes.includes(Buffer.from(refreshToken))).toBe(false)
+            expect(databaseBytes.includes(Buffer.from(providerSession))).toBe(false)
         } finally {
             if (!databaseClosed) closeDatabase(database)
             await rm(directory, { recursive: true, force: true })
@@ -100,6 +103,7 @@ describe('publisher credential store', () => {
                 scopes: ['w_member_social', 'openid'],
                 accessToken: 'access-token-plaintext',
                 refreshToken: 'refresh-token-plaintext',
+                providerSession: '{"dpopJwk":"provider-session-plaintext"}',
                 expiresAt: now + 60_000,
             })
 
@@ -125,12 +129,14 @@ describe('publisher credential store', () => {
                     {
                         accessToken: Uint8Array
                         refreshToken: Uint8Array
+                        providerSession: Uint8Array
                         encryptionKeyId: string
                     },
                     []
                 >(`
                     select access_token_ciphertext as accessToken,
                            refresh_token_ciphertext as refreshToken,
+                           provider_session_ciphertext as providerSession,
                            encryption_key_id as encryptionKeyId
                     from publisher_credentials
                 `)
@@ -142,6 +148,9 @@ describe('publisher credential store', () => {
             expect(new TextDecoder().decode(stored?.refreshToken)).not.toContain(
                 'refresh-token-plaintext'
             )
+            expect(new TextDecoder().decode(stored?.providerSession)).not.toContain(
+                'provider-session-plaintext'
+            )
             expect(
                 await fixture.store.resolvePublisherCredentialSecrets(
                     fixture.project.project.id,
@@ -150,6 +159,7 @@ describe('publisher credential store', () => {
             ).toEqual({
                 accessToken: 'access-token-plaintext',
                 refreshToken: 'refresh-token-plaintext',
+                providerSession: '{"dpopJwk":"provider-session-plaintext"}',
             })
 
             const duplicate = await fixture.store.createPublisherCredential({
@@ -212,6 +222,7 @@ describe('publisher credential store', () => {
                 externalAccountId: 'member-1',
                 accessToken: 'access-token-1',
                 refreshToken: 'refresh-token-1',
+                providerSession: 'provider-session-1',
                 expiresAt: now + 60_000,
             })
             expect(created.kind).toBe('created')
@@ -241,12 +252,14 @@ describe('publisher credential store', () => {
             if (secrets === null) throw new Error('Expected active credential secrets')
             expect(['access-token-2', 'access-token-competing']).toContain(secrets.accessToken)
             expect(secrets.refreshToken).toBe('refresh-token-1')
+            expect(secrets.providerSession).toBe('provider-session-1')
 
             const removedRefresh = await fixture.store.replacePublisherCredentialTokens({
                 projectId: fixture.project.project.id,
                 credentialId: created.credential.id,
                 accessToken: 'access-token-3',
                 refreshToken: null,
+                providerSession: 'provider-session-2',
                 expiresAt: null,
             })
             expect(removedRefresh.kind).toBe('updated')
@@ -255,7 +268,11 @@ describe('publisher credential store', () => {
                     fixture.project.project.id,
                     created.credential.id
                 )
-            ).toEqual({ accessToken: 'access-token-3', refreshToken: null })
+            ).toEqual({
+                accessToken: 'access-token-3',
+                refreshToken: null,
+                providerSession: 'provider-session-2',
+            })
         } finally {
             closeDatabase(fixture.database)
         }
@@ -324,7 +341,11 @@ describe('publisher credential store', () => {
                     fixture.project.project.id,
                     created.credential.id
                 )
-            ).toEqual({ accessToken: 'access-token-2', refreshToken: 'refresh-token-1' })
+            ).toEqual({
+                accessToken: 'access-token-2',
+                refreshToken: 'refresh-token-1',
+                providerSession: null,
+            })
 
             const revoked = fixture.store.revokePublisherCredential(
                 fixture.project.project.id,
@@ -347,6 +368,8 @@ describe('publisher credential store', () => {
                 accessTokenNonce: null,
                 refreshTokenCiphertext: null,
                 refreshTokenNonce: null,
+                providerSessionCiphertext: null,
+                providerSessionNonce: null,
             })
         } finally {
             closeDatabase(fixture.database)

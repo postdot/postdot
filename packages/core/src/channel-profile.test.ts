@@ -95,6 +95,33 @@ describe('bounded custom JSON Schema profile', () => {
         expect(rejected.issues).toContainEqual(
             expect.objectContaining({ code: 'schema.maxLength', path: '/body' })
         )
+
+        const graphemeProfile = createMicroblogProfile({
+            capabilities: {
+                ...createMicroblogProfile().capabilities,
+                textFields: [
+                    {
+                        bindingId: 'body',
+                        acceptedSourceFormats: ['plain_text'],
+                        minLength: 1,
+                        maxLength: 500,
+                        maxGraphemes: 3,
+                    },
+                ],
+            },
+        })
+        const graphemeCompiled = new ChannelProfileCompiler().compile(graphemeProfile)
+        expect(graphemeCompiled.ok).toBe(true)
+        if (!graphemeCompiled.ok) return
+
+        const graphemeLimited = graphemeCompiled.value.validate({
+            body: 'a👩‍👩‍👧‍👦!x',
+            media: [],
+        })
+        expect(graphemeLimited.ok).toBe(false)
+        expect(graphemeLimited.issues).toContainEqual(
+            expect.objectContaining({ code: 'content.grapheme_limit', path: '/body' })
+        )
     })
 
     test('supports a richer project blog shape without provider-specific core code', () => {

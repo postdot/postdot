@@ -913,7 +913,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-041] Add Bluesky as the next built-in provider after the boundary extraction
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: Herald currently has one production-relevant built-in provider. Bluesky
   exercises a materially different account and API model from LinkedIn, including
   repository/PDS identity and provider-specific authorization and media handling.
@@ -928,7 +928,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   app-password behavior is assumed silently.
 - Tasks: CHANNEL-75 (after PROVIDER-74)
 - Related issue: ISSUE-040
-- Related decision: ADR-036 (proposed)
+- Related decision: ADR-036 (accepted)
 
 ## [ISSUE-042] Treat the web application as a dedicated client architecture project
 

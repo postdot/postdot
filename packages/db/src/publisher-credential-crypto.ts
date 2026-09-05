@@ -2,7 +2,12 @@ import { requireNonBlank } from '@herald/core'
 
 export const publisherCredentialEnvelopeVersion = 1 as const
 
-export type PublisherSecretField = 'access_token' | 'refresh_token' | 'pkce_verifier'
+export type PublisherSecretField =
+    | 'access_token'
+    | 'refresh_token'
+    | 'pkce_verifier'
+    | 'provider_session'
+    | 'provider_state'
 
 export interface EncryptedPublisherSecret {
     readonly version: typeof publisherCredentialEnvelopeVersion

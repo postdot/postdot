@@ -1,6 +1,6 @@
-# ADR-036 — Select an AT Protocol authorization profile before Bluesky implementation
+# ADR-036 — Use the portable official AT Protocol OAuth client behind a provider adapter
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-05
 - Scope: Bluesky/AT Protocol publisher connection, credential storage, token refresh, and authenticated publication delivery
 - Provenance: [ISSUE-041](../ISSUES.md#issue-041-add-bluesky-as-the-next-built-in-provider-after-the-boundary-extraction), [PROVIDER-74](../worklogs/2026-09-05-PROVIDER-74.md)
@@ -24,10 +24,13 @@ does not yet describe DPoP key material, the discovered authorization/resource
 servers, or the provider subject needed to refresh and verify an AT Protocol
 session.
 
-The official AT Protocol documentation lists `@atproto/oauth-client-node` as the
-server-side TypeScript SDK and states that the SDK handles DPoP, token refresh, and
-session management. The suitability of that SDK for Herald's Bun runtime and
-project-owned, worker-driven credential lifecycle still requires an isolated proof.
+The official AT Protocol documentation lists the maintained OAuth SDKs and states
+that they handle DPoP, token refresh, and session management. The Node wrapper is
+not a suitable direct dependency for Herald: an isolated Bun 1.4 proof with
+`@atproto/oauth-client-node@0.5.4` reached the package's Node-only SSRF guard and
+failed before a client could be constructed. The portable
+`@atproto/oauth-client@0.8.4` core client was then constructed successfully under
+Bun with an explicit Web Crypto runtime implementation and an identity resolver.
 
 References:
 
@@ -37,19 +40,17 @@ References:
 
 ## Decision
 
-No Bluesky connection or credential implementation is authorized by this record
-yet. The project must first select one explicit authorization profile and prove its
-fit with Herald's ownership and runtime constraints.
+Herald will use the official portable `@atproto/oauth-client` core inside a
+provider-owned Bluesky adapter, with `@atproto/jwk-webcrypto` (or the equivalent
+official Web Crypto implementation required by the installed SDK version) as the
+Bun runtime key implementation. The adapter will translate the SDK's state and
+session lifecycle into Herald-owned project-scoped encrypted stores. The generic
+`@herald/oauth` package remains unchanged, and Better Auth remains unrelated to
+publisher connections.
 
-The candidate direction for evaluation is a provider-owned adapter around the
-official `@atproto/oauth-client-node` implementation, while keeping the generic
-`@herald/oauth` package unchanged. The adapter would translate the SDK's session
-and request lifecycle into Herald's project-owned credential and worker ports. It
-must not move project ownership, connection lifecycle, or provider identity into a
-third-party account model.
-
-The candidate direction is not accepted until the following are demonstrated in an
-isolated test harness:
+The adapter must not move project ownership, connection lifecycle, or provider
+identity into a third-party account model. Before the first real provider call, the
+implementation must demonstrate:
 
 - Bun runtime compatibility without a Node-only process or hidden service;
 - durable storage and rotation of access tokens, refresh tokens, DPoP key material,
@@ -71,12 +72,14 @@ verification, and provider-specific session semantics. It risks creating a secon
 generic OAuth framework without evidence that other providers need the same profile.
 It is not the default direction.
 
-### Use the official AT Protocol server-side SDK inside a provider adapter
+### Use the official portable AT Protocol SDK inside a provider adapter
 
 This keeps AT Protocol truth in the provider module and allows the maintained SDK
-to own protocol details. It adds a dependency and requires a Bun compatibility
-proof plus an explicit persistence bridge for Herald's worker lifecycle. This is
-the candidate direction, not an accepted implementation choice.
+to own protocol details. The portable core is compatible with Bun once Herald
+supplies the runtime key, randomness, and digest primitives. The Node wrapper is
+not used because its current Node-only fetch/SSRF guard is incompatible with our
+runtime. The decision adds a dependency and requires an explicit persistence bridge
+for Herald's worker lifecycle.
 
 ### Use Bluesky app passwords as the primary connection flow
 
@@ -94,7 +97,8 @@ implementing an incompatible flow and rewriting it after the first real test.
 
 ## Consequences
 
-- `CHANNEL-75` remains gated until this proposed decision is accepted or replaced.
+- `CHANNEL-75` is unblocked for implementation, but its first real provider call
+  remains gated on the acceptance criteria above.
 - The LinkedIn path and generic OAuth mechanics remain unchanged.
 - A future Bluesky implementation will need provider-specific session state rather
   than assuming that `accessToken`, `refreshToken`, and a static authorization
