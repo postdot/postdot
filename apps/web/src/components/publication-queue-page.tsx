@@ -20,6 +20,9 @@ export function PublicationQueuePage() {
         publication => publication.deliveryMode === 'automatic'
     ).length
     const manualCount = publications.length - automaticCount
+    const scheduledCount = publications.filter(
+        publication => publication.scheduledAt !== null
+    ).length
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
@@ -61,18 +64,20 @@ export function PublicationQueuePage() {
                 onValueChange={value => {
                     if (isQueueFilter(value)) setFilter(value)
                 }}>
-                <TabsList variant="line">
-                    <TabsTrigger value="all">All ({publications.length})</TabsTrigger>
-                    <TabsTrigger value="attention">Needs attention ({due.length})</TabsTrigger>
-                    <TabsTrigger value="scheduled">
-                        Scheduled (
-                        {
-                            publications.filter(publication => publication.scheduledAt !== null)
-                                .length
-                        }
-                        )
+                <TabsList className="max-w-full overflow-x-auto" variant="line">
+                    <TabsTrigger aria-label={`All (${publications.length})`} value="all">
+                        All ({publications.length})
                     </TabsTrigger>
-                    <TabsTrigger value="manual">Manual ({manualCount})</TabsTrigger>
+                    <TabsTrigger aria-label={`Needs attention (${due.length})`} value="attention">
+                        <span className="sm:hidden">Attention</span>
+                        <span className="hidden sm:inline">Needs attention</span> ({due.length})
+                    </TabsTrigger>
+                    <TabsTrigger aria-label={`Scheduled (${scheduledCount})`} value="scheduled">
+                        Scheduled ({scheduledCount})
+                    </TabsTrigger>
+                    <TabsTrigger aria-label={`Manual (${manualCount})`} value="manual">
+                        Manual ({manualCount})
+                    </TabsTrigger>
                 </TabsList>
             </Tabs>
 
