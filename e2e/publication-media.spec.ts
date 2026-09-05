@@ -60,6 +60,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             database: 'ok',
             scheduler: 'started',
             mediaMaintenance: 'started',
+            notifications: 'started',
         },
     })
 

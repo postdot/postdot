@@ -1,0 +1,185 @@
+import type { ProjectNotification } from '@herald/core'
+import type { NotificationStore } from '@herald/db'
+import { Type } from 'typebox'
+
+import { sessionSecurity } from '../../plugins/auth'
+import { errorResponse, projectParams } from './models'
+import {
+    notificationInboxSchema,
+    notificationParams,
+    notificationPreferenceParams,
+    notificationPreferenceSchema,
+    notificationSchema,
+    updateNotificationPreferenceBody,
+} from './notification-models'
+import type { AuthenticatedElysia } from './types'
+
+const humanOnlyResponse = {
+    error: {
+        code: 'forbidden',
+        message: 'Human authentication is required to manage notifications',
+    },
+} as const
+const notFoundResponse = {
+    error: { code: 'not_found', message: 'Project or notification not found' },
+} as const
+
+export function registerNotificationRoutes<const Routes extends Record<string, unknown>>(
+    app: AuthenticatedElysia<Routes>,
+    notifications: NotificationStore
+) {
+    return app
+        .get(
+            '/api/projects/:projectId/notifications',
+            {
+                auth: true,
+                params: projectParams,
+                response: {
+                    200: notificationInboxSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'listProjectNotifications',
+                    summary: 'List the current human notification inbox',
+                    tags: ['Notifications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session') return status(403, humanOnlyResponse)
+                const items = notifications.list({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                })
+                const unreadCount = notifications.countUnread(params.projectId, user.id)
+                if (items === null || unreadCount === null) return status(404, notFoundResponse)
+                return {
+                    notifications: items.map(toNotificationResponse),
+                    unreadCount,
+                }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/notifications/:notificationId/read',
+            {
+                auth: true,
+                params: notificationParams,
+                response: {
+                    200: notificationSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'markProjectNotificationRead',
+                    summary: 'Mark a notification as read',
+                    tags: ['Notifications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session') return status(403, humanOnlyResponse)
+                const notification = notifications.markRead(
+                    params.projectId,
+                    params.notificationId,
+                    user.id
+                )
+                return notification === null
+                    ? status(404, notFoundResponse)
+                    : toNotificationResponse(notification)
+            }
+        )
+        .post(
+            '/api/projects/:projectId/notifications/:notificationId/archive',
+            {
+                auth: true,
+                params: notificationParams,
+                response: {
+                    200: notificationSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'archiveProjectNotification',
+                    summary: 'Archive a notification',
+                    tags: ['Notifications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session') return status(403, humanOnlyResponse)
+                const notification = notifications.archive(
+                    params.projectId,
+                    params.notificationId,
+                    user.id
+                )
+                return notification === null
+                    ? status(404, notFoundResponse)
+                    : toNotificationResponse(notification)
+            }
+        )
+        .get(
+            '/api/projects/:projectId/notification-preferences',
+            {
+                auth: true,
+                params: projectParams,
+                response: {
+                    200: Type.Object({ preferences: Type.Array(notificationPreferenceSchema) }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'listProjectNotificationPreferences',
+                    summary: 'List the current human notification preferences',
+                    tags: ['Notifications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session') return status(403, humanOnlyResponse)
+                const preferences = notifications.listPreferences(params.projectId, user.id)
+                return preferences === null
+                    ? status(404, notFoundResponse)
+                    : { preferences: [...preferences] }
+            }
+        )
+        .patch(
+            '/api/projects/:projectId/notification-preferences/:kind',
+            {
+                auth: true,
+                body: updateNotificationPreferenceBody,
+                params: notificationPreferenceParams,
+                response: {
+                    200: notificationPreferenceSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'updateProjectNotificationPreference',
+                    summary: 'Update one notification preference',
+                    tags: ['Notifications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (authMethod !== 'session') return status(403, humanOnlyResponse)
+                const preference = notifications.updatePreference({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                    kind: params.kind,
+                    inAppEnabled: body.inAppEnabled,
+                })
+                return preference === null ? status(404, notFoundResponse) : preference
+            }
+        )
+}
+
+function toNotificationResponse(notification: ProjectNotification) {
+    const { recipientActorId: _recipientActorId, ...response } = notification
+    return response
+}

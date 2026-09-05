@@ -20,6 +20,7 @@ export type {
 export { createManualStore } from './manual-store'
 export { channelLifecycleBlockerCodes } from './manual-store/channel-lifecycle-store'
 export { createMediaAssetStore } from './media-asset-store'
+export { createNotificationStore } from './notification-store'
 export { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
 export { createPublisherStore } from './publisher-store'
 export {
@@ -116,6 +117,14 @@ export type {
     ReserveMediaUploadInput,
     UploadMediaInput,
 } from './media-asset-store'
+export type {
+    ListNotificationsInput,
+    NotificationPreference,
+    NotificationStore,
+    NotificationStoreOptions,
+    ProjectNotificationsResult,
+    UpdateNotificationPreferenceInput,
+} from './notification-store'
 export type {
     CompleteProviderMediaDeliveryInput,
     FailProviderMediaDeliveryInput,

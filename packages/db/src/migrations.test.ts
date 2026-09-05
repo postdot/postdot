@@ -86,6 +86,15 @@ function revertEventJournalMigration(database: ReturnType<typeof createDatabase>
     `)
 }
 
+function revertNotificationMigration(database: ReturnType<typeof createDatabase>) {
+    database.$client.exec(`
+        DROP TABLE notifications;
+        DROP TABLE notification_projection_cursors;
+        DROP TABLE notification_preferences;
+        DROP INDEX audit_events_project_id_id_uidx;
+    `)
+}
+
 describe('database migrations', () => {
     it('applies the committed migration exactly once', () => {
         const database = createDatabase(':memory:')
@@ -116,6 +125,9 @@ describe('database migrations', () => {
                 'media_backup_fences',
                 'media_representations',
                 'media_upload_intents',
+                'notification_preferences',
+                'notification_projection_cursors',
+                'notifications',
                 'oauth_authorization_attempts',
                 'posts',
                 'project_access_tokens',
@@ -140,7 +152,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(14)
+            expect(migrationCount?.count).toBe(15)
         } finally {
             closeDatabase(database)
         }
@@ -180,6 +192,7 @@ describe('database migrations', () => {
             database.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             database.$client.exec('DROP TABLE project_access_tokens')
             revertChannelLifecycleMigration(database)
+            revertNotificationMigration(database)
             revertEventJournalMigration(database)
             unapplyMigrations(database, [
                 '0007_yellow_bastion',
@@ -189,6 +202,7 @@ describe('database migrations', () => {
                 '0011_deep_captain_britain',
                 '0012_wet_typhoid_mary',
                 '0013_vengeful_namor',
+                '0014_parallel_synch',
             ])
             runMigrations(database)
 
@@ -249,6 +263,7 @@ describe('database migrations', () => {
             staleDatabase.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             staleDatabase.$client.exec('DROP TABLE project_access_tokens')
             revertChannelLifecycleMigration(staleDatabase)
+            revertNotificationMigration(staleDatabase)
             revertEventJournalMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
                 '0007_yellow_bastion',
@@ -258,6 +273,7 @@ describe('database migrations', () => {
                 '0011_deep_captain_britain',
                 '0012_wet_typhoid_mary',
                 '0013_vengeful_namor',
+                '0014_parallel_synch',
             ])
 
             expect(() => runMigrations(staleDatabase)).toThrow()

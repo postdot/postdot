@@ -7,6 +7,8 @@ import {
     mediaRepresentationKinds,
     mediaRepresentationStates,
     mediaUploadIntentStates,
+    notificationKinds,
+    notificationSeverities,
     providerMediaDeliveryStates,
     publicationReviewStates,
     publicationStates,
@@ -1598,6 +1600,7 @@ export const auditEvents = sqliteTable(
     },
     table => [
         uniqueIndex('audit_events_id_uidx').on(table.id),
+        uniqueIndex('audit_events_project_id_id_uidx').on(table.projectId, table.id),
         index('audit_events_project_id_sequence_idx').on(table.projectId, table.sequence),
         index('audit_events_project_id_created_at_idx').on(table.projectId, table.createdAt),
         index('audit_events_project_id_entity_idx').on(
@@ -1625,6 +1628,133 @@ export const auditEvents = sqliteTable(
         check(
             'audit_events_causation_id_nonblank',
             sql`${table.causationId} is null or length(trim(${table.causationId})) > 0`
+        ),
+    ]
+)
+
+export const notificationPreferences = sqliteTable(
+    'notification_preferences',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        recipientActorId: text('recipient_actor_id').notNull(),
+        kind: text('kind', { enum: notificationKinds }).notNull(),
+        inAppEnabled: integer('in_app_enabled', { mode: 'boolean' }).default(true).notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('notification_preferences_recipient_kind_uidx').on(
+            table.projectId,
+            table.recipientActorId,
+            table.kind
+        ),
+        foreignKey({
+            name: 'notification_preferences_project_actor_fk',
+            columns: [table.projectId, table.recipientActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('cascade'),
+        check(
+            'notification_preferences_kind_valid',
+            sql`${table.kind} in ('publication_published', 'publication_failed', 'publication_ambiguous')`
+        ),
+    ]
+)
+
+export const notificationProjectionCursors = sqliteTable(
+    'notification_projection_cursors',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        projection: text('projection').notNull(),
+        cursor: text('cursor'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('notification_projection_cursors_project_projection_uidx').on(
+            table.projectId,
+            table.projection
+        ),
+        check(
+            'notification_projection_cursors_projection_nonblank',
+            sql`length(trim(${table.projection})) > 0`
+        ),
+        check(
+            'notification_projection_cursors_cursor_nonblank',
+            sql`${table.cursor} is null or length(trim(${table.cursor})) > 0`
+        ),
+    ]
+)
+
+export const notifications = sqliteTable(
+    'notifications',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        recipientActorId: text('recipient_actor_id').notNull(),
+        sourceEventId: text('source_event_id').notNull(),
+        kind: text('kind', { enum: notificationKinds }).notNull(),
+        severity: text('severity', { enum: notificationSeverities }).notNull(),
+        subjectType: text('subject_type').notNull(),
+        subjectId: text('subject_id').notNull(),
+        title: text('title').notNull(),
+        body: text('body').notNull(),
+        readAt: integer('read_at'),
+        archivedAt: integer('archived_at'),
+        createdAt: integer('created_at').notNull(),
+    },
+    table => [
+        uniqueIndex('notifications_recipient_source_event_uidx').on(
+            table.projectId,
+            table.recipientActorId,
+            table.sourceEventId
+        ),
+        index('notifications_recipient_inbox_idx').on(
+            table.projectId,
+            table.recipientActorId,
+            table.archivedAt,
+            table.createdAt
+        ),
+        index('notifications_recipient_unread_idx').on(
+            table.projectId,
+            table.recipientActorId,
+            table.readAt,
+            table.archivedAt
+        ),
+        foreignKey({
+            name: 'notifications_project_actor_fk',
+            columns: [table.projectId, table.recipientActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'notifications_project_source_event_fk',
+            columns: [table.projectId, table.sourceEventId],
+            foreignColumns: [auditEvents.projectId, auditEvents.id],
+        }).onDelete('cascade'),
+        check(
+            'notifications_kind_valid',
+            sql`${table.kind} in ('publication_published', 'publication_failed', 'publication_ambiguous')`
+        ),
+        check(
+            'notifications_severity_valid',
+            sql`${table.severity} in ('success', 'warning', 'error')`
+        ),
+        check('notifications_subject_type_nonblank', sql`length(trim(${table.subjectType})) > 0`),
+        check('notifications_subject_id_nonblank', sql`length(trim(${table.subjectId})) > 0`),
+        check('notifications_title_nonblank', sql`length(trim(${table.title})) > 0`),
+        check('notifications_body_nonblank', sql`length(trim(${table.body})) > 0`),
+        check(
+            'notifications_read_at_valid',
+            sql`${table.readAt} is null or ${table.readAt} >= ${table.createdAt}`
+        ),
+        check(
+            'notifications_archived_at_valid',
+            sql`${table.archivedAt} is null or ${table.archivedAt} >= ${table.createdAt}`
         ),
     ]
 )
