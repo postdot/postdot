@@ -79,7 +79,7 @@ export function PublisherConnectionPanel({
                 title="Publisher connections"
             />
 
-            <div className="mt-4 divide-y divide-border/70">
+            <div className="mt-4 overflow-hidden rounded-md bg-surface-raised shadow-surface">
                 {channels.length === 0 ? (
                     <Empty className="min-h-32 bg-muted">
                         <EmptyHeader>
@@ -99,7 +99,7 @@ export function PublisherConnectionPanel({
                         return (
                             <article
                                 key={channel.id}
-                                className="flex flex-col gap-4 py-4 first:pt-1 last:pb-1 sm:flex-row sm:items-center sm:justify-between sm:gap-5">
+                                className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-muted/35 sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:px-5">
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 text-sm font-medium">
                                         {connection === undefined ? (
