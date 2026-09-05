@@ -147,9 +147,9 @@ export function DashboardShell({
 
                 <SidebarContent>
                     <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                        <SidebarGroupLabel className="px-2">Workspace</SidebarGroupLabel>
+                        <SidebarGroupLabel className="px-2">Work</SidebarGroupLabel>
                         <SidebarGroupContent>
-                            <nav aria-label="Workspace navigation">
+                            <nav aria-label="Work navigation">
                                 <SidebarMenu>
                                     <WorkspaceMenuItem
                                         active={activeSection === 'overview'}
@@ -179,6 +179,16 @@ export function DashboardShell({
                                         label="Queue"
                                         projectId={selectedProjectId}
                                     />
+                                </SidebarMenu>
+                            </nav>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+
+                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                        <SidebarGroupLabel className="px-2">Project</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <nav aria-label="Project management navigation">
+                                <SidebarMenu>
                                     <WorkspaceMenuItem
                                         destination="channels"
                                         icon={<LinkIcon aria-hidden="true" />}
