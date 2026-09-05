@@ -50,6 +50,7 @@ export function ChannelManagementPage() {
         onRenameChannel,
         onRestoreChannel,
         onStartLinkedInConnection,
+        onStartBlueskyConnection,
         pending,
         project,
     } = useProjectDashboard()
@@ -133,6 +134,7 @@ export function ChannelManagementPage() {
                     pending={pending}
                     onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
                     onStartLinkedInConnection={onStartLinkedInConnection}
+                    onStartBlueskyConnection={onStartBlueskyConnection}
                     onDisconnectPublisher={onDisconnectPublisher}
                 />
             </div>

@@ -126,6 +126,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
         channelId: string,
         destination?: LinkedInConnectionDestination
     ) => Promise<void>
+    readonly onStartBlueskyConnection: (channelId: string, handle: string) => Promise<void>
     readonly onPublish: (publicationId: string) => Promise<void>
     readonly pending: boolean
     readonly postContent: string
@@ -268,6 +269,17 @@ export function ProjectDashboardProvider({
                 project.id,
                 channelId,
                 destination
+            )
+            window.location.assign(authorizationUrl)
+        })
+    }
+
+    async function handleStartBlueskyConnection(channelId: string, handle: string) {
+        await runAction(async () => {
+            const { authorizationUrl } = await api.startBlueskyPublisherConnection(
+                project.id,
+                channelId,
+                handle
             )
             window.location.assign(authorizationUrl)
         })
@@ -424,6 +436,7 @@ export function ProjectDashboardProvider({
         onPublicationTargetsChange: setPublicationTargets,
         onSourceMediaChange: setSourceMedia,
         onStartLinkedInConnection: handleStartLinkedInConnection,
+        onStartBlueskyConnection: handleStartBlueskyConnection,
         onPublish: handlePublish,
         pending,
         postContent,

@@ -866,7 +866,7 @@ exists` error. At the same time, the Vite development proxy always targets port
   correctly requests `PRAGMA foreign_keys=OFF`, but Drizzle starts its SQLite
   migration transaction before executing that statement. SQLite ignores the pragma
   change inside the transaction, so a populated local database fails at `DROP TABLE
-  channels` with a foreign-key constraint error even though a fresh empty database
+channels` with a foreign-key constraint error even though a fresh empty database
   succeeds.
 - Impact: A normal development restart can fail after a schema evolution as soon as
   the local database contains real project data. Resetting the database would hide
@@ -951,3 +951,27 @@ exists` error. At the same time, the Vite development proxy always targets port
   IA and interaction design come first; visual tokens and component calibration support
   that structure. Public marketing pages remain out of scope unless separately accepted.
 - Tasks: WEB-76 (after the provider and Bluesky slices provide the next backend evidence)
+
+## [ISSUE-043] Expose the Bluesky connection flow through the supported web client
+
+- Type: problem
+- Status: accepted
+- Evidence: The Bluesky backend vertical slice is integrated and tested, but the web
+  client still exposes only manual, LinkedIn, and custom HTTP channel creation and
+  connection controls. An operator cannot use the new provider through the supported
+  dashboard without constructing raw API requests.
+- Impact: A provider that exists only behind unadvertised routes is not an actionable
+  built-in channel. Asking an operator to reproduce session cookies and OAuth redirects
+  manually would create avoidable setup errors and would not exercise the intended
+  product surface.
+- Desired outcome: The authenticated web client can create a Bluesky channel, start the
+  provider-owned OAuth flow with a handle, show the project-owned account destination,
+  disconnect it, and report an unavailable provider clearly when HTTPS client metadata
+  is not configured. Development routing must expose the public metadata path through the
+  same origin used by the app.
+- Scope boundary: This task wires the existing API contract into the web client. It does
+  not redesign the web information architecture, add app-password authentication, or
+  perform an uncontrolled real-provider publication in automated tests.
+- Tasks: CHANNEL-77
+- Related issue: ISSUE-041
+- Related decision: ADR-036 (accepted)

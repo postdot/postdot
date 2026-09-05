@@ -49,7 +49,11 @@ export interface RuntimeChannelProfile {
     readonly execution: unknown
 }
 
-export type ChannelCreationProfile = 'manual-message' | 'linkedin' | RuntimeChannelProfile
+export type ChannelCreationProfile =
+    | 'manual-message'
+    | 'linkedin'
+    | 'bluesky'
+    | RuntimeChannelProfile
 
 export type CustomHttpAuthentication =
     | { readonly kind: 'none' }
@@ -315,6 +319,19 @@ export const api = {
                 .projects({ projectId })
                 .channels({ channelId })
                 .publisher.linkedin.connect.post(destination === undefined ? {} : { destination })
+        )
+    },
+
+    async startBlueskyPublisherConnection(
+        projectId: string,
+        channelId: string,
+        handle: string
+    ): Promise<{ provider: 'bluesky'; scopes: string[]; authorizationUrl: string }> {
+        return unwrap<{ provider: 'bluesky'; scopes: string[]; authorizationUrl: string }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.bluesky.connect.post({ handle })
         )
     },
 

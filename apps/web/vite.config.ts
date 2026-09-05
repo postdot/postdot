@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => {
             port: 5173,
             proxy: {
                 '/api': apiOrigin,
+                '/oauth': apiOrigin,
             },
         },
     }
