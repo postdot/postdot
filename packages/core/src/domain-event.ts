@@ -72,6 +72,7 @@ export function requireJsonObject(
     value: Readonly<Record<string, unknown>>,
     field: string
 ): asserts value is DomainEventJsonObject {
+    if (Array.isArray(value)) throw invalidJson(field)
     validateJsonValue(value, field, new WeakSet())
 }
 
@@ -94,17 +95,45 @@ function validateJsonValue(value: unknown, field: string, ancestors: WeakSet<obj
 
     ancestors.add(value)
     if (Array.isArray(value)) {
-        for (const entry of value) validateJsonValue(entry, field, ancestors)
+        validateJsonArray(value, field, ancestors)
         ancestors.delete(value)
         return
     }
 
     const prototype = Object.getPrototypeOf(value)
     if (prototype !== Object.prototype && prototype !== null) throw invalidJson(field)
+
+    for (const key of Reflect.ownKeys(value)) {
+        if (typeof key !== 'string') throw invalidJson(field)
+        const descriptor = Object.getOwnPropertyDescriptor(value, key)
+        if (descriptor === undefined || !descriptor.enumerable || !('value' in descriptor)) {
+            throw invalidJson(field)
+        }
+        validateJsonValue(descriptor.value, field, ancestors)
+    }
+
+    ancestors.delete(value)
+}
+
+function validateJsonArray(
+    value: readonly unknown[],
+    field: string,
+    ancestors: WeakSet<object>
+): void {
+    const propertyNames = Object.getOwnPropertyNames(value)
+    if (propertyNames.length !== value.length + 1 || !propertyNames.includes('length')) {
+        throw invalidJson(field)
+    }
+
     if (Object.getOwnPropertySymbols(value).length > 0) throw invalidJson(field)
 
-    for (const entry of Object.values(value)) validateJsonValue(entry, field, ancestors)
-    ancestors.delete(value)
+    for (let index = 0; index < value.length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
+        if (descriptor === undefined || !descriptor.enumerable || !('value' in descriptor)) {
+            throw invalidJson(field)
+        }
+        validateJsonValue(descriptor.value, field, ancestors)
+    }
 }
 
 function invalidJson(field: string): DomainInvariantError {

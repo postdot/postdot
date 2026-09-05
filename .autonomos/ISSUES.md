@@ -1005,7 +1005,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-045] Define a durable domain-event contract without duplicating Herald's history
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: Herald already commits project-scoped `audit_events` atomically with
   publication, channel, credential, and execution transitions. The notification and
   analytics inventory identified a need for versioned facts that durable projections
@@ -1026,3 +1026,9 @@ channels` with a foreign-key constraint error even though a fresh empty database
   does not introduce notification preferences or an external transport.
 - Tasks: EVENT-79
 - Related decisions: ADR-028, ADR-037
+- Resolution: `audit_events` now persists an explicit event schema version, correlation
+  context, and a non-reusable monotonic append sequence. A framework-independent event
+  envelope rejects non-JSON and custom-serialization payloads, while the database
+  package exposes an opaque-cursor reader isolated by project. Populated migration,
+  append ordering, cursor reuse, transaction rollback, and public audit compatibility
+  are covered by the repository gate.

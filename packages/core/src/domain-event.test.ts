@@ -56,4 +56,29 @@ describe('domain events', () => {
             'must not contain cycles'
         )
     })
+
+    it('rejects custom serialization, accessors, and sparse arrays', () => {
+        const customSerialization: Record<string, unknown> = { message: 'safe' }
+        Object.defineProperty(customSerialization, 'toJSON', {
+            enumerable: false,
+            value: () => ({ message: 'changed' }),
+        })
+        const accessor: Record<string, unknown> = {}
+        Object.defineProperty(accessor, 'message', {
+            enumerable: true,
+            get: () => 'computed',
+        })
+        const sparseArray: unknown[] = []
+        sparseArray.length = 1
+
+        expect(() => createDomainEvent({ ...validInput, payload: customSerialization })).toThrow(
+            DomainInvariantError
+        )
+        expect(() => createDomainEvent({ ...validInput, payload: accessor })).toThrow(
+            DomainInvariantError
+        )
+        expect(() => createDomainEvent({ ...validInput, payload: { items: sparseArray } })).toThrow(
+            DomainInvariantError
+        )
+    })
 })
