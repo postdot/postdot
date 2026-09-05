@@ -979,7 +979,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-044] Preserve the AT Protocol OAuth state when PAR hides it from the authorization URL
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: A live Bluesky authorization request uses a pushed authorization request
   (PAR). The official `@atproto/oauth-client` stores the generated OAuth state in its
   state store, while the returned authorization URL contains only `client_id` and
