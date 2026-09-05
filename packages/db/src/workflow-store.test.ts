@@ -809,6 +809,11 @@ describe('workflow store', () => {
                 'publication.execution.effect_started',
                 'publication.execution.failed',
             ])
+            expect(
+                executionAuditEvents(database, fixture.publicationId).every(
+                    event => event.eventVersion === 1 && event.correlationId === fixture.jobId
+                )
+            ).toBe(true)
             const retryAuditMetadata = executionAuditMetadata(database, fixture.publicationId)
             expect(retryAuditMetadata[2]).toMatchObject({
                 outcome: 'retryable_failure',

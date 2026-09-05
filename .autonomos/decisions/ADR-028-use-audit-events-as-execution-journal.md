@@ -51,11 +51,9 @@ transition, completion, cancellation, or recovery is rolled back. A claim
 increments the current attempt counter once; a later effect-boundary event and
 one terminal, retry, or recovery event describe the rest of that attempt.
 
-The SQLite audit reader resolves equal-timestamp events by append order using
-the table row ID, so a worker timeline remains stable even when several
-transitions share one application timestamp. This is an implementation detail of
-the current SQLite persistence boundary and can be replaced with an explicit
-sequence when another database backend is introduced.
+The SQLite audit reader resolves equal-timestamp events by the journal's explicit
+append sequence, so a worker timeline remains stable even when several transitions
+share one application timestamp or a later migration rebuilds the table.
 
 Lease expiry before the external-effect boundary records a claim recovery.
 Lease expiry after the boundary records ambiguity recovery and never silently

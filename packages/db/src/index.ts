@@ -9,6 +9,14 @@ export type {
 } from './backup'
 export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
+export { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
+export type {
+    AppendDomainEventInput,
+    EventJournalCursor,
+    EventJournalEntry,
+    EventJournalStoreOptions,
+    ReadEventJournalInput,
+} from './event-journal-store'
 export { createManualStore } from './manual-store'
 export { channelLifecycleBlockerCodes } from './manual-store/channel-lifecycle-store'
 export { createMediaAssetStore } from './media-asset-store'
