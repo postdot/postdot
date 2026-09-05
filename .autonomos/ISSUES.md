@@ -955,7 +955,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-043] Expose the Bluesky connection flow through the supported web client
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The Bluesky backend vertical slice is integrated and tested, but the web
   client still exposes only manual, LinkedIn, and custom HTTP channel creation and
   connection controls. An operator cannot use the new provider through the supported
@@ -975,6 +975,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: CHANNEL-77
 - Related issue: ISSUE-041
 - Related decision: ADR-036 (accepted)
+- Resolution: The authenticated web client now creates Bluesky channels, starts
+  the handle-based OAuth flow, renders the project-owned connected destination,
+  and exposes disconnect handling through the supported dashboard. The flow was
+  exercised against a real Bluesky account through a temporary HTTPS origin on
+  2026-09-05; the callback completed successfully and the dashboard displayed the
+  connection as active. No publication was performed during this validation.
 
 ## [ISSUE-044] Preserve the AT Protocol OAuth state when PAR hides it from the authorization URL
 
