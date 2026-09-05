@@ -74,6 +74,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByLabel('Password').fill('e2e-33-password')
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
     const dashboardLogo = page.locator('a[aria-label="Herald workspace"] svg')
     await expect(dashboardLogo).toBeVisible()
     await page.goto('/')
