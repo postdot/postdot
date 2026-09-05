@@ -448,7 +448,7 @@
                     "type": "integer",
                     "primaryKey": true,
                     "notNull": true,
-                    "autoincrement": false
+                    "autoincrement": true
                 },
                 "id": {
                     "name": "id",

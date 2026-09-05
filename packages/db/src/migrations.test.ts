@@ -131,6 +131,7 @@ describe('database migrations', () => {
                 'publisher_credentials',
                 'publishers',
                 'session',
+                'sqlite_sequence',
                 'user',
                 'verification',
             ])

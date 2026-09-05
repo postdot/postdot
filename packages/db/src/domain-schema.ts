@@ -1581,7 +1581,7 @@ export const providerMediaDeliveries = sqliteTable(
 export const auditEvents = sqliteTable(
     'audit_events',
     {
-        sequence: integer('sequence').primaryKey(),
+        sequence: integer('sequence').primaryKey({ autoIncrement: true }),
         id: text('id').notNull(),
         projectId: text('project_id')
             .notNull()

@@ -108,4 +108,28 @@ describe('event journal store', () => {
             closeDatabase(database)
         }
     })
+
+    it('never reuses a cursor after the project owning the latest event is deleted', () => {
+        const database = createDatabase(':memory:')
+        try {
+            runMigrations(database)
+            const firstProject = seedProject(database, 'deleted')
+            const secondProject = seedProject(database, 'surviving')
+            let nextId = 0
+            const store = createEventJournalStore(database, {
+                createId: () => `event-monotonic-${++nextId}`,
+            })
+            const deleted = store.append(eventInput(firstProject, 'deleted'))
+
+            database.$client.query('delete from projects where id = ?1').run(firstProject.projectId)
+            const surviving = store.append(eventInput(secondProject, 'surviving'))
+
+            expect(surviving.cursor).not.toBe(deleted.cursor)
+            expect(
+                store.readAfter({ projectId: secondProject.projectId, after: deleted.cursor })
+            ).toEqual([surviving])
+        } finally {
+            closeDatabase(database)
+        }
+    })
 })

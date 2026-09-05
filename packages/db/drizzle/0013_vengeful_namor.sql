@@ -1,6 +1,6 @@
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_audit_events` (
-	`sequence` integer PRIMARY KEY NOT NULL,
+	`sequence` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`id` text NOT NULL,
 	`project_id` text NOT NULL,
 	`actor_id` text NOT NULL,

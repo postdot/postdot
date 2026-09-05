@@ -34,6 +34,10 @@ explicitly select supported event names and versions rather than assuming every 
 action is actionable. The public audit API remains an operator-facing read model and
 does not expose internal consumer cursors.
 
+SQLite allocates the sequence with `AUTOINCREMENT`. Journal rows normally remain
+append-only, but project deletion cascades its history; preventing sequence reuse keeps
+a consumer cursor valid even when the deleted project owned the former maximum value.
+
 Events belong to projects. The actor identifies attribution and is never inferred to be
 the notification recipient. Recipient and preference rules will be an independent
 user/project projection. Journal records currently follow the audit lifecycle: they are
