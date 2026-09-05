@@ -1,15 +1,21 @@
 import { Button } from '@herald/ui/components/button'
+import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { AttentionPanel, PublicationList } from '@/components/dashboard-publication-parts'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { filterQueuePublications, isQueueFilter, type QueueFilter } from '@/lib/publication-queue'
 
 export function PublicationQueuePage() {
     const { due, onPublish, pending, project, publications } = useProjectDashboard()
+    const [filter, setFilter] = useState<QueueFilter>('all')
+    const duePublicationIds = new Set(due.map(publication => publication.id))
+    const visiblePublications = filterQueuePublications(publications, duePublicationIds, filter)
     const automaticCount = publications.filter(
         publication => publication.deliveryMode === 'automatic'
     ).length
@@ -48,10 +54,39 @@ export function PublicationQueuePage() {
                 ]}
             />
 
+            <Tabs
+                aria-label="Queue filters"
+                className="mt-6"
+                value={filter}
+                onValueChange={value => {
+                    if (isQueueFilter(value)) setFilter(value)
+                }}>
+                <TabsList variant="line">
+                    <TabsTrigger value="all">All ({publications.length})</TabsTrigger>
+                    <TabsTrigger value="attention">Needs attention ({due.length})</TabsTrigger>
+                    <TabsTrigger value="scheduled">
+                        Scheduled (
+                        {
+                            publications.filter(publication => publication.scheduledAt !== null)
+                                .length
+                        }
+                        )
+                    </TabsTrigger>
+                    <TabsTrigger value="manual">Manual ({manualCount})</TabsTrigger>
+                </TabsList>
+            </Tabs>
+
             <div className="mt-7 grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
                 <section className="min-w-0">
-                    <DashboardSectionHeading title="All publications" />
-                    <PublicationList publications={publications} timeZone={project.timeZone} />
+                    <DashboardSectionHeading
+                        meta={`${visiblePublications.length} publication${visiblePublications.length === 1 ? '' : 's'}`}
+                        title="Publications"
+                    />
+                    <PublicationList
+                        emptyDescription={queueEmptyDescription(filter)}
+                        publications={visiblePublications}
+                        timeZone={project.timeZone}
+                    />
                 </section>
                 <AttentionPanel
                     duePublications={due}
@@ -62,4 +97,11 @@ export function PublicationQueuePage() {
             </div>
         </main>
     )
+}
+
+function queueEmptyDescription(filter: QueueFilter) {
+    if (filter === 'attention') return 'No manual publication needs a decision right now.'
+    if (filter === 'scheduled') return 'No publications have a scheduled delivery time yet.'
+    if (filter === 'manual') return 'No publications are waiting for manual delivery.'
+    return 'Compose a source post to start the queue.'
 }
