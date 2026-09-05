@@ -2,23 +2,14 @@ import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
 import { Card, CardContent } from '@herald/ui/components/card'
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@herald/ui/components/select'
-import { Textarea } from '@herald/ui/components/textarea'
 import { cn } from '@herald/ui/lib/utils'
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
+import { type MediaSelection } from '@/components/media-attachment-picker'
+import { PublicationEditorPromotionSection } from '@/components/publication-editor-promotion-section'
+import { PublicationEditorSourceSection } from '@/components/publication-editor-source-section'
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import { ApiError, api, type PublicationEditorState } from '@/lib/api'
 import {
@@ -472,8 +463,6 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
         }
     }
 
-    const body = sourceContent.body
-
     return (
         <section className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <div className="flex flex-col justify-between gap-5 pb-7 sm:flex-row sm:items-end">
@@ -553,118 +542,17 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
 
             <div className="mt-7 grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="min-w-0 space-y-8">
-                    <section className="min-w-0">
-                        <Card>
-                            <CardContent className="p-6 sm:p-7">
-                                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                                    <div>
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Source document
-                                        </p>
-                                        <h2 className="mt-2 font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                            Shared authoring content
-                                        </h2>
-                                        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                                            This source can seed several channel-specific targets.
-                                            Editing it does not silently replace the selected
-                                            target.
-                                        </p>
-                                    </div>
-                                    <span className="text-xs font-medium text-muted-foreground">
-                                        Source revision {editor.post.sourceRevision}
-                                    </span>
-                                </div>
-
-                                <div className="mt-6 grid min-w-0 gap-4">
-                                    <Field className="min-w-0 gap-1.5">
-                                        <FieldLabel htmlFor="source-body">Body</FieldLabel>
-                                        <Textarea
-                                            id="source-body"
-                                            value={body?.text ?? ''}
-                                            onChange={event => updateSourceText(event.target.value)}
-                                            disabled={isRebasing}
-                                            rows={9}
-                                            className="min-h-44 min-w-0 max-w-full text-sm leading-6"
-                                        />
-                                    </Field>
-                                    <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-                                        <Field className="min-w-0 gap-1.5">
-                                            <FieldLabel htmlFor="source-format">
-                                                Source format
-                                            </FieldLabel>
-                                            <Select
-                                                items={{
-                                                    plain_text: 'Plain text',
-                                                    markdown: 'Markdown',
-                                                }}
-                                                value={body?.format ?? 'plain_text'}
-                                                onValueChange={value =>
-                                                    updateSourceFormat(
-                                                        value as 'plain_text' | 'markdown'
-                                                    )
-                                                }>
-                                                <SelectTrigger
-                                                    id="source-format"
-                                                    disabled={isRebasing}>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent align="start">
-                                                    <SelectItem value="plain_text">
-                                                        Plain text
-                                                    </SelectItem>
-                                                    <SelectItem value="markdown">
-                                                        Markdown
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </Field>
-                                        <Field className="min-w-0 gap-1.5">
-                                            <FieldLabel htmlFor="source-headline">
-                                                Headline
-                                            </FieldLabel>
-                                            <Input
-                                                id="source-headline"
-                                                value={sourceContent.headline ?? ''}
-                                                onChange={event =>
-                                                    updateSourceOptionalField(
-                                                        'headline',
-                                                        event.target.value
-                                                    )
-                                                }
-                                                placeholder="Optional headline"
-                                                disabled={isRebasing}
-                                                className="min-w-0"
-                                            />
-                                        </Field>
-                                    </div>
-                                    <Field className="min-w-0 gap-1.5">
-                                        <FieldLabel htmlFor="source-language">Language</FieldLabel>
-                                        <Input
-                                            id="source-language"
-                                            value={sourceContent.language ?? ''}
-                                            onChange={event =>
-                                                updateSourceOptionalField(
-                                                    'language',
-                                                    event.target.value
-                                                )
-                                            }
-                                            placeholder="Optional BCP 47 tag, for example en-US"
-                                            disabled={isRebasing}
-                                            className="min-w-0"
-                                        />
-                                    </Field>
-                                    <MediaAttachmentPicker
-                                        projectId={projectId}
-                                        value={sourceContent.media}
-                                        onChange={updateSourceMedia}
-                                        disabled={
-                                            saveState === 'saving' || saveState === 'rebasing'
-                                        }
-                                    />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </section>
+                    <PublicationEditorSourceSection
+                        projectId={projectId}
+                        sourceContent={sourceContent}
+                        sourceRevision={editor.post.sourceRevision}
+                        disabled={isRebasing}
+                        mediaDisabled={saveState === 'saving' || saveState === 'rebasing'}
+                        onTextChange={updateSourceText}
+                        onFormatChange={updateSourceFormat}
+                        onOptionalFieldChange={updateSourceOptionalField}
+                        onMediaChange={updateSourceMedia}
+                    />
 
                     <section className="min-w-0">
                         <Card>
@@ -742,79 +630,27 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
                         </Card>
                     </section>
 
-                    <section className="min-w-0">
-                        <Card>
-                            <CardContent className="p-6 sm:p-7">
-                                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                                    <div>
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Explicit promotion
-                                        </p>
-                                        <h2 className="mt-2 font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                            Choose what gets delivered
-                                        </h2>
-                                        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                                            Autosave preserves your work. This action creates the
-                                            immutable target revision used by manual delivery or the
-                                            worker.
-                                        </p>
-                                        {draftRequiresReview ? (
-                                            <p className="mt-3 max-w-2xl text-sm leading-6 text-state-attention">
-                                                Resolve the profile validation issues before
-                                                applying this draft to the selected target.
-                                            </p>
-                                        ) : null}
-                                    </div>
-                                    <span className="text-sm text-muted-foreground">
-                                        {draftDiffersFromTarget
-                                            ? 'Draft differs from selected target'
-                                            : 'Draft matches selected target'}
-                                    </span>
-                                </div>
-                                <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end">
-                                    <Field className="min-w-0 flex-1 gap-1.5">
-                                        <FieldLabel htmlFor="deliver-at">Deliver at</FieldLabel>
-                                        <Input
-                                            id="deliver-at"
-                                            type="datetime-local"
-                                            value={scheduleValue}
-                                            onChange={event => {
-                                                const value = event.target.value
-                                                setScheduleValue(value)
-                                                setScheduleDirty(
-                                                    value !==
-                                                        toDateTimeLocal(
-                                                            editor.publication.scheduledAt,
-                                                            timeZone
-                                                        )
-                                                )
-                                            }}
-                                            disabled={isRebasing}
-                                            className="min-w-0"
-                                        />
-                                        <FieldDescription className="text-xs">
-                                            Project time · {timeZone}. Clear the value to keep this
-                                            publication as a draft.
-                                        </FieldDescription>
-                                    </Field>
-                                    <Button
-                                        className="sm:mb-5"
-                                        onClick={() => void promoteDraft()}
-                                        disabled={
-                                            dirty ||
-                                            sourceConflict ||
-                                            draftRequiresReview ||
-                                            saveState !== 'saved' ||
-                                            targetResult.value === null ||
-                                            sourceIssue !== null
-                                        }>
-                                        <CheckReadIcon aria-hidden="true" />
-                                        Apply draft to target
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </section>
+                    <PublicationEditorPromotionSection
+                        timeZone={timeZone}
+                        scheduleValue={scheduleValue}
+                        disabled={
+                            dirty ||
+                            sourceConflict ||
+                            draftRequiresReview ||
+                            saveState !== 'saved' ||
+                            targetResult.value === null ||
+                            sourceIssue !== null
+                        }
+                        draftRequiresReview={draftRequiresReview}
+                        draftDiffersFromTarget={draftDiffersFromTarget}
+                        onScheduleChange={value => {
+                            setScheduleValue(value)
+                            setScheduleDirty(
+                                value !== toDateTimeLocal(editor.publication.scheduledAt, timeZone)
+                            )
+                        }}
+                        onPromote={() => void promoteDraft()}
+                    />
                 </div>
 
                 <aside className="min-w-0 space-y-8 xl:sticky xl:top-20 xl:self-start">
