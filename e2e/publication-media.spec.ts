@@ -74,6 +74,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByLabel('Password').fill('e2e-33-password')
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
     const dashboardLogo = page.locator('a[aria-label="Herald workspace"] svg')
     await expect(dashboardLogo).toBeVisible()
     await page.goto('/')
@@ -101,8 +102,8 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
-    const navigationLayout = await page
-        .getByRole('navigation', { name: 'Workspace navigation' })
+    const workNavigationLayout = await page
+        .getByRole('navigation', { name: 'Work navigation' })
         .evaluate(element => {
             const links = Array.from(element.querySelectorAll('a'))
             const topOffsets = new Set(
@@ -116,7 +117,23 @@ test('persists mixed and media-only publications through the dashboard', async (
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(navigationLayout).toEqual({ linkCount: 7, topOffsetCount: 7 })
+    const projectNavigationLayout = await page
+        .getByRole('navigation', { name: 'Project management navigation' })
+        .evaluate(element => {
+            const links = Array.from(element.querySelectorAll('a'))
+            const topOffsets = new Set(
+                links.map(link =>
+                    Math.round(
+                        (
+                            link as { getBoundingClientRect(): { top: number } }
+                        ).getBoundingClientRect().top
+                    )
+                )
+            )
+            return { linkCount: links.length, topOffsetCount: topOffsets.size }
+        })
+    expect(workNavigationLayout).toEqual({ linkCount: 4, topOffsetCount: 4 })
+    expect(projectNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
 

@@ -1,5 +1,12 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@herald/ui/components/card'
 import { Input } from '@herald/ui/components/input'
 import { Textarea } from '@herald/ui/components/textarea'
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
@@ -85,7 +92,7 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
             ) : null}
 
             <form onSubmit={onCreatePost}>
-                <div className="grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
+                <div className="grid min-w-0 gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.92fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
                     <section className="min-w-0">
                         <div className="flex items-baseline justify-between gap-4">
                             <div>
@@ -135,22 +142,22 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                         </div>
                     </section>
 
-                    <section className="min-w-0 rounded-lg bg-muted p-5 shadow-surface sm:p-6">
-                        <div className="flex items-baseline justify-between gap-4">
-                            <div>
-                                <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
+                    <Card className="min-w-0 bg-muted">
+                        <CardHeader className="flex flex-row items-baseline justify-between gap-4">
+                            <div className="min-w-0">
+                                <CardTitle className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
                                     Destinations
-                                </h2>
-                                <p className="mt-1 text-sm text-muted-foreground">
+                                </CardTitle>
+                                <CardDescription className="mt-1">
                                     Review copy, delivery, and timing per channel.
-                                </p>
+                                </CardDescription>
                             </div>
                             <span className="shrink-0 text-xs text-muted-foreground">
                                 {publicationTargets.length} target
                                 {publicationTargets.length === 1 ? '' : 's'}
                             </span>
-                        </div>
-                        <div className="mt-5">
+                        </CardHeader>
+                        <CardContent className="pt-0">
                             <PublicationTargetList
                                 channels={activeChannels}
                                 disabled={pending}
@@ -158,8 +165,8 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                                 targets={publicationTargets}
                                 timeZone={project.timeZone}
                             />
-                        </div>
-                    </section>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 <div className="mt-7 flex flex-col justify-between gap-4 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:p-5">

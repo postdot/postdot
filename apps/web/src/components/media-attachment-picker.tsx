@@ -7,14 +7,12 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@herald/ui/components/empty'
-import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
 import { useEffect, useId, useState, type ChangeEvent } from 'react'
 
+import { MediaAssetCard } from '@/components/media-asset-card'
 import { ApiError, api, type MediaReference } from '@/lib/api'
 import type { MediaSelection } from '@/lib/target-media'
 
@@ -195,64 +193,16 @@ export function MediaAttachmentPicker({
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {assets.map(asset => {
                         const selected = value.find(item => item.assetId === asset.asset.id)
-                        const representation = readyRepresentation(asset)
                         return (
-                            <article
+                            <MediaAssetCard
                                 key={asset.asset.id}
-                                className={`rounded-md bg-surface-field p-3 shadow-field ${
-                                    selected === undefined ? '' : 'ring-2 ring-primary/35'
-                                }`}>
-                                <button
-                                    type="button"
-                                    aria-pressed={selected !== undefined}
-                                    disabled={interactionDisabled || asset.asset.state !== 'ready'}
-                                    onClick={() => toggleAsset(asset)}
-                                    className="flex w-full items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50">
-                                    <MediaPreview
-                                        projectId={projectId}
-                                        asset={asset}
-                                        representation={representation}
-                                    />
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-sm font-medium">
-                                            {asset.asset.originalFilename}
-                                        </span>
-                                        <span className="mt-1 block text-xs text-muted-foreground">
-                                            {mediaSummary(asset, representation)}
-                                        </span>
-                                    </span>
-                                    {selected === undefined ? (
-                                        <span className="text-xs text-muted-foreground">Add</span>
-                                    ) : (
-                                        <CheckReadIcon
-                                            aria-label="Attached"
-                                            className="shrink-0 text-primary"
-                                        />
-                                    )}
-                                </button>
-                                {selected !== undefined ? (
-                                    <Field className="mt-3 gap-1">
-                                        <FieldLabel
-                                            className="text-xs"
-                                            htmlFor={`media-alt-${asset.asset.id}`}>
-                                            Accessibility text
-                                        </FieldLabel>
-                                        <Input
-                                            id={`media-alt-${asset.asset.id}`}
-                                            value={selected.accessibilityText ?? ''}
-                                            disabled={interactionDisabled}
-                                            onChange={event =>
-                                                updateAccessibilityText(
-                                                    asset.asset.id,
-                                                    event.target.value
-                                                )
-                                            }
-                                            placeholder="Describe this media when needed"
-                                            className="h-8 text-xs"
-                                        />
-                                    </Field>
-                                ) : null}
-                            </article>
+                                asset={asset}
+                                interactionDisabled={interactionDisabled}
+                                projectId={projectId}
+                                selected={selected}
+                                onAccessibilityTextChange={updateAccessibilityText}
+                                onToggle={toggleAsset}
+                            />
                         )
                     })}
                 </div>
@@ -265,61 +215,6 @@ export function MediaAttachmentPicker({
                 </div>
             ) : null}
         </div>
-    )
-}
-
-function readyRepresentation(asset: MediaReference) {
-    return (
-        asset.representations.find(
-            representation => representation.state === 'ready' && representation.kind === 'original'
-        ) ?? asset.representations.find(representation => representation.state === 'ready')
-    )
-}
-
-function mediaSummary(
-    asset: MediaReference,
-    representation: ReturnType<typeof readyRepresentation>
-) {
-    const details = [representation?.detectedContentType ?? representation?.declaredContentType]
-    if (representation?.byteSize !== null && representation?.byteSize !== undefined) {
-        details.push(formatBytes(representation.byteSize))
-    }
-    if (
-        representation !== undefined &&
-        representation.width !== null &&
-        representation.height !== null
-    ) {
-        details.push(`${representation.width}×${representation.height}`)
-    }
-    if (asset.asset.state !== 'ready') details.push(asset.asset.state)
-    return details
-        .filter((detail): detail is string => detail !== null && detail !== undefined)
-        .join(' · ')
-}
-
-function MediaPreview({
-    projectId,
-    asset,
-    representation,
-}: {
-    readonly projectId: string
-    readonly asset: MediaReference
-    readonly representation: ReturnType<typeof readyRepresentation>
-}) {
-    if (representation?.family === 'image') {
-        return (
-            <img
-                src={api.mediaContentUrl(projectId, asset.asset.id)}
-                alt=""
-                loading="lazy"
-                className="size-12 rounded-md object-cover shadow-field"
-            />
-        )
-    }
-    return (
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground shadow-field">
-            {representation?.family?.slice(0, 3) ?? 'file'}
-        </span>
     )
 }
 
@@ -346,12 +241,6 @@ function upsertAssets(current: readonly MediaReference[], additions: readonly Me
     const byId = new Map(current.map(asset => [asset.asset.id, asset]))
     for (const asset of additions) byId.set(asset.asset.id, asset)
     return [...byId.values()].sort((left, right) => right.asset.createdAt - left.asset.createdAt)
-}
-
-function formatBytes(bytes: number) {
-    if (bytes < 1_024) return `${bytes} B`
-    if (bytes < 1_024 * 1_024) return `${Math.round(bytes / 1_024)} KiB`
-    return `${(bytes / (1_024 * 1_024)).toFixed(1)} MiB`
 }
 
 function delay(milliseconds: number) {

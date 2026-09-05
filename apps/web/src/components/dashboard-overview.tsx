@@ -3,8 +3,10 @@ import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
-import { AttentionPanel, PublicationList } from '@/components/dashboard-publication-parts'
+import { PublicationList } from '@/components/dashboard-publication-parts'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
+import { PublicationAttentionPanel } from '@/components/publication-attention-panel'
+import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 
 export function DashboardOverview() {
@@ -40,28 +42,31 @@ export function DashboardOverview() {
                 </p>
             </DashboardPageHeader>
 
-            <div
-                aria-label="Workspace summary"
-                className="flex flex-wrap items-center gap-x-5 gap-y-1.5 bg-muted px-3 py-2.5 text-sm text-muted-foreground sm:px-4">
-                <span>
-                    <strong className="font-medium text-foreground">{publications.length}</strong>{' '}
-                    publication{publications.length === 1 ? '' : 's'}
-                </span>
-                <span>
-                    <strong className="font-medium text-foreground">{scheduledCount}</strong>{' '}
-                    scheduled
-                </span>
-                <span>
-                    <strong className="font-medium text-foreground">{automaticCount}</strong>{' '}
-                    automatic
-                </span>
-                <span className={due.length > 0 ? 'text-state-attention' : undefined}>
-                    <strong className="font-medium text-current">{due.length}</strong> needs
-                    attention
-                </span>
-            </div>
+            <PublicationSummaryBar
+                ariaLabel="Workspace summary"
+                items={[
+                    {
+                        id: 'publications',
+                        label: `publication${publications.length === 1 ? '' : 's'}`,
+                        value: publications.length,
+                    },
+                    { id: 'scheduled', label: 'scheduled', value: scheduledCount },
+                    { id: 'automatic', label: 'automatic', value: automaticCount },
+                    {
+                        attention: due.length > 0,
+                        id: 'attention',
+                        label: 'needs attention',
+                        value: due.length,
+                    },
+                ]}
+            />
 
-            <div className="mt-7 grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+            <div
+                className={
+                    due.length > 0
+                        ? 'mt-7 grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start'
+                        : 'mt-7 min-w-0'
+                }>
                 <section className="min-w-0">
                     <DashboardSectionHeading
                         meta={
@@ -85,12 +90,14 @@ export function DashboardOverview() {
                     />
                 </section>
 
-                <AttentionPanel
-                    duePublications={due}
-                    onPublish={onPublish}
-                    pending={pending}
-                    timeZone={project.timeZone}
-                />
+                {due.length > 0 ? (
+                    <PublicationAttentionPanel
+                        duePublications={due}
+                        onPublish={onPublish}
+                        pending={pending}
+                        timeZone={project.timeZone}
+                    />
+                ) : null}
             </div>
         </main>
     )

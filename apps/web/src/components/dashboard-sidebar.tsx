@@ -1,0 +1,370 @@
+import { HeraldLogo } from '@herald/ui/components/herald-logo'
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupAction,
+    SidebarGroupContent,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuBadge,
+    SidebarMenuButton,
+    SidebarMenuItem,
+} from '@herald/ui/components/sidebar'
+import { cn } from '@herald/ui/lib/utils'
+import { AddIcon } from '@solar-icons/react/bold/add'
+import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
+import { GalleryIcon } from '@solar-icons/react/bold/gallery'
+import { KeyMinimalisticIcon } from '@solar-icons/react/bold/key-minimalistic'
+import { LinkIcon } from '@solar-icons/react/bold/link'
+import { ListIcon } from '@solar-icons/react/bold/list'
+import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
+import { PenIcon } from '@solar-icons/react/bold/pen'
+import { Widget2Icon } from '@solar-icons/react/bold/widget-2'
+import { Link } from '@tanstack/react-router'
+import type { FormEvent, ReactNode } from 'react'
+
+import { DashboardProjectContext } from '@/components/dashboard-project-context'
+import type { Channel, Project, PublisherConnection } from '@/lib/api'
+
+export type DashboardSection =
+    | 'overview'
+    | 'calendar'
+    | 'compose'
+    | 'queue'
+    | 'channels'
+    | 'media'
+    | 'access'
+
+interface DashboardSidebarProps {
+    readonly activeSection: DashboardSection
+    readonly channels: readonly Channel[]
+    readonly dueCount: number
+    readonly isPublicationRoute: boolean
+    readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
+    readonly onProjectChange: (projectId: string | null) => void
+    readonly onProjectNameChange: (value: string) => void
+    readonly onSignOut: () => void
+    readonly pending: boolean
+    readonly projectName: string
+    readonly projects: readonly Project[]
+    readonly publisherConnections: readonly PublisherConnection[]
+    readonly publicationsCount: number
+    readonly selectedProjectId: string | null
+}
+
+export function DashboardSidebar({
+    activeSection,
+    channels,
+    dueCount,
+    isPublicationRoute,
+    onCreateProject,
+    onProjectChange,
+    onProjectNameChange,
+    onSignOut,
+    pending,
+    projectName,
+    projects,
+    publisherConnections,
+    publicationsCount,
+    selectedProjectId,
+}: DashboardSidebarProps) {
+    const connectionsByChannel = new Map(
+        publisherConnections.map(connection => [connection.channelId, connection])
+    )
+
+    return (
+        <Sidebar collapsible="icon" className="!border-0">
+            <SidebarHeader className="gap-4 p-3 group-data-[collapsible=icon]:p-2">
+                <div className="flex items-center gap-2">
+                    {selectedProjectId === null ? (
+                        <Link
+                            to="/dashboard"
+                            aria-label="Herald workspace"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75">
+                            <HeraldLogo className="size-7" />
+                        </Link>
+                    ) : (
+                        <Link
+                            to="/dashboard/projects/$projectId/overview"
+                            params={{ projectId: selectedProjectId }}
+                            aria-label="Herald workspace"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75">
+                            <HeraldLogo className="size-7" />
+                        </Link>
+                    )}
+                    <div className="min-w-0 group-data-[collapsible=icon]:hidden">
+                        <p className="truncate text-sm font-semibold tracking-tight">Herald</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                            Publication manager
+                        </p>
+                    </div>
+                </div>
+
+                <div className="group-data-[collapsible=icon]:hidden">
+                    <DashboardProjectContext
+                        onCreateProject={onCreateProject}
+                        onProjectChange={onProjectChange}
+                        onProjectNameChange={onProjectNameChange}
+                        pending={pending}
+                        projectName={projectName}
+                        projects={projects}
+                        selectedProjectId={selectedProjectId}
+                    />
+                </div>
+            </SidebarHeader>
+
+            <SidebarContent>
+                <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                    <SidebarGroupLabel className="px-2">Work</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <nav aria-label="Work navigation">
+                            <SidebarMenu>
+                                <WorkspaceMenuItem
+                                    active={activeSection === 'overview'}
+                                    destination="overview"
+                                    icon={<Widget2Icon aria-hidden="true" />}
+                                    label="Overview"
+                                    projectId={selectedProjectId}
+                                />
+                                <WorkspaceMenuItem
+                                    active={activeSection === 'calendar'}
+                                    destination="calendar"
+                                    icon={<CalendarMinimalisticIcon aria-hidden="true" />}
+                                    label="Calendar"
+                                    projectId={selectedProjectId}
+                                />
+                                <WorkspaceMenuItem
+                                    destination="compose"
+                                    icon={<PenIcon aria-hidden="true" />}
+                                    label="Compose"
+                                    projectId={selectedProjectId}
+                                    active={activeSection === 'compose'}
+                                />
+                                <WorkspaceMenuItem
+                                    active={activeSection === 'queue' || isPublicationRoute}
+                                    destination="queue"
+                                    icon={<ListIcon aria-hidden="true" />}
+                                    label="Queue"
+                                    projectId={selectedProjectId}
+                                />
+                            </SidebarMenu>
+                        </nav>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+
+                <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                    <SidebarGroupLabel className="px-2">Project</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <nav aria-label="Project management navigation">
+                            <SidebarMenu>
+                                <WorkspaceMenuItem
+                                    destination="channels"
+                                    icon={<LinkIcon aria-hidden="true" />}
+                                    label="Channels"
+                                    projectId={selectedProjectId}
+                                    active={activeSection === 'channels'}
+                                />
+                                <WorkspaceMenuItem
+                                    destination="media"
+                                    icon={<GalleryIcon aria-hidden="true" />}
+                                    label="Media"
+                                    projectId={selectedProjectId}
+                                    active={activeSection === 'media'}
+                                />
+                                <WorkspaceMenuItem
+                                    destination="access"
+                                    icon={<KeyMinimalisticIcon aria-hidden="true" />}
+                                    label="Access"
+                                    projectId={selectedProjectId}
+                                    active={activeSection === 'access'}
+                                />
+                            </SidebarMenu>
+                        </nav>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+
+                <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                    <SidebarGroupLabel className="px-2">Channels</SidebarGroupLabel>
+                    <SidebarGroupAction
+                        render={workspaceLink('channels', selectedProjectId, 'Manage channels')}
+                        title="Manage channels">
+                        <AddIcon aria-hidden="true" />
+                    </SidebarGroupAction>
+                    <SidebarGroupContent>
+                        {channels.length === 0 ? (
+                            <p className="px-2 py-2 text-xs leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
+                                No channels yet.
+                            </p>
+                        ) : (
+                            <SidebarMenu>
+                                {channels.map(channel => {
+                                    const connection = connectionsByChannel.get(channel.id)
+                                    const channelState =
+                                        channel.state === 'archived'
+                                            ? 'Archived'
+                                            : channel.profileId === 'linkedin'
+                                              ? connection?.state === 'active'
+                                                  ? 'Connected'
+                                                  : 'Needs connection'
+                                              : connection?.state === 'active'
+                                                ? 'Connected'
+                                                : channel.profileId === 'manual-message'
+                                                  ? 'Manual'
+                                                  : 'Needs connection'
+
+                                    return (
+                                        <SidebarMenuItem key={channel.id}>
+                                            <SidebarMenuButton
+                                                render={workspaceLink(
+                                                    'channels',
+                                                    selectedProjectId
+                                                )}
+                                                tooltip={channel.name}>
+                                                <span
+                                                    className={cn(
+                                                        'size-1.5 shrink-0 rounded-full bg-current',
+                                                        channelMarkerClass(channel.profileId)
+                                                    )}
+                                                    aria-hidden="true"
+                                                />
+                                                <span className="truncate group-data-[collapsible=icon]:hidden">
+                                                    {channel.name}
+                                                </span>
+                                                <SidebarMenuBadge>{channelState}</SidebarMenuBadge>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    )
+                                })}
+                            </SidebarMenu>
+                        )}
+                    </SidebarGroupContent>
+                </SidebarGroup>
+            </SidebarContent>
+
+            <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-2">
+                <div className="rounded-md bg-sidebar-accent px-3 py-3 text-xs text-muted-foreground shadow-surface group-data-[collapsible=icon]:hidden">
+                    <div className="flex items-center justify-between gap-3">
+                        <span>Publications</span>
+                        <span className="font-medium tabular-nums text-foreground">
+                            {publicationsCount}
+                        </span>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                        <span>Needs attention</span>
+                        <span
+                            className={cn(
+                                'font-medium tabular-nums',
+                                dueCount > 0 ? 'text-state-attention' : 'text-foreground'
+                            )}>
+                            {dueCount}
+                        </span>
+                    </div>
+                </div>
+
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            disabled={pending}
+                            onClick={onSignOut}
+                            tooltip="Sign out">
+                            <Logout2Icon aria-hidden="true" />
+                            <span className="group-data-[collapsible=icon]:hidden">Sign out</span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarFooter>
+        </Sidebar>
+    )
+}
+
+export function workspaceSection(pathname: string): DashboardSection {
+    if (pathname.includes('/calendar')) return 'calendar'
+    if (pathname.includes('/compose')) return 'compose'
+    if (pathname.includes('/queue')) return 'queue'
+    if (pathname.includes('/channels')) return 'channels'
+    if (pathname.includes('/media')) return 'media'
+    if (pathname.includes('/access')) return 'access'
+    return 'overview'
+}
+
+export function workspaceSectionLabel(section: DashboardSection) {
+    if (section === 'calendar') return 'Calendar'
+    if (section === 'compose') return 'Compose'
+    if (section === 'queue') return 'Queue'
+    if (section === 'channels') return 'Channels'
+    if (section === 'media') return 'Media'
+    if (section === 'access') return 'Access'
+    return 'Overview'
+}
+
+function WorkspaceMenuItem({
+    active = false,
+    destination,
+    icon,
+    label,
+    projectId,
+}: {
+    readonly active?: boolean
+    readonly destination: DashboardSection
+    readonly icon: ReactNode
+    readonly label: string
+    readonly projectId: string | null
+}) {
+    return (
+        <SidebarMenuItem>
+            <SidebarMenuButton
+                render={workspaceLink(destination, projectId, undefined, active)}
+                isActive={active}
+                tooltip={label}>
+                {icon}
+                <span className="group-data-[collapsible=icon]:hidden">{label}</span>
+            </SidebarMenuButton>
+        </SidebarMenuItem>
+    )
+}
+
+function workspaceLink(
+    destination: DashboardSection,
+    projectId: string | null,
+    ariaLabel?: string,
+    active = false
+) {
+    if (projectId === null) {
+        return (
+            <Link
+                to="/dashboard"
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'overview') {
+        return (
+            <Link
+                to="/dashboard/projects/$projectId/overview"
+                params={{ projectId }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    return (
+        <Link
+            to={`/dashboard/projects/$projectId/${destination}`}
+            params={{ projectId }}
+            aria-label={ariaLabel}
+            aria-current={active ? 'page' : undefined}
+        />
+    )
+}
+
+function channelMarkerClass(profileId: string) {
+    if (profileId === 'linkedin') return 'text-primary'
+    if (profileId === 'manual-message') return 'text-state-queued'
+    return 'text-primary'
+}
