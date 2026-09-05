@@ -1068,7 +1068,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-047] Deliver recipient notifications through optional external transports
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: Herald now has a durable fact journal and recipient-owned in-app inbox, but
   no recoverable path can deliver selected outcomes to an external notification
   destination. Ntfy, Telegram, email, and webhook integrations would otherwise be
@@ -1086,6 +1086,13 @@ channels` with a foreign-key constraint error even though a fresh empty database
   authenticated management API follow in a separate task.
 - Tasks: NOTIFY-81
 - Related decisions: ADR-009, ADR-037, ADR-038, ADR-039
+
+- Resolution: Herald now persists project-human external destinations, explicit
+  per-kind subscriptions, durable projection cursors, immutable delivery
+  snapshots, atomic claims, lease recovery, and explicit retry/ambiguity
+  semantics behind a reusable external-effect executor. No real transport,
+  provider credential, or web UI was introduced. `NOTIFY-82` gates the secret
+  boundary required before a provider adapter can be configured.
 
 ## [ISSUE-048] Add an encrypted secret boundary for external notification destinations
 
