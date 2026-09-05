@@ -16,6 +16,8 @@ import {
 } from '@herald/linkedin'
 import { clientSecretPost, validateReturnPath, type OAuthAuthorizationServer } from '@herald/oauth'
 
+import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
+
 export interface PublisherRuntimeOptions {
     readonly apiOrigin: string
     readonly webOrigin: string
@@ -43,6 +45,9 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
     const credentialStore = createPublisherCredentialStore(database, { cipher, now, createId })
     const publisherStore = createPublisherStore(database, {
         credentialRevoker: credentialStore,
+        connectionPolicies: {
+            linkedin: linkedInPublisherConnectionPolicy,
+        },
         now,
         createId,
     })

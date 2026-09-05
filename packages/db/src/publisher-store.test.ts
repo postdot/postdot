@@ -64,6 +64,22 @@ async function createFixture() {
     })
     const publisherStore = createPublisherStore(database, {
         credentialRevoker: credentialStore,
+        connectionPolicies: {
+            linkedin: {
+                defaultDestination: credential => ({
+                    type: 'member',
+                    id: credential.externalAccountId,
+                    name: credential.externalAccountName,
+                }),
+                validateDestination: destination =>
+                    (destination.type === 'member' || destination.type === 'organization') &&
+                    destination.id.trim().length > 0 &&
+                    !/\s/.test(destination.id) &&
+                    !destination.id.startsWith('urn:') &&
+                    (destination.type !== 'organization' || /^[1-9]\d*$/.test(destination.id)) &&
+                    (destination.name === null || destination.name.trim().length > 0),
+            },
+        },
         now: () => now,
     })
     const project = manualStore.createProject({
@@ -235,6 +251,20 @@ describe('publisher connection store', () => {
                     endpointUrl: 'https://example.test',
                     authentication: { kind: 'none' },
                     destination: { type: 'member', id: 'member-42', name: null },
+                })
+            ).toEqual({ kind: 'invalid_connection' })
+
+            const unknownCredential = await createCredential(fixture, {
+                id: 'unknown-provider',
+                providerId: 'unknown-provider',
+            })
+            expect(
+                fixture.publisherStore.createPublisherConnection({
+                    projectId: fixture.project.project.id,
+                    channelId: fixture.channel.id,
+                    subjectId: 'user-1',
+                    kind: 'unknown-provider',
+                    credentialId: unknownCredential.id,
                 })
             ).toEqual({ kind: 'invalid_connection' })
         } finally {

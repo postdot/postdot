@@ -32,6 +32,14 @@ export interface CreatePublisherConnectionInput {
     readonly destination?: PublisherConnectionDestination
 }
 
+export interface PublisherConnectionPolicy {
+    readonly defaultDestination?: (credential: {
+        readonly externalAccountId: string
+        readonly externalAccountName: string | null
+    }) => PublisherConnectionDestination | null
+    readonly validateDestination?: (destination: PublisherConnectionDestination) => boolean
+}
+
 export interface DisconnectPublisherConnectionInput {
     readonly projectId: string
     readonly channelId: string
@@ -206,6 +214,7 @@ export interface PublisherStoreOptions {
             credentialId: string
         ) => void
     }
+    readonly connectionPolicies?: Readonly<Record<string, PublisherConnectionPolicy>>
     readonly now?: () => number
     readonly createId?: () => string
 }
@@ -607,7 +616,11 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 return { kind: 'credential_unavailable' }
             }
 
-            const connectionSettings = normalizeConnectionSettings(input, credentialRow)
+            const connectionSettings = normalizeConnectionSettings(
+                input,
+                credentialRow,
+                options.connectionPolicies?.[input.kind]
+            )
             if (!connectionSettings.valid) return { kind: 'invalid_connection' }
 
             const profileRow = loadChannelProfileStatement.get(
@@ -911,7 +924,8 @@ function isCompatiblePublisherProfile(profileJson: string, kind: string): boolea
 
 function normalizeConnectionSettings(
     input: CreatePublisherConnectionInput,
-    credential: CredentialRow
+    credential: CredentialRow,
+    policy: PublisherConnectionPolicy | undefined
 ):
     | {
           readonly valid: true
@@ -940,32 +954,23 @@ function normalizeConnectionSettings(
     }
 
     if (endpointUrl !== null || authentication !== null) return { valid: false }
-    if (input.kind !== 'linkedin' && input.destination !== undefined) return { valid: false }
+    if (policy === undefined) return { valid: false }
 
     const destination =
         input.destination ??
-        (input.kind === 'linkedin'
-            ? {
-                  type: 'member',
-                  id: credential.externalAccountId,
-                  name: credential.externalAccountName,
-              }
-            : null)
-    if (destination !== null && !isValidLinkedInDestination(destination)) {
+        (policy.defaultDestination === undefined
+            ? null
+            : policy.defaultDestination({
+                  externalAccountId: credential.externalAccountId,
+                  externalAccountName: credential.externalAccountName,
+              }))
+    if (
+        destination !== null &&
+        (policy.validateDestination === undefined || !policy.validateDestination(destination))
+    ) {
         return { valid: false }
     }
     return { valid: true, endpointUrl, authentication, destination }
-}
-
-function isValidLinkedInDestination(destination: PublisherConnectionDestination): boolean {
-    return (
-        (destination.type === 'member' || destination.type === 'organization') &&
-        destination.id.trim().length > 0 &&
-        !/\s/.test(destination.id) &&
-        !destination.id.startsWith('urn:') &&
-        (destination.type !== 'organization' || /^[1-9]\d*$/.test(destination.id)) &&
-        (destination.name === null || destination.name.trim().length > 0)
-    )
 }
 
 function parseProfile(value: string): ChannelProfileDefinition {

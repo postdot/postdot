@@ -27,6 +27,7 @@ import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
 import { createMediaPublicDelivery } from '../media/public-delivery'
+import { linkedInPublisherConnectionPolicy } from '../publishers/providers/linkedin'
 import { createLinkedInProviderAdapter } from './providers/linkedin'
 import { createBuiltInProviderRegistry } from './providers/registry'
 import { createPublicationWorker } from './worker'
@@ -206,6 +207,7 @@ describe('publication worker', () => {
             })
             const publisherStore = createPublisherStore(database, {
                 credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
             const project = manualStore.createProject({
@@ -389,6 +391,7 @@ describe('publication worker', () => {
             })
             const publisherStore = createPublisherStore(database, {
                 credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => currentTime,
             })
             const project = manualStore.createProject({
@@ -505,6 +508,7 @@ describe('publication worker', () => {
             })
             const publisherStore = createPublisherStore(database, {
                 credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
             const project = manualStore.createProject({
@@ -706,6 +710,7 @@ describe('publication worker', () => {
             })
             const publisherStore = createPublisherStore(database, {
                 credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
             const project = manualStore.createProject({
@@ -836,6 +841,7 @@ describe('publication worker', () => {
             })
             const publisherStore = createPublisherStore(database, {
                 credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
             const project = manualStore.createProject({
@@ -1006,6 +1012,7 @@ describe('publication worker', () => {
             })
             const publisherStore = createPublisherStore(database, {
                 credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
             const project = manualStore.createProject({
@@ -1156,6 +1163,7 @@ describe('publication worker', () => {
             })
             const publisherStore = createPublisherStore(database, {
                 credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
                 now: () => now,
             })
             const project = manualStore.createProject({
