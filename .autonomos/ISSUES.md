@@ -856,3 +856,30 @@ exists` error. At the same time, the Vite development proxy always targets port
   execution now require a non-disabled channel profile version. Started execution
   records remain loadable for reconciliation, and regression coverage verifies both
   the claim boundary and the disable-after-claim race.
+
+## [ISSUE-039] Apply SQLite schema-rebuild migrations to populated databases
+
+- Type: problem
+- Status: resolved
+- Evidence: Migration `0011_deep_captain_britain` rebuilds the `channels` table while
+  existing publications, publishers, and profile records reference it. The SQL
+  correctly requests `PRAGMA foreign_keys=OFF`, but Drizzle starts its SQLite
+  migration transaction before executing that statement. SQLite ignores the pragma
+  change inside the transaction, so a populated local database fails at `DROP TABLE
+  channels` with a foreign-key constraint error even though a fresh empty database
+  succeeds.
+- Impact: A normal development restart can fail after a schema evolution as soon as
+  the local database contains real project data. Resetting the database would hide
+  the migration defect and discard useful local validation state.
+- Desired outcome: Trusted SQLite migrations can perform their committed table
+  rebuilds against populated development databases, while foreign-key enforcement
+  remains active during normal application work and the final schema is checked
+  before migration startup completes.
+- Tasks: OPS-73 (completed)
+- Related issue: ISSUE-008
+- Resolution: The migration runner now disables foreign-key enforcement before
+  Drizzle opens its migration transaction, runs `PRAGMA foreign_key_check` after the
+  migration, and restores the previous pragma state. Regression coverage applies the
+  channel lifecycle migration to a populated database with foreign keys enabled. The
+  existing local database migrated from 11 to 12 entries without losing its 3
+  projects, 5 channels, or 8 publications.
