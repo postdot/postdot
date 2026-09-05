@@ -180,7 +180,14 @@ export function PublicationCalendarPage() {
                 <p className="mt-5 text-sm text-muted-foreground">
                     {unscheduledPublications.length} publication
                     {unscheduledPublications.length === 1 ? '' : 's'} remain outside the calendar
-                    until a time is chosen. Review them from the Queue.
+                    until a time is chosen.{' '}
+                    <Link
+                        className="text-primary underline-offset-4 hover:text-foreground hover:underline"
+                        params={{ projectId: project.id }}
+                        to="/dashboard/projects/$projectId/queue">
+                        Review the Queue
+                    </Link>
+                    .
                 </p>
             ) : null}
         </main>
