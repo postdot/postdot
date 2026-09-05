@@ -5,6 +5,7 @@ import { Link } from '@tanstack/react-router'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { AttentionPanel, PublicationList } from '@/components/dashboard-publication-parts'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
+import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 
 export function PublicationQueuePage() {
@@ -37,24 +38,15 @@ export function PublicationQueuePage() {
                 </p>
             </DashboardPageHeader>
 
-            <div
-                aria-label="Queue summary"
-                className="flex flex-wrap items-center gap-x-5 gap-y-1.5 bg-muted px-3 py-2.5 text-sm text-muted-foreground sm:px-4">
-                <span>
-                    <strong className="font-medium text-foreground">{publications.length}</strong>{' '}
-                    total
-                </span>
-                <span>
-                    <strong className="font-medium text-foreground">{manualCount}</strong> manual
-                </span>
-                <span>
-                    <strong className="font-medium text-foreground">{automaticCount}</strong>{' '}
-                    automatic
-                </span>
-                <span className={due.length > 0 ? 'text-state-attention' : undefined}>
-                    <strong className="font-medium text-current">{due.length}</strong> due
-                </span>
-            </div>
+            <PublicationSummaryBar
+                ariaLabel="Queue summary"
+                items={[
+                    { id: 'total', label: 'total', value: publications.length },
+                    { id: 'manual', label: 'manual', value: manualCount },
+                    { id: 'automatic', label: 'automatic', value: automaticCount },
+                    { attention: due.length > 0, id: 'due', label: 'due', value: due.length },
+                ]}
+            />
 
             <div className="mt-7 grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
                 <section className="min-w-0">

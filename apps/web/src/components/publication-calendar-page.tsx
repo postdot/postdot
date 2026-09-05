@@ -13,6 +13,7 @@ import {
     PublicationCalendarAgenda,
     PublicationCalendarMonth,
 } from '@/components/publication-calendar-view'
+import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import {
     createCalendarMonth,
@@ -72,26 +73,23 @@ export function PublicationCalendarPage() {
                 </p>
             </DashboardPageHeader>
 
-            <div
-                aria-label="Calendar summary"
-                className="flex flex-wrap items-center gap-x-5 gap-y-1.5 bg-muted px-3 py-2.5 text-sm text-muted-foreground sm:px-4">
-                <span>
-                    <strong className="font-medium text-foreground">
-                        {scheduledPublications.length}
-                    </strong>{' '}
-                    scheduled
-                </span>
-                <span>
-                    <strong className="font-medium text-foreground">
-                        {unscheduledPublications.length}
-                    </strong>{' '}
-                    unscheduled
-                </span>
-                <span className={due.length > 0 ? 'text-state-attention' : undefined}>
-                    <strong className="font-medium text-current">{due.length}</strong> needs
-                    attention
-                </span>
-            </div>
+            <PublicationSummaryBar
+                ariaLabel="Calendar summary"
+                items={[
+                    { id: 'scheduled', label: 'scheduled', value: scheduledPublications.length },
+                    {
+                        id: 'unscheduled',
+                        label: 'unscheduled',
+                        value: unscheduledPublications.length,
+                    },
+                    {
+                        attention: due.length > 0,
+                        id: 'attention',
+                        label: 'needs attention',
+                        value: due.length,
+                    },
+                ]}
+            />
 
             <section aria-labelledby="calendar-month" className="mt-7 min-w-0">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
