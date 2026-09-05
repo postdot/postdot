@@ -108,7 +108,7 @@ function PublicationTargetCard({
         <div className="space-y-4 rounded-md bg-background/70 p-4 shadow-field sm:p-5">
             <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                    <p className="text-xs font-medium text-muted-foreground">
                         Destination {index + 1}
                     </p>
                     <p className="mt-1 truncate text-sm font-medium">{channelLabel}</p>
