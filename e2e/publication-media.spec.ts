@@ -228,25 +228,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/channels$/)
 
-    const channelForm = page.locator('form').filter({ has: page.locator('#new-channel-name') })
-    const channelFormLayout = await channelForm.evaluate(form => {
-        const controls = [
-            form.querySelector('#new-channel-name'),
-            form.querySelector('#new-channel-profile'),
-            form.querySelector('button[type="submit"]'),
-        ]
-        const rectangles = controls.map(control => {
-            if (!control) return null
-            const rectangle = control.getBoundingClientRect()
-            return { height: rectangle.height, top: rectangle.top }
-        })
-        return rectangles
-    })
-    expect(channelFormLayout).toEqual([
-        { height: 40, top: channelFormLayout[0]?.top },
-        { height: 40, top: channelFormLayout[0]?.top },
-        { height: 40, top: channelFormLayout[0]?.top },
-    ])
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByLabel('Channel name')).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Profile', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
 
     await page.getByRole('link', { name: 'Compose', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose$/)
@@ -275,15 +261,19 @@ test('persists mixed and media-only publications through the dashboard', async (
     })
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
-    await page.getByLabel('Channel name').fill(channelName)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    await expect(page.locator('li').filter({ hasText: channelName }).first()).toBeVisible()
+    await page.getByLabel('Channel name').fill(channelName)
+    await page.getByRole('button', { name: 'Create channel', exact: true }).click()
+    await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     const channelProfile = page.getByRole('combobox', { name: 'Profile', exact: true })
     await channelProfile.click()
     await page.getByRole('option', { name: 'LinkedIn text', exact: true }).click()
     await page.getByLabel('Channel name').fill(secondChannelName)
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    await expect(page.locator('li').filter({ hasText: secondChannelName }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Create channel', exact: true }).click()
+    await expect(
+        page.getByRole('paragraph').filter({ hasText: secondChannelName }).first()
+    ).toBeVisible()
     const channelSidebarLayout = await page
         .locator('[data-slot="sidebar-menu-item"]')
         .filter({ hasText: channelName })

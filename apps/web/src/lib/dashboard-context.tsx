@@ -9,14 +9,16 @@ import {
 } from 'react'
 
 import {
-    ApiError,
     api,
     type Channel,
+    type ChannelCreationProfile,
+    type CustomHttpAuthentication,
     type DuePublication,
     type LinkedInConnectionDestination,
     type Project,
     type PublisherConnection,
     type PublicationSummary,
+    formatApiError,
 } from '@/lib/api'
 import {
     dateTimeLocalErrorMessage,
@@ -25,8 +27,6 @@ import {
 } from '@/lib/date-time'
 import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
 import type { MediaSelection } from '@/lib/target-media'
-
-export type ChannelProfile = 'manual-message' | 'linkedin'
 
 export interface ProjectData {
     readonly channels: Channel[]
@@ -95,14 +95,29 @@ export function useDashboardGlobal() {
 }
 
 export interface ProjectDashboardContextValue extends ProjectData {
-    readonly channelName: string
-    readonly channelProfile: ChannelProfile
+    readonly activeChannels: readonly Channel[]
     readonly error: string | null
-    readonly onChannelNameChange: (value: string) => void
-    readonly onChannelProfileChange: (value: ChannelProfile) => void
-    readonly onCreateChannel: (event: FormEvent<HTMLFormElement>) => void
+    readonly onArchiveChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
+    readonly onConnectCustomHttpPublisher: (
+        channelId: string,
+        input: {
+            endpointUrl: string
+            authentication: CustomHttpAuthentication
+            externalAccountName?: string | null
+            secret: string
+        }
+    ) => Promise<boolean>
+    readonly onCreateChannel: (name: string, profile: ChannelCreationProfile) => Promise<boolean>
     readonly onCreatePost: (event: FormEvent<HTMLFormElement>) => void
+    readonly onDeleteChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
+    readonly onRefreshProject: () => Promise<void>
+    readonly onRenameChannel: (
+        channelId: string,
+        name: string,
+        expectedRevision: number
+    ) => Promise<boolean>
+    readonly onRestoreChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
     readonly onPostContentChange: (value: string) => void
     readonly onPostTitleChange: (value: string) => void
     readonly onPublicationTargetsChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
@@ -132,23 +147,26 @@ export function ProjectDashboardProvider({
     readonly project: Project
 }) {
     const [data, setData] = useState<ProjectData>(initialData)
-    const [channelName, setChannelName] = useState('')
-    const [channelProfile, setChannelProfile] = useState<ChannelProfile>('manual-message')
     const [postTitle, setPostTitle] = useState('')
     const [postContent, setPostContent] = useState('')
     const [sourceMedia, setSourceMedia] = useState<MediaSelection[]>([])
     const [publicationTargets, setPublicationTargets] = useState<PublicationTargetDraft[]>(() => [
-        createPublicationTarget(initialData.channels[0]?.id ?? '', project.timeZone),
+        createPublicationTarget(
+            initialData.channels.find(channel => channel.state === 'active')?.id ?? '',
+            project.timeZone
+        ),
     ])
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    async function handleCreateChannel(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault()
-        if (channelName.trim() === '') return
+    async function handleCreateChannel(
+        name: string,
+        profile: ChannelCreationProfile
+    ): Promise<boolean> {
+        if (name.trim() === '') return false
 
-        await runAction(async () => {
-            const response = await api.createChannel(project.id, channelName, channelProfile)
+        return runAction(async () => {
+            const response = await api.createChannel(project.id, name.trim(), profile)
             setData(current => ({ ...current, channels: [...current.channels, response.channel] }))
             setPublicationTargets(current =>
                 current.map((target, index) =>
@@ -157,8 +175,6 @@ export function ProjectDashboardProvider({
                         : target
                 )
             )
-            setChannelName('')
-            setChannelProfile('manual-message')
         })
     }
 
@@ -184,7 +200,7 @@ export function ProjectDashboardProvider({
                 return null
             }
 
-            const selectedChannel = data.channels.find(channel => channel.id === target.channelId)
+            const selectedChannel = activeChannels.find(channel => channel.id === target.channelId)
             if (selectedChannel === undefined) return null
 
             const copy = target.content.trim()
@@ -230,7 +246,7 @@ export function ProjectDashboardProvider({
             setPostContent('')
             setSourceMedia([])
             setPublicationTargets([
-                createPublicationTarget(data.channels[0]?.id ?? '', project.timeZone),
+                createPublicationTarget(activeChannels[0]?.id ?? '', project.timeZone),
             ])
             await refreshProject()
         })
@@ -264,38 +280,145 @@ export function ProjectDashboardProvider({
         })
     }
 
+    async function handleConnectCustomHttpPublisher(
+        channelId: string,
+        input: {
+            endpointUrl: string
+            authentication: CustomHttpAuthentication
+            externalAccountName?: string | null
+            secret: string
+        }
+    ): Promise<boolean> {
+        return runAction(async () => {
+            await api.connectCustomHttpPublisher(project.id, channelId, input)
+            await refreshProject()
+        })
+    }
+
+    async function handleRenameChannel(
+        channelId: string,
+        name: string,
+        expectedRevision: number
+    ): Promise<boolean> {
+        return runAction(async () => {
+            const response = await api.renameChannel(
+                project.id,
+                channelId,
+                name.trim(),
+                expectedRevision
+            )
+            setData(current => ({
+                ...current,
+                channels: current.channels.map(channel =>
+                    channel.id === response.channel.id ? response.channel : channel
+                ),
+            }))
+        })
+    }
+
+    async function handleArchiveChannel(
+        channelId: string,
+        expectedRevision: number
+    ): Promise<boolean> {
+        return runAction(async () => {
+            const response = await api.archiveChannel(project.id, channelId, expectedRevision)
+            setData(current => ({
+                ...current,
+                channels: current.channels.map(channel =>
+                    channel.id === response.channel.id ? response.channel : channel
+                ),
+            }))
+            setPublicationTargets(current =>
+                current.map(target =>
+                    target.channelId === channelId ? { ...target, channelId: '' } : target
+                )
+            )
+        })
+    }
+
+    async function handleRestoreChannel(
+        channelId: string,
+        expectedRevision: number
+    ): Promise<boolean> {
+        return runAction(async () => {
+            const response = await api.restoreChannel(project.id, channelId, expectedRevision)
+            setData(current => ({
+                ...current,
+                channels: current.channels.map(channel =>
+                    channel.id === response.channel.id ? response.channel : channel
+                ),
+            }))
+        })
+    }
+
+    async function handleDeleteChannel(
+        channelId: string,
+        expectedRevision: number
+    ): Promise<boolean> {
+        return runAction(async () => {
+            await api.deleteChannel(project.id, channelId, expectedRevision)
+            setData(current => ({
+                ...current,
+                channels: current.channels.filter(channel => channel.id !== channelId),
+            }))
+            setPublicationTargets(current =>
+                current.map(target =>
+                    target.channelId === channelId ? { ...target, channelId: '' } : target
+                )
+            )
+            await refreshProject()
+        })
+    }
+
     async function refreshProject() {
         const nextData = await loadProjectData(project.id)
         setData(nextData)
-        setPublicationTargets(current =>
-            current.length === 0
-                ? [createPublicationTarget(nextData.channels[0]?.id ?? '', project.timeZone)]
-                : current
-        )
+        setPublicationTargets(current => {
+            const nextActiveChannelId = nextData.channels.find(
+                channel => channel.state === 'active'
+            )?.id
+            const repaired = current.map(target =>
+                nextData.channels.some(
+                    channel => channel.id === target.channelId && channel.state === 'active'
+                )
+                    ? target
+                    : { ...target, channelId: nextActiveChannelId ?? '' }
+            )
+            return repaired.length === 0
+                ? [createPublicationTarget(nextActiveChannelId ?? '', project.timeZone)]
+                : repaired
+        })
     }
 
-    async function runAction(action: () => Promise<void>) {
+    async function runAction(action: () => Promise<void>): Promise<boolean> {
         setError(null)
         setPending(true)
         try {
             await action()
+            return true
         } catch (caughtError) {
-            setError(errorMessage(caughtError))
+            setError(formatApiError(caughtError))
+            return false
         } finally {
             setPending(false)
         }
     }
 
+    const activeChannels = data.channels.filter(channel => channel.state === 'active')
+
     const value: ProjectDashboardContextValue = {
         ...data,
-        channelName,
-        channelProfile,
+        activeChannels,
         error,
-        onChannelNameChange: setChannelName,
-        onChannelProfileChange: setChannelProfile,
-        onCreateChannel: event => void handleCreateChannel(event),
+        onArchiveChannel: handleArchiveChannel,
+        onConnectCustomHttpPublisher: handleConnectCustomHttpPublisher,
+        onCreateChannel: handleCreateChannel,
         onCreatePost: event => void handleCreatePost(event),
+        onDeleteChannel: handleDeleteChannel,
         onDisconnectPublisher: handleDisconnectPublisher,
+        onRefreshProject: refreshProject,
+        onRenameChannel: handleRenameChannel,
+        onRestoreChannel: handleRestoreChannel,
         onPostContentChange: setPostContent,
         onPostTitleChange: setPostTitle,
         onPublicationTargetsChange: setPublicationTargets,
@@ -323,8 +446,4 @@ export function useProjectDashboard() {
         throw new Error('useProjectDashboard must be used inside a project dashboard route')
     }
     return context
-}
-
-function errorMessage(error: unknown) {
-    return error instanceof ApiError ? error.message : 'The action could not be completed'
 }

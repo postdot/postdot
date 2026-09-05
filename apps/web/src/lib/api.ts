@@ -37,15 +37,43 @@ export type LinkedInConnectionDestination =
     | { readonly type: 'member' }
     | { readonly type: 'organization'; readonly id: string }
 
+export interface RuntimeChannelProfile {
+    readonly id: string
+    readonly version: number
+    readonly profileHash: string
+    readonly schemaHash: string
+    readonly origin: 'custom'
+    readonly contentSchema: unknown
+    readonly fieldBindings: unknown
+    readonly capabilities: unknown
+    readonly execution: unknown
+}
+
+export type ChannelCreationProfile = 'manual-message' | 'linkedin' | RuntimeChannelProfile
+
+export type CustomHttpAuthentication =
+    | { readonly kind: 'none' }
+    | { readonly kind: 'bearer' }
+    | { readonly kind: 'header'; readonly headerName: string }
+
+export type ChannelLifecycleBlocker =
+    | 'active_work'
+    | 'pending_authorization'
+    | 'publications'
+    | 'publisher'
+    | 'must_be_archived'
+
 export class ApiError extends Error {
     readonly status: number
     readonly code: string
+    readonly blockers: readonly string[]
 
-    constructor(status: number, code: string, message: string) {
+    constructor(status: number, code: string, message: string, blockers: readonly string[] = []) {
         super(message)
         this.name = 'ApiError'
         this.status = status
         this.code = code
+        this.blockers = blockers
     }
 }
 
@@ -53,6 +81,7 @@ interface ErrorBody {
     readonly error?: {
         readonly code?: string
         readonly message?: string
+        readonly blockers?: readonly string[]
     }
 }
 
@@ -65,7 +94,8 @@ function errorFrom(status: number, value: unknown) {
     return new ApiError(
         status,
         body?.code ?? 'request_failed',
-        body?.message ?? 'The request could not be completed'
+        body?.message ?? 'The request could not be completed',
+        body?.blockers?.filter((blocker): blocker is string => typeof blocker === 'string') ?? []
     )
 }
 
@@ -300,10 +330,81 @@ export const api = {
     async createChannel(
         projectId: string,
         name: string,
-        profile: 'manual-message' | 'linkedin' = 'manual-message'
+        profile: ChannelCreationProfile = 'manual-message'
     ): Promise<{ channel: Channel }> {
         return unwrap<{ channel: Channel }>(
             await client.api.projects({ projectId }).channels.post({ name, profile })
+        )
+    },
+
+    async renameChannel(
+        projectId: string,
+        channelId: string,
+        name: string,
+        expectedRevision: number
+    ): Promise<{ channel: Channel }> {
+        return unwrap<{ channel: Channel }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .patch({ name, expectedRevision })
+        )
+    },
+
+    async archiveChannel(
+        projectId: string,
+        channelId: string,
+        expectedRevision: number
+    ): Promise<{ channel: Channel }> {
+        return unwrap<{ channel: Channel }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .archive.post({ expectedRevision })
+        )
+    },
+
+    async restoreChannel(
+        projectId: string,
+        channelId: string,
+        expectedRevision: number
+    ): Promise<{ channel: Channel }> {
+        return unwrap<{ channel: Channel }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .restore.post({ expectedRevision })
+        )
+    },
+
+    async deleteChannel(
+        projectId: string,
+        channelId: string,
+        expectedRevision: number
+    ): Promise<{ deleted: true }> {
+        return unwrap<{ deleted: true }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .delete({ expectedRevision })
+        )
+    },
+
+    async connectCustomHttpPublisher(
+        projectId: string,
+        channelId: string,
+        input: {
+            endpointUrl: string
+            authentication: CustomHttpAuthentication
+            externalAccountName?: string | null
+            secret: string
+        }
+    ): Promise<{ connection: PublisherConnection }> {
+        return unwrap<{ connection: PublisherConnection }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher['custom-http'].connect.post(input)
         )
     },
 
@@ -433,3 +534,20 @@ export type {
     Publication,
     PublicationSummary,
 } from '@herald/client'
+
+export function formatApiError(error: unknown): string {
+    if (!(error instanceof ApiError)) return 'The action could not be completed'
+    if (error.blockers.length === 0) return error.message
+
+    const labels = error.blockers.map(channelLifecycleBlockerLabel).join(', ')
+    return `${error.message}: ${labels}.`
+}
+
+function channelLifecycleBlockerLabel(blocker: string): string {
+    if (blocker === 'active_work') return 'active publication work'
+    if (blocker === 'pending_authorization') return 'a pending publisher authorization'
+    if (blocker === 'publications') return 'publication history'
+    if (blocker === 'publisher') return 'a connected publisher'
+    if (blocker === 'must_be_archived') return 'the channel must be archived first'
+    return blocker
+}

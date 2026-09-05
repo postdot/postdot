@@ -222,11 +222,17 @@ export function DashboardShell({
                                     {channels.map(channel => {
                                         const connection = connectionsByChannel.get(channel.id)
                                         const channelState =
-                                            channel.profileId === 'linkedin'
-                                                ? connection?.state === 'active'
+                                            channel.state === 'archived'
+                                                ? 'Archived'
+                                                : channel.profileId === 'linkedin'
+                                                  ? connection?.state === 'active'
+                                                      ? 'Connected'
+                                                      : 'Needs connection'
+                                                  : connection?.state === 'active'
                                                     ? 'Connected'
-                                                    : 'Needs connection'
-                                                : 'Manual'
+                                                    : channel.profileId === 'manual-message'
+                                                      ? 'Manual'
+                                                      : 'Needs connection'
 
                                         return (
                                             <SidebarMenuItem key={channel.id}>

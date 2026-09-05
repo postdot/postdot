@@ -1,5 +1,13 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
+import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@herald/ui/components/dropdown-menu'
 import {
     Empty,
     EmptyDescription,
@@ -7,43 +15,72 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@herald/ui/components/empty'
-import { Input } from '@herald/ui/components/input'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@herald/ui/components/select'
-import { AddIcon } from '@solar-icons/react/bold/add'
+import { ArchiveIcon } from '@solar-icons/react/bold/archive'
 import { LinkIcon } from '@solar-icons/react/bold/link'
+import { MenuDotsIcon } from '@solar-icons/react/bold/menu-dots'
+import { Pen2Icon } from '@solar-icons/react/bold/pen-2'
+import { RestartIcon } from '@solar-icons/react/bold/restart'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { useState } from 'react'
 
-import { DashboardFormField } from '@/components/dashboard-form-field'
+import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
+import {
+    ChannelLifecycleDialog,
+    type ChannelLifecycleAction,
+} from '@/components/channel-lifecycle-dialog'
+import { ChannelProfileEditorDialog } from '@/components/channel-profile-editor-dialog'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { channelMarkerClass, channelProfileLabel } from '@/components/dashboard-publication-parts'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
+import type { Channel } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 
 export function ChannelManagementPage() {
     const {
-        channelName,
-        channelProfile,
         channels,
         connections,
         error,
-        onChannelNameChange,
-        onChannelProfileChange,
+        onArchiveChannel,
+        onConnectCustomHttpPublisher,
         onCreateChannel,
+        onDeleteChannel,
         onDisconnectPublisher,
+        onRefreshProject,
+        onRenameChannel,
+        onRestoreChannel,
         onStartLinkedInConnection,
         pending,
         project,
     } = useProjectDashboard()
+    const [profileChannel, setProfileChannel] = useState<Channel | null>(null)
+    const [lifecycle, setLifecycle] = useState<{
+        readonly action: ChannelLifecycleAction
+        readonly channel: Channel
+    } | null>(null)
+
+    async function handleLifecycleAction(
+        action: ChannelLifecycleAction,
+        channel: Channel,
+        name: string
+    ): Promise<boolean> {
+        const completed =
+            action === 'rename'
+                ? await onRenameChannel(channel.id, name, channel.revision)
+                : action === 'archive'
+                  ? await onArchiveChannel(channel.id, channel.revision)
+                  : action === 'restore'
+                    ? await onRestoreChannel(channel.id, channel.revision)
+                    : await onDeleteChannel(channel.id, channel.revision)
+        if (completed) setLifecycle(null)
+        return completed
+    }
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader title="Channels">
+            <DashboardPageHeader
+                action={<ChannelCreationDialog onCreate={onCreateChannel} pending={pending} />}
+                title="Channels">
                 <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
             </DashboardPageHeader>
 
@@ -65,25 +102,13 @@ export function ChannelManagementPage() {
                 {channels.length > 0 ? (
                     <div className="mt-4 divide-y divide-border/70">
                         {channels.map(channel => (
-                            <div
+                            <ChannelRow
                                 key={channel.id}
-                                className="flex min-w-0 flex-col gap-3 px-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-3">
-                                <div className="flex min-w-0 items-center gap-3">
-                                    <span
-                                        className={`size-2.5 shrink-0 rounded-full bg-current ${channelMarkerClass(channel.profileId)}`}
-                                        aria-hidden="true"
-                                    />
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-medium">
-                                            {channel.name}
-                                        </p>
-                                        <p className="mt-1 truncate text-xs text-muted-foreground">
-                                            {channelProfileLabel(channel.profileId)} · profile v
-                                            {channel.profileVersionId.slice(0, 8)}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                                channel={channel}
+                                disabled={pending}
+                                onEditProfile={() => setProfileChannel(channel)}
+                                onLifecycleAction={action => setLifecycle({ action, channel })}
+                            />
                         ))}
                     </div>
                 ) : (
@@ -101,56 +126,117 @@ export function ChannelManagementPage() {
                 )}
             </section>
 
-            <form
-                className="mt-7 grid gap-4 rounded-lg bg-muted p-4 shadow-surface sm:p-5 md:grid-cols-[minmax(0,1fr)_13rem_auto] md:items-end"
-                onSubmit={onCreateChannel}>
-                <DashboardFormField label="Channel name" htmlFor="new-channel-name">
-                    <Input
-                        id="new-channel-name"
-                        required
-                        value={channelName}
-                        onChange={event => onChannelNameChange(event.target.value)}
-                        placeholder="Community forum"
-                    />
-                </DashboardFormField>
-                <DashboardFormField label="Profile" htmlFor="new-channel-profile">
-                    <Select
-                        items={{
-                            'manual-message': 'Manual message',
-                            linkedin: 'LinkedIn text',
-                        }}
-                        value={channelProfile}
-                        onValueChange={value =>
-                            onChannelProfileChange(value as 'manual-message' | 'linkedin')
-                        }>
-                        <SelectTrigger id="new-channel-profile">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                            <SelectItem value="manual-message">Manual message</SelectItem>
-                            <SelectItem value="linkedin">LinkedIn text</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </DashboardFormField>
-                <Button size="lg" type="submit" className="w-full md:w-auto" disabled={pending}>
-                    <AddIcon aria-hidden="true" />
-                    Add channel
-                </Button>
-            </form>
-            <p className="mt-2 px-1 text-xs text-muted-foreground sm:px-3">
-                Manual message is the default profile. Connect an automatic publisher later if the
-                channel supports it.
-            </p>
-
             <div className="mt-10">
                 <PublisherConnectionPanel
                     channels={channels}
                     connections={connections}
                     pending={pending}
+                    onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
                     onStartLinkedInConnection={onStartLinkedInConnection}
                     onDisconnectPublisher={onDisconnectPublisher}
                 />
             </div>
+
+            <ChannelProfileEditorDialog
+                channel={profileChannel}
+                open={profileChannel !== null}
+                pending={pending}
+                onOpenChange={open => {
+                    if (!open) setProfileChannel(null)
+                }}
+                onRefreshProject={onRefreshProject}
+            />
+            <ChannelLifecycleDialog
+                action={lifecycle?.action ?? null}
+                channel={lifecycle?.channel ?? null}
+                open={lifecycle !== null}
+                pending={pending}
+                onAction={handleLifecycleAction}
+                onOpenChange={open => {
+                    if (!open) setLifecycle(null)
+                }}
+            />
         </main>
+    )
+}
+
+function ChannelRow({
+    channel,
+    disabled,
+    onEditProfile,
+    onLifecycleAction,
+}: {
+    readonly channel: Channel
+    readonly disabled: boolean
+    readonly onEditProfile: () => void
+    readonly onLifecycleAction: (action: ChannelLifecycleAction) => void
+}) {
+    const archived = channel.state === 'archived'
+
+    return (
+        <div className="flex min-w-0 flex-col gap-3 px-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-3">
+            <div className="flex min-w-0 items-center gap-3">
+                <span
+                    className={`size-2.5 shrink-0 rounded-full bg-current ${channelMarkerClass(channel.profileId)} ${archived ? 'opacity-35' : ''}`}
+                    aria-hidden="true"
+                />
+                <div className="min-w-0">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <p className="truncate text-sm font-medium">{channel.name}</p>
+                        <Badge variant={archived ? 'outline' : 'secondary'}>
+                            {archived ? 'Archived' : 'Active'}
+                        </Badge>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {channelProfileLabel(channel.profileId)} · profile v
+                        {channel.profileVersionId.slice(0, 8)}
+                    </p>
+                </div>
+            </div>
+
+            <DropdownMenu>
+                <DropdownMenuTrigger
+                    render={
+                        <Button
+                            aria-label={`Manage ${channel.name}`}
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={disabled}>
+                            <MenuDotsIcon aria-hidden="true" />
+                        </Button>
+                    }
+                />
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={onEditProfile}>
+                        <Pen2Icon aria-hidden="true" />
+                        Edit profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onLifecycleAction('rename')}>
+                        <Pen2Icon aria-hidden="true" />
+                        Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {archived ? (
+                        <DropdownMenuItem onClick={() => onLifecycleAction('restore')}>
+                            <RestartIcon aria-hidden="true" />
+                            Restore
+                        </DropdownMenuItem>
+                    ) : (
+                        <DropdownMenuItem onClick={() => onLifecycleAction('archive')}>
+                            <ArchiveIcon aria-hidden="true" />
+                            Archive
+                        </DropdownMenuItem>
+                    )}
+                    {archived ? (
+                        <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => onLifecycleAction('delete')}>
+                            <TrashBinMinimalisticIcon aria-hidden="true" />
+                            Delete permanently
+                        </DropdownMenuItem>
+                    ) : null}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
     )
 }

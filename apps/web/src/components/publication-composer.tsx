@@ -14,7 +14,7 @@ import { useProjectDashboard } from '@/lib/dashboard-context'
 
 export function PublicationComposer() {
     const {
-        channels,
+        activeChannels,
         error,
         onCreatePost,
         onPostContentChange,
@@ -129,7 +129,7 @@ export function PublicationComposer() {
                         </div>
                         <div className="mt-5">
                             <PublicationTargetList
-                                channels={channels}
+                                channels={activeChannels}
                                 disabled={pending}
                                 onChange={onPublicationTargetsChange}
                                 targets={publicationTargets}
@@ -147,7 +147,7 @@ export function PublicationComposer() {
                                 : 'A human will complete this target from the due-work queue.'
                             : 'Each destination is scheduled independently and keeps its own delivery outcome.'}
                     </p>
-                    <Button type="submit" disabled={pending || channels.length === 0}>
+                    <Button type="submit" disabled={pending || activeChannels.length === 0}>
                         <CalendarAddIcon aria-hidden="true" />
                         {publicationTargets.length === 1
                             ? `Schedule ${publicationTargets[0]?.deliveryMode === 'automatic' ? 'automatic' : 'manual'} publication`
@@ -156,7 +156,7 @@ export function PublicationComposer() {
                 </div>
             </form>
 
-            {channels.length === 0 ? (
+            {activeChannels.length === 0 ? (
                 <p className="mt-3 text-sm text-muted-foreground">
                     Add a channel before scheduling a publication.
                 </p>
