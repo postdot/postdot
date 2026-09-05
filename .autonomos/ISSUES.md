@@ -648,6 +648,12 @@ exists` error. At the same time, the Vite development proxy always targets port
   the agent did not appear in the Codex task list and the final result was
   reported as technical `completed` while its report was marked interrupted.
   This proves neither operator visibility nor unambiguous cancellation.
+- Recheck (2026-09-05): the Codex app worktree creation route returned only a
+  preparation identifier (`clientThreadId`) for the Herald project. After
+  approximately 50 seconds, no corresponding task appeared in the Codex task
+  list and no new Herald worktree appeared in `git worktree list`. The
+  preparation identifier could not be used to inspect, interrupt, or clean up
+  the mission through the available control surface.
 - Impact: The orchestrator cannot safely promise that a delegated worktree task
   is observable or controllable by the operator, even though the explicit
   worktree fallback is traceable and safe.
