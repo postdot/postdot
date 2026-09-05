@@ -98,3 +98,6 @@
 - [x] **[TIME-70]** Define project scheduling timezone semantics before calendar expansion `Priority: 🔴` `Complexity: M`
 - [x] **[WEB-72]** Start publication composition from a project calendar date `Priority: 🟠` `Complexity: M`
 - [x] **[OPS-73]** Make populated SQLite schema-rebuild migrations safe `Priority: 🔴` `Complexity: S`
+- [/] **[PROVIDER-74]** Generalize built-in provider connection and destination boundaries before the next adapter `Priority: 🔴` `Complexity: L`
+- [ ] **[CHANNEL-75]** Add the first Bluesky built-in channel vertical slice after the provider boundary `Priority: 🔴` `Complexity: XL`
+- [ ] **[WEB-76]** Define and implement Herald's web client information architecture and UX system `Priority: 🔴` `Complexity: XL`

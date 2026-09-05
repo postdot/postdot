@@ -883,3 +883,70 @@ exists` error. At the same time, the Vite development proxy always targets port
   channel lifecycle migration to a populated database with foreign keys enabled. The
   existing local database migrated from 11 to 12 entries without losing its 3
   projects, 5 channels, or 8 publications.
+
+## [ISSUE-040] Generalize built-in provider connection boundaries before adding Bluesky
+
+- Type: problem
+- Status: accepted
+- Evidence: Built-in execution already resolves versioned adapters through a registry,
+  but publisher runtime construction, OAuth routes and callbacks, channel profile
+  resolution, and database connection normalization still contain LinkedIn-specific
+  branches. The current boundary is therefore suitable for one provider but does not
+  yet prove that a second built-in provider can be added without expanding central
+  hotspots.
+- Impact: Adding Bluesky directly would spread provider-specific authentication,
+  destination, credential, and profile assumptions through generic application code.
+  That would make provider behavior harder to test and would risk treating a provider's
+  account model as a universal Herald model.
+- Desired outcome: Each built-in provider owns its identity, connection flow,
+  destination rules, profile definition, credential requirements, and execution adapter
+  behind explicit application ports. Shared code owns orchestration, project scope,
+  encrypted credential persistence, OAuth-attempt lifecycle, and generic outcomes.
+  Custom HTTP remains a separate declarative execution kind.
+- Alternatives: Keep adding provider branches to LinkedIn-shaped routes and stores;
+  introduce a universal provider DSL; or split providers into processes. The first
+  preserves the current hotspot, the second hides provider truth, and the third adds
+  deployment and coordination cost without evidence. None is selected.
+- Tasks: PROVIDER-74
+- Related decision: ADR-033
+
+## [ISSUE-041] Add Bluesky as the next built-in provider after the boundary extraction
+
+- Type: proposal
+- Status: open
+- Evidence: Herald currently has one production-relevant built-in provider. Bluesky
+  exercises a materially different account and API model from LinkedIn, including
+  repository/PDS identity and provider-specific authorization and media handling.
+- Impact: A second provider can reveal whether the shared channel profile, target
+  revision, credential, media delivery, outcome, and retry contracts are genuinely
+  reusable or only LinkedIn-shaped.
+- Desired outcome: A deterministic Bluesky vertical slice covers provider-owned
+  profile and capability rules, project-owned connection credentials, authenticated
+  text and supported image publication, provider-specific error mapping, and isolated
+  tests without weakening the existing LinkedIn path. The authentication mechanism
+  must be selected from current provider evidence before implementation; no OAuth or
+  app-password behavior is assumed silently.
+- Tasks: CHANNEL-75 (after PROVIDER-74)
+- Related issue: ISSUE-040
+
+## [ISSUE-042] Treat the web application as a dedicated client architecture project
+
+- Type: proposal
+- Status: accepted
+- Evidence: The web application is the most visible Herald client, but its current
+  navigation, composition, calendar, queue, channel, and media surfaces were built
+  incrementally while backend foundations were being established. The owner explicitly
+  rejects a short visual or UX pass and wants the client judged by information
+  architecture, discoverability, workflow clarity, accessibility, and calm operation.
+- Impact: Incremental UI additions can preserve local screens while making the product
+  harder to navigate, more scroll-heavy, and less coherent. This would obscure the
+  strength of the backend and make later redesigns more expensive.
+- Desired outcome: A dedicated web-client workstream defines the application shell,
+  project context, navigation hierarchy, primary workflows, responsive behavior,
+  information density, accessibility rules, component ownership, and validation method
+  before broad feature expansion. The result must remain a client of stable API/domain
+  contracts rather than becoming a second source of business rules.
+- Scope boundary: This is not a landing-page or branding exercise. Authenticated app
+  IA and interaction design come first; visual tokens and component calibration support
+  that structure. Public marketing pages remain out of scope unless separately accepted.
+- Tasks: WEB-76 (after the provider and Bluesky slices provide the next backend evidence)
