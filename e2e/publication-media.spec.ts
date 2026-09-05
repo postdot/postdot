@@ -221,6 +221,19 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
     await expect(page.getByRole('heading', { name: 'Calendar', level: 1 })).toBeVisible()
     await expect(page.getByText('No scheduled publications', { exact: true })).toBeVisible()
+    const emptyCalendarNewPublication = page.getByRole('button', {
+        name: 'New publication',
+        exact: true,
+    })
+    await expect(emptyCalendarNewPublication).toHaveAttribute(
+        'href',
+        /\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/
+    )
+    await emptyCalendarNewPublication.click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
+    await expect(page.getByLabel('Scheduled for').first()).toHaveValue(/T09:00$/)
+    await page.goBack()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
 
     await page.goto('/dashboard')
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
@@ -358,6 +371,15 @@ test('persists mixed and media-only publications through the dashboard', async (
     const calendarMonth = page.locator('[data-calendar-view="month"]')
     await expect(calendarMonth).toBeVisible()
     await expect(calendarMonth.getByRole('link').filter({ hasText: mixedTitle })).toHaveCount(2)
+    const emptyCalendarDay = calendarMonth
+        .getByRole('link', { name: /Create publication on/ })
+        .first()
+    await expect(emptyCalendarDay).toBeVisible()
+    await emptyCalendarDay.click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
+    await expect(page.getByLabel('Scheduled for').first()).toHaveValue(/T09:00$/)
+    await page.goBack()
+    await expect(calendarMonth).toBeVisible()
     await page.getByRole('button', { name: 'Next month', exact: true }).click()
     await expect(page.getByText(/Nothing is scheduled in /)).toBeVisible()
     await page.getByRole('button', { name: 'Today', exact: true }).click()

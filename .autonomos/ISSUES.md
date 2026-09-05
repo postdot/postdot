@@ -764,7 +764,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-034] Create publications directly from calendar planning
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The project calendar currently presents scheduled publications and
   planning states, but an empty day does not start composition with that date
   carried into the scheduling flow.
@@ -773,8 +773,15 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: A calendar interaction can start a new publication with an
   explicit date context while preserving the editor's draft, validation, and
   promotion boundaries across desktop and small screens.
-- Tasks: to be triaged
+- Tasks: WEB-72 (calendar-to-compose date context)
 - Related issue: ISSUE-019
+- Resolution: Empty calendar days now open the project compose route with a
+  validated civil date in the URL. The composer initializes the first target
+  at 09:00 in the project timezone while keeping the schedule editable; the
+  calendar header and mobile date control provide the same explicit context.
+  Existing publication links still open their detail route, and no publication
+  is created until the owner submits the form.
+- Verification: The focused browser flow and the full repository gate pass.
 
 ## [ISSUE-035] Define project scheduling timezone semantics
 

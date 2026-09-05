@@ -1,4 +1,5 @@
 import { Button } from '@herald/ui/components/button'
+import { Input } from '@herald/ui/components/input'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
@@ -18,6 +19,7 @@ import {
     getUnscheduledPublications,
     shiftCalendarMonth,
     startOfCalendarMonth,
+    toDateKey,
 } from '@/lib/publication-calendar'
 
 export function PublicationCalendarPage() {
@@ -25,6 +27,8 @@ export function PublicationCalendarPage() {
     const [monthCursor, setMonthCursor] = useState(() =>
         startOfCalendarMonth(new Date(), project.timeZone)
     )
+    const todayDate = toDateKey(new Date(), project.timeZone)
+    const [mobileCreateDate, setMobileCreateDate] = useState(todayDate)
     const month = useMemo(
         () => createCalendarMonth(monthCursor, publications, new Date(), project.timeZone),
         [monthCursor, project.timeZone, publications]
@@ -53,8 +57,9 @@ export function PublicationCalendarPage() {
                         nativeButton={false}
                         render={
                             <Link
-                                to="/dashboard/projects/$projectId/compose"
                                 params={{ projectId: project.id }}
+                                search={{ date: todayDate }}
+                                to="/dashboard/projects/$projectId/compose"
                             />
                         }>
                         <CalendarMinimalisticIcon aria-hidden="true" />
@@ -123,11 +128,36 @@ export function PublicationCalendarPage() {
                 </div>
 
                 <div className="mt-4">
+                    <div className="mb-4 flex items-end gap-3 md:hidden">
+                        <label className="min-w-0 flex-1 text-sm text-muted-foreground">
+                            <span className="mb-1.5 block text-xs font-medium text-foreground">
+                                Plan a date
+                            </span>
+                            <Input
+                                aria-label="Plan a date"
+                                type="date"
+                                value={mobileCreateDate}
+                                onChange={event => setMobileCreateDate(event.target.value)}
+                            />
+                        </label>
+                        <Button
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    params={{ projectId: project.id }}
+                                    search={{ date: mobileCreateDate }}
+                                    to="/dashboard/projects/$projectId/compose"
+                                />
+                            }>
+                            New
+                        </Button>
+                    </div>
                     {scheduledPublications.length > 0 ? (
                         <>
                             <PublicationCalendarMonth
                                 duePublicationIds={duePublicationIds(due)}
                                 month={month}
+                                projectId={project.id}
                             />
                             <PublicationCalendarAgenda
                                 duePublicationIds={duePublicationIds(due)}

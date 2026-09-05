@@ -21,9 +21,11 @@ import { calendarWeekdays, type CalendarDay, type CalendarMonth } from '@/lib/pu
 export function PublicationCalendarMonth({
     duePublicationIds,
     month,
+    projectId,
 }: {
     readonly duePublicationIds: ReadonlySet<string>
     readonly month: CalendarMonth
+    readonly projectId: string
 }) {
     const weeks = Array.from({ length: 6 }, (_, index) =>
         month.days.slice(index * 7, index * 7 + 7)
@@ -49,6 +51,7 @@ export function PublicationCalendarMonth({
                         <CalendarDayCell
                             day={day}
                             duePublicationIds={duePublicationIds}
+                            projectId={projectId}
                             key={day.dateKey}
                             timeZone={month.timeZone}
                         />
@@ -134,21 +137,16 @@ export function CalendarEmptyState({
 function CalendarDayCell({
     day,
     duePublicationIds,
+    projectId,
     timeZone,
 }: {
     readonly day: CalendarDay
     readonly duePublicationIds: ReadonlySet<string>
+    readonly projectId: string
     readonly timeZone: string
 }) {
-    return (
-        <div
-            aria-label={`${formatDayLabel(day.date)}${day.publications.length === 0 ? '' : `, ${day.publications.length} publications`}`}
-            className={cn(
-                'min-h-24 min-w-0 bg-background p-2.5 align-top',
-                !day.isCurrentMonth && 'bg-muted/55 text-muted-foreground',
-                day.isToday && 'bg-primary/[0.06]'
-            )}
-            role="gridcell">
+    const content = (
+        <>
             <div className="flex items-center justify-between gap-2">
                 <span
                     className={cn(
@@ -174,6 +172,35 @@ function CalendarDayCell({
                     />
                 ))}
             </div>
+        </>
+    )
+    const cellClassName = cn(
+        'min-h-24 min-w-0 bg-background p-2.5 align-top',
+        !day.isCurrentMonth && 'bg-muted/55 text-muted-foreground',
+        day.isToday && 'bg-primary/[0.06]'
+    )
+
+    if (day.publications.length === 0) {
+        return (
+            <div aria-label={`Create publication on ${formatDayLabel(day.date)}`} role="gridcell">
+                <Link
+                    aria-label={`Create publication on ${formatDayLabel(day.date)}`}
+                    className="-m-2.5 block min-h-24 rounded-none p-2.5 transition-[background-color] hover:bg-primary/[0.06] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+                    params={{ projectId }}
+                    search={{ date: day.dateKey }}
+                    to="/dashboard/projects/$projectId/compose">
+                    {content}
+                </Link>
+            </div>
+        )
+    }
+
+    return (
+        <div
+            aria-label={`${formatDayLabel(day.date)}${day.publications.length === 0 ? '' : `, ${day.publications.length} publications`}`}
+            className={cellClassName}
+            role="gridcell">
+            {content}
         </div>
     )
 }

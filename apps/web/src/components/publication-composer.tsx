@@ -5,14 +5,16 @@ import { Textarea } from '@herald/ui/components/textarea'
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
 import { Link } from '@tanstack/react-router'
+import { useEffect, useRef } from 'react'
 
 import { DashboardFormField } from '@/components/dashboard-form-field'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { PublicationTargetList } from '@/components/publication-target-list'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { calendarDateTimeLocal } from '@/lib/publication-authoring'
 
-export function PublicationComposer() {
+export function PublicationComposer({ calendarDate }: { readonly calendarDate?: string }) {
     const {
         activeChannels,
         error,
@@ -28,6 +30,27 @@ export function PublicationComposer() {
         publicationTargets,
         sourceMedia,
     } = useProjectDashboard()
+    const appliedCalendarDate = useRef<string | undefined>(undefined)
+
+    useEffect(() => {
+        if (
+            calendarDate === undefined ||
+            appliedCalendarDate.current === calendarDate ||
+            publicationTargets.length === 0
+        ) {
+            return
+        }
+
+        const scheduledAt = calendarDateTimeLocal(calendarDate)
+        if (scheduledAt === undefined) return
+
+        appliedCalendarDate.current = calendarDate
+        onPublicationTargetsChange(currentTargets =>
+            currentTargets.map((target, index) =>
+                index === 0 ? { ...target, scheduledAt } : target
+            )
+        )
+    }, [calendarDate, onPublicationTargetsChange, publicationTargets.length])
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">

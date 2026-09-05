@@ -18,8 +18,9 @@ export function MediaLibraryPage() {
                         nativeButton={false}
                         render={
                             <Link
-                                to="/dashboard/projects/$projectId/compose"
                                 params={{ projectId: project.id }}
+                                search={{ date: undefined }}
+                                to="/dashboard/projects/$projectId/compose"
                             />
                         }
                         variant="ghost">
