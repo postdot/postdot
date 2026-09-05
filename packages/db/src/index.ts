@@ -120,6 +120,7 @@ export type {
 export type {
     CreatePublisherConnectionInput,
     CreatePublisherConnectionResult,
+    PublisherConnectionPolicy,
     DisconnectPublisherConnectionInput,
     DisconnectPublisherConnectionResult,
     PublisherConnectionDestination,
