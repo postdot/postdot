@@ -13,6 +13,7 @@ import type {
     PublicationWorkingDraft,
 } from '@herald/db'
 import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
+import { discordChannelProfile } from '@herald/discord'
 import { linkedinChannelProfile } from '@herald/linkedin'
 import { mastodonChannelProfile } from '@herald/mastodon'
 import type { Table } from 'drizzle-orm'
@@ -336,6 +337,7 @@ export const createChannelBody = Type.Object({
             Type.Literal('linkedin'),
             Type.Literal('bluesky'),
             Type.Literal('mastodon'),
+            Type.Literal('discord'),
             Type.Object({
                 id: Type.String({ minLength: 1 }),
                 version: Type.Integer({ minimum: 1 }),
@@ -393,6 +395,7 @@ export function resolveChannelProfile(profile: unknown): ChannelProfileDefinitio
     if (profile === 'linkedin') return linkedinChannelProfile
     if (profile === 'bluesky') return blueskyChannelProfile
     if (profile === 'mastodon') return mastodonChannelProfile
+    if (profile === 'discord') return discordChannelProfile
     if (profile === undefined || profile === 'manual-message') {
         return createManualChannelProfile()
     }
@@ -425,6 +428,7 @@ export const publisherConnectionSchema = Type.Object({
                 Type.Literal('account'),
                 Type.Literal('member'),
                 Type.Literal('organization'),
+                Type.Literal('channel'),
             ]),
             id: Type.String({ minLength: 1 }),
             name: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
@@ -492,6 +496,15 @@ export const mastodonConnectionSchema = Type.Object({
 
 export const mastodonConnectionBody = Type.Object({
     instanceUrl: Type.String({ minLength: 1, maxLength: 2_048 }),
+})
+
+export const discordConnectionBody = Type.Object({
+    botToken: Type.String({ minLength: 32, maxLength: 4_096, writeOnly: true }),
+    channelId: Type.String({ minLength: 17, maxLength: 20 }),
+})
+
+export const discordConnectionResponse = Type.Object({
+    connection: publisherConnectionSchema,
 })
 
 export const customHttpConnectionBody = Type.Object({

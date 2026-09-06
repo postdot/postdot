@@ -21,6 +21,7 @@ import {
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
 import { createBlueskyProviderAdapter } from './modules/workflow/providers/bluesky'
+import { createDiscordProviderAdapter } from './modules/workflow/providers/discord'
 import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
 import { createMastodonProviderAdapter } from './modules/workflow/providers/mastodon'
 import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
@@ -106,6 +107,7 @@ async function startServer(config = createHeraldConfig()) {
     })
     const builtInProviderRegistry = createBuiltInProviderRegistry([
         createBlueskyProviderAdapter({ oauth: publisher.bluesky }),
+        createDiscordProviderAdapter(),
         createLinkedInProviderAdapter({ oauth: publisher.linkedin }),
         createMastodonProviderAdapter({
             fetcher: mastodonFetcher,

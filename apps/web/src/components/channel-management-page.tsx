@@ -38,6 +38,7 @@ export function ChannelManagementPage() {
         onStartLinkedInConnection,
         onStartBlueskyConnection,
         onStartMastodonConnection,
+        onConnectDiscordPublisher,
         pending,
         project,
     } = useProjectDashboard()
@@ -123,6 +124,7 @@ export function ChannelManagementPage() {
                     onStartLinkedInConnection={onStartLinkedInConnection}
                     onStartBlueskyConnection={onStartBlueskyConnection}
                     onStartMastodonConnection={onStartMastodonConnection}
+                    onConnectDiscordPublisher={onConnectDiscordPublisher}
                     onDisconnectPublisher={onDisconnectPublisher}
                 />
             </div>

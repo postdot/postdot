@@ -19,6 +19,7 @@ import type { MastodonFetcher } from '@herald/mastodon'
 import { clientSecretPost, validateReturnPath, type OAuthAuthorizationServer } from '@herald/oauth'
 
 import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
+import { discordPublisherConnectionPolicy } from './providers/discord'
 import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
 import { mastodonPublisherConnectionPolicy } from './providers/mastodon'
 
@@ -64,6 +65,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         credentialRevoker: credentialStore,
         connectionPolicies: {
             bluesky: blueskyPublisherConnectionPolicy,
+            discord: discordPublisherConnectionPolicy,
             linkedin: linkedInPublisherConnectionPolicy,
             mastodon: mastodonPublisherConnectionPolicy,
         },

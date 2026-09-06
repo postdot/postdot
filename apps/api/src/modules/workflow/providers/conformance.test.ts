@@ -13,6 +13,12 @@ import type {
     PublisherExecutionTarget,
 } from '@herald/db'
 import {
+    DISCORD_PROVIDER,
+    discordChannelProfile,
+    type DiscordPublishOutcome,
+    type DiscordPublisher,
+} from '@herald/discord'
+import {
     linkedinChannelProfile,
     type LinkedInImagePublisher,
     type LinkedInMediaUploadOutcome,
@@ -27,6 +33,7 @@ import {
 } from '@herald/mastodon'
 
 import { createBlueskyProviderAdapter, type BlueskyProviderAdapterOptions } from './bluesky'
+import { createDiscordProviderAdapter } from './discord'
 import { createLinkedInProviderAdapter } from './linkedin'
 import { createMastodonProviderAdapter } from './mastodon'
 import {
@@ -214,6 +221,41 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 },
             }
             return createMastodonProviderAdapter({ createPublisher: () => publisher })
+        },
+    },
+    {
+        name: 'Discord',
+        providerId: DISCORD_PROVIDER,
+        profile: discordChannelProfile,
+        content: { text: 'A conformance publication', media: [] },
+        destination: {
+            type: 'channel',
+            id: '123456789012345678',
+            name: 'Conformance channel',
+        },
+        externalAccountId: '987654321098765432',
+        endpointUrl: null,
+        providerSession: null,
+        createAdapter(outcome, onDispatch) {
+            const publisher: DiscordPublisher = {
+                async getBotUser() {
+                    return {
+                        kind: 'success',
+                        value: { id: '987654321098765432', username: 'Herald' },
+                    }
+                },
+                async getChannel() {
+                    return {
+                        kind: 'success',
+                        value: { id: '123456789012345678', name: 'Conformance channel', type: 0 },
+                    }
+                },
+                async createMessage() {
+                    onDispatch()
+                    return outcome as DiscordPublishOutcome
+                },
+            }
+            return createDiscordProviderAdapter({ createPublisher: () => publisher })
         },
     },
 ]

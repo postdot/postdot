@@ -49,6 +49,10 @@
       "path": "packages/bluesky",
     },
     {
+      "name": "discord",
+      "path": "packages/discord",
+    },
+    {
       "name": "media",
       "path": "packages/media",
     },
