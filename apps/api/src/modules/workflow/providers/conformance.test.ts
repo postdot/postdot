@@ -687,6 +687,7 @@ describe('built-in provider adapter conformance', () => {
             let started = false
             let recordedCheckpoint = false
             let completed = false
+            let completedExpiry: number | null | undefined
             let publishedTweet = false
 
             const mockMediaDeliveryStore: ProviderMediaDeliveryPort = {
@@ -702,6 +703,7 @@ describe('built-in provider adapter conformance', () => {
                         attempts: 0,
                         remoteMediaId: null,
                         remoteMediaUrl: null,
+                        remoteMediaExpiresAt: null,
                         lastAttemptAt: null,
                         completedAt: null,
                         errorCode: null,
@@ -722,6 +724,7 @@ describe('built-in provider adapter conformance', () => {
                         attempts: 1,
                         remoteMediaId: null,
                         remoteMediaUrl: null,
+                        remoteMediaExpiresAt: null,
                         lastAttemptAt: input.at ?? now,
                         completedAt: null,
                         errorCode: null,
@@ -743,6 +746,7 @@ describe('built-in provider adapter conformance', () => {
                         attempts: 1,
                         remoteMediaId: input.remoteMediaId,
                         remoteMediaUrl: null,
+                        remoteMediaExpiresAt: null,
                         lastAttemptAt: input.at ?? now,
                         completedAt: null,
                         errorCode: null,
@@ -753,6 +757,7 @@ describe('built-in provider adapter conformance', () => {
                 },
                 complete(input) {
                     completed = true
+                    completedExpiry = input.remoteMediaExpiresAt
                     return {
                         id: input.deliveryId,
                         projectId: input.projectId,
@@ -763,6 +768,7 @@ describe('built-in provider adapter conformance', () => {
                         attempts: 1,
                         remoteMediaId: input.remoteMediaId,
                         remoteMediaUrl: null,
+                        remoteMediaExpiresAt: input.remoteMediaExpiresAt ?? null,
                         lastAttemptAt: input.at ?? now,
                         completedAt: input.at ?? now,
                         errorCode: null,
@@ -792,7 +798,7 @@ describe('built-in provider adapter conformance', () => {
                         type: 'uploaded',
                         remoteMediaId: 'x-media-remote-123',
                         ready: true,
-                        expiresAfterSecs: null,
+                        expiresAfterSecs: 3_600,
                     }
                 },
                 async publishTweet(input) {
@@ -852,6 +858,7 @@ describe('built-in provider adapter conformance', () => {
             expect(started).toBe(true)
             expect(recordedCheckpoint).toBe(true)
             expect(completed).toBe(true)
+            expect(completedExpiry).toBe(now + 3_600_000)
             expect(publishedTweet).toBe(true)
             expect(outcome).toEqual({ type: 'published', externalId: 'tweet-with-media' })
         })
@@ -904,6 +911,7 @@ describe('built-in provider adapter conformance', () => {
                         attempts: 1,
                         remoteMediaId: 'x-media-fresh',
                         remoteMediaUrl: null,
+                        remoteMediaExpiresAt: now + 60_000,
                         lastAttemptAt: now - 1_000,
                         completedAt: now - 1_000,
                         errorCode: null,
@@ -969,7 +977,7 @@ describe('built-in provider adapter conformance', () => {
             expect(publishedMediaIds).toEqual(['x-media-fresh'])
         })
 
-        it('requires reconciliation for a stale uploaded checkpoint', async () => {
+        it('requires reconciliation when the provider media expiry has passed', async () => {
             let dispatched = false
             const staleStore: ProviderMediaDeliveryPort = {
                 reserve(input) {
@@ -983,12 +991,13 @@ describe('built-in provider adapter conformance', () => {
                         attempts: 1,
                         remoteMediaId: 'x-media-stale',
                         remoteMediaUrl: null,
-                        lastAttemptAt: now - 25 * 3_600_000,
-                        completedAt: now - 25 * 3_600_000,
+                        remoteMediaExpiresAt: now - 1,
+                        lastAttemptAt: now - 1_000,
+                        completedAt: now - 1_000,
                         errorCode: null,
                         errorMessage: null,
-                        createdAt: now - 25 * 3_600_000,
-                        updatedAt: now - 25 * 3_600_000,
+                        createdAt: now - 2_000,
+                        updatedAt: now - 1_000,
                     }
                 },
                 start() {
@@ -1063,6 +1072,7 @@ describe('built-in provider adapter conformance', () => {
                 providerId: X_PROVIDER,
                 attempts: 1,
                 remoteMediaUrl: null,
+                remoteMediaExpiresAt: null,
                 lastAttemptAt: now,
                 completedAt: null,
                 errorCode: null,

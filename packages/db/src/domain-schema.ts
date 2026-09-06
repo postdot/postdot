@@ -1508,6 +1508,7 @@ export const providerMediaDeliveries = sqliteTable(
         attempts: integer('attempts').default(0).notNull(),
         remoteMediaId: text('remote_media_id'),
         remoteMediaUrl: text('remote_media_url'),
+        remoteMediaExpiresAt: integer('remote_media_expires_at'),
         lastAttemptAt: integer('last_attempt_at'),
         completedAt: integer('completed_at'),
         errorCode: text('error_code'),
@@ -1549,7 +1550,9 @@ export const providerMediaDeliveries = sqliteTable(
         check(
             'provider_media_deliveries_timestamps_valid',
             sql`(${table.lastAttemptAt} is null or ${table.lastAttemptAt} >= ${table.createdAt})
-                and (${table.completedAt} is null or ${table.completedAt} >= ${table.createdAt})`
+                and (${table.completedAt} is null or ${table.completedAt} >= ${table.createdAt})
+                and (${table.remoteMediaExpiresAt} is null
+                    or (${table.completedAt} is not null and ${table.remoteMediaExpiresAt} >= ${table.completedAt}))`
         ),
         check(
             'provider_media_deliveries_state_data_valid',
@@ -1559,12 +1562,14 @@ export const providerMediaDeliveries = sqliteTable(
                     and ${table.completedAt} is null
                     and ${table.remoteMediaId} is null
                     and ${table.remoteMediaUrl} is null
+                    and ${table.remoteMediaExpiresAt} is null
                     and ${table.errorCode} is null
                     and ${table.errorMessage} is null)
                 or (${table.state} = 'uploading'
                     and ${table.attempts} > 0
                     and ${table.lastAttemptAt} is not null
                     and ${table.completedAt} is null
+                    and ${table.remoteMediaExpiresAt} is null
                     and ${table.errorCode} is null
                     and ${table.errorMessage} is null)
                 or (${table.state} = 'uploaded'
@@ -1572,11 +1577,14 @@ export const providerMediaDeliveries = sqliteTable(
                     and ${table.completedAt} is not null
                     and ${table.remoteMediaId} is not null
                     and length(trim(${table.remoteMediaId})) > 0
+                    and (${table.remoteMediaExpiresAt} is null
+                        or ${table.remoteMediaExpiresAt} >= ${table.completedAt})
                     and ${table.errorCode} is null
                     and ${table.errorMessage} is null)
                 or (${table.state} in ('failed', 'ambiguous')
                     and ${table.attempts} > 0
                     and ${table.completedAt} is not null
+                    and ${table.remoteMediaExpiresAt} is null
                     and ${table.errorCode} is not null
                     and length(trim(${table.errorCode})) > 0
                     and ${table.errorMessage} is not null

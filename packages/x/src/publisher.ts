@@ -100,7 +100,7 @@ function readUser(value: unknown): XUser | null {
     return { id, name, username }
 }
 
-interface MediaUploadSession {
+interface MediaUploadResult {
     readonly mediaId: string
     readonly expiresAfterSecs: number | null
 }
@@ -120,10 +120,10 @@ function readExpiresAfterSecs(value: unknown): number | null {
 }
 
 /**
- * Reads a v2 media-upload session from an INIT or FINALIZE response body of
- * the shape `{ data: { id, expires_after_secs? } }`.
+ * Reads a v2 simple-upload response body of the documented shape
+ * `{ data: { id, expires_after_secs?, processing_info? } }`.
  */
-function readMediaUploadSession(value: unknown): MediaUploadSession | null {
+function readMediaUploadResult(value: unknown): MediaUploadResult | null {
     if (!isRecord(value) || !isRecord(value.data)) return null
     const mediaId = readMediaId(value.data.id)
     if (mediaId === null) return null
@@ -259,66 +259,35 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
                 }
             }
 
-            // Step 1 (INIT): reserve the upload session on the v2 media API.
-            const initializeResult = await request(
-                `${apiBaseUrl}/2/media/upload/initialize`,
-                {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json' },
-                    body: JSON.stringify({
-                        media_type: input.contentType,
-                        total_bytes: input.size,
-                        media_category: X_MEDIA_CATEGORY_TWEET_IMAGE,
-                    }),
-                },
+            // Simple v2 upload: one multipart POST carries the image bytes plus
+            // the required media_category for the tweet_image use case.
+            const form = new FormData()
+            form.append('media', new Blob([file], { type: input.contentType }), input.filename)
+            form.append('media_category', X_MEDIA_CATEGORY_TWEET_IMAGE)
+
+            const uploadResult = await request(
+                `${apiBaseUrl}/2/media/upload`,
+                { method: 'POST', body: form },
                 accessToken,
                 'media'
             )
-            if ('failure' in initializeResult) return initializeResult.failure
+            if ('failure' in uploadResult) return uploadResult.failure
 
-            const session = readMediaUploadSession(initializeResult.body)
-            if (session === null) {
+            const uploaded = readMediaUploadResult(uploadResult.body)
+            if (uploaded === null) {
                 return ambiguousFailure(
                     'missing_media_id',
-                    'X returned no media upload session identifier'
+                    'X returned no media attachment identifier'
                 )
             }
-
-            // Step 2 (APPEND): images within the tweet_image size limit upload
-            // as a single segment indexed from 0.
-            const form = new FormData()
-            form.append('segment_index', '0')
-            form.append('media', new Blob([file], { type: input.contentType }), input.filename)
-
-            const appendResult = await request(
-                `${apiBaseUrl}/2/media/upload/${session.mediaId}/append`,
-                { method: 'POST', body: form },
-                accessToken,
-                'media',
-                session.mediaId
-            )
-            if ('failure' in appendResult) return appendResult.failure
-
-            // Step 3 (FINALIZE): complete the upload. Images finalize
-            // synchronously; a returned processing state is honored below.
-            const finalizeResult = await request(
-                `${apiBaseUrl}/2/media/upload/${session.mediaId}/finalize`,
-                { method: 'POST' },
-                accessToken,
-                'media',
-                session.mediaId
-            )
-            if ('failure' in finalizeResult) return finalizeResult.failure
-
-            const finalized = readMediaUploadSession(finalizeResult.body)
-            const mediaId = finalized?.mediaId ?? session.mediaId
-            const processingState = readProcessingState(finalizeResult.body)
+            const mediaId = uploaded.mediaId
+            const processingState = readProcessingState(uploadResult.body)
             if (processingState === 'failed') {
                 return {
                     type: 'permanent_failure',
                     effectOccurred: false,
                     code: 'invalid_request',
-                    errorMessage: readProcessingError(finalizeResult.body),
+                    errorMessage: readProcessingError(uploadResult.body),
                 }
             }
             if (processingState === 'pending' || processingState === 'in_progress') {
@@ -329,7 +298,7 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
                 )
             }
 
-            // Step 4 (metadata): attach alt text after FINALIZE and before the
+            // Metadata step: attach alt text after the upload and before the
             // post is created. A metadata failure fails the execution rather
             // than publishing without the declared accessibility text.
             if (input.accessibilityText && input.accessibilityText.trim().length > 0) {
@@ -358,7 +327,7 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
                 type: 'uploaded',
                 remoteMediaId: mediaId,
                 ready: true,
-                expiresAfterSecs: finalized?.expiresAfterSecs ?? session.expiresAfterSecs,
+                expiresAfterSecs: uploaded.expiresAfterSecs,
             }
         },
 

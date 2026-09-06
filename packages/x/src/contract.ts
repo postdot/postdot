@@ -22,11 +22,9 @@ export const X_DEFAULT_TIMEOUT_MS = 30_000
 /**
  * Conservative reuse horizon for uploaded media checkpoints.
  *
- * The v2 upload flow reports `expires_after_secs` per session (about 24h in
- * practice). Herald persists only the delivery `completedAt`, so checkpoints
- * younger than this horizon are reused across attempts and restarts, while
- * older ones require explicit reconciliation instead of risking a stale
- * provider media identifier.
+ * The v2 upload flow reports `expires_after_secs` for the uploaded media.
+ * Herald persists the resulting delivery expiry and also applies this shorter
+ * conservative horizon as a safety bound when the provider omits it.
  */
 export const X_UPLOADED_MEDIA_REUSE_TTL_MS = 20 * 60 * 60 * 1_000
 
@@ -74,7 +72,7 @@ export type XMediaUploadOutcome =
           readonly ready: boolean
           /**
            * Provider-reported upload-session lifetime in seconds, when the
-           * FINALIZE response includes `expires_after_secs`. Null when the
+           * upload response includes `expires_after_secs`. Null when the
            * provider omits it; Herald then applies its conservative reuse
            * horizon instead of assuming indefinite reuse.
            */

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { createHash } from 'node:crypto'
 
 import { createAuth } from '@herald/auth'
 import type { ChannelProfileDefinition } from '@herald/core'
@@ -2064,6 +2065,11 @@ describe('Herald API', () => {
                 redirectUri: 'http://localhost:3000/api/oauth/x/callback',
             })
             expect(tokenRequests[0]?.codeVerifier).toBeString()
+            const codeVerifier = tokenRequests[0]?.codeVerifier
+            if (typeof codeVerifier !== 'string') throw new Error('PKCE verifier was not captured')
+            expect(authorizationUrl.searchParams.get('code_challenge')).toBe(
+                createHash('sha256').update(codeVerifier).digest('base64url')
+            )
             expect(seenProfileTokens).toEqual(['x-access-token-1'])
 
             // Consuming the attempt clears the single-use verifier ciphertext.

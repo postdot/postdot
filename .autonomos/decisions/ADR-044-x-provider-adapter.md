@@ -40,19 +40,20 @@ or depending on Better Auth.
   profile keeps a static 280-character schema bound as a coarse authoring approximation;
   the workflow adapter enforces the weighted limit before any external effect and fails
   permanently on overweight text.
-- Media support allows up to 4 images (JPEG, PNG) up to 5MB each. Media upload uses the
-  current v2 chunked flow on `https://api.x.com` (never the deprecated v1.1
-  `upload.twitter.com` endpoints): `POST /2/media/upload/initialize` with
-  `media_category: tweet_image`, single-segment `POST /2/media/upload/{id}/append`,
-  `POST /2/media/upload/{id}/finalize`, and alt-text attachment via
-  `POST /2/media/metadata` after FINALIZE and before tweet creation. Herald's existing
+- Media support allows up to 4 images (JPEG, PNG) up to 5MB each. The current image-only
+  scope uses the documented v2 multipart upload on `https://api.x.com`: `POST /2/media/upload`
+  with `media` and `media_category: tweet_image`, followed by the optional alt-text
+  attachment via `POST /2/media/metadata` before tweet creation. Herald's existing
   `MediaStore` and `ProviderMediaDeliveryPort` reserve the delivery and record durable
-  remote media checkpoints before tweet creation.
-- Uploaded media checkpoints are reused across attempts and restarts only within a
-  conservative 20-hour horizon (`X_UPLOADED_MEDIA_REUSE_TTL_MS`), below the provider's
-  `expires_after_secs` session lifetime (about 24h). Older checkpoints require explicit
-  reconciliation instead of risking a stale identifier; a provider rejection of media
-  identifiers at tweet creation surfaces as permanent `invalid_request`.
+  remote media checkpoints before tweet creation. Chunked upload remains a future provider
+  capability for media types that require it; deprecated v1.1 `upload.twitter.com` endpoints
+  are never used.
+- Uploaded media checkpoints are reused across attempts and restarts only while both the
+  provider-reported `expires_after_secs` deadline (when present) and Herald's conservative
+  20-hour horizon (`X_UPLOADED_MEDIA_REUSE_TTL_MS`) remain valid. Older or expired
+  checkpoints require explicit reconciliation instead of risking a stale identifier; a
+  provider rejection of media identifiers at tweet creation surfaces as permanent
+  `invalid_request`.
 - Outcomes are strictly classified:
   - 401: `permanent_failure` with `authentication_required`
   - 403: `permanent_failure` with `forbidden`
@@ -76,16 +77,19 @@ or depending on Better Auth.
 - **Rely on Better Auth for external OAuth:** rejected because Better Auth is strictly for
   authenticating users into Herald.
 - **Legacy v1.1 media upload (`upload.twitter.com/1.1/...`):** rejected because X documents
-  the v1.1 upload endpoints as deprecated and directs developers to the v2
-  initialize/append/finalize flow, which additionally reports `expires_after_secs` and
-  keeps media on the same `api.x.com` host and `media.write` scope as tweet creation.
+  those endpoints as deprecated. Herald uses the v2 API on the same `api.x.com` host and
+  `media.write` scope as tweet creation.
+- **v2 chunked upload for the current image scope:** deferred because the documented simple
+  upload accepts the supported JPEG/PNG payloads directly. Chunked INIT/APPEND/FINALIZE can
+  be added when a supported media type or size requires it, without changing the durable
+  delivery boundary.
 - **Naive 280-code-unit text validation:** rejected because X counts URLs as 23 and emoji/CJK
   as 2; a naive limit both rejects valid posts and accepts posts X would reject.
 
 ## Consequences
 
 - Herald can publish posts and images directly to X channels with atomic credential management
-  and horizon-bounded restart-safe media checkpoints.
+  and restart-safe media checkpoints bounded by both provider expiry and Herald's safety horizon.
 - The shared BuiltInProviderAdapter contract registers `x` with contract `x@post-v1`.
 - The shared conformance test suite covers X alongside LinkedIn, Bluesky, Mastodon, and
   Discord, plus X-specific refresh, checkpoint, expiry, and retry coverage.
@@ -98,6 +102,7 @@ or depending on Better Auth.
 - X API v2 Tweet Creation: https://developer.x.com/en/docs/x-api/tweets/manage-tweets/api-reference/post-tweets
 - X API v2 OAuth 2.0: https://developer.x.com/en/docs/authentication/oauth-2-0/authorization-code
 - X API v2 Users Me: https://developer.x.com/en/docs/x-api/users/lookup/api-reference/get-users-me
-- X API v2 Chunked Media Upload: https://docs.x.com/x-api/media/quickstart/media-upload-chunked
-- X API v2 Media Upload Reference (`initialize`, `append`, `finalize`, `metadata`): https://docs.x.com/x-api/media/media-upload
+- X API v2 Media Upload: https://docs.x.com/x-api/media/upload-media
+- X API v2 Append Media Upload: https://docs.x.com/x-api/media/append-media-upload
+- X API v2 Media Upload Introduction: https://docs.x.com/x-api/media/introduction
 - twitter-text weighted configuration (v3): https://github.com/twitter/twitter-text/blob/master/config/v3.json

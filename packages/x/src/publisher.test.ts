@@ -96,7 +96,7 @@ describe('X publisher', () => {
             })
         }
 
-        it('uploads an image through the v2 INIT/APPEND/FINALIZE flow with alt text', async () => {
+        it('uploads an image through the documented v2 multipart flow with alt text', async () => {
             const fixture = createFetcher([
                 jsonResponse({
                     data: {
@@ -106,8 +106,6 @@ describe('X publisher', () => {
                         expires_after_secs: 86398,
                     },
                 }),
-                jsonResponse({ data: { expires_at: 1_800_086_398 } }),
-                jsonResponse({ data: { id: '1146631093949677568', size: 4 } }),
                 jsonResponse({ data: { id: '1146631093949677568' } }),
             ])
             const publisher = createXPublisher({ fetcher: fixture.fetcher })
@@ -127,32 +125,18 @@ describe('X publisher', () => {
                 expiresAfterSecs: 86398,
             })
 
-            expect(fixture.calls).toHaveLength(4)
-            const initializeCall = fixture.calls[0]
-            expect(initializeCall?.input).toBe('https://api.x.com/2/media/upload/initialize')
-            expect(initializeCall?.init?.method).toBe('POST')
-            expect(JSON.parse(initializeCall?.init?.body as string)).toEqual({
-                media_type: 'image/png',
-                total_bytes: 4,
-                media_category: 'tweet_image',
-            })
+            expect(fixture.calls).toHaveLength(2)
+            const uploadCall = fixture.calls[0]
+            expect(uploadCall?.input).toBe('https://api.x.com/2/media/upload')
+            expect(uploadCall?.init?.method).toBe('POST')
+            const uploadForm = uploadCall?.init?.body as FormData
+            const uploadedFile = uploadForm.get('media')
+            expect(uploadedFile).toBeInstanceOf(Blob)
+            expect((uploadedFile as Blob).size).toBe(4)
+            expect((uploadedFile as Blob).type).toBe('image/png')
+            expect(uploadForm.get('media_category')).toBe('tweet_image')
 
-            const appendCall = fixture.calls[1]
-            expect(appendCall?.input).toBe(
-                'https://api.x.com/2/media/upload/1146631093949677568/append'
-            )
-            expect(appendCall?.init?.method).toBe('POST')
-            const appendForm = appendCall?.init?.body as FormData
-            expect(appendForm.get('segment_index')).toBe('0')
-            expect(appendForm.get('media')).toBeInstanceOf(Blob)
-
-            const finalizeCall = fixture.calls[2]
-            expect(finalizeCall?.input).toBe(
-                'https://api.x.com/2/media/upload/1146631093949677568/finalize'
-            )
-            expect(finalizeCall?.init?.method).toBe('POST')
-
-            const metadataCall = fixture.calls[3]
+            const metadataCall = fixture.calls[1]
             expect(metadataCall?.input).toBe('https://api.x.com/2/media/metadata')
             expect(metadataCall?.init?.method).toBe('POST')
             expect(JSON.parse(metadataCall?.init?.body as string)).toEqual({
@@ -162,11 +146,7 @@ describe('X publisher', () => {
         })
 
         it('skips the metadata call without accessibility text', async () => {
-            const fixture = createFetcher([
-                jsonResponse({ data: { id: '1146631093949677569' } }),
-                jsonResponse({ data: {} }),
-                jsonResponse({ data: { id: '1146631093949677569' } }),
-            ])
+            const fixture = createFetcher([jsonResponse({ data: { id: '1146631093949677569' } })])
             const publisher = createXPublisher({ fetcher: fixture.fetcher })
 
             const outcome = await publisher.uploadMedia('test-token', {
@@ -182,10 +162,10 @@ describe('X publisher', () => {
                 ready: true,
                 expiresAfterSecs: null,
             })
-            expect(fixture.calls).toHaveLength(3)
+            expect(fixture.calls).toHaveLength(1)
         })
 
-        it('classifies an INIT server error as ambiguous', async () => {
+        it('classifies a simple upload server error as ambiguous', async () => {
             const fixture = createFetcher([jsonResponse({ error: 'Internal server error' }, 500)])
             const publisher = createXPublisher({ fetcher: fixture.fetcher })
 
@@ -203,7 +183,7 @@ describe('X publisher', () => {
             })
         })
 
-        it('classifies a missing INIT media id as ambiguous', async () => {
+        it('classifies a missing upload media id as ambiguous', async () => {
             const fixture = createFetcher([jsonResponse({ data: {} })])
             const publisher = createXPublisher({ fetcher: fixture.fetcher })
 
@@ -217,36 +197,12 @@ describe('X publisher', () => {
             expect(outcome).toEqual({
                 type: 'ambiguous',
                 code: 'missing_media_id',
-                errorMessage: 'X returned no media upload session identifier',
-            })
-        })
-
-        it('classifies an APPEND server error as ambiguous with the session media id', async () => {
-            const fixture = createFetcher([
-                jsonResponse({ data: { id: '1146631093949677570' } }),
-                jsonResponse({ error: 'Internal server error' }, 500),
-            ])
-            const publisher = createXPublisher({ fetcher: fixture.fetcher })
-
-            const outcome = await publisher.uploadMedia('test-token', {
-                contentType: 'image/png',
-                size: 4,
-                filename: 'test.png',
-                stream: pngStream(),
-            })
-
-            expect(outcome).toEqual({
-                type: 'ambiguous',
-                code: 'provider_failure',
-                errorMessage: 'Internal server error',
-                remoteMediaId: '1146631093949677570',
+                errorMessage: 'X returned no media attachment identifier',
             })
         })
 
         it('classifies failed media processing as permanent', async () => {
             const fixture = createFetcher([
-                jsonResponse({ data: { id: '1146631093949677571' } }),
-                jsonResponse({ data: {} }),
                 jsonResponse({
                     data: {
                         id: '1146631093949677571',
@@ -276,8 +232,6 @@ describe('X publisher', () => {
 
         it('classifies pending media processing as ambiguous with the media id', async () => {
             const fixture = createFetcher([
-                jsonResponse({ data: { id: '1146631093949677572' } }),
-                jsonResponse({ data: {} }),
                 jsonResponse({
                     data: {
                         id: '1146631093949677572',
@@ -302,10 +256,8 @@ describe('X publisher', () => {
             })
         })
 
-        it('prefers the FINALIZE media id and expiry', async () => {
+        it('reads the provider expiry from the simple upload response', async () => {
             const fixture = createFetcher([
-                jsonResponse({ data: { id: '111', expires_after_secs: 100 } }),
-                jsonResponse({ data: {} }),
                 jsonResponse({ data: { id: '222', expires_after_secs: 200 } }),
             ])
             const publisher = createXPublisher({ fetcher: fixture.fetcher })

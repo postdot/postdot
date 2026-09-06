@@ -241,15 +241,20 @@ async function prepareXMedia(input: {
         }
 
         if (current.state === 'uploaded' && current.remoteMediaId !== null) {
-            if (isXMediaCheckpointFresh(current.completedAt, input.now)) {
+            if (
+                isXMediaCheckpointFresh(
+                    current.completedAt,
+                    current.remoteMediaExpiresAt,
+                    input.now
+                )
+            ) {
                 mediaIds.push(current.remoteMediaId)
                 continue
             }
-            // The v2 upload session that produced this identifier has outlived
-            // Herald's conservative reuse horizon (see
-            // X_UPLOADED_MEDIA_REUSE_TTL_MS). The provider effect is unknown,
-            // so this requires explicit reconciliation instead of silently
-            // reusing a possibly expired media identifier.
+            // The provider expiry, when available, or Herald's conservative
+            // reuse horizon (see X_UPLOADED_MEDIA_REUSE_TTL_MS) has elapsed.
+            // The provider effect is unknown, so this requires explicit
+            // reconciliation instead of silently reusing a stale identifier.
             return {
                 kind: 'failed',
                 outcome: ambiguousFailure(
@@ -374,6 +379,7 @@ async function prepareXMedia(input: {
             projectId: input.target.projectId,
             deliveryId: started.id,
             remoteMediaId: upload.remoteMediaId,
+            remoteMediaExpiresAt: expiryFromSeconds(upload.expiresAfterSecs, input.now),
             at: input.now,
         })
         if (completed?.state !== 'uploaded') {
@@ -425,10 +431,15 @@ function failXMediaDelivery(
     }
 }
 
-function isXMediaCheckpointFresh(completedAt: number | null, now: number): boolean {
+function isXMediaCheckpointFresh(
+    completedAt: number | null,
+    remoteMediaExpiresAt: number | null,
+    now: number
+): boolean {
     if (completedAt === null) return false
     const age = now - completedAt
-    return age >= 0 && age <= X_UPLOADED_MEDIA_REUSE_TTL_MS
+    const providerExpiryIsFresh = remoteMediaExpiresAt === null || now < remoteMediaExpiresAt
+    return age >= 0 && age <= X_UPLOADED_MEDIA_REUSE_TTL_MS && providerExpiryIsFresh
 }
 
 function isXAuthenticationFailure(outcome: ExternalEffectOutcome): boolean {
