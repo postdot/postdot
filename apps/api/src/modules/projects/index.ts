@@ -1,10 +1,16 @@
 import type { HeraldAuth } from '@herald/auth'
-import type { MediaAssetStore, NotificationStore, ProjectAccessTokenStore } from '@herald/db'
+import type {
+    AnalyticsStore,
+    MediaAssetStore,
+    NotificationStore,
+    ProjectAccessTokenStore,
+} from '@herald/db'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
 import { registerMediaRoutes } from '../media/routes'
 import { registerProjectAccessTokenRoutes } from './access-token-routes'
+import { registerAnalyticsRoutes } from './analytics-routes'
 import { registerAuditEventRoutes } from './audit-event-routes'
 import { registerChannelProfileRoutes } from './channel-profile-routes'
 import { registerChannelRoutes } from './channel-routes'
@@ -24,6 +30,7 @@ export interface ProjectModuleOptions {
     readonly onWorkScheduled?: () => void
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications: NotificationStore
+    readonly analytics: AnalyticsStore
 }
 
 export function createProjectModule(options: ProjectModuleOptions) {
@@ -44,5 +51,6 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const publicationRoutes = registerPublicationRoutes(postRoutes, options.manualStore)
     const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media)
     const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
-    return registerAuditEventRoutes(notificationRoutes, options.manualStore)
+    const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)
+    return registerAuditEventRoutes(analyticsRoutes, options.manualStore)
 }

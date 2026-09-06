@@ -2,12 +2,14 @@ import { openapi } from '@elysiajs/openapi'
 import type { HeraldAuth } from '@herald/auth'
 import {
     createManualStore,
+    createAnalyticsStore,
     createNotificationStore,
     type HeraldDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
     type ProjectAccessTokenStore,
     type NotificationStore,
+    type AnalyticsStore,
 } from '@herald/db'
 import { Elysia } from 'elysia'
 
@@ -34,6 +36,7 @@ export interface HeraldAppOptions {
     readonly runtime?: HealthRoutesOptions['runtime']
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications?: NotificationStore
+    readonly analytics?: AnalyticsStore
 }
 
 function createDomainApp({
@@ -48,6 +51,7 @@ function createDomainApp({
     runtime,
     accessTokens,
     notifications,
+    analytics,
 }: HeraldAppOptions) {
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
@@ -62,6 +66,7 @@ function createDomainApp({
             : createPublicMediaRoutes(media, mediaPublicDelivery)
     const logger = logging?.enabled === true ? createHeraldLogger(logging) : undefined
     const notificationStore = notifications ?? createNotificationStore(database)
+    const analyticsStore = analytics ?? createAnalyticsStore(database)
 
     return new Elysia({ name: 'herald-api' })
         .use(createBlueskyMetadataRoutes(publisher))
@@ -106,6 +111,10 @@ function createDomainApp({
                             name: 'Notifications',
                             description: 'Project human inboxes and preferences.',
                         },
+                        {
+                            name: 'Analytics',
+                            description: 'Provider-neutral publication and execution analytics.',
+                        },
                     ],
                 },
                 path: '/openapi',
@@ -124,6 +133,7 @@ function createDomainApp({
                 onWorkScheduled,
                 accessTokens,
                 notifications: notificationStore,
+                analytics: analyticsStore,
             })
         )
         .use(publicMediaRoutes)
@@ -148,6 +158,7 @@ export function createApp({
     runtime,
     accessTokens,
     notifications,
+    analytics,
 }: HeraldAppOptions) {
     return createDomainApp({
         auth,
@@ -161,5 +172,6 @@ export function createApp({
         runtime,
         accessTokens,
         notifications,
+        analytics,
     }).use(createAuthRoutes(auth))
 }

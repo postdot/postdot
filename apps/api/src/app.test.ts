@@ -369,6 +369,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/notifications/{notificationId}/archive',
                 '/api/projects/{projectId}/notification-preferences',
                 '/api/projects/{projectId}/notification-preferences/{kind}',
+                '/api/projects/{projectId}/analytics',
                 '/api/projects/{projectId}/audit-events',
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
@@ -411,6 +412,60 @@ describe('Herald API', () => {
             expect(readOpenApiStatus(specification.paths['/ready']?.get?.responses?.['503'])).toBe(
                 'not_ready'
             )
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('exposes provider-neutral project analytics from the durable event journal', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'analytics@herald.local')
+            const createProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Analytics project', timeZone: 'Europe/Paris' }),
+            })
+            expect(createProjectResponse.status).toBe(201)
+            const created = (await createProjectResponse.json()) as {
+                project: { id: string }
+            }
+            const actor = database.$client
+                .query<{ id: string }, [string]>(
+                    `select id from actors where project_id = ?1 and kind = 'human'`
+                )
+                .get(created.project.id)
+            expect(actor).toBeDefined()
+
+            createEventJournalStore(database).append({
+                id: 'analytics-api-event',
+                projectId: created.project.id,
+                actorId: actor?.id ?? '',
+                name: 'publication.execution.effect_started',
+                version: 1,
+                subject: { type: 'publication', id: 'publication-1' },
+                occurredAt: now,
+            })
+
+            const response = await jsonRequest(
+                app,
+                `/api/projects/${created.project.id}/analytics?from=${now}&to=${now + 1}`,
+                cookie
+            )
+            expect(response.status).toBe(200)
+            expect(await response.json()).toMatchObject({
+                projectId: created.project.id,
+                timeZone: 'Europe/Paris',
+                range: { from: now, to: now + 1 },
+                events: {
+                    executionAttempts: 1,
+                },
+                daily: [
+                    expect.objectContaining({
+                        executionAttempts: 1,
+                    }),
+                ],
+            })
         } finally {
             closeDatabase(database)
         }
