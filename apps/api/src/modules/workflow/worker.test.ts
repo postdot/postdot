@@ -10,6 +10,7 @@ import {
     createDatabase,
     createManualStore,
     createMediaAssetStore,
+    createNotificationStore,
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
@@ -27,6 +28,7 @@ import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
 import { createMediaPublicDelivery } from '../media/public-delivery'
+import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { linkedInPublisherConnectionPolicy } from '../publishers/providers/linkedin'
 import { createLinkedInProviderAdapter } from './providers/linkedin'
 import { createBuiltInProviderRegistry } from './providers/registry'
@@ -195,7 +197,7 @@ function createPng(width = 4, height = 3): Uint8Array {
 }
 
 describe('publication worker', () => {
-    it('executes scheduled LinkedIn publications through a project credential and persists outcomes', async () => {
+    it('executes scheduled LinkedIn publications, persists outcomes, and projects notifications', async () => {
         const database = createDatabase(':memory:')
 
         try {
@@ -319,6 +321,32 @@ describe('publication worker', () => {
             })
 
             await worker.processDueEvents(now + 3)
+
+            const notifications = createNotificationStore(database, { now: () => now + 4 })
+            const notificationProjection = createNotificationProjectionRuntime(notifications)
+            notificationProjection.runNow()
+            const inbox = notifications.list({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+            })
+            expect(inbox).not.toBeNull()
+            expect(inbox?.items).toHaveLength(3)
+            expect(inbox?.items).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        kind: 'publication_published',
+                        title: 'Publication delivered',
+                    }),
+                    expect.objectContaining({
+                        kind: 'publication_failed',
+                        title: 'Publication failed',
+                    }),
+                    expect.objectContaining({
+                        kind: 'publication_ambiguous',
+                        title: 'Publication outcome unknown',
+                    }),
+                ])
+            )
 
             expect(requests).toHaveLength(4)
             expect(

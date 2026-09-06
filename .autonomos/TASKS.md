@@ -109,3 +109,4 @@
 - [x] **[NOTIFY-82]** Add the encrypted secret boundary required by external notification transports `Priority: 🔴` `Complexity: M`
 - [x] **[NOTIFY-83]** Integrate the built-in notification inbox into the dashboard and verify the transport handoff with a recording boundary `Priority: 🔴` `Complexity: M`
 - [x] **[NOTIFY-84]** Expose notification preferences and verify local event-to-inbox projection `Priority: 🔴` `Complexity: M`
+- [x] **[NOTIFY-85]** Verify worker-generated failed and ambiguous outcomes reach the notification inbox `Priority: 🔴` `Complexity: S`
