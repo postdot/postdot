@@ -12,6 +12,7 @@ import {
 import { SidebarTrigger } from '@herald/ui/components/sidebar'
 import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
 
+import { NotificationInbox } from '@/components/notification-inbox'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Session } from '@/lib/api'
 
@@ -19,6 +20,7 @@ interface DashboardHeaderProps {
     readonly isPublicationRoute: boolean
     readonly onSignOut: () => void
     readonly pending: boolean
+    readonly projectId: string | null
     readonly projectName: string
     readonly sectionLabel: string
     readonly session: Session
@@ -28,6 +30,7 @@ export function DashboardHeader({
     isPublicationRoute,
     onSignOut,
     pending,
+    projectId,
     projectName,
     sectionLabel,
     session,
@@ -58,6 +61,7 @@ export function DashboardHeader({
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
+                <NotificationInbox projectId={projectId} />
                 <ThemeToggle />
                 <DropdownMenu>
                     <DropdownMenuTrigger

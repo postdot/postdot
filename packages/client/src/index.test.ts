@@ -28,6 +28,25 @@ describe('Herald client', () => {
         ).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).publishers.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).channels.get).toBeFunction()
+        expect(client.api.projects({ projectId: 'project-1' }).notifications.get).toBeFunction()
+        expect(
+            client.api.projects({ projectId: 'project-1' }).notifications({
+                notificationId: 'notification-1',
+            }).read.post
+        ).toBeFunction()
+        expect(
+            client.api.projects({ projectId: 'project-1' }).notifications({
+                notificationId: 'notification-1',
+            }).archive.post
+        ).toBeFunction()
+        expect(
+            client.api.projects({ projectId: 'project-1' })['notification-preferences'].get
+        ).toBeFunction()
+        expect(
+            client.api.projects({ projectId: 'project-1' })['notification-preferences']({
+                kind: 'publication_failed',
+            }).patch
+        ).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).media.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).media.uploads.post).toBeFunction()
         expect(

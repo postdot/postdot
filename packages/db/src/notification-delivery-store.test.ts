@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createExponentialRetryPolicy, DomainInvariantError } from '@herald/core'
+import {
+    createExponentialRetryPolicy,
+    DomainInvariantError,
+    processNextExternalEffect,
+} from '@herald/core'
 
 import { closeDatabase, createDatabase } from './client'
 import { SecretCipherError } from './encrypted-secret-crypto'
 import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
-import { createNotificationDeliveryStore } from './notification-delivery-store'
+import {
+    createNotificationDeliveryStore,
+    type NotificationDelivery,
+} from './notification-delivery-store'
 import { createNotificationDestinationSecretCipher } from './notification-destination-secret-crypto'
 import { createNotificationDestinationSecretStore } from './notification-destination-secret-store'
 import { createNotificationStore } from './notification-store'
@@ -84,6 +91,56 @@ function addDestination(fixture: ReturnType<typeof createFixture>, enabled = tru
 }
 
 describe('notification delivery store', () => {
+    it('hands a claimed delivery to a recording transport without network access', async () => {
+        const fixture = createFixture()
+        try {
+            addDestination(fixture)
+            appendPublicationEvent(fixture, {
+                id: 'event-recording-transport',
+                name: 'publication.execution.failed',
+            })
+            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(1)
+
+            const recorded: NotificationDelivery[] = []
+            const result = await processNextExternalEffect({
+                store: fixture.deliveries,
+                actorId: 'system-worker',
+                leaseDuration: 60_000,
+                retryPolicy: createExponentialRetryPolicy({
+                    maxAttempts: 3,
+                    initialDelay: 100,
+                    maximumDelay: 1_000,
+                }),
+                createClaimToken: () => 'recording-transport-claim',
+                now: () => operationTime,
+                performExternalEffect: work => {
+                    recorded.push(work)
+                    return {
+                        type: 'published',
+                        externalId: `recorded:${work.id}`,
+                    }
+                },
+            })
+
+            expect(result.outcome).toBe('published')
+            expect(recorded).toHaveLength(1)
+            expect(recorded[0]).toMatchObject({
+                transportId: 'test',
+                configuration: { topic: 'herald-test' },
+                kind: 'publication_failed',
+                title: 'Publication failed',
+            })
+            expect(fixture.deliveries.list(fixture.project.project.id, 'human-1')).toMatchObject([
+                {
+                    state: 'delivered',
+                    externalId: expect.stringContaining('recorded:'),
+                },
+            ])
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
     it('binds a delivery secret to the same destination as the delivery', async () => {
         const fixture = createFixture()
         try {

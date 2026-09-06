@@ -18,6 +18,9 @@ import type {
     MediaRepresentationResponse,
     MediaReservationResponse,
     MediaUploadResponse,
+    NotificationInboxResponse,
+    NotificationPreferenceResponse,
+    NotificationResponse,
     PostResponse,
     PublicationEditorStateResponse,
     PublisherConnectionResponse,
@@ -83,3 +86,6 @@ export type ProjectAccessToken = ProjectAccessTokenResponse
 export type ProjectAccessTokens = ProjectAccessTokensResponse
 export type PublisherConnection = PublisherConnectionResponse
 export type PublisherConnections = PublisherConnectionsResponse
+export type Notification = NotificationResponse
+export type NotificationInbox = NotificationInboxResponse
+export type NotificationPreference = NotificationPreferenceResponse
