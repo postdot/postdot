@@ -1097,7 +1097,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-048] Add an encrypted secret boundary for external notification destinations
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: NOTIFY-81 deliberately stores only bounded public destination configuration;
   external delivery transports will eventually need bearer tokens, topic credentials,
   or other provider secrets. Persisting those values in the public configuration JSON
@@ -1113,4 +1113,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   management API. It must be resolved before a real Ntfy, Telegram, email, or similar
   transport can be configured.
 - Tasks: NOTIFY-82
-- Related decisions: ADR-016, ADR-039
+- Related decisions: ADR-016, ADR-039, ADR-040
+- Resolution: Herald now stores versioned notification destination secret envelopes
+  separately from public destination configuration. AES-256-GCM encryption is
+  deployment-keyed and domain-separated from publisher credentials; projection stores
+  only the secret row reference, and claimed delivery resolution checks project,
+  destination, transport, lease, and claim token before decryption. Rotation retires
+  the previous active version without changing already-projected deliveries. No real
+  provider transport, management API, or UI was introduced.

@@ -1,6 +1,11 @@
-import { requireNonBlank } from '@herald/core'
+import {
+    createSecretCipher,
+    encryptedSecretEnvelopeVersion,
+    SecretCipherError,
+    type EncryptedSecretEnvelope,
+} from './encrypted-secret-crypto'
 
-export const publisherCredentialEnvelopeVersion = 1 as const
+export const publisherCredentialEnvelopeVersion = encryptedSecretEnvelopeVersion
 
 export type PublisherSecretField =
     | 'access_token'
@@ -9,12 +14,7 @@ export type PublisherSecretField =
     | 'provider_session'
     | 'provider_state'
 
-export interface EncryptedPublisherSecret {
-    readonly version: typeof publisherCredentialEnvelopeVersion
-    readonly keyId: string
-    readonly nonce: Uint8Array
-    readonly ciphertext: Uint8Array
-}
+export type EncryptedPublisherSecret = EncryptedSecretEnvelope
 
 export type PublisherCredentialCipherErrorCode =
     | 'invalid_key'
@@ -50,119 +50,76 @@ export interface CreatePublisherCredentialCipherOptions {
     readonly key: Uint8Array
 }
 
-const encoder = new TextEncoder()
-const decoder = new TextDecoder('utf-8', { fatal: true })
-
-function webCryptoBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {
-    const copy = new Uint8Array(new ArrayBuffer(value.byteLength))
-    copy.set(value)
-    return copy
-}
-
-function authenticatedData(context: PublisherSecretContext): Uint8Array<ArrayBuffer> {
-    return webCryptoBytes(
-        encoder.encode(
-            JSON.stringify([
-                'herald.publisher-secret',
-                publisherCredentialEnvelopeVersion,
-                requireNonBlank(context.recordId, 'recordId'),
-                requireNonBlank(context.providerId, 'providerId'),
-                context.field,
-            ])
-        )
-    )
-}
-
-function validateEnvelope(envelope: EncryptedPublisherSecret, keyId: string): void {
-    if (envelope.version !== publisherCredentialEnvelopeVersion) {
-        throw new PublisherCredentialCipherError(
-            'unsupported_version',
-            'Unsupported publisher credential envelope version'
-        )
-    }
-    if (envelope.keyId !== keyId) {
-        throw new PublisherCredentialCipherError(
-            'unknown_key',
-            'Publisher credential envelope uses an unavailable key'
-        )
-    }
-    if (envelope.nonce.byteLength !== 12 || envelope.ciphertext.byteLength <= 16) {
-        throw new PublisherCredentialCipherError(
-            'decryption_failed',
-            'Publisher credential decryption failed'
-        )
-    }
-}
-
 export function createPublisherCredentialCipher(
     options: CreatePublisherCredentialCipherOptions
 ): PublisherCredentialCipher {
-    const keyId = requireNonBlank(options.keyId, 'keyId')
-    const keyBytes = Uint8Array.from(options.key)
-
-    if (keyBytes.byteLength !== 32) {
-        throw new PublisherCredentialCipherError(
-            'invalid_key',
-            'Publisher credential encryption key must contain exactly 32 bytes'
-        )
+    let cipher: ReturnType<typeof createSecretCipher>
+    try {
+        cipher = createSecretCipher({
+            domain: 'herald.publisher-secret',
+            keyId: options.keyId,
+            key: options.key,
+        })
+    } catch (error) {
+        throw toPublisherCipherError(error)
     }
 
-    const cryptoKey = crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, [
-        'encrypt',
-        'decrypt',
-    ])
-
     return {
-        keyId,
+        keyId: cipher.keyId,
         async encrypt(context, plaintext) {
-            if (plaintext.length === 0) {
-                throw new PublisherCredentialCipherError(
-                    'invalid_secret',
-                    'Publisher credential secret must not be empty'
+            try {
+                return await cipher.encrypt(
+                    {
+                        recordId: context.recordId,
+                        purpose: [context.providerId, context.field],
+                    },
+                    plaintext
                 )
-            }
-
-            const nonce = crypto.getRandomValues(new Uint8Array(12))
-            const ciphertext = await crypto.subtle.encrypt(
-                {
-                    name: 'AES-GCM',
-                    iv: nonce,
-                    additionalData: authenticatedData(context),
-                    tagLength: 128,
-                },
-                await cryptoKey,
-                encoder.encode(plaintext)
-            )
-
-            return {
-                version: publisherCredentialEnvelopeVersion,
-                keyId,
-                nonce,
-                ciphertext: new Uint8Array(ciphertext),
+            } catch (error) {
+                throw toPublisherCipherError(error)
             }
         },
         async decrypt(context, envelope) {
-            validateEnvelope(envelope, keyId)
-
             try {
-                const plaintext = await crypto.subtle.decrypt(
+                return await cipher.decrypt(
                     {
-                        name: 'AES-GCM',
-                        iv: webCryptoBytes(envelope.nonce),
-                        additionalData: authenticatedData(context),
-                        tagLength: 128,
+                        recordId: context.recordId,
+                        purpose: [context.providerId, context.field],
                     },
-                    await cryptoKey,
-                    webCryptoBytes(envelope.ciphertext)
+                    envelope
                 )
-
-                return decoder.decode(plaintext)
-            } catch {
-                throw new PublisherCredentialCipherError(
-                    'decryption_failed',
-                    'Publisher credential decryption failed'
-                )
+            } catch (error) {
+                throw toPublisherCipherError(error)
             }
         },
+    }
+}
+
+function toPublisherCipherError(error: unknown): PublisherCredentialCipherError {
+    if (error instanceof PublisherCredentialCipherError) return error
+    if (error instanceof SecretCipherError) {
+        return new PublisherCredentialCipherError(error.code, publisherMessage(error.code))
+    }
+    if (error instanceof Error) {
+        return new PublisherCredentialCipherError('decryption_failed', error.message)
+    }
+    return new PublisherCredentialCipherError(
+        'decryption_failed',
+        'Publisher credential operation failed'
+    )
+}
+
+function publisherMessage(code: PublisherCredentialCipherErrorCode): string {
+    switch (code) {
+        case 'invalid_key':
+            return 'Publisher credential encryption key must contain exactly 32 bytes'
+        case 'invalid_secret':
+            return 'Publisher credential secret must not be empty'
+        case 'unsupported_version':
+            return 'Unsupported publisher credential envelope version'
+        case 'unknown_key':
+            return 'Publisher credential envelope uses an unavailable key'
+        case 'decryption_failed':
+            return 'Publisher credential decryption failed'
     }
 }

@@ -35,6 +35,7 @@ const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
 const channelProfileStates = channelProfileVersionStates
 const notificationDestinationStates = ['active', 'disabled'] as const
+const notificationDestinationSecretStates = ['active', 'retired'] as const
 const notificationDeliveryStates = [
     'pending',
     'running',
@@ -1811,6 +1812,73 @@ export const notificationDestinations = sqliteTable(
     ]
 )
 
+export const notificationDestinationSecrets = sqliteTable(
+    'notification_destination_secrets',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        destinationId: text('destination_id').notNull(),
+        version: integer('version').notNull(),
+        transportId: text('transport_id').notNull(),
+        state: text('state', { enum: notificationDestinationSecretStates })
+            .default('active')
+            .notNull(),
+        encryptionVersion: integer('encryption_version').notNull(),
+        encryptionKeyId: text('encryption_key_id').notNull(),
+        ciphertext: blob('ciphertext', { mode: 'buffer' }).notNull(),
+        nonce: blob('nonce', { mode: 'buffer' }).notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('notification_destination_secrets_project_id_id_uidx').on(
+            table.projectId,
+            table.id
+        ),
+        uniqueIndex('notification_destination_secrets_project_destination_id_uidx').on(
+            table.projectId,
+            table.destinationId,
+            table.id
+        ),
+        uniqueIndex('notification_destination_secrets_project_destination_version_uidx').on(
+            table.projectId,
+            table.destinationId,
+            table.version
+        ),
+        uniqueIndex('notification_destination_secrets_project_destination_active_uidx')
+            .on(table.projectId, table.destinationId)
+            .where(sql`${table.state} = 'active'`),
+        foreignKey({
+            name: 'notification_destination_secrets_project_destination_fk',
+            columns: [table.projectId, table.destinationId],
+            foreignColumns: [notificationDestinations.projectId, notificationDestinations.id],
+        }).onDelete('cascade'),
+        check('notification_destination_secrets_version_valid', sql`${table.version} > 0`),
+        check(
+            'notification_destination_secrets_transport_nonblank',
+            sql`length(trim(${table.transportId})) > 0`
+        ),
+        check(
+            'notification_destination_secrets_state_valid',
+            sql`${table.state} in ('active', 'retired')`
+        ),
+        check(
+            'notification_destination_secrets_encryption_version_valid',
+            sql`${table.encryptionVersion} > 0`
+        ),
+        check(
+            'notification_destination_secrets_encryption_key_nonblank',
+            sql`length(trim(${table.encryptionKeyId})) > 0`
+        ),
+        check(
+            'notification_destination_secrets_ciphertext_valid',
+            sql`length(${table.ciphertext}) > 16`
+        ),
+        check('notification_destination_secrets_nonce_valid', sql`length(${table.nonce}) = 12`),
+    ]
+)
+
 export const notificationSubscriptions = sqliteTable(
     'notification_subscriptions',
     {
@@ -1876,6 +1944,7 @@ export const notificationDeliveries = sqliteTable(
             .notNull()
             .references(() => projects.id, { onDelete: 'cascade' }),
         destinationId: text('destination_id').notNull(),
+        secretId: text('secret_id'),
         sourceEventId: text('source_event_id').notNull(),
         transportId: text('transport_id').notNull(),
         configurationJson: text('configuration_json', { mode: 'json' })
@@ -1920,6 +1989,15 @@ export const notificationDeliveries = sqliteTable(
             name: 'notification_deliveries_project_destination_fk',
             columns: [table.projectId, table.destinationId],
             foreignColumns: [notificationDestinations.projectId, notificationDestinations.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'notification_deliveries_project_secret_fk',
+            columns: [table.projectId, table.destinationId, table.secretId],
+            foreignColumns: [
+                notificationDestinationSecrets.projectId,
+                notificationDestinationSecrets.destinationId,
+                notificationDestinationSecrets.id,
+            ],
         }).onDelete('restrict'),
         foreignKey({
             name: 'notification_deliveries_project_source_event_fk',

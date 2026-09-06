@@ -91,6 +91,7 @@ function revertNotificationMigration(database: ReturnType<typeof createDatabase>
         DROP TABLE notification_deliveries;
         DROP TABLE notification_delivery_projection_cursors;
         DROP TABLE notification_subscriptions;
+        DROP TABLE notification_destination_secrets;
         DROP TABLE notification_destinations;
     `)
     database.$client.exec(`
@@ -133,6 +134,7 @@ describe('database migrations', () => {
                 'media_upload_intents',
                 'notification_deliveries',
                 'notification_delivery_projection_cursors',
+                'notification_destination_secrets',
                 'notification_destinations',
                 'notification_preferences',
                 'notification_projection_cursors',
@@ -162,7 +164,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(17)
+            expect(migrationCount?.count).toBe(19)
         } finally {
             closeDatabase(database)
         }
@@ -215,6 +217,8 @@ describe('database migrations', () => {
                 '0014_parallel_synch',
                 '0015_crazy_the_call',
                 '0016_funny_rage',
+                '0017_glossy_zuras',
+                '0018_gigantic_bromley',
             ])
             runMigrations(database)
 
@@ -288,6 +292,8 @@ describe('database migrations', () => {
                 '0014_parallel_synch',
                 '0015_crazy_the_call',
                 '0016_funny_rage',
+                '0017_glossy_zuras',
+                '0018_gigantic_bromley',
             ])
 
             expect(() => runMigrations(staleDatabase)).toThrow()
