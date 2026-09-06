@@ -4,7 +4,7 @@
 - Date: 2026-09-07
 - Scope: authenticated web interface localization; not publication-content translation
 - Related issue: ISSUE-049
-- Related task: I18N-95
+- Related tasks: I18N-95, I18N-99, I18N-100
 
 ## Context
 
@@ -23,7 +23,7 @@ interface.
 
 ## Decision
 
-Propose Paraglide JS, configured through inlang, as the web localization
+Herald uses Paraglide JS, configured through inlang, as the web localization
 foundation.
 
 - The initial interface locales are `en` and `fr`; English is the base locale.
@@ -41,11 +41,35 @@ foundation.
 - New user-facing interface copy must use stable message identifiers. Dates,
   numbers, plural/select forms, and accessible labels belong in the same
   message/formatting boundary rather than ad hoc component strings.
+- English is the default interface language and French is the second supported
+  interface language. Every build runs a catalog coverage check against the
+  English base catalog; missing or unknown message keys fail the build and the
+  report lists the exact keys and percentage for each locale. Equal source and
+  translated strings are reported for review but are not treated as missing,
+  because names, abbreviations, and technical terms can legitimately remain
+  unchanged.
 - The user's browser preference is deliberately local for this foundation. An
   account-synchronized preference is a later product decision and must define
   precedence between account, browser, and explicit session choices.
-- Publication bodies, titles, and provider payloads remain untouched by this
-  interface localization layer.
+
+## Language boundaries
+
+Herald distinguishes three different language concerns:
+
+1. **Herald interface language.** This is the current Paraglide/inlang scope.
+   It covers labels, actions, help text, validation copy, accessibility labels,
+   and other UI-owned messages in the web client.
+2. **Server/API user-facing messages.** The API remains locale-neutral for now:
+   it returns stable error codes and structured parameters, not translated
+   prose. Each client owns presentation: the web client translates through
+   Paraglide, while the CLI or MCP client can later choose its own formatter.
+   Server-owned channels such as email or future rendered documents require a
+   separate decision and must not silently introduce a second UI catalog.
+3. **Publication content.** Titles, bodies, media descriptions, and provider
+   payloads are authored by the user in whatever language they choose. Herald
+   does not translate content, infer a publication language, or create
+   multilingual variants automatically. A future multilingual-publication
+   feature would need explicit source-variant, scheduling, and target semantics.
 
 ## Alternatives considered
 
@@ -113,6 +137,9 @@ Costs and risks:
 - The current foundation does not translate every existing component. Migrating
   the product copy and introducing shared date/number formatters is a separate
   task, tracked as I18N-99.
+- The current coverage gate measures catalog completeness, not translation
+  quality. It cannot determine whether a non-empty translation is idiomatic or
+  whether an English-looking proper noun should be translated.
 - `setLocale(..., { reload: false })` requires the provider to own React
   reactivity and document synchronization. A future SSR/public surface should
   revisit the strategy instead of copying this client-only escape hatch.
@@ -122,6 +149,8 @@ Costs and risks:
 ## Verification plan
 
 - Compile the catalogs during web build, typecheck, and test commands.
+- Run the catalog coverage gate during the same lifecycle and fail on missing or
+  unknown keys.
 - Test translated message functions directly for both supported locales.
 - Exercise the selector in a real browser, including keyboard/accessibility
   semantics and an English-to-French switch without a page reload.

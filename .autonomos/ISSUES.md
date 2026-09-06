@@ -1142,7 +1142,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   API errors expose stable machine-readable codes and parameters rather than
   requiring clients to translate server-rendered prose. Publication-content
   language remains a separate domain concern.
-- Tasks: I18N-95, I18N-99
+- Tasks: I18N-95, I18N-99, I18N-100
 
 ## [ISSUE-050] Keep notifications and project work views synchronized
 
@@ -1206,3 +1206,21 @@ channels` with a foreign-key constraint error even though a fresh empty database
   realistic desktop and narrow-screen data rather than by isolated component
   screenshots.
 - Tasks: DESIGN-98
+
+## [ISSUE-053] Define project categories and publication tags
+
+- Type: proposal
+- Status: open
+- Evidence: Herald needs a way to organize publications beyond their channel,
+  schedule, and lifecycle state. Categories and tags have been identified as
+  useful product concepts, but their ownership, semantics, and query behavior
+  have not been defined.
+- Impact: Adding ad hoc labels in one screen could create incompatible
+  filtering, calendar, queue, API, CLI, and future analytics behavior. A rushed
+  model could also confuse a controlled category taxonomy with free-form tags.
+- Desired outcome: Decide whether categories, tags, or both are needed; define
+  their scope and ownership, naming and normalization rules, cardinality,
+  permissions, lifecycle, filtering/search behavior, and client/API exposure.
+  The design must remain useful for projects with many publications without
+  turning organization into a second content model.
+- Tasks: TAXONOMY-101

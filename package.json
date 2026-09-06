@@ -20,6 +20,7 @@
         "test:e2e": "playwright test",
         "test:coverage": "bun test --coverage --path-ignore-patterns='e2e/**'",
         "measure:footprint": "bun run build && bun run scripts/measure-footprint.ts",
+        "i18n:coverage": "bun run --cwd apps/web i18n:coverage",
         "clean": "turbo clean && rimraf node_modules",
         "check": "bun run format && bun run lint && bun run typecheck && bun run test && bun run build",
         "prepare": "husky",
