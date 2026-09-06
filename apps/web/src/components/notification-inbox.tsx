@@ -14,10 +14,14 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@herald/ui/components/empty'
+import { Field, FieldContent, FieldDescription, FieldTitle } from '@herald/ui/components/field'
 import { ScrollArea } from '@herald/ui/components/scroll-area'
+import { Switch } from '@herald/ui/components/switch'
 import { ArchiveIcon } from '@solar-icons/react/bold/archive'
+import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
 import { BellIcon } from '@solar-icons/react/bold/bell'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { SettingsIcon } from '@solar-icons/react/bold/settings'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
@@ -25,17 +29,44 @@ import {
     formatApiError,
     type Notification,
     type NotificationInbox as NotificationInboxState,
+    type NotificationPreference,
 } from '@/lib/api'
 
 interface NotificationInboxProps {
     readonly projectId: string | null
 }
 
+type NotificationPanel = 'inbox' | 'preferences'
+
+const preferenceCopy: Record<
+    NotificationPreference['kind'],
+    { readonly label: string; readonly description: string }
+> = {
+    publication_published: {
+        label: 'Successful publications',
+        description: 'Show a confirmation when Herald delivers a publication.',
+    },
+    publication_failed: {
+        label: 'Failed publications',
+        description: 'Show publications that could not be delivered and need attention.',
+    },
+    publication_ambiguous: {
+        label: 'Uncertain outcomes',
+        description: 'Show publications whose remote outcome needs reconciliation.',
+    },
+}
+
 export function NotificationInbox({ projectId }: NotificationInboxProps) {
     const [open, setOpen] = useState(false)
     const [inbox, setInbox] = useState<NotificationInboxState | null>(null)
+    const [panel, setPanel] = useState<NotificationPanel>('inbox')
+    const [preferences, setPreferences] = useState<NotificationPreference[] | null>(null)
     const [loading, setLoading] = useState(false)
+    const [preferencesLoading, setPreferencesLoading] = useState(false)
     const [workingId, setWorkingId] = useState<string | null>(null)
+    const [workingPreferenceKind, setWorkingPreferenceKind] = useState<
+        NotificationPreference['kind'] | null
+    >(null)
     const [error, setError] = useState<string | null>(null)
     const requestVersion = useRef(0)
 
@@ -57,9 +88,29 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
         }
     }, [projectId])
 
+    const loadPreferences = useCallback(async () => {
+        if (projectId === null) return
+
+        const version = ++requestVersion.current
+        setPreferencesLoading(true)
+        setError(null)
+        try {
+            const response = await api.listNotificationPreferences(projectId)
+            if (version !== requestVersion.current) return
+            setPreferences(response.preferences)
+        } catch (caughtError) {
+            if (version !== requestVersion.current) return
+            setError(formatApiError(caughtError))
+        } finally {
+            if (version === requestVersion.current) setPreferencesLoading(false)
+        }
+    }, [projectId])
+
     useEffect(() => {
         requestVersion.current += 1
         setInbox(null)
+        setPanel('inbox')
+        setPreferences(null)
         setError(null)
         void loadInbox()
     }, [loadInbox])
@@ -89,6 +140,31 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
             setError(formatApiError(caughtError))
         } finally {
             if (version === requestVersion.current) setWorkingId(null)
+        }
+    }
+
+    const updatePreference = async (preference: NotificationPreference, inAppEnabled: boolean) => {
+        if (projectId === null || preference.inAppEnabled === inAppEnabled) return
+
+        const version = requestVersion.current
+        setWorkingPreferenceKind(preference.kind)
+        setError(null)
+        try {
+            const updated = await api.updateNotificationPreference(
+                projectId,
+                preference.kind,
+                inAppEnabled
+            )
+            if (version !== requestVersion.current) return
+            setPreferences(
+                current =>
+                    current?.map(item => (item.kind === updated.kind ? updated : item)) ?? null
+            )
+        } catch (caughtError) {
+            if (version !== requestVersion.current) return
+            setError(formatApiError(caughtError))
+        } finally {
+            if (version === requestVersion.current) setWorkingPreferenceKind(null)
         }
     }
 
@@ -140,6 +216,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                 title="Notifications"
                 variant="ghost"
                 onClick={() => {
+                    setPanel('inbox')
                     setOpen(true)
                     void loadInbox()
                 }}>
@@ -154,15 +231,54 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
                     <DialogHeader className="gap-1 px-5 pt-5 pb-4 pr-12">
-                        <div className="flex items-center gap-2">
-                            <DialogTitle>Notifications</DialogTitle>
-                            {unreadCount > 0 ? (
-                                <Badge variant="secondary">{unreadCount} unread</Badge>
-                            ) : null}
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <DialogTitle>
+                                        {panel === 'inbox'
+                                            ? 'Notifications'
+                                            : 'Notification preferences'}
+                                    </DialogTitle>
+                                    {panel === 'inbox' && unreadCount > 0 ? (
+                                        <Badge variant="secondary">{unreadCount} unread</Badge>
+                                    ) : null}
+                                </div>
+                                <DialogDescription className="mt-1">
+                                    {panel === 'inbox'
+                                        ? 'Publication outcomes and project activity.'
+                                        : 'Choose which publication outcomes appear in this inbox.'}
+                                </DialogDescription>
+                            </div>
+                            <Button
+                                aria-label={
+                                    panel === 'inbox'
+                                        ? 'Open notification preferences'
+                                        : 'Back to notifications'
+                                }
+                                className="shrink-0"
+                                size="icon-sm"
+                                title={
+                                    panel === 'inbox'
+                                        ? 'Notification preferences'
+                                        : 'Back to notifications'
+                                }
+                                variant="ghost"
+                                onClick={() => {
+                                    if (panel === 'inbox') {
+                                        setPanel('preferences')
+                                        void loadPreferences()
+                                    } else {
+                                        setPanel('inbox')
+                                        void loadInbox()
+                                    }
+                                }}>
+                                {panel === 'inbox' ? (
+                                    <SettingsIcon aria-hidden="true" />
+                                ) : (
+                                    <ArrowLeftIcon aria-hidden="true" />
+                                )}
+                            </Button>
                         </div>
-                        <DialogDescription>
-                            Project activity that needs your attention.
-                        </DialogDescription>
                     </DialogHeader>
 
                     {error !== null ? (
@@ -181,36 +297,45 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                         </div>
                     ) : null}
 
-                    <ScrollArea className="max-h-[min(36rem,calc(100vh-12rem))] px-5 pb-5">
-                        {loading && inbox === null ? (
-                            <NotificationLoadingState />
-                        ) : notifications.length === 0 ? (
-                            <Empty className="min-h-48 bg-muted px-5 py-8">
-                                <EmptyHeader>
-                                    <EmptyMedia variant="icon">
-                                        <BellIcon aria-hidden="true" />
-                                    </EmptyMedia>
-                                    <EmptyTitle>No notifications</EmptyTitle>
-                                    <EmptyDescription>
-                                        Publication outcomes and other project activity will appear
-                                        here.
-                                    </EmptyDescription>
-                                </EmptyHeader>
-                            </Empty>
-                        ) : (
-                            <div className="grid gap-2" role="list">
-                                {notifications.map(notification => (
-                                    <NotificationItem
-                                        key={notification.id}
-                                        disabled={workingId === notification.id}
-                                        notification={notification}
-                                        onArchive={archive}
-                                        onMarkRead={markRead}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </ScrollArea>
+                    {panel === 'inbox' ? (
+                        <ScrollArea className="max-h-[min(36rem,calc(100vh-12rem))] px-5 pb-5">
+                            {loading && inbox === null ? (
+                                <NotificationLoadingState />
+                            ) : notifications.length === 0 ? (
+                                <Empty className="min-h-48 bg-muted px-5 py-8">
+                                    <EmptyHeader>
+                                        <EmptyMedia variant="icon">
+                                            <BellIcon aria-hidden="true" />
+                                        </EmptyMedia>
+                                        <EmptyTitle>No notifications</EmptyTitle>
+                                        <EmptyDescription>
+                                            Publication outcomes and other project activity will
+                                            appear here.
+                                        </EmptyDescription>
+                                    </EmptyHeader>
+                                </Empty>
+                            ) : (
+                                <div className="grid gap-2" role="list">
+                                    {notifications.map(notification => (
+                                        <NotificationItem
+                                            key={notification.id}
+                                            disabled={workingId === notification.id}
+                                            notification={notification}
+                                            onArchive={archive}
+                                            onMarkRead={markRead}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </ScrollArea>
+                    ) : (
+                        <NotificationPreferencesPanel
+                            loading={preferencesLoading}
+                            preferences={preferences}
+                            workingKind={workingPreferenceKind}
+                            onChange={updatePreference}
+                        />
+                    )}
                 </DialogContent>
             </Dialog>
         </>
@@ -306,6 +431,67 @@ function NotificationLoadingState() {
                 </div>
             ))}
             <span className="sr-only">Loading notifications</span>
+        </div>
+    )
+}
+
+function NotificationPreferencesPanel({
+    loading,
+    onChange,
+    preferences,
+    workingKind,
+}: {
+    readonly loading: boolean
+    readonly onChange: (preference: NotificationPreference, inAppEnabled: boolean) => Promise<void>
+    readonly preferences: readonly NotificationPreference[] | null
+    readonly workingKind: NotificationPreference['kind'] | null
+}) {
+    if (loading && preferences === null) {
+        return (
+            <div
+                className="grid gap-2 px-5 pb-5"
+                aria-label="Loading notification preferences"
+                role="status">
+                {[0, 1, 2].map(item => (
+                    <div className="h-[4.75rem] animate-pulse rounded-md bg-muted" key={item} />
+                ))}
+                <span className="sr-only">Loading notification preferences</span>
+            </div>
+        )
+    }
+
+    if (preferences === null) return null
+
+    return (
+        <div
+            className="grid gap-2 px-5 pb-5"
+            data-notification-preferences="true"
+            role="group"
+            aria-label="Notification preferences">
+            <p className="mb-2 text-xs leading-5 text-muted-foreground">
+                Disabled categories stay out of the inbox for future events. Existing notifications
+                are preserved.
+            </p>
+            {preferences.map(preference => {
+                const copy = preferenceCopy[preference.kind]
+                return (
+                    <Field
+                        className="rounded-md bg-surface-raised px-3.5 py-3 shadow-field"
+                        key={preference.kind}
+                        orientation="horizontal">
+                        <FieldContent>
+                            <FieldTitle>{copy.label}</FieldTitle>
+                            <FieldDescription>{copy.description}</FieldDescription>
+                        </FieldContent>
+                        <Switch
+                            aria-label={`${copy.label}: ${preference.inAppEnabled ? 'enabled' : 'disabled'}`}
+                            checked={preference.inAppEnabled}
+                            disabled={workingKind === preference.kind}
+                            onCheckedChange={checked => void onChange(preference, checked)}
+                        />
+                    </Field>
+                )
+            })}
         </div>
     )
 }

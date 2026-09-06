@@ -65,6 +65,7 @@ export { Label } from './label'
 export { ScrollArea, ScrollBar } from './scroll-area'
 export { Separator } from './separator'
 export { Skeleton } from './skeleton'
+export { Switch } from './switch'
 export {
     Select,
     SelectContent,

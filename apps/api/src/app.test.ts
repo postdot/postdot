@@ -19,6 +19,7 @@ import type { OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
 import { createApp } from './app'
+import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createPublisherRuntime, type PublisherRuntimeOptions } from './modules/publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
@@ -1039,7 +1040,8 @@ describe('Herald API', () => {
     })
 
     it('protects project resources and completes the manual publication flow', async () => {
-        const { app, database } = createFixture()
+        const { app, database, notifications } = createFixture()
+        const notificationProjection = createNotificationProjectionRuntime(notifications)
 
         try {
             const unauthorizedResponse = await app.handle(new Request(`${baseURL}/api/projects`))
@@ -1390,6 +1392,24 @@ describe('Herald API', () => {
             expect(auditBody.events.map(event => event.action)).toContain(
                 'publication.draft.rebased'
             )
+
+            notificationProjection.runNow()
+            const notificationResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/notifications`,
+                cookie
+            )
+            expect(notificationResponse.status).toBe(200)
+            expect(await notificationResponse.json()).toMatchObject({
+                unreadCount: 1,
+                notifications: [
+                    {
+                        kind: 'publication_published',
+                        title: 'Publication delivered',
+                        subject: { type: 'publication' },
+                    },
+                ],
+            })
         } finally {
             closeDatabase(database)
         }

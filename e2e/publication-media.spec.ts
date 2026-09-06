@@ -206,6 +206,21 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible()
     await expect(page.getByText('No notifications', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Open notification preferences', exact: true }).click()
+    await expect(
+        page.getByRole('heading', { name: 'Notification preferences', exact: true })
+    ).toBeVisible()
+    const failedPublicationPreference = page.getByRole('switch', {
+        name: 'Failed publications: enabled',
+        exact: true,
+    })
+    await expect(failedPublicationPreference).toBeVisible()
+    await failedPublicationPreference.click()
+    await expect(
+        page.getByRole('switch', { name: 'Failed publications: disabled', exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Back to notifications', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     const overviewLayout = await page.locator('[data-dashboard-scroll]').evaluate(scrollRegion => ({
         clientHeight: (scrollRegion as unknown as { clientHeight: number }).clientHeight,
