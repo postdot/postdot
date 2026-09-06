@@ -136,6 +136,7 @@ export function channelProfileLabel(profileId: string) {
     if (profileId === 'bluesky') return 'Bluesky post'
     if (profileId === 'mastodon') return 'Mastodon status'
     if (profileId === 'discord') return 'Discord message'
+    if (profileId === 'devto') return 'DEV.to article'
     if (profileId === 'manual-message') return 'Manual message'
     return profileId
 }

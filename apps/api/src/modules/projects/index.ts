@@ -5,6 +5,7 @@ import type {
     NotificationStore,
     ProjectAccessTokenStore,
 } from '@herald/db'
+import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
 import type { Logger } from 'pino'
 
@@ -30,6 +31,7 @@ export interface ProjectModuleOptions {
     readonly logger?: Logger
     readonly onWorkScheduled?: () => void
     readonly discordFetcher?: DiscordFetcher
+    readonly devtoFetcher?: DevtoFetcher
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
@@ -47,6 +49,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
         logger: options.logger,
         onWorkScheduled: options.onWorkScheduled,
         discordFetcher: options.discordFetcher,
+        devtoFetcher: options.devtoFetcher,
     })
     const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, {
         onWorkScheduled: options.onWorkScheduled,

@@ -58,6 +58,7 @@ export type ChannelCreationProfile =
     | 'bluesky'
     | 'mastodon'
     | 'discord'
+    | 'devto'
     | RuntimeChannelProfile
 
 export type CustomHttpAuthentication =
@@ -412,6 +413,19 @@ export const api = {
                 .projects({ projectId })
                 .channels({ channelId })
                 .publisher.discord.connect.post(input)
+        )
+    },
+
+    async connectDevtoPublisher(
+        projectId: string,
+        channelId: string,
+        apiKey: string
+    ): Promise<{ connection: PublisherConnection }> {
+        return unwrap<{ connection: PublisherConnection }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.devto.connect.post({ apiKey })
         )
     },
 

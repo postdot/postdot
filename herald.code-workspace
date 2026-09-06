@@ -33,6 +33,10 @@
       "path": "packages/db",
     },
     {
+      "name": "devto",
+      "path": "packages/devto",
+    },
+    {
       "name": "auth",
       "path": "packages/auth",
     },

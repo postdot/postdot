@@ -11,6 +11,7 @@ import {
     type NotificationStore,
     type AnalyticsStore,
 } from '@herald/db'
+import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
 import { Elysia } from 'elysia'
 
@@ -35,6 +36,7 @@ export interface HeraldAppOptions {
     readonly logging?: HeraldLoggingConfig
     readonly onWorkScheduled?: () => void
     readonly discordFetcher?: DiscordFetcher
+    readonly devtoFetcher?: DevtoFetcher
     readonly runtime?: HealthRoutesOptions['runtime']
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications?: NotificationStore
@@ -55,6 +57,7 @@ function createDomainApp({
     notifications,
     analytics,
     discordFetcher,
+    devtoFetcher,
 }: HeraldAppOptions) {
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
@@ -135,6 +138,7 @@ function createDomainApp({
                 logger,
                 onWorkScheduled,
                 discordFetcher,
+                devtoFetcher,
                 accessTokens,
                 notifications: notificationStore,
                 analytics: analyticsStore,
@@ -164,6 +168,7 @@ export function createApp({
     notifications,
     analytics,
     discordFetcher,
+    devtoFetcher,
 }: HeraldAppOptions) {
     return createDomainApp({
         auth,
@@ -179,5 +184,6 @@ export function createApp({
         notifications,
         analytics,
         discordFetcher,
+        devtoFetcher,
     }).use(createAuthRoutes(auth))
 }

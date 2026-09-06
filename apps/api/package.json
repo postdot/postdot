@@ -25,6 +25,7 @@
         "@herald/core": "workspace:*",
         "@herald/custom-http": "workspace:*",
         "@herald/db": "workspace:*",
+        "@herald/devto": "workspace:*",
         "@herald/discord": "workspace:*",
         "@herald/linkedin": "workspace:*",
         "@herald/mastodon": "workspace:*",

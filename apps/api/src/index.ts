@@ -21,6 +21,7 @@ import {
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
 import { createBlueskyProviderAdapter } from './modules/workflow/providers/bluesky'
+import { createDevtoProviderAdapter } from './modules/workflow/providers/devto'
 import { createDiscordProviderAdapter } from './modules/workflow/providers/discord'
 import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
 import { createMastodonProviderAdapter } from './modules/workflow/providers/mastodon'
@@ -110,6 +111,7 @@ async function startServer(config = createHeraldConfig()) {
     const builtInProviderRegistry = createBuiltInProviderRegistry([
         createBlueskyProviderAdapter({ oauth: publisher.bluesky }),
         createDiscordProviderAdapter(),
+        createDevtoProviderAdapter(),
         createLinkedInProviderAdapter({ oauth: publisher.linkedin }),
         createMastodonProviderAdapter({
             fetcher: mastodonFetcher,
@@ -126,6 +128,12 @@ async function startServer(config = createHeraldConfig()) {
         media,
         customHttpTransport,
         resolveCustomHttpMediaUrl: (mediaReference, context) =>
+            mediaPublicDelivery.createUrl({
+                projectId: context.projectId,
+                assetId: mediaReference.assetId,
+                representationId: mediaReference.representationId,
+            }),
+        resolveBuiltInMediaUrl: (mediaReference, context) =>
             mediaPublicDelivery.createUrl({
                 projectId: context.projectId,
                 assetId: mediaReference.assetId,

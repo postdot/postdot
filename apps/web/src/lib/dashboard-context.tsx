@@ -132,6 +132,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
         channelId: string,
         input: { botToken: string; channelId: string }
     ) => Promise<boolean>
+    readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
     readonly onPublish: (publicationId: string) => Promise<void>
     readonly pending: boolean
     readonly postContent: string
@@ -211,14 +212,20 @@ export function ProjectDashboardProvider({
 
             const copy = target.content.trim()
             const targetContent =
-                copy === ''
-                    ? undefined
-                    : selectedChannel.profileId === 'linkedin'
-                      ? { commentary: copy, media: [...sourceMedia] }
-                      : selectedChannel.profileId === 'bluesky' ||
-                          selectedChannel.profileId === 'mastodon'
-                        ? { text: copy, media: [...sourceMedia] }
-                        : { body: copy, media: [...sourceMedia] }
+                selectedChannel.profileId === 'devto'
+                    ? {
+                          title: postTitle.trim(),
+                          body_markdown: copy === '' ? postContent : copy,
+                          media: [...sourceMedia],
+                      }
+                    : copy === ''
+                      ? undefined
+                      : selectedChannel.profileId === 'linkedin'
+                        ? { commentary: copy, media: [...sourceMedia] }
+                        : selectedChannel.profileId === 'bluesky' ||
+                            selectedChannel.profileId === 'mastodon'
+                          ? { text: copy, media: [...sourceMedia] }
+                          : { body: copy, media: [...sourceMedia] }
 
             return {
                 channelId: target.channelId,
@@ -244,6 +251,7 @@ export function ProjectDashboardProvider({
             await api.createPost(project.id, {
                 title: postTitle.trim() === '' ? undefined : postTitle,
                 sourceContent: {
+                    ...(postTitle.trim() === '' ? {} : { headline: postTitle.trim() }),
                     ...(postContent.trim() === ''
                         ? {}
                         : { body: { text: postContent, format: 'plain_text' as const } }),
@@ -310,6 +318,16 @@ export function ProjectDashboardProvider({
     ): Promise<boolean> {
         return runAction(async () => {
             await api.connectDiscordPublisher(project.id, channelId, input)
+            await refreshProject()
+        })
+    }
+
+    async function handleConnectDevtoPublisher(
+        channelId: string,
+        apiKey: string
+    ): Promise<boolean> {
+        return runAction(async () => {
+            await api.connectDevtoPublisher(project.id, channelId, apiKey)
             await refreshProject()
         })
     }
@@ -468,6 +486,7 @@ export function ProjectDashboardProvider({
         onStartBlueskyConnection: handleStartBlueskyConnection,
         onStartMastodonConnection: handleStartMastodonConnection,
         onConnectDiscordPublisher: handleConnectDiscordPublisher,
+        onConnectDevtoPublisher: handleConnectDevtoPublisher,
         onPublish: handlePublish,
         pending,
         postContent,

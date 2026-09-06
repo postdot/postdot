@@ -13,6 +13,7 @@ import type {
     PublicationWorkingDraft,
 } from '@herald/db'
 import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
+import { devtoChannelProfile } from '@herald/devto'
 import { discordChannelProfile } from '@herald/discord'
 import { linkedinChannelProfile } from '@herald/linkedin'
 import { mastodonChannelProfile } from '@herald/mastodon'
@@ -339,6 +340,7 @@ export const createChannelBody = Type.Object({
             Type.Literal('bluesky'),
             Type.Literal('mastodon'),
             Type.Literal('discord'),
+            Type.Literal('devto'),
             Type.Literal('x'),
             Type.Object({
                 id: Type.String({ minLength: 1 }),
@@ -398,6 +400,7 @@ export function resolveChannelProfile(profile: unknown): ChannelProfileDefinitio
     if (profile === 'bluesky') return blueskyChannelProfile
     if (profile === 'mastodon') return mastodonChannelProfile
     if (profile === 'discord') return discordChannelProfile
+    if (profile === 'devto') return devtoChannelProfile
     if (profile === 'x') return xChannelProfile
     if (profile === undefined || profile === 'manual-message') {
         return createManualChannelProfile()
@@ -507,6 +510,14 @@ export const discordConnectionBody = Type.Object({
 })
 
 export const discordConnectionResponse = Type.Object({
+    connection: publisherConnectionSchema,
+})
+
+export const devtoConnectionBody = Type.Object({
+    apiKey: Type.String({ minLength: 1, maxLength: 4_096, writeOnly: true }),
+})
+
+export const devtoConnectionResponse = Type.Object({
     connection: publisherConnectionSchema,
 })
 

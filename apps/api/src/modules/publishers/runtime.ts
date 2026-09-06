@@ -31,6 +31,7 @@ import {
 } from '@herald/x'
 
 import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
+import { devtoPublisherConnectionPolicy } from './providers/devto'
 import { discordPublisherConnectionPolicy } from './providers/discord'
 import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
 import { mastodonPublisherConnectionPolicy } from './providers/mastodon'
@@ -85,6 +86,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         credentialRevoker: credentialStore,
         connectionPolicies: {
             bluesky: blueskyPublisherConnectionPolicy,
+            devto: devtoPublisherConnectionPolicy,
             discord: discordPublisherConnectionPolicy,
             linkedin: linkedInPublisherConnectionPolicy,
             mastodon: mastodonPublisherConnectionPolicy,
