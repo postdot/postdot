@@ -107,3 +107,4 @@
 - [x] **[NOTIFY-80]** Implement the persistent project notification inbox and authenticated API `Priority: 🔴` `Complexity: L`
 - [x] **[NOTIFY-81]** Build the transport-neutral external notification delivery outbox `Priority: 🔴` `Complexity: L`
 - [x] **[NOTIFY-82]** Add the encrypted secret boundary required by external notification transports `Priority: 🔴` `Complexity: M`
+- [x] **[NOTIFY-83]** Integrate the built-in notification inbox into the dashboard and verify the transport handoff with a recording boundary `Priority: 🔴` `Complexity: M`

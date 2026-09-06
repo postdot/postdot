@@ -11,6 +11,9 @@ import {
     type MediaReference,
     type MediaReservation,
     type MediaUpload,
+    type Notification,
+    type NotificationInbox,
+    type NotificationPreference,
     type Post,
     type PublicationEditorState,
     type ProjectAccessToken,
@@ -309,6 +312,55 @@ export const api = {
         )
     },
 
+    async listNotifications(
+        projectId: string,
+        options: {
+            before?: string
+            limit?: number
+            view?: 'active' | 'all'
+        } = {}
+    ): Promise<NotificationInbox> {
+        return unwrap<NotificationInbox>(
+            await client.api.projects({ projectId }).notifications.get({ query: options })
+        )
+    },
+
+    async markNotificationRead(projectId: string, notificationId: string): Promise<Notification> {
+        return unwrap<Notification>(
+            await client.api.projects({ projectId }).notifications({ notificationId }).read.post()
+        )
+    },
+
+    async archiveNotification(projectId: string, notificationId: string): Promise<Notification> {
+        return unwrap<Notification>(
+            await client.api
+                .projects({ projectId })
+                .notifications({ notificationId })
+                .archive.post()
+        )
+    },
+
+    async listNotificationPreferences(
+        projectId: string
+    ): Promise<{ preferences: NotificationPreference[] }> {
+        return unwrap<{ preferences: NotificationPreference[] }>(
+            await client.api.projects({ projectId })['notification-preferences'].get()
+        )
+    },
+
+    async updateNotificationPreference(
+        projectId: string,
+        kind: NotificationPreference['kind'],
+        inAppEnabled: boolean
+    ): Promise<NotificationPreference> {
+        return unwrap<NotificationPreference>(
+            await client.api
+                .projects({ projectId })
+                ['notification-preferences']({ kind })
+                .patch({ inAppEnabled })
+        )
+    },
+
     async startLinkedInPublisherConnection(
         projectId: string,
         channelId: string,
@@ -550,6 +602,9 @@ export type {
     Project,
     Publication,
     PublicationSummary,
+    Notification,
+    NotificationInbox,
+    NotificationPreference,
 } from '@herald/client'
 
 export function formatApiError(error: unknown): string {

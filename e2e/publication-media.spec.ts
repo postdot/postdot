@@ -202,6 +202,11 @@ test('persists mixed and media-only publications through the dashboard', async (
         projectName
     )
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await page.getByRole('button', { name: 'Open notifications', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Notifications', exact: true })).toBeVisible()
+    await expect(page.getByText('No notifications', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
     const overviewLayout = await page.locator('[data-dashboard-scroll]').evaluate(scrollRegion => ({
         clientHeight: (scrollRegion as unknown as { clientHeight: number }).clientHeight,
         scrollHeight: (scrollRegion as unknown as { scrollHeight: number }).scrollHeight,

@@ -86,6 +86,7 @@ export function DashboardShell({
                         isPublicationRoute={isPublicationRoute}
                         onSignOut={onSignOut}
                         pending={pending}
+                        projectId={selectedProjectId}
                         projectName={selectedProjectName}
                         sectionLabel={workspaceSectionLabel(activeSection)}
                         session={session}
