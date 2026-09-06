@@ -38,6 +38,8 @@ export interface PublisherConnectionPolicy {
         readonly externalAccountName: string | null
     }) => PublisherConnectionDestination | null
     readonly validateDestination?: (destination: PublisherConnectionDestination) => boolean
+    readonly endpointUrlRequired?: boolean
+    readonly normalizeEndpointUrl?: (endpointUrl: string) => string | null
 }
 
 export interface DisconnectPublisherConnectionInput {
@@ -953,8 +955,19 @@ function normalizeConnectionSettings(
             : { valid: false }
     }
 
-    if (endpointUrl !== null || authentication !== null) return { valid: false }
     if (policy === undefined) return { valid: false }
+
+    if (authentication !== null) return { valid: false }
+    const normalizedEndpointUrl =
+        endpointUrl === null
+            ? null
+            : policy.normalizeEndpointUrl === undefined
+              ? null
+              : policy.normalizeEndpointUrl(endpointUrl)
+    if (endpointUrl !== null && normalizedEndpointUrl === null) return { valid: false }
+    if (policy.endpointUrlRequired === true && normalizedEndpointUrl === null) {
+        return { valid: false }
+    }
 
     const destination =
         input.destination ??
@@ -970,7 +983,12 @@ function normalizeConnectionSettings(
     ) {
         return { valid: false }
     }
-    return { valid: true, endpointUrl, authentication, destination }
+    return {
+        valid: true,
+        endpointUrl: normalizedEndpointUrl,
+        authentication,
+        destination,
+    }
 }
 
 function parseProfile(value: string): ChannelProfileDefinition {

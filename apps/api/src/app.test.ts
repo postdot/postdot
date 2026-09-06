@@ -346,6 +346,8 @@ describe('Herald API', () => {
                 '/api/oauth/linkedin/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/bluesky/connect',
                 '/api/oauth/bluesky/callback',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/mastodon/connect',
+                '/api/oauth/mastodon/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publications',

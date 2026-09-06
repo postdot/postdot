@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { BlueskyConnectionDialog } from '@/components/bluesky-connection-dialog'
 import { CustomHttpConnectionDialog } from '@/components/custom-http-connection-dialog'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
+import { MastodonConnectionDialog } from '@/components/mastodon-connection-dialog'
 import type {
     Channel,
     CustomHttpAuthentication,
@@ -40,6 +41,7 @@ interface PublisherConnectionPanelProps {
         destination?: LinkedInConnectionDestination
     ) => Promise<void>
     readonly onStartBlueskyConnection: (channelId: string, handle: string) => Promise<void>
+    readonly onStartMastodonConnection: (channelId: string, instanceUrl: string) => Promise<void>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
 }
 
@@ -50,6 +52,7 @@ export function PublisherConnectionPanel({
     onConnectCustomHttpPublisher,
     onStartLinkedInConnection,
     onStartBlueskyConnection,
+    onStartMastodonConnection,
     onDisconnectPublisher,
 }: PublisherConnectionPanelProps) {
     const [organizationIds, setOrganizationIds] = useState<Record<string, string>>({})
@@ -109,9 +112,11 @@ export function PublisherConnectionPanel({
                                                 ? 'Manual publication only for this channel profile.'
                                                 : channel.profileId === 'bluesky'
                                                   ? 'Connect a Bluesky account to enable automatic publishing.'
-                                                  : channel.profileId === 'linkedin'
-                                                    ? 'No automatic publisher is connected.'
-                                                    : 'This custom profile can be connected to a declarative HTTP endpoint.'}
+                                                  : channel.profileId === 'mastodon'
+                                                    ? 'Connect a Mastodon account to enable automatic publishing.'
+                                                    : channel.profileId === 'linkedin'
+                                                      ? 'No automatic publisher is connected.'
+                                                      : 'This custom profile can be connected to a declarative HTTP endpoint.'}
                                         </p>
                                     ) : (
                                         <p className="mt-2 text-sm text-muted-foreground">
@@ -119,9 +124,12 @@ export function PublisherConnectionPanel({
                                                 ? 'Custom HTTP publisher connected.'
                                                 : connection.providerId === 'bluesky'
                                                   ? `Bluesky account · ${connection.destination?.name ?? connection.externalAccountName ?? connection.externalAccountId}`
-                                                  : connection.destination?.type === 'organization'
-                                                    ? `LinkedIn page · ${connection.destination.name ?? connection.destination.id}`
-                                                    : `LinkedIn member · ${connection.externalAccountName ?? connection.externalAccountId}`}
+                                                  : connection.providerId === 'mastodon'
+                                                    ? `Mastodon account · ${connection.destination?.name ?? connection.externalAccountName ?? connection.externalAccountId}`
+                                                    : connection.destination?.type ===
+                                                        'organization'
+                                                      ? `LinkedIn page · ${connection.destination.name ?? connection.destination.id}`
+                                                      : `LinkedIn member · ${connection.externalAccountName ?? connection.externalAccountId}`}
                                         </p>
                                     )}
                                     {connection !== undefined &&
@@ -207,6 +215,12 @@ export function PublisherConnectionPanel({
                                         disabled={pending}
                                         onConnect={onStartBlueskyConnection}
                                     />
+                                ) : channel.profileId === 'mastodon' && connection === undefined ? (
+                                    <MastodonConnectionDialog
+                                        channel={channel}
+                                        disabled={pending}
+                                        onConnect={onStartMastodonConnection}
+                                    />
                                 ) : channel.profileId === 'linkedin' && connection !== undefined ? (
                                     <Button
                                         className="mt-4 sm:mt-0"
@@ -219,6 +233,7 @@ export function PublisherConnectionPanel({
                                 ) : channel.profileId !== 'manual-message' &&
                                   channel.profileId !== 'linkedin' &&
                                   channel.profileId !== 'bluesky' &&
+                                  channel.profileId !== 'mastodon' &&
                                   connection === undefined ? (
                                     <CustomHttpConnectionDialog
                                         channel={channel}

@@ -26,6 +26,7 @@
         "@herald/custom-http": "workspace:*",
         "@herald/db": "workspace:*",
         "@herald/linkedin": "workspace:*",
+        "@herald/mastodon": "workspace:*",
         "@herald/media": "workspace:*",
         "@herald/oauth": "workspace:*",
         "@sinclair/typebox": "^0.34.52",

@@ -19,6 +19,7 @@ import { clientSecretPost, validateReturnPath, type OAuthAuthorizationServer } f
 
 import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
 import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
+import { mastodonPublisherConnectionPolicy } from './providers/mastodon'
 
 export interface PublisherRuntimeOptions {
     readonly apiOrigin: string
@@ -36,6 +37,9 @@ export interface PublisherRuntimeOptions {
         readonly clientMetadataUrl: string
         readonly handleResolver: string
     }
+    readonly mastodon?: {
+        readonly clientName?: string
+    }
     readonly now?: () => number
     readonly createId?: () => string
 }
@@ -45,6 +49,10 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
     const createId = options.createId ?? (() => crypto.randomUUID())
     const callbackUri = new URL('/api/oauth/linkedin/callback', options.apiOrigin).toString()
     const blueskyCallbackUri = new URL('/api/oauth/bluesky/callback', options.apiOrigin).toString()
+    const mastodonCallbackUri = new URL(
+        '/api/oauth/mastodon/callback',
+        options.apiOrigin
+    ).toString()
     const cipher = createPublisherCredentialCipher({
         keyId: options.publisherEncryptionKeyId,
         key: options.publisherEncryptionKey,
@@ -55,6 +63,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         connectionPolicies: {
             bluesky: blueskyPublisherConnectionPolicy,
             linkedin: linkedInPublisherConnectionPolicy,
+            mastodon: mastodonPublisherConnectionPolicy,
         },
         now,
         createId,
@@ -92,16 +101,23 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
                   handleResolver: options.bluesky.handleResolver,
               }
 
+    const mastodon = {
+        callbackUri: mastodonCallbackUri,
+        clientName: options.mastodon?.clientName ?? 'Herald',
+    }
+
     return {
         apiOrigin: options.apiOrigin,
         webOrigin: options.webOrigin,
         callbackUri,
+        mastodonCallbackUri,
         now,
         publisherStore,
         credentialStore,
         authorizationAttemptStore,
         linkedin,
         bluesky,
+        mastodon,
     }
 }
 

@@ -15,6 +15,7 @@ import {
 } from './models'
 import { registerBlueskyPublisherRoutes } from './publisher-providers/bluesky-routes'
 import { registerLinkedInPublisherRoutes } from './publisher-providers/linkedin-routes'
+import { registerMastodonPublisherRoutes } from './publisher-providers/mastodon-routes'
 
 export function registerPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -175,8 +176,12 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
             }
         )
 
-    return registerBlueskyPublisherRoutes(
-        registerLinkedInPublisherRoutes(routes, publisher, options),
+    return registerMastodonPublisherRoutes(
+        registerBlueskyPublisherRoutes(
+            registerLinkedInPublisherRoutes(routes, publisher, options),
+            publisher,
+            options
+        ),
         publisher,
         options
     ).delete(

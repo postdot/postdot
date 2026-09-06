@@ -41,6 +41,10 @@
       "path": "packages/linkedin",
     },
     {
+      "name": "mastodon",
+      "path": "packages/mastodon",
+    },
+    {
       "name": "bluesky",
       "path": "packages/bluesky",
     },

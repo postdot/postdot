@@ -37,6 +37,7 @@
         "@herald/custom-http": "workspace:*",
         "@herald/db": "workspace:*",
         "@herald/linkedin": "workspace:*",
+        "@herald/mastodon": "workspace:*",
         "@herald/media": "workspace:*",
         "@herald/oauth": "workspace:*",
         "@sinclair/typebox": "^0.34.52",
@@ -164,6 +165,18 @@
     },
     "packages/linkedin": {
       "name": "@herald/linkedin",
+      "version": "0.0.0",
+      "dependencies": {
+        "@herald/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
+        "typescript": "7.0.2",
+      },
+    },
+    "packages/mastodon": {
+      "name": "@herald/mastodon",
       "version": "0.0.0",
       "dependencies": {
         "@herald/core": "workspace:*",
@@ -479,6 +492,8 @@
     "@herald/db": ["@herald/db@workspace:packages/db"],
 
     "@herald/linkedin": ["@herald/linkedin@workspace:packages/linkedin"],
+
+    "@herald/mastodon": ["@herald/mastodon@workspace:packages/mastodon"],
 
     "@herald/media": ["@herald/media@workspace:packages/media"],
 

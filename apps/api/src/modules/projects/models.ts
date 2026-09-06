@@ -14,6 +14,7 @@ import type {
 } from '@herald/db'
 import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
 import { linkedinChannelProfile } from '@herald/linkedin'
+import { mastodonChannelProfile } from '@herald/mastodon'
 import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'
@@ -334,6 +335,7 @@ export const createChannelBody = Type.Object({
             Type.Literal('manual-message'),
             Type.Literal('linkedin'),
             Type.Literal('bluesky'),
+            Type.Literal('mastodon'),
             Type.Object({
                 id: Type.String({ minLength: 1 }),
                 version: Type.Integer({ minimum: 1 }),
@@ -390,6 +392,7 @@ export const promotePublicationDraftBody = Type.Object({
 export function resolveChannelProfile(profile: unknown): ChannelProfileDefinition {
     if (profile === 'linkedin') return linkedinChannelProfile
     if (profile === 'bluesky') return blueskyChannelProfile
+    if (profile === 'mastodon') return mastodonChannelProfile
     if (profile === undefined || profile === 'manual-message') {
         return createManualChannelProfile()
     }
@@ -479,6 +482,16 @@ export const blueskyConnectionSchema = Type.Object({
 
 export const blueskyConnectionBody = Type.Object({
     handle: Type.String({ minLength: 1, maxLength: 253 }),
+})
+
+export const mastodonConnectionSchema = Type.Object({
+    provider: Type.Literal('mastodon'),
+    scopes: Type.Array(Type.String({ minLength: 1 })),
+    authorizationUrl: Type.String({ minLength: 1 }),
+})
+
+export const mastodonConnectionBody = Type.Object({
+    instanceUrl: Type.String({ minLength: 1, maxLength: 2_048 }),
 })
 
 export const customHttpConnectionBody = Type.Object({
