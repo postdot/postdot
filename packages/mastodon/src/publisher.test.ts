@@ -191,4 +191,28 @@ describe('Mastodon publisher', () => {
             })
         ).resolves.toMatchObject({ type: 'ambiguous', code: 'provider_failure' })
     })
+
+    it('classifies an operator network policy denial as permanent', async () => {
+        const publisher = createMastodonPublisher({
+            baseUrl: 'https://example.social',
+            fetcher: async () => {
+                const error = new Error('private address denied') as Error & { code: string }
+                error.code = 'network_policy_denied'
+                throw error
+            },
+        })
+
+        await expect(
+            publisher.publishStatus({
+                accessToken: 'access-token',
+                text: 'Blocked before dispatch',
+                mediaIds: [],
+                idempotencyKey: 'publication-1:revision-1',
+            })
+        ).resolves.toMatchObject({
+            type: 'permanent_failure',
+            code: 'network_policy_denied',
+            effectOccurred: false,
+        })
+    })
 })

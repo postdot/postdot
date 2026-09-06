@@ -182,6 +182,12 @@ function classifyException(
     context: 'read' | 'application' | 'media' | 'status',
     remoteMediaId?: string
 ): MastodonOperationFailure {
+    if (hasErrorCode(error, 'network_policy_denied')) {
+        return permanentFailure(
+            'network_policy_denied',
+            'The Mastodon instance is blocked by the server network policy'
+        )
+    }
     const isAbort = error instanceof DOMException && error.name === 'AbortError'
     const message = isAbort
         ? 'The Mastodon request timed out'
@@ -189,6 +195,10 @@ function classifyException(
     return context === 'status' || context === 'media'
         ? ambiguousFailure(isAbort ? 'provider_timeout' : 'network_failure', message, remoteMediaId)
         : retryableFailure('provider_failure', message)
+}
+
+function hasErrorCode(error: unknown, code: string): boolean {
+    return isRecord(error) && error.code === code
 }
 
 export function createMastodonPublisher(options: MastodonPublisherOptions): MastodonPublisher {

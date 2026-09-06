@@ -2,7 +2,6 @@ import type {
     CustomHttpAuthentication,
     DeclarativeHttpExecutionContract,
     DeclarativeHttpMultipartMediaPart,
-    DeclarativeHttpRequestMapping,
     DeclarativeHttpValueExpression,
     ExternalEffectOutcome,
 } from '@herald/core'
@@ -79,7 +78,7 @@ export interface CustomHttpRequestBody {
 }
 
 export interface CustomHttpRequest {
-    readonly method: DeclarativeHttpRequestMapping['method']
+    readonly method: string
     readonly url: URL
     readonly address: ResolvedNetworkAddress
     readonly headers: Readonly<Record<string, string>>
@@ -90,6 +89,11 @@ export interface CustomHttpRequest {
 export interface CustomHttpRequester {
     request(input: CustomHttpRequest, signal: AbortSignal): Promise<CustomHttpResponse>
 }
+
+export type CustomHttpFetcher = (
+    input: string | URL | Request,
+    init?: RequestInit
+) => Promise<Response>
 
 export interface ResolvedNetworkAddress {
     readonly address: string
@@ -141,6 +145,12 @@ export interface CustomHttpTransportOptions extends CustomHttpEgressOptions {
     readonly timeoutMs?: number
     readonly maxResponseBytes?: number
     readonly now?: () => number
+}
+
+export interface NetworkControlledFetcherOptions extends CustomHttpEgressOptions {
+    readonly requester?: CustomHttpRequester
+    readonly maxRequestBytes?: number
+    readonly maxResponseBytes?: number
 }
 
 export type CustomHttpDeliveryOutcome = ExternalEffectOutcome

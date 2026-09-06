@@ -27,6 +27,7 @@ export type MastodonPermanentFailureCode =
     | 'authentication_required'
     | 'forbidden'
     | 'invalid_request'
+    | 'network_policy_denied'
 
 export type MastodonRetryableFailureCode = 'rate_limited' | 'conflict' | 'provider_failure'
 

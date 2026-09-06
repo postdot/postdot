@@ -77,7 +77,7 @@ const environmentDefinitions = {
     BLUESKY_CLIENT_METADATA_URL: env.optionalString({ minLength: 1 }),
     BLUESKY_HANDLE_RESOLVER: env.url({ defaultValue: 'https://bsky.social' }),
     HERALD_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
-    HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: env.optionalString(),
+    HERALD_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
         defaultValue: values => (values.NODE_ENV === 'production' ? 'silent' : 'info'),
     }),
@@ -140,7 +140,7 @@ export interface HeraldConfig {
             readonly handleResolver: string
         }
     }
-    readonly customHttp: {
+    readonly network: {
         readonly privateDestinations: readonly PrivateDestinationRule[]
     }
     readonly web: {
@@ -213,8 +213,9 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
                       handleResolver: environment.BLUESKY_HANDLE_RESOLVER,
                   }
               })()
-    const customHttpPrivateDestinations = parsePrivateDestinationRules(
-        environment.HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS
+    const outboundPrivateDestinations = parsePrivateDestinationRules(
+        environment.HERALD_OUTBOUND_PRIVATE_DESTINATIONS,
+        'HERALD_OUTBOUND_PRIVATE_DESTINATIONS'
     )
 
     return {
@@ -269,8 +270,8 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             ...(linkedin === undefined ? {} : { linkedin }),
             ...(bluesky === undefined ? {} : { bluesky }),
         },
-        customHttp: {
-            privateDestinations: customHttpPrivateDestinations,
+        network: {
+            privateDestinations: outboundPrivateDestinations,
         },
         web: {
             origin: environment.HERALD_WEB_ORIGIN,

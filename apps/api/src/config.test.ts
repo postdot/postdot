@@ -51,7 +51,7 @@ describe('Herald configuration', () => {
                 publisherEncryptionKeyId: 'v1',
             },
             publishers: {},
-            customHttp: {
+            network: {
                 privateDestinations: [],
             },
             web: {
@@ -83,13 +83,13 @@ describe('Herald configuration', () => {
         })
     })
 
-    it('parses operator-owned private custom HTTP destinations', () => {
+    it('parses operator-owned private outbound destinations', () => {
         expect(
             createHeraldConfig({
                 BETTER_AUTH_SECRET: secret,
                 HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: JSON.stringify([
+                HERALD_OUTBOUND_PRIVATE_DESTINATIONS: JSON.stringify([
                     {
                         kind: 'cidr',
                         cidr: '10.0.0.0/8',
@@ -97,7 +97,7 @@ describe('Herald configuration', () => {
                         schemes: ['http'],
                     },
                 ]),
-            }).customHttp.privateDestinations
+            }).network.privateDestinations
         ).toEqual([
             {
                 kind: 'cidr',
@@ -112,9 +112,9 @@ describe('Herald configuration', () => {
                 BETTER_AUTH_SECRET: secret,
                 HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
-                HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS: '{not-json}',
+                HERALD_OUTBOUND_PRIVATE_DESTINATIONS: '{not-json}',
             })
-        ).toThrow('HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS')
+        ).toThrow('HERALD_OUTBOUND_PRIVATE_DESTINATIONS')
     })
 
     it('disables logging by default in production', () => {
