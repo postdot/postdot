@@ -9,7 +9,10 @@ import {
     X_EXECUTION_CONTRACT_REVISION,
     X_MAX_IMAGE_BYTES,
     X_PROVIDER,
+    X_UPLOADED_MEDIA_REUSE_TTL_MS,
     createXPublisher,
+    isXPostTextValid,
+    parseXPostText,
     readXTextContent,
     type XFetcher,
     type XOperationFailure,
@@ -122,6 +125,12 @@ async function executeXPublication(input: {
     if (text === null) {
         return permanentFailure('The execution revision has no X post text')
     }
+    if (!isXPostTextValid(text)) {
+        const { weightedLength } = parseXPostText(text)
+        return permanentFailure(
+            `The X post text exceeds the 280 weighted-character limit (weighted length ${weightedLength})`
+        )
+    }
 
     const mediaResult = await prepareXMedia({
         target,
@@ -232,8 +241,21 @@ async function prepareXMedia(input: {
         }
 
         if (current.state === 'uploaded' && current.remoteMediaId !== null) {
-            mediaIds.push(current.remoteMediaId)
-            continue
+            if (isXMediaCheckpointFresh(current.completedAt, input.now)) {
+                mediaIds.push(current.remoteMediaId)
+                continue
+            }
+            // The v2 upload session that produced this identifier has outlived
+            // Herald's conservative reuse horizon (see
+            // X_UPLOADED_MEDIA_REUSE_TTL_MS). The provider effect is unknown,
+            // so this requires explicit reconciliation instead of silently
+            // reusing a possibly expired media identifier.
+            return {
+                kind: 'failed',
+                outcome: ambiguousFailure(
+                    'The X media checkpoint expired and requires reconciliation'
+                ),
+            }
         }
 
         if (current.state === 'uploading') {
@@ -401,6 +423,12 @@ function failXMediaDelivery(
         kind: 'failed',
         outcome: ambiguous ? ambiguousFailure(errorMessage) : retryableFailure(errorMessage),
     }
+}
+
+function isXMediaCheckpointFresh(completedAt: number | null, now: number): boolean {
+    if (completedAt === null) return false
+    const age = now - completedAt
+    return age >= 0 && age <= X_UPLOADED_MEDIA_REUSE_TTL_MS
 }
 
 function isXAuthenticationFailure(outcome: ExternalEffectOutcome): boolean {

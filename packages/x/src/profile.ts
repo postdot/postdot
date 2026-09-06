@@ -15,6 +15,10 @@ export const xChannelProfile: ChannelProfileDefinition = {
     profileHash: 'sha256:herald-x-post-v1',
     schemaHash: 'sha256:herald-x-post-schema-v1',
     origin: 'built_in',
+    // The static 280-character schema bound is a coarse authoring approximation.
+    // X validates post text with twitter-text weighted counting (URLs count 23,
+    // emoji and CJK count 2; see parseXPostText in ./text.ts), which the
+    // workflow adapter enforces before any external effect.
     contentSchema: {
         type: 'object',
         properties: {

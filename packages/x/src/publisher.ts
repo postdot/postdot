@@ -10,7 +10,7 @@ import type {
     XTweetInput,
     XUser,
 } from './contract'
-import { X_API_BASE_URL, X_DEFAULT_TIMEOUT_MS, X_UPLOAD_BASE_URL } from './contract'
+import { X_API_BASE_URL, X_DEFAULT_TIMEOUT_MS, X_MEDIA_CATEGORY_TWEET_IMAGE } from './contract'
 
 function operationSuccess<Value>(value: Value): XOperationResult<Value> {
     return { kind: 'success', value }
@@ -100,6 +100,54 @@ function readUser(value: unknown): XUser | null {
     return { id, name, username }
 }
 
+interface MediaUploadSession {
+    readonly mediaId: string
+    readonly expiresAfterSecs: number | null
+}
+
+function readMediaId(value: unknown): string | null {
+    if (typeof value === 'string') return readString(value)
+    if (typeof value === 'number' || typeof value === 'bigint') {
+        const text = String(value)
+        return /^[0-9]{1,19}$/.test(text) ? text : null
+    }
+    return null
+}
+
+function readExpiresAfterSecs(value: unknown): number | null {
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) return null
+    return value
+}
+
+/**
+ * Reads a v2 media-upload session from an INIT or FINALIZE response body of
+ * the shape `{ data: { id, expires_after_secs? } }`.
+ */
+function readMediaUploadSession(value: unknown): MediaUploadSession | null {
+    if (!isRecord(value) || !isRecord(value.data)) return null
+    const mediaId = readMediaId(value.data.id)
+    if (mediaId === null) return null
+    return { mediaId, expiresAfterSecs: readExpiresAfterSecs(value.data.expires_after_secs) }
+}
+
+function readProcessingState(value: unknown): string | null {
+    if (!isRecord(value) || !isRecord(value.data)) return null
+    const processing = value.data.processing_info
+    if (!isRecord(processing) || typeof processing.state !== 'string') return null
+    return processing.state
+}
+
+function readProcessingError(value: unknown): string {
+    if (isRecord(value) && isRecord(value.data) && isRecord(value.data.processing_info)) {
+        const error = value.data.processing_info.error
+        if (isRecord(error) && typeof error.message === 'string') {
+            const message = error.message.trim()
+            if (message.length > 0) return message.slice(0, 500)
+        }
+    }
+    return 'X could not process the uploaded media'
+}
+
 function buildHeaders(accessToken?: string, extra?: RequestInit['headers']): Headers {
     const headers = new Headers(extra)
     headers.set('accept', 'application/json')
@@ -157,7 +205,6 @@ function classifyException(
 
 export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
     const apiBaseUrl = (options.apiBaseUrl ?? X_API_BASE_URL).replace(/\/+$/, '')
-    const uploadBaseUrl = (options.uploadBaseUrl ?? X_UPLOAD_BASE_URL).replace(/\/+$/, '')
     const fetcher = withTimeout(options.fetcher ?? fetch, options.timeoutMs ?? X_DEFAULT_TIMEOUT_MS)
 
     async function request(
@@ -212,47 +259,90 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
                 }
             }
 
-            const form = new FormData()
-            form.append('media', new Blob([file], { type: input.contentType }), input.filename)
-
-            const uploadResult = await request(
-                `${uploadBaseUrl}/1.1/media/upload.json`,
-                { method: 'POST', body: form },
+            // Step 1 (INIT): reserve the upload session on the v2 media API.
+            const initializeResult = await request(
+                `${apiBaseUrl}/2/media/upload/initialize`,
+                {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({
+                        media_type: input.contentType,
+                        total_bytes: input.size,
+                        media_category: X_MEDIA_CATEGORY_TWEET_IMAGE,
+                    }),
+                },
                 accessToken,
                 'media'
             )
-            if ('failure' in uploadResult) return uploadResult.failure
+            if ('failure' in initializeResult) return initializeResult.failure
 
-            if (!isRecord(uploadResult.body)) {
+            const session = readMediaUploadSession(initializeResult.body)
+            if (session === null) {
                 return ambiguousFailure(
                     'missing_media_id',
-                    'X returned no media attachment identifier'
+                    'X returned no media upload session identifier'
                 )
             }
 
-            const mediaId =
-                readString(uploadResult.body.media_id_string) ??
-                (typeof uploadResult.body.media_id === 'number' ||
-                typeof uploadResult.body.media_id === 'bigint'
-                    ? String(uploadResult.body.media_id)
-                    : null)
+            // Step 2 (APPEND): images within the tweet_image size limit upload
+            // as a single segment indexed from 0.
+            const form = new FormData()
+            form.append('segment_index', '0')
+            form.append('media', new Blob([file], { type: input.contentType }), input.filename)
 
-            if (mediaId === null) {
+            const appendResult = await request(
+                `${apiBaseUrl}/2/media/upload/${session.mediaId}/append`,
+                { method: 'POST', body: form },
+                accessToken,
+                'media',
+                session.mediaId
+            )
+            if ('failure' in appendResult) return appendResult.failure
+
+            // Step 3 (FINALIZE): complete the upload. Images finalize
+            // synchronously; a returned processing state is honored below.
+            const finalizeResult = await request(
+                `${apiBaseUrl}/2/media/upload/${session.mediaId}/finalize`,
+                { method: 'POST' },
+                accessToken,
+                'media',
+                session.mediaId
+            )
+            if ('failure' in finalizeResult) return finalizeResult.failure
+
+            const finalized = readMediaUploadSession(finalizeResult.body)
+            const mediaId = finalized?.mediaId ?? session.mediaId
+            const processingState = readProcessingState(finalizeResult.body)
+            if (processingState === 'failed') {
+                return {
+                    type: 'permanent_failure',
+                    effectOccurred: false,
+                    code: 'invalid_request',
+                    errorMessage: readProcessingError(finalizeResult.body),
+                }
+            }
+            if (processingState === 'pending' || processingState === 'in_progress') {
                 return ambiguousFailure(
-                    'missing_media_id',
-                    'X returned no media attachment identifier'
+                    'provider_failure',
+                    'The X media processing outcome is unknown',
+                    mediaId
                 )
             }
 
+            // Step 4 (metadata): attach alt text after FINALIZE and before the
+            // post is created. A metadata failure fails the execution rather
+            // than publishing without the declared accessibility text.
             if (input.accessibilityText && input.accessibilityText.trim().length > 0) {
                 const metadataResult = await request(
-                    `${uploadBaseUrl}/1.1/media/metadata/create.json`,
+                    `${apiBaseUrl}/2/media/metadata`,
                     {
                         method: 'POST',
                         headers: { 'content-type': 'application/json' },
                         body: JSON.stringify({
-                            media_id: mediaId,
-                            alt_text: { text: input.accessibilityText.trim() },
+                            id: mediaId,
+                            metadata: {
+                                alt_text: { text: input.accessibilityText.trim() },
+                            },
                         }),
                     },
                     accessToken,
@@ -268,6 +358,7 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
                 type: 'uploaded',
                 remoteMediaId: mediaId,
                 ready: true,
+                expiresAfterSecs: finalized?.expiresAfterSecs ?? session.expiresAfterSecs,
             }
         },
 

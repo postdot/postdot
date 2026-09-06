@@ -87,76 +87,241 @@ describe('X publisher', () => {
     })
 
     describe('uploadMedia', () => {
-        it('uploads image media and creates alt-text metadata', async () => {
-            const fixture = createFetcher([
-                jsonResponse({
-                    media_id_string: '1146631093949677568',
-                    size: 1024,
-                }),
-                new Response(null, { status: 204 }),
-            ])
-            const publisher = createXPublisher({ fetcher: fixture.fetcher })
-
-            const stream = new ReadableStream<Uint8Array>({
+        function pngStream(bytes: readonly number[] = [137, 80, 78, 71]) {
+            return new ReadableStream<Uint8Array>({
                 start(controller) {
-                    controller.enqueue(new Uint8Array([137, 80, 78, 71]))
+                    controller.enqueue(new Uint8Array(bytes))
                     controller.close()
                 },
             })
+        }
+
+        it('uploads an image through the v2 INIT/APPEND/FINALIZE flow with alt text', async () => {
+            const fixture = createFetcher([
+                jsonResponse({
+                    data: {
+                        id: '1146631093949677568',
+                        media_key: '3_1146631093949677568',
+                        size: 4,
+                        expires_after_secs: 86398,
+                    },
+                }),
+                jsonResponse({ data: { expires_at: 1_800_086_398 } }),
+                jsonResponse({ data: { id: '1146631093949677568', size: 4 } }),
+                jsonResponse({ data: { id: '1146631093949677568' } }),
+            ])
+            const publisher = createXPublisher({ fetcher: fixture.fetcher })
 
             const outcome = await publisher.uploadMedia('test-token', {
                 contentType: 'image/png',
                 size: 4,
                 filename: 'test.png',
                 accessibilityText: 'A test image of a chart',
-                stream,
+                stream: pngStream(),
             })
 
             expect(outcome).toEqual({
                 type: 'uploaded',
                 remoteMediaId: '1146631093949677568',
                 ready: true,
+                expiresAfterSecs: 86398,
             })
 
-            expect(fixture.calls).toHaveLength(2)
-            const uploadCall = fixture.calls[0]
-            expect(uploadCall?.input).toBe('https://upload.twitter.com/1.1/media/upload.json')
-            expect(uploadCall?.init?.method).toBe('POST')
+            expect(fixture.calls).toHaveLength(4)
+            const initializeCall = fixture.calls[0]
+            expect(initializeCall?.input).toBe('https://api.x.com/2/media/upload/initialize')
+            expect(initializeCall?.init?.method).toBe('POST')
+            expect(JSON.parse(initializeCall?.init?.body as string)).toEqual({
+                media_type: 'image/png',
+                total_bytes: 4,
+                media_category: 'tweet_image',
+            })
 
-            const metadataCall = fixture.calls[1]
-            expect(metadataCall?.input).toBe(
-                'https://upload.twitter.com/1.1/media/metadata/create.json'
+            const appendCall = fixture.calls[1]
+            expect(appendCall?.input).toBe(
+                'https://api.x.com/2/media/upload/1146631093949677568/append'
             )
+            expect(appendCall?.init?.method).toBe('POST')
+            const appendForm = appendCall?.init?.body as FormData
+            expect(appendForm.get('segment_index')).toBe('0')
+            expect(appendForm.get('media')).toBeInstanceOf(Blob)
+
+            const finalizeCall = fixture.calls[2]
+            expect(finalizeCall?.input).toBe(
+                'https://api.x.com/2/media/upload/1146631093949677568/finalize'
+            )
+            expect(finalizeCall?.init?.method).toBe('POST')
+
+            const metadataCall = fixture.calls[3]
+            expect(metadataCall?.input).toBe('https://api.x.com/2/media/metadata')
             expect(metadataCall?.init?.method).toBe('POST')
-            const metadataBody = JSON.parse(metadataCall?.init?.body as string)
-            expect(metadataBody).toEqual({
-                media_id: '1146631093949677568',
-                alt_text: { text: 'A test image of a chart' },
+            expect(JSON.parse(metadataCall?.init?.body as string)).toEqual({
+                id: '1146631093949677568',
+                metadata: { alt_text: { text: 'A test image of a chart' } },
             })
         })
 
-        it('classifies upload server error as ambiguous', async () => {
-            const fixture = createFetcher([jsonResponse({ error: 'Internal server error' }, 500)])
+        it('skips the metadata call without accessibility text', async () => {
+            const fixture = createFetcher([
+                jsonResponse({ data: { id: '1146631093949677569' } }),
+                jsonResponse({ data: {} }),
+                jsonResponse({ data: { id: '1146631093949677569' } }),
+            ])
             const publisher = createXPublisher({ fetcher: fixture.fetcher })
-
-            const stream = new ReadableStream<Uint8Array>({
-                start(controller) {
-                    controller.enqueue(new Uint8Array([1, 2, 3]))
-                    controller.close()
-                },
-            })
 
             const outcome = await publisher.uploadMedia('test-token', {
                 contentType: 'image/jpeg',
                 size: 3,
                 filename: 'test.jpg',
-                stream,
+                stream: pngStream([1, 2, 3]),
+            })
+
+            expect(outcome).toEqual({
+                type: 'uploaded',
+                remoteMediaId: '1146631093949677569',
+                ready: true,
+                expiresAfterSecs: null,
+            })
+            expect(fixture.calls).toHaveLength(3)
+        })
+
+        it('classifies an INIT server error as ambiguous', async () => {
+            const fixture = createFetcher([jsonResponse({ error: 'Internal server error' }, 500)])
+            const publisher = createXPublisher({ fetcher: fixture.fetcher })
+
+            const outcome = await publisher.uploadMedia('test-token', {
+                contentType: 'image/jpeg',
+                size: 3,
+                filename: 'test.jpg',
+                stream: pngStream([1, 2, 3]),
             })
 
             expect(outcome).toEqual({
                 type: 'ambiguous',
                 code: 'provider_failure',
                 errorMessage: 'Internal server error',
+            })
+        })
+
+        it('classifies a missing INIT media id as ambiguous', async () => {
+            const fixture = createFetcher([jsonResponse({ data: {} })])
+            const publisher = createXPublisher({ fetcher: fixture.fetcher })
+
+            const outcome = await publisher.uploadMedia('test-token', {
+                contentType: 'image/png',
+                size: 4,
+                filename: 'test.png',
+                stream: pngStream(),
+            })
+
+            expect(outcome).toEqual({
+                type: 'ambiguous',
+                code: 'missing_media_id',
+                errorMessage: 'X returned no media upload session identifier',
+            })
+        })
+
+        it('classifies an APPEND server error as ambiguous with the session media id', async () => {
+            const fixture = createFetcher([
+                jsonResponse({ data: { id: '1146631093949677570' } }),
+                jsonResponse({ error: 'Internal server error' }, 500),
+            ])
+            const publisher = createXPublisher({ fetcher: fixture.fetcher })
+
+            const outcome = await publisher.uploadMedia('test-token', {
+                contentType: 'image/png',
+                size: 4,
+                filename: 'test.png',
+                stream: pngStream(),
+            })
+
+            expect(outcome).toEqual({
+                type: 'ambiguous',
+                code: 'provider_failure',
+                errorMessage: 'Internal server error',
+                remoteMediaId: '1146631093949677570',
+            })
+        })
+
+        it('classifies failed media processing as permanent', async () => {
+            const fixture = createFetcher([
+                jsonResponse({ data: { id: '1146631093949677571' } }),
+                jsonResponse({ data: {} }),
+                jsonResponse({
+                    data: {
+                        id: '1146631093949677571',
+                        processing_info: {
+                            state: 'failed',
+                            error: { message: 'Unsupported image format' },
+                        },
+                    },
+                }),
+            ])
+            const publisher = createXPublisher({ fetcher: fixture.fetcher })
+
+            const outcome = await publisher.uploadMedia('test-token', {
+                contentType: 'image/png',
+                size: 4,
+                filename: 'test.png',
+                stream: pngStream(),
+            })
+
+            expect(outcome).toEqual({
+                type: 'permanent_failure',
+                effectOccurred: false,
+                code: 'invalid_request',
+                errorMessage: 'Unsupported image format',
+            })
+        })
+
+        it('classifies pending media processing as ambiguous with the media id', async () => {
+            const fixture = createFetcher([
+                jsonResponse({ data: { id: '1146631093949677572' } }),
+                jsonResponse({ data: {} }),
+                jsonResponse({
+                    data: {
+                        id: '1146631093949677572',
+                        processing_info: { state: 'in_progress', check_after_secs: 5 },
+                    },
+                }),
+            ])
+            const publisher = createXPublisher({ fetcher: fixture.fetcher })
+
+            const outcome = await publisher.uploadMedia('test-token', {
+                contentType: 'image/png',
+                size: 4,
+                filename: 'test.png',
+                stream: pngStream(),
+            })
+
+            expect(outcome).toEqual({
+                type: 'ambiguous',
+                code: 'provider_failure',
+                errorMessage: 'The X media processing outcome is unknown',
+                remoteMediaId: '1146631093949677572',
+            })
+        })
+
+        it('prefers the FINALIZE media id and expiry', async () => {
+            const fixture = createFetcher([
+                jsonResponse({ data: { id: '111', expires_after_secs: 100 } }),
+                jsonResponse({ data: {} }),
+                jsonResponse({ data: { id: '222', expires_after_secs: 200 } }),
+            ])
+            const publisher = createXPublisher({ fetcher: fixture.fetcher })
+
+            const outcome = await publisher.uploadMedia('test-token', {
+                contentType: 'image/png',
+                size: 4,
+                filename: 'test.png',
+                stream: pngStream(),
+            })
+
+            expect(outcome).toEqual({
+                type: 'uploaded',
+                remoteMediaId: '222',
+                ready: true,
+                expiresAfterSecs: 200,
             })
         })
     })
@@ -270,6 +435,32 @@ describe('X publisher', () => {
                 type: 'ambiguous',
                 code: 'provider_failure',
                 errorMessage: 'Internal failure',
+            })
+        })
+
+        it('classifies rejected media identifiers as permanent failure', async () => {
+            const fixture = createFetcher([
+                jsonResponse(
+                    {
+                        errors: [{ message: 'The specified media ids are invalid or expired' }],
+                        title: 'Invalid Request',
+                    },
+                    400
+                ),
+            ])
+            const publisher = createXPublisher({ fetcher: fixture.fetcher })
+
+            const outcome = await publisher.publishTweet({
+                accessToken: 'test-token',
+                text: 'Look at this photo',
+                mediaIds: ['0000000000000000001'],
+            })
+
+            expect(outcome).toEqual({
+                type: 'permanent_failure',
+                effectOccurred: false,
+                code: 'invalid_request',
+                errorMessage: 'The specified media ids are invalid or expired',
             })
         })
 

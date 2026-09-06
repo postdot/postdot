@@ -3,10 +3,10 @@ import type { ExternalEffectOutcome } from '@herald/core'
 export const X_PROVIDER = 'x' as const
 export const X_EXECUTION_CONTRACT_REVISION = 'post-v1'
 export const X_API_BASE_URL = 'https://api.x.com'
-export const X_UPLOAD_BASE_URL = 'https://upload.twitter.com'
 export const X_OAUTH_ISSUER = 'https://twitter.com'
 export const X_OAUTH_AUTHORIZATION_ENDPOINT = 'https://x.com/i/oauth2/authorize'
 export const X_OAUTH_TOKEN_ENDPOINT = 'https://api.x.com/2/oauth2/token'
+export const X_MEDIA_CATEGORY_TWEET_IMAGE = 'tweet_image' as const
 export const X_REQUIRED_SCOPES = [
     'tweet.read',
     'tweet.write',
@@ -19,6 +19,16 @@ export const X_MAX_IMAGES = 4
 export const X_MAX_ALT_TEXT_LENGTH = 1_000
 export const X_MAX_IMAGE_BYTES = 5 * 1024 * 1024
 export const X_DEFAULT_TIMEOUT_MS = 30_000
+/**
+ * Conservative reuse horizon for uploaded media checkpoints.
+ *
+ * The v2 upload flow reports `expires_after_secs` per session (about 24h in
+ * practice). Herald persists only the delivery `completedAt`, so checkpoints
+ * younger than this horizon are reused across attempts and restarts, while
+ * older ones require explicit reconciliation instead of risking a stale
+ * provider media identifier.
+ */
+export const X_UPLOADED_MEDIA_REUSE_TTL_MS = 20 * 60 * 60 * 1_000
 
 export type XDestination = {
     readonly type: 'account'
@@ -62,6 +72,13 @@ export type XMediaUploadOutcome =
           readonly type: 'uploaded'
           readonly remoteMediaId: string
           readonly ready: boolean
+          /**
+           * Provider-reported upload-session lifetime in seconds, when the
+           * FINALIZE response includes `expires_after_secs`. Null when the
+           * provider omits it; Herald then applies its conservative reuse
+           * horizon instead of assuming indefinite reuse.
+           */
+          readonly expiresAfterSecs: number | null
       }
     | (Extract<ExternalEffectOutcome, { readonly type: 'retryable_failure' }> & {
           readonly code: XRetryableFailureCode
@@ -115,7 +132,6 @@ export type XFetcher = (input: string | URL | Request, init?: RequestInit) => Pr
 
 export interface XPublisherOptions {
     readonly apiBaseUrl?: string
-    readonly uploadBaseUrl?: string
     readonly fetcher?: XFetcher
     readonly timeoutMs?: number
 }
