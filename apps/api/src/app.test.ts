@@ -86,6 +86,7 @@ type OpenApiOperation = {
 function createFixture(
     options: {
         readonly linkedin?: PublisherRuntimeOptions['linkedin']
+        readonly x?: PublisherRuntimeOptions['x']
         readonly runtime?: HealthRuntime
     } = {}
 ) {
@@ -97,6 +98,7 @@ function createFixture(
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
         linkedin: options.linkedin,
+        x: options.x,
         bluesky: {
             clientMetadataUrl: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
             handleResolver: 'https://bsky.social',
@@ -349,6 +351,8 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/channels/{channelId}/publisher/discord/connect',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/mastodon/connect',
                 '/api/oauth/mastodon/callback',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/x/connect',
+                '/api/oauth/x/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publications',

@@ -17,6 +17,7 @@ COPY packages/mastodon/package.json packages/mastodon/package.json
 COPY packages/media/package.json packages/media/package.json
 COPY packages/oauth/package.json packages/oauth/package.json
 COPY packages/ui/package.json packages/ui/package.json
+COPY packages/x/package.json packages/x/package.json
 
 RUN HUSKY=0 bun install --frozen-lockfile
 

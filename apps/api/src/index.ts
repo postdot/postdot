@@ -25,6 +25,7 @@ import { createDiscordProviderAdapter } from './modules/workflow/providers/disco
 import { createLinkedInProviderAdapter } from './modules/workflow/providers/linkedin'
 import { createMastodonProviderAdapter } from './modules/workflow/providers/mastodon'
 import { createBuiltInProviderRegistry } from './modules/workflow/providers/registry'
+import { createXProviderAdapter } from './modules/workflow/providers/x'
 import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
 
@@ -101,6 +102,7 @@ async function startServer(config = createHeraldConfig()) {
         linkedin: config.publishers.linkedin,
         bluesky: config.publishers.bluesky,
         mastodon: { fetcher: mastodonFetcher },
+        x: config.publishers.x,
     })
     const customHttpTransport = createCustomHttpTransport({
         privateDestinations: config.network.privateDestinations,
@@ -114,6 +116,7 @@ async function startServer(config = createHeraldConfig()) {
             createPublisher: baseUrl =>
                 createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
         }),
+        createXProviderAdapter({ oauth: publisher.x }),
     ])
     const worker = createPublicationWorker({
         database,

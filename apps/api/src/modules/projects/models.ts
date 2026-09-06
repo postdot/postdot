@@ -507,6 +507,12 @@ export const discordConnectionResponse = Type.Object({
     connection: publisherConnectionSchema,
 })
 
+export const xConnectionSchema = Type.Object({
+    provider: Type.Literal('x'),
+    scopes: Type.Array(Type.String({ minLength: 1 })),
+    authorizationUrl: Type.String({ minLength: 1 }),
+})
+
 export const customHttpConnectionBody = Type.Object({
     endpointUrl: Type.String({ minLength: 1, maxLength: 2_048 }),
     authentication: Type.Union([

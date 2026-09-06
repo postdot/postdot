@@ -30,6 +30,7 @@
         "@herald/mastodon": "workspace:*",
         "@herald/media": "workspace:*",
         "@herald/oauth": "workspace:*",
+        "@herald/x": "workspace:*",
         "@sinclair/typebox": "^0.34.52",
         "drizzle-orm": "0.45.2",
         "drizzle-typebox": "^0.3.3",

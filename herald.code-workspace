@@ -59,6 +59,10 @@
     {
       "name": "oauth",
       "path": "packages/oauth",
+    },
+    {
+      "name": "x",
+      "path": "packages/x",
     }
   ],
 }
