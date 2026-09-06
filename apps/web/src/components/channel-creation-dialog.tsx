@@ -24,7 +24,7 @@ import { useState } from 'react'
 import type { ChannelCreationProfile, RuntimeChannelProfile } from '@/lib/api'
 import { channelProfileTemplates, profileForTemplate } from '@/lib/channel-profile-presets'
 
-type ProfileChoice = 'manual-message' | 'linkedin' | 'bluesky' | 'custom'
+type ProfileChoice = 'manual-message' | 'linkedin' | 'bluesky' | 'mastodon' | 'custom'
 
 export function ChannelCreationDialog({
     onCreate,
@@ -126,6 +126,7 @@ export function ChannelCreationDialog({
                                     'manual-message': 'Manual message',
                                     linkedin: 'LinkedIn text',
                                     bluesky: 'Bluesky post',
+                                    mastodon: 'Mastodon status',
                                     custom: 'Custom runtime profile',
                                 }}
                                 value={choice}
@@ -145,6 +146,7 @@ export function ChannelCreationDialog({
                                     <SelectItem value="manual-message">Manual message</SelectItem>
                                     <SelectItem value="linkedin">LinkedIn text</SelectItem>
                                     <SelectItem value="bluesky">Bluesky post</SelectItem>
+                                    <SelectItem value="mastodon">Mastodon status</SelectItem>
                                     <SelectItem value="custom">Custom runtime profile</SelectItem>
                                 </SelectContent>
                             </Select>

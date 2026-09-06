@@ -127,6 +127,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
         destination?: LinkedInConnectionDestination
     ) => Promise<void>
     readonly onStartBlueskyConnection: (channelId: string, handle: string) => Promise<void>
+    readonly onStartMastodonConnection: (channelId: string, instanceUrl: string) => Promise<void>
     readonly onPublish: (publicationId: string) => Promise<void>
     readonly pending: boolean
     readonly postContent: string
@@ -210,7 +211,10 @@ export function ProjectDashboardProvider({
                     ? undefined
                     : selectedChannel.profileId === 'linkedin'
                       ? { commentary: copy, media: [...sourceMedia] }
-                      : { body: copy, media: [...sourceMedia] }
+                      : selectedChannel.profileId === 'bluesky' ||
+                          selectedChannel.profileId === 'mastodon'
+                        ? { text: copy, media: [...sourceMedia] }
+                        : { body: copy, media: [...sourceMedia] }
 
             return {
                 channelId: target.channelId,
@@ -280,6 +284,17 @@ export function ProjectDashboardProvider({
                 project.id,
                 channelId,
                 handle
+            )
+            window.location.assign(authorizationUrl)
+        })
+    }
+
+    async function handleStartMastodonConnection(channelId: string, instanceUrl: string) {
+        await runAction(async () => {
+            const { authorizationUrl } = await api.startMastodonPublisherConnection(
+                project.id,
+                channelId,
+                instanceUrl
             )
             window.location.assign(authorizationUrl)
         })
@@ -437,6 +452,7 @@ export function ProjectDashboardProvider({
         onSourceMediaChange: setSourceMedia,
         onStartLinkedInConnection: handleStartLinkedInConnection,
         onStartBlueskyConnection: handleStartBlueskyConnection,
+        onStartMastodonConnection: handleStartMastodonConnection,
         onPublish: handlePublish,
         pending,
         postContent,

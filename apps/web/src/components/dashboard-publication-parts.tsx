@@ -134,6 +134,7 @@ export function channelMarkerClass(profileId: string) {
 export function channelProfileLabel(profileId: string) {
     if (profileId === 'linkedin') return 'LinkedIn text'
     if (profileId === 'bluesky') return 'Bluesky post'
+    if (profileId === 'mastodon') return 'Mastodon status'
     if (profileId === 'manual-message') return 'Manual message'
     return profileId
 }

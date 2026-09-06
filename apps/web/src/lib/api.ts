@@ -56,6 +56,7 @@ export type ChannelCreationProfile =
     | 'manual-message'
     | 'linkedin'
     | 'bluesky'
+    | 'mastodon'
     | RuntimeChannelProfile
 
 export type CustomHttpAuthentication =
@@ -384,6 +385,19 @@ export const api = {
                 .projects({ projectId })
                 .channels({ channelId })
                 .publisher.bluesky.connect.post({ handle })
+        )
+    },
+
+    async startMastodonPublisherConnection(
+        projectId: string,
+        channelId: string,
+        instanceUrl: string
+    ): Promise<{ provider: 'mastodon'; scopes: string[]; authorizationUrl: string }> {
+        return unwrap<{ provider: 'mastodon'; scopes: string[]; authorizationUrl: string }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.mastodon.connect.post({ instanceUrl })
         )
     },
 

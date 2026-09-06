@@ -19,9 +19,16 @@ import {
     type LinkedInPublishOutcome,
     type LinkedInTextPublisher,
 } from '@herald/linkedin'
+import {
+    MASTODON_PROVIDER,
+    mastodonChannelProfile,
+    type MastodonPublishOutcome,
+    type MastodonPublisher,
+} from '@herald/mastodon'
 
 import { createBlueskyProviderAdapter, type BlueskyProviderAdapterOptions } from './bluesky'
 import { createLinkedInProviderAdapter } from './linkedin'
+import { createMastodonProviderAdapter } from './mastodon'
 import {
     createBuiltInProviderRegistry,
     type BuiltInProviderAdapter,
@@ -81,6 +88,7 @@ interface AdapterConformanceCase {
     readonly destination: PublisherConnectionDestination
     readonly externalAccountId: string
     readonly providerSession: string | null
+    readonly endpointUrl: string | null
     createAdapter(outcome: ExternalEffectOutcome, onDispatch: () => void): BuiltInProviderAdapter
 }
 
@@ -93,6 +101,7 @@ const adapterCases: readonly AdapterConformanceCase[] = [
         destination: { type: 'member', id: 'member-conformance', name: 'Conformance member' },
         externalAccountId: 'member-conformance',
         providerSession: null,
+        endpointUrl: null,
         createAdapter(outcome, onDispatch) {
             const textPublisher: LinkedInTextPublisher = {
                 async publishText() {
@@ -125,6 +134,7 @@ const adapterCases: readonly AdapterConformanceCase[] = [
         destination: { type: 'account', id: blueskyDid, name: 'Conformance account' },
         externalAccountId: blueskyDid,
         providerSession: blueskySession,
+        endpointUrl: null,
         createAdapter(outcome, onDispatch) {
             const restoreSession: NonNullable<
                 BlueskyProviderAdapterOptions['restoreSession']
@@ -150,6 +160,60 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 restoreSession,
                 createPublisher,
             })
+        },
+    },
+    {
+        name: 'Mastodon',
+        providerId: MASTODON_PROVIDER,
+        profile: mastodonChannelProfile,
+        content: { text: 'A conformance publication', media: [] },
+        destination: { type: 'account', id: 'mastodon-account-1', name: 'Conformance account' },
+        externalAccountId: 'mastodon-account-1',
+        endpointUrl: 'https://mastodon.example',
+        providerSession: JSON.stringify({
+            version: 1,
+            instanceUrl: 'https://mastodon.example',
+            clientId: 'mastodon-client-id',
+            clientSecret: 'mastodon-client-secret',
+        }),
+        createAdapter(outcome, onDispatch) {
+            const publisher: MastodonPublisher = {
+                async registerApplication() {
+                    return {
+                        kind: 'success',
+                        value: { clientId: 'client-id', clientSecret: 'client-secret' },
+                    }
+                },
+                async verifyCredentials() {
+                    return {
+                        kind: 'success',
+                        value: {
+                            id: 'mastodon-account-1',
+                            acct: 'conformance@example.social',
+                            username: 'conformance',
+                            displayName: 'Conformance account',
+                        },
+                    }
+                },
+                async uploadMedia() {
+                    return { type: 'uploaded', remoteMediaId: 'provider-media-1', ready: true }
+                },
+                async getMedia() {
+                    return {
+                        kind: 'success',
+                        value: {
+                            id: 'provider-media-1',
+                            type: 'image',
+                            url: 'https://mastodon.example/media/provider-media-1',
+                        },
+                    }
+                },
+                async publishStatus() {
+                    onDispatch()
+                    return outcome as MastodonPublishOutcome
+                },
+            }
+            return createMastodonProviderAdapter({ createPublisher: () => publisher })
         },
     },
 ]
@@ -204,7 +268,7 @@ function createTarget(
         providerId: provider.providerId,
         credentialState: 'active',
         credentialExpiresAt: null,
-        endpointUrl: null,
+        endpointUrl: provider.endpointUrl,
         authentication: null,
         attempt: 1,
         media,
