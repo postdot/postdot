@@ -1,6 +1,6 @@
-# ADR-046 — Propose Paraglide for the Web Localization Foundation
+# ADR-046 — Use Paraglide for the Web Localization Foundation
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-07
 - Scope: authenticated web interface localization; not publication-content translation
 - Related issue: ISSUE-049
