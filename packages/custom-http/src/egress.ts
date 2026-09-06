@@ -147,7 +147,8 @@ export function createCustomHttpEndpointAuthorizer(options: CustomHttpEgressOpti
 }
 
 export function parsePrivateDestinationRules(
-    value: string | undefined
+    value: string | undefined,
+    variableName = 'HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS'
 ): readonly PrivateDestinationRule[] {
     if (value === undefined || value.trim().length === 0) return []
 
@@ -155,10 +156,10 @@ export function parsePrivateDestinationRules(
     try {
         parsed = JSON.parse(value)
     } catch {
-        throw new TypeError('HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS must be valid JSON')
+        throw new TypeError(`${variableName} must be valid JSON`)
     }
     if (!Array.isArray(parsed)) {
-        throw new TypeError('HERALD_CUSTOM_HTTP_PRIVATE_DESTINATIONS must be a JSON array')
+        throw new TypeError(`${variableName} must be a JSON array`)
     }
 
     return parsed.map((candidate, index) => parsePrivateDestinationRule(candidate, index))

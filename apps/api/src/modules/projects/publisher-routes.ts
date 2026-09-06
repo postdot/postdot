@@ -1,5 +1,6 @@
 import { isCustomHttpAuthentication } from '@herald/core'
 import { CUSTOM_HTTP_PUBLISHER_KIND, normalizeCustomHttpEndpoint } from '@herald/custom-http'
+import type { MastodonFetcher } from '@herald/mastodon'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 
@@ -23,6 +24,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
     options: {
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
+        readonly mastodonFetcher?: MastodonFetcher
     } = {}
 ) {
     const { publisherStore } = publisher
@@ -176,14 +178,19 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
             }
         )
 
+    const providerOptions = {
+        ...options,
+        mastodonFetcher: options.mastodonFetcher ?? publisher.mastodon.fetcher,
+    }
+
     return registerMastodonPublisherRoutes(
         registerBlueskyPublisherRoutes(
-            registerLinkedInPublisherRoutes(routes, publisher, options),
+            registerLinkedInPublisherRoutes(routes, publisher, providerOptions),
             publisher,
-            options
+            providerOptions
         ),
         publisher,
-        options
+        providerOptions
     ).delete(
         '/api/projects/:projectId/channels/:channelId/publisher',
         {

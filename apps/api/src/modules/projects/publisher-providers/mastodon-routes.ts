@@ -3,6 +3,7 @@ import {
     MASTODON_REQUIRED_SCOPES,
     createMastodonPublisher,
     normalizeMastodonInstanceOrigin,
+    type MastodonFetcher,
 } from '@herald/mastodon'
 import {
     clientSecretPost,
@@ -32,6 +33,7 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
     options: {
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
+        readonly mastodonFetcher?: MastodonFetcher
     } = {}
 ) {
     const { authorizationAttemptStore, credentialStore, mastodon, publisherStore } = publisher
@@ -107,7 +109,12 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                 }
 
                 const callbackUri = mastodon.callbackUri
-                const mastodonClient = createMastodonPublisher({ baseUrl: instanceUrl })
+                const mastodonClient = createMastodonPublisher({
+                    baseUrl: instanceUrl,
+                    ...(options.mastodonFetcher === undefined
+                        ? {}
+                        : { fetcher: options.mastodonFetcher }),
+                })
                 const application = await mastodonClient.registerApplication({
                     clientName: mastodon.clientName,
                     redirectUri: callbackUri,
@@ -120,6 +127,15 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                         projectId: params.projectId,
                         stage: 'application_registration',
                     })
+                    if (application.outcome.code === 'network_policy_denied') {
+                        return status(503, {
+                            error: {
+                                code: 'network_policy_denied',
+                                message:
+                                    'The Mastodon instance is blocked by the server network policy',
+                            },
+                        })
+                    }
                     return status(503, {
                         error: {
                             code: 'provider_unavailable',
@@ -296,6 +312,9 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                     })
                     const mastodonClient = createMastodonPublisher({
                         baseUrl: authorizationState.instanceUrl,
+                        ...(options.mastodonFetcher === undefined
+                            ? {}
+                            : { fetcher: options.mastodonFetcher }),
                     })
                     const account = await mastodonClient.verifyCredentials(tokenSet.accessToken)
                     if (account.kind === 'failure') {

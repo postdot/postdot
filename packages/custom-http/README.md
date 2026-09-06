@@ -52,6 +52,12 @@ private hostname or a bounded private CIDR with a port and scheme. DNS is resolv
 and checked for every attempt, and the validated address is pinned for the
 request.
 
+Code-owned per-instance providers can use the same boundary through
+`createNetworkControlledFetcher`. The application composition root supplies the
+operator's private-destination rules; provider packages do not read environment
+variables or decide whether a network address is trusted. The shared policy is
+configured by `HERALD_OUTBOUND_PRIVATE_DESTINATIONS` in the API process.
+
 All request and response sizes are bounded. Request construction is structural;
 scripts, arbitrary functions, filesystem access, environment access, and
 multi-request protocols are outside this package. Such integrations belong in a

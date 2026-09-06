@@ -15,6 +15,7 @@ import {
     type LinkedInMemberProfileClient,
     type LinkedInOrganizationClient,
 } from '@herald/linkedin'
+import type { MastodonFetcher } from '@herald/mastodon'
 import { clientSecretPost, validateReturnPath, type OAuthAuthorizationServer } from '@herald/oauth'
 
 import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
@@ -39,6 +40,7 @@ export interface PublisherRuntimeOptions {
     }
     readonly mastodon?: {
         readonly clientName?: string
+        readonly fetcher?: MastodonFetcher
     }
     readonly now?: () => number
     readonly createId?: () => string
@@ -104,6 +106,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
     const mastodon = {
         callbackUri: mastodonCallbackUri,
         clientName: options.mastodon?.clientName ?? 'Herald',
+        ...(options.mastodon?.fetcher === undefined ? {} : { fetcher: options.mastodon.fetcher }),
     }
 
     return {

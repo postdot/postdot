@@ -1,5 +1,5 @@
 import { createAuth } from '@herald/auth'
-import { createCustomHttpTransport } from '@herald/custom-http'
+import { createCustomHttpTransport, createNetworkControlledFetcher } from '@herald/custom-http'
 import {
     closeDatabase,
     createDatabase,
@@ -8,6 +8,7 @@ import {
     createProjectAccessTokenStore,
     runMigrations,
 } from '@herald/db'
+import { createMastodonPublisher } from '@herald/mastodon'
 
 import { createApp } from './app'
 import { createHeraldConfig, decodeHexKey } from './config'
@@ -88,6 +89,9 @@ async function startServer(config = createHeraldConfig()) {
         secret: config.auth.secret,
         trustedOrigins: [config.web.origin],
     })
+    const mastodonFetcher = createNetworkControlledFetcher({
+        privateDestinations: config.network.privateDestinations,
+    })
     const publisher = createPublisherRuntime(database, {
         apiOrigin: config.auth.baseURL,
         webOrigin: config.web.origin,
@@ -95,14 +99,18 @@ async function startServer(config = createHeraldConfig()) {
         publisherEncryptionKeyId: config.security.publisherEncryptionKeyId,
         linkedin: config.publishers.linkedin,
         bluesky: config.publishers.bluesky,
+        mastodon: { fetcher: mastodonFetcher },
     })
     const customHttpTransport = createCustomHttpTransport({
-        privateDestinations: config.customHttp.privateDestinations,
+        privateDestinations: config.network.privateDestinations,
     })
     const builtInProviderRegistry = createBuiltInProviderRegistry([
         createBlueskyProviderAdapter({ oauth: publisher.bluesky }),
         createLinkedInProviderAdapter({ oauth: publisher.linkedin }),
-        createMastodonProviderAdapter(),
+        createMastodonProviderAdapter({
+            createPublisher: baseUrl =>
+                createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
+        }),
     ])
     const worker = createPublicationWorker({
         database,
