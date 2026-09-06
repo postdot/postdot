@@ -1,0 +1,7 @@
+{
+    "language_menu_label": "Langue",
+    "language_english": "Anglais",
+    "language_french": "Français",
+    "language_switch_to": "Changer la langue pour {language}",
+    "language_selected": "Langue sélectionnée : {language}"
+}

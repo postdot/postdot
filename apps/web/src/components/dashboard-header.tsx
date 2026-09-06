@@ -3,15 +3,14 @@ import { Button } from '@herald/ui/components/button'
 import {
     DropdownMenu,
     DropdownMenuContent,
-    DropdownMenuGroup,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@herald/ui/components/dropdown-menu'
 import { SidebarTrigger } from '@herald/ui/components/sidebar'
 import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
 
+import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Session } from '@/lib/api'
@@ -62,6 +61,7 @@ export function DashboardHeader({
 
             <div className="flex shrink-0 items-center gap-1">
                 <NotificationInbox projectId={projectId} />
+                <LanguageSwitcher />
                 <ThemeToggle />
                 <DropdownMenu>
                     <DropdownMenuTrigger
@@ -80,11 +80,9 @@ export function DashboardHeader({
                         </span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-56">
-                        <DropdownMenuGroup>
-                            <DropdownMenuLabel className="max-w-52 truncate">
-                                {session.user.email}
-                            </DropdownMenuLabel>
-                        </DropdownMenuGroup>
+                        <div className="max-w-52 truncate px-1.5 py-1 text-xs font-medium text-muted-foreground">
+                            {session.user.email}
+                        </div>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={onSignOut} disabled={pending}>
                             <Logout2Icon aria-hidden="true" />

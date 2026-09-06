@@ -1121,3 +1121,88 @@ channels` with a foreign-key constraint error even though a fresh empty database
   destination, transport, lease, and claim token before decryption. Rotation retires
   the previous active version without changing already-projected deliveries. No real
   provider transport, management API, or UI was introduced.
+
+## [ISSUE-049] Establish a user-facing localization foundation
+
+- Type: proposal
+- Status: accepted
+- Evidence: The web client currently renders English UI copy directly in
+  application components. It has no locale preference, translation catalog,
+  fallback policy, or shared message-formatting boundary; locale-sensitive
+  formatting is limited to scattered `Intl` calls and must not be confused with
+  publication-content language metadata.
+- Impact: Herald cannot serve users who need another interface language, and
+  continuing to add copy without a localization boundary will make later
+  extraction expensive, increase bundle risk, and make product text harder to
+  maintain safely across clients.
+- Desired outcome: The authenticated web client has an explicit user-locale
+  contract with a deterministic default and fallback, lazy-loadable catalogs,
+  plural/select and date/number formatting, accessible language switching, and
+  stable message identifiers that remain understandable in application code.
+  API errors expose stable machine-readable codes and parameters rather than
+  requiring clients to translate server-rendered prose. Publication-content
+  language remains a separate domain concern.
+- Tasks: I18N-95, I18N-99
+
+## [ISSUE-050] Keep notifications and project work views synchronized
+
+- Type: problem
+- Status: accepted
+- Evidence: The notification inbox loads when its component mounts or opens, and
+  project queue/publication data is initially loaded and refreshed after local
+  mutations. The browser currently has no general push, polling, SSE, or
+  WebSocket subscription for worker-generated changes, while the server-side
+  notification projection runs independently on a short interval.
+- Impact: A worker outcome or another browser session can leave the visible
+  inbox and queue stale until the user performs a manual refresh or another
+  local action. The product's durable event journal exists, but its update
+  semantics are not yet exposed as a client-facing reactivity contract.
+- Desired outcome: The web client receives or safely discovers relevant project
+  changes without a full-page refresh, with explicit reconnect, missed-event,
+  deduplication, authorization, and fallback semantics. The design must reuse
+  the existing durable event and notification projections rather than create a
+  second source of truth, and must be validated against worker-generated
+  publication outcomes.
+- Tasks: REALTIME-96
+- Related issues: ISSUE-045, ISSUE-046
+
+## [ISSUE-051] Give the notification inbox a non-blocking interaction surface
+
+- Type: proposal
+- Status: accepted
+- Evidence: The current dashboard notification inbox is presented as a centered
+  modal dialog with an overlay. The product direction is an operational workspace
+  where notifications should be inspectable alongside the current task rather
+  than temporarily replacing it.
+- Impact: A modal notification surface interrupts queue, calendar, and compose
+  work, hides context behind an overlay, and makes the inbox feel like a separate
+  interruption instead of a persistent operational aid.
+- Desired outcome: The notification inbox has an accessible contextual surface
+  that preserves the current task, supports unread/read/archive actions, behaves
+  coherently on desktop and narrow screens, and remains compatible with the
+  existing persistent inbox API and future live-update contract. The exact
+  component and visual treatment remain subject to the dedicated UX task.
+- Tasks: DESIGN-97
+- Related issues: ISSUE-046, ISSUE-050
+
+## [ISSUE-052] Reduce explanatory repetition and operational information density
+
+- Type: problem
+- Status: accepted
+- Evidence: Several authenticated surfaces repeat combinations of overline,
+  icon, title, description, helper text, and container treatment. The owner
+  reports that the resulting pages are difficult to scan and require more
+  scrolling than the operational task warrants. The accepted design direction
+  already treats descriptive heading elements as optional rather than a default
+  formula.
+- Impact: Users must read through presentation copy before reaching the next
+  action, and important state can compete with repeated explanations. Local
+  component simplifications risk producing inconsistent hierarchy if the rule is
+  not made explicit and checked across the application.
+- Desired outcome: Each operational surface has a clear primary task and a
+  deliberate information hierarchy. Repeated explanatory copy is removed or
+  moved to contextual help without hiding required state, recovery guidance,
+  accessibility information, or the next action. The result is validated on
+  realistic desktop and narrow-screen data rather than by isolated component
+  screenshots.
+- Tasks: DESIGN-98
