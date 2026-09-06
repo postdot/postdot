@@ -13,6 +13,7 @@ COPY packages/db/package.json packages/db/package.json
 COPY packages/discord/package.json packages/discord/package.json
 COPY packages/bluesky/package.json packages/bluesky/package.json
 COPY packages/linkedin/package.json packages/linkedin/package.json
+COPY packages/mastodon/package.json packages/mastodon/package.json
 COPY packages/media/package.json packages/media/package.json
 COPY packages/oauth/package.json packages/oauth/package.json
 COPY packages/ui/package.json packages/ui/package.json

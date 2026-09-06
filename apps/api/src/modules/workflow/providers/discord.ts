@@ -138,6 +138,8 @@ async function executeDiscordPublication(input: {
             target.credentialId
         )
     }
+    // A 403 forbidden outcome (for example a missing Send Messages permission) stays
+    // permanent without reconnect: the Bot token is valid, the channel grant is not.
     failDiscordDeliveries(
         execution.providerMediaDeliveryStore,
         target.projectId,
@@ -189,21 +191,42 @@ async function prepareDiscordMedia(input: {
             targetMedia.family !== 'image' ||
             (targetMedia.contentType !== 'image/jpeg' && targetMedia.contentType !== 'image/png')
         ) {
-            await cancelPreparedStreams(prepared)
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'unsupported_media',
+                errorMessage: 'Discord image posts support JPEG and PNG images only',
+                now: input.now,
+            })
             return {
                 kind: 'failed',
                 outcome: permanentFailure('Discord image posts support JPEG and PNG images only'),
             }
         }
         if (targetMedia.byteSize > DISCORD_MAX_IMAGE_BYTES) {
-            await cancelPreparedStreams(prepared)
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'media_too_large',
+                errorMessage: 'The Discord image exceeds the 10 MiB attachment limit',
+                now: input.now,
+            })
             return {
                 kind: 'failed',
                 outcome: permanentFailure('The Discord image exceeds the 10 MiB attachment limit'),
             }
         }
         if (targetMedia.accessibilityText === null) {
-            await cancelPreparedStreams(prepared)
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'missing_accessibility_text',
+                errorMessage: 'Discord images require accessibility text',
+                now: input.now,
+            })
             return {
                 kind: 'failed',
                 outcome: permanentFailure('Discord images require accessibility text'),
@@ -218,12 +241,19 @@ async function prepareDiscordMedia(input: {
             at: input.now,
         })
         if (delivery.state === 'ambiguous') {
-            await cancelPreparedStreams(prepared)
+            const errorMessage =
+                delivery.errorMessage ?? 'The Discord media delivery requires reconciliation'
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'delivery_ambiguous',
+                errorMessage,
+                now: input.now,
+            })
             return {
                 kind: 'failed',
-                outcome: ambiguousFailure(
-                    delivery.errorMessage ?? 'The Discord media delivery requires reconciliation'
-                ),
+                outcome: ambiguousFailure(errorMessage),
             }
         }
 
@@ -235,7 +265,14 @@ async function prepareDiscordMedia(input: {
                 at: input.now,
             })
             if (retried === null) {
-                await cancelPreparedStreams(prepared)
+                await abortPreparedMedia({
+                    store: input.providerMediaDeliveryStore,
+                    projectId: input.target.projectId,
+                    prepared,
+                    errorCode: 'delivery_missing',
+                    errorMessage: 'The Discord media delivery disappeared',
+                    now: input.now,
+                })
                 return {
                     kind: 'failed',
                     outcome: permanentFailure('The Discord media delivery disappeared'),
@@ -245,19 +282,33 @@ async function prepareDiscordMedia(input: {
         }
 
         if (current.state === 'uploaded' || current.remoteMediaId !== null) {
-            await cancelPreparedStreams(prepared)
+            const errorMessage =
+                current.state === 'uploaded'
+                    ? 'The Discord media delivery requires reconciliation'
+                    : 'The Discord image upload has no durable provider identifier'
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'delivery_ambiguous',
+                errorMessage,
+                now: input.now,
+            })
             return {
                 kind: 'failed',
-                outcome: ambiguousFailure(
-                    current.state === 'uploaded'
-                        ? 'The Discord media delivery requires reconciliation'
-                        : 'The Discord image upload has no durable provider identifier'
-                ),
+                outcome: ambiguousFailure(errorMessage),
             }
         }
 
         if (current.state === 'uploading') {
-            await cancelPreparedStreams(prepared)
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'upload_in_progress',
+                errorMessage: 'The Discord image upload has no durable provider identifier',
+                now: input.now,
+            })
             failDiscordDeliveries(
                 input.providerMediaDeliveryStore,
                 input.target.projectId,
@@ -281,7 +332,14 @@ async function prepareDiscordMedia(input: {
             at: input.now,
         })
         if (started === null || started.state !== 'uploading') {
-            await cancelPreparedStreams(prepared)
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'delivery_start_failure',
+                errorMessage: 'The Discord media delivery could not be started',
+                now: input.now,
+            })
             return {
                 kind: 'failed',
                 outcome: permanentFailure('The Discord media delivery could not be started'),
@@ -294,7 +352,14 @@ async function prepareDiscordMedia(input: {
         try {
             opened = await openVerifiedPinnedMedia(input.media, input.target.projectId, targetMedia)
         } catch {
-            await cancelPreparedStreams(prepared)
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'media_read_failure',
+                errorMessage: 'The pinned Discord image could not be read; retry is safe',
+                now: input.now,
+            })
             failDiscordDeliveries(
                 input.providerMediaDeliveryStore,
                 input.target.projectId,
@@ -312,7 +377,14 @@ async function prepareDiscordMedia(input: {
             }
         }
         if (opened === null) {
-            await cancelPreparedStreams(prepared)
+            await abortPreparedMedia({
+                store: input.providerMediaDeliveryStore,
+                projectId: input.target.projectId,
+                prepared,
+                errorCode: 'media_unavailable',
+                errorMessage: 'The pinned Discord image representation is unavailable or changed',
+                now: input.now,
+            })
             failDiscordDeliveries(
                 input.providerMediaDeliveryStore,
                 input.target.projectId,
@@ -364,6 +436,26 @@ async function cancelPreparedStreams(
             // Preserve the validation failure that caused the cancellation.
         }
     }
+}
+
+async function abortPreparedMedia(input: {
+    readonly store: ProviderMediaDeliveryPort
+    readonly projectId: string
+    readonly prepared: readonly PreparedDiscordAttachment[]
+    readonly errorCode: string
+    readonly errorMessage: string
+    readonly now: number
+}): Promise<void> {
+    await cancelPreparedStreams(input.prepared)
+    failDiscordDeliveries(
+        input.store,
+        input.projectId,
+        input.prepared.map(attachment => attachment.delivery.id),
+        input.errorCode,
+        input.errorMessage,
+        false,
+        input.now
+    )
 }
 
 function toDiscordDestination(

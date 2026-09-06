@@ -186,6 +186,11 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 })
             }
 
+            // The connection verifies the Bot token and the channel existence only.
+            // The Send Messages permission cannot be derived from channel metadata,
+            // so it is enforced at publication time: Discord answers 403 and the
+            // worker records a permanent failure without marking reconnect.
+
             const credential = await credentialStore.createPublisherCredential({
                 projectId: params.projectId,
                 connectedByActorId: actorId,

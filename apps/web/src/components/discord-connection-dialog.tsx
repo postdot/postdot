@@ -111,7 +111,9 @@ export function DiscordConnectionDialog({
                                 onChange={event => setBotToken(event.target.value)}
                             />
                             <FieldDescription>
-                                The bot must have Send Messages permission in this channel.
+                                The bot must have the Send Messages permission in this channel.
+                                Herald verifies the channel now; the permission itself is checked
+                                when a publication is sent.
                             </FieldDescription>
                         </Field>
                         {error === null ? null : (

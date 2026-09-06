@@ -219,6 +219,40 @@ describe('Discord provider adapter', () => {
         }
     })
 
+    it('fails already-started deliveries when a later media fails before dispatch', async () => {
+        const first = mediaFixture(0)
+        const secondInvalid = { ...mediaFixture(1).media, family: 'video' as const }
+        const deliveries = createRecordingDeliveryPort()
+        const media = createMediaStoreStub(new Uint8Array([1, 2, 3, 4]))
+        let dispatched = false
+        const stub = createPublisherStub(
+            { type: 'published', externalId: '555555555555555555' },
+            () => {
+                dispatched = true
+            }
+        )
+        const credentials = createCredentials()
+        const adapter = createDiscordProviderAdapter({ createPublisher: () => stub.publisher })
+        const input: BuiltInProviderExecutionInput = {
+            target: createTarget({
+                content: { text: 'Hello', media: [] },
+                media: [first.media, secondInvalid],
+                mediaReferenceCount: 2,
+            }),
+            now,
+            credentials: credentials.port,
+            media,
+            providerMediaDeliveryStore: deliveries.port,
+        }
+
+        const outcome = await adapter.execute(input)
+
+        expect(outcome).toMatchObject({ type: 'permanent_failure' })
+        expect(dispatched).toBe(false)
+        expect(deliveries.completed).toEqual([])
+        expect(deliveries.failed).toEqual([{ deliveryId: 'delivery-1', ambiguous: false }])
+    })
+
     it('completes the durable media checkpoint when the message publishes', async () => {
         const fixture = mediaFixture(0)
         const deliveries = createRecordingDeliveryPort()

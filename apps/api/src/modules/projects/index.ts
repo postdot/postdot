@@ -5,6 +5,7 @@ import type {
     NotificationStore,
     ProjectAccessTokenStore,
 } from '@herald/db'
+import type { DiscordFetcher } from '@herald/discord'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
@@ -28,6 +29,7 @@ export interface ProjectModuleOptions {
     readonly media?: MediaAssetStore
     readonly logger?: Logger
     readonly onWorkScheduled?: () => void
+    readonly discordFetcher?: DiscordFetcher
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
@@ -44,6 +46,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const publisherRoutes = registerPublisherRoutes(channelProfileRoutes, options.publisher, {
         logger: options.logger,
         onWorkScheduled: options.onWorkScheduled,
+        discordFetcher: options.discordFetcher,
     })
     const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, {
         onWorkScheduled: options.onWorkScheduled,
