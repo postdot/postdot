@@ -91,6 +91,9 @@
 
 ## 🧭 Next Sprint
 
+- [/] **[AUDIT-90]** Re-audit the post-provider-expansion architecture and product boundaries `Priority: 🔴` `Complexity: L`
+- [x] **[SECURITY-91]** Route per-instance Mastodon OAuth token requests through the controlled egress boundary `Priority: 🔴` `Complexity: M`
+
 - [x] **[CHANNEL-71]** Define and implement the project channel lifecycle foundation `Priority: 🔴` `Complexity: L`
 - [x] **[CHANNEL-67]** Complete web onboarding and lifecycle for runtime-defined channels `Priority: 🔴` `Complexity: XL`
 - [x] **[ACCESS-68]** Expose project machine access through supported operator clients `Priority: 🔴` `Complexity: L`

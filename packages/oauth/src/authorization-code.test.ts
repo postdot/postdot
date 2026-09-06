@@ -195,6 +195,48 @@ describe('OAuth authorization code mechanics', () => {
         }
     })
 
+    it('uses the injected fetcher for authorization-code token requests', async () => {
+        let calls = 0
+        const authorization = await createAuthorizationRequest({
+            authorizationServer,
+            clientId: 'client-1',
+            callbackUri: 'http://127.0.0.1:3000/api/oauth/callback',
+            scopes: ['openid'],
+        })
+        const callbackParameters = validateAuthorizationResponse({
+            authorizationServer,
+            clientId: 'client-1',
+            parameters: new URLSearchParams({
+                code: 'authorization-code',
+                state: authorization.state,
+            }),
+            expectedState: authorization.state,
+        })
+
+        const tokenSet = await exchangeAuthorizationCode({
+            authorizationServer,
+            clientId: 'client-1',
+            clientAuthentication: clientSecretPost('client-secret'),
+            callbackParameters,
+            callbackUri: authorization.callbackUri,
+            codeVerifier: authorization.codeVerifier,
+            fetcher: async (input, init) => {
+                calls += 1
+                expect(input).toBe('https://provider.example.com/oauth/token')
+                expect(init?.method).toBe('POST')
+                expect(init?.redirect).toBe('manual')
+                expect(init?.body).toBeInstanceOf(URLSearchParams)
+                return Response.json({
+                    access_token: 'controlled-access-token',
+                    token_type: 'Bearer',
+                })
+            },
+        })
+
+        expect(calls).toBe(1)
+        expect(tokenSet.accessToken).toBe('controlled-access-token')
+    })
+
     it('digests state and only accepts allowlisted local return paths', async () => {
         const first = await digestAuthorizationState('state-1')
         const repeated = await digestAuthorizationState('state-1')
@@ -258,5 +300,29 @@ describe('OAuth authorization code mechanics', () => {
         } finally {
             server.stop(true)
         }
+    })
+
+    it('uses the injected fetcher for refresh-token requests', async () => {
+        let calls = 0
+        const tokenSet = await refreshAccessToken({
+            authorizationServer,
+            clientId: 'client-1',
+            clientAuthentication: clientSecretPost('client-secret'),
+            refreshToken: 'current-refresh-token',
+            fetcher: async (input, init) => {
+                calls += 1
+                expect(input).toBe('https://provider.example.com/oauth/token')
+                expect(init?.method).toBe('POST')
+                expect(init?.redirect).toBe('manual')
+                expect(init?.body).toBeInstanceOf(URLSearchParams)
+                return Response.json({
+                    access_token: 'controlled-refreshed-access-token',
+                    token_type: 'Bearer',
+                })
+            },
+        })
+
+        expect(calls).toBe(1)
+        expect(tokenSet.accessToken).toBe('controlled-refreshed-access-token')
     })
 })
