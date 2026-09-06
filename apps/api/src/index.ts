@@ -108,6 +108,7 @@ async function startServer(config = createHeraldConfig()) {
         createBlueskyProviderAdapter({ oauth: publisher.bluesky }),
         createLinkedInProviderAdapter({ oauth: publisher.linkedin }),
         createMastodonProviderAdapter({
+            fetcher: mastodonFetcher,
             createPublisher: baseUrl =>
                 createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
         }),

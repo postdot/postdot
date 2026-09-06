@@ -9,6 +9,7 @@ import {
     readMastodonStatusOptions,
     readMastodonTextContent,
     type MastodonOperationFailure,
+    type MastodonFetcher,
     type MastodonPublisher,
     type MastodonPublishOutcome,
 } from '@herald/mastodon'
@@ -24,6 +25,7 @@ import type {
 
 export interface MastodonProviderAdapterOptions {
     readonly createPublisher?: (baseUrl: string) => MastodonPublisher
+    readonly fetcher?: MastodonFetcher
     readonly refreshAccessToken?: typeof refreshAccessToken
     readonly sleep?: (milliseconds: number) => Promise<void>
     readonly mediaProcessingTimeoutMs?: number
@@ -95,6 +97,7 @@ async function executeMastodonPublication(input: {
                 clientId: providerSession.clientId,
                 clientAuthentication: clientSecretPost(providerSession.clientSecret),
                 refreshToken: secrets.refreshToken,
+                ...(options.fetcher === undefined ? {} : { fetcher: options.fetcher }),
             })
             const replaced = await execution.credentials.replacePublisherCredentialTokens({
                 projectId: target.projectId,

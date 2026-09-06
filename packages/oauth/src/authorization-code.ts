@@ -42,6 +42,7 @@ export interface ExchangeAuthorizationCodeInput {
     readonly callbackUri: string
     readonly codeVerifier: string | null
     readonly signal?: AbortSignal
+    readonly fetcher?: OAuthFetcher
 }
 
 export interface RefreshAccessTokenInput {
@@ -50,7 +51,10 @@ export interface RefreshAccessTokenInput {
     readonly clientAuthentication: OAuthClientAuthentication
     readonly refreshToken: string
     readonly signal?: AbortSignal
+    readonly fetcher?: OAuthFetcher
 }
+
+export type OAuthFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
 export interface OAuthTokenSet {
     readonly accessToken: string
@@ -181,10 +185,7 @@ export async function exchangeAuthorizationCode(
     const metadata = authorizationServerMetadata(input.authorizationServer)
     const client = clientMetadata(input.clientId)
     const callbackUri = secureUrl(input.callbackUri, 'callbackUri', true).href
-    const options: oauth.TokenEndpointRequestOptions = {
-        signal: input.signal,
-        [oauth.allowInsecureRequests]: allowsInsecureLocalTransport(input.authorizationServer),
-    }
+    const options = tokenEndpointRequestOptions(input)
     const response = await oauth.authorizationCodeGrantRequest(
         metadata,
         client,
@@ -208,13 +209,26 @@ export async function refreshAccessToken(input: RefreshAccessTokenInput): Promis
         client,
         input.clientAuthentication,
         refreshToken,
-        {
-            signal: input.signal,
-            [oauth.allowInsecureRequests]: allowsInsecureLocalTransport(input.authorizationServer),
-        }
+        tokenEndpointRequestOptions(input)
     )
 
     return toTokenSet(await oauth.processRefreshTokenResponse(metadata, client, response))
+}
+
+function tokenEndpointRequestOptions(input: {
+    readonly authorizationServer: OAuthAuthorizationServer
+    readonly signal?: AbortSignal
+    readonly fetcher?: OAuthFetcher
+}): oauth.TokenEndpointRequestOptions {
+    const options: oauth.TokenEndpointRequestOptions = {
+        signal: input.signal,
+        [oauth.allowInsecureRequests]: allowsInsecureLocalTransport(input.authorizationServer),
+    }
+    if (input.fetcher !== undefined) {
+        options[oauth.customFetch] = (url, requestOptions) =>
+            input.fetcher!(url, requestOptions as RequestInit)
+    }
+    return options
 }
 
 export function clientSecretPost(clientSecret: string): OAuthClientAuthentication {

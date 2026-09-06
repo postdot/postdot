@@ -309,6 +309,9 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                         callbackParameters,
                         callbackUri: mastodon.callbackUri,
                         codeVerifier: consumed.codeVerifier,
+                        ...(options.mastodonFetcher === undefined
+                            ? {}
+                            : { fetcher: options.mastodonFetcher }),
                     })
                     const mastodonClient = createMastodonPublisher({
                         baseUrl: authorizationState.instanceUrl,
