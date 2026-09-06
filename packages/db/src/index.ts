@@ -17,6 +17,19 @@ export type {
     EventJournalStoreOptions,
     ReadEventJournalInput,
 } from './event-journal-store'
+export { createAnalyticsStore } from './analytics-store'
+export type {
+    AnalyticsChannelInventory,
+    AnalyticsDailyBucket,
+    AnalyticsDeliveryModeCount,
+    AnalyticsEventCounts,
+    AnalyticsPublicationInventory,
+    AnalyticsRangeInput,
+    AnalyticsStateCount,
+    AnalyticsStore,
+    ProjectAnalytics,
+    ProjectAnalyticsInput,
+} from './analytics-store'
 export { createManualStore } from './manual-store'
 export { channelLifecycleBlockerCodes } from './manual-store/channel-lifecycle-store'
 export { createMediaAssetStore } from './media-asset-store'
