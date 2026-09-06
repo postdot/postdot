@@ -76,6 +76,8 @@ const environmentDefinitions = {
     LINKEDIN_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     BLUESKY_CLIENT_METADATA_URL: env.optionalString({ minLength: 1 }),
     BLUESKY_HANDLE_RESOLVER: env.url({ defaultValue: 'https://bsky.social' }),
+    X_CLIENT_ID: env.optionalString({ minLength: 1 }),
+    X_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     HERALD_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
     HERALD_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
@@ -139,6 +141,10 @@ export interface HeraldConfig {
             readonly clientMetadataUrl: string
             readonly handleResolver: string
         }
+        readonly x?: {
+            readonly clientId: string
+            readonly clientSecret: string
+        }
     }
     readonly network: {
         readonly privateDestinations: readonly PrivateDestinationRule[]
@@ -159,6 +165,13 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
         throw new Error(
             'LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET must be set together to enable LinkedIn'
         )
+    }
+
+    const hasXClientId = environment.X_CLIENT_ID !== undefined
+    const hasXClientSecret = environment.X_CLIENT_SECRET !== undefined
+
+    if (hasXClientId !== hasXClientSecret) {
+        throw new Error('X_CLIENT_ID and X_CLIENT_SECRET must be set together to enable X')
     }
 
     const mediaS3Values = {
@@ -192,6 +205,13 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             ? {
                   clientId: environment.LINKEDIN_CLIENT_ID,
                   clientSecret: environment.LINKEDIN_CLIENT_SECRET,
+              }
+            : undefined
+    const x =
+        hasXClientId && hasXClientSecret
+            ? {
+                  clientId: environment.X_CLIENT_ID,
+                  clientSecret: environment.X_CLIENT_SECRET,
               }
             : undefined
     const bluesky =
@@ -269,6 +289,7 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
         publishers: {
             ...(linkedin === undefined ? {} : { linkedin }),
             ...(bluesky === undefined ? {} : { bluesky }),
+            ...(x === undefined ? {} : { x }),
         },
         network: {
             privateDestinations: outboundPrivateDestinations,

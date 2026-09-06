@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { createHash } from 'node:crypto'
 
 import {
     blueskyChannelProfile,
@@ -31,6 +32,7 @@ import {
     type MastodonPublishOutcome,
     type MastodonPublisher,
 } from '@herald/mastodon'
+import { X_PROVIDER, xChannelProfile, type XPublishOutcome, type XPublisher } from '@herald/x'
 
 import { createBlueskyProviderAdapter, type BlueskyProviderAdapterOptions } from './bluesky'
 import { createDiscordProviderAdapter } from './discord'
@@ -43,6 +45,7 @@ import {
     type ProviderMediaDeliveryPort,
     type PublisherCredentialExecutionPort,
 } from './registry'
+import { createXProviderAdapter } from './x'
 
 const now = 1_800_000_000_000
 const credentialSecret = 'conformance-secret-that-must-not-become-domain-data'
@@ -256,6 +259,43 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 },
             }
             return createDiscordProviderAdapter({ createPublisher: () => publisher })
+        },
+    },
+    {
+        name: 'X',
+        providerId: X_PROVIDER,
+        profile: xChannelProfile,
+        content: { text: 'A conformance publication', media: [] },
+        destination: { type: 'account', id: 'x-account-1', name: 'Conformance account' },
+        externalAccountId: 'x-account-1',
+        endpointUrl: null,
+        providerSession: null,
+        createAdapter(outcome, onDispatch) {
+            const publisher: XPublisher = {
+                async getMe() {
+                    return {
+                        kind: 'success',
+                        value: {
+                            id: 'x-account-1',
+                            name: 'Conformance account',
+                            username: 'conformance',
+                        },
+                    }
+                },
+                async uploadMedia() {
+                    return {
+                        type: 'uploaded',
+                        remoteMediaId: 'provider-media-1',
+                        ready: true,
+                        expiresAfterSecs: null,
+                    }
+                },
+                async publishTweet() {
+                    onDispatch()
+                    return outcome as XPublishOutcome
+                },
+            }
+            return createXProviderAdapter({ publisher })
         },
     },
 ]
@@ -487,4 +527,669 @@ describe('built-in provider adapter conformance', () => {
             })
         })
     }
+
+    describe('X adapter specific behavior', () => {
+        const xCase = adapterCases.find(c => c.providerId === X_PROVIDER)!
+
+        it('refreshes expired credentials before dispatching', async () => {
+            let refreshed = false
+            let published = false
+            const fakeRefresh: NonNullable<
+                Parameters<typeof createXProviderAdapter>[0]
+            >['refreshAccessToken'] = async () => {
+                refreshed = true
+                return {
+                    accessToken: 'refreshed-x-token',
+                    refreshToken: 'new-x-refresh-token',
+                    expiresInSeconds: 7200,
+                    scopes: ['tweet.read', 'tweet.write'],
+                    tokenType: 'bearer',
+                }
+            }
+
+            const publisher: XPublisher = {
+                async getMe() {
+                    return {
+                        kind: 'success',
+                        value: { id: 'x-account-1', name: 'User', username: 'user' },
+                    }
+                },
+                async uploadMedia() {
+                    return {
+                        type: 'uploaded',
+                        remoteMediaId: 'm1',
+                        ready: true,
+                        expiresAfterSecs: null,
+                    }
+                },
+                async publishTweet(input) {
+                    published = true
+                    expect(input.accessToken).toBe('refreshed-x-token')
+                    return { type: 'published', externalId: 'tweet-refreshed' }
+                },
+            }
+
+            let replacedTokens = false
+            const credentialPort: PublisherCredentialExecutionPort = {
+                async resolvePublisherCredentialSecrets() {
+                    return {
+                        accessToken: 'expired-token',
+                        refreshToken: 'valid-refresh-token',
+                        providerSession: null,
+                    }
+                },
+                async replacePublisherCredentialTokens(input) {
+                    expect(input.accessToken).toBe('refreshed-x-token')
+                    expect(input.refreshToken).toBe('new-x-refresh-token')
+                    replacedTokens = true
+                    return {
+                        kind: 'updated',
+                        credential: {
+                            id: 'cred-1',
+                            projectId: 'p-1',
+                            providerId: X_PROVIDER,
+                            externalAccountId: 'x-account-1',
+                            externalAccountName: '@user',
+                            scopes: ['tweet.read', 'tweet.write'],
+                            state: 'active',
+                            expiresAt: now + 7200 * 1000,
+                            connectedByActorId: 'actor-conformance',
+                            createdAt: now,
+                            updatedAt: now,
+                        },
+                    }
+                },
+                markPublisherCredentialReconnectRequired() {},
+            }
+
+            const adapter = createXProviderAdapter({
+                oauth: {
+                    authorizationServer: {
+                        issuer: 'https://twitter.com',
+                        authorizationEndpoint: 'https://x.com/i/oauth2/authorize',
+                        tokenEndpoint: 'https://api.x.com/2/oauth2/token',
+                    },
+                    clientId: 'test-client-id',
+                    clientAuthentication: () => {},
+                },
+                publisher,
+                refreshAccessToken: fakeRefresh,
+            })
+
+            const target = createTarget(xCase)
+            const result = await adapter.execute({
+                target: { ...target, credentialExpiresAt: now - 1000 },
+                now,
+                credentials: credentialPort,
+                providerMediaDeliveryStore: createUncalledMediaDeliveryPort(),
+            })
+
+            expect(refreshed).toBe(true)
+            expect(replacedTokens).toBe(true)
+            expect(published).toBe(true)
+            expect(result).toEqual({ type: 'published', externalId: 'tweet-refreshed' })
+        })
+
+        it('marks reconnect required when token refresh fails', async () => {
+            let markedReconnect = false
+            const fakeRefresh: NonNullable<
+                Parameters<typeof createXProviderAdapter>[0]
+            >['refreshAccessToken'] = async () => {
+                throw new Error('Refresh failed')
+            }
+
+            const credentialPort: PublisherCredentialExecutionPort = {
+                async resolvePublisherCredentialSecrets() {
+                    return {
+                        accessToken: 'expired-token',
+                        refreshToken: 'bad-refresh-token',
+                        providerSession: null,
+                    }
+                },
+                async replacePublisherCredentialTokens() {
+                    return { kind: 'conflict' }
+                },
+                markPublisherCredentialReconnectRequired() {
+                    markedReconnect = true
+                },
+            }
+
+            const adapter = createXProviderAdapter({
+                oauth: {
+                    authorizationServer: {
+                        issuer: 'https://twitter.com',
+                        authorizationEndpoint: 'https://x.com/i/oauth2/authorize',
+                        tokenEndpoint: 'https://api.x.com/2/oauth2/token',
+                    },
+                    clientId: 'test-client-id',
+                    clientAuthentication: () => {},
+                },
+                refreshAccessToken: fakeRefresh,
+            })
+
+            const target = createTarget(xCase)
+            const result = await adapter.execute({
+                target: { ...target, credentialExpiresAt: now - 1000 },
+                now,
+                credentials: credentialPort,
+                providerMediaDeliveryStore: createUncalledMediaDeliveryPort(),
+            })
+
+            expect(markedReconnect).toBe(true)
+            expect(result).toMatchObject({
+                type: 'permanent_failure',
+                errorMessage: 'The X publisher credential could not be refreshed',
+            })
+        })
+
+        it('executes media upload checkpoints and publishes tweet with media ID', async () => {
+            let reserved = false
+            let started = false
+            let recordedCheckpoint = false
+            let completed = false
+            let completedExpiry: number | null | undefined
+            let publishedTweet = false
+
+            const mockMediaDeliveryStore: ProviderMediaDeliveryPort = {
+                reserve(input) {
+                    reserved = true
+                    return {
+                        id: 'delivery-1',
+                        projectId: input.projectId,
+                        executionMediaId: input.executionMediaId,
+                        publisherId: input.publisherId,
+                        providerId: X_PROVIDER,
+                        state: 'pending',
+                        attempts: 0,
+                        remoteMediaId: null,
+                        remoteMediaUrl: null,
+                        remoteMediaExpiresAt: null,
+                        lastAttemptAt: null,
+                        completedAt: null,
+                        errorCode: null,
+                        errorMessage: null,
+                        createdAt: input.at ?? now,
+                        updatedAt: input.at ?? now,
+                    }
+                },
+                start(input) {
+                    started = true
+                    return {
+                        id: input.deliveryId,
+                        projectId: input.projectId,
+                        executionMediaId: 'execution-media-1',
+                        publisherId: 'publisher-1',
+                        providerId: X_PROVIDER,
+                        state: 'uploading',
+                        attempts: 1,
+                        remoteMediaId: null,
+                        remoteMediaUrl: null,
+                        remoteMediaExpiresAt: null,
+                        lastAttemptAt: input.at ?? now,
+                        completedAt: null,
+                        errorCode: null,
+                        errorMessage: null,
+                        createdAt: input.at ?? now,
+                        updatedAt: input.at ?? now,
+                    }
+                },
+                recordRemoteMediaId(input) {
+                    recordedCheckpoint = true
+                    expect(input.remoteMediaId).toBe('x-media-remote-123')
+                    return {
+                        id: input.deliveryId,
+                        projectId: input.projectId,
+                        executionMediaId: 'execution-media-1',
+                        publisherId: 'publisher-1',
+                        providerId: X_PROVIDER,
+                        state: 'uploading',
+                        attempts: 1,
+                        remoteMediaId: input.remoteMediaId,
+                        remoteMediaUrl: null,
+                        remoteMediaExpiresAt: null,
+                        lastAttemptAt: input.at ?? now,
+                        completedAt: null,
+                        errorCode: null,
+                        errorMessage: null,
+                        createdAt: input.at ?? now,
+                        updatedAt: input.at ?? now,
+                    }
+                },
+                complete(input) {
+                    completed = true
+                    completedExpiry = input.remoteMediaExpiresAt
+                    return {
+                        id: input.deliveryId,
+                        projectId: input.projectId,
+                        executionMediaId: 'execution-media-1',
+                        publisherId: 'publisher-1',
+                        providerId: X_PROVIDER,
+                        state: 'uploaded',
+                        attempts: 1,
+                        remoteMediaId: input.remoteMediaId,
+                        remoteMediaUrl: null,
+                        remoteMediaExpiresAt: input.remoteMediaExpiresAt ?? null,
+                        lastAttemptAt: input.at ?? now,
+                        completedAt: input.at ?? now,
+                        errorCode: null,
+                        errorMessage: null,
+                        createdAt: input.at ?? now,
+                        updatedAt: input.at ?? now,
+                    }
+                },
+                fail() {
+                    return null
+                },
+                retry() {
+                    return null
+                },
+            }
+
+            const publisher: XPublisher = {
+                async getMe() {
+                    return {
+                        kind: 'success',
+                        value: { id: 'x-account-1', name: 'User', username: 'user' },
+                    }
+                },
+                async uploadMedia(_token, input) {
+                    expect(input.contentType).toBe('image/png')
+                    return {
+                        type: 'uploaded',
+                        remoteMediaId: 'x-media-remote-123',
+                        ready: true,
+                        expiresAfterSecs: 3_600,
+                    }
+                },
+                async publishTweet(input) {
+                    publishedTweet = true
+                    expect(input.mediaIds).toEqual(['x-media-remote-123'])
+                    return { type: 'published', externalId: 'tweet-with-media' }
+                },
+            }
+
+            const mediaPayload = new Uint8Array([1, 2, 3, 4])
+            const sha256 = createHash('sha256').update(mediaPayload).digest('hex')
+            const targetMediaWithSha: PublisherExecutionMedia = {
+                ...conformanceMedia,
+                sha256,
+            }
+
+            const adapter = createXProviderAdapter({ publisher })
+            const credentials = createCredentialPort({ available: true, providerSession: null })
+            const target = createTarget(xCase, {
+                content: {
+                    text: 'Tweet with media',
+                    media: [{ assetId: targetMediaWithSha.assetId }],
+                },
+                media: [targetMediaWithSha],
+                mediaReferenceCount: 1,
+            })
+
+            const mediaStore = {
+                async openRepresentationContent() {
+                    return {
+                        stream: new ReadableStream<Uint8Array>({
+                            start(controller) {
+                                controller.enqueue(mediaPayload)
+                                controller.close()
+                            },
+                        }),
+                        size: mediaPayload.byteLength,
+                        contentType: 'image/png' as const,
+                        sha256,
+                        representation: {
+                            storeId: targetMediaWithSha.storeId,
+                            objectKey: targetMediaWithSha.objectKey,
+                        },
+                    } as any
+                },
+            }
+
+            const outcome = await adapter.execute({
+                target,
+                now,
+                credentials: credentials.port,
+                media: mediaStore,
+                providerMediaDeliveryStore: mockMediaDeliveryStore,
+            })
+
+            expect(reserved).toBe(true)
+            expect(started).toBe(true)
+            expect(recordedCheckpoint).toBe(true)
+            expect(completed).toBe(true)
+            expect(completedExpiry).toBe(now + 3_600_000)
+            expect(publishedTweet).toBe(true)
+            expect(outcome).toEqual({ type: 'published', externalId: 'tweet-with-media' })
+        })
+
+        it('rejects overweight post text before dispatching', async () => {
+            let dispatched = false
+            const publisher: XPublisher = {
+                async getMe() {
+                    throw new Error('must not be called')
+                },
+                async uploadMedia() {
+                    throw new Error('must not be called')
+                },
+                async publishTweet() {
+                    dispatched = true
+                    return { type: 'published', externalId: 'tweet-overweight' }
+                },
+            }
+            const adapter = createXProviderAdapter({ publisher })
+            const credentials = createCredentialPort({ available: true, providerSession: null })
+
+            for (const text of ['a'.repeat(281), '日'.repeat(141)]) {
+                const target = createTarget(xCase, {
+                    content: { text, media: [] },
+                })
+                const outcome = await adapter.execute({
+                    target,
+                    now,
+                    credentials: credentials.port,
+                    providerMediaDeliveryStore: createUncalledMediaDeliveryPort(),
+                })
+                expect(outcome).toMatchObject({ type: 'permanent_failure' })
+                expect(JSON.stringify(outcome)).toContain('weighted')
+            }
+            expect(dispatched).toBe(false)
+        })
+
+        it('reuses a fresh uploaded checkpoint without uploading again', async () => {
+            let uploads = 0
+            let publishedMediaIds: readonly string[] | undefined
+            const freshStore: ProviderMediaDeliveryPort = {
+                reserve(input) {
+                    return {
+                        id: 'delivery-fresh',
+                        projectId: input.projectId,
+                        executionMediaId: input.executionMediaId,
+                        publisherId: input.publisherId,
+                        providerId: X_PROVIDER,
+                        state: 'uploaded',
+                        attempts: 1,
+                        remoteMediaId: 'x-media-fresh',
+                        remoteMediaUrl: null,
+                        remoteMediaExpiresAt: now + 60_000,
+                        lastAttemptAt: now - 1_000,
+                        completedAt: now - 1_000,
+                        errorCode: null,
+                        errorMessage: null,
+                        createdAt: now - 2_000,
+                        updatedAt: now - 1_000,
+                    }
+                },
+                start() {
+                    throw new Error('fresh checkpoints must not restart the upload')
+                },
+                recordRemoteMediaId() {
+                    throw new Error('fresh checkpoints must not record again')
+                },
+                complete() {
+                    throw new Error('fresh checkpoints must not complete again')
+                },
+                fail() {
+                    return null
+                },
+                retry() {
+                    return null
+                },
+            }
+            const publisher: XPublisher = {
+                async getMe() {
+                    throw new Error('must not be called')
+                },
+                async uploadMedia() {
+                    uploads += 1
+                    throw new Error('fresh checkpoints must not upload')
+                },
+                async publishTweet(input) {
+                    publishedMediaIds = input.mediaIds
+                    return { type: 'published', externalId: 'tweet-fresh-checkpoint' }
+                },
+            }
+
+            const mediaPayload = new Uint8Array([9, 9, 9])
+            const sha256 = createHash('sha256').update(mediaPayload).digest('hex')
+            const targetMedia: PublisherExecutionMedia = { ...conformanceMedia, sha256 }
+            const adapter = createXProviderAdapter({ publisher })
+            const credentials = createCredentialPort({ available: true, providerSession: null })
+            const target = createTarget(xCase, {
+                content: { text: 'Tweet with a fresh checkpoint', media: [{ assetId: 'asset-1' }] },
+                media: [targetMedia],
+                mediaReferenceCount: 1,
+            })
+            const outcome = await adapter.execute({
+                target,
+                now,
+                credentials: credentials.port,
+                media: {
+                    async openRepresentationContent() {
+                        throw new Error('fresh checkpoints must not open media')
+                    },
+                },
+                providerMediaDeliveryStore: freshStore,
+            })
+
+            expect(outcome).toEqual({ type: 'published', externalId: 'tweet-fresh-checkpoint' })
+            expect(uploads).toBe(0)
+            expect(publishedMediaIds).toEqual(['x-media-fresh'])
+        })
+
+        it('requires reconciliation when the provider media expiry has passed', async () => {
+            let dispatched = false
+            const staleStore: ProviderMediaDeliveryPort = {
+                reserve(input) {
+                    return {
+                        id: 'delivery-stale',
+                        projectId: input.projectId,
+                        executionMediaId: input.executionMediaId,
+                        publisherId: input.publisherId,
+                        providerId: X_PROVIDER,
+                        state: 'uploaded',
+                        attempts: 1,
+                        remoteMediaId: 'x-media-stale',
+                        remoteMediaUrl: null,
+                        remoteMediaExpiresAt: now - 1,
+                        lastAttemptAt: now - 1_000,
+                        completedAt: now - 1_000,
+                        errorCode: null,
+                        errorMessage: null,
+                        createdAt: now - 2_000,
+                        updatedAt: now - 1_000,
+                    }
+                },
+                start() {
+                    return null
+                },
+                recordRemoteMediaId() {
+                    return null
+                },
+                complete() {
+                    return null
+                },
+                fail() {
+                    return null
+                },
+                retry() {
+                    return null
+                },
+            }
+            const publisher: XPublisher = {
+                async getMe() {
+                    throw new Error('must not be called')
+                },
+                async uploadMedia() {
+                    throw new Error('stale checkpoints must not upload')
+                },
+                async publishTweet() {
+                    dispatched = true
+                    return { type: 'published', externalId: 'tweet-stale-checkpoint' }
+                },
+            }
+
+            const mediaPayload = new Uint8Array([7, 7, 7])
+            const sha256 = createHash('sha256').update(mediaPayload).digest('hex')
+            const targetMedia: PublisherExecutionMedia = { ...conformanceMedia, sha256 }
+            const adapter = createXProviderAdapter({ publisher })
+            const credentials = createCredentialPort({ available: true, providerSession: null })
+            const target = createTarget(xCase, {
+                content: { text: 'Tweet with a stale checkpoint', media: [{ assetId: 'asset-1' }] },
+                media: [targetMedia],
+                mediaReferenceCount: 1,
+            })
+            const outcome = await adapter.execute({
+                target,
+                now,
+                credentials: credentials.port,
+                media: {
+                    async openRepresentationContent() {
+                        throw new Error('stale checkpoints must not open media')
+                    },
+                },
+                providerMediaDeliveryStore: staleStore,
+            })
+
+            expect(outcome).toMatchObject({ type: 'ambiguous' })
+            expect(JSON.stringify(outcome)).toContain('expired')
+            expect(dispatched).toBe(false)
+        })
+
+        it('re-uploads after a retryable upload failure on the next attempt', async () => {
+            let uploads = 0
+            let published = 0
+            type Row = {
+                state: 'pending' | 'uploading' | 'uploaded' | 'failed' | 'ambiguous'
+                remoteMediaId: string | null
+            }
+            const row: Row = { state: 'pending', remoteMediaId: null }
+            const baseDelivery = {
+                id: 'delivery-retry',
+                projectId: 'project-conformance',
+                executionMediaId: 'execution-media-1',
+                publisherId: 'publisher-1',
+                providerId: X_PROVIDER,
+                attempts: 1,
+                remoteMediaUrl: null,
+                remoteMediaExpiresAt: null,
+                lastAttemptAt: now,
+                completedAt: null,
+                errorCode: null,
+                errorMessage: null,
+                createdAt: now,
+                updatedAt: now,
+            }
+            const retryStore: ProviderMediaDeliveryPort = {
+                reserve() {
+                    return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
+                },
+                start() {
+                    row.state = 'uploading'
+                    return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
+                },
+                recordRemoteMediaId(input) {
+                    row.remoteMediaId = input.remoteMediaId
+                    return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
+                },
+                complete(input) {
+                    row.state = 'uploaded'
+                    row.remoteMediaId = input.remoteMediaId
+                    return {
+                        ...baseDelivery,
+                        state: row.state,
+                        remoteMediaId: row.remoteMediaId,
+                        completedAt: now,
+                    }
+                },
+                fail(input) {
+                    row.state = input.ambiguous === true ? 'ambiguous' : 'failed'
+                    return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
+                },
+                retry() {
+                    row.state = 'pending'
+                    return { ...baseDelivery, state: row.state, remoteMediaId: row.remoteMediaId }
+                },
+            }
+            const publisher: XPublisher = {
+                async getMe() {
+                    throw new Error('must not be called')
+                },
+                async uploadMedia() {
+                    uploads += 1
+                    if (uploads === 1) {
+                        return {
+                            type: 'retryable_failure',
+                            effectOccurred: false,
+                            code: 'rate_limited',
+                            errorMessage: 'Rate limit exceeded',
+                        }
+                    }
+                    return {
+                        type: 'uploaded',
+                        remoteMediaId: 'x-media-retried',
+                        ready: true,
+                        expiresAfterSecs: null,
+                    }
+                },
+                async publishTweet(input) {
+                    published += 1
+                    expect(input.mediaIds).toEqual(['x-media-retried'])
+                    return { type: 'published', externalId: 'tweet-retried' }
+                },
+            }
+
+            const mediaPayload = new Uint8Array([5, 5, 5, 5])
+            const sha256 = createHash('sha256').update(mediaPayload).digest('hex')
+            const targetMedia: PublisherExecutionMedia = { ...conformanceMedia, sha256 }
+            const adapter = createXProviderAdapter({ publisher })
+            const credentials = createCredentialPort({ available: true, providerSession: null })
+            const target = createTarget(xCase, {
+                content: { text: 'Tweet with retried upload', media: [{ assetId: 'asset-1' }] },
+                media: [targetMedia],
+                mediaReferenceCount: 1,
+            })
+            const mediaStore = {
+                async openRepresentationContent() {
+                    return {
+                        stream: new ReadableStream<Uint8Array>({
+                            start(controller) {
+                                controller.enqueue(mediaPayload)
+                                controller.close()
+                            },
+                        }),
+                        size: mediaPayload.byteLength,
+                        contentType: 'image/png' as const,
+                        sha256,
+                        representation: {
+                            storeId: targetMedia.storeId,
+                            objectKey: targetMedia.objectKey,
+                        },
+                    } as any
+                },
+            }
+
+            const first = await adapter.execute({
+                target,
+                now,
+                credentials: credentials.port,
+                media: mediaStore,
+                providerMediaDeliveryStore: retryStore,
+            })
+            expect(first).toMatchObject({ type: 'retryable_failure' })
+            expect(uploads).toBe(1)
+            expect(published).toBe(0)
+
+            const second = await adapter.execute({
+                target,
+                now,
+                credentials: credentials.port,
+                media: mediaStore,
+                providerMediaDeliveryStore: retryStore,
+            })
+            expect(second).toEqual({ type: 'published', externalId: 'tweet-retried' })
+            expect(uploads).toBe(2)
+            expect(published).toBe(1)
+        })
+    })
 })

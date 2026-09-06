@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { createHash } from 'node:crypto'
 
 import { createAuth } from '@herald/auth'
 import type { ChannelProfileDefinition } from '@herald/core'
@@ -86,6 +87,7 @@ type OpenApiOperation = {
 function createFixture(
     options: {
         readonly linkedin?: PublisherRuntimeOptions['linkedin']
+        readonly x?: PublisherRuntimeOptions['x']
         readonly runtime?: HealthRuntime
     } = {}
 ) {
@@ -97,6 +99,7 @@ function createFixture(
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
         linkedin: options.linkedin,
+        x: options.x,
         bluesky: {
             clientMetadataUrl: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
             handleResolver: 'https://bsky.social',
@@ -349,6 +352,8 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/channels/{channelId}/publisher/discord/connect',
                 '/api/projects/{projectId}/channels/{channelId}/publisher/mastodon/connect',
                 '/api/oauth/mastodon/callback',
+                '/api/projects/{projectId}/channels/{channelId}/publisher/x/connect',
+                '/api/oauth/x/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publications',
@@ -1473,6 +1478,72 @@ describe('Herald API', () => {
         }
     })
 
+    it('creates an X channel through the API', async () => {
+        const { app, database } = createFixture()
+        try {
+            const cookie = await signUp(app, 'x-channel-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'X channel project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const projectBody = (await projectResponse.json()) as {
+                project: { id: string }
+            }
+
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'X presence', profile: 'x' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const channelBody = (await channelResponse.json()) as {
+                channel: {
+                    id: string
+                    profileId: string
+                    profileVersionId: string
+                    revision: number
+                    state: string
+                }
+            }
+            expect(channelBody.channel).toMatchObject({
+                profileId: 'x',
+                revision: 1,
+                state: 'active',
+            })
+            expect(channelBody.channel.profileVersionId).toBeString()
+
+            const stateResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/profile`,
+                cookie
+            )
+            expect(stateResponse.status).toBe(200)
+            const stateBody = (await stateResponse.json()) as {
+                active: {
+                    version: number
+                    profile: {
+                        id: string
+                        execution: { contractId: string; revision: string }
+                    }
+                }
+                draft: unknown
+            }
+            expect(stateBody.active.version).toBe(1)
+            expect(stateBody.draft).toBeNull()
+            expect(stateBody.active.profile).toMatchObject({
+                id: 'x',
+                execution: { contractId: 'x', revision: 'post-v1' },
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('completes LinkedIn OAuth into a project-owned credential and connection', async () => {
         const provider = Bun.serve({
             port: 0,
@@ -1802,6 +1873,457 @@ describe('Herald API', () => {
                 },
                 scopes: ['openid', 'profile', 'rw_organization_admin', 'w_organization_social'],
             })
+        } finally {
+            provider.stop()
+            closeDatabase(database)
+        }
+    })
+
+    it('completes X OAuth into a project-owned credential and connection', async () => {
+        const tokenRequests: Array<Record<string, string | null>> = []
+        const provider = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                const url = new URL(request.url)
+                if (url.pathname === '/token') {
+                    const authorization = request.headers.get('authorization') ?? ''
+                    expect(authorization.startsWith('Basic ')).toBe(true)
+                    const body = new URLSearchParams(await request.text())
+                    tokenRequests.push({
+                        grantType: body.get('grant_type'),
+                        code: body.get('code'),
+                        codeVerifier: body.get('code_verifier'),
+                        redirectUri: body.get('redirect_uri'),
+                    })
+                    return Response.json({
+                        access_token: 'x-access-token-1',
+                        refresh_token: 'x-refresh-token-1',
+                        expires_in: 7200,
+                        scope: 'tweet.read tweet.write users.read offline.access media.write',
+                        token_type: 'Bearer',
+                    })
+                }
+                return new Response('not found', { status: 404 })
+            },
+        })
+        const providerOrigin = provider.url.origin
+        const authorizationServer: OAuthAuthorizationServer = {
+            issuer: providerOrigin,
+            authorizationEndpoint: new URL('/authorize', provider.url).toString(),
+            tokenEndpoint: new URL('/token', provider.url).toString(),
+        }
+        const seenProfileTokens: string[] = []
+        const { app, database } = createFixture({
+            x: {
+                clientId: 'x-client-id',
+                clientSecret: 'x-client-secret',
+                authorizationServer,
+                publisher: {
+                    async getMe(accessToken) {
+                        seenProfileTokens.push(accessToken)
+                        expect(accessToken).toBe('x-access-token-1')
+                        return {
+                            kind: 'success',
+                            value: {
+                                id: '2244994945',
+                                name: 'X Operator',
+                                username: 'xoperator',
+                            },
+                        }
+                    },
+                    async uploadMedia() {
+                        throw new Error('media upload must not run during connection')
+                    },
+                    async publishTweet() {
+                        throw new Error('publication must not run during connection')
+                    },
+                },
+            },
+        })
+
+        try {
+            const cookie = await signUp(app, 'x-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'X Project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const projectBody = (await projectResponse.json()) as {
+                project: { id: string }
+            }
+
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'X presence', profile: 'x' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const channelBody = (await channelResponse.json()) as {
+                channel: { id: string }
+            }
+
+            const accessTokenResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/access-tokens`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'X automation agent' }),
+                }
+            )
+            expect(accessTokenResponse.status).toBe(201)
+            const accessTokenBody = (await accessTokenResponse.json()) as { token: string }
+
+            const tokenConnectionStartResponse = await bearerRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/x/connect`,
+                accessTokenBody.token,
+                { method: 'POST' }
+            )
+            expect(tokenConnectionStartResponse.status).toBe(403)
+
+            const tokenCallbackResponse = await bearerRequest(
+                app,
+                '/api/oauth/x/callback',
+                accessTokenBody.token
+            )
+            expect(tokenCallbackResponse.status).toBe(303)
+            expect(tokenCallbackResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=invalid_callback'
+            )
+
+            const missingChannelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/missing-channel/publisher/x/connect`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(missingChannelResponse.status).toBe(404)
+
+            const connectionStartResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/x/connect`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(connectionStartResponse.status).toBe(200)
+            const connectionStartBody = (await connectionStartResponse.json()) as {
+                provider: string
+                scopes: string[]
+                authorizationUrl: string
+            }
+            expect(connectionStartBody.provider).toBe('x')
+            // Scopes are normalized (sorted) by the OAuth boundary.
+            expect(connectionStartBody.scopes).toEqual([
+                'media.write',
+                'offline.access',
+                'tweet.read',
+                'tweet.write',
+                'users.read',
+            ])
+            const authorizationUrl = new URL(connectionStartBody.authorizationUrl)
+            expect(authorizationUrl.searchParams.get('client_id')).toBe('x-client-id')
+            expect(authorizationUrl.searchParams.get('redirect_uri')).toBe(
+                'http://localhost:3000/api/oauth/x/callback'
+            )
+            expect(authorizationUrl.searchParams.get('code_challenge_method')).toBe('S256')
+            expect(authorizationUrl.searchParams.get('code_challenge')).toBeString()
+            const state = authorizationUrl.searchParams.get('state')
+            expect(state).toBeString()
+
+            // The PKCE verifier is persisted encrypted while the attempt is pending.
+            const pendingAttempt = database.$client
+                .query<{ status: string; verifier: Uint8Array | null }, []>(`
+                    select status,
+                           pkce_verifier_ciphertext as verifier
+                    from oauth_authorization_attempts
+                `)
+                .get()
+            expect(pendingAttempt?.status).toBe('pending')
+            expect(pendingAttempt?.verifier).toBeInstanceOf(Uint8Array)
+
+            const callbackResponse = await app.handle(
+                new Request(
+                    `${baseURL}/api/oauth/x/callback?code=authorization-code&state=${encodeURIComponent(state ?? '')}`,
+                    { headers: { cookie } }
+                )
+            )
+            expect(callbackResponse.status).toBe(303)
+            expect(callbackResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=connected'
+            )
+
+            // The token endpoint received the PKCE verifier and callback URI.
+            expect(tokenRequests).toHaveLength(1)
+            expect(tokenRequests[0]).toMatchObject({
+                grantType: 'authorization_code',
+                code: 'authorization-code',
+                redirectUri: 'http://localhost:3000/api/oauth/x/callback',
+            })
+            expect(tokenRequests[0]?.codeVerifier).toBeString()
+            const codeVerifier = tokenRequests[0]?.codeVerifier
+            if (typeof codeVerifier !== 'string') throw new Error('PKCE verifier was not captured')
+            expect(authorizationUrl.searchParams.get('code_challenge')).toBe(
+                createHash('sha256').update(codeVerifier).digest('base64url')
+            )
+            expect(seenProfileTokens).toEqual(['x-access-token-1'])
+
+            // Consuming the attempt clears the single-use verifier ciphertext.
+            const storedAttempt = database.$client
+                .query<{ status: string; verifier: Uint8Array | null }, []>(`
+                    select status,
+                           pkce_verifier_ciphertext as verifier
+                    from oauth_authorization_attempts
+                `)
+                .get()
+            expect(storedAttempt?.status).toBe('consumed')
+            expect(storedAttempt?.verifier).toBeNull()
+
+            const listResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publishers`,
+                cookie
+            )
+            expect(listResponse.status).toBe(200)
+            const listBody = (await listResponse.json()) as {
+                connections: Array<Record<string, unknown>>
+            }
+            expect(listBody.connections).toHaveLength(1)
+            expect(listBody.connections[0]).toMatchObject({
+                externalAccountId: '2244994945',
+                externalAccountName: '@xoperator',
+                kind: 'x',
+                providerId: 'x',
+                destination: { type: 'account', id: '2244994945', name: '@xoperator' },
+                scopes: [
+                    'media.write',
+                    'offline.access',
+                    'tweet.read',
+                    'tweet.write',
+                    'users.read',
+                ],
+                state: 'active',
+            })
+            expect(listBody.connections[0]).not.toHaveProperty('accessToken')
+            expect(listBody.connections[0]).not.toHaveProperty('refreshToken')
+
+            // Tokens never leak into API responses or stored ciphertext.
+            expect(JSON.stringify(connectionStartBody)).not.toContain('x-access-token-1')
+            expect(JSON.stringify(connectionStartBody)).not.toContain('x-refresh-token-1')
+            expect(JSON.stringify(listBody)).not.toContain('x-access-token-1')
+            expect(JSON.stringify(listBody)).not.toContain('x-refresh-token-1')
+            const storedSecrets = database.$client
+                .query<{ accessToken: Uint8Array; refreshToken: Uint8Array }, []>(`
+                    select access_token_ciphertext as accessToken,
+                           refresh_token_ciphertext as refreshToken
+                    from publisher_credentials
+                `)
+                .all()
+            expect(storedSecrets).toHaveLength(1)
+            for (const row of storedSecrets) {
+                const stored = `${Buffer.from(row.accessToken).toString('binary')}${Buffer.from(row.refreshToken).toString('binary')}`
+                expect(stored).not.toContain('x-access-token-1')
+                expect(stored).not.toContain('x-refresh-token-1')
+            }
+
+            expect(
+                database.$client
+                    .query<{ providerId: string }, []>(
+                        `select provider_id as providerId from account`
+                    )
+                    .all()
+            ).toEqual([{ providerId: 'credential' }])
+
+            const duplicateResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/x/connect`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(duplicateResponse.status).toBe(409)
+
+            database.delete(authUser).run()
+            expect(database.select().from(publisherCredentials).all()).toHaveLength(1)
+
+            const disconnectResponse = await app.handle(
+                new Request(
+                    `${baseURL}/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher`,
+                    { method: 'DELETE', headers: { cookie } }
+                )
+            )
+            expect(disconnectResponse.status).toBe(401)
+            expect(
+                database
+                    .select({ state: publisherCredentials.state })
+                    .from(publisherCredentials)
+                    .all()
+            ).toEqual([{ state: 'active' }])
+        } finally {
+            provider.stop()
+            closeDatabase(database)
+        }
+    })
+
+    it('rejects X OAuth state misuse and provider errors', async () => {
+        let tokenBehavior: 'ok' | 'error' = 'ok'
+        const provider = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                const url = new URL(request.url)
+                if (url.pathname === '/token') {
+                    if (tokenBehavior === 'error') {
+                        return Response.json(
+                            { error: 'invalid_grant', error_description: 'Code expired' },
+                            { status: 400 }
+                        )
+                    }
+                    return Response.json({
+                        access_token: 'x-access-token-2',
+                        refresh_token: 'x-refresh-token-2',
+                        expires_in: 7200,
+                        scope: 'tweet.read tweet.write users.read offline.access media.write',
+                        token_type: 'Bearer',
+                    })
+                }
+                return new Response('not found', { status: 404 })
+            },
+        })
+        const providerOrigin = provider.url.origin
+        const authorizationServer: OAuthAuthorizationServer = {
+            issuer: providerOrigin,
+            authorizationEndpoint: new URL('/authorize', provider.url).toString(),
+            tokenEndpoint: new URL('/token', provider.url).toString(),
+        }
+        const { app, database } = createFixture({
+            x: {
+                clientId: 'x-client-id',
+                clientSecret: 'x-client-secret',
+                authorizationServer,
+                publisher: {
+                    async getMe() {
+                        return {
+                            kind: 'success',
+                            value: {
+                                id: '2244994946',
+                                name: 'Second Operator',
+                                username: 'xsecond',
+                            },
+                        }
+                    },
+                    async uploadMedia() {
+                        throw new Error('media upload must not run during connection')
+                    },
+                    async publishTweet() {
+                        throw new Error('publication must not run during connection')
+                    },
+                },
+            },
+        })
+
+        try {
+            const cookie = await signUp(app, 'x-first-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'X state project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            async function createChannel(name: string) {
+                const channelResponse = await jsonRequest(
+                    app,
+                    `/api/projects/${projectBody.project.id}/channels`,
+                    cookie,
+                    { method: 'POST', body: JSON.stringify({ name, profile: 'x' }) }
+                )
+                expect(channelResponse.status).toBe(201)
+                return (await channelResponse.json()) as { channel: { id: string } }
+            }
+            async function startConnection(channelId: string) {
+                const startResponse = await jsonRequest(
+                    app,
+                    `/api/projects/${projectBody.project.id}/channels/${channelId}/publisher/x/connect`,
+                    cookie,
+                    { method: 'POST' }
+                )
+                expect(startResponse.status).toBe(200)
+                const startBody = (await startResponse.json()) as { authorizationUrl: string }
+                const state = new URL(startBody.authorizationUrl).searchParams.get('state')
+                expect(state).toBeString()
+                return state ?? ''
+            }
+            async function callback(code: string, state: string, sessionCookie: string) {
+                return app.handle(
+                    new Request(
+                        `${baseURL}/api/oauth/x/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+                        { headers: { cookie: sessionCookie } }
+                    )
+                )
+            }
+
+            const firstChannel = await createChannel('X first channel')
+            const firstState = await startConnection(firstChannel.channel.id)
+
+            const unknownStateResponse = await callback(
+                'authorization-code',
+                'unknown-state',
+                cookie
+            )
+            expect(unknownStateResponse.status).toBe(303)
+            expect(unknownStateResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=invalid_callback'
+            )
+
+            const secondCookie = await signUp(app, 'x-second-operator@herald.local')
+            const mismatchedResponse = await callback(
+                'authorization-code',
+                firstState,
+                secondCookie
+            )
+            expect(mismatchedResponse.status).toBe(303)
+            expect(mismatchedResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=invalid_callback'
+            )
+
+            const successResponse = await callback('authorization-code', firstState, cookie)
+            expect(successResponse.status).toBe(303)
+            expect(successResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=connected'
+            )
+
+            const replayedResponse = await callback('authorization-code', firstState, cookie)
+            expect(replayedResponse.status).toBe(303)
+            expect(replayedResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=already_used'
+            )
+
+            const secondChannel = await createChannel('X second channel')
+            const secondState = await startConnection(secondChannel.channel.id)
+            tokenBehavior = 'error'
+            const providerErrorResponse = await callback('expired-code', secondState, cookie)
+            expect(providerErrorResponse.status).toBe(303)
+            expect(providerErrorResponse.headers.get('location')).toBe(
+                'http://localhost:5173/dashboard?publisher=provider_unavailable'
+            )
+
+            const listResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publishers`,
+                cookie
+            )
+            const listBody = (await listResponse.json()) as {
+                connections: Array<Record<string, unknown>>
+            }
+            // Only the successful first connection persisted.
+            expect(listBody.connections).toHaveLength(1)
+            expect(listBody.connections[0]).toMatchObject({
+                externalAccountId: '2244994946',
+                kind: 'x',
+            })
+            expect(JSON.stringify(listBody)).not.toContain('x-access-token-2')
+            expect(JSON.stringify(listBody)).not.toContain('x-refresh-token-2')
         } finally {
             provider.stop()
             closeDatabase(database)

@@ -18,6 +18,8 @@ export interface ProviderMediaDelivery {
     readonly attempts: number
     readonly remoteMediaId: string | null
     readonly remoteMediaUrl: string | null
+    /** Provider-reported expiry for the remote media identifier, when known. */
+    readonly remoteMediaExpiresAt: number | null
     readonly lastAttemptAt: number | null
     readonly completedAt: number | null
     readonly errorCode: string | null
@@ -45,6 +47,7 @@ export interface CompleteProviderMediaDeliveryInput {
     readonly deliveryId: string
     readonly remoteMediaId: string
     readonly remoteMediaUrl?: string | null
+    readonly remoteMediaExpiresAt?: number | null
     readonly at?: number
 }
 
@@ -82,6 +85,7 @@ const deliveryColumns = `
     attempts,
     remote_media_id as remoteMediaId,
     remote_media_url as remoteMediaUrl,
+    remote_media_expires_at as remoteMediaExpiresAt,
     last_attempt_at as lastAttemptAt,
     completed_at as completedAt,
     error_code as errorCode,
@@ -137,6 +141,7 @@ export function createProviderMediaDeliveryStore(
             attempts = attempts + 1,
             last_attempt_at = ?1,
             completed_at = null,
+            remote_media_expires_at = null,
             error_code = null,
             error_message = null,
             updated_at = ?1
@@ -146,18 +151,19 @@ export function createProviderMediaDeliveryStore(
     `)
     const completeStatement = client.query<
         { changes: number },
-        [number, string, string | null, string, string]
+        [number, string, string | null, number | null, string, string]
     >(`
         update provider_media_deliveries
         set state = 'uploaded',
             remote_media_id = ?2,
             remote_media_url = ?3,
             completed_at = ?1,
+            remote_media_expires_at = ?4,
             error_code = null,
             error_message = null,
             updated_at = ?1
-        where project_id = ?4
-          and id = ?5
+        where project_id = ?5
+          and id = ?6
           and state in ('uploading', 'ambiguous')
     `)
     const recordRemoteMediaIdStatement = client.query<
@@ -181,6 +187,7 @@ export function createProviderMediaDeliveryStore(
             completed_at = ?1,
             remote_media_id = case when ?2 = 'ambiguous' then remote_media_id else null end,
             remote_media_url = case when ?2 = 'ambiguous' then remote_media_url else null end,
+            remote_media_expires_at = null,
             error_code = ?3,
             error_message = ?4,
             updated_at = ?1
@@ -192,6 +199,7 @@ export function createProviderMediaDeliveryStore(
         update provider_media_deliveries
         set state = 'pending',
             completed_at = null,
+            remote_media_expires_at = null,
             error_code = null,
             error_message = null,
             updated_at = ?1
@@ -281,6 +289,10 @@ export function createProviderMediaDeliveryStore(
                 input.remoteMediaUrl == null
                     ? null
                     : requireNonBlank(input.remoteMediaUrl, 'remoteMediaUrl')
+            const remoteMediaExpiresAt =
+                input.remoteMediaExpiresAt == null
+                    ? null
+                    : requireTimestamp(input.remoteMediaExpiresAt, 'remoteMediaExpiresAt')
             const delivery = loadStatement.get(projectId, deliveryId)
             if (delivery === null) return null
             if (delivery.remoteMediaId !== null && delivery.remoteMediaId !== remoteMediaId) {
@@ -302,6 +314,7 @@ export function createProviderMediaDeliveryStore(
                     timestamp,
                     remoteMediaId,
                     remoteMediaUrl,
+                    remoteMediaExpiresAt,
                     projectId,
                     deliveryId
                 ).changes !== 1

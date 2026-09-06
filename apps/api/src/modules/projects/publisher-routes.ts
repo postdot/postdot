@@ -19,6 +19,7 @@ import { registerBlueskyPublisherRoutes } from './publisher-providers/bluesky-ro
 import { registerDiscordPublisherRoutes } from './publisher-providers/discord-routes'
 import { registerLinkedInPublisherRoutes } from './publisher-providers/linkedin-routes'
 import { registerMastodonPublisherRoutes } from './publisher-providers/mastodon-routes'
+import { registerXPublisherRoutes } from './publisher-providers/x-routes'
 
 export function registerPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -186,10 +187,14 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
         mastodonFetcher: options.mastodonFetcher ?? publisher.mastodon.fetcher,
     }
 
-    return registerMastodonPublisherRoutes(
-        registerDiscordPublisherRoutes(
-            registerBlueskyPublisherRoutes(
-                registerLinkedInPublisherRoutes(routes, publisher, providerOptions),
+    return registerXPublisherRoutes(
+        registerMastodonPublisherRoutes(
+            registerDiscordPublisherRoutes(
+                registerBlueskyPublisherRoutes(
+                    registerLinkedInPublisherRoutes(routes, publisher, providerOptions),
+                    publisher,
+                    providerOptions
+                ),
                 publisher,
                 providerOptions
             ),

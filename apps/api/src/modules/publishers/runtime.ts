@@ -16,12 +16,25 @@ import {
     type LinkedInOrganizationClient,
 } from '@herald/linkedin'
 import type { MastodonFetcher } from '@herald/mastodon'
-import { clientSecretPost, validateReturnPath, type OAuthAuthorizationServer } from '@herald/oauth'
+import {
+    clientSecretBasic,
+    clientSecretPost,
+    validateReturnPath,
+    type OAuthAuthorizationServer,
+} from '@herald/oauth'
+import {
+    X_OAUTH_AUTHORIZATION_ENDPOINT,
+    X_OAUTH_ISSUER,
+    X_OAUTH_TOKEN_ENDPOINT,
+    createXPublisher,
+    type XPublisher,
+} from '@herald/x'
 
 import { blueskyPublisherConnectionPolicy } from './providers/bluesky'
 import { discordPublisherConnectionPolicy } from './providers/discord'
 import { linkedInPublisherConnectionPolicy } from './providers/linkedin'
 import { mastodonPublisherConnectionPolicy } from './providers/mastodon'
+import { xPublisherConnectionPolicy } from './providers/x'
 
 export interface PublisherRuntimeOptions {
     readonly apiOrigin: string
@@ -43,6 +56,12 @@ export interface PublisherRuntimeOptions {
         readonly clientName?: string
         readonly fetcher?: MastodonFetcher
     }
+    readonly x?: {
+        readonly clientId: string
+        readonly clientSecret: string
+        readonly authorizationServer?: OAuthAuthorizationServer
+        readonly publisher?: XPublisher
+    }
     readonly now?: () => number
     readonly createId?: () => string
 }
@@ -56,6 +75,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         '/api/oauth/mastodon/callback',
         options.apiOrigin
     ).toString()
+    const xCallbackUri = new URL('/api/oauth/x/callback', options.apiOrigin).toString()
     const cipher = createPublisherCredentialCipher({
         keyId: options.publisherEncryptionKeyId,
         key: options.publisherEncryptionKey,
@@ -68,6 +88,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
             discord: discordPublisherConnectionPolicy,
             linkedin: linkedInPublisherConnectionPolicy,
             mastodon: mastodonPublisherConnectionPolicy,
+            x: xPublisherConnectionPolicy,
         },
         now,
         createId,
@@ -111,11 +132,23 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         ...(options.mastodon?.fetcher === undefined ? {} : { fetcher: options.mastodon.fetcher }),
     }
 
+    const x =
+        options.x === undefined
+            ? undefined
+            : {
+                  ...options.x,
+                  authorizationServer: options.x.authorizationServer ?? defaultXAuthorizationServer,
+                  clientAuthentication: clientSecretBasic(options.x.clientSecret),
+                  publisher: options.x.publisher ?? createXPublisher(),
+                  callbackUri: xCallbackUri,
+              }
+
     return {
         apiOrigin: options.apiOrigin,
         webOrigin: options.webOrigin,
         callbackUri,
         mastodonCallbackUri,
+        xCallbackUri,
         now,
         publisherStore,
         credentialStore,
@@ -123,10 +156,18 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         linkedin,
         bluesky,
         mastodon,
+        x,
     }
 }
 
 export type PublisherRuntime = ReturnType<typeof createPublisherRuntime>
+
+const defaultXAuthorizationServer: OAuthAuthorizationServer = {
+    issuer: X_OAUTH_ISSUER,
+    authorizationEndpoint: X_OAUTH_AUTHORIZATION_ENDPOINT,
+    tokenEndpoint: X_OAUTH_TOKEN_ENDPOINT,
+    pkce: 'required',
+}
 
 const defaultLinkedInAuthorizationServer: OAuthAuthorizationServer = {
     issuer: LINKEDIN_OAUTH_ISSUER,

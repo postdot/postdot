@@ -202,11 +202,13 @@ describe('provider media delivery store', () => {
                 deliveryId: delivery.id,
                 remoteMediaId: 'remote-media-1',
                 remoteMediaUrl: 'https://provider.test/media/1',
+                remoteMediaExpiresAt: now + 60_000,
             })
             expect(uploaded).toMatchObject({
                 state: 'uploaded',
                 attempts: 1,
                 remoteMediaId: 'remote-media-1',
+                remoteMediaExpiresAt: now + 60_000,
             })
             expect(
                 deliveries.complete({

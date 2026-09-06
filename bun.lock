@@ -41,6 +41,7 @@
         "@herald/mastodon": "workspace:*",
         "@herald/media": "workspace:*",
         "@herald/oauth": "workspace:*",
+        "@herald/x": "workspace:*",
         "@sinclair/typebox": "^0.34.52",
         "drizzle-orm": "0.45.2",
         "drizzle-typebox": "^0.3.3",
@@ -246,6 +247,18 @@
       "peerDependencies": {
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
+      },
+    },
+    "packages/x": {
+      "name": "@herald/x",
+      "version": "0.0.0",
+      "dependencies": {
+        "@herald/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
+        "typescript": "7.0.2",
       },
     },
   },
@@ -517,6 +530,8 @@
     "@herald/ui": ["@herald/ui@workspace:packages/ui"],
 
     "@herald/web": ["@herald/web@workspace:apps/web"],
+
+    "@herald/x": ["@herald/x@workspace:packages/x"],
 
     "@hono/node-server": ["@hono/node-server@2.1.1", "", { "peerDependencies": { "hono": "^4" } }, "sha512-ELuehkj5VCBdgEw9zs+ivkKwyzzUCSQuE96YmiPvn1ECBoZCczbFXJLeEGMTYjphP6gydh4pHMqEYPVMYUVgQg=="],
 

@@ -16,6 +16,7 @@ import { auditEvents, channels, posts, projects, publications } from '@herald/db
 import { discordChannelProfile } from '@herald/discord'
 import { linkedinChannelProfile } from '@herald/linkedin'
 import { mastodonChannelProfile } from '@herald/mastodon'
+import { xChannelProfile } from '@herald/x'
 import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'
@@ -338,6 +339,7 @@ export const createChannelBody = Type.Object({
             Type.Literal('bluesky'),
             Type.Literal('mastodon'),
             Type.Literal('discord'),
+            Type.Literal('x'),
             Type.Object({
                 id: Type.String({ minLength: 1 }),
                 version: Type.Integer({ minimum: 1 }),
@@ -396,6 +398,7 @@ export function resolveChannelProfile(profile: unknown): ChannelProfileDefinitio
     if (profile === 'bluesky') return blueskyChannelProfile
     if (profile === 'mastodon') return mastodonChannelProfile
     if (profile === 'discord') return discordChannelProfile
+    if (profile === 'x') return xChannelProfile
     if (profile === undefined || profile === 'manual-message') {
         return createManualChannelProfile()
     }
@@ -505,6 +508,12 @@ export const discordConnectionBody = Type.Object({
 
 export const discordConnectionResponse = Type.Object({
     connection: publisherConnectionSchema,
+})
+
+export const xConnectionSchema = Type.Object({
+    provider: Type.Literal('x'),
+    scopes: Type.Array(Type.String({ minLength: 1 })),
+    authorizationUrl: Type.String({ minLength: 1 }),
 })
 
 export const customHttpConnectionBody = Type.Object({

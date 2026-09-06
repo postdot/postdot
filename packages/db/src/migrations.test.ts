@@ -164,7 +164,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(19)
+            expect(migrationCount?.count).toBe(20)
         } finally {
             closeDatabase(database)
         }
@@ -207,6 +207,7 @@ describe('database migrations', () => {
             revertNotificationMigration(database)
             revertEventJournalMigration(database)
             unapplyMigrations(database, [
+                '0019_flawless_greymalkin',
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
                 '0009_legal_bucky',
@@ -282,6 +283,7 @@ describe('database migrations', () => {
             revertNotificationMigration(staleDatabase)
             revertEventJournalMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
+                '0019_flawless_greymalkin',
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
                 '0009_legal_bucky',
