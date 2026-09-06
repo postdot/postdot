@@ -14,6 +14,12 @@ import type {
     PublisherExecutionTarget,
 } from '@herald/db'
 import {
+    DEVTO_PROVIDER,
+    devtoChannelProfile,
+    type DevtoPublishOutcome,
+    type DevtoPublisher,
+} from '@herald/devto'
+import {
     DISCORD_PROVIDER,
     discordChannelProfile,
     type DiscordPublishOutcome,
@@ -35,6 +41,7 @@ import {
 import { X_PROVIDER, xChannelProfile, type XPublishOutcome, type XPublisher } from '@herald/x'
 
 import { createBlueskyProviderAdapter, type BlueskyProviderAdapterOptions } from './bluesky'
+import { createDevtoProviderAdapter } from './devto'
 import { createDiscordProviderAdapter } from './discord'
 import { createLinkedInProviderAdapter } from './linkedin'
 import { createMastodonProviderAdapter } from './mastodon'
@@ -259,6 +266,31 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                 },
             }
             return createDiscordProviderAdapter({ createPublisher: () => publisher })
+        },
+    },
+    {
+        name: 'DEV.to',
+        providerId: DEVTO_PROVIDER,
+        profile: devtoChannelProfile,
+        content: { title: 'A Herald article', body_markdown: 'A conformance article', media: [] },
+        destination: { type: 'account', id: '42', name: 'Herald' },
+        externalAccountId: '42',
+        providerSession: null,
+        endpointUrl: null,
+        createAdapter(outcome, onDispatch) {
+            const publisher: DevtoPublisher = {
+                async getMe() {
+                    return {
+                        kind: 'success',
+                        value: { id: '42', username: 'herald', name: 'Herald' },
+                    }
+                },
+                async publishArticle() {
+                    onDispatch()
+                    return outcome as DevtoPublishOutcome
+                },
+            }
+            return createDevtoProviderAdapter({ createPublisher: () => publisher })
         },
     },
     {

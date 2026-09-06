@@ -43,6 +43,10 @@ export interface PublicationWorkerOptions {
         media: CustomHttpMediaDescriptor,
         context: { readonly projectId: string }
     ) => string | null | Promise<string | null>
+    readonly resolveBuiltInMediaUrl?: (
+        media: PublisherExecutionTarget['media'][number],
+        context: { readonly projectId: string }
+    ) => string | null | Promise<string | null>
     readonly builtInProviderRegistry: BuiltInProviderRegistry
     readonly now?: () => number
     readonly leaseDuration?: number
@@ -94,6 +98,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
                             publisherStore,
                             publisherCredentialStore: options.publisherCredentialStore,
                             media: options.media,
+                            resolveBuiltInMediaUrl: options.resolveBuiltInMediaUrl,
                             customHttpTransport,
                             resolveCustomHttpMediaUrl: options.resolveCustomHttpMediaUrl,
                             now: processingNow(),
@@ -135,6 +140,10 @@ async function performExternalEffect(input: {
     readonly publisherStore: ReturnType<typeof createPublisherStore>
     readonly publisherCredentialStore: ReturnType<typeof createPublisherCredentialStore>
     readonly media?: MediaAssetStore
+    readonly resolveBuiltInMediaUrl?: (
+        media: PublisherExecutionTarget['media'][number],
+        context: { readonly projectId: string }
+    ) => string | null | Promise<string | null>
     readonly customHttpTransport: CustomHttpTransport
     readonly resolveCustomHttpMediaUrl?: (
         media: CustomHttpMediaDescriptor,
@@ -173,6 +182,10 @@ async function performExternalEffect(input: {
         now: input.now,
         credentials: input.publisherCredentialStore,
         media: input.media,
+        resolveMediaUrl:
+            input.resolveBuiltInMediaUrl === undefined
+                ? undefined
+                : (media, context) => input.resolveBuiltInMediaUrl!(media, context),
         providerMediaDeliveryStore,
     })
 }

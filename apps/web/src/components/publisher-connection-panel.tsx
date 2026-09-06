@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { BlueskyConnectionDialog } from '@/components/bluesky-connection-dialog'
 import { CustomHttpConnectionDialog } from '@/components/custom-http-connection-dialog'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
+import { DevtoConnectionDialog } from '@/components/devto-connection-dialog'
 import { DiscordConnectionDialog } from '@/components/discord-connection-dialog'
 import { MastodonConnectionDialog } from '@/components/mastodon-connection-dialog'
 import type {
@@ -47,6 +48,7 @@ interface PublisherConnectionPanelProps {
         channelId: string,
         input: { botToken: string; channelId: string }
     ) => Promise<boolean>
+    readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
 }
 
@@ -59,6 +61,7 @@ export function PublisherConnectionPanel({
     onStartBlueskyConnection,
     onStartMastodonConnection,
     onConnectDiscordPublisher,
+    onConnectDevtoPublisher,
     onDisconnectPublisher,
 }: PublisherConnectionPanelProps) {
     const [organizationIds, setOrganizationIds] = useState<Record<string, string>>({})
@@ -122,9 +125,11 @@ export function PublisherConnectionPanel({
                                                     ? 'Connect a Mastodon account to enable automatic publishing.'
                                                     : channel.profileId === 'discord'
                                                       ? 'Connect a Discord bot to enable automatic publishing.'
-                                                      : channel.profileId === 'linkedin'
-                                                        ? 'No automatic publisher is connected.'
-                                                        : 'This custom profile can be connected to a declarative HTTP endpoint.'}
+                                                      : channel.profileId === 'devto'
+                                                        ? 'Connect a DEV.to API key to enable automatic publishing.'
+                                                        : channel.profileId === 'linkedin'
+                                                          ? 'No automatic publisher is connected.'
+                                                          : 'This custom profile can be connected to a declarative HTTP endpoint.'}
                                         </p>
                                     ) : (
                                         <p className="mt-2 text-sm text-muted-foreground">
@@ -136,10 +141,12 @@ export function PublisherConnectionPanel({
                                                     ? `Mastodon account · ${connection.destination?.name ?? connection.externalAccountName ?? connection.externalAccountId}`
                                                     : connection.providerId === 'discord'
                                                       ? `Discord channel · ${connection.destination?.name ?? connection.destination?.id ?? connection.externalAccountId}`
-                                                      : connection.destination?.type ===
-                                                          'organization'
-                                                        ? `LinkedIn page · ${connection.destination.name ?? connection.destination.id}`
-                                                        : `LinkedIn member · ${connection.externalAccountName ?? connection.externalAccountId}`}
+                                                      : connection.providerId === 'devto'
+                                                        ? `DEV.to account · ${connection.destination?.name ?? connection.externalAccountName ?? connection.externalAccountId}`
+                                                        : connection.destination?.type ===
+                                                            'organization'
+                                                          ? `LinkedIn page · ${connection.destination.name ?? connection.destination.id}`
+                                                          : `LinkedIn member · ${connection.externalAccountName ?? connection.externalAccountId}`}
                                         </p>
                                     )}
                                     {connection !== undefined &&
@@ -237,6 +244,12 @@ export function PublisherConnectionPanel({
                                         disabled={pending}
                                         onConnect={onConnectDiscordPublisher}
                                     />
+                                ) : channel.profileId === 'devto' && connection === undefined ? (
+                                    <DevtoConnectionDialog
+                                        channel={channel}
+                                        disabled={pending}
+                                        onConnect={onConnectDevtoPublisher}
+                                    />
                                 ) : channel.profileId === 'linkedin' && connection !== undefined ? (
                                     <Button
                                         className="mt-4 sm:mt-0"
@@ -251,6 +264,7 @@ export function PublisherConnectionPanel({
                                   channel.profileId !== 'bluesky' &&
                                   channel.profileId !== 'mastodon' &&
                                   channel.profileId !== 'discord' &&
+                                  channel.profileId !== 'devto' &&
                                   connection === undefined ? (
                                     <CustomHttpConnectionDialog
                                         channel={channel}

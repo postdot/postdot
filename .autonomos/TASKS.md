@@ -117,5 +117,6 @@
 - [x] **[PROVIDER-87]** Add a per-instance Mastodon built-in channel vertical slice `Priority: 🔴` `Complexity: XL`
 - [x] **[SECURITY-88]** Define operator-controlled outbound network policy for per-instance built-in providers `Priority: 🟠` `Complexity: L`
 - [x] **[ANALYTICS-89]** Define the provider-neutral analytics foundation from durable publication and execution events `Priority: 🟠` `Complexity: L`
-- [/] **[PROVIDER-92]** Add Discord built-in channel vertical slice `Priority: 🔴` `Complexity: XL`
+- [x] **[PROVIDER-92]** Add Discord built-in channel vertical slice `Priority: 🔴` `Complexity: XL`
 - [x] **[PROVIDER-93]** Add X (Twitter) built-in channel vertical slice `Priority: 🔴` `Complexity: XL`
+- [x] **[PROVIDER-94]** Add DEV.to built-in channel vertical slice `Priority: 🔴` `Complexity: XL`

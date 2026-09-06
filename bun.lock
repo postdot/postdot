@@ -36,6 +36,7 @@
         "@herald/core": "workspace:*",
         "@herald/custom-http": "workspace:*",
         "@herald/db": "workspace:*",
+        "@herald/devto": "workspace:*",
         "@herald/discord": "workspace:*",
         "@herald/linkedin": "workspace:*",
         "@herald/mastodon": "workspace:*",
@@ -162,6 +163,18 @@
         "@types/bun": "1.4.0",
         "@types/node": "26.4.0",
         "drizzle-kit": "0.31.10",
+        "typescript": "7.0.2",
+      },
+    },
+    "packages/devto": {
+      "name": "@herald/devto",
+      "version": "0.0.0",
+      "dependencies": {
+        "@herald/core": "workspace:*",
+      },
+      "devDependencies": {
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
         "typescript": "7.0.2",
       },
     },
@@ -516,6 +529,8 @@
     "@herald/custom-http": ["@herald/custom-http@workspace:packages/custom-http"],
 
     "@herald/db": ["@herald/db@workspace:packages/db"],
+
+    "@herald/devto": ["@herald/devto@workspace:packages/devto"],
 
     "@herald/discord": ["@herald/discord@workspace:packages/discord"],
 
