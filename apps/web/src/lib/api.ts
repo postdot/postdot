@@ -57,6 +57,7 @@ export type ChannelCreationProfile =
     | 'linkedin'
     | 'bluesky'
     | 'mastodon'
+    | 'discord'
     | RuntimeChannelProfile
 
 export type CustomHttpAuthentication =
@@ -398,6 +399,19 @@ export const api = {
                 .projects({ projectId })
                 .channels({ channelId })
                 .publisher.mastodon.connect.post({ instanceUrl })
+        )
+    },
+
+    async connectDiscordPublisher(
+        projectId: string,
+        channelId: string,
+        input: { botToken: string; channelId: string }
+    ): Promise<{ connection: PublisherConnection }> {
+        return unwrap<{ connection: PublisherConnection }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.discord.connect.post(input)
         )
     },
 

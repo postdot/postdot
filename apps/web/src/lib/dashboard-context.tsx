@@ -128,6 +128,10 @@ export interface ProjectDashboardContextValue extends ProjectData {
     ) => Promise<void>
     readonly onStartBlueskyConnection: (channelId: string, handle: string) => Promise<void>
     readonly onStartMastodonConnection: (channelId: string, instanceUrl: string) => Promise<void>
+    readonly onConnectDiscordPublisher: (
+        channelId: string,
+        input: { botToken: string; channelId: string }
+    ) => Promise<boolean>
     readonly onPublish: (publicationId: string) => Promise<void>
     readonly pending: boolean
     readonly postContent: string
@@ -300,6 +304,16 @@ export function ProjectDashboardProvider({
         })
     }
 
+    async function handleConnectDiscordPublisher(
+        channelId: string,
+        input: { botToken: string; channelId: string }
+    ): Promise<boolean> {
+        return runAction(async () => {
+            await api.connectDiscordPublisher(project.id, channelId, input)
+            await refreshProject()
+        })
+    }
+
     async function handleDisconnectPublisher(channelId: string) {
         await runAction(async () => {
             await api.disconnectPublisher(project.id, channelId)
@@ -453,6 +467,7 @@ export function ProjectDashboardProvider({
         onStartLinkedInConnection: handleStartLinkedInConnection,
         onStartBlueskyConnection: handleStartBlueskyConnection,
         onStartMastodonConnection: handleStartMastodonConnection,
+        onConnectDiscordPublisher: handleConnectDiscordPublisher,
         onPublish: handlePublish,
         pending,
         postContent,

@@ -1,5 +1,6 @@
 import { isCustomHttpAuthentication } from '@herald/core'
 import { CUSTOM_HTTP_PUBLISHER_KIND, normalizeCustomHttpEndpoint } from '@herald/custom-http'
+import type { DiscordFetcher } from '@herald/discord'
 import type { MastodonFetcher } from '@herald/mastodon'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
@@ -15,6 +16,7 @@ import {
     publisherDisconnectedSchema,
 } from './models'
 import { registerBlueskyPublisherRoutes } from './publisher-providers/bluesky-routes'
+import { registerDiscordPublisherRoutes } from './publisher-providers/discord-routes'
 import { registerLinkedInPublisherRoutes } from './publisher-providers/linkedin-routes'
 import { registerMastodonPublisherRoutes } from './publisher-providers/mastodon-routes'
 
@@ -25,6 +27,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
         readonly mastodonFetcher?: MastodonFetcher
+        readonly discordFetcher?: DiscordFetcher
     } = {}
 ) {
     const { publisherStore } = publisher
@@ -184,8 +187,12 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
     }
 
     return registerMastodonPublisherRoutes(
-        registerBlueskyPublisherRoutes(
-            registerLinkedInPublisherRoutes(routes, publisher, providerOptions),
+        registerDiscordPublisherRoutes(
+            registerBlueskyPublisherRoutes(
+                registerLinkedInPublisherRoutes(routes, publisher, providerOptions),
+                publisher,
+                providerOptions
+            ),
             publisher,
             providerOptions
         ),
