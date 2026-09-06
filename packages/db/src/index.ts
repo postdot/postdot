@@ -22,6 +22,19 @@ export { channelLifecycleBlockerCodes } from './manual-store/channel-lifecycle-s
 export { createMediaAssetStore } from './media-asset-store'
 export { createNotificationStore } from './notification-store'
 export { createNotificationDeliveryStore } from './notification-delivery-store'
+export { createNotificationDestinationSecretStore } from './notification-destination-secret-store'
+export {
+    createSecretCipher,
+    encryptedSecretEnvelopeVersion,
+    SecretCipherError,
+} from './encrypted-secret-crypto'
+export type {
+    CreateSecretCipherOptions,
+    EncryptedSecretEnvelope,
+    SecretCipher,
+    SecretCipherContext,
+    SecretCipherErrorCode,
+} from './encrypted-secret-crypto'
 export { createProviderMediaDeliveryStore } from './provider-media-delivery-store'
 export { createPublisherStore } from './publisher-store'
 export {
@@ -44,6 +57,23 @@ export type {
     PublisherSecretContext,
     PublisherSecretField,
 } from './publisher-credential-crypto'
+export {
+    createNotificationDestinationSecretCipher,
+    notificationDestinationSecretEnvelopeVersion,
+} from './notification-destination-secret-crypto'
+export type {
+    CreateNotificationDestinationSecretCipherOptions,
+    EncryptedNotificationDestinationSecret,
+    NotificationDestinationSecretCipher,
+} from './notification-destination-secret-crypto'
+export type {
+    NotificationDestinationSecret,
+    NotificationDestinationSecretMaterial,
+    NotificationDestinationSecretStore,
+    NotificationDestinationSecretStoreOptions,
+    ResolveNotificationDestinationSecretInput,
+    SetNotificationDestinationSecretInput,
+} from './notification-destination-secret-store'
 export type {
     CreatePublisherCredentialInput,
     CreatePublisherCredentialResult,

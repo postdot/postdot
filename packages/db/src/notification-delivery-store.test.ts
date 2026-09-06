@@ -3,10 +3,13 @@ import { describe, expect, it } from 'bun:test'
 import { createExponentialRetryPolicy, DomainInvariantError } from '@herald/core'
 
 import { closeDatabase, createDatabase } from './client'
+import { SecretCipherError } from './encrypted-secret-crypto'
 import { createEventJournalStore } from './event-journal-store'
 import { createManualStore } from './manual-store'
 import { runMigrations } from './migrations'
 import { createNotificationDeliveryStore } from './notification-delivery-store'
+import { createNotificationDestinationSecretCipher } from './notification-destination-secret-crypto'
+import { createNotificationDestinationSecretStore } from './notification-destination-secret-store'
 import { createNotificationStore } from './notification-store'
 
 const eventTime = 1_800_000_000_000
@@ -28,8 +31,16 @@ function createFixture() {
         createId,
         now: () => operationTime,
     })
+    const secrets = createNotificationDestinationSecretStore(database, {
+        cipher: createNotificationDestinationSecretCipher({
+            keyId: 'notification-test-v1',
+            key: new Uint8Array(32).fill(8),
+        }),
+        createId,
+        now: () => operationTime,
+    })
     const inbox = createNotificationStore(database, { createId, now: () => operationTime })
-    return { database, project, journal, deliveries, inbox }
+    return { database, project, journal, deliveries, secrets, inbox }
 }
 
 function appendPublicationEvent(
@@ -73,6 +84,230 @@ function addDestination(fixture: ReturnType<typeof createFixture>, enabled = tru
 }
 
 describe('notification delivery store', () => {
+    it('binds a delivery secret to the same destination as the delivery', async () => {
+        const fixture = createFixture()
+        try {
+            const firstDestination = addDestination(fixture)
+            const secondDestination = addDestination(fixture)
+            const firstSecret = await fixture.secrets.setSecret({
+                projectId: fixture.project.project.id,
+                subjectId: 'human-1',
+                destinationId: firstDestination.id,
+                material: { bearerToken: 'first-destination-secret' },
+            })
+            const secondSecret = await fixture.secrets.setSecret({
+                projectId: fixture.project.project.id,
+                subjectId: 'human-1',
+                destinationId: secondDestination.id,
+                material: { bearerToken: 'second-destination-secret' },
+            })
+            if (firstSecret === null || secondSecret === null) {
+                throw new Error('The notification destination secret is missing')
+            }
+
+            appendPublicationEvent(fixture, {
+                id: 'event-secret-destination-binding',
+                name: 'publication.execution.failed',
+            })
+            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(2)
+
+            const firstDelivery = fixture.database.$client
+                .query<{ readonly id: string }, [destinationId: string]>(
+                    'select id from notification_deliveries where destination_id = ?1'
+                )
+                .get(firstDestination.id)
+            if (firstDelivery === null) throw new Error('The first delivery is missing')
+
+            expect(() =>
+                fixture.database.$client
+                    .query<void, [secretId: string, deliveryId: string]>(
+                        'update notification_deliveries set secret_id = ?1 where id = ?2'
+                    )
+                    .run(secondSecret.id, firstDelivery.id)
+            ).toThrow()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('encrypts versioned secrets and pins the referenced version in delivery snapshots', async () => {
+        const fixture = createFixture()
+        try {
+            const destination = addDestination(fixture)
+            const firstSecret = await fixture.secrets.setSecret({
+                projectId: fixture.project.project.id,
+                subjectId: 'human-1',
+                destinationId: destination.id,
+                material: { bearerToken: 'notification-secret-v1' },
+            })
+            expect(firstSecret).toMatchObject({
+                version: 1,
+                state: 'active',
+                encryptionKeyId: 'notification-test-v1',
+            })
+            expect(firstSecret).not.toHaveProperty('ciphertext')
+            expect(
+                fixture.deliveries.listDestinations(fixture.project.project.id, 'human-1')
+            ).toMatchObject([{ secretVersion: 1 }])
+
+            appendPublicationEvent(fixture, {
+                id: 'event-secret-v1',
+                name: 'publication.execution.failed',
+            })
+            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(1)
+            const firstDelivery = fixture.deliveries.list(
+                fixture.project.project.id,
+                'human-1'
+            )?.[0]
+            if (firstDelivery === undefined) throw new Error('The first delivery is missing')
+            expect(firstDelivery.secretVersion).toBe(1)
+            expect(firstDelivery.configuration).toEqual({ topic: 'herald-test' })
+
+            const firstClaim = fixture.deliveries.claimNextDueJob({
+                actorId: 'system-1',
+                claimToken: 'secret-claim-v1',
+                now: operationTime,
+                leaseExpiresAt: operationTime + 100,
+            })
+            if (firstClaim === null) throw new Error('The first delivery was not claimed')
+            expect(
+                await fixture.secrets.resolveForClaim({
+                    projectId: fixture.project.project.id,
+                    deliveryId: firstClaim.id,
+                    claimToken: 'secret-claim-v1',
+                })
+            ).toEqual({ bearerToken: 'notification-secret-v1' })
+            expect(
+                fixture.deliveries.startExternalEffect(
+                    firstClaim.id,
+                    'secret-claim-v1',
+                    operationTime
+                )
+            ).toBe(true)
+            expect(
+                fixture.deliveries.completeExternalEffect({
+                    jobId: firstClaim.id,
+                    claimToken: 'secret-claim-v1',
+                    completedAt: operationTime,
+                    outcome: { type: 'published', externalId: 'provider-1' },
+                })
+            ).toBe('published')
+
+            const secondSecret = await fixture.secrets.setSecret({
+                projectId: fixture.project.project.id,
+                subjectId: 'human-1',
+                destinationId: destination.id,
+                material: { bearerToken: 'notification-secret-v2' },
+            })
+            expect(secondSecret).toMatchObject({ version: 2, state: 'active' })
+            if (secondSecret === null) throw new Error('The rotated secret is missing')
+
+            appendPublicationEvent(fixture, {
+                id: 'event-secret-v2',
+                name: 'publication.execution.failed',
+            })
+            expect(fixture.deliveries.project(fixture.project.project.id).created).toBe(1)
+            expect(
+                fixture.deliveries.listDestinations(fixture.project.project.id, 'human-1')
+            ).toMatchObject([{ secretVersion: 2 }])
+
+            const deliveries = fixture.deliveries.list(fixture.project.project.id, 'human-1')
+            expect(
+                deliveries
+                    ?.map(delivery => delivery.secretVersion)
+                    .sort((left, right) => (right ?? 0) - (left ?? 0))
+            ).toEqual([2, 1])
+
+            const secondClaim = fixture.deliveries.claimNextDueJob({
+                actorId: 'system-1',
+                claimToken: 'secret-claim-v2',
+                now: operationTime,
+                leaseExpiresAt: operationTime + 100,
+            })
+            if (secondClaim === null) throw new Error('The second delivery was not claimed')
+            expect(
+                await fixture.secrets.resolveForClaim({
+                    projectId: fixture.project.project.id,
+                    deliveryId: secondClaim.id,
+                    claimToken: 'secret-claim-v2',
+                })
+            ).toEqual({ bearerToken: 'notification-secret-v2' })
+            expect(
+                await fixture.secrets.resolveForClaim({
+                    projectId: 'other-project',
+                    deliveryId: secondClaim.id,
+                    claimToken: 'secret-claim-v2',
+                })
+            ).toBeNull()
+
+            const wrongKeyStore = createNotificationDestinationSecretStore(fixture.database, {
+                cipher: createNotificationDestinationSecretCipher({
+                    keyId: 'notification-test-v1',
+                    key: new Uint8Array(32).fill(9),
+                }),
+            })
+            let wrongKeyError: unknown
+            try {
+                await wrongKeyStore.resolveForClaim({
+                    projectId: fixture.project.project.id,
+                    deliveryId: secondClaim.id,
+                    claimToken: 'secret-claim-v2',
+                })
+            } catch (error) {
+                wrongKeyError = error
+            }
+            expect(wrongKeyError).toBeInstanceOf(SecretCipherError)
+
+            const storedCiphertext = fixture.database.$client
+                .query<{ readonly ciphertext: Uint8Array }, [id: string]>(
+                    'select ciphertext from notification_destination_secrets where id = ?1'
+                )
+                .get(secondSecret.id)
+            if (storedCiphertext === null) throw new Error('The stored secret is missing')
+            const tamperedCiphertext = Uint8Array.from(storedCiphertext.ciphertext)
+            tamperedCiphertext[0] = (tamperedCiphertext[0] ?? 0) ^ 1
+            fixture.database.$client
+                .query<void, [ciphertext: Uint8Array, id: string]>(
+                    'update notification_destination_secrets set ciphertext = ?1 where id = ?2'
+                )
+                .run(tamperedCiphertext, secondSecret.id)
+            let tamperingError: unknown
+            try {
+                await fixture.secrets.resolveForClaim({
+                    projectId: fixture.project.project.id,
+                    deliveryId: secondClaim.id,
+                    claimToken: 'secret-claim-v2',
+                })
+            } catch (error) {
+                tamperingError = error
+            }
+            expect(tamperingError).toBeInstanceOf(SecretCipherError)
+
+            const storedSecrets = fixture.database.$client
+                .query<
+                    {
+                        readonly state: string
+                        readonly ciphertext: Uint8Array
+                        readonly nonce: Uint8Array
+                    },
+                    []
+                >(
+                    'select state, ciphertext, nonce from notification_destination_secrets order by version'
+                )
+                .all()
+            expect(storedSecrets.map(secret => secret.state)).toEqual(['retired', 'active'])
+            expect(new TextDecoder().decode(storedSecrets[0]?.ciphertext)).not.toContain(
+                'notification-secret-v1'
+            )
+            expect(new TextDecoder().decode(storedSecrets[1]?.ciphertext)).not.toContain(
+                'notification-secret-v2'
+            )
+            expect(storedSecrets.every(secret => secret.nonce.byteLength === 12)).toBe(true)
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
     it('projects independent subscriptions for human destinations and snapshots configuration', () => {
         const fixture = createFixture()
         try {

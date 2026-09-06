@@ -38,6 +38,7 @@ interface DestinationRow {
     readonly transportId: string
     readonly label: string
     readonly configurationJson: string
+    readonly secretVersion: number | null
     readonly state: NotificationDestinationState
     readonly createdAt: number
     readonly updatedAt: number
@@ -49,6 +50,7 @@ interface ProjectionCandidateRow {
     readonly recipientActorId: string
     readonly transportId: string
     readonly configurationJson: string
+    readonly secretId: string | null
     readonly kind: NotificationKind
 }
 
@@ -56,6 +58,8 @@ interface DeliveryRow {
     readonly id: string
     readonly projectId: string
     readonly destinationId: string
+    readonly secretId: string | null
+    readonly secretVersion: number | null
     readonly sourceEventId: string
     readonly transportId: string
     readonly configurationJson: string
@@ -93,6 +97,7 @@ export interface NotificationDestination {
     readonly transportId: string
     readonly label: string
     readonly configuration: Readonly<Record<string, unknown>>
+    readonly secretVersion: number | null
     readonly state: NotificationDestinationState
     readonly createdAt: number
     readonly updatedAt: number
@@ -117,6 +122,7 @@ export interface SubscribeNotificationDestinationInput {
 export interface NotificationDelivery extends ExternalEffectWork {
     readonly projectId: string
     readonly destinationId: string
+    readonly secretVersion: number | null
     readonly sourceEventId: string
     readonly transportId: string
     readonly configuration: Readonly<Record<string, unknown>>
@@ -233,10 +239,15 @@ export function createNotificationDeliveryStore(
             d.recipient_actor_id as recipientActorId,
             d.transport_id as transportId,
             d.configuration_json as configurationJson,
+            secret.id as secretId,
             s.kind
         from notification_destinations d
         inner join notification_subscriptions s
             on s.project_id = d.project_id and s.destination_id = d.id
+        left join notification_destination_secrets secret
+            on secret.project_id = d.project_id
+           and secret.destination_id = d.id
+           and secret.state = 'active'
         inner join actors a
             on a.project_id = d.project_id and a.id = d.recipient_actor_id
         where d.project_id = ?1
@@ -256,6 +267,7 @@ export function createNotificationDeliveryStore(
             id: string,
             projectId: string,
             destinationId: string,
+            secretId: string | null,
             sourceEventId: string,
             transportId: string,
             configurationJson: string,
@@ -269,10 +281,10 @@ export function createNotificationDeliveryStore(
         ]
     >(`
         insert into notification_deliveries (
-            id, project_id, destination_id, source_event_id, transport_id,
+            id, project_id, destination_id, secret_id, source_event_id, transport_id,
             configuration_json, kind, severity, subject_type, subject_id, title, body,
             next_attempt_at, created_at, updated_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13, ?13)
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, ?14)
         on conflict(project_id, destination_id, source_event_id) do nothing
     `)
     const upsertCursorStatement = client.query<
@@ -436,6 +448,7 @@ export function createNotificationDeliveryStore(
                         notification.id,
                         projectId,
                         candidate.destinationId,
+                        candidate.secretId,
                         event.id,
                         candidate.transportId,
                         JSON.stringify(configuration),
@@ -718,10 +731,15 @@ function destinationSelect(predicate: string): string {
             d.transport_id as transportId,
             d.label,
             d.configuration_json as configurationJson,
+            secret.version as secretVersion,
             d.state,
             d.created_at as createdAt,
             d.updated_at as updatedAt
         from notification_destinations d
+        left join notification_destination_secrets secret
+            on secret.project_id = d.project_id
+           and secret.destination_id = d.id
+           and secret.state = 'active'
         ${predicate}
     `
 }
@@ -732,6 +750,8 @@ function deliverySelect(predicate: string): string {
             d.id,
             d.project_id as projectId,
             d.destination_id as destinationId,
+            d.secret_id as secretId,
+            secret.version as secretVersion,
             d.source_event_id as sourceEventId,
             d.transport_id as transportId,
             d.configuration_json as configurationJson,
@@ -755,6 +775,8 @@ function deliverySelect(predicate: string): string {
             d.created_at as createdAt,
             d.updated_at as updatedAt
         from notification_deliveries d
+        left join notification_destination_secrets secret
+            on secret.project_id = d.project_id and secret.id = d.secret_id
         ${predicate}
     `
 }
@@ -799,6 +821,7 @@ function toDestination(row: DestinationRow): NotificationDestination {
         transportId: row.transportId,
         label: row.label,
         configuration: parseConfiguration(row.configurationJson),
+        secretVersion: row.secretVersion,
         state: row.state,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -810,6 +833,7 @@ function toDelivery(row: DeliveryRow): NotificationDelivery {
         id: row.id,
         projectId: row.projectId,
         destinationId: row.destinationId,
+        secretVersion: row.secretVersion,
         sourceEventId: row.sourceEventId,
         transportId: row.transportId,
         configuration: parseConfiguration(row.configurationJson),
