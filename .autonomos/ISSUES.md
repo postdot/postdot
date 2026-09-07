@@ -1242,5 +1242,30 @@ channels` with a foreign-key constraint error even though a fresh empty database
   retention rules, project authorization, API/read-model shape, and the
   boundary for optional provider analytics. The design must remain useful
   without external provider analytics and must not require a dashboard UI yet.
-- Tasks: ANALYTICS-107
-- Related issues: ISSUE-045, ISSUE-050, ISSUE-053
+- Tasks: ANALYTICS-107, ANALYTICS-108
+- Related issues: ISSUE-045, ISSUE-050, ISSUE-053, ISSUE-055
+
+## [ISSUE-055] Close historical analytics coverage gaps and measure read-model cost
+
+- Type: problem
+- Status: open
+- Evidence: The first operational analytics read model now exposes explicit
+  coverage gaps instead of inventing provider, schedule, or latency values.
+  Facts written before the immutable metadata boundary can still lack provider
+  and logical runtime snapshots, and some historical latency pairs remain
+  incomplete. The query-time reader is bounded and row-streamed, but no
+  representative history benchmark has established its latency or memory
+  envelope.
+- Impact: Legacy projects may have less useful historical dimensions than new
+  projects, and a future projection could be introduced prematurely or too late
+  without evidence from realistic journal sizes and workload shapes. Either
+  mistake would make analytics harder to trust or add storage and rebuild
+  complexity without a demonstrated need.
+- Desired outcome: Herald has a documented, repeatable way to distinguish
+  recoverable historical metadata gaps from facts that must remain unknown;
+  representative project histories have measured query-time latency and memory
+  behavior; and the project can decide, using those results, whether a
+  versioned replayable projection is justified behind the existing contract.
+- Tasks: none
+- Related issues: ISSUE-054
+- Related decisions: ADR-051
