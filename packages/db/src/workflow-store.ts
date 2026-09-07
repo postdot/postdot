@@ -35,6 +35,7 @@ interface RunningJobRow {
     readonly id: string
     readonly projectId: string
     readonly publicationId: string
+    readonly runAt: number
     readonly attempts: number
     readonly claimToken: string
     readonly claimedByActorId: string
@@ -47,6 +48,7 @@ interface CancellableJobRow {
     readonly id: string
     readonly projectId: string
     readonly publicationId: string
+    readonly runAt: number
     readonly attempts: number
 }
 
@@ -127,6 +129,19 @@ export function createWorkflowStore(database: HeraldDatabase) {
         values (?1, ?2, 'system', ?3, ?4, ?4)
         on conflict(id) do nothing
     `)
+    const loadPublisherKindStatement = client.query<
+        { readonly kind: string },
+        [projectId: string, publicationId: string]
+    >(`
+        select publishers.kind
+        from publications
+        inner join publishers
+            on publishers.project_id = publications.project_id
+           and publishers.channel_id = publications.channel_id
+        where publications.project_id = ?1
+          and publications.id = ?2
+        limit 1
+    `)
     const insertExecutionAuditEventStatement = client.query<
         void,
         [
@@ -174,6 +189,10 @@ export function createWorkflowStore(database: HeraldDatabase) {
             input.publicationId,
             serializeAutomaticExecutionAuditMetadata({
                 ...input.details,
+                deliveryMode: 'automatic',
+                provider:
+                    loadPublisherKindStatement.get(input.projectId, input.publicationId)?.kind ??
+                    null,
                 jobId: input.jobId,
                 attempt: input.attempt,
                 occurredAt: input.occurredAt,
@@ -289,6 +308,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                     fromState: 'pending',
                     toState: 'running',
                     leaseExpiresAt: input.leaseExpiresAt,
+                    runAt: claimed.runAt,
                 },
             })
 
@@ -303,6 +323,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         select jobs.id,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
+               jobs.run_at as runAt,
                jobs.attempts as attempts,
                jobs.claim_token as claimToken,
                jobs.claimed_by_actor_id as claimedByActorId,
@@ -615,6 +636,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                     fromState: runningJob.publicationState,
                     toState: 'publishing',
                     effectStartedAt: now,
+                    runAt: runningJob.runAt,
                 },
             })
 
@@ -629,6 +651,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         select jobs.id,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
+               jobs.run_at as runAt,
                jobs.attempts as attempts,
                jobs.claim_token as claimToken,
                jobs.claimed_by_actor_id as claimedByActorId,
@@ -804,6 +827,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                     outcome: input.outcome.type,
                     completedAt,
                     effectStartedAt: job.effectStartedAt,
+                    runAt: job.runAt,
                     externalId,
                     externalUrl,
                 }
@@ -844,6 +868,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                         errorMessage,
                         completedAt,
                         effectStartedAt: job.effectStartedAt,
+                        runAt: job.runAt,
                         retryAt,
                     }
                 } else {
@@ -879,6 +904,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                         errorMessage,
                         completedAt,
                         effectStartedAt: job.effectStartedAt,
+                        runAt: job.runAt,
                     }
                 }
             }
@@ -913,6 +939,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         select jobs.id,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
+               jobs.run_at as runAt,
                jobs.attempts as attempts
         from jobs
         inner join publications
@@ -983,6 +1010,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                 details: {
                     toState: 'cancelled',
                     cancelledAt: now,
+                    runAt: job.runAt,
                 },
             })
 
@@ -994,6 +1022,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         select jobs.id,
                jobs.project_id as projectId,
                jobs.publication_id as publicationId,
+               jobs.run_at as runAt,
                jobs.attempts as attempts,
                jobs.claim_token as claimToken,
                jobs.claimed_by_actor_id as claimedByActorId,
@@ -1141,6 +1170,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
                         reason: 'lease_expired_after_effect_boundary',
                         errorMessage: ambiguousError,
                         effectStartedAt: claim.effectStartedAt,
+                        runAt: claim.runAt,
                     },
                 })
                 ambiguousJobIds.push(claim.id)

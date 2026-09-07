@@ -475,6 +475,11 @@ export function createPublicationCreationStore(
                         channelId: publication.channelId,
                         scheduledAt: publication.scheduledAt,
                         state: publication.state,
+                        deliveryMode: publication.deliveryMode,
+                        provider:
+                            publication.deliveryMode === 'manual'
+                                ? 'manual'
+                                : (entry.publisher?.kind ?? null),
                     }),
                     createdAt: timestamp,
                 })

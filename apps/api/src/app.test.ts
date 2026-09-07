@@ -460,6 +460,7 @@ describe('Herald API', () => {
                 .get(created.project.id)
             expect(actor).toBeDefined()
 
+            const eventAt = Date.now() - 1_000
             createEventJournalStore(database).append({
                 id: 'analytics-api-event',
                 projectId: created.project.id,
@@ -467,27 +468,41 @@ describe('Herald API', () => {
                 name: 'publication.execution.effect_started',
                 version: 1,
                 subject: { type: 'publication', id: 'publication-1' },
-                occurredAt: now,
+                payload: {
+                    jobId: 'analytics-api-job',
+                    attempt: 1,
+                    runAt: eventAt,
+                },
+                occurredAt: eventAt,
             })
 
             const response = await jsonRequest(
                 app,
-                `/api/projects/${created.project.id}/analytics?from=${now}&to=${now + 1}`,
+                `/api/projects/${created.project.id}/analytics?from=${eventAt}&to=${eventAt + 1}`,
                 cookie
             )
             expect(response.status).toBe(200)
             expect(await response.json()).toMatchObject({
                 projectId: created.project.id,
-                timeZone: 'Europe/Paris',
-                range: { from: now, to: now + 1 },
-                events: {
-                    executionAttempts: 1,
+                projectTimeZone: 'Europe/Paris',
+                range: { from: eventAt, to: eventAt + 1 },
+                historical: {
+                    executions: {
+                        attempts: 1,
+                    },
+                    buckets: [
+                        expect.objectContaining({
+                            metrics: expect.objectContaining({
+                                executionAttempts: 1,
+                            }),
+                        }),
+                    ],
                 },
-                daily: [
-                    expect.objectContaining({
-                        executionAttempts: 1,
-                    }),
-                ],
+                coverage: {
+                    dataQuality: {
+                        missingHistoricalDimensions: 1,
+                    },
+                },
             })
         } finally {
             closeDatabase(database)

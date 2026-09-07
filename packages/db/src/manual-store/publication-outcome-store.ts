@@ -60,6 +60,23 @@ export function createPublicationOutcomeStore(
           and publications.review_state = 'compatible'
           and publications.scheduled_at <= ?3
     `)
+    const loadAmbiguousExecutionProviderStatement = client.query<
+        { readonly provider: string | null },
+        [projectId: string, publicationId: string]
+    >(`
+        select json_extract(audit_events.metadata_json, '$.provider') as provider
+        from audit_events
+        where audit_events.project_id = ?1
+          and audit_events.entity_type = 'publication'
+          and audit_events.entity_id = ?2
+          and audit_events.event_version = 1
+          and audit_events.action in (
+              'publication.execution.ambiguous',
+              'publication.execution.ambiguity_recovered'
+          )
+        order by audit_events.sequence desc
+        limit 1
+    `)
     const publishPublicationStatement = client.query<
         void,
         [
@@ -205,6 +222,8 @@ export function createPublicationOutcomeStore(
                 metadataJson: JSON.stringify({
                     fromState: publication.state,
                     toState: ready.state,
+                    deliveryMode: 'manual',
+                    provider: 'manual',
                 }),
                 createdAt: timestamp,
             })
@@ -220,6 +239,8 @@ export function createPublicationOutcomeStore(
                     toState: published.state,
                     externalId: published.externalId,
                     externalUrl: published.externalUrl,
+                    deliveryMode: 'manual',
+                    provider: 'manual',
                 }),
                 createdAt: timestamp,
             })
@@ -284,6 +305,13 @@ export function createPublicationOutcomeStore(
                 )
             }
 
+            const ambiguityFact = loadAmbiguousExecutionProviderStatement.get(
+                reconciled.projectId,
+                reconciled.id
+            )
+            const provider =
+                reconciled.deliveryMode === 'manual' ? 'manual' : (ambiguityFact?.provider ?? null)
+
             options.insertAuditEvent({
                 id: options.createId(),
                 projectId: reconciled.projectId,
@@ -297,6 +325,8 @@ export function createPublicationOutcomeStore(
                     externalId: reconciled.externalId,
                     externalUrl: reconciled.externalUrl,
                     errorMessage: reconciled.errorMessage,
+                    deliveryMode: reconciled.deliveryMode,
+                    provider,
                 }),
                 createdAt: timestamp,
             })
