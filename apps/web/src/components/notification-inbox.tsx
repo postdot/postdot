@@ -22,7 +22,8 @@ import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
 import { BellIcon } from '@solar-icons/react/bold/bell'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { SettingsIcon } from '@solar-icons/react/bold/settings'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 
 import {
     api,
@@ -34,6 +35,7 @@ import {
 import { formatDateTime } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { notificationContent } from '@/lib/notification-content'
+import { projectQueryKeys } from '@/lib/project-realtime'
 import * as m from '@/paraglide/messages.js'
 
 interface NotificationInboxProps {
@@ -44,150 +46,150 @@ type NotificationPanel = 'inbox' | 'preferences'
 
 export function NotificationInbox({ projectId }: NotificationInboxProps) {
     const { locale } = useLanguage()
+    const queryClient = useQueryClient()
     const [open, setOpen] = useState(false)
-    const [inbox, setInbox] = useState<NotificationInboxState | null>(null)
     const [panel, setPanel] = useState<NotificationPanel>('inbox')
-    const [preferences, setPreferences] = useState<NotificationPreference[] | null>(null)
-    const [loading, setLoading] = useState(false)
-    const [preferencesLoading, setPreferencesLoading] = useState(false)
     const [workingId, setWorkingId] = useState<string | null>(null)
     const [workingPreferenceKind, setWorkingPreferenceKind] = useState<
         NotificationPreference['kind'] | null
     >(null)
-    const [error, setError] = useState<string | null>(null)
-    const requestVersion = useRef(0)
+    const [actionError, setActionError] = useState<string | null>(null)
 
-    const loadInbox = useCallback(async () => {
-        if (projectId === null) return
+    const inboxQuery = useQuery<NotificationInboxState>({
+        queryKey:
+            projectId === null
+                ? ['project', 'none', 'notifications']
+                : projectQueryKeys.notifications(projectId),
+        queryFn: () => {
+            if (projectId === null) throw new Error('A project is required to load notifications')
+            return api.listNotifications(projectId, { limit: 25 })
+        },
+        enabled: projectId !== null,
+        staleTime: Number.POSITIVE_INFINITY,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+    })
 
-        const version = ++requestVersion.current
-        setLoading(true)
-        setError(null)
-        try {
-            const nextInbox = await api.listNotifications(projectId, { limit: 25 })
-            if (version !== requestVersion.current) return
-            setInbox(nextInbox)
-        } catch (caughtError) {
-            if (version !== requestVersion.current) return
-            setError(formatApiError(caughtError))
-        } finally {
-            if (version === requestVersion.current) setLoading(false)
-        }
-    }, [projectId])
-
-    const loadPreferences = useCallback(async () => {
-        if (projectId === null) return
-
-        const version = ++requestVersion.current
-        setPreferencesLoading(true)
-        setError(null)
-        try {
-            const response = await api.listNotificationPreferences(projectId)
-            if (version !== requestVersion.current) return
-            setPreferences(response.preferences)
-        } catch (caughtError) {
-            if (version !== requestVersion.current) return
-            setError(formatApiError(caughtError))
-        } finally {
-            if (version === requestVersion.current) setPreferencesLoading(false)
-        }
-    }, [projectId])
+    const preferencesQuery = useQuery<{ preferences: NotificationPreference[] }>({
+        queryKey:
+            projectId === null
+                ? ['project', 'none', 'notification-preferences']
+                : projectQueryKeys.notificationPreferences(projectId),
+        queryFn: () => {
+            if (projectId === null)
+                throw new Error('A project is required to load notification preferences')
+            return api.listNotificationPreferences(projectId)
+        },
+        enabled: projectId !== null && panel === 'preferences',
+        staleTime: Number.POSITIVE_INFINITY,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+    })
 
     useEffect(() => {
-        requestVersion.current += 1
-        setInbox(null)
         setPanel('inbox')
-        setPreferences(null)
-        setError(null)
-        void loadInbox()
-    }, [loadInbox])
+        setActionError(null)
+    }, [projectId])
 
     const markRead = async (notification: Notification) => {
         if (projectId === null || notification.readAt !== null) return
 
-        const version = requestVersion.current
         setWorkingId(notification.id)
-        setError(null)
+        setActionError(null)
         try {
             const updated = await api.markNotificationRead(projectId, notification.id)
-            if (version !== requestVersion.current) return
-            setInbox(current =>
-                current === null
-                    ? current
-                    : {
-                          ...current,
-                          notifications: current.notifications.map(item =>
-                              item.id === updated.id ? updated : item
-                          ),
-                          unreadCount: Math.max(0, current.unreadCount - 1),
-                      }
+            queryClient.setQueryData<NotificationInboxState>(
+                projectQueryKeys.notifications(projectId),
+                current =>
+                    current === undefined
+                        ? current
+                        : {
+                              ...current,
+                              notifications: current.notifications.map(item =>
+                                  item.id === updated.id ? updated : item
+                              ),
+                              unreadCount: Math.max(0, current.unreadCount - 1),
+                          }
             )
         } catch (caughtError) {
-            if (version !== requestVersion.current) return
-            setError(formatApiError(caughtError))
+            setActionError(formatApiError(caughtError))
+            await inboxQuery.refetch().catch(() => undefined)
         } finally {
-            if (version === requestVersion.current) setWorkingId(null)
+            setWorkingId(null)
         }
     }
 
     const updatePreference = async (preference: NotificationPreference, inAppEnabled: boolean) => {
         if (projectId === null || preference.inAppEnabled === inAppEnabled) return
 
-        const version = requestVersion.current
         setWorkingPreferenceKind(preference.kind)
-        setError(null)
+        setActionError(null)
         try {
             const updated = await api.updateNotificationPreference(
                 projectId,
                 preference.kind,
                 inAppEnabled
             )
-            if (version !== requestVersion.current) return
-            setPreferences(
+            queryClient.setQueryData<{ preferences: NotificationPreference[] }>(
+                projectQueryKeys.notificationPreferences(projectId),
                 current =>
-                    current?.map(item => (item.kind === updated.kind ? updated : item)) ?? null
+                    current === undefined
+                        ? current
+                        : {
+                              preferences: current.preferences.map(item =>
+                                  item.kind === updated.kind ? updated : item
+                              ),
+                          }
             )
         } catch (caughtError) {
-            if (version !== requestVersion.current) return
-            setError(formatApiError(caughtError))
+            setActionError(formatApiError(caughtError))
+            await preferencesQuery.refetch().catch(() => undefined)
         } finally {
-            if (version === requestVersion.current) setWorkingPreferenceKind(null)
+            setWorkingPreferenceKind(null)
         }
     }
 
     const archive = async (notification: Notification) => {
         if (projectId === null) return
 
-        const version = requestVersion.current
         setWorkingId(notification.id)
-        setError(null)
+        setActionError(null)
         try {
             await api.archiveNotification(projectId, notification.id)
-            if (version !== requestVersion.current) return
-            setInbox(current =>
-                current === null
-                    ? current
-                    : {
-                          ...current,
-                          notifications: current.notifications.filter(
-                              item => item.id !== notification.id
-                          ),
-                          unreadCount:
-                              notification.readAt === null
-                                  ? Math.max(0, current.unreadCount - 1)
-                                  : current.unreadCount,
-                      }
+            queryClient.setQueryData<NotificationInboxState>(
+                projectQueryKeys.notifications(projectId),
+                current =>
+                    current === undefined
+                        ? current
+                        : {
+                              ...current,
+                              notifications: current.notifications.filter(
+                                  item => item.id !== notification.id
+                              ),
+                              unreadCount:
+                                  notification.readAt === null
+                                      ? Math.max(0, current.unreadCount - 1)
+                                      : current.unreadCount,
+                          }
             )
         } catch (caughtError) {
-            if (version !== requestVersion.current) return
-            setError(formatApiError(caughtError))
+            setActionError(formatApiError(caughtError))
+            await inboxQuery.refetch().catch(() => undefined)
         } finally {
-            if (version === requestVersion.current) setWorkingId(null)
+            setWorkingId(null)
         }
     }
 
+    const inbox = inboxQuery.data
+    const preferences = preferencesQuery.data?.preferences ?? null
     const unreadCount = inbox?.unreadCount ?? 0
     const notifications = inbox?.notifications ?? []
+    const loading = inboxQuery.isPending || inboxQuery.isFetching
+    const preferencesLoading = preferencesQuery.isPending || preferencesQuery.isFetching
+    const queryError = panel === 'inbox' ? inboxQuery.error : preferencesQuery.error
+    const error =
+        actionError ??
+        (queryError === null || queryError === undefined ? null : formatApiError(queryError))
 
     return (
         <>
@@ -205,7 +207,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                 onClick={() => {
                     setPanel('inbox')
                     setOpen(true)
-                    void loadInbox()
+                    void inboxQuery.refetch()
                 }}>
                 <BellIcon aria-hidden="true" />
                 {unreadCount > 0 ? (
@@ -255,10 +257,9 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                 onClick={() => {
                                     if (panel === 'inbox') {
                                         setPanel('preferences')
-                                        void loadPreferences()
                                     } else {
                                         setPanel('inbox')
-                                        void loadInbox()
+                                        void inboxQuery.refetch()
                                     }
                                 }}>
                                 {panel === 'inbox' ? (
@@ -277,10 +278,14 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                             <span>{error}</span>
                             <Button
                                 className="shrink-0"
-                                disabled={loading}
+                                disabled={loading || preferencesLoading}
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => void loadInbox()}>
+                                onClick={() =>
+                                    void (panel === 'inbox'
+                                        ? inboxQuery.refetch()
+                                        : preferencesQuery.refetch())
+                                }>
                                 {m.common_try_again()}
                             </Button>
                         </div>
