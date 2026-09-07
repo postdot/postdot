@@ -15,6 +15,8 @@ import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-mini
 import { useEffect, useState } from 'react'
 
 import type { Channel } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export type ChannelLifecycleAction = 'rename' | 'archive' | 'restore' | 'delete'
 
@@ -37,6 +39,7 @@ export function ChannelLifecycleDialog({
     readonly open: boolean
     readonly pending: boolean
 }) {
+    useLanguage()
     const [name, setName] = useState('')
 
     useEffect(() => {
@@ -48,20 +51,20 @@ export function ChannelLifecycleDialog({
     const isRename = action === 'rename'
     const title =
         action === 'rename'
-            ? 'Rename channel'
+            ? m.channel_lifecycle_rename_title()
             : action === 'archive'
-              ? 'Archive channel'
+              ? m.channel_lifecycle_archive_title()
               : action === 'restore'
-                ? 'Restore channel'
-                : 'Delete channel'
+                ? m.channel_lifecycle_restore_title()
+                : m.channel_lifecycle_delete_title()
     const description =
         action === 'rename'
-            ? 'The new name is applied to this project channel only.'
+            ? m.channel_lifecycle_rename_description()
             : action === 'archive'
-              ? 'Archiving removes the channel from new composition and publisher actions while preserving its history.'
+              ? m.channel_lifecycle_archive_description()
               : action === 'restore'
-                ? 'Restoring makes this channel available for new publications again.'
-                : 'Delete is only available after archiving and permanently removes the channel record.'
+                ? m.channel_lifecycle_restore_description()
+                : m.channel_lifecycle_delete_description()
     const destructive = action === 'archive' || action === 'delete'
 
     return (
@@ -74,7 +77,7 @@ export function ChannelLifecycleDialog({
 
                 {isRename ? (
                     <Field className="gap-1.5">
-                        <FieldLabel htmlFor="rename-channel-name">Channel name</FieldLabel>
+                        <FieldLabel htmlFor="rename-channel-name">{m.channel_name()}</FieldLabel>
                         <Input
                             id="rename-channel-name"
                             value={name}
@@ -94,7 +97,7 @@ export function ChannelLifecycleDialog({
                         variant="ghost"
                         onClick={() => onOpenChange(false)}
                         disabled={pending}>
-                        Cancel
+                        {m.common_cancel()}
                     </Button>
                     <Button
                         type="button"

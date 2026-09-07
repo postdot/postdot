@@ -23,6 +23,8 @@ import { useState } from 'react'
 
 import type { ChannelCreationProfile, RuntimeChannelProfile } from '@/lib/api'
 import { channelProfileTemplates, profileForTemplate } from '@/lib/channel-profile-presets'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 type ProfileChoice =
     | 'manual-message'
@@ -40,6 +42,7 @@ export function ChannelCreationDialog({
     readonly onCreate: (name: string, profile: ChannelCreationProfile) => Promise<boolean>
     readonly pending: boolean
 }) {
+    useLanguage()
     const [open, setOpen] = useState(false)
     const [name, setName] = useState('')
     const [choice, setChoice] = useState<ProfileChoice>('manual-message')
@@ -66,7 +69,7 @@ export function ChannelCreationDialog({
     async function submit() {
         const trimmedName = name.trim()
         if (trimmedName === '') {
-            setValidationError('Enter a channel name.')
+            setValidationError(m.channel_name_required())
             return
         }
 
@@ -75,12 +78,12 @@ export function ChannelCreationDialog({
             try {
                 const parsed: unknown = JSON.parse(profileText)
                 if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-                    setValidationError('The custom profile must be a JSON object.')
+                    setValidationError(m.channel_custom_profile_object())
                     return
                 }
                 profile = parsed as RuntimeChannelProfile
             } catch {
-                setValidationError('The custom profile is not valid JSON.')
+                setValidationError(m.channel_custom_profile_invalid())
                 return
             }
         }
@@ -97,7 +100,7 @@ export function ChannelCreationDialog({
         <>
             <Button onClick={() => setOpen(true)}>
                 <AddIcon aria-hidden="true" />
-                Add channel
+                {m.channel_add()}
             </Button>
             <Dialog
                 open={open}
@@ -107,36 +110,37 @@ export function ChannelCreationDialog({
                 }}>
                 <DialogContent className="max-h-[min(42rem,calc(100vh-2rem))] max-w-2xl overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Add a channel</DialogTitle>
+                        <DialogTitle>{m.channel_create_title()}</DialogTitle>
                         <DialogDescription>
-                            Choose a built-in profile or start from a validated custom runtime
-                            profile. The server remains authoritative.
+                            {m.channel_creation_profile_description()}
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="grid gap-5">
                         <Field className="gap-1.5">
-                            <FieldLabel htmlFor="new-channel-name">Channel name</FieldLabel>
+                            <FieldLabel htmlFor="new-channel-name">{m.channel_name()}</FieldLabel>
                             <Input
                                 id="new-channel-name"
                                 autoFocus
                                 value={name}
                                 onChange={event => setName(event.target.value)}
-                                placeholder="Community forum"
+                                placeholder={m.channel_name_placeholder()}
                             />
                         </Field>
 
                         <Field className="gap-1.5">
-                            <FieldLabel htmlFor="new-channel-profile">Profile</FieldLabel>
+                            <FieldLabel htmlFor="new-channel-profile">
+                                {m.channel_profile()}
+                            </FieldLabel>
                             <Select
                                 items={{
-                                    'manual-message': 'Manual message',
-                                    linkedin: 'LinkedIn text',
-                                    bluesky: 'Bluesky post',
-                                    mastodon: 'Mastodon status',
-                                    discord: 'Discord message',
-                                    devto: 'DEV.to article',
-                                    custom: 'Custom runtime profile',
+                                    'manual-message': m.channel_manual_profile(),
+                                    linkedin: m.channel_linkedin_profile(),
+                                    bluesky: m.channel_bluesky_profile(),
+                                    mastodon: m.channel_mastodon_profile(),
+                                    discord: m.channel_discord_profile(),
+                                    devto: m.channel_devto_profile(),
+                                    custom: m.channel_custom_profile(),
                                 }}
                                 value={choice}
                                 onValueChange={value => {
@@ -152,13 +156,27 @@ export function ChannelCreationDialog({
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent align="start">
-                                    <SelectItem value="manual-message">Manual message</SelectItem>
-                                    <SelectItem value="linkedin">LinkedIn text</SelectItem>
-                                    <SelectItem value="bluesky">Bluesky post</SelectItem>
-                                    <SelectItem value="mastodon">Mastodon status</SelectItem>
-                                    <SelectItem value="discord">Discord message</SelectItem>
-                                    <SelectItem value="devto">DEV.to article</SelectItem>
-                                    <SelectItem value="custom">Custom runtime profile</SelectItem>
+                                    <SelectItem value="manual-message">
+                                        {m.channel_manual_profile()}
+                                    </SelectItem>
+                                    <SelectItem value="linkedin">
+                                        {m.channel_linkedin_profile()}
+                                    </SelectItem>
+                                    <SelectItem value="bluesky">
+                                        {m.channel_bluesky_profile()}
+                                    </SelectItem>
+                                    <SelectItem value="mastodon">
+                                        {m.channel_mastodon_profile()}
+                                    </SelectItem>
+                                    <SelectItem value="discord">
+                                        {m.channel_discord_profile()}
+                                    </SelectItem>
+                                    <SelectItem value="devto">
+                                        {m.channel_devto_profile()}
+                                    </SelectItem>
+                                    <SelectItem value="custom">
+                                        {m.channel_custom_profile()}
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </Field>
@@ -167,7 +185,7 @@ export function ChannelCreationDialog({
                             <div className="grid gap-4 rounded-lg bg-muted p-4">
                                 <Field className="gap-1.5">
                                     <FieldLabel htmlFor="new-channel-template">
-                                        Starter template
+                                        {m.channel_starter_template()}
                                     </FieldLabel>
                                     <Select value={templateId} onValueChange={selectCustomTemplate}>
                                         <SelectTrigger id="new-channel-template">
@@ -176,21 +194,18 @@ export function ChannelCreationDialog({
                                         <SelectContent align="start">
                                             {channelProfileTemplates.map(template => (
                                                 <SelectItem key={template.id} value={template.id}>
-                                                    {template.label}
+                                                    {templateLabel(template.id)}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                     <FieldDescription>
-                                        {channelProfileTemplates.find(
-                                            template => template.id === templateId
-                                        )?.description ??
-                                            'Use a valid Herald channel profile definition.'}
+                                        {templateDescription(templateId)}
                                     </FieldDescription>
                                 </Field>
                                 <Field className="gap-1.5">
                                     <FieldLabel htmlFor="new-channel-profile-json">
-                                        Profile JSON
+                                        {m.channel_custom_profile_json()}
                                     </FieldLabel>
                                     <Textarea
                                         id="new-channel-profile-json"
@@ -207,8 +222,7 @@ export function ChannelCreationDialog({
                                         className="font-mono text-xs leading-5"
                                     />
                                     <FieldDescription>
-                                        Custom profiles are validated before they become active. You
-                                        can edit this definition after creation.
+                                        {m.channel_custom_profile_validation()}
                                     </FieldDescription>
                                 </Field>
                             </div>
@@ -227,15 +241,27 @@ export function ChannelCreationDialog({
                             variant="ghost"
                             onClick={() => setOpen(false)}
                             disabled={pending}>
-                            Cancel
+                            {m.common_cancel()}
                         </Button>
                         <Button type="button" onClick={() => void submit()} disabled={pending}>
                             <CodeFileIcon aria-hidden="true" />
-                            Create channel
+                            {m.channel_create_button()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
         </>
     )
+}
+
+function templateLabel(templateId: string) {
+    if (templateId === 'custom-manual') return m.channel_template_custom_manual_label()
+    if (templateId === 'custom-webhook') return m.channel_template_custom_webhook_label()
+    return templateId
+}
+
+function templateDescription(templateId: string) {
+    if (templateId === 'custom-manual') return m.channel_template_custom_manual_description()
+    if (templateId === 'custom-webhook') return m.channel_template_custom_webhook_description()
+    return m.channel_custom_profile_fallback()
 }

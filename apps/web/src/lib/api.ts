@@ -23,6 +23,8 @@ import {
     type PublicationSummary,
 } from '@herald/client'
 
+import * as m from '@/paraglide/messages.js'
+
 const client = createHeraldClient(window.location.origin)
 
 export interface Session {
@@ -104,7 +106,7 @@ function errorFrom(status: number, value: unknown) {
     return new ApiError(
         status,
         body?.code ?? 'request_failed',
-        body?.message ?? 'The request could not be completed',
+        body?.message ?? '',
         body?.blockers?.filter((blocker): blocker is string => typeof blocker === 'string') ?? []
     )
 }
@@ -134,8 +136,7 @@ function unwrap<T>(result: {
     readonly status: number
 }): T {
     if (result.error !== null) throw errorFrom(result.status, result.error)
-    if (result.data === null)
-        throw new ApiError(result.status, 'empty_response', 'Empty API response')
+    if (result.data === null) throw new ApiError(result.status, 'empty_response', '')
     return result.data as T
 }
 
@@ -650,18 +651,87 @@ export type {
 } from '@herald/client'
 
 export function formatApiError(error: unknown): string {
-    if (!(error instanceof ApiError)) return 'The action could not be completed'
-    if (error.blockers.length === 0) return error.message
+    if (!(error instanceof ApiError)) return m.api_request_failed()
+    const message = apiErrorMessage(error.code)
+    if (error.blockers.length === 0) return message
 
     const labels = error.blockers.map(channelLifecycleBlockerLabel).join(', ')
-    return `${error.message}: ${labels}.`
+    return m.api_blockers({ message, blockers: labels })
 }
 
 function channelLifecycleBlockerLabel(blocker: string): string {
-    if (blocker === 'active_work') return 'active publication work'
-    if (blocker === 'pending_authorization') return 'a pending publisher authorization'
-    if (blocker === 'publications') return 'publication history'
-    if (blocker === 'publisher') return 'a connected publisher'
-    if (blocker === 'must_be_archived') return 'the channel must be archived first'
-    return blocker
+    if (blocker === 'active_work') return m.api_blocker_active_work()
+    if (blocker === 'pending_authorization') return m.api_blocker_pending_authorization()
+    if (blocker === 'publications') return m.api_blocker_publications()
+    if (blocker === 'publisher') return m.api_blocker_publisher()
+    if (blocker === 'must_be_archived') return m.api_blocker_must_be_archived()
+    return m.api_validation_issue({ code: blocker })
+}
+
+function apiErrorMessage(code: string): string {
+    switch (code) {
+        case 'empty_response':
+            return m.api_empty_response()
+        case 'unauthorized':
+            return m.api_unauthorized()
+        case 'authentication_required':
+            return m.api_authentication_required()
+        case 'forbidden':
+            return m.api_forbidden()
+        case 'not_found':
+            return m.api_not_found()
+        case 'validation_error':
+            return m.api_validation_error()
+        case 'invalid_input':
+            return m.api_invalid_input()
+        case 'invalid_transition':
+            return m.api_invalid_transition()
+        case 'write_conflict':
+            return m.api_write_conflict()
+        case 'provider_unavailable':
+            return m.api_provider_unavailable()
+        case 'publisher_exists':
+            return m.api_publisher_exists()
+        case 'credential_exists':
+            return m.api_credential_exists()
+        case 'invalid_connection':
+            return m.api_invalid_connection()
+        case 'invalid_destination':
+            return m.api_invalid_destination()
+        case 'invalid_token':
+            return m.api_invalid_token()
+        case 'invalid_api_key':
+            return m.api_invalid_api_key()
+        case 'invalid_instance':
+            return m.api_invalid_instance()
+        case 'network_policy_denied':
+            return m.api_network_policy_denied()
+        case 'unknown_channel':
+            return m.api_unknown_channel()
+        case 'unsupported_channel':
+            return m.api_unsupported_channel()
+        case 'insufficient_permissions':
+            return m.api_insufficient_permissions()
+        case 'publisher_has_active_work':
+            return m.api_publisher_has_active_work()
+        case 'access_tokens_unavailable':
+            return m.api_access_tokens_unavailable()
+        case 'media_unavailable':
+            return m.api_media_unavailable()
+        case 'media_storage_unavailable':
+        case 'media_storage_failure':
+            return m.api_media_storage_unavailable()
+        case 'upload_expired':
+            return m.api_upload_expired()
+        case 'size_mismatch':
+            return m.api_size_mismatch()
+        case 'provider_failure':
+            return m.api_provider_failure()
+        case 'rate_limited':
+            return m.api_rate_limited()
+        case 'internal_error':
+            return m.api_internal_error()
+        default:
+            return m.api_request_failed()
+    }
 }

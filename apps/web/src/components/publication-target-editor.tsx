@@ -4,12 +4,14 @@ import { Textarea } from '@herald/ui/components/textarea'
 import { useEffect, useMemo, useState } from 'react'
 
 import { TargetFieldControl } from '@/components/publication-target-field-control'
+import { useLanguage } from '@/lib/i18n'
 import {
     getTargetEditorFields,
     readTargetField,
     type TargetEditorField,
     updateTargetField,
 } from '@/lib/target-editor'
+import * as m from '@/paraglide/messages.js'
 
 interface PublicationTargetEditorProps {
     readonly profile: unknown
@@ -28,6 +30,7 @@ export function PublicationTargetEditor({
     onRawTextChange,
     disabled = false,
 }: PublicationTargetEditorProps) {
+    useLanguage()
     const fields = useMemo(() => getTargetEditorFields(profile), [profile])
     const [advancedOpen, setAdvancedOpen] = useState(target === null)
 
@@ -44,17 +47,14 @@ export function PublicationTargetEditor({
         <div data-target-editor="true" className="min-w-0">
             {target === null ? (
                 <Alert variant="destructive" className="rounded-md">
-                    <AlertTitle>Structured fields are unavailable</AlertTitle>
-                    <AlertDescription>
-                        Repair the target JSON below before using the channel controls.
-                    </AlertDescription>
+                    <AlertTitle>{m.editor_target_structured_unavailable()}</AlertTitle>
+                    <AlertDescription>{m.editor_target_repair()}</AlertDescription>
                 </Alert>
             ) : null}
 
             {fields.length === 0 ? (
                 <p className="text-sm leading-6 text-muted-foreground">
-                    This channel has no declared field bindings. Use Advanced JSON to edit its
-                    target payload.
+                    {m.editor_target_no_bindings()}
                 </p>
             ) : (
                 <div className="grid min-w-0 gap-5">
@@ -79,16 +79,14 @@ export function PublicationTargetEditor({
                 onToggle={event => setAdvancedOpen(event.currentTarget.open)}
                 className="mt-6 rounded-md bg-muted/45 p-4">
                 <summary className="cursor-pointer text-sm font-medium text-foreground">
-                    Advanced JSON
+                    {m.editor_target_advanced()}
                 </summary>
                 <div className="mt-3 grid gap-3">
                     <p className="text-xs leading-5 text-muted-foreground">
-                        Use this escape hatch for provider-specific fields or schema shapes that do
-                        not have a standard control. The server still validates the complete payload
-                        before it can be promoted.
+                        {m.editor_target_advanced_escape()}
                     </p>
                     <Field className="min-w-0 gap-1.5">
-                        <FieldLabel htmlFor="target-json">Target JSON</FieldLabel>
+                        <FieldLabel htmlFor="target-json">{m.editor_target_json()}</FieldLabel>
                         <Textarea
                             id="target-json"
                             value={rawText}

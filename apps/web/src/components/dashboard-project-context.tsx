@@ -12,6 +12,8 @@ import { AddIcon } from '@solar-icons/react/bold/add'
 import type { FormEvent } from 'react'
 
 import type { Project } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface DashboardProjectContextProps {
     readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
@@ -32,26 +34,28 @@ export function DashboardProjectContext({
     projects,
     selectedProjectId,
 }: DashboardProjectContextProps) {
+    useLanguage()
+    const noProject = m.nav_no_project_selected()
     return (
         <div className="space-y-4">
             <Field className="min-w-0 gap-1.5">
                 <FieldLabel className="text-xs font-medium text-muted-foreground">
-                    Workspace
+                    {m.nav_workspace()}
                 </FieldLabel>
                 <Select
                     items={Object.fromEntries([
-                        ['__none__', 'No project selected'],
+                        ['__none__', noProject],
                         ...projects.map(project => [project.id, project.name]),
                     ])}
                     value={selectedProjectId}
                     onValueChange={value => onProjectChange(value === '__none__' ? null : value)}>
                     <SelectTrigger
-                        aria-label="Select project"
+                        aria-label={m.nav_select_project()}
                         className="h-9 w-full border-0 bg-sidebar-accent/45 px-2.5 shadow-none hover:bg-sidebar-accent focus-visible:ring-2">
-                        <SelectValue placeholder="No project selected" />
+                        <SelectValue placeholder={noProject} />
                     </SelectTrigger>
                     <SelectContent align="start">
-                        <SelectItem value="__none__">No project selected</SelectItem>
+                        <SelectItem value="__none__">{noProject}</SelectItem>
                         {projects.map(project => (
                             <SelectItem key={project.id} value={project.id}>
                                 {project.name}
@@ -64,25 +68,25 @@ export function DashboardProjectContext({
             <details className="group rounded-md bg-sidebar-accent/50 p-3 open:bg-sidebar-accent">
                 <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-muted-foreground transition-[color] hover:text-foreground [&::-webkit-details-marker]:hidden">
                     <AddIcon aria-hidden="true" className="size-3.5" />
-                    <span>Create project</span>
+                    <span>{m.nav_create_project()}</span>
                 </summary>
                 <form className="mt-3 grid gap-2" onSubmit={onCreateProject}>
                     <Field>
                         <FieldLabel className="sr-only" htmlFor="new-project">
-                            New project
+                            {m.nav_new_project()}
                         </FieldLabel>
                         <Input
                             id="new-project"
                             required
                             value={projectName}
                             onChange={event => onProjectNameChange(event.target.value)}
-                            placeholder="Project name"
+                            placeholder={m.nav_project_name()}
                             className="h-9"
                         />
                     </Field>
                     <Button size="sm" type="submit" disabled={pending}>
                         <AddIcon aria-hidden="true" />
-                        Add project
+                        {m.nav_add_project()}
                     </Button>
                 </form>
             </details>

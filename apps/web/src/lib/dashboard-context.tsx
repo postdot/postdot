@@ -27,6 +27,7 @@ import {
 } from '@/lib/date-time'
 import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
 import type { MediaSelection } from '@/lib/target-media'
+import * as m from '@/paraglide/messages.js'
 
 export interface ProjectData {
     readonly channels: Channel[]
@@ -188,14 +189,14 @@ export function ProjectDashboardProvider({
     async function handleCreatePost(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         if (postContent.trim() === '' && sourceMedia.length === 0) {
-            setError('Add source text or at least one media attachment.')
+            setError(m.composer_source_required())
             return
         }
         if (
             publicationTargets.length === 0 ||
             publicationTargets.some(target => target.channelId === '')
         ) {
-            setError('Select a channel for each destination.')
+            setError(m.composer_channel_required())
             return
         }
 
@@ -238,7 +239,7 @@ export function ProjectDashboardProvider({
         if (publicationInputs.some(input => input === null)) {
             setError(
                 scheduleError === null
-                    ? 'Choose a valid publication date and channel for each destination.'
+                    ? m.composer_invalid_destination()
                     : dateTimeLocalErrorMessage(scheduleError)
             )
             return

@@ -3,6 +3,8 @@ import { Button } from '@herald/ui/components/button'
 
 import type { PublicationEditorState } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export type PublicationEditorSaveState =
     | 'saved'
@@ -48,29 +50,39 @@ export function PublicationEditorSidebar({
     onReload,
     onRestore,
 }: PublicationEditorSidebarProps) {
+    const { locale } = useLanguage()
     return (
         <aside className="min-w-0 space-y-8 xl:sticky xl:top-20 xl:self-start">
             <section className="min-w-0 rounded-md bg-muted p-5 shadow-surface">
-                <p className="text-xs font-medium text-muted-foreground">Selected target</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                    {m.editor_sidebar_selected_target()}
+                </p>
                 <h2 className="mt-2 font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em]">
-                    Delivery snapshot
+                    {m.editor_sidebar_delivery_snapshot()}
                 </h2>
                 {editor.selectedTarget === null ? (
                     <p className="mt-4 text-sm leading-6 text-muted-foreground">
-                        No target has been promoted yet. This publication remains a draft.
+                        {m.editor_sidebar_no_promoted_target()}
                     </p>
                 ) : (
                     <div className="mt-4 space-y-3 text-sm">
                         <dl className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2">
-                            <dt className="text-muted-foreground">Revision</dt>
+                            <dt className="text-muted-foreground">{m.editor_sidebar_revision()}</dt>
                             <dd className="font-medium">{editor.selectedTarget.sequence}</dd>
-                            <dt className="text-muted-foreground">Profile</dt>
+                            <dt className="text-muted-foreground">{m.editor_sidebar_profile()}</dt>
                             <dd className="truncate font-medium">
                                 {editor.selectedTarget.profileVersionId}
                             </dd>
-                            <dt className="text-muted-foreground">Scheduled</dt>
+                            <dt className="text-muted-foreground">
+                                {m.editor_sidebar_scheduled()}
+                            </dt>
                             <dd className="font-medium">
-                                {formatProjectDateTime(editor.publication.scheduledAt, timeZone)}
+                                {formatProjectDateTime(
+                                    editor.publication.scheduledAt,
+                                    timeZone,
+                                    locale,
+                                    m.publication_unscheduled()
+                                )}
                             </dd>
                         </dl>
                         <pre className="max-h-72 max-w-full overflow-auto rounded-md bg-surface-field p-3 font-mono text-xs leading-5 shadow-field">
@@ -81,13 +93,19 @@ export function PublicationEditorSidebar({
             </section>
 
             <section className="min-w-0 pt-2">
-                <p className="text-xs font-medium text-muted-foreground">Channel contract</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                    {m.editor_sidebar_contract()}
+                </p>
                 <h2 className="mt-2 font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em]">
-                    Capability feedback
+                    {m.editor_sidebar_capability_feedback()}
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    Profile {editor.profile.profileId} v{editor.profile.version} · schema
-                    {` ${editor.profile.profile.schemaHash ?? 'unhashed'}`}
+                    {m.editor_sidebar_profile_meta({
+                        profile: editor.profile.profileId,
+                        version: editor.profile.version,
+                        schema:
+                            editor.profile.profile.schemaHash ?? m.editor_sidebar_schema_unhashed(),
+                    })}
                 </p>
                 <div className="mt-5 space-y-3 text-sm">
                     {capabilitySummary.textFields.map(field => (
@@ -97,15 +115,18 @@ export function PublicationEditorSidebar({
                             <p className="font-medium">{field.bindingId}</p>
                             <p className="mt-1 text-xs text-muted-foreground">
                                 {field.maxLength === null
-                                    ? 'No declared length limit'
-                                    : `Maximum ${field.maxLength} characters`}{' '}
-                                · {field.acceptedSourceFormats.join(', ') || 'No source format'}
+                                    ? m.editor_sidebar_no_length_limit()
+                                    : m.editor_sidebar_max_chars({ count: field.maxLength })}{' '}
+                                ·{' '}
+                                {field.acceptedSourceFormats.join(', ') ||
+                                    m.editor_sidebar_no_source_format()}
                             </p>
                         </div>
                     ))}
                     <p className="text-xs text-muted-foreground">
-                        {capabilitySummary.mediaFieldCount} media field
-                        {capabilitySummary.mediaFieldCount === 1 ? '' : 's'} declared.
+                        {m.editor_sidebar_media_fields({
+                            count: capabilitySummary.mediaFieldCount,
+                        })}
                     </p>
                 </div>
             </section>
@@ -116,19 +137,24 @@ export function PublicationEditorSidebar({
                     className="rounded-md border-destructive/35 bg-destructive/5 px-4 py-5">
                     <AlertTitle>
                         {sourceConflict
-                            ? 'Source revision needs review'
-                            : 'Reconcile before continuing'}
+                            ? m.editor_sidebar_source_review_title()
+                            : m.editor_sidebar_reconcile_title()}
                     </AlertTitle>
                     <AlertDescription>
                         {sourceConflict
-                            ? `This draft was authored from source revision ${editor.draft.sourceRevision}, but the shared post is now at revision ${editor.post.sourceRevision}. The target payload is preserved until you explicitly choose what to keep.`
-                            : 'Another editor committed a newer draft revision. Keep your local copy or load the server version before writing again.'}
+                            ? m.editor_sidebar_source_conflict_detail({
+                                  draftRevision: editor.draft.sourceRevision,
+                                  currentRevision: editor.post.sourceRevision,
+                              })
+                            : m.editor_sidebar_revision_conflict_detail()}
                     </AlertDescription>
                     {sourceConflict ? (
                         <div className="mt-4 grid min-w-0 gap-3 text-xs sm:grid-cols-2">
                             <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
                                 <p className="font-medium text-foreground">
-                                    Draft source · revision {editor.draft.sourceRevision}
+                                    {m.editor_sidebar_draft_source_revision({
+                                        revision: editor.draft.sourceRevision,
+                                    })}
                                 </p>
                                 <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
                                     {formatJson(editor.draft.baseSourceContent)}
@@ -136,7 +162,9 @@ export function PublicationEditorSidebar({
                             </div>
                             <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
                                 <p className="font-medium text-foreground">
-                                    Current source · revision {editor.post.sourceRevision}
+                                    {m.editor_sidebar_current_source_revision({
+                                        revision: editor.post.sourceRevision,
+                                    })}
                                 </p>
                                 <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
                                     {formatJson(editor.post.sourceContent)}
@@ -147,7 +175,7 @@ export function PublicationEditorSidebar({
                     <div className="mt-4 grid gap-2">
                         {sourceConflict ? (
                             <Button size="sm" onClick={onRebase} disabled={isRebasing}>
-                                Rebase draft to current source
+                                {m.editor_sidebar_rebase_current()}
                             </Button>
                         ) : null}
                         <Button
@@ -155,7 +183,7 @@ export function PublicationEditorSidebar({
                             variant="outline"
                             onClick={onReload}
                             disabled={isRebasing}>
-                            Load server version
+                            {m.editor_sidebar_load_server()}
                         </Button>
                         {recoveryAvailable || hasLocalChanges ? (
                             <Button
@@ -163,7 +191,7 @@ export function PublicationEditorSidebar({
                                 variant="secondary"
                                 onClick={onRestore}
                                 disabled={isRebasing}>
-                                Load local copy for review
+                                {m.editor_sidebar_load_local()}
                             </Button>
                         ) : null}
                     </div>

@@ -19,9 +19,12 @@ import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { PublicationTargetList } from '@/components/publication-target-list'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useLanguage } from '@/lib/i18n'
 import { calendarDateTimeLocal } from '@/lib/publication-authoring'
+import * as m from '@/paraglide/messages.js'
 
 export function PublicationComposer({ calendarDate }: { readonly calendarDate?: string }) {
+    useLanguage()
     const {
         activeChannels,
         error,
@@ -73,10 +76,10 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                         }
                         variant="ghost">
                         <ArrowLeftIcon aria-hidden="true" />
-                        Overview
+                        {m.compose_back_overview()}
                     </Button>
                 }
-                title="Compose">
+                title={m.compose_title()}>
                 <p className="mt-2 text-sm text-muted-foreground">
                     {project.name} · {project.timeZone}
                 </p>
@@ -86,7 +89,7 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                 <Alert
                     variant="destructive"
                     className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
-                    <AlertTitle>Publication action failed</AlertTitle>
+                    <AlertTitle>{m.compose_action_failed()}</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
             ) : null}
@@ -97,38 +100,38 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                         <div className="flex items-baseline justify-between gap-4">
                             <div>
                                 <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                    Source
+                                    {m.compose_source()}
                                 </h2>
                                 <p className="mt-1 text-sm text-muted-foreground">
-                                    One source can feed several destination publications.
+                                    {m.compose_source_description()}
                                 </p>
                             </div>
                             <span className="shrink-0 text-xs text-muted-foreground">
-                                Shared content
+                                {m.compose_shared_content()}
                             </span>
                         </div>
 
                         <div className="mt-5 space-y-5">
                             <DashboardFormField
                                 htmlFor="new-post-title"
-                                label="Post title"
-                                hint="Optional context for the source post.">
+                                label={m.compose_post_title()}
+                                hint={m.compose_post_title_hint()}>
                                 <Input
                                     id="new-post-title"
                                     value={postTitle}
                                     onChange={event => onPostTitleChange(event.target.value)}
-                                    placeholder="Optional source title"
+                                    placeholder={m.compose_optional_source_title()}
                                 />
                             </DashboardFormField>
                             <DashboardFormField
                                 htmlFor="new-post-content"
-                                label="Source content"
-                                hint="Target-specific copy can be added on the right.">
+                                label={m.compose_source_content()}
+                                hint={m.compose_target_copy_hint()}>
                                 <Textarea
                                     id="new-post-content"
                                     value={postContent}
                                     onChange={event => onPostContentChange(event.target.value)}
-                                    placeholder="Write the source content…"
+                                    placeholder={m.compose_source_placeholder()}
                                     rows={10}
                                     className="min-h-52 leading-6"
                                 />
@@ -146,15 +149,14 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                         <CardHeader className="flex flex-row items-baseline justify-between gap-4">
                             <div className="min-w-0">
                                 <CardTitle className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                    Destinations
+                                    {m.compose_destinations()}
                                 </CardTitle>
                                 <CardDescription className="mt-1">
-                                    Review copy, delivery, and timing per channel.
+                                    {m.compose_destinations_description()}
                                 </CardDescription>
                             </div>
                             <span className="shrink-0 text-xs text-muted-foreground">
-                                {publicationTargets.length} target
-                                {publicationTargets.length === 1 ? '' : 's'}
+                                {m.compose_target_count({ count: publicationTargets.length })}
                             </span>
                         </CardHeader>
                         <CardContent className="pt-0">
@@ -173,23 +175,23 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                     <p className="max-w-xl text-sm leading-6 text-muted-foreground">
                         {publicationTargets.length === 1
                             ? publicationTargets[0]?.deliveryMode === 'automatic'
-                                ? 'The worker will deliver this target when its channel connection is ready.'
-                                : 'A human will complete this target from the due-work queue.'
-                            : 'Each destination is scheduled independently and keeps its own delivery outcome.'}
+                                ? m.compose_delivery_automatic()
+                                : m.compose_delivery_manual()
+                            : m.compose_delivery_independent()}
                     </p>
                     <Button type="submit" disabled={pending || activeChannels.length === 0}>
                         <CalendarAddIcon aria-hidden="true" />
                         {publicationTargets.length === 1
-                            ? `Schedule ${publicationTargets[0]?.deliveryMode === 'automatic' ? 'automatic' : 'manual'} publication`
-                            : `Schedule ${publicationTargets.length} publications`}
+                            ? publicationTargets[0]?.deliveryMode === 'automatic'
+                                ? m.compose_schedule_automatic()
+                                : m.compose_schedule_manual()
+                            : m.compose_schedule_count({ count: publicationTargets.length })}
                     </Button>
                 </div>
             </form>
 
             {activeChannels.length === 0 ? (
-                <p className="mt-3 text-sm text-muted-foreground">
-                    Add a channel before scheduling a publication.
-                </p>
+                <p className="mt-3 text-sm text-muted-foreground">{m.compose_add_channel()}</p>
             ) : null}
         </main>
     )

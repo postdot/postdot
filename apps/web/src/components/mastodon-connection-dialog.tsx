@@ -14,6 +14,8 @@ import { LinkIcon } from '@solar-icons/react/bold/link'
 import { useState } from 'react'
 
 import type { Channel } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface MastodonConnectionDialogProps {
     readonly channel: Channel
@@ -26,6 +28,7 @@ export function MastodonConnectionDialog({
     disabled,
     onConnect,
 }: MastodonConnectionDialogProps) {
+    useLanguage()
     const [open, setOpen] = useState(false)
     const [instanceUrl, setInstanceUrl] = useState('')
     const [error, setError] = useState<string | null>(null)
@@ -38,7 +41,7 @@ export function MastodonConnectionDialog({
     async function submit() {
         const normalizedInstanceUrl = instanceUrl.trim()
         if (normalizedInstanceUrl === '') {
-            setError('Enter the Mastodon instance URL.')
+            setError(m.provider_instance_required())
             return
         }
 
@@ -46,7 +49,7 @@ export function MastodonConnectionDialog({
         try {
             parsed = new URL(normalizedInstanceUrl)
         } catch {
-            setError('Enter a valid Mastodon instance URL, such as https://mastodon.social.')
+            setError(m.provider_instance_invalid())
             return
         }
         if (
@@ -55,7 +58,7 @@ export function MastodonConnectionDialog({
             parsed.password ||
             (parsed.pathname !== '/' && parsed.pathname !== '')
         ) {
-            setError('Use the HTTPS origin of the Mastodon instance without a path.')
+            setError(m.provider_instance_origin())
             return
         }
 
@@ -67,7 +70,7 @@ export function MastodonConnectionDialog({
         <>
             <Button size="sm" onClick={() => setOpen(true)} disabled={disabled}>
                 <AddIcon aria-hidden="true" />
-                Connect Mastodon
+                {m.provider_connect_title({ provider: 'Mastodon' })}
             </Button>
             <Dialog
                 open={open}
@@ -77,15 +80,14 @@ export function MastodonConnectionDialog({
                 }}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Connect {channel.name}</DialogTitle>
-                        <DialogDescription>
-                            Mastodon is decentralized. Enter the instance that hosts the account;
-                            Herald will open that instance&apos;s authorization page.
-                        </DialogDescription>
+                        <DialogTitle>
+                            {m.provider_connect_title({ provider: channel.name })}
+                        </DialogTitle>
+                        <DialogDescription>{m.provider_mastodon_description()}</DialogDescription>
                     </DialogHeader>
                     <Field className="gap-1.5">
                         <FieldLabel htmlFor={`mastodon-instance-${channel.id}`}>
-                            Mastodon instance
+                            {m.provider_instance()}
                         </FieldLabel>
                         <Input
                             id={`mastodon-instance-${channel.id}`}
@@ -94,11 +96,11 @@ export function MastodonConnectionDialog({
                             inputMode="url"
                             value={instanceUrl}
                             onChange={event => setInstanceUrl(event.target.value)}
-                            placeholder="https://mastodon.social"
+                            placeholder={m.provider_instance_placeholder()}
                             aria-describedby={`mastodon-instance-help-${channel.id}`}
                         />
                         <FieldDescription id={`mastodon-instance-help-${channel.id}`}>
-                            Use only the instance origin, for example https://mastodon.social.
+                            {m.provider_mastodon_help()}
                         </FieldDescription>
                         {error === null ? null : (
                             <p className="text-sm text-destructive" role="alert">
@@ -112,11 +114,11 @@ export function MastodonConnectionDialog({
                             variant="ghost"
                             onClick={() => setOpen(false)}
                             disabled={disabled}>
-                            Cancel
+                            {m.common_cancel()}
                         </Button>
                         <Button type="button" onClick={() => void submit()} disabled={disabled}>
                             <LinkIcon aria-hidden="true" />
-                            Continue to Mastodon
+                            {m.provider_continue_mastodon()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

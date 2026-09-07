@@ -15,6 +15,8 @@ import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-mini
 
 import { channelMarkerClass, channelProfileLabel } from '@/components/dashboard-publication-parts'
 import type { Channel } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 import type { ChannelLifecycleAction } from './channel-lifecycle-dialog'
 
@@ -29,6 +31,7 @@ export function ChannelRow({
     readonly onEditProfile: () => void
     readonly onLifecycleAction: (action: ChannelLifecycleAction) => void
 }) {
+    useLanguage()
     const archived = channel.state === 'archived'
 
     return (
@@ -42,7 +45,7 @@ export function ChannelRow({
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-medium">{channel.name}</p>
                         <Badge variant={archived ? 'outline' : 'secondary'}>
-                            {archived ? 'Archived' : 'Active'}
+                            {archived ? m.channel_archived() : m.channel_active()}
                         </Badge>
                     </div>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
@@ -56,7 +59,7 @@ export function ChannelRow({
                 <DropdownMenuTrigger
                     render={
                         <Button
-                            aria-label={`Manage ${channel.name}`}
+                            aria-label={m.channel_manage({ channel: channel.name })}
                             variant="ghost"
                             size="icon-sm"
                             disabled={disabled}>
@@ -67,22 +70,22 @@ export function ChannelRow({
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={onEditProfile}>
                         <Pen2Icon aria-hidden="true" />
-                        Edit profile
+                        {m.channel_edit_profile()}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => onLifecycleAction('rename')}>
                         <Pen2Icon aria-hidden="true" />
-                        Rename
+                        {m.channel_rename()}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {archived ? (
                         <DropdownMenuItem onClick={() => onLifecycleAction('restore')}>
                             <RestartIcon aria-hidden="true" />
-                            Restore
+                            {m.channel_restore()}
                         </DropdownMenuItem>
                     ) : (
                         <DropdownMenuItem onClick={() => onLifecycleAction('archive')}>
                             <ArchiveIcon aria-hidden="true" />
-                            Archive
+                            {m.channel_archive()}
                         </DropdownMenuItem>
                     )}
                     {archived ? (
@@ -90,7 +93,7 @@ export function ChannelRow({
                             variant="destructive"
                             onClick={() => onLifecycleAction('delete')}>
                             <TrashBinMinimalisticIcon aria-hidden="true" />
-                            Delete permanently
+                            {m.channel_delete_permanently()}
                         </DropdownMenuItem>
                     ) : null}
                 </DropdownMenuContent>

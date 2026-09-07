@@ -10,12 +10,14 @@ import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-
 import { useState, type FormEvent } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
-import { ApiError, api, type Project } from '@/lib/api'
+import { api, formatApiError, type Project } from '@/lib/api'
 import {
     DashboardGlobalProvider,
     useDashboardGlobal,
     type DashboardGlobalContextValue,
 } from '@/lib/dashboard-context'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/dashboard')({
     loader: async ({ location }) => {
@@ -43,6 +45,7 @@ export const Route = createFileRoute('/dashboard')({
 
 function DashboardPage() {
     const navigate = useNavigate()
+    useLanguage()
     const initialData = Route.useLoaderData()
     const [projects, setProjects] = useState<Project[]>(initialData.projects)
     const [projectName, setProjectName] = useState('')
@@ -137,21 +140,18 @@ function EmptyProjectShell() {
             <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                 <div className="max-w-2xl">
                     <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
-                        Create your first workspace
+                        {m.overview_create_first_workspace()}
                     </h1>
                     <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-                        A project keeps its channels, publications, and media together. Create one
-                        from the workspace sidebar to begin.
+                        {m.overview_create_first_workspace_description()}
                     </p>
                     <Empty className="mt-8 min-h-48 bg-muted">
                         <EmptyHeader>
                             <EmptyMedia variant="icon">
                                 <PenIcon aria-hidden="true" />
                             </EmptyMedia>
-                            <EmptyTitle>No project selected</EmptyTitle>
-                            <EmptyDescription>
-                                Open Create project in the sidebar and give this workspace a name.
-                            </EmptyDescription>
+                            <EmptyTitle>{m.nav_no_project_selected()}</EmptyTitle>
+                            <EmptyDescription>{m.overview_open_create_project()}</EmptyDescription>
                         </EmptyHeader>
                     </Empty>
                 </div>
@@ -161,5 +161,5 @@ function EmptyProjectShell() {
 }
 
 function errorMessage(error: unknown) {
-    return error instanceof ApiError ? error.message : 'The action could not be completed'
+    return formatApiError(error)
 }

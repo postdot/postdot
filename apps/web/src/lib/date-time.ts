@@ -1,3 +1,5 @@
+import * as m from '@/paraglide/messages.js'
+
 export type DateTimeLocalError = 'invalid' | 'nonexistent' | 'ambiguous'
 export type DateTimeLocalResult = number | null | DateTimeLocalError
 
@@ -78,19 +80,24 @@ export function getZonedDateTimeParts(timestamp: number, timeZone: string): Zone
     }
 }
 
-export function formatProjectDateTime(timestamp: number | null, timeZone: string): string {
-    if (timestamp === null) return 'Unscheduled'
-    return getDisplayFormatter(timeZone).format(new Date(timestamp))
+export function formatProjectDateTime(
+    timestamp: number | null,
+    timeZone: string,
+    locale = 'en',
+    unscheduledLabel = m.publication_unscheduled()
+): string {
+    if (timestamp === null) return unscheduledLabel
+    return getDisplayFormatter(timeZone, locale).format(new Date(timestamp))
 }
 
 export function dateTimeLocalErrorMessage(error: DateTimeLocalError): string {
     if (error === 'nonexistent') {
-        return 'That local time does not exist in the project timezone because of a daylight-saving transition.'
+        return m.editor_schedule_nonexistent()
     }
     if (error === 'ambiguous') {
-        return 'That local time occurs twice in the project timezone. Choose a different time.'
+        return m.editor_schedule_ambiguous()
     }
-    return 'Choose a valid schedule or leave it empty for an unscheduled draft.'
+    return m.editor_schedule_invalid()
 }
 
 export function getBrowserTimeZone(): string {
@@ -116,16 +123,17 @@ function getPartsFormatter(timeZone: string) {
     return formatter
 }
 
-function getDisplayFormatter(timeZone: string) {
-    const cached = displayFormatters.get(timeZone)
+function getDisplayFormatter(timeZone: string, locale: string) {
+    const key = `${locale}:${timeZone}`
+    const cached = displayFormatters.get(key)
     if (cached !== undefined) return cached
 
-    const formatter = new Intl.DateTimeFormat('en-US', {
+    const formatter = new Intl.DateTimeFormat(locale, {
         dateStyle: 'medium',
         timeStyle: 'short',
         timeZone,
     })
-    displayFormatters.set(timeZone, formatter)
+    displayFormatters.set(key, formatter)
     return formatter
 }
 

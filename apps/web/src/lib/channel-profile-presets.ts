@@ -2,8 +2,6 @@ import type { RuntimeChannelProfile } from '@/lib/api'
 
 export interface ChannelProfileTemplate {
     readonly id: string
-    readonly label: string
-    readonly description: string
     readonly profile: RuntimeChannelProfile
 }
 
@@ -93,14 +91,10 @@ function createCustomProfile(
 export const channelProfileTemplates: readonly ChannelProfileTemplate[] = [
     {
         id: 'custom-manual',
-        label: 'Custom manual channel',
-        description: 'A custom schema for work completed manually from the queue.',
         profile: createCustomProfile('custom-manual', { kind: 'manual' }),
     },
     {
         id: 'custom-webhook',
-        label: 'Custom webhook channel',
-        description: 'A custom schema delivered through Herald’s declarative webhook contract.',
         profile: createCustomProfile('custom-webhook', {
             kind: 'declarative_http',
             contractId: 'custom-webhook',

@@ -21,8 +21,11 @@ import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import type { Channel } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export function ChannelManagementPage() {
+    useLanguage()
     const {
         channels,
         connections,
@@ -70,7 +73,7 @@ export function ChannelManagementPage() {
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader
                 action={<ChannelCreationDialog onCreate={onCreateChannel} pending={pending} />}
-                title="Channels">
+                title={m.channels_title()}>
                 <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
             </DashboardPageHeader>
 
@@ -78,15 +81,15 @@ export function ChannelManagementPage() {
                 <Alert
                     variant="destructive"
                     className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
-                    <AlertTitle>Channel action failed</AlertTitle>
+                    <AlertTitle>{m.channels_action_failed()}</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
             ) : null}
 
             <section id="channels" className="scroll-mt-20">
                 <DashboardSectionHeading
-                    meta={`${channels.length} channel${channels.length === 1 ? '' : 's'}`}
-                    title="Project channels"
+                    meta={m.channels_project_count({ count: channels.length })}
+                    title={m.channels_project_title()}
                 />
 
                 {channels.length > 0 ? (
@@ -107,10 +110,8 @@ export function ChannelManagementPage() {
                             <EmptyMedia variant="icon">
                                 <LinkIcon aria-hidden="true" />
                             </EmptyMedia>
-                            <EmptyTitle>No channels in this project</EmptyTitle>
-                            <EmptyDescription>
-                                Create a channel before composing a publication.
-                            </EmptyDescription>
+                            <EmptyTitle>{m.channels_empty_title()}</EmptyTitle>
+                            <EmptyDescription>{m.channels_empty_description()}</EmptyDescription>
                         </EmptyHeader>
                     </Empty>
                 )}

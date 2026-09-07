@@ -13,8 +13,11 @@ import { UploadIcon } from '@solar-icons/react/bold/upload'
 import { useEffect, useId, useState, type ChangeEvent } from 'react'
 
 import { MediaAssetCard } from '@/components/media-asset-card'
-import { ApiError, api, type MediaReference } from '@/lib/api'
+import { api, formatApiError, type MediaReference } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import { MediaVerificationError } from '@/lib/media-errors'
 import type { MediaSelection } from '@/lib/target-media'
+import * as m from '@/paraglide/messages.js'
 
 export type { MediaSelection } from '@/lib/target-media'
 
@@ -31,6 +34,7 @@ export function MediaAttachmentPicker({
     onChange,
     disabled = false,
 }: MediaAttachmentPickerProps) {
+    useLanguage()
     const inputId = useId()
     const [assets, setAssets] = useState<MediaReference[]>([])
     const [loading, setLoading] = useState(true)
@@ -143,10 +147,10 @@ export function MediaAttachmentPicker({
                 <div>
                     <div className="flex items-center gap-2 text-sm font-medium">
                         <GalleryAddIcon aria-hidden="true" />
-                        Media attachments
+                        {m.media_attachments_title()}
                     </div>
                     <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Upload once, then reuse a verified asset across publication targets.
+                        {m.media_picker_description()}
                     </p>
                 </div>
                 <Button
@@ -156,7 +160,9 @@ export function MediaAttachmentPicker({
                     size="default"
                     className={interactionDisabled ? 'pointer-events-none opacity-50' : ''}>
                     <UploadIcon aria-hidden="true" />
-                    {uploading === null ? 'Upload media' : `Uploading ${uploading}…`}
+                    {uploading === null
+                        ? m.media_upload()
+                        : m.media_uploading({ filename: uploading })}
                 </Button>
                 <input
                     id={inputId}
@@ -170,23 +176,21 @@ export function MediaAttachmentPicker({
 
             {error !== null ? (
                 <Alert variant="destructive" className="mt-4 rounded-md">
-                    <AlertTitle>Media action failed</AlertTitle>
+                    <AlertTitle>{m.media_action_failed()}</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
             ) : null}
 
             {loading ? (
-                <p className="mt-4 text-sm text-muted-foreground">Loading media library…</p>
+                <p className="mt-4 text-sm text-muted-foreground">{m.media_loading()}</p>
             ) : assets.length === 0 ? (
                 <Empty className="mt-4 min-h-28 bg-surface-field px-4 py-5">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
                             <GalleryAddIcon aria-hidden="true" />
                         </EmptyMedia>
-                        <EmptyTitle>No verified media assets</EmptyTitle>
-                        <EmptyDescription>
-                            Upload an image to make it available here.
-                        </EmptyDescription>
+                        <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
+                        <EmptyDescription>{m.media_empty_here()}</EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : (
@@ -211,7 +215,7 @@ export function MediaAttachmentPicker({
             {value.some(item => !assets.some(asset => asset.asset.id === item.assetId)) ? (
                 <div className="mt-3 flex items-start gap-2 rounded-md bg-state-attention/10 px-3 py-2 text-xs text-state-attention">
                     <CloseIcon aria-hidden="true" className="mt-0.5 shrink-0" />
-                    <p>Some selected assets are no longer in the current media library.</p>
+                    <p>{m.media_missing_assets()}</p>
                 </div>
             ) : null}
         </div>
@@ -222,7 +226,7 @@ async function completeMediaUpload(projectId: string, intentId: string): Promise
     const finalized = await api.finalizeMediaUpload(projectId, intentId)
     if (finalized.status === 'ready') return finalized.media
     if (finalized.status === 'failed') {
-        throw new Error(finalized.media.asset.failureMessage ?? 'Media verification failed')
+        throw new MediaVerificationError(finalized.media)
     }
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -230,11 +234,11 @@ async function completeMediaUpload(projectId: string, intentId: string): Promise
         const media = await api.getMedia(projectId, finalized.media.asset.id)
         if (media.asset.state === 'ready') return media
         if (media.asset.state === 'failed') {
-            throw new Error(media.asset.failureMessage ?? 'Media verification failed')
+            throw new MediaVerificationError(media)
         }
     }
 
-    throw new Error('Media verification is taking longer than expected; refresh the library later')
+    throw new Error('media_verification_pending')
 }
 
 function upsertAssets(current: readonly MediaReference[], additions: readonly MediaReference[]) {
@@ -248,5 +252,16 @@ function delay(milliseconds: number) {
 }
 
 function errorMessage(error: unknown) {
-    return error instanceof ApiError ? error.message : 'The media action could not be completed'
+    if (error instanceof MediaVerificationError) {
+        if (error.detail === null) {
+            return error.code === 'media_verification_failed'
+                ? m.media_verification_failed()
+                : m.media_verification_failed_code({ code: error.code })
+        }
+        return m.media_verification_failed_detail({ code: error.code, detail: error.detail })
+    }
+    if (error instanceof Error && error.message === 'media_verification_pending') {
+        return m.media_verification_pending()
+    }
+    return formatApiError(error)
 }

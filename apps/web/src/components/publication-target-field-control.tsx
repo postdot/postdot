@@ -14,6 +14,8 @@ import { AddIcon } from '@solar-icons/react/bold/add'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { useEffect, useState } from 'react'
 
+import { formatNumber } from '@/lib/format'
+import { useLanguage } from '@/lib/i18n'
 import {
     decodeTargetEnumValue,
     encodeTargetEnumValue,
@@ -21,6 +23,7 @@ import {
     type TargetEditorPrimitive,
     unsetTargetFieldValue,
 } from '@/lib/target-editor'
+import * as m from '@/paraglide/messages.js'
 
 interface TargetFieldControlProps {
     readonly field: TargetEditorField
@@ -37,7 +40,8 @@ export function TargetFieldControl({
     disabled,
     onChange,
 }: TargetFieldControlProps) {
-    const description = fieldDescription(field)
+    const { locale } = useLanguage()
+    const description = fieldDescription(field, locale)
 
     if (field.kind === 'media') {
         const count = Array.isArray(value) ? value.length : 0
@@ -48,12 +52,11 @@ export function TargetFieldControl({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium">{field.label}</p>
                     <span className="text-xs font-medium text-muted-foreground">
-                        {count} selected
+                        {m.editor_target_selected({ count })}
                     </span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Media is managed by the source attachments above and mapped into this channel
-                    field.
+                    {m.editor_target_media_managed()}
                     {description ? ` ${description}` : ''}
                 </p>
             </div>
@@ -68,13 +71,15 @@ export function TargetFieldControl({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium">{field.label}</p>
                     <span className="text-xs font-medium text-muted-foreground">
-                        {field.kind === 'readonly' ? 'Read only' : 'Advanced JSON'}
+                        {field.kind === 'readonly'
+                            ? m.editor_target_read_only()
+                            : m.editor_target_advanced()}
                     </span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     {field.kind === 'readonly'
-                        ? 'This channel contract marks the field as read only.'
-                        : 'This field shape is intentionally left to the advanced editor so custom channels remain expressive.'}
+                        ? m.editor_target_read_only_description()
+                        : m.editor_target_unsupported_description()}
                     {description ? ` ${description}` : ''}
                 </p>
             </div>
@@ -167,9 +172,9 @@ function BooleanField({
                 <SelectValue />
             </SelectTrigger>
             <SelectContent align="start">
-                <SelectItem value={unsetTargetFieldValue}>Not set</SelectItem>
-                <SelectItem value="true">Yes</SelectItem>
-                <SelectItem value="false">No</SelectItem>
+                <SelectItem value={unsetTargetFieldValue}>{m.editor_target_not_set()}</SelectItem>
+                <SelectItem value="true">{m.editor_target_yes()}</SelectItem>
+                <SelectItem value="false">{m.editor_target_no()}</SelectItem>
             </SelectContent>
         </Select>
     )
@@ -200,7 +205,7 @@ function EnumField({
             </SelectTrigger>
             <SelectContent align="start">
                 <SelectItem value={unsetTargetFieldValue} disabled={field.required}>
-                    Not set
+                    {m.editor_target_not_set()}
                 </SelectItem>
                 {field.enumValues.map(enumValue => {
                     const encoded = encodeTargetEnumValue(enumValue)
@@ -236,11 +241,8 @@ function StringListField({
     if (hasInvalidValue) {
         return (
             <Alert variant="destructive" className="rounded-md">
-                <AlertTitle>Review this list in Advanced JSON</AlertTitle>
-                <AlertDescription>
-                    The current target does not contain only strings, so the structured control will
-                    not rewrite it automatically.
-                </AlertDescription>
+                <AlertTitle>{m.editor_target_review_list()}</AlertTitle>
+                <AlertDescription>{m.editor_target_list_strings_only()}</AlertDescription>
             </Alert>
         )
     }
@@ -251,14 +253,17 @@ function StringListField({
         <div className="grid gap-2">
             {items.length === 0 ? (
                 <p className="rounded-md bg-muted/55 px-3 py-2 text-xs text-muted-foreground">
-                    No values added.
+                    {m.editor_target_no_values()}
                 </p>
             ) : (
                 items.map((item, index) => (
                     <div key={`${fieldId}-${index}`} className="flex min-w-0 items-center gap-2">
                         <Input
                             id={`${fieldId}-${index}`}
-                            aria-label={`${field.label} item ${index + 1}`}
+                            aria-label={m.editor_target_item({
+                                label: field.label,
+                                index: String(index + 1),
+                            })}
                             value={item}
                             onChange={event => {
                                 const next = [...items]
@@ -273,7 +278,10 @@ function StringListField({
                             type="button"
                             variant="ghost"
                             size="icon-sm"
-                            aria-label={`Remove ${field.label} item ${index + 1}`}
+                            aria-label={m.editor_target_remove_item({
+                                label: field.label,
+                                index: String(index + 1),
+                            })}
                             onClick={() =>
                                 onChange(items.filter((_, itemIndex) => itemIndex !== index))
                             }
@@ -294,44 +302,83 @@ function StringListField({
                 onClick={() => onChange([...items, ''])}
                 disabled={disabled || (field.maxItems !== null && items.length >= field.maxItems)}>
                 <AddIcon aria-hidden="true" />
-                Add value
+                {m.editor_target_add_value()}
             </Button>
         </div>
     )
 }
 
-function fieldDescription(field: TargetEditorField): string | null {
+function fieldDescription(field: TargetEditorField, locale: string): string | null {
     const constraints: string[] = []
     if (field.minLength !== null || field.maxLength !== null) {
         if (field.minLength !== null && field.maxLength !== null) {
-            constraints.push(`${field.minLength}–${field.maxLength} characters`)
+            constraints.push(
+                m.editor_constraint_characters_range({
+                    min: formatNumber(field.minLength, locale),
+                    max: formatNumber(field.maxLength, locale),
+                })
+            )
         } else if (field.maxLength !== null) {
-            constraints.push(`Up to ${field.maxLength} characters`)
+            constraints.push(
+                m.editor_constraint_up_to_characters({
+                    count: formatNumber(field.maxLength, locale),
+                })
+            )
         } else if (field.minLength !== null) {
-            constraints.push(`At least ${field.minLength} characters`)
+            constraints.push(
+                m.editor_constraint_at_least_characters({
+                    count: formatNumber(field.minLength, locale),
+                })
+            )
         }
     }
     if (field.kind === 'string-list') {
         if (field.minItems !== null && field.maxItems !== null) {
-            constraints.push(`${field.minItems}–${field.maxItems} values`)
+            constraints.push(
+                m.editor_constraint_values_range({
+                    min: formatNumber(field.minItems, locale),
+                    max: formatNumber(field.maxItems, locale),
+                })
+            )
         } else if (field.maxItems !== null) {
-            constraints.push(`Up to ${field.maxItems} values`)
+            constraints.push(
+                m.editor_constraint_up_to_values({ count: formatNumber(field.maxItems, locale) })
+            )
         } else if (field.minItems !== null) {
-            constraints.push(`At least ${field.minItems} values`)
+            constraints.push(
+                m.editor_constraint_at_least_values({ count: formatNumber(field.minItems, locale) })
+            )
         }
     }
     if (field.kind === 'number') {
         if (field.minimum !== null && field.maximum !== null) {
-            constraints.push(`Between ${field.minimum} and ${field.maximum}`)
+            constraints.push(
+                m.editor_constraint_between({
+                    min: formatNumber(field.minimum, locale),
+                    max: formatNumber(field.maximum, locale),
+                })
+            )
         } else if (field.minimum !== null) {
-            constraints.push(`At least ${field.minimum}`)
+            constraints.push(
+                m.editor_constraint_at_least({ count: formatNumber(field.minimum, locale) })
+            )
         } else if (field.maximum !== null) {
-            constraints.push(`At most ${field.maximum}`)
+            constraints.push(
+                m.editor_constraint_at_most({ count: formatNumber(field.maximum, locale) })
+            )
         }
-        if (field.multipleOf !== null) constraints.push(`In increments of ${field.multipleOf}`)
+        if (field.multipleOf !== null) {
+            constraints.push(
+                m.editor_constraint_increments({
+                    count: formatNumber(field.multipleOf, locale),
+                })
+            )
+        }
     }
     if (field.acceptedSourceFormats.length > 0) {
-        constraints.push(`Source: ${field.acceptedSourceFormats.join(', ')}`)
+        constraints.push(
+            m.editor_constraint_source({ formats: field.acceptedSourceFormats.join(', ') })
+        )
     }
     return [field.description, ...constraints].filter(Boolean).join(' · ') || null
 }
@@ -400,7 +447,7 @@ function isCompleteNumber(value: string): boolean {
 }
 
 function enumLabel(value: TargetEditorPrimitive): string {
-    if (value === null) return 'Null'
-    if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+    if (value === null) return m.editor_target_null()
+    if (typeof value === 'boolean') return value ? m.editor_target_yes() : m.editor_target_no()
     return String(value)
 }

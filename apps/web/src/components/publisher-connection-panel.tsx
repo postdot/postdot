@@ -24,6 +24,8 @@ import type {
     LinkedInConnectionDestination,
     PublisherConnection,
 } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface PublisherConnectionPanelProps {
     readonly channels: readonly Channel[]
@@ -64,6 +66,7 @@ export function PublisherConnectionPanel({
     onConnectDevtoPublisher,
     onDisconnectPublisher,
 }: PublisherConnectionPanelProps) {
+    useLanguage()
     const [organizationIds, setOrganizationIds] = useState<Record<string, string>>({})
     const connectionsByChannel = new Map(
         connections.map(connection => [connection.channelId, connection])
@@ -72,9 +75,9 @@ export function PublisherConnectionPanel({
     return (
         <section id="publisher-connections" className="pt-1">
             <DashboardSectionHeading
-                description="Automatic delivery requires a connection on supported channels."
-                meta={`${connections.length} connected`}
-                title="Publisher connections"
+                description={m.publisher_connections_description()}
+                meta={m.common_connection_count({ count: connections.length })}
+                title={m.publisher_connections_title()}
             />
 
             <div className="mt-4 overflow-hidden rounded-md bg-surface-raised shadow-surface">
@@ -84,9 +87,9 @@ export function PublisherConnectionPanel({
                             <EmptyMedia variant="icon">
                                 <LinkIcon aria-hidden="true" />
                             </EmptyMedia>
-                            <EmptyTitle>No publisher connections</EmptyTitle>
+                            <EmptyTitle>{m.publisher_no_connections()}</EmptyTitle>
                             <EmptyDescription>
-                                Create a channel before configuring an automatic destination.
+                                {m.publisher_no_connections_description()}
                             </EmptyDescription>
                         </EmptyHeader>
                     </Empty>
@@ -112,58 +115,97 @@ export function PublisherConnectionPanel({
                                     </div>
                                     {channel.state === 'archived' ? (
                                         <p className="mt-2 text-sm text-muted-foreground">
-                                            Archived — restore this channel before managing
-                                            delivery.
+                                            {m.publisher_archived_restore()}
                                         </p>
                                     ) : connection === undefined ? (
                                         <p className="mt-2 text-sm text-muted-foreground">
                                             {channel.profileId === 'manual-message'
-                                                ? 'Manual publication only for this channel profile.'
+                                                ? m.publisher_manual_only()
                                                 : channel.profileId === 'bluesky'
-                                                  ? 'Connect a Bluesky account to enable automatic publishing.'
+                                                  ? m.publisher_connect_account({
+                                                        provider: 'Bluesky',
+                                                    })
                                                   : channel.profileId === 'mastodon'
-                                                    ? 'Connect a Mastodon account to enable automatic publishing.'
+                                                    ? m.publisher_connect_account({
+                                                          provider: 'Mastodon',
+                                                      })
                                                     : channel.profileId === 'discord'
-                                                      ? 'Connect a Discord bot to enable automatic publishing.'
+                                                      ? m.publisher_connect_bot({
+                                                            provider: 'Discord',
+                                                        })
                                                       : channel.profileId === 'devto'
-                                                        ? 'Connect a DEV.to API key to enable automatic publishing.'
+                                                        ? m.publisher_connect_api_key({
+                                                              provider: 'DEV.to',
+                                                          })
                                                         : channel.profileId === 'linkedin'
-                                                          ? 'No automatic publisher is connected.'
-                                                          : 'This custom profile can be connected to a declarative HTTP endpoint.'}
+                                                          ? m.publisher_no_automatic()
+                                                          : m.publisher_custom_profile()}
                                         </p>
                                     ) : (
                                         <p className="mt-2 text-sm text-muted-foreground">
                                             {connection.kind === 'custom_http'
-                                                ? 'Custom HTTP publisher connected.'
+                                                ? m.publisher_custom_http_connected()
                                                 : connection.providerId === 'bluesky'
-                                                  ? `Bluesky account · ${connection.destination?.name ?? connection.externalAccountName ?? connection.externalAccountId}`
+                                                  ? m.publisher_account({
+                                                        provider: 'Bluesky',
+                                                        account:
+                                                            connection.destination?.name ??
+                                                            connection.externalAccountName ??
+                                                            connection.externalAccountId,
+                                                    })
                                                   : connection.providerId === 'mastodon'
-                                                    ? `Mastodon account · ${connection.destination?.name ?? connection.externalAccountName ?? connection.externalAccountId}`
+                                                    ? m.publisher_account({
+                                                          provider: 'Mastodon',
+                                                          account:
+                                                              connection.destination?.name ??
+                                                              connection.externalAccountName ??
+                                                              connection.externalAccountId,
+                                                      })
                                                     : connection.providerId === 'discord'
-                                                      ? `Discord channel · ${connection.destination?.name ?? connection.destination?.id ?? connection.externalAccountId}`
+                                                      ? m.publisher_channel({
+                                                            provider: 'Discord',
+                                                            account:
+                                                                connection.destination?.name ??
+                                                                connection.destination?.id ??
+                                                                connection.externalAccountId,
+                                                        })
                                                       : connection.providerId === 'devto'
-                                                        ? `DEV.to account · ${connection.destination?.name ?? connection.externalAccountName ?? connection.externalAccountId}`
+                                                        ? m.publisher_account({
+                                                              provider: 'DEV.to',
+                                                              account:
+                                                                  connection.destination?.name ??
+                                                                  connection.externalAccountName ??
+                                                                  connection.externalAccountId,
+                                                          })
                                                         : connection.destination?.type ===
                                                             'organization'
-                                                          ? `LinkedIn page · ${connection.destination.name ?? connection.destination.id}`
-                                                          : `LinkedIn member · ${connection.externalAccountName ?? connection.externalAccountId}`}
+                                                          ? m.publisher_page({
+                                                                account:
+                                                                    connection.destination.name ??
+                                                                    connection.destination.id,
+                                                            })
+                                                          : m.publisher_member({
+                                                                account:
+                                                                    connection.externalAccountName ??
+                                                                    connection.externalAccountId,
+                                                            })}
                                         </p>
                                     )}
                                     {connection !== undefined &&
                                     connection.kind === 'custom_http' ? (
                                         <p className="mt-1 text-sm text-muted-foreground">
-                                            {connection.endpointUrl ?? 'Custom HTTP endpoint'}
+                                            {connection.endpointUrl ??
+                                                m.publisher_custom_endpoint()}
                                             {connection.authentication?.kind === 'header'
                                                 ? ` · ${connection.authentication.headerName}`
                                                 : connection.authentication?.kind === 'bearer'
-                                                  ? ' · bearer authentication'
+                                                  ? ` · ${m.publisher_bearer_auth()}`
                                                   : ''}
                                         </p>
                                     ) : null}
                                     {connection !== undefined && connection.state !== 'active' ? (
                                         <p className="mt-1 text-sm text-destructive">
-                                            Reconnection required before automatic publishing can
-                                            resume.
+                                            {m.publisher_reconnection_required()}
                                         </p>
                                     ) : null}
                                 </div>
@@ -178,7 +220,7 @@ export function PublisherConnectionPanel({
                                             }
                                             disabled={pending}>
                                             <AddIcon aria-hidden="true" />
-                                            Connect LinkedIn
+                                            {m.provider_connect_title({ provider: 'LinkedIn' })}
                                         </Button>
                                         <form
                                             className="grid gap-2"
@@ -194,14 +236,14 @@ export function PublisherConnectionPanel({
                                             <label
                                                 className="text-xs text-muted-foreground"
                                                 htmlFor={`linkedin-organization-${channel.id}`}>
-                                                Connect a LinkedIn page
+                                                {m.publisher_connect_page()}
                                             </label>
                                             <div className="flex items-center gap-2">
                                                 <Input
                                                     id={`linkedin-organization-${channel.id}`}
                                                     inputMode="numeric"
                                                     pattern="[0-9]+"
-                                                    placeholder="Organization ID"
+                                                    placeholder={m.publisher_organization_id()}
                                                     value={organizationIds[channel.id] ?? ''}
                                                     onChange={event =>
                                                         setOrganizationIds(current => ({
@@ -216,13 +258,13 @@ export function PublisherConnectionPanel({
                                                     size="sm"
                                                     variant="outline"
                                                     disabled={pending}>
-                                                    Connect page
+                                                    {m.publisher_connect_page_button()}
                                                 </Button>
                                             </div>
                                             <p
                                                 id={`linkedin-organization-help-${channel.id}`}
                                                 className="text-xs text-muted-foreground">
-                                                The page is checked before the connection is saved.
+                                                {m.publisher_page_checked()}
                                             </p>
                                         </form>
                                     </div>
@@ -257,7 +299,7 @@ export function PublisherConnectionPanel({
                                         variant="destructive"
                                         onClick={() => void onDisconnectPublisher(channel.id)}
                                         disabled={pending}>
-                                        Disconnect publisher
+                                        {m.publisher_disconnect()}
                                     </Button>
                                 ) : channel.profileId !== 'manual-message' &&
                                   channel.profileId !== 'linkedin' &&
@@ -278,7 +320,7 @@ export function PublisherConnectionPanel({
                                         variant="destructive"
                                         onClick={() => void onDisconnectPublisher(channel.id)}
                                         disabled={pending}>
-                                        Disconnect publisher
+                                        {m.publisher_disconnect()}
                                     </Button>
                                 ) : null}
                             </article>
