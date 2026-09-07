@@ -1248,7 +1248,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-055] Close historical analytics coverage gaps and measure read-model cost
 
 - Type: problem
-- Status: open
+- Status: accepted
 - Evidence: The first operational analytics read model now exposes explicit
   coverage gaps instead of inventing provider, schedule, or latency values.
   Facts written before the immutable metadata boundary can still lack provider
@@ -1266,7 +1266,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   representative project histories have measured query-time latency and memory
   behavior; and the project can decide, using those results, whether a
   versioned replayable projection is justified behind the existing contract.
-- Tasks: none
+- Tasks: ANALYTICS-110
 - Related issues: ISSUE-054
 - Related decisions: ADR-051
 
