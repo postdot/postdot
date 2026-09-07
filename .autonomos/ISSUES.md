@@ -1224,3 +1224,23 @@ channels` with a foreign-key constraint error even though a fresh empty database
   The design must remain useful for projects with many publications without
   turning organization into a second content model.
 - Tasks: TAXONOMY-101
+
+## [ISSUE-054] Define an analytics foundation without coupling Herald to provider dashboards
+
+- Type: proposal
+- Status: open
+- Evidence: The provider-neutral analytics foundation has been identified in
+  durable publication and execution events, but Herald does not yet have an
+  accepted read model, measurement vocabulary, retention policy, or explicit
+  boundary for provider-supplied engagement data.
+- Impact: Implementing charts or provider-specific counters ad hoc could create
+  incompatible APIs, double-count lifecycle events, confuse operational
+  delivery metrics with external engagement, and make future analytics harder
+  to test or reconcile.
+- Desired outcome: Define the first analytics contract from durable Herald
+  facts, including metric names, dimensions, time semantics, aggregation and
+  retention rules, project authorization, API/read-model shape, and the
+  boundary for optional provider analytics. The design must remain useful
+  without external provider analytics and must not require a dashboard UI yet.
+- Tasks: ANALYTICS-107
+- Related issues: ISSUE-045, ISSUE-050, ISSUE-053
