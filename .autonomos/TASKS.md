@@ -129,7 +129,7 @@
 - [x] **[REALTIME-106]** Validate realtime restart, reconnect, zero-subscriber, and burst-load behavior `Priority: 🟠` `Complexity: M`
 - [x] **[ANALYTICS-107]** Define the analytics read model, measurements, and provider-data boundary `Priority: 🟠` `Complexity: L`
 - [x] **[ANALYTICS-108]** Implement the first operational analytics read model and API `Priority: 🟠` `Complexity: L`
-- [/] **[ANALYTICS-109]** Map provider engagement analytics and competitor parity boundaries `Priority: 🟠` `Complexity: L`
+- [x] **[ANALYTICS-109]** Map provider engagement analytics and competitor parity boundaries `Priority: 🟠` `Complexity: L`
 - [x] **[ANALYTICS-110]** Benchmark operational analytics cost and historical coverage `Priority: 🟠` `Complexity: M`
 - [ ] **[ANALYTICS-111]** Harden large-project analytics reads and decide the projection boundary `Priority: 🟠` `Complexity: L`
 - [ ] **[DESIGN-97]** Recompose the notification inbox as a contextual non-blocking surface `Priority: 🔵` `Complexity: M`
