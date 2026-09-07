@@ -64,6 +64,17 @@ export type {
     ProjectAnalytics,
     ProjectAnalyticsInput,
 } from './analytics-store'
+export { createProviderAnalyticsStore } from './provider-analytics-store'
+export type {
+    KnownProviderContent,
+    ListKnownProviderContentInput,
+    ListProviderAnalyticsObservationsInput,
+    ProviderAnalyticsObservationPage,
+    ProviderAnalyticsStore,
+    ProviderAnalyticsStoreOptions,
+    RecordProviderAnalyticsObservationsInput,
+    RecordProviderAnalyticsObservationsResult,
+} from './provider-analytics-store'
 export { createManualStore } from './manual-store'
 export { channelLifecycleBlockerCodes } from './manual-store/channel-lifecycle-store'
 export { createMediaAssetStore } from './media-asset-store'

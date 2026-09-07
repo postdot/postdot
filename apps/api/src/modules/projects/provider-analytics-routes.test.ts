@@ -1,0 +1,253 @@
+import { describe, expect, it } from 'bun:test'
+
+import { createAuth } from '@herald/auth'
+import { createManualStore, closeDatabase, createDatabase, runMigrations } from '@herald/db'
+
+import { createApp } from '../../app'
+import { createPublisherRuntime } from '../publishers/runtime'
+
+const baseURL = 'http://localhost:3000'
+const secret = 'herald-test-secret-with-at-least-32-characters'
+const now = 1_800_000_000_000
+const did = 'did:plc:api-analytics'
+const postUri = 'at://' + did + '/app.bsky.feed.post/3api'
+
+async function signUp(app: ReturnType<typeof createApp>, email: string) {
+    const response = await app.handle(
+        new Request(baseURL + '/api/auth/sign-up/email', {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+                origin: baseURL,
+            },
+            body: JSON.stringify({
+                email,
+                name: 'Analytics operator',
+                password: 'correct-horse-battery-staple',
+            }),
+        })
+    )
+    expect(response.status).toBe(200)
+    return response.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
+}
+
+async function request(
+    app: ReturnType<typeof createApp>,
+    path: string,
+    cookie: string,
+    init: RequestInit = {}
+) {
+    const headers = new Headers(init.headers)
+    headers.set('cookie', cookie)
+    if (init.body !== undefined) headers.set('content-type', 'application/json')
+    return app.handle(
+        new Request(baseURL + path, {
+            ...init,
+            headers,
+        })
+    )
+}
+
+describe('provider analytics routes', () => {
+    it('collects known Bluesky publications, persists them, and never calls the provider on read', async () => {
+        const database = createDatabase(':memory:')
+        let providerCalls = 0
+        runMigrations(database)
+        const publisher = createPublisherRuntime(database, {
+            apiOrigin: baseURL,
+            webOrigin: 'http://localhost:5173',
+            publisherEncryptionKey: new Uint8Array(32).fill(4),
+            publisherEncryptionKeyId: 'test-v1',
+            bluesky: {
+                clientMetadataUrl: 'https://herald.example.test/oauth/bluesky/client-metadata.json',
+                handleResolver: 'https://bsky.social',
+            },
+        })
+        const app = createApp({
+            auth: createAuth(database, { baseURL, secret }),
+            database,
+            publisher,
+            manualStore: { now: () => now },
+            blueskyAnalyticsNow: () => now + 1_000,
+            blueskyAnalyticsFetcher: async input => {
+                providerCalls += 1
+                const url = new URL(
+                    typeof input === 'string'
+                        ? input
+                        : input instanceof URL
+                          ? input.href
+                          : input.url
+                )
+                if (url.pathname.endsWith('actor.getProfile')) {
+                    return Response.json({
+                        did,
+                        handle: 'api.analytics.test',
+                        followersCount: 3,
+                        followsCount: 2,
+                        postsCount: 1,
+                    })
+                }
+                return Response.json({
+                    posts: [
+                        {
+                            uri: postUri,
+                            cid: 'bafy-api-cid',
+                            author: { did, handle: 'api.analytics.test' },
+                            likeCount: 1,
+                            replyCount: 0,
+                            repostCount: 2,
+                            quoteCount: 0,
+                            bookmarkCount: 4,
+                        },
+                    ],
+                })
+            },
+        })
+
+        try {
+            const cookie = await signUp(app, 'provider-analytics@herald.local')
+            const user = database.$client
+                .query<{ id: string }, [string]>('select id from user where email = ?1')
+                .get('provider-analytics@herald.local')
+            if (user === null || user === undefined) throw new Error('The auth user is missing')
+
+            const manual = createManualStore(database, { now: () => now })
+            const project = manual.createProject({
+                name: 'Provider analytics',
+                subjectId: user.id,
+                displayName: 'Analytics operator',
+            })
+            const channel = manual.createChannel({
+                projectId: project.project.id,
+                subjectId: user.id,
+                name: 'Bluesky channel',
+            })
+            if (channel === null) throw new Error('The analytics channel is missing')
+            const created = manual.createPost({
+                projectId: project.project.id,
+                subjectId: user.id,
+                sourceContent: {
+                    body: { text: 'Already published to Bluesky', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [{ channelId: channel.id }],
+            })
+            if (created === null) throw new Error('The analytics publication is missing')
+            const publicationId = created.publications[0]?.id
+            if (publicationId === undefined) throw new Error('The publication ID is missing')
+            const actor = database.$client
+                .query<{ id: string }, [string, string]>(
+                    'select id from actors where project_id = ?1 and subject_id = ?2 limit 1'
+                )
+                .get(project.project.id, user.id)
+            if (actor === null || actor === undefined)
+                throw new Error('The project actor is missing')
+
+            database.$client
+                .query(
+                    'insert into publisher_credentials ' +
+                        '(id, project_id, provider_id, external_account_id, external_account_name, scopes, state, connected_by_actor_id, revision, created_at, updated_at) ' +
+                        "values (?1, ?2, 'bluesky', ?3, ?4, ?5, 'revoked', ?6, 1, ?7, ?7)"
+                )
+                .run(
+                    'credential-1',
+                    project.project.id,
+                    did,
+                    'api.analytics.test',
+                    JSON.stringify(['atproto']),
+                    actor.id,
+                    now
+                )
+            database.$client
+                .query(
+                    'insert into publishers (id, project_id, channel_id, kind, created_at, updated_at) ' +
+                        "values (?1, ?2, ?3, 'bluesky', ?4, ?4)"
+                )
+                .run('publisher-1', project.project.id, channel.id, now)
+            database.$client
+                .query(
+                    'insert into publisher_connections ' +
+                        '(id, project_id, publisher_id, credential_id, destination_type, destination_id, destination_name, connected_by_actor_id, created_at, updated_at) ' +
+                        "values (?1, ?2, ?3, ?4, 'account', ?5, ?6, ?7, ?8, ?8)"
+                )
+                .run(
+                    'connection-1',
+                    project.project.id,
+                    'publisher-1',
+                    'credential-1',
+                    did,
+                    'api.analytics.test',
+                    actor.id,
+                    now
+                )
+            database.$client
+                .query('update publications set external_id = ?1 where id = ?2')
+                .run(postUri, publicationId)
+
+            const collectResponse = await request(
+                app,
+                '/api/projects/' + project.project.id + '/analytics/provider/bluesky/collect',
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ channelId: channel.id }),
+                }
+            )
+            expect(collectResponse.status).toBe(200)
+            const collection = (await collectResponse.json()) as {
+                inserted: number
+                duplicates: number
+                observations: Array<Record<string, unknown>>
+            }
+            expect(collection).toMatchObject({ inserted: 8, duplicates: 0 })
+            expect(collection.observations).toHaveLength(8)
+            expect(providerCalls).toBe(2)
+            expect(JSON.stringify(collection)).not.toContain('credential')
+            expect(
+                database.$client
+                    .query<{ access_token_ciphertext: Uint8Array | null }, [string]>(
+                        'select access_token_ciphertext from publisher_credentials where id = ?1'
+                    )
+                    .get('credential-1')?.access_token_ciphertext
+            ).toBeNull()
+
+            const readResponse = await request(
+                app,
+                '/api/projects/' + project.project.id + '/analytics/provider/bluesky',
+                cookie
+            )
+            expect(readResponse.status).toBe(200)
+            const read = (await readResponse.json()) as {
+                observations: Array<Record<string, unknown>>
+            }
+            expect(read.observations).toHaveLength(8)
+            expect(providerCalls).toBe(2)
+
+            const repeatResponse = await request(
+                app,
+                '/api/projects/' + project.project.id + '/analytics/provider/bluesky/collect',
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ channelId: channel.id }),
+                }
+            )
+            expect(repeatResponse.status).toBe(200)
+            expect(await repeatResponse.json()).toMatchObject({
+                inserted: 0,
+                duplicates: 8,
+            })
+            expect(providerCalls).toBe(4)
+
+            const operationalResponse = await request(
+                app,
+                '/api/projects/' + project.project.id + '/analytics',
+                cookie
+            )
+            expect(operationalResponse.status).toBe(200)
+            expect(JSON.stringify(await operationalResponse.json())).not.toContain('followersCount')
+        } finally {
+            closeDatabase(database)
+        }
+    })
+})

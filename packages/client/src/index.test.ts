@@ -30,6 +30,12 @@ describe('Herald client', () => {
         expect(client.api.projects({ projectId: 'project-1' }).channels.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).notifications.get).toBeFunction()
         expect(
+            client.api.projects({ projectId: 'project-1' }).analytics.provider.bluesky.get
+        ).toBeFunction()
+        expect(
+            client.api.projects({ projectId: 'project-1' }).analytics.provider.bluesky.collect.post
+        ).toBeFunction()
+        expect(
             client.api.projects({ projectId: 'project-1' }).notifications({
                 notificationId: 'notification-1',
             }).read.post

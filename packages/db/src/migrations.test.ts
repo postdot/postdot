@@ -144,6 +144,7 @@ describe('database migrations', () => {
                 'posts',
                 'project_access_tokens',
                 'projects',
+                'provider_analytics_observations',
                 'provider_media_deliveries',
                 'publication_execution_revision_media',
                 'publication_execution_revisions',
@@ -164,7 +165,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(20)
+            expect(migrationCount?.count).toBe(21)
         } finally {
             closeDatabase(database)
         }
@@ -203,10 +204,12 @@ describe('database migrations', () => {
             )
             database.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             database.$client.exec('DROP TABLE project_access_tokens')
+            database.$client.exec('DROP TABLE provider_analytics_observations')
             revertChannelLifecycleMigration(database)
             revertNotificationMigration(database)
             revertEventJournalMigration(database)
             unapplyMigrations(database, [
+                '0020_harsh_hairball',
                 '0019_flawless_greymalkin',
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',
@@ -279,10 +282,12 @@ describe('database migrations', () => {
             )
             staleDatabase.$client.exec('ALTER TABLE projects DROP COLUMN time_zone')
             staleDatabase.$client.exec('DROP TABLE project_access_tokens')
+            staleDatabase.$client.exec('DROP TABLE provider_analytics_observations')
             revertChannelLifecycleMigration(staleDatabase)
             revertNotificationMigration(staleDatabase)
             revertEventJournalMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
+                '0020_harsh_hairball',
                 '0019_flawless_greymalkin',
                 '0007_yellow_bastion',
                 '0008_daffy_marvel_boy',

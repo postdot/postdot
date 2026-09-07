@@ -9,6 +9,10 @@ import {
     mediaUploadIntentStates,
     notificationKinds,
     notificationSeverities,
+    providerAnalyticsAvailabilityStates,
+    providerAnalyticsHeraldEntityTypes,
+    providerAnalyticsFreshnessStates,
+    providerAnalyticsSubjectTypes,
     providerMediaDeliveryStates,
     publicationReviewStates,
     publicationStates,
@@ -26,6 +30,7 @@ import {
     foreignKey,
     index,
     integer,
+    real,
     sqliteTable,
     text,
     uniqueIndex,
@@ -1040,6 +1045,133 @@ export const publications = sqliteTable(
         check(
             'publications_nonfailure_has_no_error',
             sql`${table.state} in ('failed', 'ambiguous') or ${table.errorMessage} is null`
+        ),
+    ]
+)
+
+export const providerAnalyticsObservations = sqliteTable(
+    'provider_analytics_observations',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        provider: text('provider').notNull(),
+        subjectType: text('subject_type', { enum: providerAnalyticsSubjectTypes }).notNull(),
+        providerSubjectId: text('provider_subject_id').notNull(),
+        providerSubjectLabel: text('provider_subject_label'),
+        providerContentRevisionId: text('provider_content_revision_id'),
+        heraldEntityType: text('herald_entity_type', {
+            enum: providerAnalyticsHeraldEntityTypes,
+        }),
+        heraldEntityId: text('herald_entity_id'),
+        metricName: text('metric_name').notNull(),
+        value: real('value'),
+        unit: text('unit').notNull(),
+        aggregation: text('aggregation').notNull(),
+        reportingPeriodStart: integer('reporting_period_start'),
+        reportingPeriodEnd: integer('reporting_period_end'),
+        observedAt: integer('observed_at'),
+        fetchedAt: integer('fetched_at').notNull(),
+        availability: text('availability', {
+            enum: providerAnalyticsAvailabilityStates,
+        }).notNull(),
+        freshness: text('freshness', { enum: providerAnalyticsFreshnessStates }).notNull(),
+        provenance: text('provenance').notNull(),
+    },
+    table => [
+        uniqueIndex('provider_analytics_observations_project_id_id_uidx').on(
+            table.projectId,
+            table.id
+        ),
+        uniqueIndex('provider_analytics_observations_snapshot_uidx').on(
+            table.projectId,
+            table.provider,
+            table.subjectType,
+            table.providerSubjectId,
+            table.metricName,
+            table.fetchedAt
+        ),
+        index('provider_analytics_observations_project_subject_idx').on(
+            table.projectId,
+            table.provider,
+            table.subjectType,
+            table.providerSubjectId,
+            table.fetchedAt
+        ),
+        index('provider_analytics_observations_project_entity_idx').on(
+            table.projectId,
+            table.heraldEntityType,
+            table.heraldEntityId,
+            table.fetchedAt
+        ),
+        check(
+            'provider_analytics_observations_provider_nonblank',
+            sql`length(trim(${table.provider})) > 0`
+        ),
+        check(
+            'provider_analytics_observations_subject_id_nonblank',
+            sql`length(trim(${table.providerSubjectId})) > 0`
+        ),
+        check(
+            'provider_analytics_observations_subject_label_nonblank',
+            sql`${table.providerSubjectLabel} is null or length(trim(${table.providerSubjectLabel})) > 0`
+        ),
+        check(
+            'provider_analytics_observations_content_revision_nonblank',
+            sql`${table.providerContentRevisionId} is null or length(trim(${table.providerContentRevisionId})) > 0`
+        ),
+        check(
+            'provider_analytics_observations_entity_pair_valid',
+            sql`(${table.heraldEntityType} is null and ${table.heraldEntityId} is null)
+                or (${table.heraldEntityType} is not null
+                    and ${table.heraldEntityId} is not null
+                    and length(trim(${table.heraldEntityId})) > 0)`
+        ),
+        check(
+            'provider_analytics_observations_metric_nonblank',
+            sql`length(trim(${table.metricName})) > 0`
+        ),
+        check(
+            'provider_analytics_observations_unit_nonblank',
+            sql`length(trim(${table.unit})) > 0`
+        ),
+        check(
+            'provider_analytics_observations_aggregation_nonblank',
+            sql`length(trim(${table.aggregation})) > 0`
+        ),
+        check(
+            'provider_analytics_observations_provenance_nonblank',
+            sql`length(trim(${table.provenance})) > 0`
+        ),
+        check(
+            'provider_analytics_observations_value_valid',
+            sql`${table.value} is null or (${table.value} >= 0 and ${table.value} = ${table.value})`
+        ),
+        check(
+            'provider_analytics_observations_availability_value_valid',
+            sql`(${table.availability} = 'measured' and ${table.value} is not null)
+                or (${table.availability} <> 'measured' and ${table.value} is null)`
+        ),
+        check(
+            'provider_analytics_observations_period_valid',
+            sql`(${table.reportingPeriodStart} is null and ${table.reportingPeriodEnd} is null)
+                or (${table.reportingPeriodStart} is not null
+                    and ${table.reportingPeriodEnd} is not null
+                    and ${table.reportingPeriodStart} >= 0
+                    and ${table.reportingPeriodEnd} > ${table.reportingPeriodStart})`
+        ),
+        check(
+            'provider_analytics_observations_timestamps_valid',
+            sql`(${table.observedAt} is null or ${table.observedAt} >= 0)
+                and ${table.fetchedAt} >= 0`
+        ),
+        check(
+            'provider_analytics_observations_enum_valid',
+            sql`${table.subjectType} in ('account', 'content')
+                and (${table.heraldEntityType} is null or ${table.heraldEntityType} in ('channel', 'publication'))
+                and ${table.availability} in ('measured', 'not_reported', 'not_found', 'blocked', 'disabled', 'temporarily_unavailable', 'rate_limited', 'invalid_response', 'not_configured', 'not_authorized', 'not_supported')
+                and ${table.freshness} in ('fresh', 'stale', 'unknown')`
         ),
     ]
 )

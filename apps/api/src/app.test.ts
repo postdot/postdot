@@ -389,6 +389,8 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/notification-preferences',
                 '/api/projects/{projectId}/notification-preferences/{kind}',
                 '/api/projects/{projectId}/analytics',
+                '/api/projects/{projectId}/analytics/provider/bluesky',
+                '/api/projects/{projectId}/analytics/provider/bluesky/collect',
                 '/api/projects/{projectId}/audit-events',
                 '/api/projects/{projectId}/events',
             ])

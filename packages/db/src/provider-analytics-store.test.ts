@@ -1,0 +1,169 @@
+import { describe, expect, it } from 'bun:test'
+
+import { closeDatabase, createDatabase } from './client'
+import { createManualStore } from './manual-store'
+import { runMigrations } from './migrations'
+import { createProviderAnalyticsStore } from './provider-analytics-store'
+
+const now = 1_800_000_000_000
+const did = 'did:plc:provider-analytics'
+
+function observation(projectId: string, fetchedAt: number, value: number | null = 0) {
+    return {
+        projectId,
+        provider: 'bluesky',
+        subjectType: 'account' as const,
+        providerSubjectId: did,
+        providerSubjectLabel: 'analytics.test',
+        providerContentRevisionId: null,
+        heraldEntityType: 'channel' as const,
+        heraldEntityId: 'channel-1',
+        metricName: 'followersCount',
+        value,
+        unit: 'count',
+        aggregation: 'cumulative_snapshot',
+        reportingPeriodStart: null,
+        reportingPeriodEnd: null,
+        observedAt: null,
+        fetchedAt,
+        availability: value === null ? ('not_reported' as const) : ('measured' as const),
+        freshness: 'unknown' as const,
+        provenance: 'bluesky.public-api.v1',
+    }
+}
+
+describe('provider analytics store', () => {
+    it('records immutable snapshots, deduplicates a repeated fetch, and isolates projects', () => {
+        const database = createDatabase(':memory:')
+        try {
+            runMigrations(database)
+            const manual = createManualStore(database, { now: () => now })
+            const first = manual.createProject({
+                name: 'First analytics project',
+                subjectId: 'user-1',
+                displayName: 'First operator',
+            })
+            const second = manual.createProject({
+                name: 'Second analytics project',
+                subjectId: 'user-2',
+                displayName: 'Second operator',
+            })
+            const store = createProviderAnalyticsStore(database, {
+                createId: (() => {
+                    let sequence = 0
+                    return () => 'observation-' + ++sequence
+                })(),
+            })
+
+            const firstFetch = store.recordObservations({
+                projectId: first.project.id,
+                subjectId: 'user-1',
+                observations: [observation(first.project.id, now, 0)],
+            })
+            const duplicateFetch = store.recordObservations({
+                projectId: first.project.id,
+                subjectId: 'user-1',
+                observations: [observation(first.project.id, now, 0)],
+            })
+            const secondSnapshot = store.recordObservations({
+                projectId: first.project.id,
+                subjectId: 'user-1',
+                observations: [observation(first.project.id, now + 1_000, null)],
+            })
+
+            expect(firstFetch).toMatchObject({ inserted: 1, duplicates: 0 })
+            expect(duplicateFetch).toMatchObject({ inserted: 0, duplicates: 1 })
+            expect(secondSnapshot).toMatchObject({ inserted: 1, duplicates: 0 })
+            expect(secondSnapshot?.observations[0]).toMatchObject({
+                value: null,
+                availability: 'not_reported',
+                fetchedAt: now + 1_000,
+            })
+
+            const listed = store.listObservations({
+                projectId: first.project.id,
+                subjectId: 'user-1',
+                provider: 'bluesky',
+            })
+            expect(listed?.observations).toHaveLength(2)
+            expect(listed?.observations.map(item => item.fetchedAt)).toEqual([now + 1_000, now])
+            expect(
+                store.listObservations({
+                    projectId: first.project.id,
+                    subjectId: 'user-2',
+                    provider: 'bluesky',
+                })
+            ).toBeNull()
+            expect(
+                store.listObservations({
+                    projectId: second.project.id,
+                    subjectId: 'user-2',
+                    provider: 'bluesky',
+                })
+            ).toMatchObject({ observations: [] })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('lists only known provider publications and never discovers account content', () => {
+        const database = createDatabase(':memory:')
+        try {
+            runMigrations(database)
+            const manual = createManualStore(database, { now: () => now })
+            const project = manual.createProject({
+                name: 'Known content project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = manual.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Bluesky',
+            })
+            if (channel === null) throw new Error('The test channel is missing')
+            const created = manual.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Known provider content', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [{ channelId: channel.id }],
+            })
+            if (created === null) throw new Error('The test publication is missing')
+            const publicationId = created.publications[0]?.id
+            if (publicationId === undefined) throw new Error('The publication ID is missing')
+
+            database.$client
+                .query(
+                    'insert into publishers (id, project_id, channel_id, kind, created_at, updated_at) ' +
+                        "values (?1, ?2, ?3, 'bluesky', ?4, ?4)"
+                )
+                .run('publisher-1', project.project.id, channel.id, now)
+            database.$client
+                .query('update publications set external_id = ?1 where id = ?2')
+                .run('at://did:plc:provider-analytics/app.bsky.feed.post/3known', publicationId)
+
+            const store = createProviderAnalyticsStore(database)
+            expect(
+                store.listKnownProviderContent({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    provider: 'bluesky',
+                    channelId: channel.id,
+                })
+            ).toEqual([
+                {
+                    channelId: channel.id,
+                    heraldEntityType: 'publication',
+                    heraldEntityId: publicationId,
+                    providerSubjectId: 'at://did:plc:provider-analytics/app.bsky.feed.post/3known',
+                    providerSubjectLabel: null,
+                },
+            ])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+})

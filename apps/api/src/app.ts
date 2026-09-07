@@ -1,16 +1,19 @@
 import { openapi } from '@elysiajs/openapi'
 import type { HeraldAuth } from '@herald/auth'
+import type { BlueskyFetcher } from '@herald/bluesky'
 import {
     createManualStore,
     createAnalyticsStore,
     createEventJournalStore,
     createNotificationStore,
+    createProviderAnalyticsStore,
     type HeraldDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
     type ProjectAccessTokenStore,
     type NotificationStore,
     type AnalyticsStore,
+    type ProviderAnalyticsStore,
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
@@ -43,6 +46,9 @@ export interface HeraldAppOptions {
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications?: NotificationStore
     readonly analytics?: AnalyticsStore
+    readonly providerAnalytics?: ProviderAnalyticsStore
+    readonly blueskyAnalyticsFetcher?: BlueskyFetcher
+    readonly blueskyAnalyticsNow?: () => number
     readonly projectChanges?: ProjectRealtimeHub
 }
 
@@ -59,6 +65,9 @@ function createDomainApp({
     accessTokens,
     notifications,
     analytics,
+    providerAnalytics,
+    blueskyAnalyticsFetcher,
+    blueskyAnalyticsNow,
     projectChanges,
     discordFetcher,
     devtoFetcher,
@@ -77,6 +86,7 @@ function createDomainApp({
     const logger = logging?.enabled === true ? createHeraldLogger(logging) : undefined
     const notificationStore = notifications ?? createNotificationStore(database)
     const analyticsStore = analytics ?? createAnalyticsStore(database)
+    const providerAnalyticsStore = providerAnalytics ?? createProviderAnalyticsStore(database)
     const eventJournal = createEventJournalStore(database)
 
     return new Elysia({ name: 'herald-api' })
@@ -126,6 +136,10 @@ function createDomainApp({
                             name: 'Analytics',
                             description: 'Provider-neutral publication and execution analytics.',
                         },
+                        {
+                            name: 'Provider Analytics',
+                            description: 'Persisted provider-owned metric observations.',
+                        },
                     ],
                 },
                 path: '/openapi',
@@ -147,6 +161,9 @@ function createDomainApp({
                 accessTokens,
                 notifications: notificationStore,
                 analytics: analyticsStore,
+                providerAnalytics: providerAnalyticsStore,
+                blueskyAnalyticsFetcher,
+                blueskyAnalyticsNow,
                 eventJournal,
                 projectChanges,
             })
@@ -174,6 +191,9 @@ export function createApp({
     accessTokens,
     notifications,
     analytics,
+    providerAnalytics,
+    blueskyAnalyticsFetcher,
+    blueskyAnalyticsNow,
     projectChanges,
     discordFetcher,
     devtoFetcher,
@@ -191,6 +211,9 @@ export function createApp({
         accessTokens,
         notifications,
         analytics,
+        providerAnalytics,
+        blueskyAnalyticsFetcher,
+        blueskyAnalyticsNow,
         projectChanges,
         discordFetcher,
         devtoFetcher,

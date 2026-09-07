@@ -1,9 +1,11 @@
 import type { HeraldAuth } from '@herald/auth'
+import type { BlueskyFetcher } from '@herald/bluesky'
 import type {
     AnalyticsStore,
     EventJournalStore,
     MediaAssetStore,
     NotificationStore,
+    ProviderAnalyticsStore,
     ProjectAccessTokenStore,
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
@@ -15,10 +17,12 @@ import { registerMediaRoutes } from '../media/routes'
 import { registerProjectAccessTokenRoutes } from './access-token-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
 import { registerAuditEventRoutes } from './audit-event-routes'
+import { createBlueskyAnalyticsService } from './bluesky-analytics-service'
 import { registerChannelProfileRoutes } from './channel-profile-routes'
 import { registerChannelRoutes } from './channel-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
+import { registerProviderAnalyticsRoutes } from './provider-analytics-routes'
 import { registerPublicationRoutes } from './publication-routes'
 import { registerPublisherRoutes } from './publisher-routes'
 import { registerRealtimeRoutes } from './realtime-routes'
@@ -38,6 +42,9 @@ export interface ProjectModuleOptions {
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
+    readonly providerAnalytics: ProviderAnalyticsStore
+    readonly blueskyAnalyticsFetcher?: BlueskyFetcher
+    readonly blueskyAnalyticsNow?: () => number
     readonly eventJournal: EventJournalStore
     readonly projectChanges?: ProjectRealtimeHub
 }
@@ -63,7 +70,17 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media)
     const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
     const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)
-    const auditRoutes = registerAuditEventRoutes(analyticsRoutes, options.manualStore)
+    const providerAnalyticsRoutes = registerProviderAnalyticsRoutes(
+        analyticsRoutes,
+        options.providerAnalytics,
+        createBlueskyAnalyticsService({
+            providerAnalytics: options.providerAnalytics,
+            publisher: options.publisher,
+            fetcher: options.blueskyAnalyticsFetcher,
+            now: options.blueskyAnalyticsNow,
+        })
+    )
+    const auditRoutes = registerAuditEventRoutes(providerAnalyticsRoutes, options.manualStore)
     return registerRealtimeRoutes(
         auditRoutes,
         options.eventJournal,

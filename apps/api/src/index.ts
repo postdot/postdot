@@ -66,6 +66,8 @@ export type {
     PublicationResponse,
     PublicationSummaryResponse,
 } from './modules/projects/models'
+export type { BlueskyAnalyticsCollectionResponse } from './modules/projects/bluesky-analytics-service'
+export type { ProviderAnalyticsObservationPage } from '@herald/db'
 export type {
     NotificationInboxResponse,
     NotificationPreferenceResponse,

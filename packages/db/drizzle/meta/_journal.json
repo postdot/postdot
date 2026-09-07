@@ -141,6 +141,13 @@
             "when": 1788723947886,
             "tag": "0019_flawless_greymalkin",
             "breakpoints": true
+        },
+        {
+            "idx": 20,
+            "version": "6",
+            "when": 1788819590555,
+            "tag": "0020_harsh_hairball",
+            "breakpoints": true
         }
     ]
 }

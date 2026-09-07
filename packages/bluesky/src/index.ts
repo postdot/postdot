@@ -1,4 +1,5 @@
 export * from './channel-profile'
 export * from './contract'
+export * from './analytics'
 export * from './oauth'
 export * from './publisher'
