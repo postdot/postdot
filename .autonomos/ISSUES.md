@@ -1304,7 +1304,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   adapter, request real credentials, add a dashboard, or require a universal
   cross-provider engagement score. Provider metrics remain optional and
   provider-owned until their semantics and access requirements are documented.
-- Tasks: none
+- Tasks: ANALYTICS-109
 - Related issues: ISSUE-054, ISSUE-055
 - Related decisions: ADR-051
 - Research sources:
