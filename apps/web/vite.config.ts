@@ -20,7 +20,10 @@ export default defineConfig(({ mode }) => {
                 target: 'react',
                 autoCodeSplitting: true,
             }),
-            paraglideVitePlugin({ project: './project.inlang' }),
+            paraglideVitePlugin({
+                project: './project.inlang',
+                outdir: './src/paraglide',
+            }),
             react(),
             tailwindcss(),
         ],
