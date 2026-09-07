@@ -1248,7 +1248,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-055] Close historical analytics coverage gaps and measure read-model cost
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The first operational analytics read model now exposes explicit
   coverage gaps instead of inventing provider, schedule, or latency values.
   Facts written before the immutable metadata boundary can still lack provider
@@ -1269,6 +1269,18 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: ANALYTICS-110
 - Related issues: ISSUE-054
 - Related decisions: ADR-051
+- Resolution: ANALYTICS-110 added a repeatable isolated SQLite benchmark and
+  exercised 1,000, 5,000, and 20,000-publication histories. Legacy provider,
+  runtime, schedule, and latency gaps remain explicit in coverage counters;
+  unknown event versions and unsupported facts are skipped without being
+  fabricated. The query-time reader was tightened to stream current rows and
+  retain compact outcome state. The V1 contract remains query-time for now;
+  the 20,000-publication / 80,000-fact fixture measured roughly five seconds
+  and +177 MiB RSS, so larger interactive histories require a dedicated scale
+  decision rather than an implicit assumption.
+- Verification: `scripts/benchmark-analytics.ts`, the focused analytics test
+  suite, and the full repository gate. Follow-up scale work is tracked by
+  ISSUE-057 / ANALYTICS-111.
 
 ## [ISSUE-056] Define provider-owned engagement analytics without conflating operational metrics
 
@@ -1314,3 +1326,30 @@ channels` with a foreign-key constraint error even though a fresh empty database
   - https://docs.mixpost.app/guides/horizon/
   - https://docs.openpost.social/development/analytics
   - https://docs.openpo.st/usage/analytics
+
+## [ISSUE-057] Harden operational analytics reads for large project histories
+
+- Type: problem
+- Status: open
+- Evidence: ANALYTICS-110 measured the current operational analytics read model
+  on isolated SQLite fixtures. After streaming and compact-state improvements,
+  20,000 publications and 80,160 facts still required about 5 seconds for a
+  warm read and increased worker RSS by about 177 MiB. The 1,000-publication
+  fixture was about 234 ms median and the 5,000-publication fixture about 1.34
+  seconds median.
+- Impact: A large project can make the interactive analytics endpoint slow and
+  memory-heavy even though the response contract is correct. Adding a
+  projection blindly would introduce rebuild, cursor, retention, and
+  consistency complexity; leaving the boundary implicit risks a poor product
+  experience at realistic history sizes.
+- Desired outcome: Reduce the query-time aggregate cost with measured changes,
+  define the supported interactive history envelope, and then decide whether a
+  versioned replayable projection is justified by retention, refresh, and
+  concurrency requirements. The operational contract and truthful coverage
+  semantics must remain stable throughout.
+- Scope boundary: This issue does not add provider-owned engagement metrics,
+  change the analytics API contract, add a dashboard, or introduce a broker or
+  external service without a separately accepted decision.
+- Tasks: ANALYTICS-111
+- Related issues: ISSUE-054, ISSUE-055, ISSUE-056
+- Related decisions: ADR-051
