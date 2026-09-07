@@ -566,7 +566,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-025] Isolate concurrent local and test runtime resources
 
 - Type: problem
-- Status: accepted
+- Status: open
 - Evidence: The browser test configuration uses a shared temporary data root
   that startup and teardown remove, while development and E2E commands rely on
   conventional ports and local database/media paths.
@@ -1248,7 +1248,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-055] Close historical analytics coverage gaps and measure read-model cost
 
 - Type: problem
-- Status: open
+- Status: accepted
 - Evidence: The first operational analytics read model now exposes explicit
   coverage gaps instead of inventing provider, schedule, or latency values.
   Facts written before the immutable metadata boundary can still lack provider
