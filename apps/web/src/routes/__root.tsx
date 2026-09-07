@@ -1,6 +1,7 @@
 import { SolarProvider } from '@solar-icons/react'
 import { createRootRoute, Outlet } from '@tanstack/react-router'
 
+import { LanguageProvider } from '@/lib/i18n'
 import { ThemeProvider } from '@/lib/theme'
 
 export const Route = createRootRoute({
@@ -9,12 +10,14 @@ export const Route = createRootRoute({
 
 function RootLayout() {
     return (
-        <ThemeProvider>
-            <SolarProvider size={18} strokeWidth={1.5}>
-                <div className="min-h-screen bg-background text-foreground">
-                    <Outlet />
-                </div>
-            </SolarProvider>
-        </ThemeProvider>
+        <LanguageProvider>
+            <ThemeProvider>
+                <SolarProvider size={18} strokeWidth={1.5}>
+                    <div className="min-h-screen bg-background text-foreground">
+                        <Outlet />
+                    </div>
+                </SolarProvider>
+            </ThemeProvider>
+        </LanguageProvider>
     )
 }
