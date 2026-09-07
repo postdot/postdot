@@ -566,7 +566,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-025] Isolate concurrent local and test runtime resources
 
 - Type: problem
-- Status: open
+- Status: accepted
 - Evidence: The browser test configuration uses a shared temporary data root
   that startup and teardown remove, while development and E2E commands rely on
   conventional ports and local database/media paths.
@@ -1266,7 +1266,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   representative project histories have measured query-time latency and memory
   behavior; and the project can decide, using those results, whether a
   versioned replayable projection is justified behind the existing contract.
-- Tasks: none
+- Tasks: ANALYTICS-110
 - Related issues: ISSUE-054
 - Related decisions: ADR-051
 
