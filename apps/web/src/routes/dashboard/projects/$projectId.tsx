@@ -8,6 +8,7 @@ import {
     useDashboardGlobal,
     useProjectDashboard,
 } from '@/lib/dashboard-context'
+import { ProjectRealtimeProvider } from '@/lib/project-realtime'
 
 export const Route = createFileRoute('/dashboard/projects/$projectId')({
     loader: async ({ location, params }) => {
@@ -34,9 +35,11 @@ function ProjectDashboardRoute() {
     const { project, ...initialData } = Route.useLoaderData()
 
     return (
-        <ProjectDashboardProvider key={project.id} initialData={initialData} project={project}>
-            <ProjectDashboardFrame />
-        </ProjectDashboardProvider>
+        <ProjectRealtimeProvider key={project.id} projectId={project.id}>
+            <ProjectDashboardProvider initialData={initialData} project={project}>
+                <ProjectDashboardFrame />
+            </ProjectDashboardProvider>
+        </ProjectRealtimeProvider>
     )
 }
 

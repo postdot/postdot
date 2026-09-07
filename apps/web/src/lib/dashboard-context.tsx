@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
     createContext,
     useContext,
@@ -25,6 +26,7 @@ import {
     parseDateTimeLocal,
     type DateTimeLocalError,
 } from '@/lib/date-time'
+import { projectQueryKeys } from '@/lib/project-realtime'
 import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
@@ -154,7 +156,16 @@ export function ProjectDashboardProvider({
     readonly initialData: ProjectData
     readonly project: Project
 }) {
-    const [data, setData] = useState<ProjectData>(initialData)
+    const queryClient = useQueryClient()
+    const projectDataQuery = useQuery({
+        queryKey: projectQueryKeys.data(project.id),
+        queryFn: () => loadProjectData(project.id),
+        initialData,
+        staleTime: Number.POSITIVE_INFINITY,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+    })
+    const data = projectDataQuery.data ?? initialData
     const [postTitle, setPostTitle] = useState('')
     const [postContent, setPostContent] = useState('')
     const [sourceMedia, setSourceMedia] = useState<MediaSelection[]>([])
@@ -167,6 +178,12 @@ export function ProjectDashboardProvider({
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    function setProjectData(updater: (current: ProjectData) => ProjectData): void {
+        queryClient.setQueryData<ProjectData>(projectQueryKeys.data(project.id), current =>
+            updater(current ?? initialData)
+        )
+    }
+
     async function handleCreateChannel(
         name: string,
         profile: ChannelCreationProfile
@@ -175,7 +192,10 @@ export function ProjectDashboardProvider({
 
         return runAction(async () => {
             const response = await api.createChannel(project.id, name.trim(), profile)
-            setData(current => ({ ...current, channels: [...current.channels, response.channel] }))
+            setProjectData(current => ({
+                ...current,
+                channels: [...current.channels, response.channel],
+            }))
             setPublicationTargets(current =>
                 current.map((target, index) =>
                     index === 0 && target.channelId === ''
@@ -367,7 +387,7 @@ export function ProjectDashboardProvider({
                 name.trim(),
                 expectedRevision
             )
-            setData(current => ({
+            setProjectData(current => ({
                 ...current,
                 channels: current.channels.map(channel =>
                     channel.id === response.channel.id ? response.channel : channel
@@ -382,7 +402,7 @@ export function ProjectDashboardProvider({
     ): Promise<boolean> {
         return runAction(async () => {
             const response = await api.archiveChannel(project.id, channelId, expectedRevision)
-            setData(current => ({
+            setProjectData(current => ({
                 ...current,
                 channels: current.channels.map(channel =>
                     channel.id === response.channel.id ? response.channel : channel
@@ -402,7 +422,7 @@ export function ProjectDashboardProvider({
     ): Promise<boolean> {
         return runAction(async () => {
             const response = await api.restoreChannel(project.id, channelId, expectedRevision)
-            setData(current => ({
+            setProjectData(current => ({
                 ...current,
                 channels: current.channels.map(channel =>
                     channel.id === response.channel.id ? response.channel : channel
@@ -417,7 +437,7 @@ export function ProjectDashboardProvider({
     ): Promise<boolean> {
         return runAction(async () => {
             await api.deleteChannel(project.id, channelId, expectedRevision)
-            setData(current => ({
+            setProjectData(current => ({
                 ...current,
                 channels: current.channels.filter(channel => channel.id !== channelId),
             }))
@@ -431,8 +451,8 @@ export function ProjectDashboardProvider({
     }
 
     async function refreshProject() {
-        const nextData = await loadProjectData(project.id)
-        setData(nextData)
+        const result = await projectDataQuery.refetch()
+        const nextData = result.data ?? initialData
         setPublicationTargets(current => {
             const nextActiveChannelId = nextData.channels.find(
                 channel => channel.state === 'active'
@@ -465,11 +485,15 @@ export function ProjectDashboardProvider({
     }
 
     const activeChannels = data.channels.filter(channel => channel.state === 'active')
+    const dataError =
+        projectDataQuery.error === null || projectDataQuery.error === undefined
+            ? null
+            : formatApiError(projectDataQuery.error)
 
     const value: ProjectDashboardContextValue = {
         ...data,
         activeChannels,
-        error,
+        error: error ?? dataError,
         onArchiveChannel: handleArchiveChannel,
         onConnectCustomHttpPublisher: handleConnectCustomHttpPublisher,
         onCreateChannel: handleCreateChannel,

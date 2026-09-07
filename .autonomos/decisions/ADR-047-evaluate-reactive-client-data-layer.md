@@ -1,11 +1,11 @@
 # ADR-047 — Evaluate the Reactive Client Data Layer
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-07
-- Scope: isolated web prototype for project publications, queue, notifications,
-  unread state, and one derived attention view
+- Scope: initial web client data boundary for project publications, queue,
+  notifications, unread state, and derived views
 - Related issue: ISSUE-050
-- Related task: REALTIME-96
+- Related tasks: REALTIME-96, REALTIME-103
 
 ## Context
 
@@ -176,3 +176,10 @@ duplicated across selectors.
 - TanStack Query invalidation: https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation
 - TanStack Query invalidations from mutations: https://tanstack.com/query/latest/docs/framework/react/guides/invalidations-from-mutations
 - `ISSUE-050`: Keep notifications and project work views synchronized
+
+## Adoption
+
+The project owner accepted the TanStack Query recommendation before the
+production integration. REALTIME-103 adopts Query for the authenticated project
+cache and keeps the SSE transport as an invalidation signal; TanStack DB remains
+deferred pending a concrete normalized-join or optimistic-workflow need.
