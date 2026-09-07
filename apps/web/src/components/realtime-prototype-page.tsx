@@ -139,16 +139,13 @@ function QueryPrototype({
 
     useEffect(() => {
         adapter.start()
+        void adapter.load().catch(() => undefined)
         return () => adapter.dispose()
     }, [adapter])
 
     return (
         <QueryClientProvider client={adapter.queryClient}>
-            <QueryPrototypeContent
-                adapter={adapter}
-                connection={connection}
-                environment={environment}
-            />
+            <QueryPrototypeContent adapter={adapter} connection={connection} />
         </QueryClientProvider>
     )
 }
@@ -156,26 +153,12 @@ function QueryPrototype({
 function QueryPrototypeContent({
     adapter,
     connection,
-    environment,
 }: {
     readonly adapter: QueryRealtimeAdapter
     readonly connection: 'connected' | 'disconnected'
-    readonly environment: FixtureRealtimeEnvironment
 }) {
-    const publicationsQuery = useQuery({
-        queryKey: ['realtime-prototype', adapter.projectId, 'publications'],
-        queryFn: () => environment.source.listPublications(adapter.projectId),
-        staleTime: Number.POSITIVE_INFINITY,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-    })
-    const notificationsQuery = useQuery({
-        queryKey: ['realtime-prototype', adapter.projectId, 'notifications'],
-        queryFn: () => environment.source.listNotifications(adapter.projectId),
-        staleTime: Number.POSITIVE_INFINITY,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-    })
+    const publicationsQuery = useQuery(adapter.publicationsQuery)
+    const notificationsQuery = useQuery(adapter.notificationsQuery)
     const markRead = useMutation({
         mutationFn: (notificationId: string) => adapter.markNotificationRead(notificationId),
     })
@@ -196,7 +179,7 @@ function QueryPrototypeContent({
             onMarkRead={notificationId => markRead.mutate(notificationId)}
             pendingReadId={markRead.isPending ? markRead.variables : null}
             publications={publications}
-            metrics={environment.metrics.snapshot()}
+            metrics={adapter.metrics.snapshot()}
         />
     )
 }

@@ -18,10 +18,22 @@ import {
     RealtimeCoordinator,
 } from '@/lib/realtime-sync'
 
+export interface RealtimeQueryOptions<TData> {
+    readonly queryKey: QueryKey
+    readonly queryFn: () => Promise<TData>
+    readonly staleTime: number
+    readonly retry: number
+    readonly refetchOnWindowFocus: boolean
+    readonly refetchOnReconnect: boolean
+}
+
 export interface QueryRealtimeAdapter {
     readonly projectId: string
     readonly queryClient: QueryClient
     readonly coordinator: RealtimeCoordinator
+    readonly publicationsQuery: RealtimeQueryOptions<readonly RealtimePublication[]>
+    readonly notificationsQuery: RealtimeQueryOptions<readonly RealtimeNotification[]>
+    readonly metrics: RealtimeMetrics
     load(): Promise<void>
     start(): void
     stop(): void
@@ -117,6 +129,9 @@ export function createQueryRealtimeAdapter(options: {
         projectId: options.projectId,
         queryClient,
         coordinator,
+        publicationsQuery: publicationQuery,
+        notificationsQuery: notificationQuery,
+        metrics: options.metrics,
         load: async () => {
             await Promise.all([
                 queryClient.fetchQuery(publicationQuery),
