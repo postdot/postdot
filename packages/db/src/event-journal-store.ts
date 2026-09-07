@@ -32,8 +32,14 @@ export interface EventJournalStoreOptions {
     readonly createId?: () => string
 }
 
+export type EventJournalStore = ReturnType<typeof createEventJournalStore>
+
 export function parseEventJournalCursor(value: string): EventJournalCursor {
     return encodeCursor(decodeCursor(value as EventJournalCursor))
+}
+
+export function eventJournalCursorSequence(cursor: EventJournalCursor): number {
+    return decodeCursor(cursor)
 }
 
 interface EventJournalRow {
@@ -109,6 +115,11 @@ export function createEventJournalStore(
         order by sequence
         limit ?3
     `)
+    const latestSequenceStatement = client.query<{ readonly sequence: number | null }, []>(`
+        select seq as sequence
+        from sqlite_sequence
+        where name = 'audit_events'
+    `)
 
     return {
         append(input: AppendDomainEventInput): EventJournalEntry {
@@ -144,6 +155,11 @@ export function createEventJournalStore(
             return readStatement
                 .all(projectId, afterSequence, limit)
                 .map(row => toEventJournalEntry(row))
+        },
+
+        latestCursor(): EventJournalCursor | null {
+            const sequence = latestSequenceStatement.get()?.sequence ?? null
+            return sequence === null ? null : encodeCursor(sequence)
         },
     }
 }

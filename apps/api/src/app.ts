@@ -3,6 +3,7 @@ import type { HeraldAuth } from '@herald/auth'
 import {
     createManualStore,
     createAnalyticsStore,
+    createEventJournalStore,
     createNotificationStore,
     type HeraldDatabase,
     type ManualStoreOptions,
@@ -73,6 +74,7 @@ function createDomainApp({
     const logger = logging?.enabled === true ? createHeraldLogger(logging) : undefined
     const notificationStore = notifications ?? createNotificationStore(database)
     const analyticsStore = analytics ?? createAnalyticsStore(database)
+    const eventJournal = createEventJournalStore(database)
 
     return new Elysia({ name: 'herald-api' })
         .use(createBlueskyMetadataRoutes(publisher))
@@ -142,6 +144,7 @@ function createDomainApp({
                 accessTokens,
                 notifications: notificationStore,
                 analytics: analyticsStore,
+                eventJournal,
             })
         )
         .use(publicMediaRoutes)

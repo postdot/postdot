@@ -1,6 +1,7 @@
 import type { HeraldAuth } from '@herald/auth'
 import type {
     AnalyticsStore,
+    EventJournalStore,
     MediaAssetStore,
     NotificationStore,
     ProjectAccessTokenStore,
@@ -20,6 +21,7 @@ import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
 import { registerPublicationRoutes } from './publication-routes'
 import { registerPublisherRoutes } from './publisher-routes'
+import { registerRealtimeRoutes } from './realtime-routes'
 import { registerProjectRoutes } from './routes'
 import type { ManualStore, PublisherRuntime } from './types'
 
@@ -35,6 +37,7 @@ export interface ProjectModuleOptions {
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
+    readonly eventJournal: EventJournalStore
 }
 
 export function createProjectModule(options: ProjectModuleOptions) {
@@ -58,5 +61,6 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media)
     const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
     const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)
-    return registerAuditEventRoutes(analyticsRoutes, options.manualStore)
+    const auditRoutes = registerAuditEventRoutes(analyticsRoutes, options.manualStore)
+    return registerRealtimeRoutes(auditRoutes, options.eventJournal, options.notifications)
 }

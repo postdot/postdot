@@ -3,7 +3,11 @@ import { describe, expect, it } from 'bun:test'
 import { DomainInvariantError } from '@herald/core'
 
 import { closeDatabase, createDatabase } from './client'
-import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
+import {
+    createEventJournalStore,
+    eventJournalCursorSequence,
+    parseEventJournalCursor,
+} from './event-journal-store'
 import { runMigrations } from './migrations'
 
 function seedProject(database: ReturnType<typeof createDatabase>, suffix: string) {
@@ -51,8 +55,12 @@ describe('event journal store', () => {
             const first = store.append(eventInput(firstProject, 'first'))
             const second = store.append(eventInput(firstProject, 'second'))
             store.append(eventInput(secondProject, 'hidden'))
+            const hidden = store.readAfter({ projectId: secondProject.projectId })[0]
+            if (hidden === undefined) throw new Error('The hidden event was not persisted')
 
             expect(store.readAfter({ projectId: firstProject.projectId })).toEqual([first, second])
+            expect(store.latestCursor()).toBe(hidden.cursor)
+            expect(eventJournalCursorSequence(second.cursor)).toBe(2)
             expect(
                 store.readAfter({ projectId: firstProject.projectId, after: first.cursor })
             ).toEqual([second])
