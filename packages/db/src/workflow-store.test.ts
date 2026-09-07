@@ -369,17 +369,23 @@ describe('workflow store', () => {
                     fromState: 'pending',
                     toState: 'running',
                     leaseExpiresAt: dueAt + 60_000,
+                    deliveryMode: 'automatic',
+                    provider: 'test',
                     jobId: fixture.jobId,
                     attempt: 1,
                     occurredAt: dueAt,
+                    runAt: dueAt,
                 },
                 {
                     fromState: 'scheduled',
                     toState: 'publishing',
                     effectStartedAt: dueAt + 1,
+                    deliveryMode: 'automatic',
+                    provider: 'test',
                     jobId: fixture.jobId,
                     attempt: 1,
                     occurredAt: dueAt + 1,
+                    runAt: dueAt,
                 },
             ])
         } finally {

@@ -33,6 +33,9 @@ export function registerAnalyticsRoutes<const Routes extends Record<string, unkn
                 subjectId: user.id,
                 from: query.from,
                 to: query.to,
+                channelId: query.channelId,
+                provider: query.provider,
+                deliveryMode: query.deliveryMode,
             })
             return result === null
                 ? status(404, { error: { code: 'not_found', message: 'Project not found' } })

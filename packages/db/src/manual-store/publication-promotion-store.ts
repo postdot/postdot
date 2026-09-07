@@ -360,7 +360,16 @@ export function createPublicationPromotionStore(
                 action: 'publication.target_promoted',
                 entityType: 'publication',
                 entityId: input.publicationId,
-                metadataJson: JSON.stringify({ targetRevisionId, sequence, scheduledAt }),
+                metadataJson: JSON.stringify({
+                    targetRevisionId,
+                    sequence,
+                    scheduledAt,
+                    deliveryMode: publicationRow.deliveryMode,
+                    provider:
+                        publicationRow.deliveryMode === 'manual'
+                            ? 'manual'
+                            : channelRow.publisherKind,
+                }),
                 createdAt: timestamp,
             })
             const updated = options.loadPublication(input.projectId, input.publicationId)

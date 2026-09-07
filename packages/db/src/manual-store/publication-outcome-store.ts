@@ -205,6 +205,8 @@ export function createPublicationOutcomeStore(
                 metadataJson: JSON.stringify({
                     fromState: publication.state,
                     toState: ready.state,
+                    deliveryMode: 'manual',
+                    provider: 'manual',
                 }),
                 createdAt: timestamp,
             })
@@ -220,6 +222,8 @@ export function createPublicationOutcomeStore(
                     toState: published.state,
                     externalId: published.externalId,
                     externalUrl: published.externalUrl,
+                    deliveryMode: 'manual',
+                    provider: 'manual',
                 }),
                 createdAt: timestamp,
             })
@@ -297,6 +301,8 @@ export function createPublicationOutcomeStore(
                     externalId: reconciled.externalId,
                     externalUrl: reconciled.externalUrl,
                     errorMessage: reconciled.errorMessage,
+                    deliveryMode: reconciled.deliveryMode,
+                    provider: reconciled.deliveryMode === 'manual' ? 'manual' : null,
                 }),
                 createdAt: timestamp,
             })
