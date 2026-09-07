@@ -128,6 +128,7 @@
 - [x] **[REALTIME-105]** Establish the post-commit project signal boundary and remove normal realtime SQLite polling `Priority: 🟠` `Complexity: L`
 - [x] **[REALTIME-106]** Validate realtime restart, reconnect, zero-subscriber, and burst-load behavior `Priority: 🟠` `Complexity: M`
 - [x] **[ANALYTICS-107]** Define the analytics read model, measurements, and provider-data boundary `Priority: 🟠` `Complexity: L`
+- [x] **[ANALYTICS-108]** Implement the first operational analytics read model and API `Priority: 🟠` `Complexity: L`
 - [ ] **[DESIGN-97]** Recompose the notification inbox as a contextual non-blocking surface `Priority: 🔵` `Complexity: M`
 - [ ] **[DESIGN-98]** Reduce repeated explanatory UI copy and improve operational information density `Priority: 🔵` `Complexity: M`
 - [x] **[I18N-99]** Migrate authenticated web copy and locale-aware formatting to the localization boundary `Priority: 🟠` `Complexity: XL`
