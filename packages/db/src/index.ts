@@ -9,11 +9,16 @@ export type {
 } from './backup'
 export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
-export { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
+export {
+    createEventJournalStore,
+    eventJournalCursorSequence,
+    parseEventJournalCursor,
+} from './event-journal-store'
 export type {
     AppendDomainEventInput,
     EventJournalCursor,
     EventJournalEntry,
+    EventJournalStore,
     EventJournalStoreOptions,
     ReadEventJournalInput,
 } from './event-journal-store'

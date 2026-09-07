@@ -178,6 +178,18 @@ async function bearerRequest(
     )
 }
 
+async function readStreamChunk(response: Response) {
+    const reader = response.body?.getReader()
+    expect(reader).toBeDefined()
+    if (reader === undefined) throw new Error('The response body is not readable')
+    const result = await reader.read()
+    await reader.cancel()
+    return {
+        done: result.done,
+        text: result.value === undefined ? '' : new TextDecoder().decode(result.value),
+    }
+}
+
 describe('Herald API', () => {
     it('reports health publicly and mounts Better Auth', async () => {
         const { app, database } = createFixture()
@@ -378,6 +390,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/notification-preferences/{kind}',
                 '/api/projects/{projectId}/analytics',
                 '/api/projects/{projectId}/audit-events',
+                '/api/projects/{projectId}/events',
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
             expect(specification.paths['/ready']?.get?.operationId).toBe('getReadiness')
@@ -403,6 +416,9 @@ describe('Herald API', () => {
             expect(
                 specification.paths['/api/projects/{projectId}/access-tokens']?.post?.security
             ).toEqual([{ sessionCookie: [] }])
+            expect(specification.paths['/api/projects/{projectId}/events']?.get?.security).toEqual([
+                { sessionCookie: [] },
+            ])
             expect(
                 Object.keys(
                     specification.paths['/api/projects/{projectId}/access-tokens']?.post
@@ -598,6 +614,149 @@ describe('Herald API', () => {
                 kind: 'publication_failed',
                 inAppEnabled: false,
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('streams authenticated project updates with durable cursor replay and safe payloads', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'realtime-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Realtime project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const project = (await projectResponse.json()) as { project: { id: string } }
+            const projectId = project.project.id
+            const actor = database.$client
+                .query<{ id: string }, [string]>(
+                    `select id from actors where project_id = ?1 and kind = 'human'`
+                )
+                .get(projectId)
+            expect(actor).toBeDefined()
+            if (actor === null) throw new Error('The test human actor is missing')
+
+            const journal = createEventJournalStore(database)
+            const first = journal.append({
+                id: 'realtime-api-event-1',
+                projectId,
+                actorId: actor.id,
+                name: 'publication.execution.failed',
+                version: 1,
+                subject: { type: 'publication', id: 'publication-1' },
+                payload: {
+                    accessToken: 'provider-access-token-must-not-leak',
+                    refreshToken: 'provider-refresh-token-must-not-leak',
+                    providerResponse: 'provider-response-must-not-leak',
+                },
+                occurredAt: now,
+            })
+
+            const unauthenticatedResponse = await app.handle(
+                new Request(`${baseURL}/api/projects/${projectId}/events`)
+            )
+            expect(unauthenticatedResponse.status).toBe(401)
+
+            const firstResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/events`,
+                cookie
+            )
+            expect(firstResponse.status).toBe(200)
+            expect(firstResponse.headers.get('content-type')).toContain('text/event-stream')
+            const firstChunk = await readStreamChunk(firstResponse)
+            expect(firstChunk.text).toContain(`id: ${first.cursor}`)
+            expect(firstChunk.text).toContain(`"projectId":"${projectId}"`)
+            expect(firstChunk.text).toContain('"type":"publication.execution.failed"')
+            expect(firstChunk.text).toContain('"payload":{}')
+            expect(firstChunk.text).not.toContain('provider-access-token-must-not-leak')
+            expect(firstChunk.text).not.toContain('provider-refresh-token-must-not-leak')
+            expect(firstChunk.text).not.toContain('provider-response-must-not-leak')
+            expect(firstChunk.text).not.toContain(actor.id)
+
+            const second = journal.append({
+                id: 'realtime-api-event-2',
+                projectId,
+                actorId: actor.id,
+                name: 'publication.execution.succeeded',
+                version: 1,
+                subject: { type: 'publication', id: 'publication-2' },
+                payload: { providerResponse: 'another-sensitive-response' },
+                occurredAt: now + 1,
+            })
+            const replayResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/events`,
+                cookie,
+                { headers: { 'last-event-id': first.cursor } }
+            )
+            expect(replayResponse.status).toBe(200)
+            const replayChunk = await readStreamChunk(replayResponse)
+            expect(replayChunk.text).toContain(`id: ${second.cursor}`)
+            expect(replayChunk.text).not.toContain(`id: ${first.cursor}`)
+            expect(replayChunk.text).not.toContain('another-sensitive-response')
+
+            const invalidCursorResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/events`,
+                cookie,
+                { headers: { 'last-event-id': 'not-a-cursor' } }
+            )
+            expect(invalidCursorResponse.status).toBe(400)
+            expect(await invalidCursorResponse.json()).toEqual({
+                error: { code: 'invalid_cursor', message: 'The event stream cursor is invalid' },
+            })
+
+            const aheadCursorResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/events`,
+                cookie,
+                { headers: { 'last-event-id': 'event-sequence:999999' } }
+            )
+            expect(aheadCursorResponse.status).toBe(409)
+            expect(await aheadCursorResponse.json()).toEqual({
+                error: {
+                    code: 'cursor_ahead',
+                    message:
+                        'The event stream cursor is newer than the durable journal; refetch before retrying',
+                },
+            })
+
+            const otherCookie = await signUp(app, 'other-realtime-operator@herald.local')
+            const otherProjectResponse = await jsonRequest(app, '/api/projects', otherCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Other realtime project' }),
+            })
+            const otherProject = (await otherProjectResponse.json()) as {
+                project: { id: string }
+            }
+            const crossProjectResponse = await jsonRequest(
+                app,
+                `/api/projects/${otherProject.project.id}/events`,
+                cookie
+            )
+            expect(crossProjectResponse.status).toBe(404)
+
+            const tokenResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/access-tokens`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Realtime machine token' }),
+                }
+            )
+            expect(tokenResponse.status).toBe(201)
+            const tokenBody = (await tokenResponse.json()) as { token: string }
+            const bearerResponse = await bearerRequest(
+                app,
+                `/api/projects/${projectId}/events`,
+                tokenBody.token
+            )
+            expect(bearerResponse.status).toBe(403)
         } finally {
             closeDatabase(database)
         }
