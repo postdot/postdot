@@ -151,6 +151,46 @@ describe('project event stream', () => {
         expect(calls).toBe(callsAtClose)
     })
 
+    it('waits for a process wakeup instead of polling SQLite per connection', async () => {
+        const entry = journalEntry({ id: 'event-1', sequence: 1 })
+        let calls = 0
+        let releaseWakeup!: () => void
+        const wakeup = new Promise<void>(resolve => {
+            releaseWakeup = resolve
+        })
+        let entries: readonly EventJournalEntry[] = []
+        const stream = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: {
+                readAfter: () => {
+                    calls += 1
+                    const result = entries
+                    entries = []
+                    return result
+                },
+            },
+            projectChanges: {
+                waitForChange: () => wakeup,
+            },
+            after: null,
+            options: { pollIntervalMs: 1, heartbeatIntervalMs: 1_000, batchSize: 10 },
+        })
+
+        const reader = stream.getReader()
+        const pending = readText(reader)
+        await new Promise(resolve => setTimeout(resolve, 10))
+
+        expect(calls).toBe(1)
+        entries = [entry]
+        releaseWakeup()
+        const result = await pending
+        await reader.cancel()
+
+        expect(calls).toBeGreaterThanOrEqual(2)
+        expect(result.text).toContain('id: event-sequence:1')
+    })
+
     it('filters unsupported event versions and subject mismatches', () => {
         const unsupported = toProjectRealtimeEvent(
             journalEntry({ id: 'unsupported', name: 'publisher.secret_rotated', sequence: 1 })

@@ -22,6 +22,7 @@ import { registerPostRoutes } from './post-routes'
 import { registerPublicationRoutes } from './publication-routes'
 import { registerPublisherRoutes } from './publisher-routes'
 import { registerRealtimeRoutes } from './realtime-routes'
+import type { ProjectRealtimeHub } from './realtime-runtime'
 import { registerProjectRoutes } from './routes'
 import type { ManualStore, PublisherRuntime } from './types'
 
@@ -38,6 +39,7 @@ export interface ProjectModuleOptions {
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
     readonly eventJournal: EventJournalStore
+    readonly projectChanges?: ProjectRealtimeHub
 }
 
 export function createProjectModule(options: ProjectModuleOptions) {
@@ -62,5 +64,10 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
     const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)
     const auditRoutes = registerAuditEventRoutes(analyticsRoutes, options.manualStore)
-    return registerRealtimeRoutes(auditRoutes, options.eventJournal, options.notifications)
+    return registerRealtimeRoutes(
+        auditRoutes,
+        options.eventJournal,
+        options.notifications,
+        options.projectChanges
+    )
 }

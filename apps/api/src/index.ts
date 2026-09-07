@@ -3,6 +3,7 @@ import { createCustomHttpTransport, createNetworkControlledFetcher } from '@hera
 import {
     closeDatabase,
     createDatabase,
+    createEventJournalStore,
     createMediaAssetStore,
     createNotificationStore,
     createProjectAccessTokenStore,
@@ -19,6 +20,7 @@ import {
     createMediaReconciliationRuntime,
 } from './modules/media/runtime'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
+import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
 import { createBlueskyProviderAdapter } from './modules/workflow/providers/bluesky'
 import { createDevtoProviderAdapter } from './modules/workflow/providers/devto'
@@ -76,6 +78,11 @@ async function startServer(config = createHeraldConfig()) {
     const accessTokens = createProjectAccessTokenStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
+    const eventJournal = createEventJournalStore(database)
+    const realtime = createProjectRealtimeRuntime(eventJournal, {
+        onProjectsChanged: projectIds => notificationProjection.runProjects(projectIds),
+        onError: error => console.error('[herald-realtime] journal watcher failed', error),
+    })
     const media = createMediaAssetStore(database, createConfiguredMediaStore(config.media), {
         uploadIntentTtlMs: config.media.uploadIntentTtlMs,
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
@@ -150,6 +157,7 @@ async function startServer(config = createHeraldConfig()) {
         onWorkScheduled: worker.replan,
         accessTokens,
         notifications,
+        projectChanges: realtime.hub,
         runtime: {
             scheduler: worker.scheduler,
             mediaMaintenance,
@@ -174,6 +182,7 @@ async function startServer(config = createHeraldConfig()) {
         worker.stop()
         mediaMaintenance.stop()
         notificationProjection.stop()
+        realtime.stop()
         await app.stop()
         closeDatabase(database)
     }

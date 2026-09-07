@@ -16,6 +16,7 @@ export interface NotificationProjectionRuntime {
     start(): void
     stop(): void
     runNow(): void
+    runProjects(projectIds: readonly string[]): void
 }
 
 export interface NotificationProjectionRuntimeOptions {
@@ -38,12 +39,12 @@ export function createNotificationProjectionRuntime(
     let state: NotificationProjectionRuntimeState = 'idle'
     const handleError = options.onError ?? defaultNotificationProjectionErrorHandler
 
-    const project = () => {
+    const project = (projectIds?: readonly string[]) => {
         if (running) return
         running = true
         state = recoveryRequired ? 'recovering' : 'running'
         try {
-            for (const projectId of notifications.listProjectIds()) {
+            for (const projectId of projectIds ?? notifications.listProjectIds()) {
                 let batches = 0
                 let hasMore = false
                 do {
@@ -80,6 +81,9 @@ export function createNotificationProjectionRuntime(
             state = 'stopped'
         },
         runNow: project,
+        runProjects(projectIds: readonly string[]) {
+            project([...new Set(projectIds)])
+        },
     }
 }
 

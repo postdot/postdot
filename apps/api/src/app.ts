@@ -21,6 +21,7 @@ import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/r
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
 import { createProjectModule } from './modules/projects'
+import type { ProjectRealtimeHub } from './modules/projects/realtime-runtime'
 import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-routes'
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
@@ -42,6 +43,7 @@ export interface HeraldAppOptions {
     readonly accessTokens?: ProjectAccessTokenStore
     readonly notifications?: NotificationStore
     readonly analytics?: AnalyticsStore
+    readonly projectChanges?: ProjectRealtimeHub
 }
 
 function createDomainApp({
@@ -57,6 +59,7 @@ function createDomainApp({
     accessTokens,
     notifications,
     analytics,
+    projectChanges,
     discordFetcher,
     devtoFetcher,
 }: HeraldAppOptions) {
@@ -145,6 +148,7 @@ function createDomainApp({
                 notifications: notificationStore,
                 analytics: analyticsStore,
                 eventJournal,
+                projectChanges,
             })
         )
         .use(publicMediaRoutes)
@@ -170,6 +174,7 @@ export function createApp({
     accessTokens,
     notifications,
     analytics,
+    projectChanges,
     discordFetcher,
     devtoFetcher,
 }: HeraldAppOptions) {
@@ -186,6 +191,7 @@ export function createApp({
         accessTokens,
         notifications,
         analytics,
+        projectChanges,
         discordFetcher,
         devtoFetcher,
     }).use(createAuthRoutes(auth))

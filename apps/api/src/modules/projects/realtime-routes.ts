@@ -10,6 +10,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 
 import { sessionSecurity } from '../../plugins/auth'
 import { errorResponse, projectParams } from './models'
+import type { ProjectRealtimeHub } from './realtime-runtime'
 import type { AuthenticatedElysia } from './types'
 
 const supportedProjectEventSubjects = {
@@ -70,6 +71,7 @@ interface ProjectEventStreamInput {
     readonly projectId: string
     readonly journal: Pick<EventJournalStore, 'readAfter'>
     readonly after: EventJournalCursor | null
+    readonly projectChanges?: ProjectRealtimeHub
     readonly options?: ProjectEventStreamOptions
 }
 
@@ -102,7 +104,8 @@ const cursorAheadResponse = {
 export function registerRealtimeRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     journal: EventJournalStore,
-    notifications: NotificationStore
+    notifications: NotificationStore,
+    projectChanges?: ProjectRealtimeHub
 ) {
     return app.get(
         '/api/projects/:projectId/events',
@@ -167,6 +170,7 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                     projectId: params.projectId,
                     journal,
                     after,
+                    projectChanges,
                 }),
                 {
                     headers: {
@@ -207,6 +211,7 @@ export function createProjectEventStream({
     projectId,
     journal,
     after,
+    projectChanges,
     options,
 }: ProjectEventStreamInput): ReadableStream<Uint8Array> {
     const streamOptions = normalizeStreamOptions(options)
@@ -247,29 +252,6 @@ export function createProjectEventStream({
         } catch {
             // The reader may already have cancelled the stream.
         }
-    }
-
-    function waitForNextPoll(milliseconds: number): Promise<boolean> {
-        if (closed || request.signal.aborted) return Promise.resolve(false)
-
-        return new Promise(resolve => {
-            let settled = false
-            const timer = setTimeout(() => settle(true), milliseconds)
-            const onAbort = () => settle(false)
-
-            function settle(active: boolean) {
-                if (settled) return
-                settled = true
-                clearTimeout(timer)
-                request.signal.removeEventListener('abort', onAbort)
-                if (releaseWait === cancel) releaseWait = undefined
-                resolve(active)
-            }
-
-            const cancel = () => settle(false)
-            releaseWait = cancel
-            request.signal.addEventListener('abort', onAbort, { once: true })
-        })
     }
 
     return new ReadableStream<Uint8Array>({
@@ -343,9 +325,21 @@ export function createProjectEventStream({
                     return
                 }
 
-                const active = await waitForNextPoll(
-                    Math.min(streamOptions.pollIntervalMs, heartbeatAt - now)
-                )
+                const active = await waitForChangeOrHeartbeat({
+                    projectChanges,
+                    projectId,
+                    request,
+                    timeoutMs:
+                        projectChanges === undefined
+                            ? Math.min(streamOptions.pollIntervalMs, heartbeatAt - now)
+                            : heartbeatAt - now,
+                    setCancellation: cancel => {
+                        releaseWait = cancel
+                    },
+                    clearCancellation: cancel => {
+                        if (releaseWait === cancel) releaseWait = undefined
+                    },
+                })
                 if (!active && (closed || request.signal.aborted)) {
                     close(controller)
                     return
@@ -357,6 +351,80 @@ export function createProjectEventStream({
             releaseWait?.()
             releaseWait = undefined
         },
+    })
+}
+
+async function waitForChangeOrHeartbeat(input: {
+    readonly projectChanges: ProjectRealtimeHub | undefined
+    readonly projectId: string
+    readonly request: Request
+    readonly timeoutMs: number
+    readonly setCancellation: (cancel: () => void) => void
+    readonly clearCancellation: (cancel: () => void) => void
+}): Promise<boolean> {
+    const projectChanges = input.projectChanges
+    if (projectChanges === undefined) {
+        return waitForNextPoll(
+            input.request,
+            input.timeoutMs,
+            input.setCancellation,
+            input.clearCancellation
+        )
+    }
+    if (input.request.signal.aborted) return false
+
+    const waitController = new AbortController()
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    let settled = false
+
+    return new Promise(resolve => {
+        const cancel = () => finish(false)
+        const finish = (active: boolean) => {
+            if (settled) return
+            settled = true
+            if (timeout !== undefined) clearTimeout(timeout)
+            input.request.signal.removeEventListener('abort', onAbort)
+            input.clearCancellation(cancel)
+            waitController.abort()
+            resolve(active)
+        }
+        const onAbort = () => finish(false)
+
+        input.setCancellation(cancel)
+        timeout = setTimeout(() => finish(true), input.timeoutMs)
+        input.request.signal.addEventListener('abort', onAbort, { once: true })
+        void projectChanges
+            .waitForChange(input.projectId, waitController.signal)
+            .then(() => finish(true))
+            .catch(() => finish(true))
+    })
+}
+
+function waitForNextPoll(
+    request: Request,
+    milliseconds: number,
+    setCancellation: (cancel: () => void) => void,
+    clearCancellation: (cancel: () => void) => void
+): Promise<boolean> {
+    if (request.signal.aborted) return Promise.resolve(false)
+
+    return new Promise(resolve => {
+        let settled = false
+        const timer = setTimeout(() => settle(true), milliseconds)
+        const onAbort = () => settle(false)
+        const cancel = () => settle(false)
+
+        function settle(active: boolean) {
+            if (settled) return
+            settled = true
+            clearTimeout(timer)
+            request.signal.removeEventListener('abort', onAbort)
+            clearCancellation(cancel)
+            resolve(active)
+        }
+
+        setCancellation(cancel)
+        request.signal.addEventListener('abort', onAbort, { once: true })
     })
 }
 
