@@ -131,13 +131,28 @@ function MediaPreview({
     }
     return (
         <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground shadow-field">
-            {representation?.family?.slice(0, 3) ?? 'file'}
+            {representation?.family?.slice(0, 3) ?? m.media_file_type()}
         </span>
     )
 }
 
-function mediaStateLabel(state: string) {
-    if (state === 'failed') return m.media_state_failed()
-    if (state === 'ready') return m.media_state_ready()
-    return state
+function mediaStateLabel(state: MediaReference['asset']['state']) {
+    switch (state) {
+        case 'reserved':
+            return m.media_state_reserved()
+        case 'stored':
+            return m.media_state_stored()
+        case 'inspecting':
+            return m.media_state_inspecting()
+        case 'ready':
+            return m.media_state_ready()
+        case 'failed':
+            return m.media_state_failed()
+        case 'deletion_requested':
+            return m.media_state_deletion_requested()
+        case 'deleted':
+            return m.media_state_deleted()
+        default:
+            return m.media_state_unknown()
+    }
 }

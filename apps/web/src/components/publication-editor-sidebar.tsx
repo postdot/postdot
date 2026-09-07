@@ -103,7 +103,8 @@ export function PublicationEditorSidebar({
                     {m.editor_sidebar_profile_meta({
                         profile: editor.profile.profileId,
                         version: editor.profile.version,
-                        schema: editor.profile.profile.schemaHash ?? 'unhashed',
+                        schema:
+                            editor.profile.profile.schemaHash ?? m.editor_sidebar_schema_unhashed(),
                     })}
                 </p>
                 <div className="mt-5 space-y-3 text-sm">
@@ -116,7 +117,9 @@ export function PublicationEditorSidebar({
                                 {field.maxLength === null
                                     ? m.editor_sidebar_no_length_limit()
                                     : m.editor_sidebar_max_chars({ count: field.maxLength })}{' '}
-                                · {field.acceptedSourceFormats.join(', ') || 'No source format'}
+                                ·{' '}
+                                {field.acceptedSourceFormats.join(', ') ||
+                                    m.editor_sidebar_no_source_format()}
                             </p>
                         </div>
                     ))}

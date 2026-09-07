@@ -15,6 +15,7 @@ import { useEffect, useId, useState, type ChangeEvent } from 'react'
 import { MediaAssetCard } from '@/components/media-asset-card'
 import { api, formatApiError, type MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { MediaVerificationError } from '@/lib/media-errors'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -159,7 +160,9 @@ export function MediaAttachmentPicker({
                     size="default"
                     className={interactionDisabled ? 'pointer-events-none opacity-50' : ''}>
                     <UploadIcon aria-hidden="true" />
-                    {uploading === null ? 'Upload media' : `Uploading ${uploading}…`}
+                    {uploading === null
+                        ? m.media_upload()
+                        : m.media_uploading({ filename: uploading })}
                 </Button>
                 <input
                     id={inputId}
@@ -223,7 +226,7 @@ async function completeMediaUpload(projectId: string, intentId: string): Promise
     const finalized = await api.finalizeMediaUpload(projectId, intentId)
     if (finalized.status === 'ready') return finalized.media
     if (finalized.status === 'failed') {
-        throw new Error('media_verification_failed')
+        throw new MediaVerificationError(finalized.media)
     }
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -231,7 +234,7 @@ async function completeMediaUpload(projectId: string, intentId: string): Promise
         const media = await api.getMedia(projectId, finalized.media.asset.id)
         if (media.asset.state === 'ready') return media
         if (media.asset.state === 'failed') {
-            throw new Error('media_verification_failed')
+            throw new MediaVerificationError(media)
         }
     }
 
@@ -249,8 +252,13 @@ function delay(milliseconds: number) {
 }
 
 function errorMessage(error: unknown) {
-    if (error instanceof Error && error.message === 'media_verification_failed') {
-        return m.media_verification_failed()
+    if (error instanceof MediaVerificationError) {
+        if (error.detail === null) {
+            return error.code === 'media_verification_failed'
+                ? m.media_verification_failed()
+                : m.media_verification_failed_code({ code: error.code })
+        }
+        return m.media_verification_failed_detail({ code: error.code, detail: error.detail })
     }
     if (error instanceof Error && error.message === 'media_verification_pending') {
         return m.media_verification_pending()

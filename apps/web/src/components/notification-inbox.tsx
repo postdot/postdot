@@ -33,6 +33,7 @@ import {
 } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
+import { notificationContent } from '@/lib/notification-content'
 import * as m from '@/paraglide/messages.js'
 
 interface NotificationInboxProps {
@@ -344,7 +345,7 @@ function NotificationItem({
     readonly onMarkRead: (notification: Notification) => Promise<void>
 }) {
     const unread = notification.readAt === null
-    const copy = notificationCopy(notification.kind)
+    const copy = notificationContent(notification)
 
     return (
         <article
@@ -513,17 +514,4 @@ function preferenceCopy(kind: NotificationPreference['kind']) {
         label: m.notification_ambiguous_preference(),
         description: m.notification_ambiguous_preference_description(),
     }
-}
-
-function notificationCopy(kind: Notification['kind']) {
-    if (kind === 'publication_published') {
-        return { title: m.notification_published_title(), body: m.notification_published_body() }
-    }
-    if (kind === 'publication_failed') {
-        return { title: m.notification_failed_title(), body: m.notification_failed_body() }
-    }
-    if (kind === 'publication_ambiguous') {
-        return { title: m.notification_ambiguous_title(), body: m.notification_ambiguous_body() }
-    }
-    return { title: m.notification_default_title(), body: m.notification_default_body() }
 }
