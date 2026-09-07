@@ -11,9 +11,13 @@ import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { PublicationAttentionPanel } from '@/components/publication-attention-panel'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { formatNumber } from '@/lib/format'
+import { useLanguage } from '@/lib/i18n'
 import { filterQueuePublications, isQueueFilter, type QueueFilter } from '@/lib/publication-queue'
+import * as m from '@/paraglide/messages.js'
 
 export function PublicationQueuePage() {
+    const { locale } = useLanguage()
     const { due, onPublish, pending, project, publications } = useProjectDashboard()
     const [filter, setFilter] = useState<QueueFilter>('all')
     const duePublicationIds = new Set(due.map(publication => publication.id))
@@ -40,45 +44,71 @@ export function PublicationQueuePage() {
                             />
                         }>
                         <PenIcon aria-hidden="true" />
-                        New publication
+                        {m.overview_new_publication()}
                     </Button>
                 }
-                title="Queue">
+                title={m.queue_title()}>
                 <p className="mt-2 text-sm text-muted-foreground">
                     {project.name} · {project.timeZone}
                 </p>
             </DashboardPageHeader>
 
             <PublicationSummaryBar
-                ariaLabel="Queue summary"
+                ariaLabel={m.queue_summary()}
                 items={[
-                    { id: 'total', label: 'total', value: publications.length },
-                    { id: 'manual', label: 'manual', value: manualCount },
-                    { id: 'automatic', label: 'automatic', value: automaticCount },
-                    { attention: due.length > 0, id: 'due', label: 'due', value: due.length },
+                    { id: 'total', label: m.queue_publications(), value: publications.length },
+                    { id: 'manual', label: m.queue_manual(), value: manualCount },
+                    { id: 'automatic', label: m.overview_automatic(), value: automaticCount },
+                    {
+                        attention: due.length > 0,
+                        id: 'due',
+                        label: m.queue_attention(),
+                        value: due.length,
+                    },
                 ]}
             />
 
             <Tabs
-                aria-label="Queue filters"
+                aria-label={m.queue_filters()}
                 className="mt-6"
                 value={filter}
                 onValueChange={value => {
                     if (isQueueFilter(value)) setFilter(value)
                 }}>
                 <TabsList className="max-w-full overflow-x-auto" variant="line">
-                    <TabsTrigger aria-label={`All (${publications.length})`} value="all">
-                        All ({publications.length})
+                    <TabsTrigger
+                        aria-label={m.queue_filter_aria({
+                            label: m.queue_all(),
+                            count: publications.length,
+                        })}
+                        value="all">
+                        {m.queue_all()} ({formatNumber(publications.length, locale)})
                     </TabsTrigger>
-                    <TabsTrigger aria-label={`Needs attention (${due.length})`} value="attention">
-                        <span className="sm:hidden">Attention</span>
-                        <span className="hidden sm:inline">Needs attention</span> ({due.length})
+                    <TabsTrigger
+                        aria-label={m.queue_filter_aria({
+                            label: m.queue_attention(),
+                            count: due.length,
+                        })}
+                        value="attention">
+                        <span className="sm:hidden">{m.queue_attention()}</span>
+                        <span className="hidden sm:inline">{m.queue_attention()}</span> (
+                        {formatNumber(due.length, locale)})
                     </TabsTrigger>
-                    <TabsTrigger aria-label={`Scheduled (${scheduledCount})`} value="scheduled">
-                        Scheduled ({scheduledCount})
+                    <TabsTrigger
+                        aria-label={m.queue_filter_aria({
+                            label: m.queue_scheduled(),
+                            count: scheduledCount,
+                        })}
+                        value="scheduled">
+                        {m.queue_scheduled()} ({formatNumber(scheduledCount, locale)})
                     </TabsTrigger>
-                    <TabsTrigger aria-label={`Manual (${manualCount})`} value="manual">
-                        Manual ({manualCount})
+                    <TabsTrigger
+                        aria-label={m.queue_filter_aria({
+                            label: m.queue_manual(),
+                            count: manualCount,
+                        })}
+                        value="manual">
+                        {m.queue_manual()} ({formatNumber(manualCount, locale)})
                     </TabsTrigger>
                 </TabsList>
             </Tabs>
@@ -90,8 +120,8 @@ export function PublicationQueuePage() {
                 )}>
                 <section className="min-w-0">
                     <DashboardSectionHeading
-                        meta={`${visiblePublications.length} publication${visiblePublications.length === 1 ? '' : 's'}`}
-                        title="Publications"
+                        meta={m.common_publication_count({ count: visiblePublications.length })}
+                        title={m.queue_publications()}
                     />
                     <PublicationList
                         emptyDescription={queueEmptyDescription(filter)}
@@ -113,8 +143,8 @@ export function PublicationQueuePage() {
 }
 
 function queueEmptyDescription(filter: QueueFilter) {
-    if (filter === 'attention') return 'No manual publication needs a decision right now.'
-    if (filter === 'scheduled') return 'No publications have a scheduled delivery time yet.'
-    if (filter === 'manual') return 'No publications are waiting for manual delivery.'
-    return 'Compose a source post to start the queue.'
+    if (filter === 'attention') return m.queue_no_attention_description()
+    if (filter === 'scheduled') return m.queue_no_scheduled_description()
+    if (filter === 'manual') return m.queue_no_manual_description()
+    return m.queue_no_publications_description()
 }

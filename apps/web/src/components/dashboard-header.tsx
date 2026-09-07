@@ -14,6 +14,8 @@ import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Session } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface DashboardHeaderProps {
     readonly isPublicationRoute: boolean
@@ -34,6 +36,7 @@ export function DashboardHeader({
     sectionLabel,
     session,
 }: DashboardHeaderProps) {
+    useLanguage()
     const userInitial = session.user.name.trim().charAt(0).toUpperCase() || 'H'
 
     return (
@@ -41,14 +44,11 @@ export function DashboardHeader({
             data-dashboard-header="true"
             className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 bg-background/95 px-4 shadow-surface backdrop-blur-sm sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-2">
-                <SidebarTrigger
-                    aria-label="Toggle workspace navigation"
-                    title="Toggle workspace navigation"
-                />
+                <SidebarTrigger aria-label={m.nav_toggle()} title={m.nav_toggle()} />
                 <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
                 <div className="flex min-w-0 items-center gap-2 text-sm">
                     <span className="truncate text-muted-foreground">
-                        {isPublicationRoute ? 'Publication editor' : sectionLabel}
+                        {isPublicationRoute ? m.nav_publication_editor() : sectionLabel}
                     </span>
                     <span className="text-muted-foreground/50" aria-hidden="true">
                         /
@@ -67,7 +67,7 @@ export function DashboardHeader({
                     <DropdownMenuTrigger
                         render={
                             <Button
-                                aria-label="Open account menu"
+                                aria-label={m.nav_account_menu()}
                                 variant="ghost"
                                 className="h-auto gap-2 px-1.5 py-1.5"
                             />
@@ -86,7 +86,7 @@ export function DashboardHeader({
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={onSignOut} disabled={pending}>
                             <Logout2Icon aria-hidden="true" />
-                            Sign out
+                            {m.nav_sign_out()}
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

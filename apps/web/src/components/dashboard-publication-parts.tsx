@@ -13,12 +13,14 @@ import { Link } from '@tanstack/react-router'
 
 import type { PublicationSummary } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export type PublicationState = PublicationSummary['state']
 
 export function PublicationList({
-    emptyDescription = 'Compose a source post to start the queue.',
-    emptyTitle = 'No publications yet',
+    emptyDescription,
+    emptyTitle,
     publications,
     timeZone,
 }: {
@@ -27,6 +29,7 @@ export function PublicationList({
     readonly publications: readonly PublicationSummary[]
     readonly timeZone: string
 }) {
+    useLanguage()
     if (publications.length === 0) {
         return (
             <Empty className="mt-4 min-h-36 bg-muted">
@@ -34,8 +37,10 @@ export function PublicationList({
                     <EmptyMedia variant="icon">
                         <ListIcon aria-hidden="true" />
                     </EmptyMedia>
-                    <EmptyTitle>{emptyTitle}</EmptyTitle>
-                    <EmptyDescription>{emptyDescription}</EmptyDescription>
+                    <EmptyTitle>{emptyTitle ?? m.publication_empty_title()}</EmptyTitle>
+                    <EmptyDescription>
+                        {emptyDescription ?? m.publication_empty_description()}
+                    </EmptyDescription>
                 </EmptyHeader>
             </Empty>
         )
@@ -61,15 +66,16 @@ export function PublicationRow({
     readonly publication: PublicationSummary
     readonly timeZone: string
 }) {
+    const { locale } = useLanguage()
     return (
         <Link
             to="/dashboard/projects/$projectId/publications/$publicationId"
             params={{ projectId: publication.projectId, publicationId: publication.id }}
             className="group grid min-w-0 gap-4 rounded-md px-1 py-4 transition-[background-color] hover:bg-muted/35 sm:px-3 lg:grid-cols-[minmax(11rem,0.8fr)_minmax(0,1.3fr)_auto] lg:items-center lg:gap-7">
             <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Source post</p>
+                <p className="text-xs text-muted-foreground">{m.publication_source_post()}</p>
                 <h3 className="mt-1 truncate text-sm font-medium">
-                    {publication.postTitle ?? 'Untitled post'}
+                    {publication.postTitle ?? m.publication_untitled_post()}
                 </h3>
             </div>
             <div className="min-w-0 pl-0 lg:pl-3">
@@ -87,13 +93,17 @@ export function PublicationRow({
                     />
                     <span className="truncate text-sm font-medium">{publication.channelName}</span>
                     <span className="text-xs text-muted-foreground">
-                        {publication.deliveryMode === 'automatic' ? 'Automatic' : 'Manual'}
+                        {publication.deliveryMode === 'automatic'
+                            ? m.publication_automatic()
+                            : m.publication_manual()}
                     </span>
                     <PublicationStatus state={publication.state} />
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                    {formatSchedule(publication.scheduledAt, timeZone)}
-                    {publication.draftDiffersFromTarget ? ' · draft changes pending' : ''}
+                    {formatSchedule(publication.scheduledAt, timeZone, locale)}
+                    {publication.draftDiffersFromTarget
+                        ? ` · ${m.publication_draft_changes_pending()}`
+                        : ''}
                 </p>
             </div>
             <AltArrowRightIcon
@@ -111,7 +121,8 @@ export function PublicationStatus({
     readonly due?: boolean
     readonly state: PublicationState
 }) {
-    const label = due ? 'Due manual' : publicationStateLabel(state)
+    useLanguage()
+    const label = due ? m.publication_due_manual() : publicationStateLabel(state)
     return (
         <Badge
             variant="outline"
@@ -132,28 +143,28 @@ export function channelMarkerClass(profileId: string) {
 }
 
 export function channelProfileLabel(profileId: string) {
-    if (profileId === 'linkedin') return 'LinkedIn text'
-    if (profileId === 'bluesky') return 'Bluesky post'
-    if (profileId === 'mastodon') return 'Mastodon status'
-    if (profileId === 'discord') return 'Discord message'
-    if (profileId === 'devto') return 'DEV.to article'
-    if (profileId === 'manual-message') return 'Manual message'
+    if (profileId === 'linkedin') return m.channel_linkedin_profile()
+    if (profileId === 'bluesky') return m.channel_bluesky_profile()
+    if (profileId === 'mastodon') return m.channel_mastodon_profile()
+    if (profileId === 'discord') return m.channel_discord_profile()
+    if (profileId === 'devto') return m.channel_devto_profile()
+    if (profileId === 'manual-message') return m.channel_manual_profile()
     return profileId
 }
 
-export function formatSchedule(timestamp: number | null, timeZone = 'UTC') {
-    return formatProjectDateTime(timestamp, timeZone)
+export function formatSchedule(timestamp: number | null, timeZone = 'UTC', locale = 'en') {
+    return formatProjectDateTime(timestamp, timeZone, locale, m.publication_unscheduled())
 }
 
 export function publicationStateLabel(state: PublicationState) {
-    if (state === 'scheduled') return 'Queued'
-    if (state === 'ready') return 'Ready'
-    if (state === 'publishing') return 'Publishing'
-    if (state === 'published') return 'Published'
-    if (state === 'failed') return 'Failed'
-    if (state === 'ambiguous') return 'Needs review'
-    if (state === 'cancelled') return 'Cancelled'
-    return 'Draft'
+    if (state === 'scheduled') return m.publication_state_queued()
+    if (state === 'ready') return m.publication_state_ready()
+    if (state === 'publishing') return m.publication_state_publishing()
+    if (state === 'published') return m.publication_state_published()
+    if (state === 'failed') return m.publication_state_failed()
+    if (state === 'ambiguous') return m.publication_state_needs_review()
+    if (state === 'cancelled') return m.publication_state_cancelled()
+    return m.publication_state_draft()
 }
 
 function statusClass(state: PublicationState) {

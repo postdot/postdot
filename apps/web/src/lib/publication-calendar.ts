@@ -1,7 +1,16 @@
 import type { PublicationSummary } from '@/lib/api'
 import { getZonedDateTimeParts } from '@/lib/date-time'
 
-export const calendarWeekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
+export function calendarWeekdays(locale = 'en') {
+    const monday = Date.UTC(2021, 10, 1)
+    const formatter = new Intl.DateTimeFormat(locale, {
+        timeZone: 'UTC',
+        weekday: 'short',
+    })
+    return Array.from({ length: 7 }, (_, index) =>
+        formatter.format(new Date(monday + index * 86_400_000))
+    )
+}
 
 export interface CalendarDay {
     readonly date: Date
@@ -24,7 +33,8 @@ export function createCalendarMonth(
     cursor: Date,
     publications: readonly PublicationSummary[],
     today = new Date(),
-    timeZone = 'UTC'
+    timeZone = 'UTC',
+    locale = 'en'
 ): CalendarMonth {
     const year = cursor.getUTCFullYear()
     const month = cursor.getUTCMonth()
@@ -48,7 +58,7 @@ export function createCalendarMonth(
 
     return {
         days,
-        label: new Intl.DateTimeFormat('en-US', {
+        label: new Intl.DateTimeFormat(locale, {
             month: 'long',
             timeZone: 'UTC',
             year: 'numeric',

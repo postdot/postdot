@@ -72,7 +72,9 @@ async function measureLocale(locale: string): Promise<LocaleCoverage> {
         locale === settings.baseLocale
             ? []
             : baseKeys.filter(
-                  key => !missing.includes(key) && String(catalog[key]) === String(baseCatalog[key])
+                  key =>
+                      !missing.includes(key) &&
+                      serializeMessage(catalog[key]) === serializeMessage(baseCatalog[key])
               )
 
     return {
@@ -98,9 +100,15 @@ async function readCatalog(locale: string): Promise<MessageCatalog> {
 }
 
 function isEmptyMessage(value: unknown) {
-    return typeof value !== 'string' || value.trim().length === 0
+    if (typeof value === 'string') return value.trim().length === 0
+    if (!Array.isArray(value)) return true
+    return value.length === 0
 }
 
 function formatPercentage(value: number) {
     return `${(value * 100).toFixed(2)}%`
+}
+
+function serializeMessage(value: unknown) {
+    return typeof value === 'string' ? value : JSON.stringify(value)
 }

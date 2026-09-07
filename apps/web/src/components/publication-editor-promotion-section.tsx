@@ -4,6 +4,9 @@ import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field
 import { Input } from '@herald/ui/components/input'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
+
 interface PublicationEditorPromotionSectionProps {
     readonly timeZone: string
     readonly scheduleValue: string
@@ -23,6 +26,7 @@ export function PublicationEditorPromotionSection({
     onScheduleChange,
     onPromote,
 }: PublicationEditorPromotionSectionProps) {
+    useLanguage()
     return (
         <section className="min-w-0">
             <Card>
@@ -30,31 +34,29 @@ export function PublicationEditorPromotionSection({
                     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                         <div>
                             <p className="text-xs font-medium text-muted-foreground">
-                                Explicit promotion
+                                {m.editor_promotion_title()}
                             </p>
                             <h2 className="mt-2 font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                Choose what gets delivered
+                                {m.editor_promotion_heading()}
                             </h2>
                             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                                Autosave preserves your work. This action creates the immutable
-                                target revision used by manual delivery or the worker.
+                                {m.editor_promotion_autosave()}
                             </p>
                             {draftRequiresReview ? (
                                 <p className="mt-3 max-w-2xl text-sm leading-6 text-state-attention">
-                                    Resolve the profile validation issues before applying this draft
-                                    to the selected target.
+                                    {m.editor_promotion_review_detail()}
                                 </p>
                             ) : null}
                         </div>
                         <span className="text-sm text-muted-foreground">
                             {draftDiffersFromTarget
-                                ? 'Draft differs from selected target'
-                                : 'Draft matches selected target'}
+                                ? m.editor_draft_differs()
+                                : m.editor_draft_matches()}
                         </span>
                     </div>
                     <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end">
                         <Field className="min-w-0 flex-1 gap-1.5">
-                            <FieldLabel htmlFor="deliver-at">Deliver at</FieldLabel>
+                            <FieldLabel htmlFor="deliver-at">{m.editor_deliver_at()}</FieldLabel>
                             <Input
                                 id="deliver-at"
                                 type="datetime-local"
@@ -64,13 +66,13 @@ export function PublicationEditorPromotionSection({
                                 className="min-w-0"
                             />
                             <FieldDescription className="text-xs">
-                                Project time · {timeZone}. Clear the value to keep this publication
-                                as a draft.
+                                {m.editor_project_timezone({ timeZone })}.{' '}
+                                {m.editor_clear_draft_note()}
                             </FieldDescription>
                         </Field>
                         <Button className="sm:mb-5" onClick={onPromote} disabled={disabled}>
                             <CheckReadIcon aria-hidden="true" />
-                            Apply draft to target
+                            {m.editor_apply_draft()}
                         </Button>
                     </div>
                 </CardContent>

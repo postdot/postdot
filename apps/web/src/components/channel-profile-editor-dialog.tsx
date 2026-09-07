@@ -16,6 +16,8 @@ import { RefreshIcon } from '@solar-icons/react/bold/refresh'
 import { useEffect, useState } from 'react'
 
 import { api, formatApiError, type Channel, type ChannelProfileAssessment } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export function ChannelProfileEditorDialog({
     channel,
@@ -30,6 +32,7 @@ export function ChannelProfileEditorDialog({
     readonly open: boolean
     readonly pending: boolean
 }) {
+    useLanguage()
     const [profileText, setProfileText] = useState('')
     const [draftId, setDraftId] = useState<string | null>(null)
     const [draftRevision, setDraftRevision] = useState<number | undefined>(undefined)
@@ -74,12 +77,12 @@ export function ChannelProfileEditorDialog({
         try {
             const parsed: unknown = JSON.parse(profileText)
             if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-                setError('The profile must be a JSON object.')
+                setError(m.profile_must_be_object())
                 return
             }
             profile = parsed as Record<string, unknown>
         } catch {
-            setError('The profile is not valid JSON.')
+            setError(m.profile_invalid_json())
             return
         }
 
@@ -105,7 +108,7 @@ export function ChannelProfileEditorDialog({
 
     async function previewDraft() {
         if (draftId === null) {
-            setError('Save the draft before previewing its impact.')
+            setError(m.profile_save_before_preview())
             return
         }
         setSaving(true)
@@ -126,7 +129,7 @@ export function ChannelProfileEditorDialog({
 
     async function activateDraft() {
         if (draftId === null || assessment === null) {
-            setError('Preview the saved draft before activating it.')
+            setError(m.profile_preview_before_activate())
             return
         }
         setSaving(true)
@@ -153,16 +156,15 @@ export function ChannelProfileEditorDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[min(46rem,calc(100vh-2rem))] max-w-3xl overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Edit {currentChannel.name} profile</DialogTitle>
-                    <DialogDescription>
-                        Save a draft, inspect its impact, then activate it explicitly. An active
-                        profile is never replaced silently.
-                    </DialogDescription>
+                    <DialogTitle>
+                        {m.profile_editor_title({ channel: currentChannel.name })}
+                    </DialogTitle>
+                    <DialogDescription>{m.profile_editor_description()}</DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4">
                     <Field className="gap-1.5">
-                        <FieldLabel htmlFor="channel-profile-json">Profile JSON</FieldLabel>
+                        <FieldLabel htmlFor="channel-profile-json">{m.profile_json()}</FieldLabel>
                         <Textarea
                             id="channel-profile-json"
                             value={profileText}
@@ -172,15 +174,12 @@ export function ChannelProfileEditorDialog({
                             disabled={busy}
                             className="font-mono text-xs leading-5"
                         />
-                        <FieldDescription>
-                            The server validates the schema, bindings, capabilities, and execution
-                            contract before accepting the draft.
-                        </FieldDescription>
+                        <FieldDescription>{m.profile_json_description()}</FieldDescription>
                     </Field>
 
                     {error ? (
                         <Alert variant="destructive">
-                            <AlertTitle>Profile action failed</AlertTitle>
+                            <AlertTitle>{m.profile_action_failed()}</AlertTitle>
                             <AlertDescription>{error}</AlertDescription>
                         </Alert>
                     ) : null}
@@ -189,16 +188,19 @@ export function ChannelProfileEditorDialog({
                         <Alert variant={assessment.hasReviewRequired ? 'destructive' : 'default'}>
                             <AlertTitle>
                                 {assessment.hasReviewRequired
-                                    ? 'Review required before activation'
-                                    : 'Profile is ready to activate'}
+                                    ? m.profile_review_required()
+                                    : m.profile_ready()}
                             </AlertTitle>
                             <AlertDescription>
-                                {assessment.changes.length} profile change
-                                {assessment.changes.length === 1 ? '' : 's'} ·{' '}
-                                {assessment.workingDrafts.length} working draft impact
-                                {assessment.workingDrafts.length === 1 ? '' : 's'} ·{' '}
-                                {assessment.pendingTargets.length} pending target impact
-                                {assessment.pendingTargets.length === 1 ? '' : 's'}.
+                                {m.common_change_count({ count: assessment.changes.length })} ·{' '}
+                                {m.common_draft_impact_count({
+                                    count: assessment.workingDrafts.length,
+                                })}{' '}
+                                ·{' '}
+                                {m.common_target_impact_count({
+                                    count: assessment.pendingTargets.length,
+                                })}
+                                .
                             </AlertDescription>
                         </Alert>
                     ) : null}
@@ -212,7 +214,7 @@ export function ChannelProfileEditorDialog({
                             onClick={() => void saveDraft()}
                             disabled={busy}>
                             <CodeFileIcon aria-hidden="true" />
-                            Save draft
+                            {m.profile_save_draft()}
                         </Button>
                         <Button
                             type="button"
@@ -220,7 +222,7 @@ export function ChannelProfileEditorDialog({
                             onClick={() => void previewDraft()}
                             disabled={busy || draftId === null}>
                             <RefreshIcon aria-hidden="true" />
-                            Preview impact
+                            {m.profile_preview_impact()}
                         </Button>
                     </div>
                     <Button
@@ -228,7 +230,7 @@ export function ChannelProfileEditorDialog({
                         onClick={() => void activateDraft()}
                         disabled={busy || assessment === null || assessment.hasReviewRequired}>
                         <CheckReadIcon aria-hidden="true" />
-                        Activate profile
+                        {m.profile_activate()}
                     </Button>
                 </DialogFooter>
             </DialogContent>

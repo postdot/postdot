@@ -14,6 +14,8 @@ import { LinkIcon } from '@solar-icons/react/bold/link'
 import { useState } from 'react'
 
 import type { Channel } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface BlueskyConnectionDialogProps {
     readonly channel: Channel
@@ -26,6 +28,7 @@ export function BlueskyConnectionDialog({
     disabled,
     onConnect,
 }: BlueskyConnectionDialogProps) {
+    useLanguage()
     const [open, setOpen] = useState(false)
     const [handle, setHandle] = useState('')
     const [error, setError] = useState<string | null>(null)
@@ -38,7 +41,7 @@ export function BlueskyConnectionDialog({
     async function submit() {
         const normalizedHandle = handle.trim().replace(/^@+/, '')
         if (normalizedHandle === '') {
-            setError('Enter a Bluesky handle.')
+            setError(m.provider_handle_required())
             return
         }
 
@@ -50,7 +53,7 @@ export function BlueskyConnectionDialog({
         <>
             <Button size="sm" onClick={() => setOpen(true)} disabled={disabled}>
                 <AddIcon aria-hidden="true" />
-                Connect Bluesky
+                {m.provider_connect_title({ provider: 'Bluesky' })}
             </Button>
             <Dialog
                 open={open}
@@ -60,15 +63,14 @@ export function BlueskyConnectionDialog({
                 }}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Connect {channel.name}</DialogTitle>
-                        <DialogDescription>
-                            Enter the Bluesky handle that owns this account. Herald will open
-                            Bluesky&apos;s authorization page; no app password is required.
-                        </DialogDescription>
+                        <DialogTitle>
+                            {m.provider_connect_title({ provider: channel.name })}
+                        </DialogTitle>
+                        <DialogDescription>{m.provider_bluesky_description()}</DialogDescription>
                     </DialogHeader>
                     <Field className="gap-1.5">
                         <FieldLabel htmlFor={`bluesky-handle-${channel.id}`}>
-                            Bluesky handle
+                            {m.provider_handle()}
                         </FieldLabel>
                         <Input
                             id={`bluesky-handle-${channel.id}`}
@@ -76,12 +78,11 @@ export function BlueskyConnectionDialog({
                             autoComplete="username"
                             value={handle}
                             onChange={event => setHandle(event.target.value)}
-                            placeholder="saoudi-h.bsky.social"
+                            placeholder={m.provider_handle_placeholder()}
                             aria-describedby={`bluesky-handle-help-${channel.id}`}
                         />
                         <FieldDescription id={`bluesky-handle-help-${channel.id}`}>
-                            You can enter it with or without the @ prefix. Custom domains are
-                            supported.
+                            {m.provider_bluesky_help()}
                         </FieldDescription>
                     </Field>
                     {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -91,11 +92,11 @@ export function BlueskyConnectionDialog({
                             variant="ghost"
                             onClick={() => setOpen(false)}
                             disabled={disabled}>
-                            Cancel
+                            {m.common_cancel()}
                         </Button>
                         <Button type="button" onClick={() => void submit()} disabled={disabled}>
                             <LinkIcon aria-hidden="true" />
-                            Continue to Bluesky
+                            {m.provider_continue()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -3,7 +3,9 @@ import { HeraldLogo } from '@herald/ui/components/herald-logo'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 
-import { ApiError, api } from '@/lib/api'
+import { api, formatApiError } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/login')({
     component: LoginPage,
@@ -11,6 +13,7 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
     const navigate = useNavigate()
+    useLanguage()
     const [isSignUp, setIsSignUp] = useState(false)
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
@@ -31,11 +34,7 @@ function LoginPage() {
             }
             await navigate({ to: '/dashboard' })
         } catch (caughtError) {
-            setError(
-                caughtError instanceof ApiError
-                    ? caughtError.message
-                    : 'Authentication could not be completed'
-            )
+            setError(formatApiError(caughtError))
         } finally {
             setPending(false)
         }
@@ -48,19 +47,19 @@ function LoginPage() {
                     <HeraldLogo className="size-8" />
                 </div>
                 <p className="mt-8 text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-                    {isSignUp ? 'Create an account' : 'Welcome back'}
+                    {isSignUp ? m.auth_create_account() : m.auth_welcome_back()}
                 </p>
                 <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-                    {isSignUp ? 'Start your Herald workspace.' : 'Sign in to Herald.'}
+                    {isSignUp ? m.auth_start_workspace_title() : m.auth_sign_in_title()}
                 </h1>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                    Herald keeps automated and manual publications in one source of truth.
+                    {isSignUp ? m.auth_sign_up_description() : m.auth_sign_in_description()}
                 </p>
 
                 <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
                     {isSignUp ? (
                         <label className="grid gap-2 text-sm font-medium">
-                            Name
+                            {m.auth_name()}
                             <input
                                 required
                                 value={name}
@@ -70,7 +69,7 @@ function LoginPage() {
                         </label>
                     ) : null}
                     <label className="grid gap-2 text-sm font-medium">
-                        Email
+                        {m.auth_email()}
                         <input
                             required
                             type="email"
@@ -80,7 +79,7 @@ function LoginPage() {
                         />
                     </label>
                     <label className="grid gap-2 text-sm font-medium">
-                        Password
+                        {m.auth_password()}
                         <input
                             required
                             minLength={8}
@@ -98,7 +97,11 @@ function LoginPage() {
                         </p>
                     ) : null}
                     <Button className="w-full" size="lg" type="submit" disabled={pending}>
-                        {pending ? 'Working…' : isSignUp ? 'Create account' : 'Sign in'}
+                        {pending
+                            ? m.auth_working()
+                            : isSignUp
+                              ? m.auth_create_account_button()
+                              : m.auth_sign_in_button()}
                     </Button>
                 </form>
 
@@ -110,7 +113,7 @@ function LoginPage() {
                             setIsSignUp(value => !value)
                             setError(null)
                         }}>
-                        {isSignUp ? 'Already have an account?' : 'Need an account?'}
+                        {isSignUp ? m.auth_already_have_account() : m.auth_need_account()}
                     </button>
                 </div>
             </div>

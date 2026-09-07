@@ -14,6 +14,8 @@ import { LinkIcon } from '@solar-icons/react/bold/link'
 import { useState } from 'react'
 
 import type { Channel } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface DevtoConnectionDialogProps {
     readonly channel: Channel
@@ -26,6 +28,7 @@ export function DevtoConnectionDialog({
     disabled,
     onConnect,
 }: DevtoConnectionDialogProps) {
+    useLanguage()
     const [open, setOpen] = useState(false)
     const [apiKey, setApiKey] = useState('')
     const [error, setError] = useState<string | null>(null)
@@ -38,7 +41,7 @@ export function DevtoConnectionDialog({
     async function submit() {
         const normalized = apiKey.trim()
         if (normalized.length === 0 || /\s/.test(normalized)) {
-            setError('Enter a valid DEV.to API key.')
+            setError(m.provider_devto_api_key_required())
             return
         }
 
@@ -54,7 +57,7 @@ export function DevtoConnectionDialog({
         <>
             <Button size="sm" onClick={() => setOpen(true)} disabled={disabled}>
                 <AddIcon aria-hidden="true" />
-                Connect DEV.to
+                {m.provider_connect_devto()}
             </Button>
             <Dialog
                 open={open}
@@ -64,15 +67,14 @@ export function DevtoConnectionDialog({
                 }}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Connect {channel.name}</DialogTitle>
-                        <DialogDescription>
-                            DEV.to publishes through a project API key. The key is checked once,
-                            encrypted, and never shown again.
-                        </DialogDescription>
+                        <DialogTitle>
+                            {m.provider_connect_title({ provider: channel.name })}
+                        </DialogTitle>
+                        <DialogDescription>{m.provider_devto_description()}</DialogDescription>
                     </DialogHeader>
                     <Field className="gap-1.5">
                         <FieldLabel htmlFor={`devto-api-key-${channel.id}`}>
-                            DEV.to API key
+                            {m.provider_devto_api_key()}
                         </FieldLabel>
                         <Input
                             id={`devto-api-key-${channel.id}`}
@@ -84,8 +86,7 @@ export function DevtoConnectionDialog({
                             aria-describedby={`devto-api-key-help-${channel.id}`}
                         />
                         <FieldDescription id={`devto-api-key-help-${channel.id}`}>
-                            Create or copy the key from your DEV.to account settings. Herald uses it
-                            only to publish articles for this project channel.
+                            {m.provider_devto_api_key_help()}
                         </FieldDescription>
                         {error === null ? null : (
                             <p className="text-sm text-destructive" role="alert">
@@ -99,11 +100,11 @@ export function DevtoConnectionDialog({
                             variant="ghost"
                             onClick={() => setOpen(false)}
                             disabled={disabled}>
-                            Cancel
+                            {m.common_cancel()}
                         </Button>
                         <Button type="button" onClick={() => void submit()} disabled={disabled}>
                             <LinkIcon aria-hidden="true" />
-                            Connect DEV.to
+                            {m.provider_connect_devto()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

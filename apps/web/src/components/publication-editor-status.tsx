@@ -3,6 +3,8 @@ import { Button } from '@herald/ui/components/button'
 import { cn } from '@herald/ui/lib/utils'
 
 import type { PublicationEditorSaveState } from '@/components/publication-editor-sidebar'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface PublicationEditorStatusProps {
     readonly isRebasing: boolean
@@ -21,6 +23,7 @@ export function PublicationEditorStatus({
     onDiscardRecovery,
     onRestoreRecovery,
 }: PublicationEditorStatusProps) {
+    useLanguage()
     return (
         <>
             {message ? (
@@ -38,10 +41,10 @@ export function PublicationEditorStatus({
                     )}>
                     <AlertTitle>
                         {saveState === 'error'
-                            ? 'Save failed'
+                            ? m.editor_save_failed()
                             : saveState === 'conflict'
-                              ? 'Revision conflict'
-                              : 'Editor status'}
+                              ? m.editor_sidebar_conflict_title()
+                              : m.editor_status()}
                     </AlertTitle>
                     <AlertDescription>{message}</AlertDescription>
                 </Alert>
@@ -49,23 +52,21 @@ export function PublicationEditorStatus({
 
             {recoveryAvailable ? (
                 <div className="mt-4 flex flex-col gap-3 rounded-md bg-state-attention/10 px-4 py-3 text-sm ring-1 ring-state-attention/30 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-foreground">
-                        A local recovery copy is available from an earlier editor session.
-                    </p>
+                    <p className="text-foreground">{m.editor_recovery_available()}</p>
                     <div className="flex gap-2">
                         <Button
                             size="sm"
                             variant="secondary"
                             onClick={onRestoreRecovery}
                             disabled={isRebasing}>
-                            Restore local copy
+                            {m.editor_restore_recovery()}
                         </Button>
                         <Button
                             size="sm"
                             variant="ghost"
                             onClick={onDiscardRecovery}
                             disabled={isRebasing}>
-                            Discard local copy
+                            {m.editor_discard_recovery()}
                         </Button>
                     </div>
                 </div>
@@ -81,18 +82,19 @@ export function PublicationEditorSaveIndicator({
     readonly state: PublicationEditorSaveState
     readonly revision: number
 }) {
+    useLanguage()
     const label =
         state === 'saved'
-            ? 'Saved'
+            ? m.editor_saved()
             : state === 'saving'
-              ? 'Saving…'
+              ? m.editor_saving()
               : state === 'rebasing'
-                ? 'Rebasing…'
+                ? m.editor_rebasing()
                 : state === 'local_only'
-                  ? 'Local recovery only'
+                  ? m.editor_local_recovery()
                   : state === 'conflict'
-                    ? 'Conflict'
-                    : 'Save failed'
+                    ? m.editor_conflict()
+                    : m.editor_save_failed()
 
     return (
         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -103,7 +105,7 @@ export function PublicationEditorSaveIndicator({
                 )}
                 aria-hidden="true"
             />
-            {label} · draft revision {revision}
+            {label} · {m.editor_draft_revision({ revision })}
         </div>
     )
 }

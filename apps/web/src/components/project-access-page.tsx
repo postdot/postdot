@@ -19,10 +19,13 @@ import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-mini
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { ProjectAccessTokenList } from '@/components/project-access-token-list'
-import { ApiError, api, type ProjectAccessToken } from '@/lib/api'
+import { api, formatApiError, type ProjectAccessToken } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export function ProjectAccessPage() {
+    useLanguage()
     const { project } = useProjectDashboard()
     const [tokens, setTokens] = useState<ProjectAccessToken[] | null>(null)
     const [name, setName] = useState('')
@@ -90,7 +93,7 @@ export function ProjectAccessPage() {
             await navigator.clipboard.writeText(createdToken.token)
             setCopied(true)
         } catch {
-            setCopyError('Copying was unavailable. Copy the token manually.')
+            setCopyError(m.access_copy_unavailable())
         }
     }
 
@@ -116,19 +119,17 @@ export function ProjectAccessPage() {
                     />
                     <div className="min-w-0">
                         <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
-                            Project access
+                            {m.access_title()}
                         </h1>
                         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                            Create project-scoped tokens for scripts, agents, and CI. A token can
-                            use project operations, but it cannot manage access or start publisher
-                            OAuth.
+                            {m.access_page_description()}
                         </p>
                     </div>
                 </div>
 
                 {error ? (
                     <Alert className="mt-6" variant="destructive">
-                        <AlertTitle>Access action failed</AlertTitle>
+                        <AlertTitle>{m.access_action_failed()}</AlertTitle>
                         <AlertDescription>{error}</AlertDescription>
                     </Alert>
                 ) : null}
@@ -142,14 +143,13 @@ export function ProjectAccessPage() {
                                 <h2
                                     id="new-token-title"
                                     className="font-heading text-base font-medium">
-                                    Token created for {createdToken.name}
+                                    {m.access_token_created_for({ name: createdToken.name })}
                                 </h2>
                                 <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                                    This is the only time Herald will show the full token. Store it
-                                    in your secret manager before dismissing this message.
+                                    {m.access_token_show_once()}
                                 </p>
                             </div>
-                            <Badge variant="default">Shown once</Badge>
+                            <Badge variant="default">{m.access_token_shown_once()}</Badge>
                         </div>
                         <code className="mt-4 block overflow-x-auto bg-background px-3 py-3 text-xs leading-5 text-foreground shadow-field">
                             {createdToken.token}
@@ -162,14 +162,14 @@ export function ProjectAccessPage() {
                         <div className="mt-4 flex flex-wrap gap-2">
                             <Button type="button" size="sm" onClick={() => void handleCopy()}>
                                 <CopyIcon aria-hidden="true" />
-                                {copied ? 'Copied' : 'Copy token'}
+                                {copied ? m.access_token_copied() : m.access_token_copy()}
                             </Button>
                             <Button
                                 type="button"
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => setCreatedToken(null)}>
-                                Done
+                                {m.access_token_done()}
                             </Button>
                         </div>
                     </section>
@@ -177,29 +177,30 @@ export function ProjectAccessPage() {
 
                 <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
                     <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
-                        <h2 className="font-heading text-base font-medium">Create a token</h2>
+                        <h2 className="font-heading text-base font-medium">
+                            {m.access_create_section()}
+                        </h2>
                         <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                            Name the machine or workflow that will use this project boundary.
+                            {m.access_create_section_description()}
                         </p>
                         <form className="mt-5 grid gap-4" onSubmit={handleCreate}>
                             <Field className="gap-1.5">
-                                <FieldLabel htmlFor="project-access-token-name">Name</FieldLabel>
+                                <FieldLabel htmlFor="project-access-token-name">
+                                    {m.access_token_name()}
+                                </FieldLabel>
                                 <Input
                                     id="project-access-token-name"
                                     maxLength={100}
                                     required
                                     value={name}
                                     onChange={event => setName(event.target.value)}
-                                    placeholder="Release automation"
+                                    placeholder={m.access_token_name_placeholder()}
                                 />
-                                <FieldDescription>
-                                    Use a name that will still be meaningful when this token needs
-                                    to be revoked.
-                                </FieldDescription>
+                                <FieldDescription>{m.access_token_name_help()}</FieldDescription>
                             </Field>
                             <Button type="submit" disabled={pending}>
                                 <AddIcon aria-hidden="true" />
-                                Create token
+                                {m.access_create_button()}
                             </Button>
                         </form>
                     </section>
@@ -219,16 +220,16 @@ export function ProjectAccessPage() {
                 }}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Revoke this token?</DialogTitle>
+                        <DialogTitle>{m.access_revoke_title()}</DialogTitle>
                         <DialogDescription>
                             {tokenToRevoke
-                                ? `“${tokenToRevoke.name}” will stop authenticating immediately. Existing audit history is preserved.`
+                                ? m.access_revoke_detail({ token: tokenToRevoke.name })
                                 : null}
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <DialogClose render={<Button variant="ghost" disabled={pending} />}>
-                            Cancel
+                            {m.common_cancel()}
                         </DialogClose>
                         <Button
                             type="button"
@@ -236,7 +237,7 @@ export function ProjectAccessPage() {
                             disabled={pending}
                             onClick={() => void handleRevoke()}>
                             <TrashBinMinimalisticIcon aria-hidden="true" />
-                            Revoke token
+                            {m.access_revoke_button()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -246,5 +247,5 @@ export function ProjectAccessPage() {
 }
 
 function errorMessage(error: unknown) {
-    return error instanceof ApiError ? error.message : 'The action could not be completed'
+    return formatApiError(error)
 }

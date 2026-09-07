@@ -31,6 +31,9 @@ import {
     type NotificationInbox as NotificationInboxState,
     type NotificationPreference,
 } from '@/lib/api'
+import { formatDateTime } from '@/lib/format'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface NotificationInboxProps {
     readonly projectId: string | null
@@ -38,25 +41,8 @@ interface NotificationInboxProps {
 
 type NotificationPanel = 'inbox' | 'preferences'
 
-const preferenceCopy: Record<
-    NotificationPreference['kind'],
-    { readonly label: string; readonly description: string }
-> = {
-    publication_published: {
-        label: 'Successful publications',
-        description: 'Show a confirmation when Herald delivers a publication.',
-    },
-    publication_failed: {
-        label: 'Failed publications',
-        description: 'Show publications that could not be delivered and need attention.',
-    },
-    publication_ambiguous: {
-        label: 'Uncertain outcomes',
-        description: 'Show publications whose remote outcome needs reconciliation.',
-    },
-}
-
 export function NotificationInbox({ projectId }: NotificationInboxProps) {
+    const { locale } = useLanguage()
     const [open, setOpen] = useState(false)
     const [inbox, setInbox] = useState<NotificationInboxState | null>(null)
     const [panel, setPanel] = useState<NotificationPanel>('inbox')
@@ -207,13 +193,13 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
             <Button
                 aria-label={
                     unreadCount === 0
-                        ? 'Open notifications'
-                        : `Open notifications, ${unreadCount} unread`
+                        ? m.notifications_open()
+                        : m.notifications_open_unread({ count: unreadCount })
                 }
                 className="relative"
                 disabled={projectId === null}
                 size="icon-sm"
-                title="Notifications"
+                title={m.notifications_title()}
                 variant="ghost"
                 onClick={() => {
                     setPanel('inbox')
@@ -236,31 +222,33 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                 <div className="flex items-center gap-2">
                                     <DialogTitle>
                                         {panel === 'inbox'
-                                            ? 'Notifications'
-                                            : 'Notification preferences'}
+                                            ? m.notifications_title()
+                                            : m.notifications_preferences()}
                                     </DialogTitle>
                                     {panel === 'inbox' && unreadCount > 0 ? (
-                                        <Badge variant="secondary">{unreadCount} unread</Badge>
+                                        <Badge variant="secondary">
+                                            {m.notifications_unread({ count: unreadCount })}
+                                        </Badge>
                                     ) : null}
                                 </div>
                                 <DialogDescription className="mt-1">
                                     {panel === 'inbox'
-                                        ? 'Publication outcomes and project activity.'
-                                        : 'Choose which publication outcomes appear in this inbox.'}
+                                        ? m.notifications_dialog_description()
+                                        : m.notifications_preferences_description()}
                                 </DialogDescription>
                             </div>
                             <Button
                                 aria-label={
                                     panel === 'inbox'
-                                        ? 'Open notification preferences'
-                                        : 'Back to notifications'
+                                        ? m.notifications_preferences_open()
+                                        : m.notifications_back()
                                 }
                                 className="shrink-0"
                                 size="icon-sm"
                                 title={
                                     panel === 'inbox'
-                                        ? 'Notification preferences'
-                                        : 'Back to notifications'
+                                        ? m.notifications_preferences()
+                                        : m.notifications_back()
                                 }
                                 variant="ghost"
                                 onClick={() => {
@@ -292,7 +280,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => void loadInbox()}>
-                                Try again
+                                {m.common_try_again()}
                             </Button>
                         </div>
                     ) : null}
@@ -307,10 +295,9 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                         <EmptyMedia variant="icon">
                                             <BellIcon aria-hidden="true" />
                                         </EmptyMedia>
-                                        <EmptyTitle>No notifications</EmptyTitle>
+                                        <EmptyTitle>{m.notifications_empty()}</EmptyTitle>
                                         <EmptyDescription>
-                                            Publication outcomes and other project activity will
-                                            appear here.
+                                            {m.notifications_empty_description()}
                                         </EmptyDescription>
                                     </EmptyHeader>
                                 </Empty>
@@ -321,6 +308,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                             key={notification.id}
                                             disabled={workingId === notification.id}
                                             notification={notification}
+                                            locale={locale}
                                             onArchive={archive}
                                             onMarkRead={markRead}
                                         />
@@ -344,16 +332,19 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
 
 function NotificationItem({
     disabled,
+    locale,
     notification,
     onArchive,
     onMarkRead,
 }: {
     readonly disabled: boolean
     readonly notification: Notification
+    readonly locale: string
     readonly onArchive: (notification: Notification) => Promise<void>
     readonly onMarkRead: (notification: Notification) => Promise<void>
 }) {
     const unread = notification.readAt === null
+    const copy = notificationCopy(notification.kind)
 
     return (
         <article
@@ -372,41 +363,41 @@ function NotificationItem({
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                             <p className="text-sm leading-5 font-medium text-foreground">
-                                {notification.title}
+                                {copy.title}
                             </p>
                             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                {notification.body}
+                                {copy.body}
                             </p>
                         </div>
                         <time
                             className="shrink-0 text-[0.68rem] leading-4 text-muted-foreground"
                             dateTime={new Date(notification.createdAt).toISOString()}>
-                            {formatNotificationTime(notification.createdAt)}
+                            {formatNotificationTime(notification.createdAt, locale)}
                         </time>
                     </div>
 
                     <div className="mt-2 flex items-center gap-1">
                         {unread ? (
                             <Button
-                                aria-label={`Mark ${notification.title} as read`}
+                                aria-label={m.notifications_mark_as_read({ title: copy.title })}
                                 disabled={disabled}
                                 size="icon-xs"
-                                title="Mark as read"
+                                title={m.notifications_read_short()}
                                 variant="ghost"
                                 onClick={() => void onMarkRead(notification)}>
                                 <CheckReadIcon aria-hidden="true" />
-                                <span className="sr-only">Mark as read</span>
+                                <span className="sr-only">{m.notifications_read_short()}</span>
                             </Button>
                         ) : null}
                         <Button
-                            aria-label={`Archive ${notification.title}`}
+                            aria-label={m.notifications_archive_item({ title: copy.title })}
                             disabled={disabled}
                             size="icon-xs"
-                            title="Archive"
+                            title={m.notifications_archive_short()}
                             variant="ghost"
                             onClick={() => void onArchive(notification)}>
                             <ArchiveIcon aria-hidden="true" />
-                            <span className="sr-only">Archive</span>
+                            <span className="sr-only">{m.notifications_archive_short()}</span>
                         </Button>
                     </div>
                 </div>
@@ -417,7 +408,7 @@ function NotificationItem({
 
 function NotificationLoadingState() {
     return (
-        <div className="grid gap-2" aria-label="Loading notifications" role="status">
+        <div className="grid gap-2" aria-label={m.notifications_loading()} role="status">
             {[0, 1, 2].map(item => (
                 <div className="rounded-md bg-muted px-3.5 py-3" key={item}>
                     <div className="flex gap-3">
@@ -430,7 +421,7 @@ function NotificationLoadingState() {
                     </div>
                 </div>
             ))}
-            <span className="sr-only">Loading notifications</span>
+            <span className="sr-only">{m.notifications_loading()}</span>
         </div>
     )
 }
@@ -450,12 +441,12 @@ function NotificationPreferencesPanel({
         return (
             <div
                 className="grid gap-2 px-5 pb-5"
-                aria-label="Loading notification preferences"
+                aria-label={m.notifications_loading_preferences()}
                 role="status">
                 {[0, 1, 2].map(item => (
                     <div className="h-[4.75rem] animate-pulse rounded-md bg-muted" key={item} />
                 ))}
-                <span className="sr-only">Loading notification preferences</span>
+                <span className="sr-only">{m.notifications_loading_preferences()}</span>
             </div>
         )
     }
@@ -467,13 +458,12 @@ function NotificationPreferencesPanel({
             className="grid gap-2 px-5 pb-5"
             data-notification-preferences="true"
             role="group"
-            aria-label="Notification preferences">
+            aria-label={m.notifications_preferences_label()}>
             <p className="mb-2 text-xs leading-5 text-muted-foreground">
-                Disabled categories stay out of the inbox for future events. Existing notifications
-                are preserved.
+                {m.notifications_disabled_preserved()}
             </p>
             {preferences.map(preference => {
-                const copy = preferenceCopy[preference.kind]
+                const copy = preferenceCopy(preference.kind)
                 return (
                     <Field
                         className="rounded-md bg-surface-raised px-3.5 py-3 shadow-field"
@@ -484,7 +474,7 @@ function NotificationPreferencesPanel({
                             <FieldDescription>{copy.description}</FieldDescription>
                         </FieldContent>
                         <Switch
-                            aria-label={`${copy.label}: ${preference.inAppEnabled ? 'enabled' : 'disabled'}`}
+                            aria-label={`${copy.label}: ${preference.inAppEnabled ? m.notification_enabled() : m.notification_disabled()}`}
                             checked={preference.inAppEnabled}
                             disabled={workingKind === preference.kind}
                             onCheckedChange={checked => void onChange(preference, checked)}
@@ -502,9 +492,38 @@ function severityClass(notification: Notification) {
     return 'bg-state-published'
 }
 
-function formatNotificationTime(timestamp: number) {
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(timestamp)
+function formatNotificationTime(timestamp: number, locale: string) {
+    return formatDateTime(timestamp, 'UTC', locale)
+}
+
+function preferenceCopy(kind: NotificationPreference['kind']) {
+    if (kind === 'publication_published') {
+        return {
+            label: m.notification_published_preference(),
+            description: m.notification_published_preference_description(),
+        }
+    }
+    if (kind === 'publication_failed') {
+        return {
+            label: m.notification_failed_preference(),
+            description: m.notification_failed_preference_description(),
+        }
+    }
+    return {
+        label: m.notification_ambiguous_preference(),
+        description: m.notification_ambiguous_preference_description(),
+    }
+}
+
+function notificationCopy(kind: Notification['kind']) {
+    if (kind === 'publication_published') {
+        return { title: m.notification_published_title(), body: m.notification_published_body() }
+    }
+    if (kind === 'publication_failed') {
+        return { title: m.notification_failed_title(), body: m.notification_failed_body() }
+    }
+    if (kind === 'publication_ambiguous') {
+        return { title: m.notification_ambiguous_title(), body: m.notification_ambiguous_body() }
+    }
+    return { title: m.notification_default_title(), body: m.notification_default_body() }
 }

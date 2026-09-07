@@ -10,6 +10,8 @@ import {
     workspaceSectionLabel,
 } from '@/components/dashboard-sidebar'
 import type { Channel, Project, PublisherConnection, Session } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface DashboardShellProps {
     readonly children: ReactNode
@@ -47,11 +49,12 @@ export function DashboardShell({
     onProjectNameChange,
 }: DashboardShellProps) {
     const { pathname } = useLocation()
+    useLanguage()
     const scrollRegionRef = useRef<HTMLDivElement>(null)
     const isPublicationRoute = pathname.includes('/publications/')
     const activeSection = workspaceSection(pathname)
     const selectedProjectId = selectedProject?.id ?? null
-    const selectedProjectName = selectedProject?.name ?? 'No project selected'
+    const selectedProjectName = selectedProject?.name ?? m.nav_no_project_selected()
 
     useEffect(() => {
         scrollRegionRef.current?.scrollTo({ behavior: 'auto', left: 0, top: 0 })
@@ -96,7 +99,7 @@ export function DashboardShell({
                             <Alert
                                 variant="destructive"
                                 className="rounded-md border-state-failed/35 bg-state-failed/10">
-                                <AlertTitle>Workspace action failed</AlertTitle>
+                                <AlertTitle>{m.workspace_action_failed()}</AlertTitle>
                                 <AlertDescription>{error}</AlertDescription>
                             </Alert>
                         </div>

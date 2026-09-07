@@ -14,11 +14,13 @@ import { CloseIcon } from '@solar-icons/react/bold/close'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
 
 import type { Channel } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
 import {
     createPublicationTarget,
     type DeliveryMode,
     type PublicationTargetDraft,
 } from '@/lib/publication-authoring'
+import * as m from '@/paraglide/messages.js'
 
 interface PublicationTargetListProps {
     readonly channels: readonly Channel[]
@@ -35,6 +37,7 @@ export function PublicationTargetList({
     targets,
     timeZone,
 }: PublicationTargetListProps) {
+    useLanguage()
     function updateTarget(id: string, patch: Partial<PublicationTargetDraft>) {
         onChange(currentTargets =>
             currentTargets.map(target => (target.id === id ? { ...target, ...patch } : target))
@@ -71,7 +74,7 @@ export function PublicationTargetList({
 
             <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={addTarget}>
                 <AddIcon aria-hidden="true" />
-                Add destination
+                {m.compose_add_destination()}
             </Button>
         </div>
     )
@@ -96,20 +99,21 @@ function PublicationTargetCard({
     readonly target: PublicationTargetDraft
     readonly timeZone: string
 }) {
+    useLanguage()
     const channel = channels.find(candidate => candidate.id === target.channelId)
     const fieldPrefix = `publication-target-${target.id}`
-    const channelLabel = channel?.name ?? 'Choose a channel'
+    const channelLabel = channel?.name ?? m.compose_choose_channel()
     const copyHint =
         channel?.profileId === 'linkedin'
-            ? 'Optional LinkedIn commentary override. Leave empty to adapt the source.'
-            : 'Optional target-specific override. Leave empty to adapt the source.'
+            ? m.compose_linkedin_override()
+            : m.compose_target_override()
 
     return (
         <div className="space-y-4 rounded-md bg-background/70 p-4 shadow-field sm:p-5">
             <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                     <p className="text-xs font-medium text-muted-foreground">
-                        Destination {index + 1}
+                        {m.compose_destination({ index: String(index + 1) })}
                     </p>
                     <p className="mt-1 truncate text-sm font-medium">{channelLabel}</p>
                 </div>
@@ -118,7 +122,7 @@ function PublicationTargetCard({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={`Remove destination ${index + 1}`}
+                        aria-label={m.compose_remove_destination({ index: String(index + 1) })}
                         disabled={disabled}
                         onClick={onRemove}>
                         <CloseIcon aria-hidden="true" />
@@ -126,7 +130,7 @@ function PublicationTargetCard({
                 ) : null}
             </div>
 
-            <TargetField htmlFor={`${fieldPrefix}-channel`} label="Channel">
+            <TargetField htmlFor={`${fieldPrefix}-channel`} label={m.compose_channel()}>
                 <Select
                     required
                     items={Object.fromEntries(
@@ -136,7 +140,7 @@ function PublicationTargetCard({
                     onValueChange={value => onChange({ channelId: value ?? '' })}
                     disabled={disabled}>
                     <SelectTrigger id={`${fieldPrefix}-channel`}>
-                        <SelectValue placeholder="Select a channel" />
+                        <SelectValue placeholder={m.compose_choose_channel()} />
                     </SelectTrigger>
                     <SelectContent align="start">
                         {channels.map(candidate => (
@@ -148,24 +152,27 @@ function PublicationTargetCard({
                 </Select>
             </TargetField>
 
-            <TargetField htmlFor={`${fieldPrefix}-content`} label="Channel copy" hint={copyHint}>
+            <TargetField
+                htmlFor={`${fieldPrefix}-content`}
+                label={m.compose_channel_copy()}
+                hint={copyHint}>
                 <Textarea
                     id={`${fieldPrefix}-content`}
                     value={target.content}
                     disabled={disabled}
                     onChange={event => onChange({ content: event.target.value })}
-                    placeholder="Optional override"
+                    placeholder={m.compose_optional_override()}
                     rows={4}
                     className="min-h-28 leading-6"
                 />
             </TargetField>
 
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                <TargetField htmlFor={`${fieldPrefix}-delivery`} label="Delivery mode">
+                <TargetField htmlFor={`${fieldPrefix}-delivery`} label={m.compose_delivery_mode()}>
                     <Select
                         items={{
-                            manual: 'Manual publication',
-                            automatic: 'Automatic publication',
+                            manual: m.compose_manual_publication(),
+                            automatic: m.compose_automatic_publication(),
                         }}
                         value={target.deliveryMode}
                         onValueChange={value => onChange({ deliveryMode: value as DeliveryMode })}
@@ -174,15 +181,17 @@ function PublicationTargetCard({
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent align="start">
-                            <SelectItem value="manual">Manual publication</SelectItem>
-                            <SelectItem value="automatic">Automatic publication</SelectItem>
+                            <SelectItem value="manual">{m.compose_manual_publication()}</SelectItem>
+                            <SelectItem value="automatic">
+                                {m.compose_automatic_publication()}
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                 </TargetField>
                 <TargetField
                     htmlFor={`${fieldPrefix}-schedule`}
-                    label="Scheduled for"
-                    hint={`Project time · ${timeZone}`}>
+                    label={m.compose_scheduled_for()}
+                    hint={m.compose_project_time({ timeZone })}>
                     <Input
                         id={`${fieldPrefix}-schedule`}
                         required

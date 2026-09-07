@@ -28,6 +28,8 @@ import type { FormEvent, ReactNode } from 'react'
 
 import { DashboardProjectContext } from '@/components/dashboard-project-context'
 import type { Channel, Project, PublisherConnection } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 export type DashboardSection =
     | 'overview'
@@ -71,6 +73,7 @@ export function DashboardSidebar({
     publicationsCount,
     selectedProjectId,
 }: DashboardSidebarProps) {
+    useLanguage()
     const connectionsByChannel = new Map(
         publisherConnections.map(connection => [connection.channelId, connection])
     )
@@ -82,7 +85,7 @@ export function DashboardSidebar({
                     {selectedProjectId === null ? (
                         <Link
                             to="/dashboard"
-                            aria-label="Herald workspace"
+                            aria-label={m.nav_aria_label()}
                             className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75">
                             <HeraldLogo className="size-7" />
                         </Link>
@@ -90,7 +93,7 @@ export function DashboardSidebar({
                         <Link
                             to="/dashboard/projects/$projectId/overview"
                             params={{ projectId: selectedProjectId }}
-                            aria-label="Herald workspace"
+                            aria-label={m.nav_aria_label()}
                             className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary transition-[color,transform] hover:-translate-y-px hover:text-primary/75">
                             <HeraldLogo className="size-7" />
                         </Link>
@@ -98,7 +101,7 @@ export function DashboardSidebar({
                     <div className="min-w-0 group-data-[collapsible=icon]:hidden">
                         <p className="truncate text-sm font-semibold tracking-tight">Herald</p>
                         <p className="truncate text-xs text-muted-foreground">
-                            Publication manager
+                            {m.nav_publication_manager()}
                         </p>
                     </div>
                 </div>
@@ -118,28 +121,28 @@ export function DashboardSidebar({
 
             <SidebarContent>
                 <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                    <SidebarGroupLabel className="px-2">Work</SidebarGroupLabel>
+                    <SidebarGroupLabel className="px-2">{m.nav_work()}</SidebarGroupLabel>
                     <SidebarGroupContent>
-                        <nav aria-label="Work navigation">
+                        <nav aria-label={m.nav_work_navigation()}>
                             <SidebarMenu>
                                 <WorkspaceMenuItem
                                     active={activeSection === 'overview'}
                                     destination="overview"
                                     icon={<Widget2Icon aria-hidden="true" />}
-                                    label="Overview"
+                                    label={m.nav_overview()}
                                     projectId={selectedProjectId}
                                 />
                                 <WorkspaceMenuItem
                                     active={activeSection === 'calendar'}
                                     destination="calendar"
                                     icon={<CalendarMinimalisticIcon aria-hidden="true" />}
-                                    label="Calendar"
+                                    label={m.nav_calendar()}
                                     projectId={selectedProjectId}
                                 />
                                 <WorkspaceMenuItem
                                     destination="compose"
                                     icon={<PenIcon aria-hidden="true" />}
-                                    label="Compose"
+                                    label={m.nav_compose()}
                                     projectId={selectedProjectId}
                                     active={activeSection === 'compose'}
                                 />
@@ -147,7 +150,7 @@ export function DashboardSidebar({
                                     active={activeSection === 'queue' || isPublicationRoute}
                                     destination="queue"
                                     icon={<ListIcon aria-hidden="true" />}
-                                    label="Queue"
+                                    label={m.nav_queue()}
                                     projectId={selectedProjectId}
                                 />
                             </SidebarMenu>
@@ -156,28 +159,28 @@ export function DashboardSidebar({
                 </SidebarGroup>
 
                 <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                    <SidebarGroupLabel className="px-2">Project</SidebarGroupLabel>
+                    <SidebarGroupLabel className="px-2">{m.nav_project()}</SidebarGroupLabel>
                     <SidebarGroupContent>
-                        <nav aria-label="Project management navigation">
+                        <nav aria-label={m.nav_project_management_navigation()}>
                             <SidebarMenu>
                                 <WorkspaceMenuItem
                                     destination="channels"
                                     icon={<LinkIcon aria-hidden="true" />}
-                                    label="Channels"
+                                    label={m.nav_channels()}
                                     projectId={selectedProjectId}
                                     active={activeSection === 'channels'}
                                 />
                                 <WorkspaceMenuItem
                                     destination="media"
                                     icon={<GalleryIcon aria-hidden="true" />}
-                                    label="Media"
+                                    label={m.nav_media()}
                                     projectId={selectedProjectId}
                                     active={activeSection === 'media'}
                                 />
                                 <WorkspaceMenuItem
                                     destination="access"
                                     icon={<KeyMinimalisticIcon aria-hidden="true" />}
-                                    label="Access"
+                                    label={m.nav_access()}
                                     projectId={selectedProjectId}
                                     active={activeSection === 'access'}
                                 />
@@ -187,16 +190,20 @@ export function DashboardSidebar({
                 </SidebarGroup>
 
                 <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                    <SidebarGroupLabel className="px-2">Channels</SidebarGroupLabel>
+                    <SidebarGroupLabel className="px-2">{m.nav_channels()}</SidebarGroupLabel>
                     <SidebarGroupAction
-                        render={workspaceLink('channels', selectedProjectId, 'Manage channels')}
-                        title="Manage channels">
+                        render={workspaceLink(
+                            'channels',
+                            selectedProjectId,
+                            m.nav_manage_channels()
+                        )}
+                        title={m.nav_manage_channels()}>
                         <AddIcon aria-hidden="true" />
                     </SidebarGroupAction>
                     <SidebarGroupContent>
                         {channels.length === 0 ? (
                             <p className="px-2 py-2 text-xs leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
-                                No channels yet.
+                                {m.nav_no_channels()}.
                             </p>
                         ) : (
                             <SidebarMenu>
@@ -204,16 +211,16 @@ export function DashboardSidebar({
                                     const connection = connectionsByChannel.get(channel.id)
                                     const channelState =
                                         channel.state === 'archived'
-                                            ? 'Archived'
+                                            ? m.channel_archived()
                                             : channel.profileId === 'linkedin'
                                               ? connection?.state === 'active'
-                                                  ? 'Connected'
-                                                  : 'Needs connection'
+                                                  ? m.channel_connected()
+                                                  : m.channel_needs_connection()
                                               : connection?.state === 'active'
-                                                ? 'Connected'
+                                                ? m.channel_connected()
                                                 : channel.profileId === 'manual-message'
-                                                  ? 'Manual'
-                                                  : 'Needs connection'
+                                                  ? m.channel_manual()
+                                                  : m.channel_needs_connection()
 
                                     return (
                                         <SidebarMenuItem key={channel.id}>
@@ -247,13 +254,13 @@ export function DashboardSidebar({
             <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-2">
                 <div className="rounded-md bg-sidebar-accent px-3 py-3 text-xs text-muted-foreground shadow-surface group-data-[collapsible=icon]:hidden">
                     <div className="flex items-center justify-between gap-3">
-                        <span>Publications</span>
+                        <span>{m.nav_publications()}</span>
                         <span className="font-medium tabular-nums text-foreground">
                             {publicationsCount}
                         </span>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-3">
-                        <span>Needs attention</span>
+                        <span>{m.nav_needs_attention()}</span>
                         <span
                             className={cn(
                                 'font-medium tabular-nums',
@@ -269,9 +276,11 @@ export function DashboardSidebar({
                         <SidebarMenuButton
                             disabled={pending}
                             onClick={onSignOut}
-                            tooltip="Sign out">
+                            tooltip={m.nav_sign_out()}>
                             <Logout2Icon aria-hidden="true" />
-                            <span className="group-data-[collapsible=icon]:hidden">Sign out</span>
+                            <span className="group-data-[collapsible=icon]:hidden">
+                                {m.nav_sign_out()}
+                            </span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>
@@ -291,13 +300,13 @@ export function workspaceSection(pathname: string): DashboardSection {
 }
 
 export function workspaceSectionLabel(section: DashboardSection) {
-    if (section === 'calendar') return 'Calendar'
-    if (section === 'compose') return 'Compose'
-    if (section === 'queue') return 'Queue'
-    if (section === 'channels') return 'Channels'
-    if (section === 'media') return 'Media'
-    if (section === 'access') return 'Access'
-    return 'Overview'
+    if (section === 'calendar') return m.nav_calendar()
+    if (section === 'compose') return m.nav_compose()
+    if (section === 'queue') return m.nav_queue()
+    if (section === 'channels') return m.nav_channels()
+    if (section === 'media') return m.nav_media()
+    if (section === 'access') return m.nav_access()
+    return m.nav_overview()
 }
 
 function WorkspaceMenuItem({

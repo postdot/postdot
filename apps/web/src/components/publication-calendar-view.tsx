@@ -10,13 +10,12 @@ import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
 import { Link } from '@tanstack/react-router'
 
-import {
-    formatSchedule,
-    PublicationStatus,
-    publicationStateLabel,
-} from '@/components/dashboard-publication-parts'
+import { PublicationStatus, publicationStateLabel } from '@/components/dashboard-publication-parts'
 import type { DuePublication, PublicationSummary } from '@/lib/api'
+import { formatDayLabel, formatTime } from '@/lib/format'
+import { useLanguage } from '@/lib/i18n'
 import { calendarWeekdays, type CalendarDay, type CalendarMonth } from '@/lib/publication-calendar'
+import * as m from '@/paraglide/messages.js'
 
 export function PublicationCalendarMonth({
     duePublicationIds,
@@ -27,18 +26,19 @@ export function PublicationCalendarMonth({
     readonly month: CalendarMonth
     readonly projectId: string
 }) {
+    const { locale } = useLanguage()
     const weeks = Array.from({ length: 6 }, (_, index) =>
         month.days.slice(index * 7, index * 7 + 7)
     )
 
     return (
         <div
-            aria-label={`${month.label} calendar`}
+            aria-label={m.calendar_month_aria({ month: month.label })}
             className="hidden overflow-hidden rounded-lg bg-border shadow-surface md:block"
             data-calendar-view="month"
             role="grid">
             <div className="grid grid-cols-7 gap-px bg-border">
-                {calendarWeekdays.map(weekday => (
+                {calendarWeekdays(locale).map(weekday => (
                     <div
                         className="bg-muted px-3 py-2 text-[0.68rem] font-medium tracking-[0.02em] text-muted-foreground"
                         key={weekday}
@@ -64,8 +64,8 @@ export function PublicationCalendarMonth({
 
 export function PublicationCalendarAgenda({
     duePublicationIds,
-    emptyDescription = 'Schedule a destination to make it appear on the project calendar.',
-    emptyTitle = 'No scheduled publications',
+    emptyDescription,
+    emptyTitle,
     month,
 }: {
     readonly duePublicationIds: ReadonlySet<string>
@@ -73,6 +73,9 @@ export function PublicationCalendarAgenda({
     readonly emptyTitle?: string
     readonly month: CalendarMonth
 }) {
+    const { locale } = useLanguage()
+    const resolvedDescription = emptyDescription ?? m.calendar_no_scheduled_description()
+    const resolvedTitle = emptyTitle ?? m.calendar_no_scheduled()
     const days = month.days.filter(day => day.isCurrentMonth && day.publications.length > 0)
 
     return (
@@ -85,11 +88,10 @@ export function PublicationCalendarAgenda({
                             key={day.dateKey}>
                             <div className="flex items-baseline justify-between gap-3">
                                 <h2 className="font-heading text-base font-[580] tracking-[-0.025em]">
-                                    {formatDayLabel(day.date)}
+                                    {formatDayLabel(day.date, locale)}
                                 </h2>
                                 <span className="text-xs tabular-nums text-muted-foreground">
-                                    {day.publications.length}{' '}
-                                    {day.publications.length === 1 ? 'publication' : 'publications'}
+                                    {m.common_publication_count({ count: day.publications.length })}
                                 </span>
                             </div>
                             <div className="mt-3 divide-y divide-border/70">
@@ -106,7 +108,7 @@ export function PublicationCalendarAgenda({
                     ))}
                 </div>
             ) : (
-                <CalendarEmptyState description={emptyDescription} title={emptyTitle} />
+                <CalendarEmptyState description={resolvedDescription} title={resolvedTitle} />
             )}
         </div>
     )
@@ -114,21 +116,24 @@ export function PublicationCalendarAgenda({
 
 export function CalendarEmptyState({
     className,
-    description = 'Schedule a destination to make it appear on the project calendar.',
-    title = 'No scheduled publications',
+    description,
+    title,
 }: {
     readonly className?: string
     readonly description?: string
     readonly title?: string
 }) {
+    useLanguage()
     return (
         <Empty className={cn('min-h-44 bg-muted shadow-surface', className)}>
             <EmptyHeader>
                 <EmptyMedia variant="icon">
                     <CalendarMinimalisticIcon aria-hidden="true" />
                 </EmptyMedia>
-                <EmptyTitle>{title}</EmptyTitle>
-                <EmptyDescription>{description}</EmptyDescription>
+                <EmptyTitle>{title ?? m.calendar_no_scheduled()}</EmptyTitle>
+                <EmptyDescription>
+                    {description ?? m.calendar_no_scheduled_description()}
+                </EmptyDescription>
             </EmptyHeader>
         </Empty>
     )
@@ -145,6 +150,7 @@ function CalendarDayCell({
     readonly projectId: string
     readonly timeZone: string
 }) {
+    const { locale } = useLanguage()
     const content = (
         <>
             <div className="flex items-center justify-between gap-2">
@@ -182,9 +188,13 @@ function CalendarDayCell({
 
     if (day.publications.length === 0) {
         return (
-            <div aria-label={`Create publication on ${formatDayLabel(day.date)}`} role="gridcell">
+            <div
+                aria-label={m.calendar_create_on({ date: formatDayLabel(day.date, locale) })}
+                role="gridcell">
                 <Link
-                    aria-label={`Create publication on ${formatDayLabel(day.date)}`}
+                    aria-label={m.calendar_create_on({
+                        date: formatDayLabel(day.date, locale),
+                    })}
                     className="-m-2.5 block min-h-24 rounded-none p-2.5 transition-[background-color] hover:bg-primary/[0.06] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
                     params={{ projectId }}
                     search={{ date: day.dateKey }}
@@ -197,7 +207,10 @@ function CalendarDayCell({
 
     return (
         <div
-            aria-label={`${formatDayLabel(day.date)}${day.publications.length === 0 ? '' : `, ${day.publications.length} publications`}`}
+            aria-label={m.calendar_day_aria({
+                date: formatDayLabel(day.date, locale),
+                count: m.common_publication_count({ count: day.publications.length }),
+            })}
             className={cellClassName}
             role="gridcell">
             {content}
@@ -216,18 +229,32 @@ function CalendarPublicationLink({
     readonly publication: PublicationSummary
     readonly timeZone: string
 }) {
-    const title = publication.postTitle ?? 'Untitled post'
-    const state = due ? 'Due manual' : publicationStateLabel(publication.state)
+    const { locale } = useLanguage()
+    const title = publication.postTitle ?? m.publication_untitled_post()
+    const state = due ? m.publication_due_manual() : publicationStateLabel(publication.state)
+    const time =
+        publication.scheduledAt === null
+            ? m.calendar_no_time()
+            : formatTime(publication.scheduledAt, timeZone, locale)
 
     return (
         <Link
-            aria-label={`${title}, ${publication.channelName}, ${state}, ${formatSchedule(publication.scheduledAt, timeZone)}`}
+            aria-label={m.calendar_publication_aria({
+                title,
+                channel: publication.channelName,
+                state,
+                time,
+            })}
             className={cn(
                 'group flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-[background-color,color] hover:bg-background/75 hover:text-foreground focus-visible:bg-background/75 focus-visible:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
                 compact ? 'items-start' : 'gap-3 px-2.5 py-2.5'
             )}
             params={{ projectId: publication.projectId, publicationId: publication.id }}
-            title={`${title} · ${publication.channelName} · ${state}`}
+            title={m.calendar_publication_title({
+                title,
+                channel: publication.channelName,
+                state,
+            })}
             to="/dashboard/projects/$projectId/publications/$publicationId">
             <span
                 aria-hidden="true"
@@ -252,9 +279,7 @@ function CalendarPublicationLink({
                 </span>
                 <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.68rem] text-muted-foreground">
                     <span className="truncate">{publication.channelName}</span>
-                    <span className="shrink-0">
-                        {formatTime(publication.scheduledAt, timeZone)}
-                    </span>
+                    <span className="shrink-0">{time}</span>
                     {!compact ? <PublicationStatus due={due} state={publication.state} /> : null}
                 </span>
             </span>
@@ -266,24 +291,6 @@ function CalendarPublicationLink({
             ) : null}
         </Link>
     )
-}
-
-function formatDayLabel(date: Date) {
-    return new Intl.DateTimeFormat('en-US', {
-        day: 'numeric',
-        month: 'short',
-        weekday: 'long',
-        timeZone: 'UTC',
-    }).format(date)
-}
-
-function formatTime(timestamp: number | null, timeZone: string) {
-    if (timestamp === null) return 'No time'
-    return new Intl.DateTimeFormat('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZone,
-    }).format(new Date(timestamp))
 }
 
 export function duePublicationIds(publications: readonly DuePublication[]) {

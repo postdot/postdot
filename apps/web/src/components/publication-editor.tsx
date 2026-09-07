@@ -15,9 +15,11 @@ import {
     PublicationEditorStatus,
 } from '@/components/publication-editor-status'
 import { PublicationEditorTargetSection } from '@/components/publication-editor-target-section'
-import { ApiError, api, type PublicationEditorState } from '@/lib/api'
+import { ApiError, api, formatApiError, type PublicationEditorState } from '@/lib/api'
 import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
+import { useLanguage } from '@/lib/i18n'
 import { updateTargetMedia } from '@/lib/target-media'
+import * as m from '@/paraglide/messages.js'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
@@ -42,6 +44,7 @@ type SaveState = PublicationEditorSaveState
 const recoveryVersion = 3 as const
 
 export function PublicationEditor({ projectId, initialEditor, timeZone }: PublicationEditorProps) {
+    useLanguage()
     const recoveryKey = useMemo(
         () => createRecoveryKey(projectId, initialEditor.publication.id),
         [projectId, initialEditor.publication.id]
@@ -81,12 +84,15 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
     )
     const [message, setMessage] = useState<string | null>(
         recoveredContentDiffers || recoveredScheduleDiffers
-            ? 'A locally recovered copy is ready to be saved.'
+            ? m.editor_recovered_ready()
             : initialSourceConflict
-              ? `This draft is based on source revision ${initialEditor.draft.sourceRevision}, while the current source is revision ${initialEditor.post.sourceRevision}. Rebase it before saving or promoting.`
+              ? m.editor_initial_source_conflict({
+                    draftRevision: initialEditor.draft.sourceRevision,
+                    currentRevision: initialEditor.post.sourceRevision,
+                })
               : initialRecovery === null
                 ? null
-                : 'A previous local copy was kept because the server has newer work.'
+                : m.editor_previous_local_newer()
     )
     const [recoveryAvailable, setRecoveryAvailable] = useState(
         initialRecovery !== null && !shouldRestoreInitialRecovery
@@ -167,9 +173,7 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
                     if (generation !== requestGeneration.current) return
                     if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                         setSaveState('conflict')
-                        setMessage(
-                            'The server has newer work. Your local copy is preserved; reload it or restore your changes explicitly.'
-                        )
+                        setMessage(m.editor_server_newer_local())
                         return
                     }
                     setSaveState('error')
@@ -274,8 +278,10 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
             setSaveState(refreshedSourceConflict ? 'conflict' : 'saved')
             setMessage(
                 refreshedSourceConflict
-                    ? `The server version is loaded, but this draft still uses source revision ${response.editor.draft.sourceRevision}. Rebase it before writing again.`
-                    : 'The server version is loaded. Your previous local copy remains available.'
+                    ? m.editor_server_loaded_conflict({
+                          revision: response.editor.draft.sourceRevision,
+                      })
+                    : m.editor_server_loaded()
             )
         } catch (caughtError) {
             if (generation !== requestGeneration.current) return
@@ -300,10 +306,10 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
         setSaveState(sourceConflict ? 'conflict' : contentDiffers ? 'local_only' : 'saved')
         setMessage(
             sourceConflict
-                ? 'The recovered copy is active for review, but the server draft must be rebased before it can be saved.'
+                ? m.editor_recovered_review()
                 : contentDiffers || scheduleDiffers
-                  ? 'The recovered copy is active and ready for explicit promotion.'
-                  : 'The recovered copy does not contain changes to apply.'
+                  ? m.editor_recovered_promotion()
+                  : m.editor_recovered_no_changes()
         )
         setRecoveryAvailable(false)
     }
@@ -335,10 +341,10 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
             setRecoveryAvailable(false)
             setMessage(
                 refreshedSourceConflict
-                    ? 'Your local copy is loaded for review. Rebase the server draft before saving it.'
+                    ? m.editor_recovered_review()
                     : contentDiffers || scheduleDiffers
-                      ? 'Your local copy is restored against the latest server revision.'
-                      : 'The latest server revision already contains the local copy.'
+                      ? m.editor_server_loaded()
+                      : m.editor_recovered_no_changes()
             )
         } catch (caughtError) {
             if (generation !== requestGeneration.current) return
@@ -363,7 +369,7 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
         }
         setRecoveryAvailable(hadLocalCopy)
         setSaveState('rebasing')
-        setMessage('Rebasing the server draft onto the current source…')
+        setMessage(m.editor_rebase_started())
 
         try {
             const response = await api.rebasePublicationDraft(
@@ -385,18 +391,16 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
             setRecoveryAvailable(hadLocalCopy)
             setMessage(
                 rebasedSourceConflict
-                    ? 'The shared source advanced again while the draft was being rebased. Review the conflict again before continuing.'
+                    ? m.editor_rebase_conflict()
                     : hadLocalCopy
-                      ? 'The server draft now uses the current source. Your local copy remains available for review.'
-                      : 'The server draft now uses the current source. Review the preserved target before promoting it.'
+                      ? m.editor_shared_source_rebased_local()
+                      : m.editor_shared_source_rebased()
             )
         } catch (caughtError) {
             if (generation !== requestGeneration.current) return
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                 setSaveState('conflict')
-                setMessage(
-                    'The draft changed before it could be rebased. Reload the server version and review the conflict again.'
-                )
+                setMessage(m.editor_conflict_rebase())
                 return
             }
             setSaveState('error')
@@ -437,13 +441,11 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
             setScheduleDirty(false)
             setSaveState('saved')
             setRecoveryAvailable(false)
-            setMessage('The draft is now the selected target revision.')
+            setMessage(m.editor_promoted())
         } catch (caughtError) {
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                 setSaveState('conflict')
-                setMessage(
-                    'The draft changed before promotion. Reload the server version or restore the local copy before trying again.'
-                )
+                setMessage(m.editor_conflict_promotion())
                 return
             }
             setSaveState('error')
@@ -460,17 +462,20 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
                         params={{ projectId }}
                         className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
                         <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                        Back to queue
+                        {m.editor_back_to_queue()}
                     </Link>
                     <p className="mt-6 text-xs font-medium text-muted-foreground">
-                        Publication editor
+                        {m.editor_title()}
                     </p>
                     <h1 className="mt-2 font-heading text-4xl font-semibold leading-[1.02] tracking-[-0.05em]">
-                        {editor.post.title ?? 'Untitled publication'}
+                        {editor.post.title ?? m.publication_untitled()}
                     </h1>
                     <p className="mt-3 text-sm text-muted-foreground">
-                        {editor.channel.name} · {editor.profile.profileId} profile v
-                        {editor.profile.version}
+                        {editor.channel.name} ·{' '}
+                        {m.common_profile_version({
+                            profile: editor.profile.profileId,
+                            version: editor.profile.version,
+                        })}
                     </p>
                 </div>
                 <PublicationEditorSaveIndicator
@@ -622,23 +627,23 @@ function parseTargetText(value: string): {
     try {
         const parsed: unknown = JSON.parse(value)
         if (!isRecord(parsed)) {
-            return { value: null, error: 'Target content must be a JSON object.' }
+            return { value: null, error: m.editor_target_object_required() }
         }
         return { value: parsed, error: null }
     } catch {
-        return { value: null, error: 'Target JSON is incomplete or invalid.' }
+        return { value: null, error: m.editor_target_invalid_json() }
     }
 }
 
 function sourceContentIssue(source: SourceContent): string | null {
     if (source.body === undefined && source.media.length === 0) {
-        return 'Add source text or at least one media reference before saving.'
+        return m.editor_source_required()
     }
     if (source.body !== undefined && source.body.text.trim() === '') {
-        return 'Source body text must not be blank.'
+        return m.editor_source_body_blank()
     }
     if (source.headline !== undefined && source.headline.trim() === '') {
-        return 'Headline must not be blank when provided.'
+        return m.editor_headline_blank()
     }
     return null
 }
@@ -668,13 +673,15 @@ function getCapabilitySummary(profile: Profile): CapabilitySummary {
 }
 
 function issueCode(issue: Record<string, unknown>) {
-    return typeof issue.code === 'string' ? issue.code : 'validation-issue'
+    return typeof issue.code === 'string' ? issue.code : 'validation_issue'
 }
 
 function issueMessage(issue: Record<string, unknown>) {
-    const message = typeof issue.message === 'string' ? issue.message : 'The value is invalid.'
-    const path = typeof issue.path === 'string' && issue.path !== '' ? `${issue.path}: ` : ''
-    return `${path}${message}`
+    const code = issueCode(issue)
+    const path = typeof issue.path === 'string' && issue.path !== '' ? issue.path : null
+    return path === null
+        ? m.editor_target_validation_issue_without_path({ code })
+        : m.editor_target_validation_issue({ path, code })
 }
 
 function formatJson(value: unknown) {
@@ -689,7 +696,7 @@ function parseSchedule(
 }
 
 function errorMessage(error: unknown) {
-    return error instanceof ApiError ? error.message : 'The action could not be completed.'
+    return formatApiError(error)
 }
 
 function recoveryContentDiffers(

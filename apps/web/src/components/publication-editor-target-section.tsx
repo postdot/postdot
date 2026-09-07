@@ -4,6 +4,8 @@ import { Card, CardContent } from '@herald/ui/components/card'
 
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import type { PublicationEditorState } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 type Profile = PublicationEditorState['profile']['profile']
 type ReviewState = PublicationEditorState['draft']['reviewState']
@@ -35,6 +37,7 @@ export function PublicationEditorTargetSection({
     issueCode,
     issueMessage,
 }: PublicationEditorTargetSectionProps) {
+    useLanguage()
     return (
         <section className="min-w-0">
             <Card>
@@ -42,14 +45,13 @@ export function PublicationEditorTargetSection({
                     <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                         <div>
                             <p className="text-xs font-medium text-muted-foreground">
-                                Channel target
+                                {m.editor_target_title()}
                             </p>
                             <h2 className="mt-2 font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                Editable structured payload
+                                {m.editor_target_structured_payload()}
                             </h2>
                             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                                The channel profile owns this shape. JSON keeps custom channels
-                                expressive without inventing a new table for every destination.
+                                {m.editor_target_profile_owns_shape()}
                             </p>
                         </div>
                         <Badge
@@ -60,7 +62,9 @@ export function PublicationEditorTargetSection({
                                     : 'border-0 bg-transparent px-0 text-state-attention'
                             }>
                             <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                            {reviewState === 'compatible' ? 'Compatible' : 'Review required'}
+                            {reviewState === 'compatible'
+                                ? m.editor_target_compatible()
+                                : m.editor_target_review_required()}
                         </Badge>
                     </div>
 
@@ -74,13 +78,13 @@ export function PublicationEditorTargetSection({
                     />
                     {targetError ? (
                         <Alert variant="destructive" className="mt-4 rounded-md">
-                            <AlertTitle>Invalid target JSON</AlertTitle>
+                            <AlertTitle>{m.editor_target_invalid_json()}</AlertTitle>
                             <AlertDescription>{targetError}</AlertDescription>
                         </Alert>
                     ) : null}
                     {validationIssues.length > 0 ? (
                         <Alert className="mt-4 rounded-md border-state-attention/35 bg-state-attention/10">
-                            <AlertTitle>The profile reported validation issues</AlertTitle>
+                            <AlertTitle>{m.editor_target_validation_issues()}</AlertTitle>
                             <AlertDescription>
                                 <ul className="mt-1 space-y-1">
                                     {validationIssues.map((issue, index) => (

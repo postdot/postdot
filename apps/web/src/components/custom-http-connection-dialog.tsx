@@ -21,6 +21,8 @@ import { LinkIcon } from '@solar-icons/react/bold/link'
 import { useState } from 'react'
 
 import type { Channel, CustomHttpAuthentication } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
 
 interface CustomHttpConnectionDialogProps {
     readonly channel: Channel
@@ -41,6 +43,7 @@ export function CustomHttpConnectionDialog({
     disabled,
     onConnect,
 }: CustomHttpConnectionDialogProps) {
+    useLanguage()
     const [open, setOpen] = useState(false)
     const [endpointUrl, setEndpointUrl] = useState('')
     const [authenticationKind, setAuthenticationKind] = useState<'none' | 'bearer' | 'header'>(
@@ -62,15 +65,15 @@ export function CustomHttpConnectionDialog({
 
     async function submit() {
         if (endpointUrl.trim() === '') {
-            setError('Enter the endpoint URL.')
+            setError(m.provider_endpoint_required())
             return
         }
         if (secret.length < 32) {
-            setError('The connection secret must contain at least 32 characters.')
+            setError(m.provider_secret_min_length())
             return
         }
         if (authenticationKind === 'header' && headerName.trim() === '') {
-            setError('Enter the header name used for authentication.')
+            setError(m.provider_header_auth_required())
             return
         }
 
@@ -94,7 +97,7 @@ export function CustomHttpConnectionDialog({
         <>
             <Button size="sm" onClick={() => setOpen(true)} disabled={disabled}>
                 <AddIcon aria-hidden="true" />
-                Connect HTTP
+                {m.provider_connect_http()}
             </Button>
             <Dialog
                 open={open}
@@ -104,28 +107,29 @@ export function CustomHttpConnectionDialog({
                 }}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>Connect {channel.name}</DialogTitle>
+                        <DialogTitle>
+                            {m.provider_connect_title({ provider: channel.name })}
+                        </DialogTitle>
                         <DialogDescription>
-                            Store the endpoint configuration for this custom channel. The secret is
-                            used by the server and is never shown again.
+                            {m.provider_http_connect_description()}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4">
                         <Field className="gap-1.5">
                             <FieldLabel htmlFor={`custom-http-endpoint-${channel.id}`}>
-                                Endpoint URL
+                                {m.provider_endpoint_url()}
                             </FieldLabel>
                             <Input
                                 id={`custom-http-endpoint-${channel.id}`}
                                 type="url"
                                 value={endpointUrl}
                                 onChange={event => setEndpointUrl(event.target.value)}
-                                placeholder="https://example.test/herald"
+                                placeholder={m.provider_endpoint_placeholder()}
                             />
                         </Field>
                         <Field className="gap-1.5">
                             <FieldLabel htmlFor={`custom-http-auth-${channel.id}`}>
-                                Authentication
+                                {m.provider_authentication()}
                             </FieldLabel>
                             <Select
                                 value={authenticationKind}
@@ -136,39 +140,45 @@ export function CustomHttpConnectionDialog({
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent align="start">
-                                    <SelectItem value="none">No authentication</SelectItem>
-                                    <SelectItem value="bearer">Bearer token</SelectItem>
-                                    <SelectItem value="header">Custom header</SelectItem>
+                                    <SelectItem value="none">
+                                        {m.provider_no_authentication()}
+                                    </SelectItem>
+                                    <SelectItem value="bearer">
+                                        {m.provider_bearer_token()}
+                                    </SelectItem>
+                                    <SelectItem value="header">
+                                        {m.provider_custom_header()}
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </Field>
                         {authenticationKind === 'header' ? (
                             <Field className="gap-1.5">
                                 <FieldLabel htmlFor={`custom-http-header-${channel.id}`}>
-                                    Header name
+                                    {m.provider_header_name()}
                                 </FieldLabel>
                                 <Input
                                     id={`custom-http-header-${channel.id}`}
                                     value={headerName}
                                     onChange={event => setHeaderName(event.target.value)}
-                                    placeholder="X-Herald-Secret"
+                                    placeholder={m.provider_header_name_placeholder()}
                                 />
                             </Field>
                         ) : null}
                         <Field className="gap-1.5">
                             <FieldLabel htmlFor={`custom-http-account-${channel.id}`}>
-                                External account name
+                                {m.provider_external_account_name()}
                             </FieldLabel>
                             <Input
                                 id={`custom-http-account-${channel.id}`}
                                 value={externalAccountName}
                                 onChange={event => setExternalAccountName(event.target.value)}
-                                placeholder="Community forum"
+                                placeholder={m.provider_external_account_placeholder()}
                             />
                         </Field>
                         <Field className="gap-1.5">
                             <FieldLabel htmlFor={`custom-http-secret-${channel.id}`}>
-                                Connection secret
+                                {m.provider_connection_secret()}
                             </FieldLabel>
                             <Input
                                 id={`custom-http-secret-${channel.id}`}
@@ -176,9 +186,7 @@ export function CustomHttpConnectionDialog({
                                 value={secret}
                                 onChange={event => setSecret(event.target.value)}
                             />
-                            <FieldDescription>
-                                At least 32 characters. Herald stores only the protected secret.
-                            </FieldDescription>
+                            <FieldDescription>{m.provider_http_secret_help()}</FieldDescription>
                         </Field>
                         {error ? <p className="text-sm text-destructive">{error}</p> : null}
                     </div>
@@ -188,11 +196,11 @@ export function CustomHttpConnectionDialog({
                             variant="ghost"
                             onClick={() => setOpen(false)}
                             disabled={disabled}>
-                            Cancel
+                            {m.common_cancel()}
                         </Button>
                         <Button type="button" onClick={() => void submit()} disabled={disabled}>
                             <LinkIcon aria-hidden="true" />
-                            Connect endpoint
+                            {m.provider_connect_endpoint()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

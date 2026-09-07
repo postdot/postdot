@@ -3,7 +3,10 @@ import { Input } from '@herald/ui/components/input'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 
 import { api, type MediaReference } from '@/lib/api'
+import { formatBytes, formatNumber } from '@/lib/format'
+import { useLanguage } from '@/lib/i18n'
 import type { MediaSelection } from '@/lib/target-media'
+import * as m from '@/paraglide/messages.js'
 
 interface MediaAssetCardProps {
     readonly asset: MediaReference
@@ -22,6 +25,7 @@ export function MediaAssetCard({
     onAccessibilityTextChange,
     onToggle,
 }: MediaAssetCardProps) {
+    const { locale } = useLanguage()
     const representation = readyRepresentation(asset)
 
     return (
@@ -41,19 +45,22 @@ export function MediaAssetCard({
                         {asset.asset.originalFilename}
                     </span>
                     <span className="mt-1 block text-xs text-muted-foreground">
-                        {mediaSummary(asset, representation)}
+                        {mediaSummary(asset, representation, locale)}
                     </span>
                 </span>
                 {selected === undefined ? (
-                    <span className="text-xs text-muted-foreground">Add</span>
+                    <span className="text-xs text-muted-foreground">{m.media_attach()}</span>
                 ) : (
-                    <CheckReadIcon aria-label="Attached" className="shrink-0 text-primary" />
+                    <CheckReadIcon
+                        aria-label={m.media_attached()}
+                        className="shrink-0 text-primary"
+                    />
                 )}
             </button>
             {selected !== undefined ? (
                 <Field className="mt-3 gap-1">
                     <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>
-                        Accessibility text
+                        {m.media_accessibility_text()}
                     </FieldLabel>
                     <Input
                         id={`media-alt-${asset.asset.id}`}
@@ -62,7 +69,7 @@ export function MediaAssetCard({
                         onChange={event =>
                             onAccessibilityTextChange(asset.asset.id, event.target.value)
                         }
-                        placeholder="Describe this media when needed"
+                        placeholder={m.media_accessibility_placeholder()}
                         className="h-8 text-xs"
                     />
                 </Field>
@@ -81,20 +88,23 @@ function readyRepresentation(asset: MediaReference) {
 
 function mediaSummary(
     asset: MediaReference,
-    representation: ReturnType<typeof readyRepresentation>
+    representation: ReturnType<typeof readyRepresentation>,
+    locale: string
 ) {
     const details = [representation?.detectedContentType ?? representation?.declaredContentType]
     if (representation?.byteSize !== null && representation?.byteSize !== undefined) {
-        details.push(formatBytes(representation.byteSize))
+        details.push(formatBytes(representation.byteSize, locale))
     }
     if (
         representation !== undefined &&
         representation.width !== null &&
         representation.height !== null
     ) {
-        details.push(`${representation.width}×${representation.height}`)
+        details.push(
+            `${formatNumber(representation.width, locale)}×${formatNumber(representation.height, locale)}`
+        )
     }
-    if (asset.asset.state !== 'ready') details.push(asset.asset.state)
+    if (asset.asset.state !== 'ready') details.push(mediaStateLabel(asset.asset.state))
     return details
         .filter((detail): detail is string => detail !== null && detail !== undefined)
         .join(' · ')
@@ -126,8 +136,8 @@ function MediaPreview({
     )
 }
 
-function formatBytes(bytes: number) {
-    if (bytes < 1_024) return `${bytes} B`
-    if (bytes < 1_024 * 1_024) return `${Math.round(bytes / 1_024)} KiB`
-    return `${(bytes / (1_024 * 1_024)).toFixed(1)} MiB`
+function mediaStateLabel(state: string) {
+    if (state === 'failed') return m.media_state_failed()
+    if (state === 'ready') return m.media_state_ready()
+    return state
 }

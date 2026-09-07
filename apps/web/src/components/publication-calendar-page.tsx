@@ -15,6 +15,7 @@ import {
 } from '@/components/publication-calendar-view'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useLanguage } from '@/lib/i18n'
 import {
     createCalendarMonth,
     getUnscheduledPublications,
@@ -22,8 +23,10 @@ import {
     startOfCalendarMonth,
     toDateKey,
 } from '@/lib/publication-calendar'
+import * as m from '@/paraglide/messages.js'
 
 export function PublicationCalendarPage() {
+    const { locale } = useLanguage()
     const { due, project, publications } = useProjectDashboard()
     const [monthCursor, setMonthCursor] = useState(() =>
         startOfCalendarMonth(new Date(), project.timeZone)
@@ -31,8 +34,8 @@ export function PublicationCalendarPage() {
     const todayDate = toDateKey(new Date(), project.timeZone)
     const [mobileCreateDate, setMobileCreateDate] = useState(todayDate)
     const month = useMemo(
-        () => createCalendarMonth(monthCursor, publications, new Date(), project.timeZone),
-        [monthCursor, project.timeZone, publications]
+        () => createCalendarMonth(monthCursor, publications, new Date(), project.timeZone, locale),
+        [locale, monthCursor, project.timeZone, publications]
     )
     const scheduledPublications = publications.filter(
         publication => publication.scheduledAt !== null
@@ -64,28 +67,32 @@ export function PublicationCalendarPage() {
                             />
                         }>
                         <CalendarMinimalisticIcon aria-hidden="true" />
-                        New publication
+                        {m.calendar_new_publication()}
                     </Button>
                 }
-                title="Calendar">
+                title={m.calendar_title()}>
                 <p className="mt-2 text-sm text-muted-foreground">
                     {project.name} · {project.timeZone}
                 </p>
             </DashboardPageHeader>
 
             <PublicationSummaryBar
-                ariaLabel="Calendar summary"
+                ariaLabel={m.calendar_summary()}
                 items={[
-                    { id: 'scheduled', label: 'scheduled', value: scheduledPublications.length },
+                    {
+                        id: 'scheduled',
+                        label: m.calendar_scheduled(),
+                        value: scheduledPublications.length,
+                    },
                     {
                         id: 'unscheduled',
-                        label: 'unscheduled',
+                        label: m.calendar_unscheduled(),
                         value: unscheduledPublications.length,
                     },
                     {
                         attention: due.length > 0,
                         id: 'attention',
-                        label: 'needs attention',
+                        label: m.calendar_attention(),
                         value: due.length,
                     },
                 ]}
@@ -95,17 +102,17 @@ export function PublicationCalendarPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-1.5">
                         <Button
-                            aria-label="Previous month"
+                            aria-label={m.calendar_previous_month()}
                             onClick={() => goToMonth(-1)}
                             size="icon-sm"
                             variant="ghost">
                             <AltArrowLeftIcon aria-hidden="true" />
                         </Button>
                         <Button onClick={goToToday} size="sm" variant="ghost">
-                            Today
+                            {m.calendar_today()}
                         </Button>
                         <Button
-                            aria-label="Next month"
+                            aria-label={m.calendar_next_month()}
                             onClick={() => goToMonth(1)}
                             size="icon-sm"
                             variant="ghost">
@@ -119,8 +126,7 @@ export function PublicationCalendarPage() {
                             {month.label}
                         </h2>
                         <span className="text-sm text-muted-foreground">
-                            {scheduledPublications.length}{' '}
-                            {scheduledPublications.length === 1 ? 'publication' : 'publications'}
+                            {m.common_publication_count({ count: scheduledPublications.length })}
                         </span>
                     </div>
                 </div>
@@ -129,10 +135,10 @@ export function PublicationCalendarPage() {
                     <div className="mb-4 flex items-end gap-3 md:hidden">
                         <label className="min-w-0 flex-1 text-sm text-muted-foreground">
                             <span className="mb-1.5 block text-xs font-medium text-foreground">
-                                Plan a date
+                                {m.calendar_plan_date()}
                             </span>
                             <Input
-                                aria-label="Plan a date"
+                                aria-label={m.calendar_plan_date()}
                                 type="date"
                                 value={mobileCreateDate}
                                 onChange={event => setMobileCreateDate(event.target.value)}
@@ -147,7 +153,7 @@ export function PublicationCalendarPage() {
                                     to="/dashboard/projects/$projectId/compose"
                                 />
                             }>
-                            New
+                            {m.calendar_new_short()}
                         </Button>
                     </div>
                     {scheduledPublications.length > 0 ? (
@@ -159,14 +165,15 @@ export function PublicationCalendarPage() {
                             />
                             <PublicationCalendarAgenda
                                 duePublicationIds={duePublicationIds(due)}
-                                emptyDescription={`There are no scheduled publications in ${month.label}.`}
-                                emptyTitle={`Nothing scheduled in ${month.label}`}
+                                emptyDescription={m.calendar_empty_month_description({
+                                    month: month.label,
+                                })}
+                                emptyTitle={m.calendar_empty_month_title({ month: month.label })}
                                 month={month}
                             />
                             {!visibleScheduled ? (
                                 <p className="mt-3 hidden text-sm text-muted-foreground md:block">
-                                    Nothing is scheduled in {month.label}. Use the month controls to
-                                    review another period.
+                                    {m.calendar_nothing_month({ month: month.label })}
                                 </p>
                             ) : null}
                         </>
@@ -178,14 +185,12 @@ export function PublicationCalendarPage() {
 
             {unscheduledPublications.length > 0 ? (
                 <p className="mt-5 text-sm text-muted-foreground">
-                    {unscheduledPublications.length} publication
-                    {unscheduledPublications.length === 1 ? '' : 's'} remain outside the calendar
-                    until a time is chosen.{' '}
+                    {m.calendar_unscheduled_description({ count: unscheduledPublications.length })}{' '}
                     <Link
                         className="text-primary underline-offset-4 hover:text-foreground hover:underline"
                         params={{ projectId: project.id }}
                         to="/dashboard/projects/$projectId/queue">
-                        Review the Queue
+                        {m.calendar_review_queue()}
                     </Link>
                     .
                 </p>
