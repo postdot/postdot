@@ -548,7 +548,7 @@ export function createAnalyticsStore(
     )
     const historicalFactsStatement = client.query<
         HistoricalFactRow,
-        [projectId: string, from: number, to: number, eventVersion: number]
+        [projectId: string, from: number, to: number]
     >(
         String.raw`
         select audit_events.id,
@@ -572,25 +572,6 @@ export function createAnalyticsStore(
           and audit_events.entity_type = 'publication'
           and audit_events.created_at >= ?2
           and audit_events.created_at < ?3
-          and (
-              audit_events.event_version <> ?4
-              or audit_events.action in (
-                  'publication.created',
-                  'publication.target_promoted',
-                  'publication.ready',
-                  'publication.published',
-                  'publication.reconciled',
-                  'publication.execution.claimed',
-                  'publication.execution.effect_started',
-                  'publication.execution.succeeded',
-                  'publication.execution.retry_scheduled',
-                  'publication.execution.failed',
-                  'publication.execution.ambiguous',
-                  'publication.execution.claim_recovered',
-                  'publication.execution.ambiguity_recovered',
-                  'publication.execution.cancelled'
-              )
-          )
         order by audit_events.created_at, audit_events.sequence
     `
     )
@@ -621,12 +602,9 @@ export function createAnalyticsStore(
                 filters
             )
             const history = buildHistoricalMetrics(
-                historicalFactsStatement.all(
-                    projectId,
-                    range.from,
-                    range.to,
-                    supportedEventVersion
-                ),
+                // SQLite yields one historical fact at a time. The accumulator retains only the
+                // bounded deduplication and latency-pair state required by this read model.
+                historicalFactsStatement.iterate(projectId, range.from, range.to),
                 projectTimeZone,
                 filters
             )
@@ -782,7 +760,7 @@ function buildPublicationInventory(
 }
 
 function buildHistoricalMetrics(
-    rows: readonly HistoricalFactRow[],
+    rows: Iterable<HistoricalFactRow>,
     timeZone: string,
     filters: AnalyticsFilters
 ): {

@@ -402,6 +402,93 @@ describe('analytics store', () => {
         }
     })
 
+    it('keeps the automatic provider on reconciliation and supports provider filtering', () => {
+        const observedAt = Date.UTC(2026, 0, 2)
+        const setupAt = observedAt - 1_000
+        const fixture = createFixture('UTC', setupAt)
+
+        try {
+            const publicationId = createPublication(
+                fixture,
+                fixture.automaticChannel.id,
+                'automatic',
+                setupAt
+            )
+            const job = fixture.database
+                .select()
+                .from(jobs)
+                .where(eq(jobs.publicationId, publicationId))
+                .all()[0]
+            if (job === undefined) throw new Error('The reconciliation job is missing')
+
+            fixture.database
+                .update(publications)
+                .set({ state: 'ambiguous', errorMessage: 'provider response was lost' })
+                .where(eq(publications.id, publicationId))
+                .run()
+
+            const journal = createEventJournalStore(fixture.database)
+            journal.append({
+                id: 'reconciliation-ambiguity',
+                projectId: fixture.project.project.id,
+                actorId: fixture.project.actor.id,
+                name: 'publication.execution.ambiguous',
+                version: 1,
+                subject: { type: 'publication', id: publicationId },
+                payload: {
+                    jobId: job.id,
+                    attempt: 1,
+                    deliveryMode: 'automatic',
+                    provider: 'analytics-provider',
+                    toState: 'ambiguous',
+                },
+                occurredAt: setupAt + 100,
+            })
+            fixture.database
+                .delete(publishers)
+                .where(eq(publishers.channelId, fixture.automaticChannel.id))
+                .run()
+
+            const reconciled = fixture.store.reconcileAmbiguousPublication({
+                projectId: fixture.project.project.id,
+                publicationId,
+                subjectId: 'user-1',
+                resolution: 'published',
+                externalId: 'provider-publication-1',
+            })
+            expect(reconciled.kind).toBe('reconciled')
+
+            const reconciliationEvent = fixture.store
+                .listAuditEvents(fixture.project.project.id, 'user-1')
+                ?.find(event => event.action === 'publication.reconciled')
+            expect(reconciliationEvent).not.toBeUndefined()
+            expect(JSON.parse(reconciliationEvent?.metadataJson ?? '{}')).toMatchObject({
+                deliveryMode: 'automatic',
+                provider: 'analytics-provider',
+            })
+
+            const providerFiltered = createAnalyticsStore(fixture.database, {
+                now: () => observedAt,
+            }).getProjectAnalytics({
+                projectId: fixture.project.project.id,
+                subjectId: 'user-1',
+                provider: 'analytics-provider',
+                from: setupAt,
+                to: observedAt,
+            })
+            expect(providerFiltered?.historical.publications.published).toBe(1)
+            expect(providerFiltered?.historical.publications.byDimension.published).toEqual([
+                expect.objectContaining({
+                    provider: 'analytics-provider',
+                    deliveryMode: 'automatic',
+                    count: 1,
+                }),
+            ])
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
     it('counts historical lifecycle and execution facts with retry, ambiguity, recovery, and replay semantics', () => {
         const observedAt = Date.UTC(2026, 0, 2)
         const fixture = createFixture('UTC', observedAt - dayMs)
@@ -706,6 +793,13 @@ describe('analytics store', () => {
                 payload: automaticMetadata,
             })
             appendFact(journal, fixture, {
+                id: 'history-known-unsupported',
+                name: 'publication.analytics.unhandled',
+                entityId: unknownPublication,
+                occurredAt: start + 1_250,
+                payload: automaticMetadata,
+            })
+            appendFact(journal, fixture, {
                 id: 'history-missing-attempt',
                 name: 'publication.execution.effect_started',
                 entityId: unknownPublication,
@@ -781,13 +875,13 @@ describe('analytics store', () => {
             })
             expect(analytics.coverage.dataQuality).toMatchObject({
                 unknownEventVersions: 1,
-                unsupportedFacts: 0,
+                unsupportedFacts: 1,
                 missingLifecycleState: 1,
                 missingAttemptMetadata: 1,
                 duplicateAttemptFacts: 2,
                 contradictoryAttempts: 1,
             })
-            expect(analytics.coverage.skippedFactCount).toBe(2)
+            expect(analytics.coverage.skippedFactCount).toBe(3)
             expect(analytics.coverage.dataQuality.missingHistoricalDimensions).toBeGreaterThan(0)
             expect(analytics.historical.executions.byDimension.succeeded).toEqual([
                 expect.objectContaining({
