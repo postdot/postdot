@@ -379,8 +379,10 @@ interface AttemptOutcome {
     readonly occurredAt: number
     readonly dimension: AnalyticsDimension
     readonly targetState: PublicationState | null
-    readonly row: HistoricalFactRow
+    readonly row: HistoricalFactReference
 }
+
+type HistoricalFactReference = Pick<HistoricalFactRow, 'entityId' | 'occurredAt'>
 
 interface MutableAttempt {
     readonly publicationId: string
@@ -419,7 +421,6 @@ interface HistoricalAccumulator {
     schedules: Map<string, SchedulePoint>
     createdPublications: Set<string>
     publishedPublications: Set<string>
-    seenFactIds: Set<string>
     latency: {
         readonly queueDelay: MutableLatencySummary
         readonly effectDuration: MutableLatencySummary
@@ -587,8 +588,8 @@ export function createAnalyticsStore(
             const range = normalizeRange(input, observedAt)
             const filters = normalizeFilters(input)
             const projectTimeZone = requireProjectTimeZone(project.timeZone)
-            const publicationRows = publicationInventoryStatement.all(projectId)
-            const jobRows = currentJobsStatement.all(projectId)
+            const publicationRows = publicationInventoryStatement.iterate(projectId)
+            const jobRows = currentJobsStatement.iterate(projectId)
             const retryablePendingIds = new Set(
                 currentRetryablePendingStatement
                     .all(projectId, supportedEventVersion)
@@ -603,7 +604,7 @@ export function createAnalyticsStore(
             )
             const history = buildHistoricalMetrics(
                 // SQLite yields one historical fact at a time. The accumulator retains only the
-                // bounded deduplication and latency-pair state required by this read model.
+                // state required by this read model.
                 historicalFactsStatement.iterate(projectId, range.from, range.to),
                 projectTimeZone,
                 filters
@@ -679,83 +680,108 @@ function normalizeFilters(input: AnalyticsFiltersInput): AnalyticsFilters {
 }
 
 function buildCurrentSnapshot(
-    publicationRows: readonly PublicationInventoryRow[],
-    jobRows: readonly CurrentJobRow[],
+    publicationRows: Iterable<PublicationInventoryRow>,
+    jobRows: Iterable<CurrentJobRow>,
     retryablePendingIds: ReadonlySet<string>,
     observedAt: number,
     filters: AnalyticsFilters
 ): AnalyticsCurrentSnapshot {
-    const filteredPublications = publicationRows.filter(row =>
-        matchesFilters(currentDimension(row), filters)
-    )
-    const publications = buildPublicationInventory(filteredPublications)
-    const automaticJobs = jobRows.filter(
-        row => row.deliveryMode === 'automatic' && matchesFilters(currentDimension(row), filters)
-    )
-    const pendingJobs = automaticJobs.filter(row => row.state === 'pending')
-    const currentAmbiguous = filteredPublications.filter(
-        row =>
-            row.deliveryMode === 'automatic' &&
-            row.state === 'ambiguous' &&
-            row.hasExecutionHistory === 1
-    ).length
-
-    return {
-        publications,
-        executions: {
-            scheduled: pendingJobs.length,
-            due: pendingJobs.filter(row => row.runAt <= observedAt).length,
-            running: automaticJobs.filter(row => row.state === 'running').length,
-            retryablePending: pendingJobs.filter(row => retryablePendingIds.has(row.id)).length,
-            succeeded: automaticJobs.filter(
-                row => row.state === 'succeeded' && row.publicationState === 'published'
-            ).length,
-            failed: automaticJobs.filter(
-                row => row.state === 'failed' && row.publicationState === 'failed'
-            ).length,
-            ambiguous: currentAmbiguous,
-        },
-        workload: {
-            manualDue: filteredPublications.filter(
-                row =>
-                    row.deliveryMode === 'manual' &&
-                    row.state === 'scheduled' &&
-                    row.scheduledAt !== null &&
-                    row.scheduledAt <= observedAt
-            ).length,
-            ambiguousReconciliation: currentAmbiguous,
-            oldestDueAt: minimumTimestamp(pendingJobs.filter(row => row.runAt <= observedAt)),
-            nextRunAt: minimumTimestamp(pendingJobs),
-            futureScheduled: pendingJobs.filter(row => row.runAt > observedAt).length,
-            overdue: pendingJobs.filter(row => row.runAt <= observedAt).length,
-        },
-    }
-}
-
-function buildPublicationInventory(
-    rows: readonly PublicationInventoryRow[]
-): AnalyticsPublicationInventory {
     const byState = createCountMap(publicationStates)
     const byDeliveryMode = createCountMap(deliveryModes)
     const byDimension = new Map<string, MutableDimensionCount>()
+    let publicationTotal = 0
+    let currentAmbiguous = 0
+    let manualDue = 0
 
-    for (const row of rows) {
+    for (const row of publicationRows) {
+        const dimension = currentDimension(row)
+        if (!matchesFilters(dimension, filters)) continue
+
+        publicationTotal += 1
         increment(byState, row.state)
         increment(byDeliveryMode, row.deliveryMode)
-        incrementDimension(byDimension, currentDimension(row))
+        incrementDimension(byDimension, dimension)
+        if (
+            row.deliveryMode === 'automatic' &&
+            row.state === 'ambiguous' &&
+            row.hasExecutionHistory === 1
+        ) {
+            currentAmbiguous += 1
+        }
+        if (
+            row.deliveryMode === 'manual' &&
+            row.state === 'scheduled' &&
+            row.scheduledAt !== null &&
+            row.scheduledAt <= observedAt
+        ) {
+            manualDue += 1
+        }
     }
 
-    return {
-        total: rows.length,
-        byState: publicationStates.map(state => ({
-            state,
-            count: byState[state] ?? 0,
-        })),
+    let scheduled = 0
+    let due = 0
+    let running = 0
+    let retryablePending = 0
+    let succeeded = 0
+    let failed = 0
+    let futureScheduled = 0
+    let overdue = 0
+    let oldestDueAt: number | null = null
+    let nextRunAt: number | null = null
+
+    for (const row of jobRows) {
+        if (row.deliveryMode !== 'automatic' || !matchesFilters(currentDimension(row), filters)) {
+            continue
+        }
+        if (row.state === 'pending') {
+            scheduled += 1
+            if (retryablePendingIds.has(row.id)) retryablePending += 1
+            if (nextRunAt === null || row.runAt < nextRunAt) nextRunAt = row.runAt
+            if (row.runAt <= observedAt) {
+                due += 1
+                overdue += 1
+                if (oldestDueAt === null || row.runAt < oldestDueAt) oldestDueAt = row.runAt
+            } else {
+                futureScheduled += 1
+            }
+        } else if (row.state === 'running') {
+            running += 1
+        } else if (row.state === 'succeeded' && row.publicationState === 'published') {
+            succeeded += 1
+        } else if (row.state === 'failed' && row.publicationState === 'failed') {
+            failed += 1
+        }
+    }
+
+    const publications: AnalyticsPublicationInventory = {
+        total: publicationTotal,
+        byState: publicationStates.map(state => ({ state, count: byState[state] ?? 0 })),
         byDeliveryMode: deliveryModes.map(deliveryMode => ({
             deliveryMode,
             count: byDeliveryMode[deliveryMode] ?? 0,
         })),
         byDimension: toDimensionCounts(byDimension),
+    }
+
+    return {
+        publications,
+        executions: {
+            scheduled,
+            due,
+            running,
+            retryablePending,
+            succeeded,
+            failed,
+            ambiguous: currentAmbiguous,
+        },
+        workload: {
+            manualDue,
+            ambiguousReconciliation: currentAmbiguous,
+            oldestDueAt,
+            nextRunAt,
+            futureScheduled,
+            overdue,
+        },
     }
 }
 
@@ -769,13 +795,9 @@ function buildHistoricalMetrics(
 } {
     const accumulator = createHistoricalAccumulator()
 
+    // audit_events.id is unique, and the publication/channel joins are one-to-one by schema.
+    // A per-read fact-id Set would therefore add unbounded memory without protecting this query.
     for (const row of rows) {
-        if (accumulator.seenFactIds.has(row.id)) {
-            accumulator.coverage.duplicateFacts += 1
-            continue
-        }
-        accumulator.seenFactIds.add(row.id)
-
         if (row.eventVersion !== supportedEventVersion) {
             accumulator.coverage.unknownEventVersions += 1
             accumulator.coverage.skippedFactCount += 1
@@ -884,7 +906,6 @@ function createHistoricalAccumulator(): HistoricalAccumulator {
         schedules: new Map(),
         createdPublications: new Set(),
         publishedPublications: new Set(),
-        seenFactIds: new Set(),
         latency: {
             queueDelay: createLatencySummary(),
             effectDuration: createLatencySummary(),
@@ -1115,7 +1136,7 @@ function recordExecutionOutcome(
         occurredAt: row.occurredAt,
         dimension,
         targetState: readState(metadata.toState),
-        row,
+        row: { entityId: row.entityId, occurredAt: row.occurredAt },
     }
     if (attempt.outcome.targetState === null) {
         accumulator.coverage.missingLifecycleState += 1
@@ -1340,7 +1361,7 @@ function recordClaimRecovery(
 
 function recordPublicationLifecycle(
     accumulator: HistoricalAccumulator,
-    row: HistoricalFactRow,
+    row: HistoricalFactReference,
     dimension: AnalyticsDimension,
     included: boolean,
     state: PublicationState,
@@ -1871,14 +1892,6 @@ function increment(counts: MutableCountMap, key: string): void {
 
 function dimensionKey(dimension: AnalyticsDimension): string {
     return [dimension.channelId ?? '', dimension.provider, dimension.deliveryMode].join('\u0000')
-}
-
-function minimumTimestamp(rows: readonly { readonly runAt: number }[]): number | null {
-    let minimum: number | null = null
-    for (const row of rows) {
-        if (minimum === null || row.runAt < minimum) minimum = row.runAt
-    }
-    return minimum
 }
 
 function toLocalDate(timestamp: number, timeZone: string): string {
