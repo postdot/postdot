@@ -1269,3 +1269,48 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: none
 - Related issues: ISSUE-054
 - Related decisions: ADR-051
+
+## [ISSUE-056] Define provider-owned engagement analytics without conflating operational metrics
+
+- Type: proposal
+- Status: open
+- Evidence: The current Herald analytics contract measures operational facts
+  created by Herald: publication lifecycle, queue depth, attempts, retries,
+  failures, ambiguity, recovery, and latency. The competitor review shows a
+  separate product meaning for analytics. Postiz exposes per-channel and
+  per-post time series with platform-dependent metrics such as followers,
+  impressions, likes, comments, and shares. Mixpost presents reach,
+  engagement, impressions, clicks, audience growth, and best-time analysis,
+  with provider imports and backfills isolated from publication work. OpenPost
+  explicitly makes analytics optional per connected account, separates its
+  analytics interface from publishing and engagement interfaces, persists
+  normalized account/content snapshots plus sync state, and treats missing
+  values as unavailable rather than zero.
+- Impact: Adding views, impressions, reach, clicks, reactions, or comments to
+  the current provider-neutral operational response would mix two different
+  sources of truth. Provider permissions, metric definitions, freshness,
+  rate limits, billing, retention, and the identity of content published
+  outside Herald would become implicit and difficult to test. A generic
+  `metric: number` model could also present incomparable values as if they
+  were directly comparable.
+- Desired outcome: Define a provider-owned engagement analytics boundary that
+  specifies account and publication subjects, provider metric semantics and
+  units, observation windows and timestamps, freshness and availability
+  states, permissions and scopes, collection cadence and retry/backoff,
+  retention/privacy, provider-content discovery, and the API/read-model
+  boundary. The operational analytics contract remains unchanged and useful
+  when engagement analytics are unavailable.
+- Scope boundary: This issue does not select a provider, add a provider
+  adapter, request real credentials, add a dashboard, or require a universal
+  cross-provider engagement score. Provider metrics remain optional and
+  provider-owned until their semantics and access requirements are documented.
+- Tasks: none
+- Related issues: ISSUE-054, ISSUE-055
+- Related decisions: ADR-051
+- Research sources:
+  - https://docs.postiz.com/public-api/analytics/platform
+  - https://docs.postiz.com/public-api/analytics/post
+  - https://mixpost.app/features
+  - https://docs.mixpost.app/guides/horizon/
+  - https://docs.openpost.social/development/analytics
+  - https://docs.openpo.st/usage/analytics
