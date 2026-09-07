@@ -28,6 +28,11 @@ export interface ReadEventJournalInput {
     readonly limit?: number
 }
 
+export interface ReadGlobalEventJournalInput {
+    readonly after?: EventJournalCursor | null
+    readonly limit?: number
+}
+
 export interface EventJournalStoreOptions {
     readonly createId?: () => string
 }
@@ -115,6 +120,27 @@ export function createEventJournalStore(
         order by sequence
         limit ?3
     `)
+    const readGlobalStatement = client.query<
+        EventJournalRow,
+        [afterSequence: number, limit: number]
+    >(`
+        select sequence as cursorSequence,
+               id,
+               project_id as projectId,
+               actor_id as actorId,
+               action as name,
+               event_version as version,
+               entity_type as subjectType,
+               entity_id as subjectId,
+               metadata_json as payloadJson,
+               created_at as occurredAt,
+               correlation_id as correlationId,
+               causation_id as causationId
+        from audit_events
+        where sequence > ?1
+        order by sequence
+        limit ?2
+    `)
     const latestSequenceStatement = client.query<{ readonly sequence: number | null }, []>(`
         select seq as sequence
         from sqlite_sequence
@@ -154,6 +180,21 @@ export function createEventJournalStore(
 
             return readStatement
                 .all(projectId, afterSequence, limit)
+                .map(row => toEventJournalEntry(row))
+        },
+
+        readAfterGlobal(input: ReadGlobalEventJournalInput = {}): readonly EventJournalEntry[] {
+            const afterSequence = decodeCursor(input.after)
+            const limit = input.limit ?? defaultReadLimit
+            if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumReadLimit) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `event journal limit must be between 1 and ${maximumReadLimit}`
+                )
+            }
+
+            return readGlobalStatement
+                .all(afterSequence, limit)
                 .map(row => toEventJournalEntry(row))
         },
 
