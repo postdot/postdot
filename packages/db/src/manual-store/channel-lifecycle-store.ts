@@ -1,6 +1,10 @@
 import { DomainInvariantError, requireNonBlank, requireTimestamp, type Channel } from '@herald/core'
 
-import type { HeraldDatabase } from '../client'
+import {
+    createDatabaseTransaction,
+    recordDatabaseCommitProject,
+    type HeraldDatabase,
+} from '../client'
 import { toChannel } from './project-channel-mappers'
 import type { ActorRow, ChannelRow } from './rows'
 
@@ -227,7 +231,8 @@ export function createChannelLifecycleStore(
         ) values (?1, ?2, ?3, ?4, 'channel', ?5, ?6, ?7)
     `)
 
-    const renameChannelTransaction = client.transaction(
+    const renameChannelTransaction = createDatabaseTransaction(
+        database,
         (input: RenameChannelInput): Channel | null => {
             const actor = loadActorStatement.get(input.projectId, input.subjectId)
             const row = loadChannelStatement.get(input.projectId, input.channelId)
@@ -251,6 +256,7 @@ export function createChannelLifecycleStore(
                 throw staleChannelRevision(input.channelId, input.expectedRevision)
             }
 
+            recordDatabaseCommitProject(database, input.projectId)
             insertAuditEventStatement.run(
                 options.createId(),
                 input.projectId,
@@ -264,7 +270,8 @@ export function createChannelLifecycleStore(
         }
     )
 
-    const archiveChannelTransaction = client.transaction(
+    const archiveChannelTransaction = createDatabaseTransaction(
+        database,
         (input: ArchiveChannelInput): ChannelLifecycleUpdateResult | null => {
             const actor = loadActorStatement.get(input.projectId, input.subjectId)
             const row = loadChannelStatement.get(input.projectId, input.channelId)
@@ -294,6 +301,7 @@ export function createChannelLifecycleStore(
                 throw staleChannelRevision(input.channelId, input.expectedRevision)
             }
 
+            recordDatabaseCommitProject(database, input.projectId)
             insertAuditEventStatement.run(
                 options.createId(),
                 input.projectId,
@@ -310,7 +318,8 @@ export function createChannelLifecycleStore(
         }
     )
 
-    const restoreChannelTransaction = client.transaction(
+    const restoreChannelTransaction = createDatabaseTransaction(
+        database,
         (input: RestoreChannelInput): ChannelLifecycleUpdateResult | null => {
             const actor = loadActorStatement.get(input.projectId, input.subjectId)
             const row = loadChannelStatement.get(input.projectId, input.channelId)
@@ -337,6 +346,7 @@ export function createChannelLifecycleStore(
                 throw staleChannelRevision(input.channelId, input.expectedRevision)
             }
 
+            recordDatabaseCommitProject(database, input.projectId)
             insertAuditEventStatement.run(
                 options.createId(),
                 input.projectId,
@@ -353,7 +363,8 @@ export function createChannelLifecycleStore(
         }
     )
 
-    const deleteChannelTransaction = client.transaction(
+    const deleteChannelTransaction = createDatabaseTransaction(
+        database,
         (input: DeleteChannelInput): DeleteChannelResult | null => {
             const actor = loadActorStatement.get(input.projectId, input.subjectId)
             const row = loadChannelStatement.get(input.projectId, input.channelId)
@@ -385,6 +396,7 @@ export function createChannelLifecycleStore(
             }
 
             const timestamp = requireTimestamp(options.now(), 'now')
+            recordDatabaseCommitProject(database, input.projectId)
             insertAuditEventStatement.run(
                 options.createId(),
                 input.projectId,

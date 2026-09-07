@@ -61,7 +61,6 @@ export interface ProjectRealtimeEvent {
 }
 
 export interface ProjectEventStreamOptions {
-    readonly pollIntervalMs?: number
     readonly heartbeatIntervalMs?: number
     readonly batchSize?: number
 }
@@ -76,7 +75,6 @@ interface ProjectEventStreamInput {
 }
 
 const defaultStreamOptions: Required<ProjectEventStreamOptions> = {
-    pollIntervalMs: 250,
     heartbeatIntervalMs: 15_000,
     batchSize: 100,
 }
@@ -329,10 +327,7 @@ export function createProjectEventStream({
                     projectChanges,
                     projectId,
                     request,
-                    timeoutMs:
-                        projectChanges === undefined
-                            ? Math.min(streamOptions.pollIntervalMs, heartbeatAt - now)
-                            : heartbeatAt - now,
+                    timeoutMs: heartbeatAt - now,
                     setCancellation: cancel => {
                         releaseWait = cancel
                     },
@@ -364,7 +359,10 @@ async function waitForChangeOrHeartbeat(input: {
 }): Promise<boolean> {
     const projectChanges = input.projectChanges
     if (projectChanges === undefined) {
-        return waitForNextPoll(
+        // The production app always supplies the post-commit hub. This
+        // heartbeat-only path keeps the stream utility usable in isolation;
+        // it is not the normal event-discovery mechanism.
+        return waitForHeartbeat(
             input.request,
             input.timeoutMs,
             input.setCancellation,
@@ -400,7 +398,7 @@ async function waitForChangeOrHeartbeat(input: {
     })
 }
 
-function waitForNextPoll(
+function waitForHeartbeat(
     request: Request,
     milliseconds: number,
     setCancellation: (cancel: () => void) => void,

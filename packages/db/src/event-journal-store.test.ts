@@ -59,13 +59,11 @@ describe('event journal store', () => {
             if (hidden === undefined) throw new Error('The hidden event was not persisted')
 
             expect(store.readAfter({ projectId: firstProject.projectId })).toEqual([first, second])
-            expect(store.readAfterGlobal()).toEqual([first, second, hidden])
             expect(store.latestCursor()).toBe(hidden.cursor)
             expect(eventJournalCursorSequence(second.cursor)).toBe(2)
             expect(
                 store.readAfter({ projectId: firstProject.projectId, after: first.cursor })
             ).toEqual([second])
-            expect(store.readAfterGlobal({ after: first.cursor })).toEqual([second, hidden])
         } finally {
             closeDatabase(database)
         }

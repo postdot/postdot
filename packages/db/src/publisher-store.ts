@@ -13,7 +13,11 @@ import {
     type Timestamp,
 } from '@herald/core'
 
-import type { HeraldDatabase } from './client'
+import {
+    createDatabaseTransaction,
+    recordDatabaseCommitProject,
+    type HeraldDatabase,
+} from './client'
 
 export interface PublisherConnectionDestination {
     readonly type: 'account' | 'member' | 'organization' | 'channel'
@@ -595,7 +599,8 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
           and id = ?2
     `)
 
-    const createPublisherConnectionTransaction = client.transaction(
+    const createPublisherConnectionTransaction = createDatabaseTransaction(
+        database,
         (input: CreatePublisherConnectionInput): CreatePublisherConnectionResult => {
             const projectRow = loadProjectStatement.get(input.projectId)
             const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
@@ -687,6 +692,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                     timestamp
                 )
             }
+            recordDatabaseCommitProject(database, project.id)
             insertAuditEventStatement.run(
                 createId(),
                 project.id,
@@ -718,7 +724,8 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
         }
     )
 
-    const disconnectPublisherConnectionTransaction = client.transaction(
+    const disconnectPublisherConnectionTransaction = createDatabaseTransaction(
+        database,
         (input: DisconnectPublisherConnectionInput): DisconnectPublisherConnectionResult => {
             const actorRow = loadActorStatement.get(input.projectId, input.subjectId)
             const connection = loadPublisherConnectionStatement.get(
@@ -740,6 +747,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 connection.credentialId
             )
 
+            recordDatabaseCommitProject(database, input.projectId)
             insertAuditEventStatement.run(
                 createId(),
                 input.projectId,

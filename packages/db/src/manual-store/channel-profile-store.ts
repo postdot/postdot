@@ -9,7 +9,7 @@ import {
     type ValidationIssue,
 } from '@herald/core'
 
-import type { HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type HeraldDatabase } from '../client'
 import type {
     ActivateChannelProfileInput,
     ChannelProfileActivationResult,
@@ -206,7 +206,8 @@ export function createChannelProfileStore(
           and profile_version_id = ?5
     `)
 
-    const createChannelProfileDraftTransaction = client.transaction(
+    const createChannelProfileDraftTransaction = createDatabaseTransaction(
+        database,
         (input: CreateChannelProfileDraftInput): ChannelProfileVersion | null => {
             const actor = options.loadActor(input.projectId, input.subjectId)
             const channelRow = options.loadChannel(input.projectId, input.channelId)
@@ -328,7 +329,8 @@ export function createChannelProfileStore(
         }
     )
 
-    const activateChannelProfileTransaction = client.transaction(
+    const activateChannelProfileTransaction = createDatabaseTransaction(
+        database,
         (input: ActivateChannelProfileInput): ChannelProfileActivationResult | null => {
             const actor = options.loadActor(input.projectId, input.subjectId)
             const channelRow = options.loadChannel(input.projectId, input.channelId)

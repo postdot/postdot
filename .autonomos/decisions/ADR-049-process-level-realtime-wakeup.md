@@ -1,10 +1,11 @@
 # ADR-049 — Use a Process-Level Realtime Wakeup With Durable Replay
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-09-07
 - Scope: Herald API event streaming and in-app notification projection
 - Provenance: ISSUE-050, REALTIME-104
 - Related decisions: ADR-047, ADR-048
+- Superseded by: ADR-050
 
 ## Context
 

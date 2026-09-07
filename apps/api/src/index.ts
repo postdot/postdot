@@ -3,10 +3,10 @@ import { createCustomHttpTransport, createNetworkControlledFetcher } from '@hera
 import {
     closeDatabase,
     createDatabase,
-    createEventJournalStore,
     createMediaAssetStore,
     createNotificationStore,
     createProjectAccessTokenStore,
+    setDatabaseCommitObserver,
     runMigrations,
 } from '@herald/db'
 import { createMastodonPublisher } from '@herald/mastodon'
@@ -78,11 +78,15 @@ async function startServer(config = createHeraldConfig()) {
     const accessTokens = createProjectAccessTokenStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
-    const eventJournal = createEventJournalStore(database)
-    const realtime = createProjectRealtimeRuntime(eventJournal, {
+    const realtime = createProjectRealtimeRuntime({
         onProjectsChanged: projectIds => notificationProjection.runProjects(projectIds),
-        onError: error => console.error('[herald-realtime] journal watcher failed', error),
+        onError: error => console.error('[herald-realtime] post-commit wakeup failed', error),
     })
+    const clearDatabaseCommitObserver = setDatabaseCommitObserver(
+        database,
+        projectIds => realtime.publish(projectIds),
+        error => console.error('[herald-realtime] post-commit observer failed', error)
+    )
     const media = createMediaAssetStore(database, createConfiguredMediaStore(config.media), {
         uploadIntentTtlMs: config.media.uploadIntentTtlMs,
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
@@ -183,6 +187,7 @@ async function startServer(config = createHeraldConfig()) {
         mediaMaintenance.stop()
         notificationProjection.stop()
         realtime.stop()
+        clearDatabaseCommitObserver()
         await app.stop()
         closeDatabase(database)
     }

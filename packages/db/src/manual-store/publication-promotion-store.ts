@@ -9,7 +9,7 @@ import {
     type Publication,
 } from '@herald/core'
 
-import type { HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type HeraldDatabase } from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import {
     canonicalJson,
@@ -167,7 +167,8 @@ export function createPublicationPromotionStore(
           and state in ('draft', 'scheduled', 'failed')
     `)
 
-    const promotePublicationDraftTransaction = client.transaction(
+    const promotePublicationDraftTransaction = createDatabaseTransaction(
+        database,
         (input: PromotePublicationDraftInput): Publication | null => {
             const actorRow = options.loadActor(input.projectId, input.subjectId)
             const publicationRow = options.loadPublication(input.projectId, input.publicationId)
