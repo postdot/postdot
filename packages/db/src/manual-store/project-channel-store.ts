@@ -14,7 +14,11 @@ import {
     type Project,
 } from '@herald/core'
 
-import type { HeraldDatabase } from '../client'
+import {
+    createDatabaseTransaction,
+    recordDatabaseCommitProject,
+    type HeraldDatabase,
+} from '../client'
 import { toChannel, toProject } from './project-channel-mappers'
 import type { ActorRow, ChannelRow, ProjectRow } from './rows'
 
@@ -222,7 +226,8 @@ export function createProjectChannelStore(
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
     `)
 
-    const createProjectTransaction = client.transaction(
+    const createProjectTransaction = createDatabaseTransaction(
+        database,
         (input: CreateProjectInput): CreatedProject => {
             const timestamp = requireTimestamp(options.now(), 'now')
             const project = createProject({
@@ -265,6 +270,7 @@ export function createProjectChannelStore(
                 systemActor.displayName,
                 timestamp
             )
+            recordDatabaseCommitProject(database, project.id)
             insertAuditEventStatement.run(
                 options.createId(),
                 project.id,
@@ -280,7 +286,8 @@ export function createProjectChannelStore(
         }
     )
 
-    const updateProjectTimeZoneTransaction = client.transaction(
+    const updateProjectTimeZoneTransaction = createDatabaseTransaction(
+        database,
         (input: UpdateProjectTimeZoneInput): Project | null => {
             const actor = loadActorStatement.get(input.projectId, input.subjectId)
             const projectRow = loadProjectStatement.get(input.projectId)
@@ -294,6 +301,7 @@ export function createProjectChannelStore(
             const update = updateProjectTimeZoneStatement.run(timeZone, timestamp, project.id)
             if (update.changes !== 1) return null
 
+            recordDatabaseCommitProject(database, project.id)
             insertAuditEventStatement.run(
                 options.createId(),
                 project.id,
@@ -309,7 +317,8 @@ export function createProjectChannelStore(
         }
     )
 
-    const createChannelTransaction = client.transaction(
+    const createChannelTransaction = createDatabaseTransaction(
+        database,
         (input: CreateChannelInput): Channel | null => {
             const actor = loadActorStatement.get(input.projectId, input.subjectId)
             const projectRow = loadProjectStatement.get(input.projectId)
@@ -362,6 +371,7 @@ export function createProjectChannelStore(
                 actor.id,
                 timestamp
             )
+            recordDatabaseCommitProject(database, project.id)
             insertAuditEventStatement.run(
                 options.createId(),
                 project.id,

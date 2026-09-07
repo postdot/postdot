@@ -14,7 +14,7 @@ import {
     type ValidationIssue,
 } from '@herald/core'
 
-import type { HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type HeraldDatabase } from '../client'
 import type { CreatePostInput, CreatedPost } from '../manual-store'
 import {
     canonicalJson,
@@ -251,7 +251,8 @@ export function createPublicationCreationStore(
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
     `)
 
-    const createPostTransaction = client.transaction(
+    const createPostTransaction = createDatabaseTransaction(
+        database,
         (input: CreatePostInput): CreatedPost | null => {
             if (input.publications.length === 0) {
                 throw new DomainInvariantError(

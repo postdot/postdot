@@ -1,5 +1,16 @@
-export { closeDatabase, createDatabase } from './client'
-export type { HeraldDatabase } from './client'
+export {
+    closeDatabase,
+    createDatabase,
+    createDatabaseTransaction,
+    recordDatabaseCommitProject,
+    setDatabaseCommitObserver,
+} from './client'
+export type {
+    DatabaseCommitErrorHandler,
+    DatabaseCommitObserver,
+    DatabaseTransaction,
+    HeraldDatabase,
+} from './client'
 export { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
 export type {
     MediaBackupManifest,
@@ -21,7 +32,6 @@ export type {
     EventJournalStore,
     EventJournalStoreOptions,
     ReadEventJournalInput,
-    ReadGlobalEventJournalInput,
 } from './event-journal-store'
 export { createAnalyticsStore } from './analytics-store'
 export type {

@@ -9,7 +9,7 @@ import {
     type ValidationIssue,
 } from '@herald/core'
 
-import type { HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type HeraldDatabase } from '../client'
 import type {
     PublicationWorkingDraft,
     RebasePublicationDraftInput,
@@ -123,7 +123,8 @@ export function createPublicationAuthoringStore(
           and publication_id = ?6
           and revision = ?7
     `)
-    const savePublicationDraftTransaction = client.transaction(
+    const savePublicationDraftTransaction = createDatabaseTransaction(
+        database,
         (input: SavePublicationDraftInput): PublicationWorkingDraft | null => {
             if (input.sourceContent === undefined && input.targetContent === undefined) {
                 throw new DomainInvariantError(
@@ -267,7 +268,8 @@ export function createPublicationAuthoringStore(
         }
     )
 
-    const rebasePublicationDraftTransaction = client.transaction(
+    const rebasePublicationDraftTransaction = createDatabaseTransaction(
+        database,
         (input: RebasePublicationDraftInput): PublicationWorkingDraft | null => {
             const actorRow = options.loadActor(input.projectId, input.subjectId)
             const publicationRow = options.loadPublication(input.projectId, input.publicationId)

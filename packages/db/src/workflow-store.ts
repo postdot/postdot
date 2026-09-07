@@ -13,7 +13,11 @@ import {
     type PublicationState,
 } from '@herald/core'
 
-import type { HeraldDatabase } from './client'
+import {
+    createDatabaseTransaction,
+    recordDatabaseCommitProject,
+    type HeraldDatabase,
+} from './client'
 import {
     automaticExecutionAuditActions,
     serializeAutomaticExecutionAuditMetadata,
@@ -161,6 +165,7 @@ export function createWorkflowStore(database: HeraldDatabase) {
         readonly occurredAt: number
         readonly details?: Readonly<Record<string, unknown>>
     }): void => {
+        recordDatabaseCommitProject(database, input.projectId)
         insertExecutionAuditEventStatement.run(
             input.id,
             input.projectId,
@@ -260,33 +265,36 @@ export function createWorkflowStore(database: HeraldDatabase) {
         returning ${claimedJobColumns}
     `)
 
-    const claimNextDueTransaction = client.transaction((input: ClaimDueJobInput): Job | null => {
-        const claimed = claimNextDueStatement.get(
-            input.claimToken,
-            input.actorId,
-            input.now,
-            input.leaseExpiresAt
-        )
-        if (claimed === null) return null
+    const claimNextDueTransaction = createDatabaseTransaction(
+        database,
+        (input: ClaimDueJobInput): Job | null => {
+            const claimed = claimNextDueStatement.get(
+                input.claimToken,
+                input.actorId,
+                input.now,
+                input.leaseExpiresAt
+            )
+            if (claimed === null) return null
 
-        insertExecutionAuditEvent({
-            id: createId(),
-            projectId: claimed.projectId,
-            actorId: input.actorId,
-            action: automaticExecutionAuditActions.claimed,
-            publicationId: claimed.publicationId,
-            jobId: claimed.id,
-            attempt: claimed.attempts,
-            occurredAt: input.now,
-            details: {
-                fromState: 'pending',
-                toState: 'running',
-                leaseExpiresAt: input.leaseExpiresAt,
-            },
-        })
+            insertExecutionAuditEvent({
+                id: createId(),
+                projectId: claimed.projectId,
+                actorId: input.actorId,
+                action: automaticExecutionAuditActions.claimed,
+                publicationId: claimed.publicationId,
+                jobId: claimed.id,
+                attempt: claimed.attempts,
+                occurredAt: input.now,
+                details: {
+                    fromState: 'pending',
+                    toState: 'running',
+                    leaseExpiresAt: input.leaseExpiresAt,
+                },
+            })
 
-        return claimed
-    })
+            return claimed
+        }
+    )
 
     const loadRunningJobStatement = client.query<
         RunningJobRow,
@@ -491,7 +499,8 @@ export function createWorkflowStore(database: HeraldDatabase) {
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
     `)
 
-    const startExternalEffectTransaction = client.transaction(
+    const startExternalEffectTransaction = createDatabaseTransaction(
+        database,
         (jobId: string, claimToken: string, now: number): boolean => {
             const runningJob = loadRunningJobStatement.get(jobId, claimToken, now)
             if (runningJob === null) return false
@@ -753,7 +762,8 @@ export function createWorkflowStore(database: HeraldDatabase) {
           and effect_started_at is not null
     `)
 
-    const completeExternalEffectTransaction = client.transaction(
+    const completeExternalEffectTransaction = createDatabaseTransaction(
+        database,
         (input: CompleteExternalEffectInput): PersistedEffectOutcome | null => {
             const job = loadCompletableJobStatement.get(input.jobId, input.claimToken)
             if (job === null) return null
@@ -940,7 +950,8 @@ export function createWorkflowStore(database: HeraldDatabase) {
           and state = 'pending'
     `)
 
-    const cancelPendingJobTransaction = client.transaction(
+    const cancelPendingJobTransaction = createDatabaseTransaction(
+        database,
         (jobId: string, actorId: string, now: number): boolean => {
             const job = loadCancellableJobStatement.get(jobId, actorId)
             if (job === null) return false
@@ -1054,7 +1065,8 @@ export function createWorkflowStore(database: HeraldDatabase) {
           and effect_started_at is not null
     `)
 
-    const recoverExpiredClaimsTransaction = client.transaction(
+    const recoverExpiredClaimsTransaction = createDatabaseTransaction(
+        database,
         (now: number): ExpiredClaimRecovery => {
             const requeuedJobIds: string[] = []
             const ambiguousJobIds: string[] = []

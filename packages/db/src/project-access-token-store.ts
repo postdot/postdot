@@ -2,7 +2,11 @@ import { createHash, randomBytes } from 'node:crypto'
 
 import { DomainInvariantError, requireNonBlank, requireTimestamp } from '@herald/core'
 
-import type { HeraldDatabase } from './client'
+import {
+    createDatabaseTransaction,
+    recordDatabaseCommitProject,
+    type HeraldDatabase,
+} from './client'
 
 const tokenPrefix = 'herald_pat_v1_'
 const tokenEntropyBytes = 32
@@ -246,7 +250,8 @@ export function createProjectAccessTokenStore(
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
     `)
 
-    const createTokenTransaction = client.transaction(
+    const createTokenTransaction = createDatabaseTransaction(
+        database,
         (input: CreateProjectAccessTokenInput): CreatedProjectAccessToken | null => {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
@@ -281,6 +286,7 @@ export function createProjectAccessTokenStore(
                 actor.id,
                 timestamp
             )
+            recordDatabaseCommitProject(database, projectId)
             insertAuditEventStatement.run(
                 requireNonBlank(createId(), 'auditEventId'),
                 projectId,
@@ -308,7 +314,8 @@ export function createProjectAccessTokenStore(
         }
     )
 
-    const revokeTokenTransaction = client.transaction(
+    const revokeTokenTransaction = createDatabaseTransaction(
+        database,
         (input: RevokeProjectAccessTokenInput): ProjectAccessToken | null => {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')
@@ -333,6 +340,7 @@ export function createProjectAccessTokenStore(
                 return latest === null ? null : toProjectAccessToken(latest)
             }
 
+            recordDatabaseCommitProject(database, projectId)
             insertAuditEventStatement.run(
                 requireNonBlank(createId(), 'auditEventId'),
                 projectId,

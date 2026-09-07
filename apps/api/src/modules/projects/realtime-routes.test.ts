@@ -48,7 +48,7 @@ describe('project event stream', () => {
             projectId: 'project-1',
             journal: { readAfter: () => [entry] },
             after: null,
-            options: { pollIntervalMs: 1, heartbeatIntervalMs: 100, batchSize: 10 },
+            options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
 
         const reader = stream.getReader()
@@ -78,7 +78,7 @@ describe('project event stream', () => {
                 },
             },
             after: first.cursor,
-            options: { pollIntervalMs: 1, heartbeatIntervalMs: 5, batchSize: 10 },
+            options: { heartbeatIntervalMs: 5, batchSize: 10 },
         })
 
         const reader = stream.getReader()
@@ -92,7 +92,7 @@ describe('project event stream', () => {
             projectId: 'project-1',
             journal: { readAfter: () => [] },
             after: null,
-            options: { pollIntervalMs: 1, heartbeatIntervalMs: 5, batchSize: 10 },
+            options: { heartbeatIntervalMs: 5, batchSize: 10 },
         })
         const heartbeatReader = heartbeatStream.getReader()
         const heartbeat = await readText(heartbeatReader)
@@ -109,7 +109,7 @@ describe('project event stream', () => {
             projectId: 'project-1',
             journal: { readAfter: () => [first, regressed] },
             after: null,
-            options: { pollIntervalMs: 1, heartbeatIntervalMs: 100, batchSize: 10 },
+            options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
 
         const reader = stream.getReader()
@@ -121,7 +121,7 @@ describe('project event stream', () => {
         expect(terminal.done).toBe(true)
     })
 
-    it('stops polling after the request is aborted', async () => {
+    it('stops waiting after the request is aborted', async () => {
         const controller = new AbortController()
         let calls = 0
         const stream = createProjectEventStream({
@@ -136,7 +136,7 @@ describe('project event stream', () => {
                 },
             },
             after: null,
-            options: { pollIntervalMs: 10, heartbeatIntervalMs: 100, batchSize: 10 },
+            options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
 
         const reader = stream.getReader()
@@ -174,7 +174,7 @@ describe('project event stream', () => {
                 waitForChange: () => wakeup,
             },
             after: null,
-            options: { pollIntervalMs: 1, heartbeatIntervalMs: 1_000, batchSize: 10 },
+            options: { heartbeatIntervalMs: 1_000, batchSize: 10 },
         })
 
         const reader = stream.getReader()
@@ -215,7 +215,7 @@ describe('project event stream', () => {
             projectId: 'project-1',
             journal: { readAfter: () => [foreignEntry] },
             after: null,
-            options: { pollIntervalMs: 1, heartbeatIntervalMs: 100, batchSize: 10 },
+            options: { heartbeatIntervalMs: 100, batchSize: 10 },
         })
 
         const reader = stream.getReader()

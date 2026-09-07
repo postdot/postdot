@@ -1163,7 +1163,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   the existing durable event and notification projections rather than create a
   second source of truth, and must be validated against worker-generated
   publication outcomes.
-- Tasks: REALTIME-96, REALTIME-102, REALTIME-103, REALTIME-104
+- Tasks: REALTIME-96, REALTIME-102, REALTIME-103, REALTIME-104, REALTIME-105, REALTIME-106
 - Related issues: ISSUE-045, ISSUE-046
 
 ## [ISSUE-051] Give the notification inbox a non-blocking interaction surface

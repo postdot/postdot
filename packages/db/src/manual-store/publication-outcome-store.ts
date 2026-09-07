@@ -6,7 +6,7 @@ import {
     type Publication,
 } from '@herald/core'
 
-import type { HeraldDatabase } from '../client'
+import { createDatabaseTransaction, type HeraldDatabase } from '../client'
 import type {
     DueManualPublication,
     PublishManualPublicationInput,
@@ -154,7 +154,8 @@ export function createPublicationOutcomeStore(
         order by publications.scheduled_at, publications.id
     `)
 
-    const publishManualPublicationTransaction = client.transaction(
+    const publishManualPublicationTransaction = createDatabaseTransaction(
+        database,
         (input: PublishManualPublicationInput): Publication | null => {
             const actorRow = options.loadActor(input.projectId, input.subjectId)
             if (actorRow === null) return null
@@ -226,7 +227,8 @@ export function createPublicationOutcomeStore(
             return published
         }
     )
-    const reconcileAmbiguousPublicationTransaction = client.transaction(
+    const reconcileAmbiguousPublicationTransaction = createDatabaseTransaction(
+        database,
         (input: ReconcileAmbiguousPublicationInput): ReconcileAmbiguousPublicationResult => {
             const actorRow = options.loadActor(input.projectId, input.subjectId)
             const row = options.loadPublication(input.projectId, input.publicationId)

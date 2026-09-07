@@ -1,6 +1,5 @@
 import type { NotificationStore } from '@herald/db'
 
-const defaultIntervalMs = 5_000
 const maximumBatchesPerProject = 10
 
 export type NotificationProjectionRuntimeState =
@@ -20,6 +19,7 @@ export interface NotificationProjectionRuntime {
 }
 
 export interface NotificationProjectionRuntimeOptions {
+    /** Optional recovery timer; normal production updates arrive post-commit. */
     readonly intervalMs?: number
     readonly onError?: (error: unknown) => void
 }
@@ -28,12 +28,13 @@ export function createNotificationProjectionRuntime(
     notifications: Pick<NotificationStore, 'listProjectIds' | 'project'>,
     options: NotificationProjectionRuntimeOptions = {}
 ): NotificationProjectionRuntime {
-    const intervalMs = options.intervalMs ?? defaultIntervalMs
-    if (!Number.isSafeInteger(intervalMs) || intervalMs <= 0) {
+    const intervalMs = options.intervalMs
+    if (intervalMs !== undefined && (!Number.isSafeInteger(intervalMs) || intervalMs <= 0)) {
         throw new Error('Notification projection interval must be a positive safe integer')
     }
 
     let timer: ReturnType<typeof setInterval> | undefined
+    let started = false
     let running = false
     let recoveryRequired = false
     let state: NotificationProjectionRuntimeState = 'idle'
@@ -53,7 +54,7 @@ export function createNotificationProjectionRuntime(
                 } while (hasMore && batches < maximumBatchesPerProject)
             }
             recoveryRequired = false
-            state = timer === undefined ? 'idle' : 'started'
+            state = started ? 'started' : 'idle'
         } catch (error) {
             recoveryRequired = true
             state = 'failed'
@@ -68,16 +69,18 @@ export function createNotificationProjectionRuntime(
             return state
         },
         start() {
-            if (timer !== undefined) return
-            timer = setInterval(project, intervalMs)
+            if (started) return
+            started = true
+            if (intervalMs !== undefined) timer = setInterval(project, intervalMs)
             state = recoveryRequired ? 'recovering' : 'started'
             queueMicrotask(() => {
-                if (timer !== undefined) project()
+                if (started) project()
             })
         },
         stop() {
             if (timer !== undefined) clearInterval(timer)
             timer = undefined
+            started = false
             state = 'stopped'
         },
         runNow: project,

@@ -16,7 +16,7 @@ import {
     type Timestamp,
 } from '@herald/core'
 
-import type { HeraldDatabase } from './client'
+import { recordDatabaseCommitProject, type HeraldDatabase } from './client'
 import { createChannelLifecycleStore } from './manual-store/channel-lifecycle-store'
 import { createChannelProfileStore } from './manual-store/channel-profile-store'
 import { parseProfile } from './manual-store/content-codec'
@@ -614,8 +614,9 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
             })
             insertJobStatement.run(job.id, job.projectId, job.publicationId, job.runAt, timestamp)
         },
-        insertAuditEvent: input =>
-            insertAuditEventStatement.run(
+        insertAuditEvent: input => {
+            recordDatabaseCommitProject(database, input.projectId)
+            return insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -624,7 +625,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 input.entityId,
                 input.metadataJson,
                 input.createdAt
-            ),
+            )
+        },
     })
 
     const publicationAuthoringStore = createPublicationAuthoringStore(database, {
@@ -700,8 +702,9 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 input.runAt,
                 input.createdAt
             ),
-        insertAuditEvent: input =>
-            insertAuditEventStatement.run(
+        insertAuditEvent: input => {
+            recordDatabaseCommitProject(database, input.projectId)
+            return insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -710,7 +713,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 input.entityId,
                 input.metadataJson,
                 input.createdAt
-            ),
+            )
+        },
     })
 
     const publicationOutcomeStore = createPublicationOutcomeStore(database, {
@@ -719,8 +723,9 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
         loadPublication: (projectId, publicationId) =>
             loadPublicationByIdStatement.get(projectId, publicationId),
-        insertAuditEvent: input =>
-            insertAuditEventStatement.run(
+        insertAuditEvent: input => {
+            recordDatabaseCommitProject(database, input.projectId)
+            return insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -729,7 +734,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 input.entityId,
                 input.metadataJson,
                 input.createdAt
-            ),
+            )
+        },
     })
 
     const publicationCreationStore = createPublicationCreationStore(database, {
@@ -765,8 +771,9 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 input.runAt,
                 input.createdAt
             ),
-        insertAuditEvent: input =>
-            insertAuditEventStatement.run(
+        insertAuditEvent: input => {
+            recordDatabaseCommitProject(database, input.projectId)
+            return insertAuditEventStatement.run(
                 input.id,
                 input.projectId,
                 input.actorId,
@@ -775,7 +782,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 input.entityId,
                 input.metadataJson,
                 input.createdAt
-            ),
+            )
+        },
     })
 
     return {
