@@ -1396,7 +1396,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-059] Remove runtime friction from provider application configuration
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: Herald currently reads LinkedIn, X, and Bluesky OAuth application
   configuration from environment variables during API startup. A missing
   configuration causes the provider connection action to return unavailable,
@@ -1423,8 +1423,8 @@ channels` with a foreign-key constraint error even though a fresh empty database
   origin remain valid environment configuration. This issue does not remove the
   need to register an application and callback with an external provider, and it
   does not make provider policies or approval requirements disappear.
-- Tasks: CRED-19
-- Related issues: ISSUE-006, ISSUE-040, ISSUE-041
+- Tasks: CRED-19, CRED-20
+- Related issues: ISSUE-006, ISSUE-040, ISSUE-041, ISSUE-060
 - Related decisions: ADR-012, ADR-031, ADR-033, ADR-041, ADR-044, ADR-045,
   ADR-056
 - Resolution: Runtime-managed provider applications are now available through
@@ -1435,11 +1435,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
   an API restart. Existing environment-backed configuration remains a
   compatibility/bootstrap path. Provider account credentials and channel
   destinations remain separate, and no one-channel or one-account limit was
-  introduced. Selecting a non-default application explicitly for a channel is
-  intentionally outside CRED-19 and remains a possible follow-up.
+  introduced. Explicit non-default application selection is covered by
+  CRED-20 and ISSUE-060.
 - Verification: PR #131 merged the runtime/API and migration work; PR #132
-  merged the authenticated web settings surface. The full repository gate and
-  CI Verify passed for the integrated changes.
+  merged the authenticated web settings surface; PRs #133 and #134 completed
+  the API and channel UI selection flow. The full repository gate and CI Verify
+  passed for the integrated changes.
 
 ## [ISSUE-060] Select a provider application explicitly for a channel connection
 
