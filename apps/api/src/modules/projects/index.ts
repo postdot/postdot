@@ -44,6 +44,7 @@ export interface ProjectModuleOptions {
     readonly analytics: AnalyticsStore
     readonly providerAnalytics: ProviderAnalyticsStore
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
+    readonly blueskyAnalyticsTimeoutMs?: number
     readonly blueskyAnalyticsNow?: () => number
     readonly eventJournal: EventJournalStore
     readonly projectChanges?: ProjectRealtimeHub
@@ -77,6 +78,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
             providerAnalytics: options.providerAnalytics,
             publisher: options.publisher,
             fetcher: options.blueskyAnalyticsFetcher,
+            timeoutMs: options.blueskyAnalyticsTimeoutMs,
             now: options.blueskyAnalyticsNow,
         })
     )

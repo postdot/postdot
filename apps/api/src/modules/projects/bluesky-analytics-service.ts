@@ -2,6 +2,7 @@ import {
     BLUESKY_PROVIDER,
     collectBlueskyAnalytics,
     createBlueskyAnalyticsReader,
+    type BlueskyAnalyticsCoverage,
     type BlueskyFetcher,
 } from '@herald/bluesky'
 import {
@@ -21,6 +22,7 @@ export interface BlueskyAnalyticsCollectionResponse {
     readonly fetchedAt: number
     readonly inserted: number
     readonly duplicates: number
+    readonly coverage: BlueskyAnalyticsCoverage
     readonly observations: readonly ProviderAnalyticsObservation[]
 }
 
@@ -28,6 +30,7 @@ export interface BlueskyAnalyticsServiceOptions {
     readonly providerAnalytics: ProviderAnalyticsStore
     readonly publisher: PublisherRuntime
     readonly fetcher?: BlueskyFetcher
+    readonly timeoutMs?: number
     readonly now?: () => number
 }
 
@@ -39,7 +42,10 @@ export interface CollectBlueskyAnalyticsRequest {
 }
 
 export function createBlueskyAnalyticsService(options: BlueskyAnalyticsServiceOptions) {
-    const reader = createBlueskyAnalyticsReader({ fetcher: options.fetcher })
+    const reader = createBlueskyAnalyticsReader({
+        fetcher: options.fetcher,
+        timeoutMs: options.timeoutMs,
+    })
     const now = options.now ?? Date.now
 
     return {
@@ -105,6 +111,7 @@ export function createBlueskyAnalyticsService(options: BlueskyAnalyticsServiceOp
                 fetchedAt,
                 inserted: recorded.inserted,
                 duplicates: recorded.duplicates,
+                coverage: collection.coverage,
                 observations: recorded.observations,
             }
         },

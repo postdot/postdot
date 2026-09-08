@@ -1170,7 +1170,7 @@ export const providerAnalyticsObservations = sqliteTable(
             'provider_analytics_observations_enum_valid',
             sql`${table.subjectType} in ('account', 'content')
                 and (${table.heraldEntityType} is null or ${table.heraldEntityType} in ('channel', 'publication'))
-                and ${table.availability} in ('measured', 'not_reported', 'not_found', 'blocked', 'disabled', 'temporarily_unavailable', 'rate_limited', 'invalid_response', 'not_configured', 'not_authorized', 'not_supported')
+                and ${table.availability} in ('measured', 'not_reported', 'not_found', 'blocked', 'disabled', 'temporarily_unavailable', 'rate_limited', 'invalid_response', 'partial_response', 'not_configured', 'not_authorized', 'not_supported')
                 and ${table.freshness} in ('fresh', 'stale', 'unknown')`
         ),
     ]
