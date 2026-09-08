@@ -229,7 +229,8 @@ export function DashboardSidebar({
                                             <SidebarMenuButton
                                                 render={workspaceLink(
                                                     'channels',
-                                                    selectedProjectId
+                                                    selectedProjectId,
+                                                    channel.name
                                                 )}
                                                 tooltip={channel.name}>
                                                 <span
@@ -293,6 +294,7 @@ export function DashboardSidebar({
                     <SidebarMenuItem>
                         <SidebarMenuButton
                             disabled={pending}
+                            aria-label={m.nav_sign_out()}
                             onClick={onSignOut}
                             tooltip={m.nav_sign_out()}>
                             <Logout2Icon aria-hidden="true" />
@@ -345,7 +347,7 @@ function WorkspaceMenuItem({
     return (
         <SidebarMenuItem>
             <SidebarMenuButton
-                render={workspaceLink(destination, projectId, undefined, active)}
+                render={workspaceLink(destination, projectId, label, active)}
                 isActive={active}
                 tooltip={label}>
                 {icon}
