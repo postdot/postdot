@@ -36,6 +36,9 @@ export interface XOAuthConfig {
 
 export interface XProviderAdapterOptions {
     readonly oauth?: XOAuthConfig
+    readonly resolveOAuth?: (
+        providerApplicationId: string | null
+    ) => Promise<XOAuthConfig | undefined>
     readonly publisher?: XPublisher
     readonly createPublisher?: () => XPublisher
     readonly fetcher?: XFetcher
@@ -58,6 +61,9 @@ async function executeXPublication(input: {
     readonly options: XProviderAdapterOptions
 }): Promise<ExternalEffectOutcome> {
     const { input: execution, options } = input
+    const oauth = options.resolveOAuth
+        ? await options.resolveOAuth(execution.target.providerApplicationId ?? null)
+        : options.oauth
     const target = execution.target
 
     const destination = toXDestination(target.destination)
@@ -75,7 +81,7 @@ async function executeXPublication(input: {
 
     let accessToken = secrets.accessToken
     if (target.credentialExpiresAt !== null && target.credentialExpiresAt <= execution.now) {
-        if (secrets.refreshToken === null || options.oauth === undefined) {
+        if (secrets.refreshToken === null || oauth === undefined) {
             execution.credentials.markPublisherCredentialReconnectRequired(
                 target.projectId,
                 target.credentialId
@@ -85,9 +91,9 @@ async function executeXPublication(input: {
 
         try {
             const refreshed = await (options.refreshAccessToken ?? refreshAccessToken)({
-                authorizationServer: options.oauth.authorizationServer,
-                clientId: options.oauth.clientId,
-                clientAuthentication: options.oauth.clientAuthentication,
+                authorizationServer: oauth.authorizationServer,
+                clientId: oauth.clientId,
+                clientAuthentication: oauth.clientAuthentication,
                 refreshToken: secrets.refreshToken,
                 ...(options.fetcher === undefined ? {} : { fetcher: options.fetcher }),
             })

@@ -101,6 +101,11 @@ export {
     publisherCredentialEnvelopeVersion,
 } from './publisher-credential-crypto'
 export { createPublisherCredentialStore } from './publisher-credential-store'
+export {
+    createProviderApplicationStore,
+    providerApplicationProviders,
+    providerApplicationStates,
+} from './provider-application-store'
 export { createProjectAccessTokenStore } from './project-access-token-store'
 export {
     createAuthorizationAttemptStore,
@@ -140,6 +145,18 @@ export type {
     ReplacePublisherCredentialTokensInput,
     ReplacePublisherCredentialTokensResult,
 } from './publisher-credential-store'
+export type {
+    CreateProviderApplicationInput,
+    CreateProviderApplicationResult,
+    ProviderApplicationConfiguration,
+    ProviderApplicationProvider,
+    ProviderApplicationState,
+    ProviderApplicationStore,
+    ProviderApplicationStoreOptions,
+    ResolvedProviderApplication,
+    UpdateProviderApplicationInput,
+    UpdateProviderApplicationResult,
+} from './provider-application-store'
 export type {
     AuthorizationAttempt,
     AuthorizationAttemptStoreOptions,

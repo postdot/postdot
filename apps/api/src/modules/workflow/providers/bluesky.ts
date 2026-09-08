@@ -26,6 +26,9 @@ export interface BlueskyOAuthConfiguration {
 
 export interface BlueskyProviderAdapterOptions {
     readonly oauth?: BlueskyOAuthConfiguration
+    readonly resolveOAuth?: (
+        providerApplicationId: string | null
+    ) => Promise<BlueskyOAuthConfiguration | undefined>
     readonly restoreSession?: typeof restoreBlueskySession
     readonly createPublisher?: typeof createBlueskyPublisher
 }
@@ -41,6 +44,7 @@ export function createBlueskyProviderAdapter(
             executeBlueskyPublication({
                 input,
                 oauth: options.oauth,
+                resolveOAuth: options.resolveOAuth,
                 restoreSession: options.restoreSession ?? restoreBlueskySession,
                 createPublisher: options.createPublisher ?? createBlueskyPublisher,
             }),
@@ -50,10 +54,16 @@ export function createBlueskyProviderAdapter(
 async function executeBlueskyPublication(input: {
     readonly input: BuiltInProviderExecutionInput
     readonly oauth: BlueskyOAuthConfiguration | undefined
+    readonly resolveOAuth?: (
+        providerApplicationId: string | null
+    ) => Promise<BlueskyOAuthConfiguration | undefined>
     readonly restoreSession: typeof restoreBlueskySession
     readonly createPublisher: typeof createBlueskyPublisher
 }): Promise<ExternalEffectOutcome> {
-    const { input: execution, oauth } = input
+    const { input: execution } = input
+    const oauth = input.resolveOAuth
+        ? await input.resolveOAuth(execution.target.providerApplicationId ?? null)
+        : input.oauth
     const target = execution.target
     if (oauth === undefined) {
         return permanentFailure('The Bluesky publisher is not configured')

@@ -4,6 +4,8 @@ import {
     createPublisherCredentialCipher,
     createPublisherCredentialStore,
     createPublisherStore,
+    createProviderApplicationStore,
+    createSecretCipher,
     type HeraldDatabase,
 } from '@herald/db'
 import {
@@ -81,6 +83,16 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         keyId: options.publisherEncryptionKeyId,
         key: options.publisherEncryptionKey,
     })
+    const applicationCipher = createSecretCipher({
+        domain: 'herald.provider-application',
+        keyId: options.publisherEncryptionKeyId,
+        key: options.publisherEncryptionKey,
+    })
+    const providerApplicationStore = createProviderApplicationStore(database, {
+        cipher: applicationCipher,
+        now,
+        createId,
+    })
     const credentialStore = createPublisherCredentialStore(database, { cipher, now, createId })
     const publisherStore = createPublisherStore(database, {
         credentialRevoker: credentialStore,
@@ -145,6 +157,91 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
                   callbackUri: xCallbackUri,
               }
 
+    async function resolveLinkedInApplication(applicationId?: string | null) {
+        if (applicationId === null) {
+            return linkedin === undefined ? undefined : { applicationId: null, ...linkedin }
+        }
+        const configured = await providerApplicationStore.resolveProviderApplication(
+            'linkedin',
+            applicationId
+        )
+        if (configured !== null) {
+            if (configured.clientId === null || configured.clientSecret === null) return undefined
+            return {
+                applicationId: configured.id,
+                clientId: configured.clientId,
+                clientSecret: configured.clientSecret,
+                authorizationServer:
+                    options.linkedin?.authorizationServer ?? defaultLinkedInAuthorizationServer,
+                clientAuthentication: clientSecretPost(configured.clientSecret),
+                profileClient:
+                    options.linkedin?.profileClient ?? createLinkedInMemberProfileClient(),
+                organizationClient:
+                    options.linkedin?.organizationClient ?? createLinkedInOrganizationClient(),
+            }
+        }
+        if (applicationId !== undefined && applicationId !== null) {
+            return undefined
+        }
+        if (providerApplicationStore.hasProviderApplication('linkedin')) return undefined
+        if (linkedin === undefined) return undefined
+        return { applicationId: null, ...linkedin }
+    }
+
+    async function resolveBlueskyApplication(applicationId?: string | null) {
+        if (applicationId === null) {
+            return bluesky === undefined ? undefined : { applicationId: null, ...bluesky }
+        }
+        const configured = await providerApplicationStore.resolveProviderApplication(
+            'bluesky',
+            applicationId
+        )
+        if (configured !== null) {
+            if (configured.clientMetadataUrl === null || configured.handleResolver === null) {
+                return undefined
+            }
+            return {
+                applicationId: configured.id,
+                callbackUri: blueskyCallbackUri,
+                clientMetadata: createBlueskyClientMetadata({
+                    clientId: configured.clientMetadataUrl,
+                    clientName: 'Herald',
+                    clientUri: options.webOrigin,
+                    redirectUri: blueskyCallbackUri,
+                }),
+                handleResolver: configured.handleResolver,
+            }
+        }
+        if (applicationId !== undefined && applicationId !== null) return undefined
+        if (providerApplicationStore.hasProviderApplication('bluesky')) return undefined
+        return bluesky === undefined ? undefined : { applicationId: null, ...bluesky }
+    }
+
+    async function resolveXApplication(applicationId?: string | null) {
+        if (applicationId === null) {
+            return x === undefined ? undefined : { applicationId: null, ...x }
+        }
+        const configured = await providerApplicationStore.resolveProviderApplication(
+            'x',
+            applicationId
+        )
+        if (configured !== null) {
+            if (configured.clientId === null || configured.clientSecret === null) return undefined
+            return {
+                applicationId: configured.id,
+                clientId: configured.clientId,
+                clientSecret: configured.clientSecret,
+                authorizationServer: options.x?.authorizationServer ?? defaultXAuthorizationServer,
+                clientAuthentication: clientSecretBasic(configured.clientSecret),
+                publisher: options.x?.publisher ?? createXPublisher(),
+                callbackUri: xCallbackUri,
+            }
+        }
+        if (applicationId !== undefined && applicationId !== null) return undefined
+        if (providerApplicationStore.hasProviderApplication('x')) return undefined
+        return x === undefined ? undefined : { applicationId: null, ...x }
+    }
+
     return {
         apiOrigin: options.apiOrigin,
         webOrigin: options.webOrigin,
@@ -155,6 +252,36 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
         publisherStore,
         credentialStore,
         authorizationAttemptStore,
+        providerApplicationStore,
+        resolveLinkedInApplication,
+        resolveBlueskyApplication,
+        resolveXApplication,
+        resolveBlueskyOAuth: async (applicationId?: string | null) => {
+            const resolved = await resolveBlueskyApplication(applicationId)
+            if (resolved === undefined) return undefined
+            return {
+                clientMetadata: resolved.clientMetadata,
+                handleResolver: resolved.handleResolver,
+            }
+        },
+        resolveLinkedInOAuth: async (applicationId?: string | null) => {
+            const resolved = await resolveLinkedInApplication(applicationId)
+            if (resolved === undefined) return undefined
+            return {
+                clientId: resolved.clientId,
+                clientAuthentication: resolved.clientAuthentication,
+                authorizationServer: resolved.authorizationServer,
+            }
+        },
+        resolveXOAuth: async (applicationId?: string | null) => {
+            const resolved = await resolveXApplication(applicationId)
+            if (resolved === undefined) return undefined
+            return {
+                clientId: resolved.clientId,
+                clientAuthentication: resolved.clientAuthentication,
+                authorizationServer: resolved.authorizationServer,
+            }
+        },
         linkedin,
         bluesky,
         mastodon,

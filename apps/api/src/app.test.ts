@@ -218,6 +218,140 @@ describe('Herald API', () => {
         }
     })
 
+    it('manages runtime provider applications without exposing client secrets', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'provider-applications@herald.local')
+            const createResponse = await jsonRequest(
+                app,
+                '/api/settings/provider-applications',
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        providerId: 'linkedin',
+                        name: 'Herald LinkedIn',
+                        clientId: 'linkedin-client-id',
+                        clientSecret: 'linkedin-client-secret',
+                    }),
+                }
+            )
+            expect(createResponse.status).toBe(201)
+            const created = (await createResponse.json()) as {
+                application: {
+                    id: string
+                    providerId: string
+                    isDefault: boolean
+                    hasClientSecret: boolean
+                }
+            }
+            expect(created.application).toMatchObject({
+                providerId: 'linkedin',
+                isDefault: true,
+                hasClientSecret: true,
+            })
+            expect(JSON.stringify(created)).not.toContain('linkedin-client-secret')
+
+            const listResponse = await jsonRequest(
+                app,
+                '/api/settings/provider-applications',
+                cookie
+            )
+            expect(listResponse.status).toBe(200)
+            expect(await listResponse.json()).toEqual({
+                applications: [created.application],
+            })
+
+            const disableResponse = await jsonRequest(
+                app,
+                `/api/settings/provider-applications/${created.application.id}`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ state: 'disabled' }),
+                }
+            )
+            expect(disableResponse.status).toBe(200)
+            expect(await disableResponse.json()).toMatchObject({
+                application: {
+                    id: created.application.id,
+                    state: 'disabled',
+                    isDefault: false,
+                    hasClientSecret: true,
+                },
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('uses a persisted provider application immediately for OAuth initiation', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'runtime-oauth@herald.local')
+            const applicationResponse = await jsonRequest(
+                app,
+                '/api/settings/provider-applications',
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        providerId: 'linkedin',
+                        name: 'Runtime LinkedIn',
+                        clientId: 'runtime-linkedin-client-id',
+                        clientSecret: 'runtime-linkedin-client-secret',
+                    }),
+                }
+            )
+            expect(applicationResponse.status).toBe(201)
+            const applicationBody = (await applicationResponse.json()) as {
+                application: { id: string }
+            }
+
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Runtime OAuth Project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Runtime LinkedIn Channel', profile: 'linkedin' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const channelBody = (await channelResponse.json()) as { channel: { id: string } }
+
+            const connectResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/linkedin/connect`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(connectResponse.status).toBe(200)
+            const connection = (await connectResponse.json()) as { authorizationUrl: string }
+            expect(new URL(connection.authorizationUrl).searchParams.get('client_id')).toBe(
+                'runtime-linkedin-client-id'
+            )
+
+            const attempt = database.$client
+                .query<{ providerApplicationId: string | null }, []>(
+                    `select provider_application_id as providerApplicationId
+                     from oauth_authorization_attempts`
+                )
+                .get()
+            expect(attempt?.providerApplicationId).toBe(applicationBody.application.id)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('reports readiness only when the database and runtimes are active', async () => {
         const { app, database } = createFixture()
 
@@ -343,6 +477,8 @@ describe('Herald API', () => {
             expect(Object.keys(specification.paths)).toEqual([
                 '/health',
                 '/ready',
+                '/api/settings/provider-applications',
+                '/api/settings/provider-applications/{applicationId}',
                 '/api/projects',
                 '/api/projects/{projectId}',
                 '/api/projects/{projectId}/access-tokens',

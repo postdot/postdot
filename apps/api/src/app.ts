@@ -129,6 +129,10 @@ function createDomainApp({
                         { name: 'Posts', description: 'Source posts and publication creation.' },
                         { name: 'Publications', description: 'Publication workflow operations.' },
                         { name: 'Media', description: 'Project media assets and uploads.' },
+                        {
+                            name: 'Settings',
+                            description: 'Instance-level runtime configuration.',
+                        },
                         { name: 'Audit', description: 'Project audit history.' },
                         {
                             name: 'Notifications',

@@ -197,7 +197,13 @@ describe('publisher credential store', () => {
                 .query<{ table: string }, []>(`pragma foreign_key_list('publisher_credentials')`)
                 .all()
                 .map(row => row.table)
-            expect(foreignKeys).toEqual(['actors', 'actors', 'projects'])
+            expect(foreignKeys).toEqual([
+                'provider_application_configurations',
+                'provider_application_configurations',
+                'actors',
+                'actors',
+                'projects',
+            ])
             expect(foreignKeys).not.toContain('user')
             expect(foreignKeys).not.toContain('account')
 

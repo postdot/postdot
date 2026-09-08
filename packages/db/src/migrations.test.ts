@@ -86,6 +86,16 @@ function revertEventJournalMigration(database: ReturnType<typeof createDatabase>
     `)
 }
 
+function revertProviderApplicationMigration(database: ReturnType<typeof createDatabase>) {
+    database.$client.exec(`
+        PRAGMA foreign_keys=OFF;
+        ALTER TABLE oauth_authorization_attempts DROP COLUMN provider_application_id;
+        ALTER TABLE publisher_credentials DROP COLUMN provider_application_id;
+        DROP TABLE provider_application_configurations;
+        PRAGMA foreign_keys=ON;
+    `)
+}
+
 function revertNotificationMigration(database: ReturnType<typeof createDatabase>) {
     database.$client.exec(`
         DROP TABLE notification_deliveries;
@@ -145,6 +155,7 @@ describe('database migrations', () => {
                 'project_access_tokens',
                 'projects',
                 'provider_analytics_observations',
+                'provider_application_configurations',
                 'provider_media_deliveries',
                 'publication_execution_revision_media',
                 'publication_execution_revisions',
@@ -165,7 +176,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(22)
+            expect(migrationCount?.count).toBe(23)
         } finally {
             closeDatabase(database)
         }
@@ -276,7 +287,9 @@ describe('database migrations', () => {
             revertChannelLifecycleMigration(database)
             revertNotificationMigration(database)
             revertEventJournalMigration(database)
+            revertProviderApplicationMigration(database)
             unapplyMigrations(database, [
+                '0022_fresh_human_robot',
                 '0021_thankful_jack_power',
                 '0020_harsh_hairball',
                 '0019_flawless_greymalkin',
@@ -355,7 +368,9 @@ describe('database migrations', () => {
             revertChannelLifecycleMigration(staleDatabase)
             revertNotificationMigration(staleDatabase)
             revertEventJournalMigration(staleDatabase)
+            revertProviderApplicationMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
+                '0022_fresh_human_robot',
                 '0021_thankful_jack_power',
                 '0020_harsh_hairball',
                 '0019_flawless_greymalkin',

@@ -20,6 +20,7 @@ export interface CreatePublisherCredentialInput {
     readonly projectId: string
     readonly connectedByActorId: string
     readonly providerId: string
+    readonly providerApplicationId?: string | null
     readonly externalAccountId: string
     readonly externalAccountName?: string | null
     readonly scopes?: readonly string[]
@@ -38,6 +39,8 @@ export type CreatePublisherCredentialResult =
 export interface ReplacePublisherCredentialTokensInput {
     readonly projectId: string
     readonly credentialId: string
+    /** Undefined preserves the application that issued the credential. */
+    readonly providerApplicationId?: string | null
     readonly accessToken: string
     /** Undefined preserves the current refresh token; null removes it. */
     readonly refreshToken?: string | null
@@ -85,6 +88,7 @@ interface CredentialMetadataRow {
     readonly id: string
     readonly projectId: string
     readonly providerId: string
+    readonly providerApplicationId: string | null
     readonly externalAccountId: string
     readonly externalAccountName: string | null
     readonly scopesJson: string
@@ -111,6 +115,7 @@ const metadataColumns = `
     id,
     project_id as projectId,
     provider_id as providerId,
+    provider_application_id as providerApplicationId,
     external_account_id as externalAccountId,
     external_account_name as externalAccountName,
     scopes as scopesJson,
@@ -151,6 +156,9 @@ function toCredential(row: CredentialMetadataRow): PublisherCredential {
         id: row.id,
         projectId: row.projectId,
         providerId: row.providerId,
+        ...(row.providerApplicationId === null
+            ? {}
+            : { providerApplicationId: row.providerApplicationId }),
         externalAccountId: row.externalAccountId,
         externalAccountName: row.externalAccountName,
         scopes: parseScopes(row.scopesJson),
@@ -297,6 +305,7 @@ export function createPublisherCredentialStore(
             state: PublisherCredentialState,
             expiresAt: number | null,
             connectedByActorId: string,
+            providerApplicationId: string | null,
             encryptionVersion: number,
             encryptionKeyId: string,
             accessTokenCiphertext: Uint8Array,
@@ -318,6 +327,7 @@ export function createPublisherCredentialStore(
             state,
             expires_at,
             connected_by_actor_id,
+            provider_application_id,
             encryption_version,
             encryption_key_id,
             access_token_ciphertext,
@@ -329,7 +339,7 @@ export function createPublisherCredentialStore(
             created_at,
             updated_at
         ) values (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?19
         )
         on conflict (project_id, provider_id, external_account_id) do nothing
     `)
@@ -345,6 +355,7 @@ export function createPublisherCredentialStore(
             providerSessionCiphertext: Uint8Array | null,
             providerSessionNonce: Uint8Array | null,
             expiresAt: number | null,
+            providerApplicationId: string | null,
             timestamp: number,
             projectId: string,
             credentialId: string,
@@ -361,12 +372,13 @@ export function createPublisherCredentialStore(
             provider_session_ciphertext = ?7,
             provider_session_nonce = ?8,
             expires_at = ?9,
+            provider_application_id = ?10,
             state = 'active',
             revision = revision + 1,
-            updated_at = ?10
-        where project_id = ?11
-          and id = ?12
-          and revision = ?13
+            updated_at = ?11
+        where project_id = ?12
+          and id = ?13
+          and revision = ?14
     `)
     const markReconnectRequiredStatement = client.query<
         { changes: number },
@@ -459,6 +471,7 @@ export function createPublisherCredentialStore(
                 project: toProject(projectRow),
                 connectedBy: toActor(actorRow),
                 providerId,
+                providerApplicationId: input.providerApplicationId,
                 externalAccountId,
                 externalAccountName: input.externalAccountName,
                 scopes: input.scopes,
@@ -506,6 +519,7 @@ export function createPublisherCredentialStore(
                 credential.state,
                 credential.expiresAt,
                 credential.connectedByActorId,
+                credential.providerApplicationId ?? null,
                 accessToken.version,
                 accessToken.keyId,
                 accessToken.ciphertext,
@@ -672,6 +686,9 @@ export function createPublisherCredentialStore(
                 providerSession?.ciphertext ?? null,
                 providerSession?.nonce ?? null,
                 expiresAt,
+                input.providerApplicationId === undefined
+                    ? row.providerApplicationId
+                    : input.providerApplicationId,
                 timestamp,
                 projectId,
                 credentialId,

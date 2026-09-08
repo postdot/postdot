@@ -14,6 +14,7 @@ import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
 import { registerMediaRoutes } from '../media/routes'
+import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
 import { registerProjectAccessTokenRoutes } from './access-token-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
 import { registerAuditEventRoutes } from './audit-event-routes'
@@ -54,7 +55,11 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
         authenticateProjectAccessToken: options.accessTokens?.authenticate,
     })
-    const projectRoutes = registerProjectRoutes(authenticated, options.manualStore)
+    const providerApplicationRoutes = registerProviderApplicationRoutes(
+        authenticated,
+        options.publisher
+    )
+    const projectRoutes = registerProjectRoutes(providerApplicationRoutes, options.manualStore)
     const accessTokenRoutes = registerProjectAccessTokenRoutes(projectRoutes, options.accessTokens)
     const channelRoutes = registerChannelRoutes(accessTokenRoutes, options.manualStore)
     const channelProfileRoutes = registerChannelProfileRoutes(channelRoutes, options.manualStore)

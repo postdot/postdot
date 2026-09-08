@@ -70,6 +70,8 @@ export interface Publisher extends ProjectEntity {
 
 export interface PublisherCredential extends ProjectEntity {
     readonly providerId: string
+    /** The instance-owned OAuth application used to obtain this grant, when known. */
+    readonly providerApplicationId?: string | null
     readonly externalAccountId: string
     readonly externalAccountName: string | null
     readonly scopes: readonly string[]
@@ -221,6 +223,7 @@ export function createPublisherCredential(
         readonly project: Project
         readonly connectedBy: Actor
         readonly providerId: string
+        readonly providerApplicationId?: string | null
         readonly externalAccountId: string
         readonly externalAccountName?: string | null
         readonly scopes?: readonly string[]
@@ -236,6 +239,14 @@ export function createPublisherCredential(
     return {
         ...projectEntityFields(input, input.project),
         providerId: requireNonBlank(input.providerId, 'providerId'),
+        ...(input.providerApplicationId === undefined
+            ? {}
+            : {
+                  providerApplicationId:
+                      input.providerApplicationId === null
+                          ? null
+                          : requireNonBlank(input.providerApplicationId, 'providerApplicationId'),
+              }),
         externalAccountId: requireNonBlank(input.externalAccountId, 'externalAccountId'),
         externalAccountName:
             input.externalAccountName === null || input.externalAccountName === undefined

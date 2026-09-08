@@ -27,7 +27,7 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
         readonly onWorkScheduled?: () => void
     } = {}
 ) {
-    const { authorizationAttemptStore, credentialStore, linkedin, publisherStore } = publisher
+    const { authorizationAttemptStore, credentialStore, publisherStore } = publisher
 
     return app
         .post(
@@ -80,6 +80,17 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     })
                 }
 
+                let linkedin: Awaited<ReturnType<PublisherRuntime['resolveLinkedInApplication']>>
+                try {
+                    linkedin = await publisher.resolveLinkedInApplication()
+                } catch {
+                    return status(503, {
+                        error: {
+                            code: 'provider_unavailable',
+                            message: 'LinkedIn publisher connection is not configured',
+                        },
+                    })
+                }
                 if (linkedin === undefined) {
                     return status(503, {
                         error: {
@@ -121,6 +132,7 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                         channelId: params.channelId,
                         connectedByActorId: actorId,
                         providerId: LINKEDIN_PROVIDER,
+                        providerApplicationId: linkedin.applicationId,
                         callbackUri: publisher.callbackUri,
                         scopes: authorization.scopes,
                         returnPath: '/dashboard',
@@ -186,14 +198,6 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
                 }
 
-                if (linkedin === undefined) {
-                    return redirectPublisher(
-                        publisher.webOrigin,
-                        '/dashboard',
-                        'provider_unavailable'
-                    )
-                }
-
                 const parameters = new URL(request.url).searchParams
                 const state = parameters.get('state')
                 if (state === null || state.length === 0) {
@@ -211,6 +215,26 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
                 if (pendingAttempt === null || pendingAttempt.providerId !== LINKEDIN_PROVIDER) {
                     return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
+                }
+
+                let linkedin: Awaited<ReturnType<PublisherRuntime['resolveLinkedInApplication']>>
+                try {
+                    linkedin = await publisher.resolveLinkedInApplication(
+                        pendingAttempt.providerApplicationId ?? null
+                    )
+                } catch {
+                    return redirectPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'provider_unavailable'
+                    )
+                }
+                if (linkedin === undefined) {
+                    return redirectPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'provider_unavailable'
+                    )
                 }
 
                 const actorId = publisherStore.getProjectActorId(pendingAttempt.projectId, user.id)
@@ -296,6 +320,7 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                         connectedByActorId: consumed.attempt.connectedByActorId,
                         profile,
                         providerId: LINKEDIN_PROVIDER,
+                        providerApplicationId: consumed.attempt.providerApplicationId,
                         scopes: tokenSet.scopes ?? consumed.attempt.scopes,
                         accessToken: tokenSet.accessToken,
                         refreshToken: tokenSet.refreshToken ?? undefined,
@@ -363,6 +388,7 @@ async function savePublisherCredential(input: {
     readonly projectId: string
     readonly connectedByActorId: string
     readonly providerId: string
+    readonly providerApplicationId?: string | null
     readonly profile: LinkedInMemberProfile
     readonly scopes: readonly string[]
     readonly accessToken: string
@@ -373,6 +399,7 @@ async function savePublisherCredential(input: {
         projectId: input.projectId,
         connectedByActorId: input.connectedByActorId,
         providerId: input.providerId,
+        providerApplicationId: input.providerApplicationId,
         externalAccountId: input.profile.id,
         externalAccountName: input.profile.name,
         scopes: input.scopes,

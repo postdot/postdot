@@ -103,6 +103,7 @@ interface AdapterConformanceCase {
     readonly profile: ChannelProfileDefinition
     readonly content: Readonly<Record<string, unknown>>
     readonly destination: PublisherConnectionDestination
+    readonly providerApplicationId?: string | null
     readonly externalAccountId: string
     readonly providerSession: string | null
     readonly endpointUrl: string | null
@@ -358,7 +359,10 @@ const conformanceMedia: PublisherExecutionMedia = {
 function createTarget(
     provider: AdapterConformanceCase,
     overrides: Partial<
-        Pick<PublisherExecutionTarget, 'content' | 'destination' | 'media' | 'mediaReferenceCount'>
+        Pick<
+            PublisherExecutionTarget,
+            'content' | 'destination' | 'media' | 'mediaReferenceCount' | 'providerApplicationId'
+        >
     > = {}
 ): PublisherExecutionTarget {
     const media = overrides.media ?? []
@@ -380,6 +384,9 @@ function createTarget(
         externalAccountId: provider.externalAccountId,
         destination: overrides.destination ?? provider.destination,
         providerId: provider.providerId,
+        ...(overrides.providerApplicationId === undefined
+            ? {}
+            : { providerApplicationId: overrides.providerApplicationId }),
         credentialState: 'active',
         credentialExpiresAt: null,
         endpointUrl: provider.endpointUrl,
@@ -444,7 +451,11 @@ function createExecutionFixture(
         readonly target?: Partial<
             Pick<
                 PublisherExecutionTarget,
-                'content' | 'destination' | 'media' | 'mediaReferenceCount'
+                | 'content'
+                | 'destination'
+                | 'media'
+                | 'mediaReferenceCount'
+                | 'providerApplicationId'
             >
         >
     } = {}
@@ -1222,6 +1233,47 @@ describe('built-in provider adapter conformance', () => {
             expect(second).toEqual({ type: 'published', externalId: 'tweet-retried' })
             expect(uploads).toBe(2)
             expect(published).toBe(1)
+        })
+    })
+
+    describe('Bluesky adapter specific behavior', () => {
+        const blueskyCase = adapterCases.find(c => c.providerId === 'bluesky')!
+
+        it('resolves the runtime OAuth application selected by the execution target', async () => {
+            let resolvedApplicationId: string | null = null
+            let dispatched = false
+            const restoreSession: NonNullable<
+                BlueskyProviderAdapterOptions['restoreSession']
+            > = async () => ({
+                client: undefined as never,
+                session: { did: blueskyDid } as never,
+                getSession: () => undefined as never,
+                getSerializedSession: () => blueskySession,
+            })
+            const adapter = createBlueskyProviderAdapter({
+                oauth: blueskyOAuth,
+                resolveOAuth: async applicationId => {
+                    resolvedApplicationId = applicationId
+                    return blueskyOAuth
+                },
+                restoreSession,
+                createPublisher: () => ({
+                    async publish() {
+                        dispatched = true
+                        return { type: 'published', externalId: 'bluesky-runtime-app' }
+                    },
+                }),
+            })
+            const fixture = createExecutionFixture(blueskyCase, {
+                target: { providerApplicationId: 'bluesky-app-1' },
+            })
+
+            await expect(adapter.execute(fixture.input)).resolves.toEqual({
+                type: 'published',
+                externalId: 'bluesky-runtime-app',
+            })
+            expect(resolvedApplicationId as string | null).toBe('bluesky-app-1')
+            expect(dispatched).toBe(true)
         })
     })
 })
