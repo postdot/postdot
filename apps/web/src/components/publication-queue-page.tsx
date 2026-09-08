@@ -75,7 +75,9 @@ export function PublicationQueuePage() {
                 onValueChange={value => {
                     if (isQueueFilter(value)) setFilter(value)
                 }}>
-                <TabsList className="max-w-full overflow-x-auto" variant="line">
+                <TabsList
+                    className="w-full max-w-full justify-start overflow-x-auto [&>[data-slot=tabs-trigger]]:shrink-0"
+                    variant="line">
                     <TabsTrigger
                         aria-label={m.queue_filter_aria({
                             label: m.queue_all(),

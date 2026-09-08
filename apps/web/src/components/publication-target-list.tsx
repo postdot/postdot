@@ -167,7 +167,7 @@ function PublicationTargetCard({
                 />
             </TargetField>
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+            <div className="grid gap-4 xl:grid-cols-2">
                 <TargetField htmlFor={`${fieldPrefix}-delivery`} label={m.compose_delivery_mode()}>
                     <Select
                         items={{
