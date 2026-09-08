@@ -1330,13 +1330,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-057] Harden operational analytics reads for large project histories
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: ANALYTICS-110 measured the current operational analytics read model
-  on isolated SQLite fixtures. After streaming and compact-state improvements,
-  20,000 publications and 80,160 facts still required about 5 seconds for a
-  warm read and increased worker RSS by about 177 MiB. The 1,000-publication
-  fixture was about 234 ms median and the 5,000-publication fixture about 1.34
-  seconds median.
+  on isolated SQLite fixtures. ANALYTICS-111 then removed order-only temporary
+  sorts from current snapshots, cached the expensive timezone formatter used by
+  historical buckets, and replaced one per-attempt action `Set` with a compact
+  bit mask. On the same synthetic fixture, 20,000 publications and 80,160 facts
+  now measure 565 ms warm median and 580 ms p95; the first read adds about 115
+  MiB RSS after an explicit garbage collection. Repeated reads remain a stress
+  case at about 281 MiB RSS after two warmups and nine samples, so this is not a
+  claim of an unlimited analytics history or of a leak-free native allocator.
 - Impact: A large project can make the interactive analytics endpoint slow and
   memory-heavy even though the response contract is correct. Adding a
   projection blindly would introduce rebuild, cursor, retention, and
@@ -1351,5 +1354,41 @@ channels` with a foreign-key constraint error even though a fresh empty database
   change the analytics API contract, add a dashboard, or introduce a broker or
   external service without a separately accepted decision.
 - Tasks: ANALYTICS-111
-- Related issues: ISSUE-054, ISSUE-055, ISSUE-056
-- Related decisions: ADR-051
+- Related issues: ISSUE-054, ISSUE-055, ISSUE-056, ISSUE-058
+- Related decisions: ADR-051, ADR-053, ADR-054
+- Resolution: The query-time V1 read model remains the default and its public
+  contract and truthful coverage semantics are unchanged. The provisional
+  interactive benchmark envelope is at most 5,000 publications and 20,000
+  historical facts per request on the current reference fixture; 20,000
+  publications is retained as a stress boundary. No runtime rejection or API
+  limit was introduced. A replayable SQLite projection is deferred to
+  ANALYTICS-113 until retention, refresh frequency, concurrency, and a
+  representative workload justify its lifecycle cost.
+- Verification: `bun run benchmark:analytics` with explicit first-read and
+  post-refresh memory measurements, the focused analytics tests, the package
+  typecheck, and the full repository gate.
+
+## [ISSUE-058] Add a replayable analytics projection beyond the interactive envelope
+
+- Type: proposal
+- Status: open
+- Evidence: ANALYTICS-111 establishes a provisional query-time envelope of 5,000
+  publications / 20,000 historical facts per interactive request. Larger
+  histories can still be read, but repeated reads retain material process RSS
+  in the benchmark and should not silently become an unlimited dashboard
+  contract.
+- Impact: A future projection can reduce repeated replay cost, but it also
+  introduces a durable cursor, rebuild/backfill semantics, freshness and
+  retention policy, crash recovery, and a consistency boundary with SQLite.
+  Starting it before those requirements are measured would create a second
+  read lifecycle without a demonstrated product need.
+- Desired outcome: Design and, if justified by a representative workload,
+  implement a versioned replayable projection behind the existing analytics
+  contract. It must remain rebuildable from SQLite's journal, expose freshness
+  and coverage truthfully, and define resource limits before any optional
+  DuckDB engine is considered.
+- Scope boundary: This issue does not add DuckDB, change the public analytics
+  contract, add provider engagement metrics, or introduce an external service.
+- Tasks: ANALYTICS-113
+- Related issues: ISSUE-054, ISSUE-055, ISSUE-057
+- Related decisions: ADR-053, ADR-054

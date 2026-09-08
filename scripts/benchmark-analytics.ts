@@ -97,11 +97,15 @@ interface BenchmarkMeasurement {
     readonly firstQueryMilliseconds: number
     readonly memory: {
         readonly rssBeforeQueryKiB: number
+        readonly rssAfterFirstQueryKiB: number
         readonly rssAfterQueryKiB: number
+        readonly firstQueryRssDeltaKiB: number
         readonly rssDeltaKiB: number
         readonly peakRssDeltaKiB: number | null
         readonly heapBeforeQueryBytes: number
+        readonly heapAfterFirstQueryBytes: number
         readonly heapAfterQueryBytes: number
+        readonly firstQueryHeapDeltaBytes: number
         readonly heapDeltaBytes: number
     }
 }
@@ -481,6 +485,7 @@ async function measureDatabase(
     const analyticsStore = createAnalyticsStore(database, { now: () => to })
 
     try {
+        collectGarbage()
         const rssBeforeQueryKiB = await readRssKiB()
         const peakBeforeQueryKiB = await readPeakRssKiB()
         const heapBeforeQueryBytes = process.memoryUsage().heapUsed
@@ -489,6 +494,9 @@ async function measureDatabase(
         const firstQueryMilliseconds = round(performance.now() - firstQueryStartedAt)
         if (firstQuery === null) throw new Error('Benchmark project is not accessible')
         assertExpectedResult(firstQuery, publicationCount)
+        collectGarbage()
+        const rssAfterFirstQueryKiB = await readRssKiB()
+        const heapAfterFirstQueryBytes = process.memoryUsage().heapUsed
 
         for (let index = 0; index < queryWarmups; index += 1) {
             const result = analyticsStore.getProjectAnalytics(input)
@@ -512,6 +520,7 @@ async function measureDatabase(
             })
         }
 
+        collectGarbage()
         const rssAfterQueryKiB = await readRssKiB()
         const peakAfterQueryKiB = await readPeakRssKiB()
         const heapAfterQueryBytes = process.memoryUsage().heapUsed
@@ -543,20 +552,28 @@ async function measureDatabase(
             firstQueryMilliseconds,
             memory: {
                 rssBeforeQueryKiB,
+                rssAfterFirstQueryKiB,
                 rssAfterQueryKiB,
+                firstQueryRssDeltaKiB: rssAfterFirstQueryKiB - rssBeforeQueryKiB,
                 rssDeltaKiB: rssAfterQueryKiB - rssBeforeQueryKiB,
                 peakRssDeltaKiB:
                     peakBeforeQueryKiB === null || peakAfterQueryKiB === null
                         ? null
                         : peakAfterQueryKiB - peakBeforeQueryKiB,
                 heapBeforeQueryBytes,
+                heapAfterFirstQueryBytes,
                 heapAfterQueryBytes,
+                firstQueryHeapDeltaBytes: heapAfterFirstQueryBytes - heapBeforeQueryBytes,
                 heapDeltaBytes: heapAfterQueryBytes - heapBeforeQueryBytes,
             },
         }
     } finally {
         closeDatabase(database)
     }
+}
+
+function collectGarbage(): void {
+    Bun.gc(true)
 }
 
 function assertExpectedResult(

@@ -17,6 +17,11 @@ const defaultRangeDurationMs = 30 * 24 * 60 * 60 * 1_000
 const maximumRangeDurationMs = 366 * 24 * 60 * 60 * 1_000
 const unknownDimensionDeliveryMode = 'unknown' as const
 
+// Bucket reads can format many facts in the same project timezone. Formatter
+// construction is expensive, while the supported timezone set is naturally
+// bounded by the project's configured IANA timezone values.
+const localDateFormatters = new Map<string, Intl.DateTimeFormat>()
+
 const executionActions = {
     claimed: 'publication.execution.claimed',
     effectStarted: 'publication.execution.effect_started',
@@ -40,6 +45,20 @@ const publicationEventActions = {
 const historicalActions = new Set<string>([
     ...Object.values(publicationEventActions),
     ...Object.values(executionActions),
+])
+
+// Attempts retain their action history until outcomes are finalized. A bit
+// mask preserves duplicate detection without allocating one Set per attempt.
+const attemptActionBits = new Map<string, number>([
+    [executionActions.claimed, 1 << 0],
+    [executionActions.effectStarted, 1 << 1],
+    [executionActions.succeeded, 1 << 2],
+    [executionActions.retryScheduled, 1 << 3],
+    [executionActions.failed, 1 << 4],
+    [executionActions.ambiguous, 1 << 5],
+    [executionActions.claimRecovered, 1 << 6],
+    [executionActions.ambiguityRecovered, 1 << 7],
+    [executionActions.cancelled, 1 << 8],
 ])
 
 export interface AnalyticsRangeInput {
@@ -386,7 +405,7 @@ type HistoricalFactReference = Pick<HistoricalFactRow, 'entityId' | 'occurredAt'
 
 interface MutableAttempt {
     readonly publicationId: string
-    readonly actions: Set<string>
+    actions: number
     dimension: AnalyticsDimension
     included: boolean
     effectStarted: AttemptFact | undefined
@@ -486,7 +505,7 @@ export function createAnalyticsStore(
             on publishers.project_id = publications.project_id
            and publishers.channel_id = publications.channel_id
         where publications.project_id = ?1
-        order by channels.created_at, channels.id, publications.created_at, publications.id
+        -- The current snapshot is aggregate-only; callers do not observe row order.
     `
     )
     const currentJobsStatement = client.query<CurrentJobRow, [projectId: string]>(
@@ -510,7 +529,7 @@ export function createAnalyticsStore(
             on publishers.project_id = publications.project_id
            and publishers.channel_id = publications.channel_id
         where jobs.project_id = ?1
-        order by jobs.run_at, jobs.id
+        -- The current snapshot computes counts and minima; callers do not observe row order.
     `
     )
     const currentRetryablePendingStatement = client.query<
@@ -544,7 +563,7 @@ export function createAnalyticsStore(
               order by audit_events.sequence desc
               limit 1
           ) = 'publication.execution.retry_scheduled'
-        order by jobs.run_at, jobs.id
+        -- This query only builds a membership set; row order is irrelevant.
     `
     )
     const historicalFactsStatement = client.query<
@@ -1422,7 +1441,7 @@ function getAttempt(
     }
     const attempt: MutableAttempt = {
         publicationId: row.entityId,
-        actions: new Set(),
+        actions: 0,
         dimension,
         included,
         effectStarted: undefined,
@@ -1453,11 +1472,13 @@ function markAttemptAction(
     attempt: MutableAttempt,
     action: string
 ): boolean {
-    if (attempt.actions.has(action)) {
+    const bit = attemptActionBits.get(action)
+    if (bit === undefined) return true
+    if ((attempt.actions & bit) !== 0) {
         accumulator.coverage.duplicateAttemptFacts += 1
         return false
     }
-    attempt.actions.add(action)
+    attempt.actions |= bit
     return true
 }
 
@@ -1895,14 +1916,21 @@ function dimensionKey(dimension: AnalyticsDimension): string {
 }
 
 function toLocalDate(timestamp: number, timeZone: string): string {
-    const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).formatToParts(new Date(timestamp))
-    const values = new Map(parts.map(part => [part.type, part.value]))
-    return values.get('year') + '-' + values.get('month') + '-' + values.get('day')
+    let formatter = localDateFormatters.get(timeZone)
+    if (formatter === undefined) {
+        formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        })
+        localDateFormatters.set(timeZone, formatter)
+    }
+    // en-US with two-digit fields has a stable MM/DD/YYYY shape in the Bun ICU
+    // runtime; returning the normalized form avoids allocating format parts.
+    const formatted = formatter.format(new Date(timestamp))
+    const [month, day, year] = formatted.split('/')
+    return year + '-' + month + '-' + day
 }
 
 function nextLocalDate(date: string): string {
