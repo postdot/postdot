@@ -21,7 +21,7 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
         readonly onWorkScheduled?: () => void
     } = {}
 ) {
-    const { authorizationAttemptStore, credentialStore, publisherStore, x } = publisher
+    const { authorizationAttemptStore, credentialStore, publisherStore } = publisher
 
     return app
         .post(
@@ -73,6 +73,17 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                     })
                 }
 
+                let x: Awaited<ReturnType<PublisherRuntime['resolveXApplication']>>
+                try {
+                    x = await publisher.resolveXApplication()
+                } catch {
+                    return status(503, {
+                        error: {
+                            code: 'provider_unavailable',
+                            message: 'X publisher connection is not configured',
+                        },
+                    })
+                }
                 if (x === undefined) {
                     return status(503, {
                         error: {
@@ -167,14 +178,6 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                     return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
                 }
 
-                if (x === undefined) {
-                    return redirectPublisher(
-                        publisher.webOrigin,
-                        '/dashboard',
-                        'provider_unavailable'
-                    )
-                }
-
                 const parameters = new URL(request.url).searchParams
                 const state = parameters.get('state')
                 if (state === null || state.length === 0) {
@@ -192,6 +195,26 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                     authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
                 if (pendingAttempt === null || pendingAttempt.providerId !== X_PROVIDER) {
                     return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
+                }
+
+                let x: Awaited<ReturnType<PublisherRuntime['resolveXApplication']>>
+                try {
+                    x = await publisher.resolveXApplication(
+                        pendingAttempt.providerApplicationId ?? null
+                    )
+                } catch {
+                    return redirectPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'provider_unavailable'
+                    )
+                }
+                if (x === undefined) {
+                    return redirectPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'provider_unavailable'
+                    )
                 }
 
                 const actorId = publisherStore.getProjectActorId(pendingAttempt.projectId, user.id)
@@ -265,6 +288,7 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                         connectedByActorId: consumed.attempt.connectedByActorId,
                         user: profile,
                         providerId: X_PROVIDER,
+                        providerApplicationId: consumed.attempt.providerApplicationId,
                         scopes: tokenSet.scopes ?? consumed.attempt.scopes,
                         accessToken: tokenSet.accessToken,
                         refreshToken: tokenSet.refreshToken ?? undefined,
@@ -332,6 +356,7 @@ async function savePublisherCredential(input: {
     readonly providerId: string
     readonly user: XUser
     readonly scopes: readonly string[]
+    readonly providerApplicationId?: string | null
     readonly accessToken: string
     readonly refreshToken?: string | null
     readonly expiresAt: number | null
@@ -340,6 +365,7 @@ async function savePublisherCredential(input: {
         projectId: input.projectId,
         connectedByActorId: input.connectedByActorId,
         providerId: input.providerId,
+        providerApplicationId: input.providerApplicationId,
         externalAccountId: input.user.id,
         externalAccountName: `@${input.user.username}`,
         scopes: input.scopes,

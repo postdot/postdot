@@ -18,13 +18,19 @@ const blueskyClientMetadataSchema = Type.Object({
 
 export function createBlueskyMetadataRoutes(publisher: PublisherRuntime) {
     const app = new Elysia({ name: 'herald-bluesky-client-metadata' })
-    const bluesky = publisher.bluesky
-    if (bluesky === undefined) return app
 
     return app.get(
         '/oauth/bluesky/client-metadata.json',
         {
-            response: blueskyClientMetadataSchema,
+            response: {
+                200: blueskyClientMetadataSchema,
+                404: Type.Object({
+                    error: Type.Object({
+                        code: Type.Literal('not_found'),
+                        message: Type.String({ minLength: 1 }),
+                    }),
+                }),
+            },
             detail: {
                 operationId: 'getBlueskyClientMetadata',
                 summary: 'Get the public Bluesky OAuth client metadata',
@@ -32,6 +38,26 @@ export function createBlueskyMetadataRoutes(publisher: PublisherRuntime) {
                 security: [],
             },
         },
-        () => bluesky.clientMetadata as Static<typeof blueskyClientMetadataSchema>
+        async ({ status }) => {
+            try {
+                const bluesky = await publisher.resolveBlueskyApplication()
+                if (bluesky === undefined) {
+                    return status(404, {
+                        error: {
+                            code: 'not_found',
+                            message: 'Bluesky provider application is not configured',
+                        },
+                    })
+                }
+                return bluesky.clientMetadata as Static<typeof blueskyClientMetadataSchema>
+            } catch {
+                return status(404, {
+                    error: {
+                        code: 'not_found',
+                        message: 'Bluesky provider application is not configured',
+                    },
+                })
+            }
+        }
     )
 }

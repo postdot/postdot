@@ -32,6 +32,9 @@ export interface LinkedInOAuthConfiguration {
 
 export interface LinkedInProviderAdapterOptions {
     readonly oauth?: LinkedInOAuthConfiguration
+    readonly resolveOAuth?: (
+        providerApplicationId: string | null
+    ) => Promise<LinkedInOAuthConfiguration | undefined>
     readonly textPublisher?: LinkedInTextPublisher
     readonly imagePublisher?: LinkedInImagePublisher
 }
@@ -50,6 +53,7 @@ export function createLinkedInProviderAdapter(
             executeLinkedInPublication({
                 input,
                 oauth: options.oauth,
+                resolveOAuth: options.resolveOAuth,
                 textPublisher,
                 imagePublisher,
             }),
@@ -59,10 +63,16 @@ export function createLinkedInProviderAdapter(
 async function executeLinkedInPublication(input: {
     readonly input: BuiltInProviderExecutionInput
     readonly oauth: LinkedInOAuthConfiguration | undefined
+    readonly resolveOAuth?: (
+        providerApplicationId: string | null
+    ) => Promise<LinkedInOAuthConfiguration | undefined>
     readonly textPublisher: LinkedInTextPublisher
     readonly imagePublisher: LinkedInImagePublisher
 }): Promise<ExternalEffectOutcome> {
-    const { input: execution, oauth, textPublisher, imagePublisher } = input
+    const { input: execution, textPublisher, imagePublisher } = input
+    const oauth = input.resolveOAuth
+        ? await input.resolveOAuth(execution.target.providerApplicationId ?? null)
+        : input.oauth
     const target = execution.target
     const secrets = await execution.credentials.resolvePublisherCredentialSecrets(
         target.projectId,

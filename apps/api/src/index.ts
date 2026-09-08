@@ -122,16 +122,25 @@ async function startServer(config = createHeraldConfig()) {
         privateDestinations: config.network.privateDestinations,
     })
     const builtInProviderRegistry = createBuiltInProviderRegistry([
-        createBlueskyProviderAdapter({ oauth: publisher.bluesky }),
+        createBlueskyProviderAdapter({
+            oauth: publisher.bluesky,
+            resolveOAuth: publisher.resolveBlueskyOAuth,
+        }),
         createDiscordProviderAdapter(),
         createDevtoProviderAdapter(),
-        createLinkedInProviderAdapter({ oauth: publisher.linkedin }),
+        createLinkedInProviderAdapter({
+            oauth: publisher.linkedin,
+            resolveOAuth: publisher.resolveLinkedInOAuth,
+        }),
         createMastodonProviderAdapter({
             fetcher: mastodonFetcher,
             createPublisher: baseUrl =>
                 createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
         }),
-        createXProviderAdapter({ oauth: publisher.x }),
+        createXProviderAdapter({
+            oauth: publisher.x,
+            resolveOAuth: publisher.resolveXOAuth,
+        }),
     ])
     const worker = createPublicationWorker({
         database,

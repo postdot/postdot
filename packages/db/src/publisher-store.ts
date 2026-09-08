@@ -113,6 +113,7 @@ export interface PublisherExecutionTarget {
     readonly externalAccountId: string
     readonly destination: PublisherConnectionDestination | null
     readonly providerId: string
+    readonly providerApplicationId?: string | null
     readonly credentialState: 'active' | 'reconnect_required' | 'revoked'
     readonly credentialExpiresAt: number | null
     readonly endpointUrl: string | null
@@ -400,6 +401,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                publisher_connections.destination_name as destinationName,
                publisher_credentials.external_account_id as externalAccountId,
                publisher_credentials.provider_id as providerId,
+               publisher_credentials.provider_application_id as providerApplicationId,
                publisher_credentials.state as credentialState,
                publisher_credentials.expires_at as credentialExpiresAt
         from jobs
@@ -828,6 +830,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 externalAccountId: row.externalAccountId,
                 destination: parseDestination(row),
                 providerId: row.providerId,
+                providerApplicationId: row.providerApplicationId,
                 credentialState: row.credentialState,
                 credentialExpiresAt: row.credentialExpiresAt,
                 endpointUrl: row.endpointUrl,

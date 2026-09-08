@@ -36,6 +36,8 @@ import {
     uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 
+import { user } from './auth-schema'
+
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
 const channelProfileStates = channelProfileVersionStates
@@ -48,6 +50,7 @@ const notificationDeliveryStates = [
     'failed',
     'ambiguous',
 ] as const
+const providerApplicationStates = ['active', 'disabled'] as const
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
@@ -84,6 +87,92 @@ export const actors = sqliteTable(
         check(
             'actors_subject_id_nonblank',
             sql`${table.subjectId} is null or length(trim(${table.subjectId})) > 0`
+        ),
+    ]
+)
+
+export const providerApplicationConfigurations = sqliteTable(
+    'provider_application_configurations',
+    {
+        id: text('id').primaryKey(),
+        providerId: text('provider_id').notNull(),
+        name: text('name').notNull(),
+        clientId: text('client_id'),
+        clientMetadataUrl: text('client_metadata_url'),
+        handleResolver: text('handle_resolver'),
+        state: text('state', { enum: providerApplicationStates }).default('active').notNull(),
+        isDefault: integer('is_default', { mode: 'boolean' }).default(false).notNull(),
+        createdByUserId: text('created_by_user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'restrict' }),
+        encryptionVersion: integer('encryption_version'),
+        encryptionKeyId: text('encryption_key_id'),
+        clientSecretCiphertext: blob('client_secret_ciphertext', { mode: 'buffer' }),
+        clientSecretNonce: blob('client_secret_nonce', { mode: 'buffer' }),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('provider_application_configurations_provider_id_id_uidx').on(
+            table.providerId,
+            table.id
+        ),
+        index('provider_application_configurations_provider_state_idx').on(
+            table.providerId,
+            table.state
+        ),
+        uniqueIndex('provider_application_configurations_provider_default_uidx')
+            .on(table.providerId)
+            .where(sql`${table.isDefault} = 1`),
+        check(
+            'provider_application_configurations_provider_valid',
+            sql`${table.providerId} in ('linkedin', 'bluesky', 'x')`
+        ),
+        check(
+            'provider_application_configurations_name_nonblank',
+            sql`length(trim(${table.name})) > 0`
+        ),
+        check(
+            'provider_application_configurations_state_valid',
+            sql`${table.state} in ('active', 'disabled')`
+        ),
+        check(
+            'provider_application_configurations_shape_valid',
+            sql`(
+                ${table.providerId} in ('linkedin', 'x')
+                and ${table.clientId} is not null
+                and length(trim(${table.clientId})) > 0
+                and ${table.clientMetadataUrl} is null
+                and ${table.handleResolver} is null
+                and ${table.encryptionVersion} is not null
+                and ${table.encryptionKeyId} is not null
+                and ${table.clientSecretCiphertext} is not null
+                and ${table.clientSecretNonce} is not null
+            ) or (
+                ${table.providerId} = 'bluesky'
+                and ${table.clientId} is null
+                and ${table.clientMetadataUrl} is not null
+                and length(trim(${table.clientMetadataUrl})) > 0
+                and ${table.handleResolver} is not null
+                and length(trim(${table.handleResolver})) > 0
+                and ${table.encryptionVersion} is null
+                and ${table.encryptionKeyId} is null
+                and ${table.clientSecretCiphertext} is null
+                and ${table.clientSecretNonce} is null
+            )`
+        ),
+        check(
+            'provider_application_configurations_encryption_version_valid',
+            sql`(${table.encryptionVersion} is null and ${table.encryptionKeyId} is null)
+                or (${table.encryptionVersion} > 0 and ${table.encryptionKeyId} is not null
+                    and length(trim(${table.encryptionKeyId})) > 0)`
+        ),
+        check(
+            'provider_application_configurations_secret_envelope_valid',
+            sql`(${table.clientSecretCiphertext} is null and ${table.clientSecretNonce} is null)
+                or (${table.clientSecretCiphertext} is not null
+                    and length(${table.clientSecretCiphertext}) > 16
+                    and ${table.clientSecretNonce} is not null
+                    and length(${table.clientSecretNonce}) = 12)`
         ),
     ]
 )
@@ -274,6 +363,7 @@ export const publisherCredentials = sqliteTable(
         state: text('state', { enum: publisherCredentialStates }).notNull(),
         expiresAt: integer('expires_at'),
         connectedByActorId: text('connected_by_actor_id').notNull(),
+        providerApplicationId: text('provider_application_id'),
         encryptionVersion: integer('encryption_version'),
         encryptionKeyId: text('encryption_key_id'),
         accessTokenCiphertext: blob('access_token_ciphertext', { mode: 'buffer' }),
@@ -305,6 +395,14 @@ export const publisherCredentials = sqliteTable(
             name: 'publisher_credentials_project_actor_fk',
             columns: [table.projectId, table.connectedByActorId],
             foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publisher_credentials_provider_application_fk',
+            columns: [table.providerId, table.providerApplicationId],
+            foreignColumns: [
+                providerApplicationConfigurations.providerId,
+                providerApplicationConfigurations.id,
+            ],
         }).onDelete('restrict'),
         check(
             'publisher_credentials_provider_nonblank',
@@ -390,6 +488,7 @@ export const oauthAuthorizationAttempts = sqliteTable(
         channelId: text('channel_id').notNull(),
         providerId: text('provider_id').notNull(),
         connectedByActorId: text('connected_by_actor_id').notNull(),
+        providerApplicationId: text('provider_application_id'),
         callbackUri: text('callback_uri').notNull(),
         scopes: text('scopes', { mode: 'json' }).$type<readonly string[]>().notNull(),
         returnPath: text('return_path').notNull(),
@@ -426,6 +525,14 @@ export const oauthAuthorizationAttempts = sqliteTable(
             name: 'oauth_authorization_attempts_project_actor_fk',
             columns: [table.projectId, table.connectedByActorId],
             foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'oauth_authorization_attempts_provider_application_fk',
+            columns: [table.providerId, table.providerApplicationId],
+            foreignColumns: [
+                providerApplicationConfigurations.providerId,
+                providerApplicationConfigurations.id,
+            ],
         }).onDelete('restrict'),
         check(
             'oauth_authorization_attempts_provider_nonblank',

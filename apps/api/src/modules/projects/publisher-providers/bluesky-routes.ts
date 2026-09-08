@@ -24,7 +24,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
         readonly onWorkScheduled?: () => void
     } = {}
 ) {
-    const { authorizationAttemptStore, credentialStore, bluesky, publisherStore } = publisher
+    const { authorizationAttemptStore, credentialStore, publisherStore } = publisher
 
     return app
         .post(
@@ -77,6 +77,17 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                     })
                 }
 
+                let bluesky: Awaited<ReturnType<PublisherRuntime['resolveBlueskyApplication']>>
+                try {
+                    bluesky = await publisher.resolveBlueskyApplication()
+                } catch {
+                    return status(503, {
+                        error: {
+                            code: 'provider_unavailable',
+                            message: 'Bluesky publisher connection is not configured',
+                        },
+                    })
+                }
                 if (bluesky === undefined) {
                     return status(503, {
                         error: {
@@ -130,6 +141,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         channelId: params.channelId,
                         connectedByActorId: actorId,
                         providerId: BLUESKY_PROVIDER,
+                        providerApplicationId: bluesky.applicationId,
                         callbackUri: bluesky.callbackUri,
                         scopes: BLUESKY_REQUIRED_SCOPES,
                         returnPath: '/dashboard',
@@ -199,14 +211,6 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                     )
                 }
 
-                if (bluesky === undefined) {
-                    return redirectBlueskyPublisher(
-                        publisher.webOrigin,
-                        '/dashboard',
-                        'provider_unavailable'
-                    )
-                }
-
                 const parameters = new URL(request.url).searchParams
                 const state = parameters.get('state')
                 if (state === null || state.length === 0) {
@@ -235,6 +239,26 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         publisher.webOrigin,
                         '/dashboard',
                         'invalid_callback'
+                    )
+                }
+
+                let bluesky: Awaited<ReturnType<PublisherRuntime['resolveBlueskyApplication']>>
+                try {
+                    bluesky = await publisher.resolveBlueskyApplication(
+                        pendingAttempt.providerApplicationId ?? null
+                    )
+                } catch {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'provider_unavailable'
+                    )
+                }
+                if (bluesky === undefined) {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'provider_unavailable'
                     )
                 }
 
@@ -307,6 +331,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         projectId: consumed.attempt.projectId,
                         connectedByActorId: consumed.attempt.connectedByActorId,
                         providerId: BLUESKY_PROVIDER,
+                        providerApplicationId: consumed.attempt.providerApplicationId,
                         externalAccountId: callback.session.did,
                         externalAccountName: readHandle(consumed.attempt.context),
                         scopes: [...BLUESKY_REQUIRED_SCOPES],

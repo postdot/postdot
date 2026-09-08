@@ -14,6 +14,7 @@ export interface CreateAuthorizationAttemptInput {
     readonly channelId: string
     readonly connectedByActorId: string
     readonly providerId: string
+    readonly providerApplicationId?: string | null
     readonly callbackUri: string
     readonly scopes: readonly string[]
     readonly returnPath: string
@@ -30,6 +31,7 @@ export interface AuthorizationAttempt {
     readonly channelId: string
     readonly connectedByActorId: string
     readonly providerId: string
+    readonly providerApplicationId?: string | null
     readonly callbackUri: string
     readonly scopes: readonly string[]
     readonly returnPath: string
@@ -79,6 +81,7 @@ interface AuthorizationAttemptRow {
     readonly channelId: string
     readonly connectedByActorId: string
     readonly providerId: string
+    readonly providerApplicationId: string | null
     readonly callbackUri: string
     readonly scopesJson: string
     readonly returnPath: string
@@ -102,6 +105,7 @@ const attemptColumns = `
     channel_id as channelId,
     connected_by_actor_id as connectedByActorId,
     provider_id as providerId,
+    provider_application_id as providerApplicationId,
     callback_uri as callbackUri,
     scopes as scopesJson,
     return_path as returnPath,
@@ -161,6 +165,9 @@ function toAttempt(row: AuthorizationAttemptRow): AuthorizationAttempt {
         channelId: row.channelId,
         connectedByActorId: row.connectedByActorId,
         providerId: row.providerId,
+        ...(row.providerApplicationId === null
+            ? {}
+            : { providerApplicationId: row.providerApplicationId }),
         callbackUri: row.callbackUri,
         scopes: parseScopes(row.scopesJson),
         returnPath: row.returnPath,
@@ -301,6 +308,7 @@ export function createAuthorizationAttemptStore(
             channelId: string,
             connectedByActorId: string,
             providerId: string,
+            providerApplicationId: string | null,
             callbackUri: string,
             scopesJson: string,
             returnPath: string,
@@ -324,6 +332,7 @@ export function createAuthorizationAttemptStore(
             channel_id,
             connected_by_actor_id,
             provider_id,
+            provider_application_id,
             callback_uri,
             scopes,
             return_path,
@@ -342,7 +351,7 @@ export function createAuthorizationAttemptStore(
             created_at,
             updated_at
         ) values (
-            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'pending', ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?20
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'pending', ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?21
         )
         on conflict (state_digest) do nothing
     `)
@@ -452,6 +461,9 @@ export function createAuthorizationAttemptStore(
                 channelId,
                 connectedByActorId,
                 providerId,
+                ...(input.providerApplicationId === undefined
+                    ? {}
+                    : { providerApplicationId: input.providerApplicationId }),
                 callbackUri,
                 scopes,
                 returnPath,
@@ -479,6 +491,7 @@ export function createAuthorizationAttemptStore(
                 attempt.channelId,
                 attempt.connectedByActorId,
                 attempt.providerId,
+                attempt.providerApplicationId ?? null,
                 attempt.callbackUri,
                 JSON.stringify(attempt.scopes),
                 attempt.returnPath,
