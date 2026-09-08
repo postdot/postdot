@@ -38,6 +38,12 @@ ports because the API listens on `3000` and the Vite development server listens
 on `5173`. A production deployment that serves both from one origin can use the
 same origin for both values.
 
+For local Bluesky loopback OAuth, use the same `127.0.0.1` literal in both
+origins and open the dashboard at `http://127.0.0.1:5173`; the default
+`localhost` values remain suitable for development when Bluesky is not being
+connected. See the provider deployment guide below for the reason and the
+public HTTPS alternative.
+
 The Vite development proxy targets `http://localhost:3000` by default. If that
 port is already used by another local application, set the same alternate API
 origin in both ignored local files before starting the two processes:
@@ -50,6 +56,10 @@ BETTER_AUTH_URL=http://localhost:3001
 # apps/web/.env
 HERALD_API_ORIGIN=http://localhost:3001
 ```
+
+Provider-specific deployment requirements, including the no-tunnel Bluesky
+loopback OAuth mode and the public HTTPS mode, are documented in
+[`docs/deployment/provider-requirements.md`](docs/deployment/provider-requirements.md).
 
 Request logging is readable by default in development. Set `LOG_LEVEL=silent` to
 disable it, or set `NODE_ENV=production` to make the default log level silent.

@@ -49,6 +49,15 @@ export function createBlueskyMetadataRoutes(publisher: PublisherRuntime) {
                         },
                     })
                 }
+                if (bluesky.oauthMode === 'loopback') {
+                    return status(404, {
+                        error: {
+                            code: 'not_found',
+                            message:
+                                'The configured Bluesky application uses local loopback OAuth and has no public metadata document',
+                        },
+                    })
+                }
                 return bluesky.clientMetadata as Static<typeof blueskyClientMetadataSchema>
             } catch {
                 return status(404, {

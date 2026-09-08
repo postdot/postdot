@@ -29,6 +29,7 @@ export function ProviderApplicationFormFields({
             clientId: '',
             clientMetadataUrl: '',
             handleResolver: value === 'bluesky' ? 'https://bsky.social' : '',
+            blueskyOAuthMode: value === 'bluesky' ? 'loopback' : 'web',
             clientSecret: '',
         }))
     }
@@ -65,22 +66,59 @@ export function ProviderApplicationFormFields({
             {form.providerId === 'bluesky' ? (
                 <>
                     <Field className="gap-1.5">
-                        <FieldLabel htmlFor="provider-application-metadata">
-                            {m.provider_apps_client_metadata_url()}
+                        <FieldLabel htmlFor="provider-application-bluesky-mode">
+                            {m.provider_apps_bluesky_oauth_mode()}
                         </FieldLabel>
-                        <Input
-                            id="provider-application-metadata"
-                            type="url"
-                            value={form.clientMetadataUrl}
-                            onChange={event =>
+                        <Select
+                            items={{
+                                loopback: m.provider_apps_bluesky_oauth_mode_loopback(),
+                                web: m.provider_apps_bluesky_oauth_mode_web(),
+                            }}
+                            value={form.blueskyOAuthMode}
+                            onValueChange={value => {
+                                if (value !== 'loopback' && value !== 'web') return
                                 onFormChange(current => ({
                                     ...current,
-                                    clientMetadataUrl: event.target.value,
+                                    blueskyOAuthMode: value,
                                 }))
-                            }
-                            placeholder={m.provider_apps_client_metadata_url_placeholder()}
-                        />
+                            }}>
+                            <SelectTrigger id="provider-application-bluesky-mode">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                                <SelectItem value="loopback">
+                                    {m.provider_apps_bluesky_oauth_mode_loopback()}
+                                </SelectItem>
+                                <SelectItem value="web">
+                                    {m.provider_apps_bluesky_oauth_mode_web()}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                            {form.blueskyOAuthMode === 'loopback'
+                                ? m.provider_apps_bluesky_loopback_help()
+                                : m.provider_apps_bluesky_web_help()}
+                        </FieldDescription>
                     </Field>
+                    {form.blueskyOAuthMode === 'web' ? (
+                        <Field className="gap-1.5">
+                            <FieldLabel htmlFor="provider-application-metadata">
+                                {m.provider_apps_client_metadata_url()}
+                            </FieldLabel>
+                            <Input
+                                id="provider-application-metadata"
+                                type="url"
+                                value={form.clientMetadataUrl}
+                                onChange={event =>
+                                    onFormChange(current => ({
+                                        ...current,
+                                        clientMetadataUrl: event.target.value,
+                                    }))
+                                }
+                                placeholder={m.provider_apps_client_metadata_url_placeholder()}
+                            />
+                        </Field>
+                    ) : null}
                     <Field className="gap-1.5">
                         <FieldLabel htmlFor="provider-application-resolver">
                             {m.provider_apps_handle_resolver()}

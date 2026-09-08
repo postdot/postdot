@@ -88,14 +88,16 @@ function createFixture(
     options: {
         readonly linkedin?: PublisherRuntimeOptions['linkedin']
         readonly x?: PublisherRuntimeOptions['x']
+        readonly apiOrigin?: string
+        readonly webOrigin?: string
         readonly runtime?: HealthRuntime
     } = {}
 ) {
     const database = createDatabase(':memory:')
     runMigrations(database)
     const publisher = createPublisherRuntime(database, {
-        apiOrigin: baseURL,
-        webOrigin: 'http://localhost:5173',
+        apiOrigin: options.apiOrigin ?? baseURL,
+        webOrigin: options.webOrigin ?? 'http://localhost:5173',
         publisherEncryptionKey,
         publisherEncryptionKeyId: 'test-v1',
         linkedin: options.linkedin,
@@ -281,6 +283,45 @@ describe('Herald API', () => {
                     hasClientSecret: true,
                 },
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('accepts a local Bluesky application without exposing public metadata', async () => {
+        const { app, database } = createFixture({
+            apiOrigin: 'http://127.0.0.1:3000',
+            webOrigin: 'http://127.0.0.1:5173',
+        })
+
+        try {
+            const cookie = await signUp(app, 'provider-applications-loopback@herald.local')
+            const createResponse = await jsonRequest(
+                app,
+                '/api/settings/provider-applications',
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        providerId: 'bluesky',
+                        name: 'Herald Bluesky local',
+                        clientMetadataUrl: null,
+                    }),
+                }
+            )
+            expect(createResponse.status).toBe(201)
+            expect(await createResponse.json()).toMatchObject({
+                application: {
+                    providerId: 'bluesky',
+                    clientMetadataUrl: null,
+                    oauthMode: 'loopback',
+                },
+            })
+
+            const metadataResponse = await app.handle(
+                new Request(`${baseURL}/oauth/bluesky/client-metadata.json`)
+            )
+            expect(metadataResponse.status).toBe(404)
         } finally {
             closeDatabase(database)
         }

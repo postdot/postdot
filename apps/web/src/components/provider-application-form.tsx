@@ -26,12 +26,15 @@ import {
 } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'
 
+export type BlueskyOAuthMode = 'loopback' | 'web'
+
 export interface ProviderApplicationFormState {
     readonly providerId: ProviderApplicationProvider
     readonly name: string
     readonly clientId: string
     readonly clientMetadataUrl: string
     readonly handleResolver: string
+    readonly blueskyOAuthMode: BlueskyOAuthMode
     readonly clientSecret: string
     readonly isDefault: boolean
 }
@@ -43,6 +46,7 @@ export function newProviderApplicationForm(): ProviderApplicationFormState {
         clientId: '',
         clientMetadataUrl: '',
         handleResolver: 'https://bsky.social',
+        blueskyOAuthMode: 'loopback',
         clientSecret: '',
         isDefault: false,
     }
@@ -71,7 +75,7 @@ export function ProviderApplicationForm({
     const canSubmit =
         form.name.trim() !== '' &&
         (form.providerId === 'bluesky'
-            ? form.clientMetadataUrl.trim() !== ''
+            ? form.blueskyOAuthMode === 'loopback' || form.clientMetadataUrl.trim() !== ''
             : form.clientId.trim() !== '' && (!requiresSecret || form.clientSecret.trim() !== ''))
 
     return (
@@ -170,7 +174,8 @@ export function providerApplicationInput(
         return {
             ...(includeProvider ? { providerId: form.providerId } : {}),
             name: form.name.trim(),
-            clientMetadataUrl: form.clientMetadataUrl.trim(),
+            clientMetadataUrl:
+                form.blueskyOAuthMode === 'loopback' ? null : form.clientMetadataUrl.trim(),
             handleResolver: form.handleResolver.trim() || 'https://bsky.social',
             isDefault: form.isDefault,
         }

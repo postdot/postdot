@@ -12,6 +12,7 @@ import {
     type SessionStore,
     type StateStore,
 } from '@atproto/oauth-client'
+import { buildAtprotoLoopbackClientMetadata } from '@atproto/oauth-types'
 
 export interface SerializedBlueskyStore {
     get(key: string): Promise<string | undefined>
@@ -45,6 +46,17 @@ export function createBlueskyClientMetadata(options: {
         application_type: 'web',
         dpop_bound_access_tokens: true,
     }
+}
+
+/**
+ * Build the native loopback client metadata defined by the AT Protocol OAuth
+ * specification. The resulting client id is the special `http://localhost`
+ * identifier; the redirect itself must use a loopback IP literal.
+ */
+export function createBlueskyLoopbackClientMetadata(options: {
+    readonly redirectUri: string
+}): BlueskyOAuthClientMetadata {
+    return buildAtprotoLoopbackClientMetadata({ redirect_uris: [options.redirectUri] })
 }
 
 export interface RestoredBlueskySession {

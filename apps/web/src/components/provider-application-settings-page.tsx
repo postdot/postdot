@@ -55,6 +55,10 @@ export function ProviderApplicationSettingsPage() {
             clientId: application.clientId ?? '',
             clientMetadataUrl: application.clientMetadataUrl ?? '',
             handleResolver: application.handleResolver ?? 'https://bsky.social',
+            blueskyOAuthMode:
+                application.oauthMode === 'web' || application.clientMetadataUrl !== null
+                    ? 'web'
+                    : 'loopback',
             clientSecret: '',
             isDefault: application.isDefault,
         })

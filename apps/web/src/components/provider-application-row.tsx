@@ -40,7 +40,9 @@ export function ProviderApplicationRow({
                         {providerLabel(application.providerId)}
                         {' · '}
                         {application.providerId === 'bluesky'
-                            ? m.provider_apps_public_metadata()
+                            ? application.oauthMode === 'loopback'
+                                ? m.provider_apps_loopback_oauth()
+                                : m.provider_apps_public_metadata()
                             : application.hasClientSecret
                               ? m.provider_apps_configured()
                               : m.provider_apps_not_configured()}

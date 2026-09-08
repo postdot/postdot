@@ -9,6 +9,9 @@ export type ProviderApplicationProvider = (typeof providerApplicationProviders)[
 export const providerApplicationStates = ['active', 'disabled'] as const
 export type ProviderApplicationState = (typeof providerApplicationStates)[number]
 
+export const providerApplicationOAuthModes = ['loopback', 'web'] as const
+export type ProviderApplicationOAuthMode = (typeof providerApplicationOAuthModes)[number]
+
 export interface ProviderApplicationConfiguration {
     readonly id: string
     readonly providerId: ProviderApplicationProvider
@@ -16,6 +19,8 @@ export interface ProviderApplicationConfiguration {
     readonly clientId: string | null
     readonly clientMetadataUrl: string | null
     readonly handleResolver: string | null
+    /** Derived from the provider-specific configuration shape; not persisted separately. */
+    readonly oauthMode: ProviderApplicationOAuthMode | null
     readonly state: ProviderApplicationState
     readonly isDefault: boolean
     readonly createdByUserId: string
@@ -131,6 +136,10 @@ function url(value: string, field: string): string {
     return parsed.toString()
 }
 
+function optionalUrl(value: string | null | undefined, field: string): string | null {
+    return value === null || value === undefined ? null : url(value, field)
+}
+
 function normalizeApplication(
     input: {
         readonly providerId: ProviderApplicationProvider
@@ -161,7 +170,9 @@ function normalizeApplication(
             providerId: input.providerId,
             name,
             clientId: null,
-            clientMetadataUrl: url(input.clientMetadataUrl ?? '', 'clientMetadataUrl'),
+            // A missing public metadata URL is the explicit AT Protocol
+            // loopback mode. Public deployments use the HTTPS web mode.
+            clientMetadataUrl: optionalUrl(input.clientMetadataUrl, 'clientMetadataUrl'),
             handleResolver: url(input.handleResolver ?? 'https://bsky.social', 'handleResolver'),
             clientSecret: null,
         }
@@ -224,6 +235,12 @@ function toConfiguration(row: ProviderApplicationRow): ProviderApplicationConfig
         clientId: row.clientId,
         clientMetadataUrl: row.clientMetadataUrl,
         handleResolver: row.handleResolver,
+        oauthMode:
+            row.providerId === 'bluesky'
+                ? row.clientMetadataUrl === null
+                    ? 'loopback'
+                    : 'web'
+                : null,
         state: state(row.state),
         isDefault: row.isDefault === 1,
         createdByUserId: row.createdByUserId,
@@ -461,13 +478,19 @@ export function createProviderApplicationStore(
         ): Promise<UpdateProviderApplicationResult> {
             const existing = load(input.id)
             if (existing === null) return { kind: 'not_found' }
+            const hasOwn = (key: keyof UpdateProviderApplicationInput) =>
+                Object.prototype.hasOwnProperty.call(input, key)
             const normalized = normalizeApplication(
                 {
                     providerId: existing.providerId,
                     name: input.name ?? existing.name,
-                    clientId: input.clientId ?? existing.clientId,
-                    clientMetadataUrl: input.clientMetadataUrl ?? existing.clientMetadataUrl,
-                    handleResolver: input.handleResolver ?? existing.handleResolver,
+                    clientId: hasOwn('clientId') ? input.clientId : existing.clientId,
+                    clientMetadataUrl: hasOwn('clientMetadataUrl')
+                        ? input.clientMetadataUrl
+                        : existing.clientMetadataUrl,
+                    handleResolver: hasOwn('handleResolver')
+                        ? input.handleResolver
+                        : existing.handleResolver,
                     clientSecret: input.clientSecret,
                 },
                 { preserveMissingSecret: input.clientSecret === undefined }

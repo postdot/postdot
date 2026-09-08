@@ -150,8 +150,7 @@ export const providerApplicationConfigurations = sqliteTable(
             ) or (
                 ${table.providerId} = 'bluesky'
                 and ${table.clientId} is null
-                and ${table.clientMetadataUrl} is not null
-                and length(trim(${table.clientMetadataUrl})) > 0
+                and (${table.clientMetadataUrl} is null or length(trim(${table.clientMetadataUrl})) > 0)
                 and ${table.handleResolver} is not null
                 and length(trim(${table.handleResolver})) > 0
                 and ${table.encryptionVersion} is null
