@@ -49,8 +49,7 @@ export function ChannelRow({
                         </Badge>
                     </div>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {channelProfileLabel(channel.profileId)} · profile v
-                        {channel.profileVersionId.slice(0, 8)}
+                        {channelProfileLabel(channel.profileId)}
                     </p>
                 </div>
             </div>
