@@ -258,7 +258,12 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: 'Calendar', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
     await expect(page.getByRole('heading', { name: 'Calendar', level: 1 })).toBeVisible()
-    await expect(page.getByText('No scheduled publications', { exact: true })).toBeVisible()
+    await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
+    await expect(
+        page.getByText('Schedule a destination to make it appear on the project calendar.', {
+            exact: true,
+        })
+    ).toBeVisible()
     const emptyCalendarNewPublication = page.getByRole('button', {
         name: 'New publication',
         exact: true,
