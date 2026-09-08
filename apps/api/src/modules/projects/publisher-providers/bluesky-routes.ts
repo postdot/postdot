@@ -79,7 +79,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
 
                 let bluesky: Awaited<ReturnType<PublisherRuntime['resolveBlueskyApplication']>>
                 try {
-                    bluesky = await publisher.resolveBlueskyApplication()
+                    bluesky = await publisher.resolveBlueskyApplication(body.providerApplicationId)
                 } catch {
                     return status(503, {
                         error: {

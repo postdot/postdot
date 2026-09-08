@@ -1440,3 +1440,29 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Verification: PR #131 merged the runtime/API and migration work; PR #132
   merged the authenticated web settings surface. The full repository gate and
   CI Verify passed for the integrated changes.
+
+## [ISSUE-060] Select a provider application explicitly for a channel connection
+
+- Type: enhancement
+- Status: open
+- Evidence: Runtime provider applications now support multiple active
+  configurations and a default per provider, but the channel OAuth start
+  routes currently use only that default. The persisted OAuth attempt and
+  publisher credential already retain the selected application identity.
+- Impact: An operator with several LinkedIn, Bluesky, or X applications must
+  temporarily change the provider default to start a connection with a
+  non-default application. That is workable, but it is unnecessary friction
+  and makes API/CLI automation less explicit.
+- Desired outcome: Channel OAuth start routes accept an optional
+  `providerApplicationId`, validate that it belongs to the requested provider
+  and is active, and pin it to the authorization attempt and resulting
+  project-owned credential. Omitting it continues to resolve the active
+  provider default. A later web pass may expose the same choice in the
+  channel connection UI.
+- Scope boundary: This does not make provider applications project-owned, does
+  not bypass provider permissions, and does not change the one-publisher-per-
+  channel invariant. Invalid, disabled, or cross-provider application ids must
+  fail closed without falling back to another application.
+- Tasks: CRED-20
+- Related issues: ISSUE-059
+- Related decisions: ADR-056

@@ -11,7 +11,7 @@ import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth'
 import type { PublisherRuntime } from '../../publishers/runtime'
-import { errorResponse, xConnectionSchema } from '../models'
+import { errorResponse, xConnectionBody, xConnectionSchema } from '../models'
 
 export function registerXPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -32,6 +32,7 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                     projectId: Type.String({ minLength: 1 }),
                     channelId: Type.String({ minLength: 1 }),
                 }),
+                body: Type.Optional(xConnectionBody),
                 response: {
                     200: xConnectionSchema,
                     400: errorResponse,
@@ -48,7 +49,7 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                     security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, {
                         error: {
@@ -75,7 +76,7 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
 
                 let x: Awaited<ReturnType<PublisherRuntime['resolveXApplication']>>
                 try {
-                    x = await publisher.resolveXApplication()
+                    x = await publisher.resolveXApplication(body?.providerApplicationId)
                 } catch {
                     return status(503, {
                         error: {

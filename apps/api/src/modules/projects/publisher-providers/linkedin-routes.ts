@@ -82,7 +82,9 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
 
                 let linkedin: Awaited<ReturnType<PublisherRuntime['resolveLinkedInApplication']>>
                 try {
-                    linkedin = await publisher.resolveLinkedInApplication()
+                    linkedin = await publisher.resolveLinkedInApplication(
+                        body?.providerApplicationId
+                    )
                 } catch {
                     return status(503, {
                         error: {

@@ -473,6 +473,7 @@ export const linkedInConnectionSchema = Type.Object({
 })
 
 export const linkedInConnectionBody = Type.Object({
+    providerApplicationId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
     destination: Type.Optional(
         Type.Union([
             Type.Object({ type: Type.Literal('member') }),
@@ -492,6 +493,7 @@ export const blueskyConnectionSchema = Type.Object({
 
 export const blueskyConnectionBody = Type.Object({
     handle: Type.String({ minLength: 1, maxLength: 253 }),
+    providerApplicationId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 })
 
 export const mastodonConnectionSchema = Type.Object({
@@ -525,6 +527,10 @@ export const xConnectionSchema = Type.Object({
     provider: Type.Literal('x'),
     scopes: Type.Array(Type.String({ minLength: 1 })),
     authorizationUrl: Type.String({ minLength: 1 }),
+})
+
+export const xConnectionBody = Type.Object({
+    providerApplicationId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 })
 
 export const customHttpConnectionBody = Type.Object({

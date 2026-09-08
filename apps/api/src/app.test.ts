@@ -309,6 +309,24 @@ describe('Herald API', () => {
             const applicationBody = (await applicationResponse.json()) as {
                 application: { id: string }
             }
+            const secondaryApplicationResponse = await jsonRequest(
+                app,
+                '/api/settings/provider-applications',
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        providerId: 'linkedin',
+                        name: 'Secondary LinkedIn',
+                        clientId: 'secondary-linkedin-client-id',
+                        clientSecret: 'secondary-linkedin-client-secret',
+                    }),
+                }
+            )
+            expect(secondaryApplicationResponse.status).toBe(201)
+            const secondaryApplicationBody = (await secondaryApplicationResponse.json()) as {
+                application: { id: string }
+            }
 
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
@@ -332,12 +350,17 @@ describe('Herald API', () => {
                 app,
                 `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/linkedin/connect`,
                 cookie,
-                { method: 'POST' }
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        providerApplicationId: secondaryApplicationBody.application.id,
+                    }),
+                }
             )
             expect(connectResponse.status).toBe(200)
             const connection = (await connectResponse.json()) as { authorizationUrl: string }
             expect(new URL(connection.authorizationUrl).searchParams.get('client_id')).toBe(
-                'runtime-linkedin-client-id'
+                'secondary-linkedin-client-id'
             )
 
             const attempt = database.$client
@@ -346,7 +369,8 @@ describe('Herald API', () => {
                      from oauth_authorization_attempts`
                 )
                 .get()
-            expect(attempt?.providerApplicationId).toBe(applicationBody.application.id)
+            expect(attempt?.providerApplicationId).toBe(secondaryApplicationBody.application.id)
+            expect(attempt?.providerApplicationId).not.toBe(applicationBody.application.id)
         } finally {
             closeDatabase(database)
         }

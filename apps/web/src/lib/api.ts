@@ -422,26 +422,49 @@ export const api = {
     async startLinkedInPublisherConnection(
         projectId: string,
         channelId: string,
-        destination?: LinkedInConnectionDestination
+        destination?: LinkedInConnectionDestination,
+        providerApplicationId?: string
     ): Promise<{ provider: 'linkedin'; scopes: string[]; authorizationUrl: string }> {
         return unwrap<{ provider: 'linkedin'; scopes: string[]; authorizationUrl: string }>(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
-                .publisher.linkedin.connect.post(destination === undefined ? {} : { destination })
+                .publisher.linkedin.connect.post({
+                    ...(destination === undefined ? {} : { destination }),
+                    ...(providerApplicationId === undefined ? {} : { providerApplicationId }),
+                })
         )
     },
 
     async startBlueskyPublisherConnection(
         projectId: string,
         channelId: string,
-        handle: string
+        handle: string,
+        providerApplicationId?: string
     ): Promise<{ provider: 'bluesky'; scopes: string[]; authorizationUrl: string }> {
         return unwrap<{ provider: 'bluesky'; scopes: string[]; authorizationUrl: string }>(
             await client.api
                 .projects({ projectId })
                 .channels({ channelId })
-                .publisher.bluesky.connect.post({ handle })
+                .publisher.bluesky.connect.post({
+                    handle,
+                    ...(providerApplicationId === undefined ? {} : { providerApplicationId }),
+                })
+        )
+    },
+
+    async startXPublisherConnection(
+        projectId: string,
+        channelId: string,
+        providerApplicationId?: string
+    ): Promise<{ provider: 'x'; scopes: string[]; authorizationUrl: string }> {
+        return unwrap<{ provider: 'x'; scopes: string[]; authorizationUrl: string }>(
+            await client.api
+                .projects({ projectId })
+                .channels({ channelId })
+                .publisher.x.connect.post(
+                    providerApplicationId === undefined ? {} : { providerApplicationId }
+                )
         )
     },
 
