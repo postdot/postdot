@@ -142,3 +142,20 @@
 - [x] **[I18N-99]** Migrate authenticated web copy and locale-aware formatting to the localization boundary `Priority: 🟠` `Complexity: XL`
 - [x] **[I18N-100]** Enforce localization catalog coverage in build and release gates `Priority: 🟠` `Complexity: S`
 - [ ] **[TAXONOMY-101]** Define project categories and publication tags before implementation `Priority: 🔵` `Complexity: M`
+
+## 🧭 UX/IA Sprint — proposed
+
+This sprint is sequenced around the independent UX/UI audits and the draft
+target in `SPEC-006`. Existing backlog tasks `DESIGN-97` and `DESIGN-98` are
+part of this sprint; they remain the implementation homes for the notification
+surface and operational copy-density work.
+
+- [x] **[WEB-117]** Consolidate independent UX/UI audit evidence and establish the sprint baseline `Priority: 🔴` `Complexity: M`
+- [ ] **[WEB-118]** Decide the primary job, hierarchy, and first action of each authenticated route `Priority: 🔴` `Complexity: XL`
+- [ ] **[WEB-119]** Define empty, loading, populated, partial, failed, and recovery contracts for the web workflows `Priority: 🟠` `Complexity: L`
+- [ ] **[DESIGN-120]** Make Herald's progressive-disclosure and shadcn/Base UI foundation explicit `Priority: 🟠` `Complexity: L`
+- [ ] **[DESIGN-121]** Harden the authenticated shell, global/project navigation, and reduced-sidebar accessibility `Priority: 🔴` `Complexity: L`
+- [ ] **[WEB-122]** Implement the accepted route information architecture and differentiated empty states `Priority: 🔴` `Complexity: XL`
+- [ ] **[WEB-123]** Apply the verified responsive, keyboard, labeling, and localization corrections `Priority: 🟠` `Complexity: L`
+- [ ] **[WEB-124]** Validate realistic data, loading transitions, notifications, and realtime feedback in the browser `Priority: 🟠` `Complexity: L`
+- [ ] **[AUDIT-125]** Reconcile an independent UX/UI audit after the sprint implementation `Priority: 🟠` `Complexity: M`
