@@ -68,6 +68,35 @@ export type CustomHttpAuthentication =
     | { readonly kind: 'bearer' }
     | { readonly kind: 'header'; readonly headerName: string }
 
+export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x'
+export type ProviderApplicationState = 'active' | 'disabled'
+
+export interface ProviderApplication {
+    readonly id: string
+    readonly providerId: ProviderApplicationProvider
+    readonly name: string
+    readonly clientId: string | null
+    readonly clientMetadataUrl: string | null
+    readonly handleResolver: string | null
+    readonly state: ProviderApplicationState
+    readonly isDefault: boolean
+    readonly createdByUserId: string
+    readonly hasClientSecret: boolean
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface ProviderApplicationInput {
+    readonly providerId: ProviderApplicationProvider
+    readonly name: string
+    readonly clientId?: string | null
+    readonly clientMetadataUrl?: string | null
+    readonly handleResolver?: string | null
+    readonly clientSecret?: string | null
+    readonly state?: ProviderApplicationState
+    readonly isDefault?: boolean
+}
+
 export type ChannelLifecycleBlocker =
     | 'active_work'
     | 'pending_authorization'
@@ -155,6 +184,31 @@ export const api = {
 
     signOut(): Promise<unknown> {
         return requestAuth('/api/auth/sign-out', jsonBody({}))
+    },
+
+    async listProviderApplications(): Promise<{ applications: ProviderApplication[] }> {
+        return requestAuth<{ applications: ProviderApplication[] }>(
+            '/api/settings/provider-applications'
+        )
+    },
+
+    async createProviderApplication(
+        input: ProviderApplicationInput
+    ): Promise<{ application: ProviderApplication }> {
+        return requestAuth<{ application: ProviderApplication }>(
+            '/api/settings/provider-applications',
+            jsonBody(input)
+        )
+    },
+
+    async updateProviderApplication(
+        applicationId: string,
+        input: Partial<Omit<ProviderApplicationInput, 'providerId'>>
+    ): Promise<{ application: ProviderApplication }> {
+        return requestAuth<{ application: ProviderApplication }>(
+            `/api/settings/provider-applications/${encodeURIComponent(applicationId)}`,
+            jsonBody(input, 'PATCH')
+        )
     },
 
     async listProjects(): Promise<{ projects: Project[] }> {
@@ -696,6 +750,8 @@ function apiErrorMessage(code: string): string {
             return m.api_credential_exists()
         case 'invalid_connection':
             return m.api_invalid_connection()
+        case 'invalid_provider_application':
+            return m.api_invalid_provider_application()
         case 'invalid_destination':
             return m.api_invalid_destination()
         case 'invalid_token':

@@ -6,7 +6,7 @@ import {
     EmptyTitle,
 } from '@herald/ui/components/empty'
 import { PenIcon } from '@solar-icons/react/bold/pen'
-import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Outlet, redirect, useLocation, useNavigate } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
@@ -46,6 +46,7 @@ export const Route = createFileRoute('/dashboard')({
 
 function DashboardPage() {
     const navigate = useNavigate()
+    const { pathname } = useLocation()
     useLanguage()
     const initialData = Route.useLoaderData()
     const [projects, setProjects] = useState<Project[]>(initialData.projects)
@@ -114,8 +115,38 @@ function DashboardPage() {
 
     return (
         <DashboardGlobalProvider value={value}>
-            {projects.length === 0 ? <EmptyProjectShell /> : <Outlet />}
+            {pathname.startsWith('/dashboard/settings/') ? (
+                <GlobalSettingsShell />
+            ) : projects.length === 0 ? (
+                <EmptyProjectShell />
+            ) : (
+                <Outlet />
+            )}
         </DashboardGlobalProvider>
+    )
+}
+
+function GlobalSettingsShell() {
+    const global = useDashboardGlobal()
+
+    return (
+        <DashboardShell
+            channels={[]}
+            dueCount={0}
+            error={global.error}
+            onCreateProject={global.onCreateProject}
+            onProjectChange={global.onProjectChange}
+            onProjectNameChange={global.onProjectNameChange}
+            onSignOut={global.onSignOut}
+            pending={global.pending}
+            projectName={global.projectName}
+            projects={global.projects}
+            publisherConnections={[]}
+            selectedProject={null}
+            session={global.session}
+            publicationsCount={0}>
+            <Outlet />
+        </DashboardShell>
     )
 }
 
