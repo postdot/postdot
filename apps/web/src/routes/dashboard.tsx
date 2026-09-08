@@ -130,23 +130,25 @@ function GlobalSettingsShell() {
     const global = useDashboardGlobal()
 
     return (
-        <DashboardShell
-            channels={[]}
-            dueCount={0}
-            error={global.error}
-            onCreateProject={global.onCreateProject}
-            onProjectChange={global.onProjectChange}
-            onProjectNameChange={global.onProjectNameChange}
-            onSignOut={global.onSignOut}
-            pending={global.pending}
-            projectName={global.projectName}
-            projects={global.projects}
-            publisherConnections={[]}
-            selectedProject={null}
-            session={global.session}
-            publicationsCount={0}>
-            <Outlet />
-        </DashboardShell>
+        <ProjectRealtimeProvider projectId={null}>
+            <DashboardShell
+                channels={[]}
+                dueCount={0}
+                error={global.error}
+                onCreateProject={global.onCreateProject}
+                onProjectChange={global.onProjectChange}
+                onProjectNameChange={global.onProjectNameChange}
+                onSignOut={global.onSignOut}
+                pending={global.pending}
+                projectName={global.projectName}
+                projects={global.projects}
+                publisherConnections={[]}
+                selectedProject={null}
+                session={global.session}
+                publicationsCount={0}>
+                <Outlet />
+            </DashboardShell>
+        </ProjectRealtimeProvider>
     )
 }
 
