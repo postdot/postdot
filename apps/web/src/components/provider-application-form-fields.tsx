@@ -1,0 +1,148 @@
+import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
+import { Input } from '@herald/ui/components/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@herald/ui/components/select'
+import type { Dispatch, SetStateAction } from 'react'
+
+import type { ProviderApplicationFormState } from '@/components/provider-application-form'
+import * as m from '@/paraglide/messages.js'
+
+export function ProviderApplicationFormFields({
+    editingId,
+    form,
+    onFormChange,
+}: {
+    readonly editingId: string | null
+    readonly form: ProviderApplicationFormState
+    readonly onFormChange: Dispatch<SetStateAction<ProviderApplicationFormState>>
+}) {
+    function selectProvider(value: string | null) {
+        if (value !== 'linkedin' && value !== 'bluesky' && value !== 'x') return
+        onFormChange(current => ({
+            ...current,
+            providerId: value,
+            clientId: '',
+            clientMetadataUrl: '',
+            handleResolver: value === 'bluesky' ? 'https://bsky.social' : '',
+            clientSecret: '',
+        }))
+    }
+
+    return (
+        <>
+            <Field className="gap-1.5">
+                <FieldLabel htmlFor="provider-application-provider">
+                    {m.provider_apps_provider()}
+                </FieldLabel>
+                <Select
+                    items={{
+                        linkedin: m.provider_apps_provider_linkedin(),
+                        bluesky: m.provider_apps_provider_bluesky(),
+                        x: m.provider_apps_provider_x(),
+                    }}
+                    value={form.providerId}
+                    onValueChange={selectProvider}>
+                    <SelectTrigger id="provider-application-provider" disabled={editingId !== null}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                        <SelectItem value="linkedin">
+                            {m.provider_apps_provider_linkedin()}
+                        </SelectItem>
+                        <SelectItem value="bluesky">
+                            {m.provider_apps_provider_bluesky()}
+                        </SelectItem>
+                        <SelectItem value="x">{m.provider_apps_provider_x()}</SelectItem>
+                    </SelectContent>
+                </Select>
+            </Field>
+
+            {form.providerId === 'bluesky' ? (
+                <>
+                    <Field className="gap-1.5">
+                        <FieldLabel htmlFor="provider-application-metadata">
+                            {m.provider_apps_client_metadata_url()}
+                        </FieldLabel>
+                        <Input
+                            id="provider-application-metadata"
+                            type="url"
+                            value={form.clientMetadataUrl}
+                            onChange={event =>
+                                onFormChange(current => ({
+                                    ...current,
+                                    clientMetadataUrl: event.target.value,
+                                }))
+                            }
+                            placeholder={m.provider_apps_client_metadata_url_placeholder()}
+                        />
+                    </Field>
+                    <Field className="gap-1.5">
+                        <FieldLabel htmlFor="provider-application-resolver">
+                            {m.provider_apps_handle_resolver()}
+                        </FieldLabel>
+                        <Input
+                            id="provider-application-resolver"
+                            type="url"
+                            value={form.handleResolver}
+                            onChange={event =>
+                                onFormChange(current => ({
+                                    ...current,
+                                    handleResolver: event.target.value,
+                                }))
+                            }
+                            placeholder={m.provider_apps_handle_resolver_placeholder()}
+                        />
+                    </Field>
+                    <FieldDescription>{m.provider_apps_no_secret_for_bluesky()}</FieldDescription>
+                </>
+            ) : (
+                <>
+                    <Field className="gap-1.5">
+                        <FieldLabel htmlFor="provider-application-client-id">
+                            {m.provider_apps_client_id()}
+                        </FieldLabel>
+                        <Input
+                            id="provider-application-client-id"
+                            value={form.clientId}
+                            onChange={event =>
+                                onFormChange(current => ({
+                                    ...current,
+                                    clientId: event.target.value,
+                                }))
+                            }
+                            placeholder={m.provider_apps_client_id_placeholder()}
+                        />
+                    </Field>
+                    <Field className="gap-1.5">
+                        <FieldLabel htmlFor="provider-application-secret">
+                            {m.provider_apps_client_secret()}
+                        </FieldLabel>
+                        <Input
+                            id="provider-application-secret"
+                            type="password"
+                            autoComplete="new-password"
+                            value={form.clientSecret}
+                            onChange={event =>
+                                onFormChange(current => ({
+                                    ...current,
+                                    clientSecret: event.target.value,
+                                }))
+                            }
+                            placeholder={
+                                editingId === null
+                                    ? m.provider_apps_client_secret()
+                                    : m.provider_apps_client_secret_placeholder()
+                            }
+                        />
+                        <FieldDescription>{m.provider_apps_secret_help()}</FieldDescription>
+                    </Field>
+                </>
+            )}
+        </>
+    )
+}

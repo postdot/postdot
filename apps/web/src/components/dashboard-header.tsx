@@ -9,6 +9,8 @@ import {
 } from '@herald/ui/components/dropdown-menu'
 import { SidebarTrigger } from '@herald/ui/components/sidebar'
 import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
+import { SettingsIcon } from '@solar-icons/react/bold/settings'
+import { Link } from '@tanstack/react-router'
 
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
@@ -84,6 +86,11 @@ export function DashboardHeader({
                             {session.user.email}
                         </div>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            render={<Link to="/dashboard/settings/provider-applications" />}>
+                            <SettingsIcon aria-hidden="true" />
+                            {m.nav_settings()}
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={onSignOut} disabled={pending}>
                             <Logout2Icon aria-hidden="true" />
                             {m.nav_sign_out()}

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboard/projects/$projectId'
+import { Route as DashboardSettingsProviderApplicationsRouteImport } from './routes/dashboard/settings/provider-applications'
 import { Route as DashboardProjectsProjectIdAccessRouteImport } from './routes/dashboard/projects/$projectId/access'
 import { Route as DashboardProjectsProjectIdCalendarRouteImport } from './routes/dashboard/projects/$projectId/calendar'
 import { Route as DashboardProjectsProjectIdChannelsRouteImport } from './routes/dashboard/projects/$projectId/channels'
@@ -42,6 +43,12 @@ const DashboardProjectsProjectIdRoute =
   DashboardProjectsProjectIdRouteImport.update({
     id: '/projects/$projectId',
     path: '/projects/$projectId',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardSettingsProviderApplicationsRoute =
+  DashboardSettingsProviderApplicationsRouteImport.update({
+    id: '/settings/provider-applications',
+    path: '/settings/provider-applications',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardProjectsProjectIdAccessRoute =
@@ -104,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
@@ -119,6 +127,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
@@ -135,6 +144,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
@@ -182,6 +194,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
@@ -227,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId'
       fullPath: '/dashboard/projects/$projectId'
       preLoaderRoute: typeof DashboardProjectsProjectIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings/provider-applications': {
+      id: '/dashboard/settings/provider-applications'
+      path: '/settings/provider-applications'
+      fullPath: '/dashboard/settings/provider-applications'
+      preLoaderRoute: typeof DashboardSettingsProviderApplicationsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/projects/$projectId/access': {
@@ -334,10 +354,13 @@ const DashboardProjectsProjectIdRouteWithChildren =
 
 interface DashboardRouteChildren {
   DashboardProjectsProjectIdRoute: typeof DashboardProjectsProjectIdRouteWithChildren
+  DashboardSettingsProviderApplicationsRoute: typeof DashboardSettingsProviderApplicationsRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardProjectsProjectIdRoute: DashboardProjectsProjectIdRouteWithChildren,
+  DashboardSettingsProviderApplicationsRoute:
+    DashboardSettingsProviderApplicationsRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(

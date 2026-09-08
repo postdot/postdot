@@ -22,6 +22,7 @@ import { LinkIcon } from '@solar-icons/react/bold/link'
 import { ListIcon } from '@solar-icons/react/bold/list'
 import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
 import { PenIcon } from '@solar-icons/react/bold/pen'
+import { SettingsIcon } from '@solar-icons/react/bold/settings'
 import { Widget2Icon } from '@solar-icons/react/bold/widget-2'
 import { Link } from '@tanstack/react-router'
 import type { FormEvent, ReactNode } from 'react'
@@ -39,6 +40,7 @@ export type DashboardSection =
     | 'channels'
     | 'media'
     | 'access'
+    | 'settings'
 
 interface DashboardSidebarProps {
     readonly activeSection: DashboardSection
@@ -274,6 +276,22 @@ export function DashboardSidebar({
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton
+                            render={workspaceLink(
+                                'settings',
+                                null,
+                                m.nav_settings(),
+                                activeSection === 'settings'
+                            )}
+                            isActive={activeSection === 'settings'}
+                            tooltip={m.nav_settings()}>
+                            <SettingsIcon aria-hidden="true" />
+                            <span className="group-data-[collapsible=icon]:hidden">
+                                {m.nav_settings()}
+                            </span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
                             disabled={pending}
                             onClick={onSignOut}
                             tooltip={m.nav_sign_out()}>
@@ -290,6 +308,7 @@ export function DashboardSidebar({
 }
 
 export function workspaceSection(pathname: string): DashboardSection {
+    if (pathname.includes('/settings')) return 'settings'
     if (pathname.includes('/calendar')) return 'calendar'
     if (pathname.includes('/compose')) return 'compose'
     if (pathname.includes('/queue')) return 'queue'
@@ -306,6 +325,7 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'channels') return m.nav_channels()
     if (section === 'media') return m.nav_media()
     if (section === 'access') return m.nav_access()
+    if (section === 'settings') return m.nav_settings()
     return m.nav_overview()
 }
 
@@ -341,6 +361,16 @@ function workspaceLink(
     ariaLabel?: string,
     active = false
 ) {
+    if (destination === 'settings') {
+        return (
+            <Link
+                to="/dashboard/settings/provider-applications"
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
     if (projectId === null) {
         return (
             <Link
