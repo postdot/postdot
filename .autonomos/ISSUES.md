@@ -1427,3 +1427,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related issues: ISSUE-006, ISSUE-040, ISSUE-041
 - Related decisions: ADR-012, ADR-031, ADR-033, ADR-041, ADR-044, ADR-045,
   ADR-056
+- Resolution: Runtime-managed provider applications are now available through
+  authenticated settings API routes and the web surface at
+  `/dashboard/settings/provider-applications`. Herald supports multiple
+  LinkedIn, Bluesky, and X application configurations per instance, encrypted
+  client secrets, active/default state, and immediate OAuth resolution without
+  an API restart. Existing environment-backed configuration remains a
+  compatibility/bootstrap path. Provider account credentials and channel
+  destinations remain separate, and no one-channel or one-account limit was
+  introduced. Selecting a non-default application explicitly for a channel is
+  intentionally outside CRED-19 and remains a possible follow-up.
+- Verification: PR #131 merged the runtime/API and migration work; PR #132
+  merged the authenticated web settings surface. The full repository gate and
+  CI Verify passed for the integrated changes.
