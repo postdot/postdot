@@ -8,7 +8,14 @@ import { createProviderAnalyticsStore } from './provider-analytics-store'
 const now = 1_800_000_000_000
 const did = 'did:plc:provider-analytics'
 
-function observation(projectId: string, fetchedAt: number, value: number | null = 0) {
+function observation(
+    projectId: string,
+    fetchedAt: number,
+    value: number | null = 0,
+    availability: 'measured' | 'not_reported' | 'partial_response' = value === null
+        ? 'not_reported'
+        : 'measured'
+) {
     return {
         projectId,
         provider: 'bluesky',
@@ -26,7 +33,7 @@ function observation(projectId: string, fetchedAt: number, value: number | null 
         reportingPeriodEnd: null,
         observedAt: null,
         fetchedAt,
-        availability: value === null ? ('not_reported' as const) : ('measured' as const),
+        availability,
         freshness: 'unknown' as const,
         provenance: 'bluesky.public-api.v1',
     }
@@ -70,6 +77,13 @@ describe('provider analytics store', () => {
                 subjectId: 'user-1',
                 observations: [observation(first.project.id, now + 1_000, null)],
             })
+            const partialSnapshot = store.recordObservations({
+                projectId: first.project.id,
+                subjectId: 'user-1',
+                observations: [
+                    observation(first.project.id, now + 2_000, null, 'partial_response'),
+                ],
+            })
 
             expect(firstFetch).toMatchObject({ inserted: 1, duplicates: 0 })
             expect(duplicateFetch).toMatchObject({ inserted: 0, duplicates: 1 })
@@ -79,14 +93,24 @@ describe('provider analytics store', () => {
                 availability: 'not_reported',
                 fetchedAt: now + 1_000,
             })
+            expect(partialSnapshot).toMatchObject({ inserted: 1, duplicates: 0 })
+            expect(partialSnapshot?.observations[0]).toMatchObject({
+                availability: 'partial_response',
+                value: null,
+                fetchedAt: now + 2_000,
+            })
 
             const listed = store.listObservations({
                 projectId: first.project.id,
                 subjectId: 'user-1',
                 provider: 'bluesky',
             })
-            expect(listed?.observations).toHaveLength(2)
-            expect(listed?.observations.map(item => item.fetchedAt)).toEqual([now + 1_000, now])
+            expect(listed?.observations).toHaveLength(3)
+            expect(listed?.observations.map(item => item.fetchedAt)).toEqual([
+                now + 2_000,
+                now + 1_000,
+                now,
+            ])
             expect(
                 store.listObservations({
                     projectId: first.project.id,

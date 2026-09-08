@@ -48,6 +48,7 @@ export interface HeraldAppOptions {
     readonly analytics?: AnalyticsStore
     readonly providerAnalytics?: ProviderAnalyticsStore
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
+    readonly blueskyAnalyticsTimeoutMs?: number
     readonly blueskyAnalyticsNow?: () => number
     readonly projectChanges?: ProjectRealtimeHub
 }
@@ -67,6 +68,7 @@ function createDomainApp({
     analytics,
     providerAnalytics,
     blueskyAnalyticsFetcher,
+    blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
     projectChanges,
     discordFetcher,
@@ -163,6 +165,7 @@ function createDomainApp({
                 analytics: analyticsStore,
                 providerAnalytics: providerAnalyticsStore,
                 blueskyAnalyticsFetcher,
+                blueskyAnalyticsTimeoutMs,
                 blueskyAnalyticsNow,
                 eventJournal,
                 projectChanges,
@@ -193,6 +196,7 @@ export function createApp({
     analytics,
     providerAnalytics,
     blueskyAnalyticsFetcher,
+    blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
     projectChanges,
     discordFetcher,
@@ -213,6 +217,7 @@ export function createApp({
         analytics,
         providerAnalytics,
         blueskyAnalyticsFetcher,
+        blueskyAnalyticsTimeoutMs,
         blueskyAnalyticsNow,
         projectChanges,
         discordFetcher,

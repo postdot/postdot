@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import {
+    BLUESKY_ANALYTICS_MAX_CONTENTS,
     BLUESKY_ANALYTICS_PROVENANCE,
     BLUESKY_PROVIDER,
     createBlueskyAnalyticsReader,
@@ -11,6 +12,8 @@ const did = 'did:plc:herald-test'
 const handle = 'herald.test'
 const postUri = 'at://' + did + '/app.bsky.feed.post/3kpost'
 const postCid = 'bafyreibsky-cid'
+const profileIndexedAt = '2026-09-08T10:00:00.000Z'
+const postIndexedAt = '2026-09-08T10:01:00.000Z'
 
 describe('Bluesky provider analytics', () => {
     it('reads a profile and known posts without credentials and preserves identities', async () => {
@@ -32,6 +35,7 @@ describe('Bluesky provider analytics', () => {
                     return Response.json({
                         did,
                         handle,
+                        indexedAt: profileIndexedAt,
                         followersCount: 0,
                         followsCount: 12,
                         postsCount: 4,
@@ -43,6 +47,8 @@ describe('Bluesky provider analytics', () => {
                             uri: postUri,
                             cid: postCid,
                             author: { did, handle },
+                            record: { text: 'fixture' },
+                            indexedAt: postIndexedAt,
                             likeCount: 0,
                             replyCount: 2,
                             repostCount: 3,
@@ -60,6 +66,7 @@ describe('Bluesky provider analytics', () => {
             kind: 'available',
             did,
             handle,
+            observedAt: Date.parse(profileIndexedAt),
             counters: {
                 followersCount: 0,
                 followsCount: 12,
@@ -72,6 +79,7 @@ describe('Bluesky provider analytics', () => {
                 uri: postUri,
                 cid: postCid,
                 authorHandle: handle,
+                observedAt: Date.parse(postIndexedAt),
                 counters: {
                     likeCount: 0,
                     replyCount: 2,
@@ -115,6 +123,7 @@ describe('Bluesky provider analytics', () => {
                     kind: 'available',
                     did,
                     handle,
+                    observedAt: Date.parse(profileIndexedAt),
                     counters: { followersCount: 0, followsCount: 7 },
                 }),
                 getPosts: async () => [
@@ -123,6 +132,7 @@ describe('Bluesky provider analytics', () => {
                         uri: postUri,
                         cid: postCid,
                         authorHandle: handle,
+                        observedAt: Date.parse(postIndexedAt),
                         counters: {
                             likeCount: 0,
                             replyCount: 1,
@@ -136,6 +146,18 @@ describe('Bluesky provider analytics', () => {
 
         expect(result.provider).toBe(BLUESKY_PROVIDER)
         expect(result.observations).toHaveLength(8)
+        expect(result.coverage).toMatchObject({
+            state: 'partial',
+            complete: false,
+            requestedAccountMetricCount: 3,
+            measuredAccountMetricCount: 2,
+            requestedContentCount: 1,
+            returnedContentCount: 1,
+            requestedContentMetricCount: 5,
+            measuredContentMetricCount: 4,
+            notReportedMetricCount: 2,
+            unavailableMetricCount: 0,
+        })
         expect(result.observations).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
@@ -229,6 +251,113 @@ describe('Bluesky provider analytics', () => {
             kind: 'unavailable',
             availability: 'temporarily_unavailable',
         })
+    })
+
+    it('classifies provider capability and partial-response signals explicitly', async () => {
+        const unsupportedReader = createBlueskyAnalyticsReader({
+            fetcher: async () => Response.json({ error: 'UnsupportedMetric' }),
+        })
+        await expect(unsupportedReader.getProfile(did)).resolves.toEqual({
+            kind: 'unavailable',
+            availability: 'not_supported',
+        })
+
+        const partialReader = createBlueskyAnalyticsReader({
+            fetcher: async () => Response.json({ error: 'incomplete response' }),
+        })
+        await expect(partialReader.getProfile(did)).resolves.toEqual({
+            kind: 'unavailable',
+            availability: 'partial_response',
+        })
+
+        const omittedPostReader = createBlueskyAnalyticsReader({
+            fetcher: async () => Response.json({ posts: [] }),
+        })
+        await expect(omittedPostReader.getPosts([postUri])).resolves.toEqual([
+            { kind: 'unavailable', uri: postUri, availability: 'partial_response' },
+        ])
+
+        const malformedPostReader = createBlueskyAnalyticsReader({
+            fetcher: async () =>
+                Response.json({
+                    posts: [
+                        {
+                            uri: postUri,
+                            cid: postCid,
+                            author: { did, handle },
+                            record: { text: 'fixture' },
+                            likeCount: 1,
+                            replyCount: 1,
+                            repostCount: 1,
+                            quoteCount: 1,
+                            bookmarkCount: 1,
+                        },
+                    ],
+                }),
+        })
+        await expect(malformedPostReader.getPosts([postUri])).resolves.toEqual([
+            { kind: 'unavailable', uri: postUri, availability: 'invalid_response' },
+        ])
+    })
+
+    it('passes an abort signal, times out, and bounds known-post hydration to one page', async () => {
+        let aborted = false
+        const timeoutReader = createBlueskyAnalyticsReader({
+            timeoutMs: 5,
+            fetcher: async (_input, init) =>
+                new Promise<Response>(resolve => {
+                    init?.signal?.addEventListener('abort', () => {
+                        aborted = true
+                        resolve(Response.json({ error: 'aborted' }, { status: 503 }))
+                    })
+                }),
+        })
+        await expect(timeoutReader.getProfile(did)).resolves.toEqual({
+            kind: 'unavailable',
+            availability: 'temporarily_unavailable',
+        })
+        expect(aborted).toBe(true)
+
+        let bodyAborted = false
+        const bodyTimeoutReader = createBlueskyAnalyticsReader({
+            timeoutMs: 5,
+            fetcher: async (_input, init) => {
+                init?.signal?.addEventListener('abort', () => {
+                    bodyAborted = true
+                })
+                return {
+                    ok: true,
+                    status: 200,
+                    json: () => new Promise<unknown>(() => undefined),
+                } as Response
+            },
+        })
+        await expect(bodyTimeoutReader.getProfile(did)).resolves.toEqual({
+            kind: 'unavailable',
+            availability: 'temporarily_unavailable',
+        })
+        expect(bodyAborted).toBe(true)
+
+        const uris = Array.from(
+            { length: BLUESKY_ANALYTICS_MAX_CONTENTS },
+            (_, index) => 'at://' + did + '/app.bsky.feed.post/post-' + index
+        )
+        const requests: string[] = []
+        const boundedReader = createBlueskyAnalyticsReader({
+            fetcher: async input => {
+                requests.push(input instanceof URL ? input.href : input.toString())
+                return Response.json({ posts: [] })
+            },
+        })
+        await expect(boundedReader.getPosts(uris)).resolves.toHaveLength(
+            BLUESKY_ANALYTICS_MAX_CONTENTS
+        )
+        expect(new URL(requests[0] ?? '').searchParams.getAll('uris')).toHaveLength(
+            BLUESKY_ANALYTICS_MAX_CONTENTS
+        )
+        await expect(
+            boundedReader.getPosts([...uris, 'at://' + did + '/app.bsky.feed.post/one-too-many'])
+        ).rejects.toMatchObject({ code: 'invalid_input' })
     })
 
     it('does not call the provider for invalid known post identifiers', async () => {

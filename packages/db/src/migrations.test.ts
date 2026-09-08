@@ -165,7 +165,75 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(21)
+            expect(migrationCount?.count).toBe(22)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('preserves existing provider observations while widening availability states', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => 1_800_000_000_000 })
+            const project = store.createProject({
+                name: 'Provider observation migration',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+
+            database.$client.exec('DROP TABLE provider_analytics_observations')
+            unapplyMigrations(database, ['0021_thankful_jack_power'])
+            database.$client.exec(`
+                CREATE TABLE provider_analytics_observations (
+                    id text PRIMARY KEY NOT NULL,
+                    project_id text NOT NULL,
+                    provider text NOT NULL,
+                    subject_type text NOT NULL,
+                    provider_subject_id text NOT NULL,
+                    provider_subject_label text,
+                    provider_content_revision_id text,
+                    herald_entity_type text,
+                    herald_entity_id text,
+                    metric_name text NOT NULL,
+                    value real,
+                    unit text NOT NULL,
+                    aggregation text NOT NULL,
+                    reporting_period_start integer,
+                    reporting_period_end integer,
+                    observed_at integer,
+                    fetched_at integer NOT NULL,
+                    availability text NOT NULL,
+                    freshness text NOT NULL,
+                    provenance text NOT NULL,
+                    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE cascade
+                )
+            `)
+            database.$client
+                .query(
+                    `insert into provider_analytics_observations (
+                        id, project_id, provider, subject_type, provider_subject_id,
+                        provider_subject_label, provider_content_revision_id,
+                        herald_entity_type, herald_entity_id, metric_name, value,
+                        unit, aggregation, reporting_period_start, reporting_period_end,
+                        observed_at, fetched_at, availability, freshness, provenance
+                    ) values (?1, ?2, 'bluesky', 'account', 'did:plc:legacy',
+                        'legacy.test', null, 'channel', 'channel-1', 'followersCount',
+                        3, 'count', 'cumulative_snapshot', null, null, null,
+                        ?3, 'measured', 'unknown', 'bluesky.public-api.v1')`
+                )
+                .run('legacy-observation', project.project.id, 1_800_000_000_000)
+
+            runMigrations(database)
+
+            expect(
+                database.$client
+                    .query<{ availability: string; value: number }, [string]>(
+                        'select availability, value from provider_analytics_observations where id = ?1'
+                    )
+                    .get('legacy-observation')
+            ).toEqual({ availability: 'measured', value: 3 })
         } finally {
             closeDatabase(database)
         }
@@ -209,6 +277,7 @@ describe('database migrations', () => {
             revertNotificationMigration(database)
             revertEventJournalMigration(database)
             unapplyMigrations(database, [
+                '0021_thankful_jack_power',
                 '0020_harsh_hairball',
                 '0019_flawless_greymalkin',
                 '0007_yellow_bastion',
@@ -287,6 +356,7 @@ describe('database migrations', () => {
             revertNotificationMigration(staleDatabase)
             revertEventJournalMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
+                '0021_thankful_jack_power',
                 '0020_harsh_hairball',
                 '0019_flawless_greymalkin',
                 '0007_yellow_bastion',

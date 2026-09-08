@@ -15,6 +15,7 @@ export const providerAnalyticsAvailabilityStates = [
     'temporarily_unavailable',
     'rate_limited',
     'invalid_response',
+    'partial_response',
     'not_configured',
     'not_authorized',
     'not_supported',

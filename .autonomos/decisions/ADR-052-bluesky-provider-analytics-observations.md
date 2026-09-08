@@ -30,8 +30,10 @@ contract and store:
   availability, freshness, and provenance.
 - Bluesky observations use unit=count and aggregation=cumulative_snapshot.
   They are never added as interval measurements. The public AppView does not
-  provide a provider observation time for these counters, so observedAt and
-  freshness remain explicit null or unknown values in this slice.
+  provide a dedicated counter observation time. Its profile and post views do
+  expose source index timestamps; valid indexedAt values may be preserved as
+  observedAt, but freshness remains unknown because no provider freshness
+  guarantee exists.
 
 The Bluesky package owns provider protocol behavior. It reads
 app.bsky.actor.getProfile and app.bsky.feed.getPosts from the public AppView

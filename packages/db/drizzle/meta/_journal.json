@@ -148,6 +148,13 @@
             "when": 1788819590555,
             "tag": "0020_harsh_hairball",
             "breakpoints": true
+        },
+        {
+            "idx": 21,
+            "version": "6",
+            "when": 1788829277332,
+            "tag": "0021_thankful_jack_power",
+            "breakpoints": true
         }
     ]
 }

@@ -82,6 +82,7 @@ describe('provider analytics routes', () => {
                     return Response.json({
                         did,
                         handle: 'api.analytics.test',
+                        indexedAt: '2026-09-08T10:00:00.000Z',
                         followersCount: 3,
                         followsCount: 2,
                         postsCount: 1,
@@ -93,6 +94,8 @@ describe('provider analytics routes', () => {
                             uri: postUri,
                             cid: 'bafy-api-cid',
                             author: { did, handle: 'api.analytics.test' },
+                            record: { text: 'fixture' },
+                            indexedAt: '2026-09-08T10:01:00.000Z',
                             likeCount: 1,
                             replyCount: 0,
                             repostCount: 2,
@@ -197,10 +200,36 @@ describe('provider analytics routes', () => {
             const collection = (await collectResponse.json()) as {
                 inserted: number
                 duplicates: number
+                coverage: Record<string, unknown>
                 observations: Array<Record<string, unknown>>
             }
             expect(collection).toMatchObject({ inserted: 8, duplicates: 0 })
+            expect(collection.coverage).toEqual({
+                state: 'complete',
+                complete: true,
+                requestedAccountMetricCount: 3,
+                measuredAccountMetricCount: 3,
+                requestedContentCount: 1,
+                returnedContentCount: 1,
+                requestedContentMetricCount: 5,
+                measuredContentMetricCount: 5,
+                notReportedMetricCount: 0,
+                unavailableMetricCount: 0,
+                gaps: [],
+            })
             expect(collection.observations).toHaveLength(8)
+            expect(collection.observations).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        metricName: 'followersCount',
+                        observedAt: Date.parse('2026-09-08T10:00:00.000Z'),
+                    }),
+                    expect.objectContaining({
+                        metricName: 'likeCount',
+                        observedAt: Date.parse('2026-09-08T10:01:00.000Z'),
+                    }),
+                ])
+            )
             expect(providerCalls).toBe(2)
             expect(JSON.stringify(collection)).not.toContain('credential')
             expect(

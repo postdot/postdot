@@ -11,6 +11,8 @@ import { BLUESKY_PROVIDER, type BlueskyFetcher } from './contract'
 export const BLUESKY_PUBLIC_API_ORIGIN = 'https://public.api.bsky.app'
 export const BLUESKY_ANALYTICS_PROVENANCE = 'bluesky.public-api.v1'
 export const BLUESKY_ANALYTICS_MAX_CONTENTS = 25
+export const BLUESKY_ANALYTICS_TIMEOUT_MS = 10_000
+export const BLUESKY_ANALYTICS_MAX_TIMEOUT_MS = 60_000
 
 export const blueskyAccountMetricNames = ['followersCount', 'followsCount', 'postsCount'] as const
 export type BlueskyAccountMetricName = (typeof blueskyAccountMetricNames)[number]
@@ -29,6 +31,30 @@ type BlueskyUnavailableAvailability = Exclude<
     'measured' | 'not_reported'
 >
 
+export type BlueskyAnalyticsCoverageState = 'complete' | 'partial' | 'unavailable'
+
+export interface BlueskyAnalyticsCoverageGap {
+    readonly subjectType: 'account' | 'content'
+    readonly providerSubjectId: string
+    readonly heraldEntityId: string
+    readonly metricNames: readonly string[]
+    readonly availability: Exclude<ProviderAnalyticsAvailability, 'measured'>
+}
+
+export interface BlueskyAnalyticsCoverage {
+    readonly state: BlueskyAnalyticsCoverageState
+    readonly complete: boolean
+    readonly requestedAccountMetricCount: number
+    readonly measuredAccountMetricCount: number
+    readonly requestedContentCount: number
+    readonly returnedContentCount: number
+    readonly requestedContentMetricCount: number
+    readonly measuredContentMetricCount: number
+    readonly notReportedMetricCount: number
+    readonly unavailableMetricCount: number
+    readonly gaps: readonly BlueskyAnalyticsCoverageGap[]
+}
+
 interface BlueskyCounterSnapshot {
     readonly [metric: string]: number | undefined
 }
@@ -37,7 +63,8 @@ export type BlueskyAnalyticsProfileRead =
     | {
           readonly kind: 'available'
           readonly did: string
-          readonly handle: string | null
+          readonly handle: string
+          readonly observedAt: number | null
           readonly counters: Readonly<BlueskyCounterSnapshot>
       }
     | {
@@ -49,8 +76,9 @@ export type BlueskyAnalyticsPostRead =
     | {
           readonly kind: 'available'
           readonly uri: string
-          readonly cid: string | null
-          readonly authorHandle: string | null
+          readonly cid: string
+          readonly authorHandle: string
+          readonly observedAt: number | null
           readonly counters: Readonly<BlueskyCounterSnapshot>
       }
     | {
@@ -87,6 +115,7 @@ export interface CollectBlueskyAnalyticsResult {
     readonly projectId: string
     readonly provider: typeof BLUESKY_PROVIDER
     readonly fetchedAt: number
+    readonly coverage: BlueskyAnalyticsCoverage
     readonly observations: readonly ProviderAnalyticsObservationInput[]
 }
 
@@ -98,10 +127,12 @@ export function createBlueskyAnalyticsReader(
     options: {
         readonly fetcher?: BlueskyFetcher
         readonly baseUrl?: string | URL
+        readonly timeoutMs?: number
     } = {}
 ): BlueskyAnalyticsReader {
     const fetcher = options.fetcher ?? globalThis.fetch
     const baseUrl = new URL(options.baseUrl ?? BLUESKY_PUBLIC_API_ORIGIN)
+    const timeoutMs = normalizeTimeout(options.timeoutMs)
 
     return {
         async getProfile(actor) {
@@ -112,7 +143,7 @@ export function createBlueskyAnalyticsReader(
 
             const url = new URL('/xrpc/app.bsky.actor.getProfile', baseUrl)
             url.searchParams.set('actor', normalizedActor)
-            const response = await fetchJson(fetcher, url)
+            const response = await fetchJson(fetcher, url, timeoutMs)
             if ('availability' in response) {
                 return {
                     kind: 'unavailable',
@@ -132,12 +163,14 @@ export function createBlueskyAnalyticsReader(
             }
 
             const did = readNonBlankString(response.payload.did)
-            const handle = readOptionalString(response.payload.handle)
+            const handle = readRequiredString(response.payload.handle)
+            const observedAt = readOptionalProviderTimestamp(response.payload.indexedAt)
             const counters = readCounters(response.payload, blueskyAccountMetricNames)
             if (
                 did === null ||
                 !isBlueskyDid(did) ||
-                handle === invalidString ||
+                handle === null ||
+                observedAt === invalidTimestamp ||
                 counters === null
             ) {
                 return { kind: 'unavailable', availability: 'invalid_response' }
@@ -146,7 +179,8 @@ export function createBlueskyAnalyticsReader(
             return {
                 kind: 'available',
                 did,
-                handle: handle ?? null,
+                handle,
+                observedAt,
                 counters,
             }
         },
@@ -178,7 +212,7 @@ export function createBlueskyAnalyticsReader(
 
             const url = new URL('/xrpc/app.bsky.feed.getPosts', baseUrl)
             for (const uri of validUris) url.searchParams.append('uris', uri)
-            const response = await fetchJson(fetcher, url)
+            const response = await fetchJson(fetcher, url, timeoutMs)
             if ('availability' in response) {
                 return [
                     ...results,
@@ -233,10 +267,18 @@ export function createBlueskyAnalyticsReader(
                     continue
                 }
 
-                const cid = readOptionalString(item.cid)
+                const cid = readRequiredString(item.cid)
                 const authorHandle = readAuthorHandle(item.author)
+                const observedAt = readRequiredProviderTimestamp(item.indexedAt)
                 const counters = readCounters(item, blueskyContentMetricNames)
-                if (cid === invalidString || authorHandle === invalidString || counters === null) {
+                const hasRecord = Object.prototype.hasOwnProperty.call(item, 'record')
+                if (
+                    cid === null ||
+                    authorHandle === null ||
+                    observedAt === invalidTimestamp ||
+                    !hasRecord ||
+                    counters === null
+                ) {
                     byUri.set(uri, {
                         kind: 'unavailable',
                         uri,
@@ -248,8 +290,9 @@ export function createBlueskyAnalyticsReader(
                 byUri.set(uri, {
                     kind: 'available',
                     uri,
-                    cid: cid ?? null,
-                    authorHandle: authorHandle ?? null,
+                    cid,
+                    authorHandle,
+                    observedAt,
                     counters,
                 })
             }
@@ -263,7 +306,7 @@ export function createBlueskyAnalyticsReader(
                             uri,
                             availability: malformedItem
                                 ? ('invalid_response' as const)
-                                : ('not_found' as const),
+                                : ('partial_response' as const),
                         }
                 ),
             ]
@@ -300,6 +343,7 @@ export async function collectBlueskyAnalytics(
                 heraldEntityId: accountEntityId,
                 counters: profile.counters,
                 metricNames: blueskyAccountMetricNames,
+                observedAt: profile.observedAt,
                 fetchedAt,
             })
         )
@@ -315,11 +359,13 @@ export async function collectBlueskyAnalytics(
                 heraldEntityId: accountEntityId,
                 metricNames: blueskyAccountMetricNames,
                 availability: profile.availability,
+                observedAt: null,
                 fetchedAt,
             })
         )
     }
 
+    let returnedContentCount = 0
     if (contents.length > 0) {
         const posts = await input.reader.getPosts(
             contents.map(content => content.providerSubjectId)
@@ -333,6 +379,7 @@ export async function collectBlueskyAnalytics(
             const heraldEntityId = requireNonBlank(content.heraldEntityId, 'content heraldEntityId')
             const post = postsByUri.get(providerSubjectId)
             if (post?.kind === 'available') {
+                returnedContentCount += 1
                 observations.push(
                     ...mapAvailableCounters({
                         projectId,
@@ -344,6 +391,7 @@ export async function collectBlueskyAnalytics(
                         heraldEntityId,
                         counters: post.counters,
                         metricNames: blueskyContentMetricNames,
+                        observedAt: post.observedAt,
                         fetchedAt,
                     })
                 )
@@ -360,6 +408,7 @@ export async function collectBlueskyAnalytics(
                         metricNames: blueskyContentMetricNames,
                         availability:
                             post?.kind === 'unavailable' ? post.availability : 'invalid_response',
+                        observedAt: null,
                         fetchedAt,
                     })
                 )
@@ -371,6 +420,12 @@ export async function collectBlueskyAnalytics(
         projectId,
         provider: BLUESKY_PROVIDER,
         fetchedAt,
+        coverage: summarizeCoverage({
+            observations,
+            requestedContentCount: contents.length,
+            returnedContentCount,
+            profileAvailable: profile.kind === 'available',
+        }),
         observations,
     }
 }
@@ -385,6 +440,7 @@ function mapAvailableCounters(input: {
     readonly heraldEntityId: string
     readonly counters: Readonly<BlueskyCounterSnapshot>
     readonly metricNames: readonly string[]
+    readonly observedAt: number | null
     readonly fetchedAt: number
 }): ProviderAnalyticsObservationInput[] {
     return input.metricNames.map(metricName => {
@@ -400,6 +456,7 @@ function mapAvailableCounters(input: {
             metricName,
             value: value === undefined ? null : value,
             availability: value === undefined ? 'not_reported' : 'measured',
+            observedAt: input.observedAt,
             fetchedAt: input.fetchedAt,
         })
     })
@@ -415,6 +472,7 @@ function mapUnavailableCounters(input: {
     readonly heraldEntityId: string
     readonly metricNames: readonly string[]
     readonly availability: BlueskyUnavailableAvailability
+    readonly observedAt: number | null
     readonly fetchedAt: number
 }): ProviderAnalyticsObservationInput[] {
     return input.metricNames.map(metricName =>
@@ -429,6 +487,7 @@ function mapUnavailableCounters(input: {
             metricName,
             value: null,
             availability: input.availability,
+            observedAt: input.observedAt,
             fetchedAt: input.fetchedAt,
         })
     )
@@ -445,6 +504,7 @@ function createObservation(input: {
     readonly metricName: string
     readonly value: number | null
     readonly availability: ProviderAnalyticsAvailability
+    readonly observedAt: number | null
     readonly fetchedAt: number
 }): ProviderAnalyticsObservationInput {
     return {
@@ -462,7 +522,7 @@ function createObservation(input: {
         aggregation: 'cumulative_snapshot',
         reportingPeriodStart: null,
         reportingPeriodEnd: null,
-        observedAt: null,
+        observedAt: input.observedAt,
         fetchedAt: input.fetchedAt,
         availability: input.availability,
         freshness: 'unknown',
@@ -470,34 +530,137 @@ function createObservation(input: {
     }
 }
 
+function summarizeCoverage(input: {
+    readonly observations: readonly ProviderAnalyticsObservationInput[]
+    readonly requestedContentCount: number
+    readonly returnedContentCount: number
+    readonly profileAvailable: boolean
+}): BlueskyAnalyticsCoverage {
+    const accountObservations = input.observations.filter(
+        observation => observation.subjectType === 'account'
+    )
+    const contentObservations = input.observations.filter(
+        observation => observation.subjectType === 'content'
+    )
+    const gaps = new Map<string, BlueskyAnalyticsCoverageGap>()
+    for (const observation of input.observations) {
+        if (observation.availability === 'measured') continue
+        const heraldEntityId = observation.heraldEntityId ?? ''
+        const key = [
+            observation.subjectType,
+            observation.providerSubjectId,
+            heraldEntityId,
+            observation.availability,
+        ].join('\u0000')
+        const existing = gaps.get(key)
+        if (existing === undefined) {
+            gaps.set(key, {
+                subjectType: observation.subjectType,
+                providerSubjectId: observation.providerSubjectId,
+                heraldEntityId,
+                metricNames: [observation.metricName],
+                availability: observation.availability,
+            })
+        } else if (!existing.metricNames.includes(observation.metricName)) {
+            gaps.set(key, {
+                ...existing,
+                metricNames: [...existing.metricNames, observation.metricName],
+            })
+        }
+    }
+
+    const gapList = [...gaps.values()]
+    const notReportedMetricCount = input.observations.filter(
+        observation => observation.availability === 'not_reported'
+    ).length
+    const unavailableMetricCount = input.observations.filter(
+        observation =>
+            observation.availability !== 'measured' && observation.availability !== 'not_reported'
+    ).length
+    const hasProviderSuccess = input.profileAvailable || input.returnedContentCount > 0
+    const state: BlueskyAnalyticsCoverageState =
+        gapList.length === 0 ? 'complete' : hasProviderSuccess ? 'partial' : 'unavailable'
+
+    return {
+        state,
+        complete: state === 'complete',
+        requestedAccountMetricCount: blueskyAccountMetricNames.length,
+        measuredAccountMetricCount: accountObservations.filter(
+            observation => observation.availability === 'measured'
+        ).length,
+        requestedContentCount: input.requestedContentCount,
+        returnedContentCount: input.returnedContentCount,
+        requestedContentMetricCount: input.requestedContentCount * blueskyContentMetricNames.length,
+        measuredContentMetricCount: contentObservations.filter(
+            observation => observation.availability === 'measured'
+        ).length,
+        notReportedMetricCount,
+        unavailableMetricCount,
+        gaps: gapList,
+    }
+}
+
 async function fetchJson(
     fetcher: BlueskyFetcher,
-    url: URL
+    url: URL,
+    timeoutMs: number
 ): Promise<{ readonly payload: unknown; readonly status: number } | ProviderResponseFailure> {
-    let response: Response
+    const controller = new AbortController()
+    let timeout: ReturnType<typeof setTimeout> | undefined
     try {
-        response = await fetcher(url, {
-            headers: { accept: 'application/json' },
-        })
+        const result = await Promise.race([
+            (async () => {
+                const response = await fetcher(url, {
+                    headers: { accept: 'application/json' },
+                    signal: controller.signal,
+                })
+                if (response.status === 206) {
+                    return {
+                        kind: 'result' as const,
+                        result: { availability: 'partial_response' as const },
+                    }
+                }
+                if (!response.ok) {
+                    let payload: unknown = null
+                    try {
+                        payload = await response.json()
+                    } catch {
+                        // The status itself is enough to classify the failure.
+                    }
+                    const providerError = isRecord(payload) ? providerErrorCode(payload) : null
+                    return {
+                        kind: 'result' as const,
+                        result: {
+                            availability: classifyProviderError(response.status, providerError),
+                        },
+                    }
+                }
+
+                try {
+                    return {
+                        kind: 'result' as const,
+                        result: { payload: await response.json(), status: response.status },
+                    }
+                } catch {
+                    return {
+                        kind: 'result' as const,
+                        result: { availability: 'invalid_response' as const },
+                    }
+                }
+            })(),
+            new Promise<{ readonly kind: 'timeout' }>(resolve => {
+                timeout = setTimeout(() => resolve({ kind: 'timeout' }), timeoutMs)
+            }),
+        ])
+        if (result.kind === 'timeout') {
+            controller.abort()
+            return { availability: 'temporarily_unavailable' }
+        }
+        return result.result
     } catch {
         return { availability: 'temporarily_unavailable' }
-    }
-
-    if (!response.ok) {
-        let payload: unknown = null
-        try {
-            payload = await response.json()
-        } catch {
-            // The status itself is enough to classify the failure.
-        }
-        const providerError = isRecord(payload) ? providerErrorCode(payload) : null
-        return { availability: classifyProviderError(response.status, providerError) }
-    }
-
-    try {
-        return { payload: await response.json(), status: response.status }
-    } catch {
-        return { availability: 'invalid_response' }
+    } finally {
+        if (timeout !== undefined) clearTimeout(timeout)
     }
 }
 
@@ -506,18 +669,19 @@ function classifyProviderError(
     providerError: string | null
 ): BlueskyUnavailableAvailability {
     if (status === 401 || status === 403) return 'not_authorized'
-    if (
-        status === 404 ||
-        /not.?found|actor.?not.?found|profile.?not.?found/i.test(providerError ?? '')
-    ) {
+    if (status === 429) return 'rate_limited'
+    if (status === 404) return 'not_found'
+    if (status === 410) return 'disabled'
+    if (status >= 500) return 'temporarily_unavailable'
+    if (/blocked/i.test(providerError ?? '')) return 'blocked'
+    if (/unsupported|not.?supported/i.test(providerError ?? '')) return 'not_supported'
+    if (/partial|incomplete|truncated/i.test(providerError ?? '')) return 'partial_response'
+    if (/not.?found|actor.?not.?found|profile.?not.?found/i.test(providerError ?? '')) {
         return 'not_found'
     }
-    if (/blocked/i.test(providerError ?? '')) return 'blocked'
-    if (status === 410 || /deactivat|takedown|suspend/i.test(providerError ?? '')) {
+    if (/deactivat|takedown|suspend/i.test(providerError ?? '')) {
         return 'disabled'
     }
-    if (status === 429) return 'rate_limited'
-    if (status >= 500) return 'temporarily_unavailable'
     return 'invalid_response'
 }
 
@@ -552,16 +716,36 @@ function readOptionalString(value: unknown): string | null | typeof invalidStrin
     return normalized.length === 0 ? invalidString : normalized
 }
 
+function readRequiredString(value: unknown): string | null {
+    const result = readOptionalString(value)
+    return result === null || result === invalidString ? null : result
+}
+
 function readNonBlankString(value: unknown): string | null {
     if (typeof value !== 'string') return null
     const normalized = value.trim()
     return normalized.length === 0 ? null : normalized
 }
 
-function readAuthorHandle(value: unknown): string | null | typeof invalidString {
+function readAuthorHandle(value: unknown): string | null {
+    if (!isRecord(value)) return null
+    const did = readNonBlankString(value.did)
+    const handle = readRequiredString(value.handle)
+    return did === null || !isBlueskyDid(did) ? null : handle
+}
+
+const invalidTimestamp = Symbol('invalid-timestamp')
+
+function readOptionalProviderTimestamp(value: unknown): number | null | typeof invalidTimestamp {
     if (value === undefined) return null
-    if (!isRecord(value)) return invalidString
-    return readOptionalString(value.handle)
+    if (typeof value !== 'string') return invalidTimestamp
+    const timestamp = Date.parse(value)
+    return Number.isFinite(timestamp) && timestamp >= 0 ? timestamp : invalidTimestamp
+}
+
+function readRequiredProviderTimestamp(value: unknown): number | typeof invalidTimestamp {
+    const timestamp = readOptionalProviderTimestamp(value)
+    return timestamp === null ? invalidTimestamp : timestamp
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -600,6 +784,17 @@ function isNotFoundPost(value: Record<string, unknown>): boolean {
 
 function normalizePostUris(uris: readonly string[]): string[] {
     return [...new Set(uris.map(uri => requireNonBlank(uri, 'post URI')))]
+}
+
+function normalizeTimeout(value: number | undefined): number {
+    if (value === undefined) return BLUESKY_ANALYTICS_TIMEOUT_MS
+    if (!Number.isSafeInteger(value) || value < 1 || value > BLUESKY_ANALYTICS_MAX_TIMEOUT_MS) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            `timeoutMs must be between 1 and ${BLUESKY_ANALYTICS_MAX_TIMEOUT_MS}`
+        )
+    }
+    return value
 }
 
 function normalizeContentTargets(
