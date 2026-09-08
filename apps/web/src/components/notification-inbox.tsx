@@ -66,6 +66,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
         },
         enabled: projectId !== null,
         staleTime: Number.POSITIVE_INFINITY,
+        retry: false,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
     })
@@ -82,6 +83,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
         },
         enabled: projectId !== null && panel === 'preferences',
         staleTime: Number.POSITIVE_INFINITY,
+        retry: false,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
     })
@@ -295,7 +297,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
 
                     {panel === 'inbox' ? (
                         <ScrollArea className="max-h-[min(36rem,calc(100vh-12rem))] px-5 pb-5">
-                            {loading && inbox === null ? (
+                            {loading && inbox === undefined ? (
                                 <NotificationLoadingState />
                             ) : notifications.length === 0 ? (
                                 <Empty className="min-h-48 bg-muted px-5 py-8">
