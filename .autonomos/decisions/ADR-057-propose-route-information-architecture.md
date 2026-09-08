@@ -1,6 +1,6 @@
 # ADR-057 — Propose a route-oriented Herald workspace with progressive disclosure
 
-- Status: proposed
+- Status: accepted
 - Scope: authenticated web route hierarchy and first-action contracts
 - Provenance: WEB-118; ISSUE-063; independent Muse-1.3 and Luna-max audits
 - Related specification: SPEC-006
@@ -115,8 +115,8 @@ Costs and risks:
 
 ## Acceptance criteria for this proposal
 
-- The owner accepts or revises the route job table and the progressive-disclosure
-  rules.
+- The owner accepted the route job table and the progressive-disclosure rules by
+  authorizing continuation after review.
 - WEB-119 records representative empty, loading, populated, partial, failed,
   and recovery states for each route.
 - The accepted result is reflected in `DESIGN.md` or a linked normative spec;

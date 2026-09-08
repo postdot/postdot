@@ -92,6 +92,18 @@ future landing-page decisions remain explicit below.
   date grid. On narrow screens, replace the compressed seven-column grid with
   an agenda grouped by day. Manual and automatic destinations share the same
   calendar, while delivery state and due-human work remain visible as state.
+- Route job contract: Overview answers what deserves attention or what the
+  operator should do next; Compose creates and reviews one source fan-out;
+  Calendar scans time and provides a direct date-oriented entry into Compose;
+  Queue prioritizes lifecycle and human-action work; Channels manages
+  destination identity and connection readiness; Media manages reusable
+  verified assets. These surfaces must not converge into interchangeable
+  publication-empty dashboards.
+- Progressive disclosure contract: hide complexity through ordering, grouping,
+  contextual detail, and meaningful iconography rather than removing capability.
+  Keep required state, accessibility names, recovery guidance, and destructive
+  action consequences available. Repeated explanation is optional; the next
+  meaningful action is not.
 - Sidebar menu buttons that render a trailing status badge reserve the badge's
   width before the channel label truncates. Collapsed icon mode overrides that
   reservation so the icon control remains centered in the rail.
