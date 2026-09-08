@@ -1392,3 +1392,38 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: ANALYTICS-113
 - Related issues: ISSUE-054, ISSUE-055, ISSUE-057
 - Related decisions: ADR-053, ADR-054
+
+## [ISSUE-059] Remove runtime friction from provider application configuration
+
+- Type: problem
+- Status: open
+- Evidence: Herald currently reads LinkedIn, X, and Bluesky OAuth application
+  configuration from environment variables during API startup. A missing
+  configuration causes the provider connection action to return unavailable,
+  even though the user is trying to connect a normal business account or
+  destination. The current project-owned credential and connection model already
+  separates provider accounts from channels, but it does not yet separate the
+  provider application used to authorize them.
+- Impact: Requiring an operator to edit `.env` and restart Herald for a new
+  provider application creates the same self-hosting friction we explicitly do
+  not want to reproduce from Postiz. It also obscures the distinction between
+  installation bootstrap secrets, OAuth application configuration, connected
+  account credentials, and channel destinations. A one-provider or one-channel
+  limit would prevent legitimate projects from managing several LinkedIn pages
+  or accounts together.
+- Desired outcome: A running Herald instance can register and update one or more
+  provider application configurations through an authorized setup surface, then
+  use them immediately for OAuth connections without an application restart.
+  Provider accounts remain encrypted project-owned credentials, channels remain
+  independently addressable destinations, and no arbitrary provider/account/
+  channel cardinality limit is introduced. Provider-specific permission and
+  destination constraints remain explicit and truthful.
+- Scope boundary: Deployment bootstrap values such as the database location,
+  session secret, publisher encryption root key, listener address, and public
+  origin remain valid environment configuration. This issue does not remove the
+  need to register an application and callback with an external provider, and it
+  does not make provider policies or approval requirements disappear.
+- Tasks: CRED-19
+- Related issues: ISSUE-006, ISSUE-040, ISSUE-041
+- Related decisions: ADR-012, ADR-031, ADR-033, ADR-041, ADR-044, ADR-045,
+  ADR-056
