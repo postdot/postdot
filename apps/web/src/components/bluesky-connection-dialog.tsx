@@ -13,20 +13,31 @@ import { AddIcon } from '@solar-icons/react/bold/add'
 import { LinkIcon } from '@solar-icons/react/bold/link'
 import { useState } from 'react'
 
-import type { Channel } from '@/lib/api'
+import { ProviderApplicationSelect } from '@/components/provider-application-select'
+import type { Channel, ProviderApplication } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface BlueskyConnectionDialogProps {
     readonly channel: Channel
     readonly disabled: boolean
-    readonly onConnect: (channelId: string, handle: string) => Promise<void>
+    readonly onConnect: (
+        channelId: string,
+        handle: string,
+        providerApplicationId?: string
+    ) => Promise<void>
+    readonly onProviderApplicationChange: (providerApplicationId: string) => void
+    readonly providerApplicationId?: string
+    readonly providerApplications: readonly ProviderApplication[]
 }
 
 export function BlueskyConnectionDialog({
     channel,
     disabled,
     onConnect,
+    onProviderApplicationChange,
+    providerApplicationId,
+    providerApplications,
 }: BlueskyConnectionDialogProps) {
     useLanguage()
     const [open, setOpen] = useState(false)
@@ -46,7 +57,7 @@ export function BlueskyConnectionDialog({
         }
 
         setError(null)
-        await onConnect(channel.id, normalizedHandle)
+        await onConnect(channel.id, normalizedHandle, providerApplicationId)
     }
 
     return (
@@ -85,6 +96,13 @@ export function BlueskyConnectionDialog({
                             {m.provider_bluesky_help()}
                         </FieldDescription>
                     </Field>
+                    <ProviderApplicationSelect
+                        applications={providerApplications}
+                        disabled={disabled}
+                        id={`bluesky-application-${channel.id}`}
+                        onValueChange={onProviderApplicationChange}
+                        value={providerApplicationId ?? ''}
+                    />
                     {error ? <p className="text-sm text-destructive">{error}</p> : null}
                     <DialogFooter>
                         <Button

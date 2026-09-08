@@ -127,9 +127,14 @@ export interface ProjectDashboardContextValue extends ProjectData {
     readonly onSourceMediaChange: (value: MediaSelection[]) => void
     readonly onStartLinkedInConnection: (
         channelId: string,
-        destination?: LinkedInConnectionDestination
+        destination?: LinkedInConnectionDestination,
+        providerApplicationId?: string
     ) => Promise<void>
-    readonly onStartBlueskyConnection: (channelId: string, handle: string) => Promise<void>
+    readonly onStartBlueskyConnection: (
+        channelId: string,
+        handle: string,
+        providerApplicationId?: string
+    ) => Promise<void>
     readonly onStartMastodonConnection: (channelId: string, instanceUrl: string) => Promise<void>
     readonly onConnectDiscordPublisher: (
         channelId: string,
@@ -299,24 +304,31 @@ export function ProjectDashboardProvider({
 
     async function handleStartLinkedInConnection(
         channelId: string,
-        destination?: LinkedInConnectionDestination
+        destination?: LinkedInConnectionDestination,
+        providerApplicationId?: string
     ) {
         await runAction(async () => {
             const { authorizationUrl } = await api.startLinkedInPublisherConnection(
                 project.id,
                 channelId,
-                destination
+                destination,
+                providerApplicationId
             )
             window.location.assign(authorizationUrl)
         })
     }
 
-    async function handleStartBlueskyConnection(channelId: string, handle: string) {
+    async function handleStartBlueskyConnection(
+        channelId: string,
+        handle: string,
+        providerApplicationId?: string
+    ) {
         await runAction(async () => {
             const { authorizationUrl } = await api.startBlueskyPublisherConnection(
                 project.id,
                 channelId,
-                handle
+                handle,
+                providerApplicationId
             )
             window.location.assign(authorizationUrl)
         })

@@ -211,6 +211,8 @@
     "provider_apps_action_failed": "Échec de l’action sur l’application provider",
     "provider_apps_no_secret_for_bluesky": "Bluesky utilise des métadonnées client publiques ; aucun secret client n’est requis.",
     "provider_apps_setup_note": "Les applications provider sont des réglages d’instance. Les connexions de canal peuvent utiliser le provider par défaut correspondant.",
+    "provider_apps_select": "Application OAuth",
+    "provider_apps_select_help": "Choisissez l’application configurée qui démarre cette connexion.",
     "overview_new_publication": "Nouvelle publication",
     "overview_title": "Vue d’ensemble",
     "overview_summary_aria": "Résumé de la vue d’ensemble",

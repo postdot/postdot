@@ -1444,7 +1444,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-060] Select a provider application explicitly for a channel connection
 
 - Type: enhancement
-- Status: open
+- Status: resolved
 - Evidence: Runtime provider applications now support multiple active
   configurations and a default per provider, but the channel OAuth start
   routes currently use only that default. The persisted OAuth attempt and
@@ -1457,8 +1457,8 @@ channels` with a foreign-key constraint error even though a fresh empty database
   `providerApplicationId`, validate that it belongs to the requested provider
   and is active, and pin it to the authorization attempt and resulting
   project-owned credential. Omitting it continues to resolve the active
-  provider default. A later web pass may expose the same choice in the
-  channel connection UI.
+  provider default. The web channel connection UI exposes the same choice
+  whenever more than one active application exists for LinkedIn or Bluesky.
 - Scope boundary: This does not make provider applications project-owned, does
   not bypass provider permissions, and does not change the one-publisher-per-
   channel invariant. Invalid, disabled, or cross-provider application ids must
@@ -1466,3 +1466,14 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: CRED-20
 - Related issues: ISSUE-059
 - Related decisions: ADR-056
+- Resolution: LinkedIn, Bluesky, and X OAuth start routes now accept an
+  explicit active application id and fail closed for invalid, disabled, or
+  cross-provider ids. The channel management UI loads active runtime-managed
+  applications and offers a localized selector for LinkedIn and Bluesky only
+  when multiple choices exist; with one application, the existing default
+  flow remains unchanged. The selected application remains pinned by the
+  existing authorization-attempt and project-owned credential boundary.
+- Verification: PR #133 merged the API and typed-client support. The follow-up
+  web implementation passes the complete repository format, lint, typecheck,
+  unit, E2E, and build gate; English and French catalogs both remain at 100%
+  coverage.
