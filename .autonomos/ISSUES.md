@@ -1478,3 +1478,123 @@ channels` with a foreign-key constraint error even though a fresh empty database
   web implementation passes the complete repository format, lint, typecheck,
   unit, E2E, and build gate; English and French catalogs both remain at 100%
   coverage.
+
+## [ISSUE-063] Recompose Herald's route information architecture and progressive disclosure
+
+- Type: problem
+- Status: open
+- Evidence: Two independent read-only UX/UI audits found that Overview,
+  Calendar, and Queue become near-identical empty states, while Compose carries
+  most of the source-to-destination relationship. The audits also found that
+  repeated headings, helper paragraphs, counters, and generic empty cards make
+  the application harder to scan than the underlying workflow requires.
+- Impact: Users can see the available capabilities without understanding which
+  surface owns the next decision. Reducing copy locally would risk hiding
+  necessary state, while adding more dashboard summaries would increase the
+  problem. The same ambiguity would make later analytics, notifications, and
+  provider features harder to place coherently.
+- Desired outcome: Define and validate one primary operator job, first action,
+  information hierarchy, and empty/loading/error/populated contract for
+  Overview, Compose, Calendar, Queue, Channels, and Media. The design must hide
+  complexity through ordering and progressive disclosure without removing
+  capabilities, required state, accessibility information, or recovery paths.
+  Calendar must have an explicit date-oriented entry path even when no
+  publication is scheduled, and Queue must remain a prioritization surface
+  rather than a second Overview.
+- Scope boundary: This is an authenticated application IA and interaction
+  workstream. It does not redesign public marketing surfaces, change domain/API
+  ownership, remove the source/publication model, or implement provider or
+  analytics features.
+- Tasks: WEB-117, WEB-118, WEB-119, WEB-122, DESIGN-98
+- Related issues: ISSUE-042, ISSUE-050, ISSUE-052, ISSUE-064, ISSUE-066
+- Related decision: ADR-057 (accepted)
+- Related specification: SPEC-007 (draft)
+- Related specification: SPEC-006
+
+## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
+
+- Type: problem
+- Status: open
+- Evidence: Both independent audits found that reduced navigation loses or
+  obscures labels, and one audit found truncated section labels without a
+  reliable tooltip or accessible name. The audits also found tablet Compose
+  controls and mobile Queue tabs losing readable geometry, plus a potential
+  ambiguity between global provider settings and project-scoped navigation.
+- Impact: The shell is shared by every workflow, so a navigation or context
+  failure is multiplied across the application. A user can lose the project
+  context, misunderstand a global setting as project-specific, or be unable to
+  reach a filter or control at a narrow viewport. Cosmetic fixes in individual
+  pages would not protect the shared interaction contract.
+- Desired outcome: The authenticated shell has an explicit global/project
+  navigation distinction, stable URL context, accessible icon-only controls,
+  usable reduced and mobile navigation, preserved focus order, clear loading
+  behavior, and responsive rules that recompose controls before truncating
+  meaningful values. Long channel names and status badges must remain
+  distinguishable without leaking layout or accessibility semantics.
+- Scope boundary: This does not replace the current Sidebar/Base UI foundation,
+  introduce a new UI library, or change the project authorization model. It
+  includes the provider-settings context and shared pending/error shell only
+  insofar as they affect navigation comprehension.
+- Tasks: DESIGN-121, WEB-123, WEB-124
+- Related issues: ISSUE-042, ISSUE-051, ISSUE-059, ISSUE-060
+- Related specification: SPEC-006
+
+## [ISSUE-065] Make Herald's visual and content foundation operational beyond default shadcn grammar
+
+- Type: proposal
+- Status: open
+- Evidence: The owner explicitly wants shadcn/Base UI to remain a source-code
+  foundation rather than Herald's visual identity. The independent audits found
+  that the current visual tokens are mostly coherent, but also identified
+  inconsistent button geometry, repeated card/form grammar, redundant provider
+  headings, copy density, and terminology that weakens the intended calm
+  dispatch-desk identity.
+- Impact: Continuing to style each new surface locally will recreate the very
+  default SaaS/shadcn look the project is trying to avoid. Reversing defaults
+  with page-level CSS will make the system harder to maintain and harder for
+  agents to understand. Over-simplifying copy without a content rule could hide
+  important recovery or state information.
+- Desired outcome: Define a small, explicit Herald foundation for surface
+  roles, geometry, typography, control sizes, icon usage, borders, shadows,
+  focus, empty states, and progressive-disclosure copy. The foundation must
+  state when the shadcn/Base UI primitives are reused, rewritten, or promoted
+  into shared Herald primitives. It must support the current themes and locales
+  while allowing the logo, colors, and provisional treatments to evolve from
+  evidence.
+- Scope boundary: This does not freeze the current logo or palette, build a
+  public brand site, add animation dependencies, or replace Base UI. It is not
+  a visual polish pass detached from route jobs and real data.
+- Tasks: DESIGN-120, DESIGN-98, WEB-124
+- Related issues: ISSUE-004, ISSUE-042, ISSUE-052, ISSUE-063
+- Related specification: SPEC-006
+
+## [ISSUE-066] Validate UX against realistic data, transitions, and realtime feedback
+
+- Type: problem
+- Status: open
+- Evidence: The audits were correctly read-only and therefore did not exercise
+  populated publications, failed or ambiguous outcomes, media uploads, multiple
+  channels, network failures, loading states, notification state changes, or
+  realtime reconnect behavior. One audit reported a possible transient blank
+  loading state; a separate local observation previously saw a route-context
+  error before a full reload, although neither is currently a confirmed
+  production defect.
+- Impact: Empty-state screenshots can make a workflow look coherent while
+  hiding the real density, hierarchy, truncation, and recovery problems that
+  appear as soon as several destinations, statuses, or notifications exist.
+  Fixing the UI without this evidence would repeat the previous incremental
+  drift.
+- Desired outcome: Establish deterministic representative fixtures and a
+  browser validation matrix for empty, populated, loading, partial, failed,
+  manual, scheduled, notification, and realtime-updated states across desktop,
+  tablet, and mobile. Verify direct navigation, reload, keyboard access, theme,
+  locale, reconnect, and no-subscriber behavior. Capture evidence before and
+  after the IA and shell changes, without requiring real provider side effects.
+- Scope boundary: This does not publish to a provider, add analytics
+  dashboards, replace SSE/Query, or treat synthetic fixtures as proof of
+  provider behavior. Real-provider validation remains a separate controlled
+  activity.
+- Tasks: WEB-117, WEB-119, WEB-124, AUDIT-125
+- Related issues: ISSUE-050, ISSUE-051, ISSUE-052, ISSUE-063, ISSUE-064
+- Related decisions: ADR-047, ADR-048, ADR-050
+- Related specification: SPEC-006
