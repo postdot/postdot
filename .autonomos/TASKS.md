@@ -137,6 +137,7 @@
 - [x] **[ANALYTICS-114]** Implement the first real Bluesky provider-owned engagement collection `Priority: 🟠` `Complexity: L`
 - [x] **[CRED-19]** Move provider application configuration to runtime-managed instance settings `Priority: 🔴` `Complexity: XL`
 - [x] **[CRED-20]** Allow an explicit provider application when starting channel OAuth `Priority: 🟠` `Complexity: M`
+- [ ] **[ACCESS-116]** Define human account bootstrap, instance administration, membership, and invitation policy `Priority: 🔵` `Complexity: L`
 - [x] **[PROVIDER-115]** Add AT Protocol loopback OAuth and provider-specific deployment requirements `Priority: 🟠` `Complexity: M`
 - [x] **[DESIGN-97]** Recompose the notification inbox as a contextual non-blocking surface `Priority: 🔵` `Complexity: M`
 - [ ] **[DESIGN-98]** Reduce repeated explanatory UI copy and improve operational information density `Priority: 🔵` `Complexity: M`

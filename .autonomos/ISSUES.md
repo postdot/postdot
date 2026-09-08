@@ -1636,3 +1636,34 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related issues: ISSUE-050, ISSUE-051, ISSUE-052, ISSUE-063, ISSUE-064
 - Related decisions: ADR-047, ADR-048, ADR-050
 - Related specification: SPEC-006
+
+## [ISSUE-062] Define Herald human account, instance administration, and invitation policy
+
+- Type: proposal
+- Status: open
+- Evidence: Herald currently supports local email/password account creation and
+  human sessions, while project ownership initially belongs to the creating user.
+  `ISSUE-013` and ADR-030 deliberately deferred memberships and invitations, but
+  the first real local onboarding exposed the unanswered product questions around
+  who may create the first account, whether registration stays open, and how a
+  self-hosted instance is administered.
+- Impact: Without an explicit policy, a future hosted or shared self-hosted
+  deployment could accidentally expose open registration, make the first account
+  impossible to promote to an instance administrator, or introduce invitations,
+  email delivery, password recovery, and project membership with incompatible
+  ownership semantics. The current local single-operator flow must remain simple
+  while those broader modes are evaluated.
+- Desired outcome: Define distinct deployment and access profiles (local
+  single-operator, shared self-hosted, and any future hosted mode), including
+  bootstrap/first-admin behavior, registration policy, human roles, project
+  membership and invitations, email verification and password recovery, account
+  deletion, and abuse/rate-limit boundaries. The decision must state which parts
+  are required before exposing Herald beyond a trusted local operator and must
+  preserve project-owned publisher credentials and machine-token attribution.
+- Scope boundary: This is a product and security policy investigation. It does
+  not add email delivery, invitations, organization billing, SSO, or an admin UI;
+  it does not replace Better Auth for human authentication or alter the existing
+  project-scoped machine-token contract.
+- Tasks: ACCESS-116
+- Related issues: ISSUE-013, ISSUE-059
+- Related decisions: ADR-012, ADR-030, ADR-056
