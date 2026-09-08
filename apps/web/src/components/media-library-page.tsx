@@ -36,27 +36,18 @@ export function MediaLibraryPage() {
             </DashboardPageHeader>
 
             <section className="max-w-4xl">
-                <div className="flex items-baseline justify-between gap-4">
-                    <div>
-                        <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                            {m.media_verified_title()}
-                        </h2>
-                        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                            {m.media_description()}
-                        </p>
-                    </div>
+                <div className="mb-3 flex justify-end">
                     <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
                         <GalleryIcon aria-hidden="true" className="size-4" />
                         {m.common_media_selected({ count: sourceMedia.length })}
                     </span>
                 </div>
-                <div className="mt-5">
-                    <MediaAttachmentPicker
-                        projectId={project.id}
-                        value={sourceMedia}
-                        onChange={onSourceMediaChange}
-                    />
-                </div>
+                <MediaAttachmentPicker
+                    emptyDescription={m.media_empty_description()}
+                    projectId={project.id}
+                    value={sourceMedia}
+                    onChange={onSourceMediaChange}
+                />
             </section>
         </main>
     )

@@ -26,6 +26,7 @@ interface MediaAttachmentPickerProps {
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
     readonly disabled?: boolean
+    readonly emptyDescription?: string
 }
 
 export function MediaAttachmentPicker({
@@ -33,6 +34,7 @@ export function MediaAttachmentPicker({
     value,
     onChange,
     disabled = false,
+    emptyDescription,
 }: MediaAttachmentPickerProps) {
     useLanguage()
     const inputRef = useRef<HTMLInputElement>(null)
@@ -192,7 +194,9 @@ export function MediaAttachmentPicker({
                             <GalleryAddIcon aria-hidden="true" />
                         </EmptyMedia>
                         <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
-                        <EmptyDescription>{m.media_empty_here()}</EmptyDescription>
+                        <EmptyDescription>
+                            {emptyDescription ?? m.media_empty_here()}
+                        </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : (
