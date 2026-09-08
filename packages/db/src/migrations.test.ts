@@ -8,6 +8,8 @@ import { eq } from 'drizzle-orm'
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
 import { defaultMigrationsFolder, runMigrations } from './migrations'
+import { createPublisherCredentialCipher } from './publisher-credential-crypto'
+import { createPublisherCredentialStore } from './publisher-credential-store'
 import { session, user } from './schema'
 
 interface MigrationJournal {
@@ -176,7 +178,72 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(23)
+            expect(migrationCount?.count).toBe(24)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('normalizes orphan provider application references without losing credentials', async () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const manualStore = createManualStore(database, { now: () => 1_800_000_000_000 })
+            const project = manualStore.createProject({
+                name: 'Provider application migration',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({
+                    keyId: 'migration-test',
+                    key: new Uint8Array(32).fill(1),
+                }),
+                now: () => 1_800_000_000_000,
+                createId: () => 'credential-migration-test',
+            })
+            const created = await credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'bluesky',
+                externalAccountId: 'did:plc:migration-test',
+                accessToken: 'access-token',
+                providerSession: 'provider-session',
+            })
+            expect(created.kind).toBe('created')
+
+            database.$client.run('PRAGMA foreign_keys=OFF')
+            database.$client
+                .query(
+                    `update publisher_credentials
+                     set provider_application_id = 'legacy-missing-application'`
+                )
+                .run()
+            database.$client.run('PRAGMA foreign_keys=ON')
+            unapplyMigrations(database, ['0023_normalize_orphan_provider_applications'])
+
+            runMigrations(database)
+
+            const repaired = database.$client
+                .query<
+                    {
+                        providerApplicationId: string | null
+                        state: string
+                        revision: number
+                    },
+                    []
+                >(
+                    `select provider_application_id as providerApplicationId, state, revision
+                     from publisher_credentials`
+                )
+                .get()
+            expect(repaired).toMatchObject({
+                providerApplicationId: null,
+                state: 'reconnect_required',
+                revision: 2,
+            })
+            expect(database.$client.query('pragma foreign_key_check').all()).toEqual([])
         } finally {
             closeDatabase(database)
         }
@@ -289,6 +356,7 @@ describe('database migrations', () => {
             revertEventJournalMigration(database)
             revertProviderApplicationMigration(database)
             unapplyMigrations(database, [
+                '0023_normalize_orphan_provider_applications',
                 '0022_fresh_human_robot',
                 '0021_thankful_jack_power',
                 '0020_harsh_hairball',
@@ -370,6 +438,7 @@ describe('database migrations', () => {
             revertEventJournalMigration(staleDatabase)
             revertProviderApplicationMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
+                '0023_normalize_orphan_provider_applications',
                 '0022_fresh_human_robot',
                 '0021_thankful_jack_power',
                 '0020_harsh_hairball',
