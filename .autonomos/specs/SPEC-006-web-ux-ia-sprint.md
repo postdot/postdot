@@ -8,6 +8,7 @@
 - Related issues: ISSUE-051, ISSUE-052, ISSUE-063, ISSUE-064, ISSUE-065, ISSUE-066
 - Related tasks: WEB-117, WEB-118, WEB-119, DESIGN-97, DESIGN-98, DESIGN-120,
   DESIGN-121, WEB-122, WEB-123, WEB-124, AUDIT-125
+- Related decisions: ADR-057 (proposed)
 - Normative reference: `DESIGN.md` remains the accepted visual direction. This
   document is a sprint target draft and does not silently amend that contract.
 

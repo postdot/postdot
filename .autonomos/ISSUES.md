@@ -1507,6 +1507,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   analytics features.
 - Tasks: WEB-117, WEB-118, WEB-119, WEB-122, DESIGN-98
 - Related issues: ISSUE-042, ISSUE-050, ISSUE-052, ISSUE-064, ISSUE-066
+- Related decision: ADR-057 (proposed)
 - Related specification: SPEC-006
 
 ## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
