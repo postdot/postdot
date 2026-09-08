@@ -149,7 +149,8 @@ export function channelProfileLabel(profileId: string) {
     if (profileId === 'discord') return m.channel_discord_profile()
     if (profileId === 'devto') return m.channel_devto_profile()
     if (profileId === 'manual-message') return m.channel_manual_profile()
-    return profileId
+    if (profileId === 'custom') return m.channel_custom_profile()
+    return m.channel_profile()
 }
 
 export function formatSchedule(timestamp: number | null, timeZone = 'UTC', locale = 'en') {

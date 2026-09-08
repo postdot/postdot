@@ -10,7 +10,7 @@ import {
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
-import { useEffect, useId, useState, type ChangeEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 
 import { MediaAssetCard } from '@/components/media-asset-card'
 import { api, formatApiError, type MediaReference } from '@/lib/api'
@@ -26,6 +26,7 @@ interface MediaAttachmentPickerProps {
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
     readonly disabled?: boolean
+    readonly emptyDescription?: string
 }
 
 export function MediaAttachmentPicker({
@@ -33,9 +34,10 @@ export function MediaAttachmentPicker({
     value,
     onChange,
     disabled = false,
+    emptyDescription,
 }: MediaAttachmentPickerProps) {
     useLanguage()
-    const inputId = useId()
+    const inputRef = useRef<HTMLInputElement>(null)
     const [assets, setAssets] = useState<MediaReference[]>([])
     const [loading, setLoading] = useState(true)
     const [uploading, setUploading] = useState<string | null>(null)
@@ -154,22 +156,24 @@ export function MediaAttachmentPicker({
                     </p>
                 </div>
                 <Button
-                    render={<label htmlFor={inputId} />}
-                    nativeButton={false}
+                    type="button"
                     variant="secondary"
                     size="default"
-                    className={interactionDisabled ? 'pointer-events-none opacity-50' : ''}>
+                    disabled={interactionDisabled}
+                    onClick={() => inputRef.current?.click()}>
                     <UploadIcon aria-hidden="true" />
                     {uploading === null
                         ? m.media_upload()
                         : m.media_uploading({ filename: uploading })}
                 </Button>
                 <input
-                    id={inputId}
+                    ref={inputRef}
                     className="sr-only"
                     type="file"
                     multiple
                     disabled={interactionDisabled}
+                    tabIndex={-1}
+                    aria-hidden="true"
                     onChange={event => void handleFilesSelected(event)}
                 />
             </div>
@@ -190,7 +194,9 @@ export function MediaAttachmentPicker({
                             <GalleryAddIcon aria-hidden="true" />
                         </EmptyMedia>
                         <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
-                        <EmptyDescription>{m.media_empty_here()}</EmptyDescription>
+                        <EmptyDescription>
+                            {emptyDescription ?? m.media_empty_here()}
+                        </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : (

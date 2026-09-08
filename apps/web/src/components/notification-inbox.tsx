@@ -1,13 +1,6 @@
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@herald/ui/components/dialog'
-import {
     Empty,
     EmptyDescription,
     EmptyHeader,
@@ -16,6 +9,13 @@ import {
 } from '@herald/ui/components/empty'
 import { Field, FieldContent, FieldDescription, FieldTitle } from '@herald/ui/components/field'
 import { ScrollArea } from '@herald/ui/components/scroll-area'
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from '@herald/ui/components/sheet'
 import { Switch } from '@herald/ui/components/switch'
 import { ArchiveIcon } from '@solar-icons/react/bold/archive'
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
@@ -66,6 +66,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
         },
         enabled: projectId !== null,
         staleTime: Number.POSITIVE_INFINITY,
+        retry: false,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
     })
@@ -82,6 +83,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
         },
         enabled: projectId !== null && panel === 'preferences',
         staleTime: Number.POSITIVE_INFINITY,
+        retry: false,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
     })
@@ -217,28 +219,30 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                 ) : null}
             </Button>
 
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
-                    <DialogHeader className="gap-1 px-5 pt-5 pb-4 pr-12">
+            <Sheet open={open} onOpenChange={setOpen}>
+                <SheetContent
+                    className="w-full max-w-none gap-0 overflow-hidden p-0 sm:max-w-lg"
+                    side="right">
+                    <SheetHeader className="gap-1 px-5 pt-5 pb-4 pr-12">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <DialogTitle>
+                                    <SheetTitle>
                                         {panel === 'inbox'
                                             ? m.notifications_title()
                                             : m.notifications_preferences()}
-                                    </DialogTitle>
+                                    </SheetTitle>
                                     {panel === 'inbox' && unreadCount > 0 ? (
                                         <Badge variant="secondary">
                                             {m.notifications_unread({ count: unreadCount })}
                                         </Badge>
                                     ) : null}
                                 </div>
-                                <DialogDescription className="mt-1">
+                                <SheetDescription className="mt-1">
                                     {panel === 'inbox'
                                         ? m.notifications_dialog_description()
                                         : m.notifications_preferences_description()}
-                                </DialogDescription>
+                                </SheetDescription>
                             </div>
                             <Button
                                 aria-label={
@@ -269,7 +273,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                 )}
                             </Button>
                         </div>
-                    </DialogHeader>
+                    </SheetHeader>
 
                     {error !== null ? (
                         <div
@@ -293,7 +297,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
 
                     {panel === 'inbox' ? (
                         <ScrollArea className="max-h-[min(36rem,calc(100vh-12rem))] px-5 pb-5">
-                            {loading && inbox === null ? (
+                            {loading && inbox === undefined ? (
                                 <NotificationLoadingState />
                             ) : notifications.length === 0 ? (
                                 <Empty className="min-h-48 bg-muted px-5 py-8">
@@ -330,8 +334,8 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                             onChange={updatePreference}
                         />
                     )}
-                </DialogContent>
-            </Dialog>
+                </SheetContent>
+            </Sheet>
         </>
     )
 }

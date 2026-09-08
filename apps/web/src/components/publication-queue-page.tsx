@@ -75,7 +75,9 @@ export function PublicationQueuePage() {
                 onValueChange={value => {
                     if (isQueueFilter(value)) setFilter(value)
                 }}>
-                <TabsList className="max-w-full overflow-x-auto" variant="line">
+                <TabsList
+                    className="w-full max-w-full justify-start overflow-x-auto [&>[data-slot=tabs-trigger]]:shrink-0"
+                    variant="line">
                     <TabsTrigger
                         aria-label={m.queue_filter_aria({
                             label: m.queue_all(),
@@ -125,6 +127,7 @@ export function PublicationQueuePage() {
                     />
                     <PublicationList
                         emptyDescription={queueEmptyDescription(filter)}
+                        emptyTitle={queueEmptyTitle(filter)}
                         publications={visiblePublications}
                         timeZone={project.timeZone}
                     />
@@ -147,4 +150,11 @@ function queueEmptyDescription(filter: QueueFilter) {
     if (filter === 'scheduled') return m.queue_no_scheduled_description()
     if (filter === 'manual') return m.queue_no_manual_description()
     return m.queue_no_publications_description()
+}
+
+function queueEmptyTitle(filter: QueueFilter) {
+    if (filter === 'attention') return m.queue_no_attention_title()
+    if (filter === 'scheduled') return m.queue_no_scheduled_title()
+    if (filter === 'manual') return m.queue_no_manual_title()
+    return m.queue_no_publications()
 }

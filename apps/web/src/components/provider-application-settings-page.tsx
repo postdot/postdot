@@ -1,7 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
 import { Card } from '@herald/ui/components/card'
-import { AddIcon } from '@solar-icons/react/bold/add'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { useEffect, useState, type FormEvent } from 'react'
 
@@ -48,13 +46,6 @@ export function ProviderApplicationSettingsPage() {
         editingId === null
             ? undefined
             : applications?.find(application => application.id === editingId)
-
-    function beginCreate() {
-        setEditingId(null)
-        setForm(newProviderApplicationForm())
-        setError(null)
-        setNotice(null)
-    }
 
     function beginEdit(application: ProviderApplication) {
         setEditingId(application.id)
@@ -152,14 +143,6 @@ export function ProviderApplicationSettingsPage() {
                             {m.provider_apps_description()}
                         </p>
                     </div>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={beginCreate}
-                        disabled={pending}>
-                        <AddIcon aria-hidden="true" />
-                        {m.provider_apps_new()}
-                    </Button>
                 </header>
 
                 {error ? (
@@ -188,13 +171,8 @@ export function ProviderApplicationSettingsPage() {
                         pending={pending}
                     />
 
-                    <section aria-labelledby="provider-applications-list-title" className="min-w-0">
-                        <div className="flex items-baseline justify-between gap-4">
-                            <h2
-                                id="provider-applications-list-title"
-                                className="font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em]">
-                                {m.provider_apps_title()}
-                            </h2>
+                    <section aria-label={m.provider_apps_title()} className="min-w-0">
+                        <div className="flex justify-end">
                             {applications ? (
                                 <span className="text-sm text-muted-foreground">
                                     {applications.length}

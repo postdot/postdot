@@ -88,6 +88,7 @@ export function DashboardOverview() {
                     />
                     <PublicationList
                         emptyDescription={m.overview_recent_empty_description()}
+                        emptyTitle={m.overview_recent_empty_title()}
                         publications={recentPublications}
                         timeZone={project.timeZone}
                     />
