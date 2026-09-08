@@ -178,7 +178,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(24)
+            expect(migrationCount?.count).toBe(25)
         } finally {
             closeDatabase(database)
         }
@@ -221,7 +221,10 @@ describe('database migrations', () => {
                 )
                 .run()
             database.$client.run('PRAGMA foreign_keys=ON')
-            unapplyMigrations(database, ['0023_normalize_orphan_provider_applications'])
+            unapplyMigrations(database, [
+                '0024_sour_wolfsbane',
+                '0023_normalize_orphan_provider_applications',
+            ])
 
             runMigrations(database)
 
@@ -356,6 +359,7 @@ describe('database migrations', () => {
             revertEventJournalMigration(database)
             revertProviderApplicationMigration(database)
             unapplyMigrations(database, [
+                '0024_sour_wolfsbane',
                 '0023_normalize_orphan_provider_applications',
                 '0022_fresh_human_robot',
                 '0021_thankful_jack_power',
@@ -438,6 +442,7 @@ describe('database migrations', () => {
             revertEventJournalMigration(staleDatabase)
             revertProviderApplicationMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
+                '0024_sour_wolfsbane',
                 '0023_normalize_orphan_provider_applications',
                 '0022_fresh_human_robot',
                 '0021_thankful_jack_power',

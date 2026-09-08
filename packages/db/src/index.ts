@@ -104,6 +104,7 @@ export { createPublisherCredentialStore } from './publisher-credential-store'
 export {
     createProviderApplicationStore,
     providerApplicationProviders,
+    providerApplicationOAuthModes,
     providerApplicationStates,
 } from './provider-application-store'
 export { createProjectAccessTokenStore } from './project-access-token-store'
@@ -149,6 +150,7 @@ export type {
     CreateProviderApplicationInput,
     CreateProviderApplicationResult,
     ProviderApplicationConfiguration,
+    ProviderApplicationOAuthMode,
     ProviderApplicationProvider,
     ProviderApplicationState,
     ProviderApplicationStore,

@@ -70,6 +70,7 @@ export type CustomHttpAuthentication =
 
 export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x'
 export type ProviderApplicationState = 'active' | 'disabled'
+export type ProviderApplicationOAuthMode = 'loopback' | 'web'
 
 export interface ProviderApplication {
     readonly id: string
@@ -78,6 +79,7 @@ export interface ProviderApplication {
     readonly clientId: string | null
     readonly clientMetadataUrl: string | null
     readonly handleResolver: string | null
+    readonly oauthMode: ProviderApplicationOAuthMode | null
     readonly state: ProviderApplicationState
     readonly isDefault: boolean
     readonly createdByUserId: string

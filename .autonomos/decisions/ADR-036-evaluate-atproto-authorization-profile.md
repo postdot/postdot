@@ -57,10 +57,26 @@ implementation must demonstrate:
   issuer/resource-server metadata, and the verified DID;
 - safe worker refresh and publication requests using the same DPoP session key;
 - correct callback, state, PAR, nonce, issuer, PDS, and DID verification behavior;
-- a self-hosted deployment story for the public client metadata URL, including the
-  local development case;
+- a self-hosted deployment story for both the public client metadata URL and the
+  official local loopback profile;
 - redacted logs, project-scoped ownership, disconnect/reconnect behavior, and
   restart-safe recovery.
+
+### Deployment profiles
+
+Herald does not make DNS or HTTPS a global application requirement. A local
+runtime-managed Bluesky application may use the AT Protocol loopback profile:
+the client identifier is the special `http://localhost` value and the redirect
+uses a loopback IP literal. Because Herald's session cookie is host-bound, the
+API, dashboard, and callback configuration must consistently use `127.0.0.1`
+(or consistently `[::1]`). No tunnel or public metadata document is used.
+
+A deployed web application uses the discoverable web profile. It requires a
+stable HTTPS client metadata URL and an exact publicly reachable HTTPS callback.
+The Herald API serves the metadata document itself; a reverse proxy may provide
+reachability but is not a Herald runtime dependency. The provider application
+settings and deployment guide expose these as two explicit, provider-specific
+profiles rather than inferring a global requirement.
 
 ## Alternatives considered
 

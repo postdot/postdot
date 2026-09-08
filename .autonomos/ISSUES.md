@@ -969,9 +969,10 @@ channels` with a foreign-key constraint error even though a fresh empty database
   product surface.
 - Desired outcome: The authenticated web client can create a Bluesky channel, start the
   provider-owned OAuth flow with a handle, show the project-owned account destination,
-  disconnect it, and report an unavailable provider clearly when HTTPS client metadata
-  is not configured. Development routing must expose the public metadata path through the
-  same origin used by the app.
+  disconnect it, and report provider-specific readiness clearly. Local development uses
+  the official AT Protocol loopback profile without a tunnel; deployed web OAuth uses
+  HTTPS client metadata and an exact public callback. Development routing must expose the
+  public metadata path only for the web profile.
 - Scope boundary: This task wires the existing API contract into the web client. It does
   not redesign the web information architecture, add app-password authentication, or
   perform an uncontrolled real-provider publication in automated tests.
@@ -980,10 +981,47 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related decision: ADR-036 (accepted)
 - Resolution: The authenticated web client now creates Bluesky channels, starts
   the handle-based OAuth flow, renders the project-owned connected destination,
-  and exposes disconnect handling through the supported dashboard. The flow was
-  exercised against a real Bluesky account through a temporary HTTPS origin on
-  2026-09-05; the callback completed successfully and the dashboard displayed the
-  connection as active. No publication was performed during this validation.
+  and exposes disconnect handling through the supported dashboard. The runtime now
+  supports both the official AT Protocol loopback profile for local development and
+  the public HTTPS web profile for deployed instances. No publication was performed
+  during the initial real-provider validation.
+
+## [ISSUE-061] Make Bluesky OAuth deployment profiles explicit
+
+- Type: enhancement
+- Status: resolved
+- Evidence: AT Protocol OAuth defines a local loopback client profile that does not
+  need a publicly fetchable client metadata document, while Herald's first Bluesky
+  implementation required HTTPS metadata for every connection. That requirement was
+  appropriate for the first public-web validation, but it forced local development
+  through a tunnel and obscured the difference between Bluesky OAuth and providers
+  with simpler token-based setup.
+- Impact: A global DNS/HTTPS requirement would add unnecessary self-hosting friction,
+  while silently accepting a loopback callback on mixed `localhost`/`127.0.0.1`
+  origins would lose the host-bound Herald session cookie during the callback.
+- Desired outcome: Provider application settings expose an explicit Bluesky loopback
+  mode and public HTTPS mode. Loopback mode creates the official AT Protocol native
+  client metadata and uses a consistent loopback IP for the API, dashboard, and
+  callback. Public mode keeps the stable HTTPS metadata and exact callback contract.
+  Deployment documentation states provider-specific requirements without imposing
+  DNS/HTTPS on all Herald installations.
+- Scope boundary: This does not add a proxy, a Bluesky client secret, or a second
+  provider application system. It does not change public analytics, which remain
+  independent of OAuth. Other providers retain their own callback and credential
+  requirements.
+- Tasks: PROVIDER-115
+- Related issues: ISSUE-041, ISSUE-043, ISSUE-059
+- Related decisions: ADR-036, ADR-056
+- Resolution: Runtime-managed Bluesky applications now allow `clientMetadataUrl: null`
+  as an explicit loopback mode, expose a derived `oauthMode` in the settings API,
+  construct the official `http://localhost` AT Protocol client identifier with a
+  `127.0.0.1` or `[::1]` callback, and keep the public metadata route unavailable in
+  loopback mode. The web settings form offers localized loopback/public choices.
+  SQLite migration `0024_sour_wolfsbane` updates the provider-application shape
+  constraint without rewriting existing public configurations. Deployment guidance
+  is recorded in `docs/deployment/provider-requirements.md`.
+- Verification: Bluesky OAuth metadata, provider-application store, migration,
+  runtime-origin, API, localization coverage, and package typecheck tests pass.
 
 ## [ISSUE-044] Preserve the AT Protocol OAuth state when PAR hides it from the authorization URL
 

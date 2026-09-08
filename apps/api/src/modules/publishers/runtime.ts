@@ -1,4 +1,4 @@
-import { createBlueskyClientMetadata } from '@herald/bluesky'
+import { createBlueskyClientMetadata, createBlueskyLoopbackClientMetadata } from '@herald/bluesky'
 import {
     createAuthorizationAttemptStore,
     createPublisherCredentialCipher,
@@ -67,6 +67,72 @@ export interface PublisherRuntimeOptions {
     }
     readonly now?: () => number
     readonly createId?: () => string
+}
+
+type BlueskyOAuthMode = 'loopback' | 'web'
+
+function loopbackHost(value: string): '127.0.0.1' | '[::1]' | null {
+    if (value === '127.0.0.1') return '127.0.0.1'
+    if (value === '[::1]' || value === '::1') return '[::1]'
+    return null
+}
+
+function createBlueskyLoopbackCallbackUri(apiOrigin: string, webOrigin: string): string {
+    const api = new URL(apiOrigin)
+    const web = new URL(webOrigin)
+    const apiHost = loopbackHost(api.hostname)
+    const webHost = loopbackHost(web.hostname)
+
+    // Better Auth's session cookie is host-bound. Requiring the dashboard and
+    // API to use the same loopback literal prevents a successful provider
+    // callback from losing the operator session when localhost and 127.0.0.1
+    // are mixed.
+    if (
+        api.protocol !== 'http:' ||
+        web.protocol !== 'http:' ||
+        apiHost === null ||
+        webHost !== apiHost
+    ) {
+        throw new Error(
+            'Bluesky loopback OAuth requires HTTP API and web origins that use the same loopback IP (127.0.0.1 or [::1])'
+        )
+    }
+
+    api.hostname = apiHost
+    return new URL('/api/oauth/bluesky/callback', api).toString()
+}
+
+function createBlueskyApplication(options: {
+    readonly applicationId: string | null
+    readonly clientMetadataUrl: string | null
+    readonly handleResolver: string
+    readonly apiOrigin: string
+    readonly webOrigin: string
+    readonly callbackUri: string
+}) {
+    if (options.clientMetadataUrl === null) {
+        const callbackUri = createBlueskyLoopbackCallbackUri(options.apiOrigin, options.webOrigin)
+        return {
+            applicationId: options.applicationId,
+            callbackUri,
+            clientMetadata: createBlueskyLoopbackClientMetadata({ redirectUri: callbackUri }),
+            handleResolver: options.handleResolver,
+            oauthMode: 'loopback' as const satisfies BlueskyOAuthMode,
+        }
+    }
+
+    return {
+        applicationId: options.applicationId,
+        callbackUri: options.callbackUri,
+        clientMetadata: createBlueskyClientMetadata({
+            clientId: options.clientMetadataUrl,
+            clientName: 'Herald',
+            clientUri: options.webOrigin,
+            redirectUri: options.callbackUri,
+        }),
+        handleResolver: options.handleResolver,
+        oauthMode: 'web' as const satisfies BlueskyOAuthMode,
+    }
 }
 
 export function createPublisherRuntime(database: HeraldDatabase, options: PublisherRuntimeOptions) {
@@ -138,6 +204,7 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
                       redirectUri: blueskyCallbackUri,
                   }),
                   handleResolver: options.bluesky.handleResolver,
+                  oauthMode: 'web' as const,
               }
 
     const mastodon = {
@@ -197,20 +264,17 @@ export function createPublisherRuntime(database: HeraldDatabase, options: Publis
             applicationId
         )
         if (configured !== null) {
-            if (configured.clientMetadataUrl === null || configured.handleResolver === null) {
+            if (configured.handleResolver === null) {
                 return undefined
             }
-            return {
+            return createBlueskyApplication({
                 applicationId: configured.id,
-                callbackUri: blueskyCallbackUri,
-                clientMetadata: createBlueskyClientMetadata({
-                    clientId: configured.clientMetadataUrl,
-                    clientName: 'Herald',
-                    clientUri: options.webOrigin,
-                    redirectUri: blueskyCallbackUri,
-                }),
+                clientMetadataUrl: configured.clientMetadataUrl,
                 handleResolver: configured.handleResolver,
-            }
+                apiOrigin: options.apiOrigin,
+                webOrigin: options.webOrigin,
+                callbackUri: blueskyCallbackUri,
+            })
         }
         if (applicationId !== undefined && applicationId !== null) return undefined
         if (providerApplicationStore.hasProviderApplication('bluesky')) return undefined

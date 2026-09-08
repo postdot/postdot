@@ -4,6 +4,7 @@ import type { Session } from '@atproto/oauth-client'
 
 import {
     createBlueskyOAuthClient,
+    createBlueskyLoopbackClientMetadata,
     createBlueskySessionStore,
     createBlueskyRuntimeImplementation,
     createBlueskyStateStore,
@@ -28,6 +29,21 @@ function memoryStore() {
 }
 
 describe('Bluesky OAuth runtime', () => {
+    it('constructs the official AT Protocol loopback client metadata', () => {
+        const metadata = createBlueskyLoopbackClientMetadata({
+            redirectUri: 'http://127.0.0.1:3000/api/oauth/bluesky/callback',
+        })
+
+        expect(metadata).toMatchObject({
+            client_id:
+                'http://localhost?redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fapi%2Foauth%2Fbluesky%2Fcallback',
+            redirect_uris: ['http://127.0.0.1:3000/api/oauth/bluesky/callback'],
+            application_type: 'native',
+            token_endpoint_auth_method: 'none',
+            dpop_bound_access_tokens: true,
+        })
+    })
+
     it('maps OAuth digest names to Bun Web Crypto names', async () => {
         const digest = await createBlueskyRuntimeImplementation().digest(
             new TextEncoder().encode('herald'),

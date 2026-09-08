@@ -128,6 +128,22 @@ describe('provider application store', () => {
         const fixture = createFixture()
 
         try {
+            const loopback = await fixture.store.createProviderApplication({
+                providerId: 'bluesky',
+                name: 'Herald Bluesky local',
+                clientMetadataUrl: null,
+                createdByUserId: 'user-1',
+            })
+            expect(loopback.kind).toBe('created')
+            if (loopback.kind !== 'created') return
+            expect(loopback.configuration).toMatchObject({
+                providerId: 'bluesky',
+                clientMetadataUrl: null,
+                oauthMode: 'loopback',
+                handleResolver: 'https://bsky.social/',
+                hasClientSecret: false,
+            })
+
             await expect(
                 fixture.store.createProviderApplication({
                     providerId: 'bluesky',
@@ -149,8 +165,20 @@ describe('provider application store', () => {
                 providerId: 'bluesky',
                 clientId: null,
                 clientMetadataUrl: 'https://herald.example.test/client-metadata.json',
+                oauthMode: 'web',
                 handleResolver: 'https://bsky.social/',
                 hasClientSecret: false,
+            })
+
+            const switched = await fixture.store.updateProviderApplication({
+                id: result.configuration.id,
+                clientMetadataUrl: null,
+            })
+            expect(switched.kind).toBe('updated')
+            if (switched.kind !== 'updated') return
+            expect(switched.configuration).toMatchObject({
+                clientMetadataUrl: null,
+                oauthMode: 'loopback',
             })
         } finally {
             closeDatabase(fixture.database)

@@ -1,5 +1,6 @@
 import {
     type ProviderApplicationConfiguration,
+    providerApplicationOAuthModes,
     type ProviderApplicationProvider,
     type ProviderApplicationState,
 } from '@herald/db'
@@ -22,6 +23,11 @@ const applicationSchema = Type.Object({
     clientId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
     clientMetadataUrl: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
     handleResolver: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    oauthMode: Type.Union([
+        Type.Literal(providerApplicationOAuthModes[0]),
+        Type.Literal(providerApplicationOAuthModes[1]),
+        Type.Null(),
+    ]),
     state: stateSchema,
     isDefault: Type.Boolean(),
     createdByUserId: Type.String({ minLength: 1 }),

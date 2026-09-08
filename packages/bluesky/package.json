@@ -23,6 +23,7 @@
         "@atproto/jwk-jose": "0.2.4",
         "@atproto/jwk-webcrypto": "0.3.4",
         "@atproto/oauth-client": "0.8.4",
+        "@atproto/oauth-types": "0.7.5",
         "@herald/core": "workspace:*"
     },
     "devDependencies": {
