@@ -1,6 +1,6 @@
 # ADR-056 — Manage provider application configurations at runtime
 
-- Status: proposed
+- Status: accepted
 - Scope: Provider OAuth application configuration, publisher credentials, and
   channel connections
 - Provenance: ISSUE-059, CRED-19, and the owner-directed self-hosting policy
