@@ -211,6 +211,8 @@
     "provider_apps_action_failed": "Provider application action failed",
     "provider_apps_no_secret_for_bluesky": "Bluesky uses public client metadata; no client secret is required.",
     "provider_apps_setup_note": "Provider applications are instance settings. Channel connections can use the matching provider default.",
+    "provider_apps_select": "OAuth application",
+    "provider_apps_select_help": "Choose which configured application starts this connection.",
     "overview_new_publication": "New publication",
     "overview_title": "Overview",
     "overview_summary_aria": "Overview summary",

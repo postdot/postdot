@@ -10,7 +10,7 @@ import { Input } from '@herald/ui/components/input'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { LinkIcon } from '@solar-icons/react/bold/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { BlueskyConnectionDialog } from '@/components/bluesky-connection-dialog'
 import { CustomHttpConnectionDialog } from '@/components/custom-http-connection-dialog'
@@ -18,12 +18,16 @@ import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { DevtoConnectionDialog } from '@/components/devto-connection-dialog'
 import { DiscordConnectionDialog } from '@/components/discord-connection-dialog'
 import { MastodonConnectionDialog } from '@/components/mastodon-connection-dialog'
+import { ProviderApplicationSelect } from '@/components/provider-application-select'
 import type {
     Channel,
     CustomHttpAuthentication,
     LinkedInConnectionDestination,
+    ProviderApplication,
+    ProviderApplicationProvider,
     PublisherConnection,
 } from '@/lib/api'
+import { api } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -42,9 +46,14 @@ interface PublisherConnectionPanelProps {
     ) => Promise<boolean>
     readonly onStartLinkedInConnection: (
         channelId: string,
-        destination?: LinkedInConnectionDestination
+        destination?: LinkedInConnectionDestination,
+        providerApplicationId?: string
     ) => Promise<void>
-    readonly onStartBlueskyConnection: (channelId: string, handle: string) => Promise<void>
+    readonly onStartBlueskyConnection: (
+        channelId: string,
+        handle: string,
+        providerApplicationId?: string
+    ) => Promise<void>
     readonly onStartMastodonConnection: (channelId: string, instanceUrl: string) => Promise<void>
     readonly onConnectDiscordPublisher: (
         channelId: string,
@@ -68,6 +77,58 @@ export function PublisherConnectionPanel({
 }: PublisherConnectionPanelProps) {
     useLanguage()
     const [organizationIds, setOrganizationIds] = useState<Record<string, string>>({})
+    const [providerApplications, setProviderApplications] = useState<ProviderApplication[]>([])
+    const [selectedProviderApplications, setSelectedProviderApplications] = useState<
+        Partial<Record<ProviderApplicationProvider, string>>
+    >({})
+
+    useEffect(() => {
+        let cancelled = false
+
+        void api
+            .listProviderApplications()
+            .then(response => {
+                if (cancelled) return
+                setProviderApplications(
+                    response.applications.filter(application => application.state === 'active')
+                )
+            })
+            .catch(() => {
+                if (!cancelled) setProviderApplications([])
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [])
+
+    function applicationsFor(provider: ProviderApplicationProvider) {
+        return providerApplications.filter(application => application.providerId === provider)
+    }
+
+    function selectedApplicationId(provider: ProviderApplicationProvider): string | undefined {
+        const applications = applicationsFor(provider)
+        if (applications.length < 2) return undefined
+
+        const selected = selectedProviderApplications[provider]
+        if (
+            selected !== undefined &&
+            applications.some(application => application.id === selected)
+        ) {
+            return selected
+        }
+
+        return applications.find(application => application.isDefault)?.id ?? applications[0]?.id
+    }
+
+    function selectApplication(provider: ProviderApplicationProvider, applicationId: string) {
+        setSelectedProviderApplications(current => ({ ...current, [provider]: applicationId }))
+    }
+
+    const linkedInApplications = applicationsFor('linkedin')
+    const linkedInApplicationId = selectedApplicationId('linkedin')
+    const blueskyApplications = applicationsFor('bluesky')
+    const blueskyApplicationId = selectedApplicationId('bluesky')
     const connectionsByChannel = new Map(
         connections.map(connection => [connection.channelId, connection])
     )
@@ -213,10 +274,23 @@ export function PublisherConnectionPanel({
                                 {channel.state === 'archived' ? null : channel.profileId ===
                                       'linkedin' && connection === undefined ? (
                                     <div className="mt-4 grid gap-4 sm:mt-0 sm:min-w-80">
+                                        <ProviderApplicationSelect
+                                            applications={linkedInApplications}
+                                            disabled={pending}
+                                            id={`linkedin-application-${channel.id}`}
+                                            onValueChange={applicationId =>
+                                                selectApplication('linkedin', applicationId)
+                                            }
+                                            value={linkedInApplicationId ?? ''}
+                                        />
                                         <Button
                                             size="sm"
                                             onClick={() =>
-                                                void onStartLinkedInConnection(channel.id)
+                                                void onStartLinkedInConnection(
+                                                    channel.id,
+                                                    undefined,
+                                                    linkedInApplicationId
+                                                )
                                             }
                                             disabled={pending}>
                                             <AddIcon aria-hidden="true" />
@@ -228,10 +302,14 @@ export function PublisherConnectionPanel({
                                                 event.preventDefault()
                                                 const id = organizationIds[channel.id]?.trim()
                                                 if (id === undefined || id.length === 0) return
-                                                void onStartLinkedInConnection(channel.id, {
-                                                    type: 'organization',
-                                                    id,
-                                                })
+                                                void onStartLinkedInConnection(
+                                                    channel.id,
+                                                    {
+                                                        type: 'organization',
+                                                        id,
+                                                    },
+                                                    linkedInApplicationId
+                                                )
                                             }}>
                                             <label
                                                 className="text-xs text-muted-foreground"
@@ -273,6 +351,11 @@ export function PublisherConnectionPanel({
                                         channel={channel}
                                         disabled={pending}
                                         onConnect={onStartBlueskyConnection}
+                                        onProviderApplicationChange={applicationId =>
+                                            selectApplication('bluesky', applicationId)
+                                        }
+                                        providerApplicationId={blueskyApplicationId}
+                                        providerApplications={blueskyApplications}
                                     />
                                 ) : channel.profileId === 'mastodon' && connection === undefined ? (
                                     <MastodonConnectionDialog

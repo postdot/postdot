@@ -136,7 +136,7 @@
 - [ ] **[ANALYTICS-113]** Design a replayable SQLite analytics projection beyond the interactive envelope `Priority: 🔵` `Complexity: L`
 - [x] **[ANALYTICS-114]** Implement the first real Bluesky provider-owned engagement collection `Priority: 🟠` `Complexity: L`
 - [x] **[CRED-19]** Move provider application configuration to runtime-managed instance settings `Priority: 🔴` `Complexity: XL`
-- [/] **[CRED-20]** Allow an explicit provider application when starting channel OAuth `Priority: 🟠` `Complexity: M`
+- [x] **[CRED-20]** Allow an explicit provider application when starting channel OAuth `Priority: 🟠` `Complexity: M`
 - [ ] **[DESIGN-97]** Recompose the notification inbox as a contextual non-blocking surface `Priority: 🔵` `Complexity: M`
 - [ ] **[DESIGN-98]** Reduce repeated explanatory UI copy and improve operational information density `Priority: 🔵` `Complexity: M`
 - [x] **[I18N-99]** Migrate authenticated web copy and locale-aware formatting to the localization boundary `Priority: 🟠` `Complexity: XL`
