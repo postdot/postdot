@@ -8,7 +8,6 @@ import { useMemo, useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import {
-    CalendarEmptyState,
     duePublicationIds,
     PublicationCalendarAgenda,
     PublicationCalendarMonth,
@@ -156,30 +155,28 @@ export function PublicationCalendarPage() {
                             {m.calendar_new_short()}
                         </Button>
                     </div>
-                    {scheduledPublications.length > 0 ? (
-                        <>
-                            <PublicationCalendarMonth
-                                duePublicationIds={duePublicationIds(due)}
-                                month={month}
-                                projectId={project.id}
-                            />
-                            <PublicationCalendarAgenda
-                                duePublicationIds={duePublicationIds(due)}
-                                emptyDescription={m.calendar_empty_month_description({
-                                    month: month.label,
-                                })}
-                                emptyTitle={m.calendar_empty_month_title({ month: month.label })}
-                                month={month}
-                            />
-                            {!visibleScheduled ? (
-                                <p className="mt-3 hidden text-sm text-muted-foreground md:block">
-                                    {m.calendar_nothing_month({ month: month.label })}
-                                </p>
-                            ) : null}
-                        </>
-                    ) : (
-                        <CalendarEmptyState />
-                    )}
+                    <PublicationCalendarMonth
+                        duePublicationIds={duePublicationIds(due)}
+                        month={month}
+                        projectId={project.id}
+                    />
+                    <PublicationCalendarAgenda
+                        duePublicationIds={duePublicationIds(due)}
+                        emptyDescription={m.calendar_empty_month_description({
+                            month: month.label,
+                        })}
+                        emptyTitle={m.calendar_empty_month_title({ month: month.label })}
+                        month={month}
+                    />
+                    {scheduledPublications.length === 0 ? (
+                        <p className="mt-3 hidden text-sm text-muted-foreground md:block">
+                            {m.calendar_no_scheduled_description()}
+                        </p>
+                    ) : !visibleScheduled ? (
+                        <p className="mt-3 hidden text-sm text-muted-foreground md:block">
+                            {m.calendar_nothing_month({ month: month.label })}
+                        </p>
+                    ) : null}
                 </div>
             </section>
 
