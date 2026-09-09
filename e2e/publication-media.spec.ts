@@ -506,7 +506,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(secondProjectId).not.toBe(firstProjectId)
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
-    await expect(page.getByText('No channels yet.', { exact: true })).toBeVisible()
+    await expect(page.getByText('No channels yet', { exact: true })).toBeVisible()
     await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
 
     await page.goto(`/dashboard/projects/${firstProjectId}/channels`)
@@ -518,7 +518,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
 
     await page.goto(`/dashboard/projects/${secondProjectId}/channels`)
-    await expect(page.getByText('No channels yet.', { exact: true })).toBeVisible()
+    await expect(page.getByText('No channels yet', { exact: true })).toBeVisible()
     await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
     await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
         secondProjectName

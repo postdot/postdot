@@ -11,9 +11,10 @@ import {
 import { Textarea } from '@herald/ui/components/textarea'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CloseIcon } from '@solar-icons/react/bold/close'
+import { Link } from '@tanstack/react-router'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
 
-import type { Channel } from '@/lib/api'
+import type { Channel, PublisherConnection } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import {
     createPublicationTarget,
@@ -24,16 +25,20 @@ import * as m from '@/paraglide/messages.js'
 
 interface PublicationTargetListProps {
     readonly channels: readonly Channel[]
+    readonly connections: readonly PublisherConnection[]
     readonly disabled: boolean
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
+    readonly projectId: string
     readonly targets: readonly PublicationTargetDraft[]
     readonly timeZone: string
 }
 
 export function PublicationTargetList({
     channels,
+    connections,
     disabled,
     onChange,
+    projectId,
     targets,
     timeZone,
 }: PublicationTargetListProps) {
@@ -62,10 +67,12 @@ export function PublicationTargetList({
                 <PublicationTargetCard
                     key={target.id}
                     channels={channels}
+                    connections={connections}
                     disabled={disabled}
                     index={index}
                     onChange={patch => updateTarget(target.id, patch)}
                     onRemove={() => removeTarget(target.id)}
+                    projectId={projectId}
                     target={target}
                     removable={targets.length > 1}
                     timeZone={timeZone}
@@ -82,31 +89,37 @@ export function PublicationTargetList({
 
 function PublicationTargetCard({
     channels,
+    connections,
     disabled,
     index,
     onChange,
     onRemove,
+    projectId,
     removable,
     target,
     timeZone,
 }: {
     readonly channels: readonly Channel[]
+    readonly connections: readonly PublisherConnection[]
     readonly disabled: boolean
     readonly index: number
     readonly onChange: (patch: Partial<PublicationTargetDraft>) => void
     readonly onRemove: () => void
+    readonly projectId: string
     readonly removable: boolean
     readonly target: PublicationTargetDraft
     readonly timeZone: string
 }) {
     useLanguage()
     const channel = channels.find(candidate => candidate.id === target.channelId)
+    const connection = connections.find(candidate => candidate.channelId === target.channelId)
     const fieldPrefix = `publication-target-${target.id}`
     const channelLabel = channel?.name ?? m.compose_choose_channel()
     const copyHint =
         channel?.profileId === 'linkedin'
             ? m.compose_linkedin_override()
             : m.compose_target_override()
+    const connectionStatus = resolveConnectionStatus(channel, connection, target.deliveryMode)
 
     return (
         <div className="space-y-4 rounded-md bg-background/70 p-4 shadow-field sm:p-5">
@@ -116,6 +129,21 @@ function PublicationTargetCard({
                         {m.compose_destination({ index: String(index + 1) })}
                     </p>
                     <p className="mt-1 truncate text-sm font-medium">{channelLabel}</p>
+                    {connectionStatus ? (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                            <span className={connectionStatus.className}>
+                                {connectionStatus.label}
+                            </span>
+                            {connectionStatus.requiresConnection ? (
+                                <Link
+                                    className="text-primary underline-offset-4 hover:underline"
+                                    params={{ projectId }}
+                                    to="/dashboard/projects/$projectId/channels">
+                                    {m.compose_manage_connection()}
+                                </Link>
+                            ) : null}
+                        </div>
+                    ) : null}
                 </div>
                 {removable ? (
                     <Button
@@ -204,6 +232,47 @@ function PublicationTargetCard({
             </div>
         </div>
     )
+}
+
+function resolveConnectionStatus(
+    channel: Channel | undefined,
+    connection: PublisherConnection | undefined,
+    deliveryMode: DeliveryMode
+) {
+    if (channel === undefined) return null
+    if (channel.profileId === 'manual-message') {
+        return {
+            className: 'text-state-queued',
+            label: m.channel_manual(),
+            requiresConnection: false,
+        }
+    }
+    if (connection?.state === 'active') {
+        return {
+            className: 'text-state-published',
+            label: m.channel_connected(),
+            requiresConnection: false,
+        }
+    }
+    if (deliveryMode === 'manual') {
+        return {
+            className: 'text-muted-foreground',
+            label: m.compose_manual_publication(),
+            requiresConnection: false,
+        }
+    }
+    if (connection?.state === 'reconnect_required' || connection?.state === 'revoked') {
+        return {
+            className: 'text-state-attention',
+            label: m.publisher_reconnection_required(),
+            requiresConnection: true,
+        }
+    }
+    return {
+        className: 'text-state-attention',
+        label: m.channel_needs_connection(),
+        requiresConnection: true,
+    }
 }
 
 function TargetField({

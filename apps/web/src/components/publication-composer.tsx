@@ -27,6 +27,7 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
     useLanguage()
     const {
         activeChannels,
+        connections,
         error,
         onCreatePost,
         onPostContentChange,
@@ -162,8 +163,10 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                         <CardContent className="pt-0">
                             <PublicationTargetList
                                 channels={activeChannels}
+                                connections={connections}
                                 disabled={pending}
                                 onChange={onPublicationTargetsChange}
+                                projectId={project.id}
                                 targets={publicationTargets}
                                 timeZone={project.timeZone}
                             />

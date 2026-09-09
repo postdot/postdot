@@ -76,7 +76,7 @@ export function PublicationQueuePage() {
                     if (isQueueFilter(value)) setFilter(value)
                 }}>
                 <TabsList
-                    className="w-full max-w-full justify-start overflow-x-auto [&>[data-slot=tabs-trigger]]:shrink-0"
+                    className="!h-auto min-h-8 w-full max-w-full justify-start overflow-x-auto overflow-y-hidden [&>[data-slot=tabs-trigger]]:shrink-0"
                     variant="line">
                     <TabsTrigger
                         aria-label={m.queue_filter_aria({

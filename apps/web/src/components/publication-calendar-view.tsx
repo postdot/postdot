@@ -6,6 +6,7 @@ import {
     EmptyTitle,
 } from '@herald/ui/components/empty'
 import { cn } from '@herald/ui/lib/utils'
+import { AddIcon } from '@solar-icons/react/bold/add'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
 import { Link } from '@tanstack/react-router'
@@ -161,6 +162,12 @@ function CalendarDayCell({
                     )}>
                     {day.dayOfMonth}
                 </span>
+                {day.publications.length === 0 ? (
+                    <AddIcon
+                        aria-hidden="true"
+                        className="size-3 text-primary opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-100"
+                    />
+                ) : null}
                 {day.publications.length > 3 ? (
                     <span className="text-[0.65rem] tabular-nums text-muted-foreground">
                         +{day.publications.length - 3}
@@ -195,7 +202,7 @@ function CalendarDayCell({
                     aria-label={m.calendar_create_on({
                         date: formatDayLabel(day.date, locale),
                     })}
-                    className="-m-2.5 block min-h-24 rounded-none p-2.5 transition-[background-color] hover:bg-primary/[0.06] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+                    className="group -m-2.5 block min-h-24 cursor-pointer rounded-none p-2.5 transition-[background-color] hover:bg-primary/[0.06] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
                     params={{ projectId }}
                     search={{ date: day.dateKey }}
                     to="/dashboard/projects/$projectId/compose">

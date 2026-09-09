@@ -205,7 +205,7 @@ export function DashboardSidebar({
                     <SidebarGroupContent>
                         {channels.length === 0 ? (
                             <p className="px-2 py-2 text-xs leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
-                                {m.nav_no_channels()}.
+                                {m.nav_no_channels()}
                             </p>
                         ) : (
                             <SidebarMenu>
@@ -232,7 +232,13 @@ export function DashboardSidebar({
                                                     selectedProjectId,
                                                     channel.name
                                                 )}
-                                                tooltip={channel.name}>
+                                                tooltip={m.nav_channel_tooltip({
+                                                    channel: channel.name,
+                                                    provider: channelProviderLabel(
+                                                        channel.profileId
+                                                    ),
+                                                    state: channelState,
+                                                })}>
                                                 <span
                                                     className={cn(
                                                         'size-1.5 shrink-0 rounded-full bg-current',
@@ -408,4 +414,14 @@ function channelMarkerClass(profileId: string) {
     if (profileId === 'linkedin') return 'text-primary'
     if (profileId === 'manual-message') return 'text-state-queued'
     return 'text-primary'
+}
+
+function channelProviderLabel(profileId: string) {
+    if (profileId === 'bluesky') return 'Bluesky'
+    if (profileId === 'discord') return 'Discord'
+    if (profileId === 'devto') return 'DEV.to'
+    if (profileId === 'linkedin') return 'LinkedIn'
+    if (profileId === 'mastodon') return 'Mastodon'
+    if (profileId === 'manual-message') return m.channel_manual()
+    return m.channel_custom_profile()
 }

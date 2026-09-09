@@ -5,8 +5,16 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@herald/ui/components/empty'
+import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { PenIcon } from '@solar-icons/react/bold/pen'
-import { createFileRoute, Outlet, redirect, useLocation, useNavigate } from '@tanstack/react-router'
+import {
+    createFileRoute,
+    Link,
+    Outlet,
+    redirect,
+    useLocation,
+    useNavigate,
+} from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
@@ -119,6 +127,8 @@ function DashboardPage() {
                 <GlobalSettingsShell />
             ) : projects.length === 0 ? (
                 <EmptyProjectShell />
+            ) : pathname === '/dashboard' || pathname === '/dashboard/' ? (
+                <ProjectSelectionShell />
             ) : (
                 <Outlet />
             )}
@@ -191,6 +201,63 @@ function EmptyProjectShell() {
                                 </EmptyDescription>
                             </EmptyHeader>
                         </Empty>
+                    </div>
+                </main>
+            </DashboardShell>
+        </ProjectRealtimeProvider>
+    )
+}
+
+function ProjectSelectionShell() {
+    const global = useDashboardGlobal()
+
+    return (
+        <ProjectRealtimeProvider projectId={null}>
+            <DashboardShell
+                channels={[]}
+                dueCount={0}
+                error={global.error}
+                onCreateProject={global.onCreateProject}
+                onProjectChange={global.onProjectChange}
+                onProjectNameChange={global.onProjectNameChange}
+                onSignOut={global.onSignOut}
+                pending={global.pending}
+                projectName={global.projectName}
+                projects={global.projects}
+                publisherConnections={[]}
+                selectedProject={null}
+                session={global.session}
+                publicationsCount={0}>
+                <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+                    <div className="max-w-3xl">
+                        <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
+                            {m.nav_select_project()}
+                        </h1>
+                        <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+                            {m.dashboard_select_project_description()}
+                        </p>
+                        <div className="mt-8 grid gap-2 sm:grid-cols-2">
+                            {global.projects.map(project => (
+                                <Link
+                                    className="group flex items-center justify-between gap-4 rounded-md bg-muted px-4 py-3 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-muted/75"
+                                    key={project.id}
+                                    params={{ projectId: project.id }}
+                                    to="/dashboard/projects/$projectId/overview">
+                                    <span className="min-w-0">
+                                        <span className="block truncate text-sm font-medium">
+                                            {project.name}
+                                        </span>
+                                        <span className="mt-1 block text-xs text-muted-foreground">
+                                            {project.timeZone}
+                                        </span>
+                                    </span>
+                                    <AltArrowRightIcon
+                                        aria-hidden="true"
+                                        className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground"
+                                    />
+                                </Link>
+                            ))}
+                        </div>
                     </div>
                 </main>
             </DashboardShell>
