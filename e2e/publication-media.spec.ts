@@ -165,7 +165,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(collapsedSidebarLayout.containerWidth).toBe(66)
     expect(collapsedSidebarLayout.buttons.length).toBeGreaterThan(0)
     expect(
-        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 8 && width === 50)
+        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 0 && width === 66)
     ).toBe(true)
     await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
     await expect(sidebarContainer).toHaveCSS('width', '240px')

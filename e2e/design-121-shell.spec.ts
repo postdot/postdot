@@ -23,6 +23,85 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     const toggle = page.getByRole('button', { name: 'Toggle workspace navigation', exact: true })
     await toggle.click()
     await expect(page.getByRole('link', { name: 'Overview', exact: true })).toBeVisible()
+
+    const collapsedSidebar = page.locator('[data-slot="sidebar-container"]')
+    await expect(collapsedSidebar).toHaveCSS('width', '66px')
+    const collapsedShell = await collapsedSidebar.evaluate(container => {
+        const inner = container.querySelector('[data-slot="sidebar-inner"]')
+        const inset = container.ownerDocument.querySelector('[data-slot="sidebar-inset"]')
+        if (inner === null || inset === null) {
+            throw new Error('Expected the collapsed sidebar shell to be mounted')
+        }
+
+        const containerRectangle = container.getBoundingClientRect()
+        const innerRectangle = inner.getBoundingClientRect()
+        const insetRectangle = inset.getBoundingClientRect()
+        return {
+            containerLeft: Math.round(containerRectangle.left),
+            containerRight: Math.round(containerRectangle.right),
+            innerLeft: Math.round(innerRectangle.left),
+            innerRight: Math.round(innerRectangle.right),
+            insetLeft: Math.round(insetRectangle.left),
+        }
+    })
+    expect(collapsedShell.innerLeft).toBe(collapsedShell.containerLeft)
+    expect(collapsedShell.innerRight).toBe(collapsedShell.containerRight)
+    expect(collapsedShell.insetLeft).toBeLessThanOrEqual(collapsedShell.innerRight)
+
+    for (const label of ['Queue', 'Access']) {
+        const link = page.getByRole('link', { name: label, exact: true })
+        const box = await link.boundingBox()
+        if (box === null) throw new Error(`Expected the collapsed ${label} link to be visible`)
+
+        const middleX = Math.round(box.width / 2)
+        const middleY = Math.round(box.height / 2)
+        for (const point of [
+            { x: middleX, y: 4 },
+            { x: 4, y: middleY },
+            { x: Math.max(4, box.width - 4), y: middleY },
+            { x: middleX, y: Math.max(4, box.height - 4) },
+        ]) {
+            const x = box.x + point.x
+            const y = box.y + point.y
+            await page.mouse.move(x, y)
+            const hoverState = await link.evaluate(
+                (element, coordinates) => {
+                    const hit = element.ownerDocument.elementFromPoint(coordinates.x, coordinates.y)
+                    return {
+                        hit:
+                            hit === null
+                                ? null
+                                : {
+                                      className: hit.className,
+                                      slot: hit.getAttribute('data-slot'),
+                                      tagName: hit.tagName,
+                                  },
+                        rectangle: (() => {
+                            const rectangle = element.getBoundingClientRect()
+                            return {
+                                bottom: rectangle.bottom,
+                                height: rectangle.height,
+                                left: rectangle.left,
+                                right: rectangle.right,
+                                top: rectangle.top,
+                                width: rectangle.width,
+                            }
+                        })(),
+                        pointerEvents:
+                            element.ownerDocument.defaultView?.getComputedStyle(element)
+                                .pointerEvents,
+                        hovered: element.matches(':hover'),
+                    }
+                },
+                { x, y }
+            )
+            expect(
+                hoverState,
+                `${label} should own the compact hitbox at (${point.x}, ${point.y}): ${JSON.stringify(hoverState)}`
+            ).toMatchObject({ hovered: true })
+        }
+    }
+
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/overview$/)
 
