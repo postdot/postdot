@@ -28,3 +28,19 @@
 - Review visual evidence for populated failed/ambiguous publications and recovery
   actions at desktop, tablet, and mobile sizes.
 - Perform the final post-sprint comparison and reconcile the independent audit.
+
+## Outcome-state fixture pass
+
+- Added `e2e/web-124-outcome-states.spec.ts` with deterministic failed and
+  ambiguous publication summaries. The fixture intercepts only the exact
+  project publication read and never calls a provider or changes the database.
+- Queue and calendar now have browser evidence for `Failed` and `Needs review`
+  states at 1280, 768, and 390 pixels, including English/French labels and a
+  no-horizontal-overflow assertion.
+- The full repository gate passes: format, lint, typecheck, unit tests, five
+  browser tests, build, and 766/766 messages in both locales.
+
+This closes the populated state-visibility part of WEB-124. The browser still
+does not expose a dedicated ambiguous-publication reconciliation control from
+the editor; the API contract exists, so that remains a separate product/UI
+follow-up rather than being hidden by this validation fixture.
