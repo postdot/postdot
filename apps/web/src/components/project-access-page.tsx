@@ -121,9 +121,14 @@ export function ProjectAccessPage() {
                         <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
                             {m.access_title()}
                         </h1>
-                        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                            {m.access_page_description()}
-                        </p>
+                        <details className="group mt-2 max-w-2xl text-sm leading-6">
+                            <summary className="cursor-pointer font-medium text-foreground marker:text-muted-foreground">
+                                {m.access_summary()}
+                            </summary>
+                            <p className="mt-2 text-muted-foreground">
+                                {m.access_page_description()}
+                            </p>
+                        </details>
                     </div>
                 </div>
 
