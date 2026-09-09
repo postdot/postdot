@@ -61,7 +61,7 @@ export function DashboardShell({
     }, [pathname])
 
     return (
-        <SidebarProvider className="herald-dashboard h-svh min-h-0 overflow-hidden bg-surface-canvas">
+        <SidebarProvider className="herald-dashboard h-svh min-h-0 overflow-hidden !bg-surface-canvas">
             <DashboardSidebar
                 activeSection={activeSection}
                 channels={channels}

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-test('keeps failed and ambiguous publications legible across queue and calendar', async ({
+test('keeps failed and ambiguous publications legible across queue and overview', async ({
     page,
 }) => {
     test.setTimeout(30_000)
@@ -86,8 +86,9 @@ test('keeps failed and ambiguous publications legible across queue and calendar'
     )
 
     await page.setViewportSize({ width: 1280, height: 720 })
-    await page.getByRole('link', { name: 'Calendrier', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Calendrier', exact: true })).toBeVisible()
+    await page.getByRole('link', { name: 'Vue d’ensemble', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: failedTitle })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: ambiguousTitle })).toBeVisible()
 })

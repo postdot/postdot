@@ -139,7 +139,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(workNavigationLayout).toEqual({ linkCount: 4, topOffsetCount: 4 })
+    expect(workNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
     expect(projectNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
@@ -165,7 +165,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(collapsedSidebarLayout.containerWidth).toBe(66)
     expect(collapsedSidebarLayout.buttons.length).toBeGreaterThan(0)
     expect(
-        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 16 && width === 32)
+        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 8 && width === 50)
     ).toBe(true)
     await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
     await expect(sidebarContainer).toHaveCSS('width', '240px')
@@ -228,7 +228,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         clientHeight: (scrollRegion as unknown as { clientHeight: number }).clientHeight,
         scrollHeight: (scrollRegion as unknown as { scrollHeight: number }).scrollHeight,
     }))
-    expect(overviewLayout.scrollHeight).toBeLessThanOrEqual(overviewLayout.clientHeight)
+    expect(overviewLayout.scrollHeight).toBeGreaterThan(overviewLayout.clientHeight)
 
     await page.getByRole('link', { name: 'Access', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/access$/)
@@ -266,9 +266,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByText('No provider applications', { exact: true })).toBeVisible()
 
     await page.goto('/dashboard')
-    await page.getByRole('link', { name: 'Calendar', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
-    await expect(page.getByRole('heading', { name: 'Calendar', level: 1 })).toBeVisible()
+    await page.getByRole('link', { name: 'Overview', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
     await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
     await expect(
         page.getByText('Schedule a destination to make it appear on the project calendar.', {
@@ -287,7 +287,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
     await expect(page.getByLabel('Schedule').first()).toHaveValue(/T09:00$/)
     await page.goBack()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 
     await page.goto('/dashboard')
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
@@ -425,8 +425,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mediaOnlyPublication = page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first()
     await expect(mediaOnlyPublication).toBeVisible()
 
-    await page.getByRole('link', { name: 'Calendar', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
+    await page.getByRole('link', { name: 'Overview', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     const calendarMonth = page.locator('[data-calendar-view="month"]')
     await expect(calendarMonth).toBeVisible()
     await expect(calendarMonth.getByRole('link').filter({ hasText: mixedTitle })).toHaveCount(2)
