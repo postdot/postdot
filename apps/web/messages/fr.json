@@ -551,7 +551,7 @@
     "access_token_name_help": "Utilisez un nom qui restera explicite lorsque ce jeton devra être révoqué.",
     "access_create_section": "Créer un jeton",
     "access_create_section_description": "Nommez la machine ou le workflow qui utilisera cette frontière du projet.",
-    "access_empty_workflow": "Créez-en un lorsqu’un script, un agent ou un workflow CI doit accéder au projet.",
+    "access_empty_workflow": "Utilisez le formulaire pour créer votre premier jeton.",
     "access_token_copy": "Copier le jeton",
     "access_token_done": "Terminé",
     "access_revoke_title": "Révoquer ce jeton ?",

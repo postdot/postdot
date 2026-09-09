@@ -10,7 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
+import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CopyIcon } from '@solar-icons/react/bold/copy'
@@ -185,10 +185,7 @@ export function ProjectAccessPage() {
                         <h2 className="font-heading text-base font-medium">
                             {m.access_create_section()}
                         </h2>
-                        <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                            {m.access_create_section_description()}
-                        </p>
-                        <form className="mt-5 grid gap-4" onSubmit={handleCreate}>
+                        <form className="mt-4 grid gap-4" onSubmit={handleCreate}>
                             <Field className="gap-1.5">
                                 <FieldLabel htmlFor="project-access-token-name">
                                     {m.access_token_name()}
@@ -201,7 +198,6 @@ export function ProjectAccessPage() {
                                     onChange={event => setName(event.target.value)}
                                     placeholder={m.access_token_name_placeholder()}
                                 />
-                                <FieldDescription>{m.access_token_name_help()}</FieldDescription>
                             </Field>
                             <Button type="submit" disabled={pending}>
                                 <AddIcon aria-hidden="true" />
