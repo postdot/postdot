@@ -96,6 +96,16 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.getByRole('button', { name: 'Switch to dark theme', exact: true })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
+    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: 'Changer la langue pour Anglais', exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Changer la langue pour Anglais', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Anglais', exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: 'Switch language to French', exact: true })
+    ).toBeVisible()
 
     await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
     await expect(page.getByText(`e2e-33-${suffix}@herald.local`, { exact: true })).toBeVisible()
@@ -374,6 +384,21 @@ test('persists mixed and media-only publications through the dashboard', async (
     await secondPublicationDelivery.click()
     await page.getByRole('option', { name: 'Automatic publication', exact: true }).click()
     await page.getByLabel('Schedule', { exact: true }).fill(scheduledDateTime)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const populatedComposerOverflow = await page
+        .locator('[data-dashboard-scroll]')
+        .evaluate(scrollRegion => ({
+            clientWidth: (scrollRegion as unknown as { clientWidth: number }).clientWidth,
+            scrollWidth: (scrollRegion as unknown as { scrollWidth: number }).scrollWidth,
+        }))
+    expect(populatedComposerOverflow.scrollWidth).toBeLessThanOrEqual(
+        populatedComposerOverflow.clientWidth
+    )
+    await expect(page.getByRole('tab', { name: new RegExp(channelName) })).toBeVisible()
+    await expect(page.getByRole('tab', { name: new RegExp(secondChannelName) })).toBeVisible()
+    await page.setViewportSize({ width: 1280, height: 720 })
+
     await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
