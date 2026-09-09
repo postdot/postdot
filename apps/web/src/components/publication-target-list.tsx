@@ -26,8 +26,14 @@ import * as m from '@/paraglide/messages.js'
 interface PublicationTargetListProps {
     readonly channels: readonly Channel[]
     readonly connections: readonly PublisherConnection[]
+    readonly customizedTargetIds: ReadonlySet<string>
+    readonly defaultDeliveryMode: DeliveryMode
+    readonly defaultScheduledAt: string
     readonly disabled: boolean
+    readonly onDefaultDeliveryModeChange: (deliveryMode: DeliveryMode) => void
+    readonly onDefaultScheduledAtChange: (scheduledAt: string) => void
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
+    readonly onTargetCustomizationChange: (targetId: string, customized: boolean) => void
     readonly projectId: string
     readonly targets: readonly PublicationTargetDraft[]
     readonly timeZone: string
@@ -36,8 +42,14 @@ interface PublicationTargetListProps {
 export function PublicationTargetList({
     channels,
     connections,
+    customizedTargetIds,
+    defaultDeliveryMode,
+    defaultScheduledAt,
     disabled,
+    onDefaultDeliveryModeChange,
+    onDefaultScheduledAtChange,
     onChange,
+    onTargetCustomizationChange,
     projectId,
     targets,
     timeZone,
@@ -70,7 +82,11 @@ export function PublicationTargetList({
 
     function addTarget() {
         if (availableChannel === undefined) return
-        const nextTarget = createPublicationTarget(availableChannel.id, timeZone)
+        const nextTarget = {
+            ...createPublicationTarget(availableChannel.id, timeZone),
+            deliveryMode: defaultDeliveryMode,
+            scheduledAt: defaultScheduledAt,
+        }
         setActiveTargetId(nextTarget.id)
         onChange(currentTargets => [...currentTargets, nextTarget])
     }
@@ -84,6 +100,55 @@ export function PublicationTargetList({
 
     return (
         <div className="space-y-4">
+            <section className="rounded-md bg-muted/55 p-3 shadow-field sm:p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <h3 className="text-sm font-medium">{m.compose_defaults_for_channels()}</h3>
+                    <span className="text-xs text-muted-foreground">
+                        {m.compose_project_time({ timeZone })}
+                    </span>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <TargetField
+                        htmlFor="publication-default-delivery"
+                        label={m.compose_default_delivery()}>
+                        <Select
+                            items={{
+                                manual: m.compose_manual_publication(),
+                                automatic: m.compose_automatic_publication(),
+                            }}
+                            value={defaultDeliveryMode}
+                            onValueChange={value =>
+                                onDefaultDeliveryModeChange(value as DeliveryMode)
+                            }
+                            disabled={disabled}>
+                            <SelectTrigger id="publication-default-delivery">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                                <SelectItem value="manual">
+                                    {m.compose_manual_publication()}
+                                </SelectItem>
+                                <SelectItem value="automatic">
+                                    {m.compose_automatic_publication()}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </TargetField>
+                    <TargetField
+                        htmlFor="publication-default-schedule"
+                        label={m.compose_default_schedule()}>
+                        <Input
+                            id="publication-default-schedule"
+                            required
+                            type="datetime-local"
+                            value={defaultScheduledAt}
+                            disabled={disabled}
+                            onChange={event => onDefaultScheduledAtChange(event.target.value)}
+                        />
+                    </TargetField>
+                </div>
+            </section>
+
             <div className="flex min-w-0 items-center gap-2" role="tablist">
                 <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-1">
                     {targets.map((target, index) => {
@@ -147,9 +212,13 @@ export function PublicationTargetList({
                     index={targets.indexOf(activeTarget)}
                     onChange={patch => updateTarget(activeTarget.id, patch)}
                     onRemove={() => removeTarget(activeTarget.id)}
+                    onToggleCustomization={customized =>
+                        onTargetCustomizationChange(activeTarget.id, customized)
+                    }
                     projectId={projectId}
                     selectedChannelIds={selectedChannelIds}
                     target={activeTarget}
+                    usesDefaults={!customizedTargetIds.has(activeTarget.id)}
                     removable={targets.length > 1}
                 />
             ) : null}
@@ -164,10 +233,12 @@ function PublicationTargetCard({
     index,
     onChange,
     onRemove,
+    onToggleCustomization,
     projectId,
     removable,
     selectedChannelIds,
     target,
+    usesDefaults,
 }: {
     readonly channels: readonly Channel[]
     readonly connections: readonly PublisherConnection[]
@@ -175,10 +246,12 @@ function PublicationTargetCard({
     readonly index: number
     readonly onChange: (patch: Partial<PublicationTargetDraft>) => void
     readonly onRemove: () => void
+    readonly onToggleCustomization: (customized: boolean) => void
     readonly projectId: string
     readonly removable: boolean
     readonly selectedChannelIds: ReadonlySet<string>
     readonly target: PublicationTargetDraft
+    readonly usesDefaults: boolean
 }) {
     useLanguage()
     const [overrideOpen, setOverrideOpen] = useState(target.content.trim() !== '')
@@ -305,38 +378,74 @@ function PublicationTargetCard({
                 )}
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-2">
-                <TargetField htmlFor={`${fieldPrefix}-delivery`} label={m.compose_delivery_mode()}>
-                    <Select
-                        items={{
-                            manual: m.compose_manual_publication(),
-                            automatic: m.compose_automatic_publication(),
-                        }}
-                        value={target.deliveryMode}
-                        onValueChange={value => onChange({ deliveryMode: value as DeliveryMode })}
-                        disabled={disabled}>
-                        <SelectTrigger id={`${fieldPrefix}-delivery`}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                            <SelectItem value="manual">{m.compose_manual_publication()}</SelectItem>
-                            <SelectItem value="automatic">
-                                {m.compose_automatic_publication()}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
-                </TargetField>
-                <TargetField htmlFor={`${fieldPrefix}-schedule`} label={m.compose_scheduled_for()}>
-                    <Input
-                        id={`${fieldPrefix}-schedule`}
-                        required
-                        type="datetime-local"
-                        value={target.scheduledAt}
+            {usesDefaults ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/55 px-3 py-2.5 shadow-field">
+                    <span className="text-xs text-muted-foreground">
+                        {m.compose_uses_defaults()}
+                    </span>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
                         disabled={disabled}
-                        onChange={event => onChange({ scheduledAt: event.target.value })}
-                    />
-                </TargetField>
-            </div>
+                        onClick={() => onToggleCustomization(true)}>
+                        {m.compose_customize_delivery()}
+                    </Button>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    <div className="flex justify-end">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            disabled={disabled}
+                            onClick={() => onToggleCustomization(false)}>
+                            {m.compose_use_defaults()}
+                        </Button>
+                    </div>
+                    <div className="grid gap-4 xl:grid-cols-2">
+                        <TargetField
+                            htmlFor={`${fieldPrefix}-delivery`}
+                            label={m.compose_delivery_mode()}>
+                            <Select
+                                items={{
+                                    manual: m.compose_manual_publication(),
+                                    automatic: m.compose_automatic_publication(),
+                                }}
+                                value={target.deliveryMode}
+                                onValueChange={value =>
+                                    onChange({ deliveryMode: value as DeliveryMode })
+                                }
+                                disabled={disabled}>
+                                <SelectTrigger id={`${fieldPrefix}-delivery`}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                    <SelectItem value="manual">
+                                        {m.compose_manual_publication()}
+                                    </SelectItem>
+                                    <SelectItem value="automatic">
+                                        {m.compose_automatic_publication()}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </TargetField>
+                        <TargetField
+                            htmlFor={`${fieldPrefix}-schedule`}
+                            label={m.compose_scheduled_for()}>
+                            <Input
+                                id={`${fieldPrefix}-schedule`}
+                                required
+                                type="datetime-local"
+                                value={target.scheduledAt}
+                                disabled={disabled}
+                                onChange={event => onChange({ scheduledAt: event.target.value })}
+                            />
+                        </TargetField>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -5,7 +5,7 @@ import { Textarea } from '@herald/ui/components/textarea'
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { DashboardFormField } from '@/components/dashboard-form-field'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
@@ -13,7 +13,7 @@ import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { PublicationTargetList } from '@/components/publication-target-list'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
-import { calendarDateTimeLocal } from '@/lib/publication-authoring'
+import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationComposer({ calendarDate }: { readonly calendarDate?: string }) {
@@ -35,6 +35,27 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
         sourceMedia,
     } = useProjectDashboard()
     const appliedCalendarDate = useRef<string | undefined>(undefined)
+    const [defaultDeliveryMode, setDefaultDeliveryMode] = useState<DeliveryMode>(
+        () => publicationTargets[0]?.deliveryMode ?? 'manual'
+    )
+    const [defaultScheduledAt, setDefaultScheduledAt] = useState(
+        () => publicationTargets[0]?.scheduledAt ?? ''
+    )
+    const [customizedTargetIds, setCustomizedTargetIds] = useState<Set<string>>(() => new Set())
+    const previousTargetIds = useRef(new Set(publicationTargets.map(target => target.id)))
+
+    useEffect(() => {
+        const nextTargetIds = new Set(publicationTargets.map(target => target.id))
+        const preservedTarget = [...previousTargetIds.current].some(id => nextTargetIds.has(id))
+        const firstTarget = publicationTargets[0]
+
+        if (!preservedTarget && firstTarget !== undefined) {
+            setDefaultDeliveryMode(firstTarget.deliveryMode)
+            setDefaultScheduledAt(firstTarget.scheduledAt)
+            setCustomizedTargetIds(new Set())
+        }
+        previousTargetIds.current = nextTargetIds
+    }, [publicationTargets])
 
     useEffect(() => {
         if (
@@ -49,12 +70,54 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
         if (scheduledAt === undefined) return
 
         appliedCalendarDate.current = calendarDate
+        setDefaultScheduledAt(scheduledAt)
         onPublicationTargetsChange(currentTargets =>
-            currentTargets.map((target, index) =>
-                index === 0 ? { ...target, scheduledAt } : target
+            currentTargets.map(target =>
+                customizedTargetIds.has(target.id) ? target : { ...target, scheduledAt }
             )
         )
-    }, [calendarDate, onPublicationTargetsChange, publicationTargets.length])
+    }, [calendarDate, customizedTargetIds, onPublicationTargetsChange, publicationTargets.length])
+
+    function handleDefaultDeliveryModeChange(deliveryMode: DeliveryMode) {
+        setDefaultDeliveryMode(deliveryMode)
+        onPublicationTargetsChange(currentTargets =>
+            currentTargets.map(target =>
+                customizedTargetIds.has(target.id) ? target : { ...target, deliveryMode }
+            )
+        )
+    }
+
+    function handleDefaultScheduledAtChange(scheduledAt: string) {
+        setDefaultScheduledAt(scheduledAt)
+        onPublicationTargetsChange(currentTargets =>
+            currentTargets.map(target =>
+                customizedTargetIds.has(target.id) ? target : { ...target, scheduledAt }
+            )
+        )
+    }
+
+    function handleTargetCustomizationChange(targetId: string, customized: boolean) {
+        setCustomizedTargetIds(current => {
+            const next = new Set(current)
+            if (customized) next.add(targetId)
+            else next.delete(targetId)
+            return next
+        })
+
+        if (!customized) {
+            onPublicationTargetsChange(currentTargets =>
+                currentTargets.map(target =>
+                    target.id === targetId
+                        ? {
+                              ...target,
+                              deliveryMode: defaultDeliveryMode,
+                              scheduledAt: defaultScheduledAt,
+                          }
+                        : target
+                )
+            )
+        }
+    }
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
@@ -143,8 +206,14 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                             <PublicationTargetList
                                 channels={activeChannels}
                                 connections={connections}
+                                customizedTargetIds={customizedTargetIds}
+                                defaultDeliveryMode={defaultDeliveryMode}
+                                defaultScheduledAt={defaultScheduledAt}
                                 disabled={pending}
+                                onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
+                                onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
                                 onChange={onPublicationTargetsChange}
+                                onTargetCustomizationChange={handleTargetCustomizationChange}
                                 projectId={project.id}
                                 targets={publicationTargets}
                                 timeZone={project.timeZone}
