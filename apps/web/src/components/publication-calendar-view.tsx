@@ -35,13 +35,13 @@ export function PublicationCalendarMonth({
     return (
         <div
             aria-label={m.calendar_month_aria({ month: month.label })}
-            className="hidden overflow-hidden rounded-lg bg-border shadow-surface md:block"
+            className="hidden overflow-hidden rounded-lg bg-surface-inset p-2 shadow-surface md:block"
             data-calendar-view="month"
             role="grid">
-            <div className="grid grid-cols-7 gap-px bg-border">
+            <div className="grid grid-cols-7 gap-2">
                 {calendarWeekdays(locale).map(weekday => (
                     <div
-                        className="bg-muted px-3 py-2 text-[0.68rem] font-medium tracking-[0.02em] text-muted-foreground"
+                        className="rounded-md bg-muted px-3 py-2 text-[0.68rem] font-medium tracking-[0.02em] text-muted-foreground shadow-field"
                         key={weekday}
                         role="columnheader">
                         {weekday}
@@ -188,7 +188,7 @@ function CalendarDayCell({
         </>
     )
     const cellClassName = cn(
-        'min-h-24 min-w-0 bg-background p-2.5 align-top',
+        'min-h-24 min-w-0 rounded-md bg-background p-2.5 align-top shadow-field',
         !day.isCurrentMonth && 'bg-muted/55 text-muted-foreground',
         day.isToday && 'bg-primary/[0.06]'
     )
@@ -197,12 +197,16 @@ function CalendarDayCell({
         return (
             <div
                 aria-label={m.calendar_create_on({ date: formatDayLabel(day.date, locale) })}
-                role="gridcell">
+                role="gridcell"
+                className="min-w-0">
                 <Link
                     aria-label={m.calendar_create_on({
                         date: formatDayLabel(day.date, locale),
                     })}
-                    className="group -m-2.5 block min-h-24 cursor-pointer rounded-none p-2.5 transition-[background-color] hover:bg-primary/[0.06] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+                    className={cn(
+                        cellClassName,
+                        'group block cursor-pointer transition-[background-color] hover:bg-primary/[0.06] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring'
+                    )}
                     params={{ projectId }}
                     search={{ date: day.dateKey }}
                     to="/dashboard/projects/$projectId/compose">

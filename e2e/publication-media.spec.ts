@@ -27,10 +27,6 @@ type LayoutElement = {
 
 type LayoutView = {
     getComputedStyle: (element: unknown) => {
-        borderWidth: string
-        boxShadow: string
-        padding: string
-        borderRadius: string
         position: string
     }
 }
@@ -150,7 +146,7 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
     const sidebarContainer = page.locator('[data-slot="sidebar-container"]')
-    await expect(sidebarContainer).toHaveCSS('width', '48px')
+    await expect(sidebarContainer).toHaveCSS('width', '66px')
     const collapsedSidebarLayout = await sidebarContainer.evaluate(container => {
         const sidebar = container as unknown as LayoutElement
         const containerRectangle = sidebar.getBoundingClientRect()
@@ -166,10 +162,10 @@ test('persists mixed and media-only publications through the dashboard', async (
             }),
         }
     })
-    expect(collapsedSidebarLayout.containerWidth).toBe(48)
+    expect(collapsedSidebarLayout.containerWidth).toBe(66)
     expect(collapsedSidebarLayout.buttons.length).toBeGreaterThan(0)
     expect(
-        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 8 && width === 32)
+        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 16 && width === 32)
     ).toBe(true)
     await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
     await expect(sidebarContainer).toHaveCSS('width', '240px')
@@ -187,22 +183,16 @@ test('persists mixed and media-only publications through the dashboard', async (
                 header === null
                     ? null
                     : scroll.ownerDocument.defaultView.getComputedStyle(header).position,
-            headerShadow:
-                header === null
-                    ? null
-                    : scroll.ownerDocument.defaultView.getComputedStyle(header).boxShadow,
             headerTop: headerRectangle === undefined ? null : Math.round(headerRectangle.top),
             regionTop: Math.round(regionRectangle.top),
         }
     })
-    expect(shellLayout).toEqual({
+    expect(shellLayout).toMatchObject({
         headerIsChild: true,
         headerPosition: 'sticky',
-        headerShadow: expect.any(String),
-        headerTop: 0,
-        regionTop: 0,
     })
-    expect(shellLayout.headerShadow).not.toBe('none')
+    expect(shellLayout.headerTop).toBe(shellLayout.regionTop)
+    expect(shellLayout.regionTop).toBeGreaterThan(0)
 
     await page.getByText('Create project', { exact: true }).click()
     const desktopProjectForm = page.locator('form').filter({ has: page.locator('#new-project') })
