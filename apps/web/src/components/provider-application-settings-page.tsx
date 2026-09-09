@@ -1,9 +1,16 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
-import { Card } from '@herald/ui/components/card'
+import {
+    Empty,
+    EmptyDescription,
+    EmptyHeader,
+    EmptyMedia,
+    EmptyTitle,
+} from '@herald/ui/components/empty'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { SettingsIcon } from '@solar-icons/react/bold/settings'
 import { useEffect, useState, type FormEvent } from 'react'
 
 import {
@@ -156,7 +163,7 @@ export function ProviderApplicationSettingsPage() {
                             </h1>
                             <Badge variant="secondary">{m.nav_instance_settings()}</Badge>
                         </div>
-                        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                             {m.provider_apps_description()}
                         </p>
                     </div>
@@ -221,14 +228,17 @@ export function ProviderApplicationSettingsPage() {
                                 {m.provider_apps_loading()}
                             </p>
                         ) : applications.length === 0 ? (
-                            <Card className="mt-4 rounded-md bg-muted p-5">
-                                <h3 className="font-heading text-base font-medium">
-                                    {m.provider_apps_empty()}
-                                </h3>
-                                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                                    {m.provider_apps_empty_description()}
-                                </p>
-                            </Card>
+                            <Empty className="mt-4 min-h-0 flex-row items-center justify-start gap-3 rounded-lg border border-dashed border-border/80 bg-muted/40 px-4 py-3 text-left">
+                                <EmptyMedia className="mb-0 size-7" variant="icon">
+                                    <SettingsIcon aria-hidden="true" />
+                                </EmptyMedia>
+                                <EmptyHeader className="items-start gap-0.5">
+                                    <EmptyTitle>{m.provider_apps_empty()}</EmptyTitle>
+                                    <EmptyDescription className="text-left text-xs/5">
+                                        {m.provider_apps_empty_description()}
+                                    </EmptyDescription>
+                                </EmptyHeader>
+                            </Empty>
                         ) : (
                             <div className="mt-4 space-y-3">
                                 {applications.map(application => (
