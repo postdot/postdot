@@ -140,7 +140,7 @@
 - [ ] **[ACCESS-116]** Define human account bootstrap, instance administration, membership, and invitation policy `Priority: 🔵` `Complexity: L`
 - [x] **[PROVIDER-115]** Add AT Protocol loopback OAuth and provider-specific deployment requirements `Priority: 🟠` `Complexity: M`
 - [x] **[DESIGN-97]** Recompose the notification inbox as a contextual non-blocking surface `Priority: 🔵` `Complexity: M`
-- [ ] **[DESIGN-98]** Reduce repeated explanatory UI copy and improve operational information density `Priority: 🔵` `Complexity: M`
+- [/] **[DESIGN-98]** Reduce repeated explanatory UI copy and improve operational information density `Priority: 🔵` `Complexity: M`
 - [x] **[I18N-99]** Migrate authenticated web copy and locale-aware formatting to the localization boundary `Priority: 🟠` `Complexity: XL`
 - [x] **[I18N-100]** Enforce localization catalog coverage in build and release gates `Priority: 🟠` `Complexity: S`
 - [ ] **[TAXONOMY-101]** Define project categories and publication tags before implementation `Priority: 🔵` `Complexity: M`

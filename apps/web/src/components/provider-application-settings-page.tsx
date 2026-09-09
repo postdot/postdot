@@ -1,6 +1,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Badge } from '@herald/ui/components/badge'
+import { Button } from '@herald/ui/components/button'
 import { Card } from '@herald/ui/components/card'
+import { AddIcon } from '@solar-icons/react/bold/add'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { useEffect, useState, type FormEvent } from 'react'
 
@@ -20,6 +22,7 @@ export function ProviderApplicationSettingsPage() {
     const [applications, setApplications] = useState<ProviderApplication[] | null>(null)
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form, setForm] = useState<ProviderApplicationFormState>(newProviderApplicationForm)
+    const [formOpen, setFormOpen] = useState(true)
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
@@ -32,7 +35,10 @@ export function ProviderApplicationSettingsPage() {
         void api
             .listProviderApplications()
             .then(response => {
-                if (!cancelled) setApplications(response.applications)
+                if (!cancelled) {
+                    setApplications(response.applications)
+                    setFormOpen(response.applications.length === 0)
+                }
             })
             .catch(caughtError => {
                 if (!cancelled) setError(formatApiError(caughtError))
@@ -50,6 +56,7 @@ export function ProviderApplicationSettingsPage() {
 
     function beginEdit(application: ProviderApplication) {
         setEditingId(application.id)
+        setFormOpen(true)
         setForm({
             providerId: application.providerId,
             name: application.name,
@@ -70,6 +77,7 @@ export function ProviderApplicationSettingsPage() {
     function cancelEdit() {
         setEditingId(null)
         setForm(newProviderApplicationForm())
+        setFormOpen(false)
         setError(null)
         setNotice(null)
     }
@@ -93,6 +101,7 @@ export function ProviderApplicationSettingsPage() {
             }
             setEditingId(null)
             setForm(newProviderApplicationForm())
+            setFormOpen(false)
         })
     }
 
@@ -169,15 +178,34 @@ export function ProviderApplicationSettingsPage() {
                 ) : null}
 
                 <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-                    <ProviderApplicationForm
-                        editingApplication={editingApplication}
-                        editingId={editingId}
-                        form={form}
-                        onCancel={cancelEdit}
-                        onFormChange={setForm}
-                        onSubmit={event => void handleSubmit(event)}
-                        pending={pending}
-                    />
+                    <div className="min-w-0">
+                        {applications?.length && editingId === null ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                aria-expanded={formOpen || editingId !== null}
+                                onClick={() => setFormOpen(current => !current)}>
+                                <AddIcon aria-hidden="true" />
+                                {m.provider_apps_new()}
+                            </Button>
+                        ) : null}
+                        {applications === null ||
+                        applications.length === 0 ||
+                        formOpen ||
+                        editingId !== null ? (
+                            <div className={applications?.length ? 'mt-3' : undefined}>
+                                <ProviderApplicationForm
+                                    editingApplication={editingApplication}
+                                    editingId={editingId}
+                                    form={form}
+                                    onCancel={cancelEdit}
+                                    onFormChange={setForm}
+                                    onSubmit={event => void handleSubmit(event)}
+                                    pending={pending}
+                                />
+                            </div>
+                        ) : null}
+                    </div>
 
                     <section aria-label={m.provider_apps_title()} className="min-w-0">
                         <div className="flex justify-end">
