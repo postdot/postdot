@@ -46,6 +46,7 @@ interface DashboardSidebarProps {
     readonly activeSection: DashboardSection
     readonly channels: readonly Channel[]
     readonly dueCount: number
+    readonly isInstanceSettings: boolean
     readonly isPublicationRoute: boolean
     readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
     readonly onProjectChange: (projectId: string | null) => void
@@ -63,6 +64,7 @@ export function DashboardSidebar({
     activeSection,
     channels,
     dueCount,
+    isInstanceSettings,
     isPublicationRoute,
     onCreateProject,
     onProjectChange,
@@ -122,181 +124,214 @@ export function DashboardSidebar({
             </SidebarHeader>
 
             <SidebarContent>
-                <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                    <SidebarGroupLabel className="px-2">{m.nav_work()}</SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <nav aria-label={m.nav_work_navigation()}>
-                            <SidebarMenu>
-                                <WorkspaceMenuItem
-                                    active={activeSection === 'overview'}
-                                    destination="overview"
-                                    icon={<Widget2Icon aria-hidden="true" />}
-                                    label={m.nav_overview()}
-                                    projectId={selectedProjectId}
-                                />
-                                <WorkspaceMenuItem
-                                    active={activeSection === 'calendar'}
-                                    destination="calendar"
-                                    icon={<CalendarMinimalisticIcon aria-hidden="true" />}
-                                    label={m.nav_calendar()}
-                                    projectId={selectedProjectId}
-                                />
-                                <WorkspaceMenuItem
-                                    destination="compose"
-                                    icon={<PenIcon aria-hidden="true" />}
-                                    label={m.nav_compose()}
-                                    projectId={selectedProjectId}
-                                    active={activeSection === 'compose'}
-                                />
-                                <WorkspaceMenuItem
-                                    active={activeSection === 'queue' || isPublicationRoute}
-                                    destination="queue"
-                                    icon={<ListIcon aria-hidden="true" />}
-                                    label={m.nav_queue()}
-                                    projectId={selectedProjectId}
-                                />
-                            </SidebarMenu>
-                        </nav>
-                    </SidebarGroupContent>
-                </SidebarGroup>
+                {isInstanceSettings ? (
+                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                        <SidebarGroupLabel className="px-2">{m.nav_instance()}</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <nav aria-label={m.nav_instance_navigation()}>
+                                <SidebarMenu>
+                                    <WorkspaceMenuItem
+                                        active
+                                        destination="settings"
+                                        icon={<SettingsIcon aria-hidden="true" />}
+                                        label={m.nav_settings()}
+                                        projectId={null}
+                                    />
+                                </SidebarMenu>
+                            </nav>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                ) : (
+                    <>
+                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                            <SidebarGroupLabel className="px-2">{m.nav_work()}</SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <nav aria-label={m.nav_work_navigation()}>
+                                    <SidebarMenu>
+                                        <WorkspaceMenuItem
+                                            active={activeSection === 'overview'}
+                                            destination="overview"
+                                            icon={<Widget2Icon aria-hidden="true" />}
+                                            label={m.nav_overview()}
+                                            projectId={selectedProjectId}
+                                        />
+                                        <WorkspaceMenuItem
+                                            active={activeSection === 'calendar'}
+                                            destination="calendar"
+                                            icon={<CalendarMinimalisticIcon aria-hidden="true" />}
+                                            label={m.nav_calendar()}
+                                            projectId={selectedProjectId}
+                                        />
+                                        <WorkspaceMenuItem
+                                            destination="compose"
+                                            icon={<PenIcon aria-hidden="true" />}
+                                            label={m.nav_compose()}
+                                            projectId={selectedProjectId}
+                                            active={activeSection === 'compose'}
+                                        />
+                                        <WorkspaceMenuItem
+                                            active={activeSection === 'queue' || isPublicationRoute}
+                                            destination="queue"
+                                            icon={<ListIcon aria-hidden="true" />}
+                                            label={m.nav_queue()}
+                                            projectId={selectedProjectId}
+                                        />
+                                    </SidebarMenu>
+                                </nav>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
 
-                <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                    <SidebarGroupLabel className="px-2">{m.nav_project()}</SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <nav aria-label={m.nav_project_management_navigation()}>
-                            <SidebarMenu>
-                                <WorkspaceMenuItem
-                                    destination="channels"
-                                    icon={<LinkIcon aria-hidden="true" />}
-                                    label={m.nav_channels()}
-                                    projectId={selectedProjectId}
-                                    active={activeSection === 'channels'}
-                                />
-                                <WorkspaceMenuItem
-                                    destination="media"
-                                    icon={<GalleryIcon aria-hidden="true" />}
-                                    label={m.nav_media()}
-                                    projectId={selectedProjectId}
-                                    active={activeSection === 'media'}
-                                />
-                                <WorkspaceMenuItem
-                                    destination="access"
-                                    icon={<KeyMinimalisticIcon aria-hidden="true" />}
-                                    label={m.nav_access()}
-                                    projectId={selectedProjectId}
-                                    active={activeSection === 'access'}
-                                />
-                            </SidebarMenu>
-                        </nav>
-                    </SidebarGroupContent>
-                </SidebarGroup>
+                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                            <SidebarGroupLabel className="px-2">
+                                {m.nav_project()}
+                            </SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <nav aria-label={m.nav_project_management_navigation()}>
+                                    <SidebarMenu>
+                                        <WorkspaceMenuItem
+                                            destination="channels"
+                                            icon={<LinkIcon aria-hidden="true" />}
+                                            label={m.nav_channels()}
+                                            projectId={selectedProjectId}
+                                            active={activeSection === 'channels'}
+                                        />
+                                        <WorkspaceMenuItem
+                                            destination="media"
+                                            icon={<GalleryIcon aria-hidden="true" />}
+                                            label={m.nav_media()}
+                                            projectId={selectedProjectId}
+                                            active={activeSection === 'media'}
+                                        />
+                                        <WorkspaceMenuItem
+                                            destination="access"
+                                            icon={<KeyMinimalisticIcon aria-hidden="true" />}
+                                            label={m.nav_access()}
+                                            projectId={selectedProjectId}
+                                            active={activeSection === 'access'}
+                                        />
+                                    </SidebarMenu>
+                                </nav>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
 
-                <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                    <SidebarGroupLabel className="px-2">{m.nav_channels()}</SidebarGroupLabel>
-                    <SidebarGroupAction
-                        render={workspaceLink(
-                            'channels',
-                            selectedProjectId,
-                            m.nav_manage_channels()
-                        )}
-                        title={m.nav_manage_channels()}>
-                        <AddIcon aria-hidden="true" />
-                    </SidebarGroupAction>
-                    <SidebarGroupContent>
-                        {channels.length === 0 ? (
-                            <p className="px-2 py-2 text-xs leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
-                                {m.nav_no_channels()}
-                            </p>
-                        ) : (
-                            <SidebarMenu>
-                                {channels.map(channel => {
-                                    const connection = connectionsByChannel.get(channel.id)
-                                    const channelState =
-                                        channel.state === 'archived'
-                                            ? m.channel_archived()
-                                            : channel.profileId === 'linkedin'
-                                              ? connection?.state === 'active'
-                                                  ? m.channel_connected()
-                                                  : m.channel_needs_connection()
-                                              : connection?.state === 'active'
-                                                ? m.channel_connected()
-                                                : channel.profileId === 'manual-message'
-                                                  ? m.channel_manual()
-                                                  : m.channel_needs_connection()
+                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                            <SidebarGroupLabel className="px-2">
+                                {m.nav_channels()}
+                            </SidebarGroupLabel>
+                            <SidebarGroupAction
+                                render={workspaceLink(
+                                    'channels',
+                                    selectedProjectId,
+                                    m.nav_manage_channels()
+                                )}
+                                title={m.nav_manage_channels()}>
+                                <AddIcon aria-hidden="true" />
+                            </SidebarGroupAction>
+                            <SidebarGroupContent>
+                                {channels.length === 0 ? (
+                                    <p className="px-2 py-2 text-xs leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
+                                        {m.nav_no_channels()}
+                                    </p>
+                                ) : (
+                                    <SidebarMenu>
+                                        {channels.map(channel => {
+                                            const connection = connectionsByChannel.get(channel.id)
+                                            const channelState =
+                                                channel.state === 'archived'
+                                                    ? m.channel_archived()
+                                                    : channel.profileId === 'linkedin'
+                                                      ? connection?.state === 'active'
+                                                          ? m.channel_connected()
+                                                          : m.channel_needs_connection()
+                                                      : connection?.state === 'active'
+                                                        ? m.channel_connected()
+                                                        : channel.profileId === 'manual-message'
+                                                          ? m.channel_manual()
+                                                          : m.channel_needs_connection()
 
-                                    return (
-                                        <SidebarMenuItem key={channel.id}>
-                                            <SidebarMenuButton
-                                                render={workspaceLink(
-                                                    'channels',
-                                                    selectedProjectId,
-                                                    channel.name
-                                                )}
-                                                tooltip={m.nav_channel_tooltip({
-                                                    channel: channel.name,
-                                                    provider: channelProviderLabel(
-                                                        channel.profileId
-                                                    ),
-                                                    state: channelState,
-                                                })}>
-                                                <span
-                                                    className={cn(
-                                                        'size-1.5 shrink-0 rounded-full bg-current',
-                                                        channelMarkerClass(channel.profileId)
-                                                    )}
-                                                    aria-hidden="true"
-                                                />
-                                                <span className="truncate group-data-[collapsible=icon]:hidden">
-                                                    {channel.name}
-                                                </span>
-                                                <SidebarMenuBadge>{channelState}</SidebarMenuBadge>
-                                            </SidebarMenuButton>
-                                        </SidebarMenuItem>
-                                    )
-                                })}
-                            </SidebarMenu>
-                        )}
-                    </SidebarGroupContent>
-                </SidebarGroup>
+                                            return (
+                                                <SidebarMenuItem key={channel.id}>
+                                                    <SidebarMenuButton
+                                                        render={workspaceLink(
+                                                            'channels',
+                                                            selectedProjectId,
+                                                            channel.name
+                                                        )}
+                                                        tooltip={m.nav_channel_tooltip({
+                                                            channel: channel.name,
+                                                            provider: channelProviderLabel(
+                                                                channel.profileId
+                                                            ),
+                                                            state: channelState,
+                                                        })}>
+                                                        <span
+                                                            className={cn(
+                                                                'size-1.5 shrink-0 rounded-full bg-current',
+                                                                channelMarkerClass(
+                                                                    channel.profileId
+                                                                )
+                                                            )}
+                                                            aria-hidden="true"
+                                                        />
+                                                        <span className="truncate group-data-[collapsible=icon]:hidden">
+                                                            {channel.name}
+                                                        </span>
+                                                        <SidebarMenuBadge>
+                                                            {channelState}
+                                                        </SidebarMenuBadge>
+                                                    </SidebarMenuButton>
+                                                </SidebarMenuItem>
+                                            )
+                                        })}
+                                    </SidebarMenu>
+                                )}
+                            </SidebarGroupContent>
+                        </SidebarGroup>
+                    </>
+                )}
             </SidebarContent>
 
             <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-2">
-                <div className="rounded-md bg-sidebar-accent px-3 py-3 text-xs text-muted-foreground shadow-surface group-data-[collapsible=icon]:hidden">
-                    <div className="flex items-center justify-between gap-3">
-                        <span>{m.nav_publications()}</span>
-                        <span className="font-medium tabular-nums text-foreground">
-                            {publicationsCount}
-                        </span>
+                {!isInstanceSettings ? (
+                    <div className="rounded-md bg-sidebar-accent px-3 py-3 text-xs text-muted-foreground shadow-surface group-data-[collapsible=icon]:hidden">
+                        <div className="flex items-center justify-between gap-3">
+                            <span>{m.nav_publications()}</span>
+                            <span className="font-medium tabular-nums text-foreground">
+                                {publicationsCount}
+                            </span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                            <span>{m.nav_needs_attention()}</span>
+                            <span
+                                className={cn(
+                                    'font-medium tabular-nums',
+                                    dueCount > 0 ? 'text-state-attention' : 'text-foreground'
+                                )}>
+                                {dueCount}
+                            </span>
+                        </div>
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                        <span>{m.nav_needs_attention()}</span>
-                        <span
-                            className={cn(
-                                'font-medium tabular-nums',
-                                dueCount > 0 ? 'text-state-attention' : 'text-foreground'
-                            )}>
-                            {dueCount}
-                        </span>
-                    </div>
-                </div>
+                ) : null}
 
                 <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton
-                            render={workspaceLink(
-                                'settings',
-                                null,
-                                m.nav_settings(),
-                                activeSection === 'settings'
-                            )}
-                            isActive={activeSection === 'settings'}
-                            tooltip={m.nav_settings()}>
-                            <SettingsIcon aria-hidden="true" />
-                            <span className="group-data-[collapsible=icon]:hidden">
-                                {m.nav_settings()}
-                            </span>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    {!isInstanceSettings ? (
+                        <SidebarMenuItem>
+                            <SidebarMenuButton
+                                render={workspaceLink(
+                                    'settings',
+                                    null,
+                                    m.nav_settings(),
+                                    activeSection === 'settings'
+                                )}
+                                isActive={activeSection === 'settings'}
+                                tooltip={m.nav_settings()}>
+                                <SettingsIcon aria-hidden="true" />
+                                <span className="group-data-[collapsible=icon]:hidden">
+                                    {m.nav_settings()}
+                                </span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    ) : null}
                     <SidebarMenuItem>
                         <SidebarMenuButton
                             disabled={pending}

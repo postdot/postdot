@@ -66,6 +66,7 @@ export function DashboardShell({
                 activeSection={activeSection}
                 channels={channels}
                 dueCount={dueCount}
+                isInstanceSettings={activeSection === 'settings'}
                 isPublicationRoute={isPublicationRoute}
                 onCreateProject={onCreateProject}
                 onProjectChange={onProjectChange}
@@ -86,6 +87,7 @@ export function DashboardShell({
                     data-dashboard-scroll="true"
                     className="min-h-0 flex-1 overflow-y-auto">
                     <DashboardHeader
+                        isInstanceSettings={activeSection === 'settings'}
                         isPublicationRoute={isPublicationRoute}
                         onSignOut={onSignOut}
                         pending={pending}
