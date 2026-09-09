@@ -12,7 +12,7 @@ import { Textarea } from '@herald/ui/components/textarea'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { Link } from '@tanstack/react-router'
-import type { Dispatch, ReactNode, SetStateAction } from 'react'
+import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 
 import type { Channel, PublisherConnection } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
@@ -43,45 +43,116 @@ export function PublicationTargetList({
     timeZone,
 }: PublicationTargetListProps) {
     useLanguage()
+    const [activeTargetId, setActiveTargetId] = useState(targets[0]?.id ?? '')
+    const selectedChannelIds = new Set(
+        targets.map(target => target.channelId).filter(channelId => channelId !== '')
+    )
+    const activeTarget = targets.find(target => target.id === activeTargetId) ?? targets[0]
+    const availableChannel = channels.find(channel => !selectedChannelIds.has(channel.id))
+
+    useEffect(() => {
+        if (targets.some(target => target.id === activeTargetId)) return
+        setActiveTargetId(targets[0]?.id ?? '')
+    }, [activeTargetId, targets])
+
     function updateTarget(id: string, patch: Partial<PublicationTargetDraft>) {
+        if (
+            patch.channelId !== undefined &&
+            patch.channelId !== '' &&
+            targets.some(target => target.id !== id && target.channelId === patch.channelId)
+        ) {
+            return
+        }
         onChange(currentTargets =>
             currentTargets.map(target => (target.id === id ? { ...target, ...patch } : target))
         )
     }
 
     function addTarget() {
-        onChange(currentTargets => [...currentTargets, createPublicationTarget('', timeZone)])
+        if (availableChannel === undefined) return
+        const nextTarget = createPublicationTarget(availableChannel.id, timeZone)
+        setActiveTargetId(nextTarget.id)
+        onChange(currentTargets => [...currentTargets, nextTarget])
     }
 
     function removeTarget(id: string) {
-        onChange(currentTargets =>
-            currentTargets.length === 1
-                ? currentTargets
-                : currentTargets.filter(target => target.id !== id)
-        )
+        if (targets.length === 1) return
+        const nextTargets = targets.filter(target => target.id !== id)
+        if (activeTargetId === id) setActiveTargetId(nextTargets[0]?.id ?? '')
+        onChange(nextTargets)
     }
 
     return (
-        <div className="space-y-3">
-            {targets.map((target, index) => (
+        <div className="space-y-4">
+            <div className="flex min-w-0 items-center gap-2" role="tablist">
+                <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-1">
+                    {targets.map((target, index) => {
+                        const channel = channels.find(
+                            candidate => candidate.id === target.channelId
+                        )
+                        const status = resolveConnectionStatus(
+                            channel,
+                            connections.find(candidate => candidate.channelId === target.channelId),
+                            target.deliveryMode
+                        )
+                        const active = activeTarget?.id === target.id
+                        return (
+                            <button
+                                key={target.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={active}
+                                onClick={() => setActiveTargetId(target.id)}
+                                className={`flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                                    active
+                                        ? 'bg-background text-foreground shadow-field'
+                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                }`}>
+                                <span className="max-w-40 truncate">
+                                    {channel?.name ??
+                                        m.compose_destination({ index: String(index + 1) })}
+                                </span>
+                                {status ? (
+                                    <span
+                                        aria-label={status.label}
+                                        className={`size-1.5 shrink-0 rounded-full ${status.dotClassName}`}
+                                    />
+                                ) : null}
+                            </button>
+                        )
+                    })}
+                </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={disabled || availableChannel === undefined}
+                    title={
+                        availableChannel === undefined
+                            ? m.compose_all_channels_selected()
+                            : undefined
+                    }
+                    onClick={addTarget}>
+                    <AddIcon aria-hidden="true" />
+                    {m.compose_add_destination()}
+                </Button>
+            </div>
+
+            {activeTarget ? (
                 <PublicationTargetCard
-                    key={target.id}
+                    key={activeTarget.id}
                     channels={channels}
                     connections={connections}
                     disabled={disabled}
-                    index={index}
-                    onChange={patch => updateTarget(target.id, patch)}
-                    onRemove={() => removeTarget(target.id)}
+                    index={targets.indexOf(activeTarget)}
+                    onChange={patch => updateTarget(activeTarget.id, patch)}
+                    onRemove={() => removeTarget(activeTarget.id)}
                     projectId={projectId}
-                    target={target}
+                    selectedChannelIds={selectedChannelIds}
+                    target={activeTarget}
                     removable={targets.length > 1}
                 />
-            ))}
-
-            <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={addTarget}>
-                <AddIcon aria-hidden="true" />
-                {m.compose_add_destination()}
-            </Button>
+            ) : null}
         </div>
     )
 }
@@ -95,6 +166,7 @@ function PublicationTargetCard({
     onRemove,
     projectId,
     removable,
+    selectedChannelIds,
     target,
 }: {
     readonly channels: readonly Channel[]
@@ -105,9 +177,11 @@ function PublicationTargetCard({
     readonly onRemove: () => void
     readonly projectId: string
     readonly removable: boolean
+    readonly selectedChannelIds: ReadonlySet<string>
     readonly target: PublicationTargetDraft
 }) {
     useLanguage()
+    const [overrideOpen, setOverrideOpen] = useState(target.content.trim() !== '')
     const channel = channels.find(candidate => candidate.id === target.channelId)
     const connection = connections.find(candidate => candidate.channelId === target.channelId)
     const fieldPrefix = `publication-target-${target.id}`
@@ -162,26 +236,74 @@ function PublicationTargetCard({
                         <SelectValue placeholder={m.compose_choose_channel()} />
                     </SelectTrigger>
                     <SelectContent align="start">
-                        {channels.map(candidate => (
-                            <SelectItem key={candidate.id} value={candidate.id}>
-                                {candidate.name}
-                            </SelectItem>
-                        ))}
+                        {channels.map(candidate => {
+                            const alreadySelected =
+                                candidate.id !== target.channelId &&
+                                selectedChannelIds.has(candidate.id)
+                            return (
+                                <SelectItem
+                                    key={candidate.id}
+                                    value={candidate.id}
+                                    disabled={alreadySelected}
+                                    title={
+                                        alreadySelected
+                                            ? m.compose_channel_already_selected()
+                                            : undefined
+                                    }>
+                                    {candidate.name}
+                                </SelectItem>
+                            )
+                        })}
                     </SelectContent>
                 </Select>
             </TargetField>
 
-            <TargetField htmlFor={`${fieldPrefix}-content`} label={m.compose_channel_copy()}>
-                <Textarea
-                    id={`${fieldPrefix}-content`}
-                    value={target.content}
-                    disabled={disabled}
-                    onChange={event => onChange({ content: event.target.value })}
-                    placeholder={m.compose_optional_override()}
-                    rows={4}
-                    className="min-h-28 leading-6"
-                />
-            </TargetField>
+            <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">
+                        {m.compose_channel_copy()}
+                    </span>
+                    {overrideOpen ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            disabled={disabled}
+                            onClick={() => {
+                                onChange({ content: '' })
+                                setOverrideOpen(false)
+                            }}>
+                            {m.compose_use_source()}
+                        </Button>
+                    ) : (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            disabled={disabled}
+                            onClick={() => setOverrideOpen(true)}>
+                            {m.compose_customize_channel()}
+                        </Button>
+                    )}
+                </div>
+                {overrideOpen ? (
+                    <TargetField
+                        htmlFor={`${fieldPrefix}-content`}
+                        label={m.compose_channel_copy()}>
+                        <Textarea
+                            id={`${fieldPrefix}-content`}
+                            value={target.content}
+                            disabled={disabled}
+                            onChange={event => onChange({ content: event.target.value })}
+                            placeholder={m.compose_optional_override()}
+                            rows={4}
+                            className="min-h-28 leading-6"
+                        />
+                    </TargetField>
+                ) : (
+                    <p className="text-xs text-muted-foreground">{m.compose_source_fallback()}</p>
+                )}
+            </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
                 <TargetField htmlFor={`${fieldPrefix}-delivery`} label={m.compose_delivery_mode()}>
@@ -228,6 +350,7 @@ function resolveConnectionStatus(
     if (channel.profileId === 'manual-message') {
         return {
             className: 'text-state-queued',
+            dotClassName: 'bg-state-queued',
             label: m.channel_manual(),
             requiresConnection: false,
         }
@@ -235,6 +358,7 @@ function resolveConnectionStatus(
     if (connection?.state === 'active') {
         return {
             className: 'text-state-published',
+            dotClassName: 'bg-state-published',
             label: m.channel_connected(),
             requiresConnection: false,
         }
@@ -242,6 +366,7 @@ function resolveConnectionStatus(
     if (deliveryMode === 'manual') {
         return {
             className: 'text-muted-foreground',
+            dotClassName: 'bg-muted-foreground',
             label: m.compose_manual_publication(),
             requiresConnection: false,
         }
@@ -249,12 +374,14 @@ function resolveConnectionStatus(
     if (connection?.state === 'reconnect_required' || connection?.state === 'revoked') {
         return {
             className: 'text-state-attention',
+            dotClassName: 'bg-state-attention',
             label: m.publisher_reconnection_required(),
             requiresConnection: true,
         }
     }
     return {
         className: 'text-state-attention',
+        dotClassName: 'bg-state-attention',
         label: m.channel_needs_connection(),
         requiresConnection: true,
     }
