@@ -699,6 +699,24 @@ export const api = {
         )
     },
 
+    async reconcileAmbiguousPublication(
+        projectId: string,
+        publicationId: string,
+        input: {
+            resolution: 'published' | 'failed'
+            externalId?: string
+            externalUrl?: string
+            errorMessage?: string
+        }
+    ): Promise<{ publication: Publication }> {
+        return unwrap<{ publication: Publication }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .reconcile.post(input)
+        )
+    },
+
     async listAuditEvents(projectId: string): Promise<{ events: AuditEvent[] }> {
         return unwrap<{ events: AuditEvent[] }>(
             await client.api.projects({ projectId })['audit-events'].get()
