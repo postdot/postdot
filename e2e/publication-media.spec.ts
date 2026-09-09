@@ -266,6 +266,14 @@ test('persists mixed and media-only publications through the dashboard', async (
             .getByRole('button', { name: 'Revoked', exact: true })
     ).toBeVisible()
 
+    await page.goto('/dashboard/settings/provider-applications')
+    await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications$/)
+    await expect(
+        page.getByRole('heading', { name: 'Provider applications', level: 1 })
+    ).toBeVisible()
+    await expect(page.getByText('No provider applications', { exact: true })).toBeVisible()
+
+    await page.goto('/dashboard')
     await page.getByRole('link', { name: 'Calendar', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
     await expect(page.getByRole('heading', { name: 'Calendar', level: 1 })).toBeVisible()

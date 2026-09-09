@@ -25,6 +25,14 @@ jobs:
             - name: Install dependencies
               run: bun install --frozen-lockfile
 
+            - name: Remove runner-only Google Chrome APT source
+              run: |
+                  for source in /etc/apt/sources.list.d/google-chrome.*; do
+                      if [ -f "$source" ]; then
+                          sudo rm -f "$source"
+                      fi
+                  done
+
             - name: Install Playwright Chromium
               run: npx --no-install playwright install --with-deps chromium
 
