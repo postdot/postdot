@@ -222,6 +222,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
             <Sheet open={open} onOpenChange={setOpen}>
                 <SheetContent
                     className="w-full max-w-none gap-0 overflow-hidden p-0 sm:max-w-lg"
+                    closeLabel={m.common_close()}
                     side="right">
                     <SheetHeader className="gap-1 px-5 pt-5 pb-4 pr-12">
                         <div className="flex items-start justify-between gap-3">

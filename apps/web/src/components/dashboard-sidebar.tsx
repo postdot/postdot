@@ -83,7 +83,7 @@ export function DashboardSidebar({
     )
 
     return (
-        <Sidebar collapsible="icon" className="!border-0">
+        <Sidebar collapsible="icon" className="!border-0" mobileCloseLabel={m.common_close()}>
             <SidebarHeader className="gap-4 p-3 group-data-[collapsible=icon]:p-2">
                 <div className="flex items-center gap-2">
                     {selectedProjectId === null ? (
