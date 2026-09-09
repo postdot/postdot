@@ -274,7 +274,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
     await emptyCalendarNewPublication.click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
-    await expect(page.getByLabel('Scheduled for').first()).toHaveValue(/T09:00$/)
+    await expect(page.getByLabel('Schedule').first()).toHaveValue(/T09:00$/)
     await page.goBack()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/calendar$/)
 
@@ -310,10 +310,10 @@ test('persists mixed and media-only publications through the dashboard', async (
         }
     })
     expect(mediaLayout).toEqual({
-        mediaPadding: '20px',
-        mediaRadius: '6px',
+        mediaPadding: '4px 0px 0px',
+        mediaRadius: '0px',
         buttonBorderWidth: '1px',
-        buttonHeight: 32,
+        buttonHeight: 28,
     })
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
@@ -364,30 +364,24 @@ test('persists mixed and media-only publications through the dashboard', async (
         buffer: mediaBytes,
     })
 
-    const mediaCard = page.locator('article').filter({ hasText: mediaFilename }).first()
-    const mediaToggle = mediaCard.getByRole('button').first()
-    await expect(mediaToggle).toHaveAttribute('aria-pressed', 'true')
-
-    await page.getByLabel('Post title').fill(mixedTitle)
-    await page.getByLabel('Source content').fill(sourceText)
-    await page.getByLabel('Channel copy').fill(targetText)
-    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
-    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
     await expect(
-        page.getByRole('button', { name: 'Remove destination 3', exact: true })
+        page.getByRole('button', { name: new RegExp(`Remove ${mediaFilename}`) })
     ).toBeVisible()
-    await page.getByRole('button', { name: 'Remove destination 3', exact: true }).click()
-    const secondPublicationChannel = page.getByRole('combobox', { name: 'Channel' }).nth(1)
-    await secondPublicationChannel.click()
-    await page.getByRole('option', { name: secondChannelName, exact: true }).click()
-    await page.getByLabel('Channel copy').nth(1).fill(secondTargetText)
-    const secondPublicationDelivery = page
-        .getByRole('combobox', { name: 'Delivery mode', exact: true })
-        .nth(1)
+
+    await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
+    await page.getByLabel('Content', { exact: true }).fill(sourceText)
+    await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
+    await page.getByLabel('Channel content', { exact: true }).fill(targetText)
+    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    await expect(page.getByRole('tab', { name: new RegExp(secondChannelName) })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add destination', exact: true })).toBeDisabled()
+    await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
+    await page.getByLabel('Channel content', { exact: true }).fill(secondTargetText)
+    const secondPublicationDelivery = page.getByRole('combobox', { name: 'Delivery', exact: true })
     await secondPublicationDelivery.click()
     await page.getByRole('option', { name: 'Automatic publication', exact: true }).click()
-    await page.getByLabel('Scheduled for').nth(1).fill(scheduledDateTime)
-    await page.getByRole('button', { name: 'Schedule 2 publications', exact: true }).click()
+    await page.getByLabel('Schedule', { exact: true }).fill(scheduledDateTime)
+    await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const mixedPublications = page.getByRole('link').filter({ hasText: mixedTitle })
@@ -397,13 +391,16 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mediaOnlyPublicationChannel = page.getByRole('combobox', { name: 'Channel' }).first()
     await mediaOnlyPublicationChannel.click()
     await page.getByRole('option', { name: channelName, exact: true }).click()
-    await page.getByLabel('Post title').fill(mediaOnlyTitle)
-    await page.getByRole('button', { name: new RegExp(mediaFilename) }).click()
-    await expect(page.getByRole('button', { name: new RegExp(mediaFilename) })).toHaveAttribute(
-        'aria-pressed',
-        'true'
-    )
-    await page.getByRole('button', { name: 'Schedule manual publication', exact: true }).click()
+    await page.getByLabel('Title', { exact: true }).fill(mediaOnlyTitle)
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    const libraryMediaToggle = page.getByRole('button', { name: new RegExp(mediaFilename) })
+    await libraryMediaToggle.click()
+    await expect(libraryMediaToggle).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${mediaFilename}`) })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Schedule', exact: true }).click()
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const mediaOnlyPublication = page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first()
@@ -420,7 +417,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(emptyCalendarDay).toBeVisible()
     await emptyCalendarDay.click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
-    await expect(page.getByLabel('Scheduled for').first()).toHaveValue(/T09:00$/)
+    await expect(page.getByLabel('Schedule', { exact: true }).first()).toHaveValue(/T09:00$/)
     await page.goBack()
     await expect(calendarMonth).toBeVisible()
     await page.getByRole('button', { name: 'Next month', exact: true }).click()
@@ -506,7 +503,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(secondProjectId).not.toBe(firstProjectId)
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
-    await expect(page.getByText('No channels yet.', { exact: true })).toBeVisible()
+    await expect(page.getByText('No channels yet', { exact: true })).toBeVisible()
     await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
 
     await page.goto(`/dashboard/projects/${firstProjectId}/channels`)
@@ -518,7 +515,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
 
     await page.goto(`/dashboard/projects/${secondProjectId}/channels`)
-    await expect(page.getByText('No channels yet.', { exact: true })).toBeVisible()
+    await expect(page.getByText('No channels yet', { exact: true })).toBeVisible()
     await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
     await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
         secondProjectName

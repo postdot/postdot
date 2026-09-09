@@ -78,7 +78,7 @@ export function MediaAssetCard({
     )
 }
 
-function readyRepresentation(asset: MediaReference) {
+export function readyRepresentation(asset: MediaReference) {
     return (
         asset.representations.find(
             representation => representation.state === 'ready' && representation.kind === 'original'
@@ -110,14 +110,16 @@ function mediaSummary(
         .join(' · ')
 }
 
-function MediaPreview({
+export function MediaPreview({
     projectId,
     asset,
     representation,
+    className,
 }: {
     readonly projectId: string
     readonly asset: MediaReference
     readonly representation: ReturnType<typeof readyRepresentation>
+    readonly className?: string
 }) {
     if (representation?.family === 'image') {
         return (
@@ -125,12 +127,16 @@ function MediaPreview({
                 src={api.mediaContentUrl(projectId, asset.asset.id)}
                 alt=""
                 loading="lazy"
-                className="size-12 rounded-md object-cover shadow-field"
+                className={className ?? 'size-12 rounded-md object-cover shadow-field'}
             />
         )
     }
     return (
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground shadow-field">
+        <span
+            className={
+                className ??
+                'flex size-12 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground shadow-field'
+            }>
             {representation?.family?.slice(0, 3) ?? m.media_file_type()}
         </span>
     )

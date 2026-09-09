@@ -224,6 +224,13 @@ export function ProjectDashboardProvider({
             setError(m.composer_channel_required())
             return
         }
+        if (
+            new Set(publicationTargets.map(target => target.channelId)).size !==
+            publicationTargets.length
+        ) {
+            setError(m.composer_duplicate_channel())
+            return
+        }
 
         let scheduleError: DateTimeLocalError | null = null
         const publicationInputs = publicationTargets.map(target => {

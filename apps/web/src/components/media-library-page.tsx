@@ -39,7 +39,9 @@ export function MediaLibraryPage() {
                 <div className="mb-3 flex justify-end">
                     <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
                         <GalleryIcon aria-hidden="true" className="size-4" />
-                        {m.common_media_selected({ count: sourceMedia.length })}
+                        {sourceMedia.length === 0
+                            ? m.media_none_selected()
+                            : m.common_media_selected({ count: sourceMedia.length })}
                     </span>
                 </div>
                 <MediaAttachmentPicker

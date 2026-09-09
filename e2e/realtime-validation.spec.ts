@@ -8,6 +8,26 @@ type TestEventSourceController = {
     emit: (type: string, data?: string) => void
 }
 
+test('keeps an invalid project URL explicit instead of changing project context', async ({
+    page,
+}) => {
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+
+    await page.goto('/dashboard/projects/not-a-project/overview')
+    await expect(
+        page.getByRole('heading', { name: 'Project unavailable', exact: true })
+    ).toBeVisible()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/not-a-project\/overview$/)
+    await expect(
+        page.getByText('This project could not be found or you no longer have access to it.')
+    ).toBeVisible()
+
+    await page.getByRole('link', { name: 'Return to projects', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/?$/)
+    await expect(page.getByRole('heading', { name: 'Select project', exact: true })).toBeVisible()
+})
+
 test('refreshes project data after realtime reconnect and project events', async ({ page }) => {
     test.setTimeout(30_000)
 
