@@ -61,7 +61,7 @@ export function DashboardShell({
     }, [pathname])
 
     return (
-        <SidebarProvider className="herald-dashboard h-svh min-h-0 overflow-hidden bg-background">
+        <SidebarProvider className="herald-dashboard h-svh min-h-0 overflow-hidden bg-surface-canvas">
             <DashboardSidebar
                 activeSection={activeSection}
                 channels={channels}
@@ -80,12 +80,12 @@ export function DashboardShell({
                 selectedProjectId={selectedProjectId}
             />
 
-            <SidebarInset>
+            <SidebarInset className="bg-surface-raised shadow-surface">
                 <div
                     key={pathname}
                     ref={scrollRegionRef}
                     data-dashboard-scroll="true"
-                    className="min-h-0 flex-1 overflow-y-auto">
+                    className="min-h-0 flex-1 overflow-y-auto bg-surface-raised">
                     <DashboardHeader
                         isInstanceSettings={activeSection === 'settings'}
                         isPublicationRoute={isPublicationRoute}

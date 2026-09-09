@@ -2,6 +2,14 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+type ComputedStyleView = {
+    getComputedStyle: (element: unknown) => {
+        gap: string
+        margin: string
+        padding: string
+    }
+}
+
 test('keeps the workspace navigation reachable when reduced and on mobile', async ({ page }) => {
     test.setTimeout(30_000)
 
@@ -16,6 +24,35 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await expect(page.getByRole('link', { name: 'Calendar', exact: true })).toBeVisible()
     await page.getByRole('link', { name: 'Calendar', exact: true }).click()
     await expect(page).toHaveURL(/\/calendar$/)
+
+    const monthCalendar = page.locator('[data-calendar-view="month"]')
+    await expect(monthCalendar).toBeVisible()
+    await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute('data-variant', 'inset')
+    await expect(page.locator('[data-slot="sidebar-inset"]')).toBeVisible()
+
+    const calendarLayout = await monthCalendar.evaluate(calendar => {
+        const grid = calendar.firstElementChild
+        if (grid === null) {
+            throw new Error('Expected the month calendar to contain a grid')
+        }
+
+        const firstDay = grid.querySelector('[role="gridcell"] > a')
+        if (firstDay === null) {
+            throw new Error('Expected the month calendar to contain a day cell')
+        }
+
+        const view = calendar.ownerDocument.defaultView as unknown as ComputedStyleView
+        const gridStyle = view.getComputedStyle(grid)
+        const dayStyle = view.getComputedStyle(firstDay)
+        return {
+            dayMargin: dayStyle.margin,
+            gridGap: gridStyle.gap,
+            gridPadding: view.getComputedStyle(calendar).padding,
+        }
+    })
+    expect(calendarLayout.gridGap).not.toBe('0px')
+    expect(calendarLayout.gridPadding).not.toBe('0px')
+    expect(calendarLayout.dayMargin).toBe('0px')
 
     await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
