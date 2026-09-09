@@ -18,6 +18,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
 
     await page.setViewportSize({ width: 1280, height: 720 })
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
+    await expect(page.locator('[data-slot="sidebar-container"]')).toHaveCSS('padding', '0px')
 
     const toggle = page.getByRole('button', { name: 'Toggle workspace navigation', exact: true })
     await toggle.click()
