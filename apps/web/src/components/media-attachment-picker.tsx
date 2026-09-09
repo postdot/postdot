@@ -37,7 +37,7 @@ interface MediaAttachmentPickerProps {
     readonly onChange: (value: MediaSelection[]) => void
     readonly disabled?: boolean
     readonly emptyDescription?: string
-    readonly variant?: 'library' | 'composer'
+    readonly variant?: 'library' | 'composer' | 'composer-inline'
 }
 
 export function MediaAttachmentPicker({
@@ -56,7 +56,8 @@ export function MediaAttachmentPicker({
     const [error, setError] = useState<string | null>(null)
     const [libraryOpen, setLibraryOpen] = useState(false)
     const interactionDisabled = disabled || uploading !== null
-    const compact = variant === 'composer'
+    const compact = variant === 'composer' || variant === 'composer-inline'
+    const inline = variant === 'composer-inline'
 
     useEffect(() => {
         let active = true
@@ -181,24 +182,56 @@ export function MediaAttachmentPicker({
         <>
             <div
                 data-media-picker="true"
-                className={compact ? 'pt-1' : 'rounded-lg bg-muted p-4 sm:p-5'}>
+                className={
+                    inline
+                        ? 'border-t border-border/70 bg-muted/25 px-3 py-2'
+                        : compact
+                          ? 'pt-1'
+                          : 'rounded-lg bg-muted p-4 sm:p-5'
+                }>
+                {inline && !loading && selectedAssets.length > 0 ? (
+                    <div className="mb-2 flex flex-wrap gap-2">
+                        {selectedAssets.map(({ asset, selection }, index) => (
+                            <CompactMediaPreview
+                                key={selection.assetId}
+                                asset={asset}
+                                index={index}
+                                projectId={projectId}
+                                selection={selection}
+                                total={value.length}
+                                onMove={moveSelection}
+                                onRemove={removeSelection}
+                            />
+                        ))}
+                    </div>
+                ) : null}
                 <div
                     className={
-                        compact
+                        inline
                             ? 'flex items-center justify-between gap-3'
-                            : 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center'
+                            : compact
+                              ? 'flex items-center justify-between gap-3'
+                              : 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center'
                     }>
-                    <div>
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                            <GalleryAddIcon aria-hidden="true" />
-                            {m.media_attachments_title()}
+                    {!inline ? (
+                        <div>
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                <GalleryAddIcon aria-hidden="true" />
+                                {m.media_attachments_title()}
+                            </div>
+                            {!compact ? (
+                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                    {m.media_picker_description()}
+                                </p>
+                            ) : null}
                         </div>
-                        {!compact ? (
-                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                {m.media_picker_description()}
-                            </p>
-                        ) : null}
-                    </div>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">
+                            {value.length === 0
+                                ? m.media_attachments_title()
+                                : m.common_media_selected({ count: value.length })}
+                        </span>
+                    )}
                     <Button
                         type="button"
                         variant={compact ? 'ghost' : 'secondary'}
@@ -207,22 +240,27 @@ export function MediaAttachmentPicker({
                         onClick={() =>
                             compact ? setLibraryOpen(true) : inputRef.current?.click()
                         }>
-                        <UploadIcon aria-hidden="true" />
+                        {inline || compact ? (
+                            <GalleryAddIcon aria-hidden="true" />
+                        ) : (
+                            <UploadIcon aria-hidden="true" />
+                        )}
                         {uploading === null
                             ? m.media_upload()
                             : m.media_uploading({ filename: uploading })}
                     </Button>
-                    <input
-                        ref={inputRef}
-                        className="sr-only"
-                        type="file"
-                        multiple
-                        disabled={interactionDisabled}
-                        tabIndex={-1}
-                        aria-hidden="true"
-                        onChange={event => void handleFilesSelected(event)}
-                    />
                 </div>
+
+                <input
+                    ref={inputRef}
+                    className="sr-only"
+                    type="file"
+                    multiple
+                    disabled={interactionDisabled}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    onChange={event => void handleFilesSelected(event)}
+                />
 
                 {error !== null ? (
                     <Alert variant="destructive" className="mt-4 rounded-md">
@@ -232,9 +270,16 @@ export function MediaAttachmentPicker({
                 ) : null}
 
                 {loading ? (
-                    <p className="mt-4 text-sm text-muted-foreground">{m.media_loading()}</p>
+                    <p
+                        className={
+                            inline
+                                ? 'mt-2 text-xs text-muted-foreground'
+                                : 'mt-4 text-sm text-muted-foreground'
+                        }>
+                        {m.media_loading()}
+                    </p>
                 ) : compact ? (
-                    selectedAssets.length === 0 ? (
+                    inline ? null : selectedAssets.length === 0 ? (
                         <p className="mt-2 text-xs text-muted-foreground">
                             {m.media_empty_compose()}
                         </p>
