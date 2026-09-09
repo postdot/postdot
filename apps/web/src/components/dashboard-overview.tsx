@@ -70,7 +70,8 @@ export function DashboardOverview() {
                         ? 'mt-7 grid min-w-0 gap-7 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start'
                         : 'mt-7 min-w-0'
                 }>
-                <section className="min-w-0">
+                <section
+                    className={due.length > 0 ? 'order-last min-w-0 xl:order-first' : 'min-w-0'}>
                     <DashboardSectionHeading
                         meta={
                             publications.length > recentPublications.length ? (
@@ -113,12 +114,14 @@ export function DashboardOverview() {
                 </section>
 
                 {due.length > 0 ? (
-                    <PublicationAttentionPanel
-                        duePublications={due}
-                        onPublish={onPublish}
-                        pending={pending}
-                        timeZone={project.timeZone}
-                    />
+                    <div className="order-first min-w-0 xl:order-last">
+                        <PublicationAttentionPanel
+                            duePublications={due}
+                            onPublish={onPublish}
+                            pending={pending}
+                            timeZone={project.timeZone}
+                        />
+                    </div>
                 ) : null}
             </div>
         </main>

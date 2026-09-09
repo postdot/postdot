@@ -120,7 +120,8 @@ export function PublicationQueuePage() {
                     'mt-7 grid min-w-0 gap-7',
                     due.length > 0 && 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start'
                 )}>
-                <section className="min-w-0">
+                <section
+                    className={due.length > 0 ? 'order-last min-w-0 xl:order-first' : 'min-w-0'}>
                     <DashboardSectionHeading
                         meta={m.common_publication_count({ count: visiblePublications.length })}
                         title={m.queue_publications()}
@@ -155,12 +156,14 @@ export function PublicationQueuePage() {
                     />
                 </section>
                 {due.length > 0 ? (
-                    <PublicationAttentionPanel
-                        duePublications={due}
-                        onPublish={onPublish}
-                        pending={pending}
-                        timeZone={project.timeZone}
-                    />
+                    <div className="order-first min-w-0 xl:order-last">
+                        <PublicationAttentionPanel
+                            duePublications={due}
+                            onPublish={onPublish}
+                            pending={pending}
+                            timeZone={project.timeZone}
+                        />
+                    </div>
                 ) : null}
             </div>
         </main>
