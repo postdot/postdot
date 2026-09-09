@@ -18,8 +18,8 @@ const languageLabels: Record<Locale, () => string> = {
 
 export function LanguageSwitcher() {
     const { locale, setLocale } = useLanguage()
-    const currentLanguage = languageLabels[locale]()
-    const label = m.language_switch_to({ language: currentLanguage })
+    const nextLocale = locale === 'en' ? 'fr' : 'en'
+    const label = m.language_switch_to({ language: languageLabels[nextLocale]() })
 
     return (
         <DropdownMenu>
