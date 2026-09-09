@@ -1,11 +1,4 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import {
-    Empty,
-    EmptyDescription,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-} from '@herald/ui/components/empty'
 import { LinkIcon } from '@solar-icons/react/bold/link'
 import { useState } from 'react'
 
@@ -105,15 +98,20 @@ export function ChannelManagementPage() {
                         ))}
                     </div>
                 ) : (
-                    <Empty className="mt-4 min-h-32 bg-muted">
-                        <EmptyHeader>
-                            <EmptyMedia variant="icon">
-                                <LinkIcon aria-hidden="true" />
-                            </EmptyMedia>
-                            <EmptyTitle>{m.channels_empty_title()}</EmptyTitle>
-                            <EmptyDescription>{m.channels_empty_description()}</EmptyDescription>
-                        </EmptyHeader>
-                    </Empty>
+                    <div
+                        aria-live="polite"
+                        className="mt-4 flex min-w-0 items-center gap-3 border border-dashed border-border/70 bg-muted/35 px-4 py-4 text-left"
+                        role="status">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+                            <LinkIcon aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                            <p className="text-sm font-medium">{m.channels_empty_title()}</p>
+                            <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
+                                {m.channels_empty_description()}
+                            </p>
+                        </div>
+                    </div>
                 )}
             </section>
 
