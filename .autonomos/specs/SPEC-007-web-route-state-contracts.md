@@ -1,9 +1,12 @@
 # SPEC-007 — Herald web route state contracts
 
-- Status: draft
+- Status: accepted
 - Scope: authenticated web shell and project route states
 - Provenance: WEB-119; ISSUE-063; ISSUE-064; Muse-1.3 and Luna-max audits
 - Related specification: SPEC-006
+- Accepted: 2026-09-09, after review against ADR-057's route jobs and the
+  representative empty, populated, partial, failed, and recovery states listed
+  below.
 - Related decision: ADR-057
 
 ## Intent
@@ -130,3 +133,19 @@ template.
 - This draft does not choose the final component composition, copy wording,
   visual token values, or data-fetching implementation.
 - It does not change API/domain contracts or add new provider capabilities.
+
+## Implementation boundary
+
+This specification is normative for the meaning of route states and the
+operator's next useful action. It does not claim that every route already
+implements the contract.
+
+- `WEB-122` owns route composition and differentiated empty states.
+- `DESIGN-121` owns shared shell, navigation context, and responsive behavior.
+- `WEB-123` and `WEB-124` own the already identified accessibility, responsive,
+  localization, fixture, and browser-validation slices.
+
+Those implementation tasks may refine wording or composition, but they must
+preserve the state distinctions, recovery paths, and scope boundaries defined
+here. A route is not considered migrated merely because its empty screenshot
+looks shorter.
