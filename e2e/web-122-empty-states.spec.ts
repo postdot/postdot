@@ -2,19 +2,22 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-test('gives Overview and Queue distinct first actions when a project is empty', async ({
-    page,
-}) => {
+test('makes the calendar the first project view while keeping Queue focused', async ({ page }) => {
     test.setTimeout(30_000)
 
     const suffix = randomUUID().slice(0, 8)
     await createAccountAndProject(page, suffix)
 
-    await expect(page.getByText('Start with a source post', { exact: true })).toBeVisible()
-    await expect(page.getByText('Create a publication to begin.', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
+    await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
     await expect(
-        page.locator('a[href$="/compose"]').filter({ hasText: 'New publication' })
-    ).toHaveCount(2)
+        page.getByText('Schedule a destination to make it appear on the project calendar.', {
+            exact: true,
+        })
+    ).toBeVisible()
+    await expect(
+        page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
+    ).toHaveCount(1)
 
     await page.goto(page.url().replace(/\/overview$/, '/queue'))
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()
@@ -22,14 +25,14 @@ test('gives Overview and Queue distinct first actions when a project is empty', 
         page.getByText('Create a publication to add work here.', { exact: true })
     ).toBeVisible()
     await expect(
-        page.locator('a[href$="/compose"]').filter({ hasText: 'New publication' })
+        page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
     ).toHaveCount(2)
 
     await page.getByRole('tab', { name: 'Needs attention (0)', exact: true }).click()
     await expect(page.getByText('Nothing needs attention', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Show all', exact: true })).toBeVisible()
     await expect(
-        page.locator('a[href$="/compose"]').filter({ hasText: 'New publication' })
+        page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
     ).toHaveCount(1)
 
     await page.getByRole('button', { name: 'Show all', exact: true }).click()

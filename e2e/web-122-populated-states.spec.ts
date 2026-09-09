@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-test('keeps Overview and Queue distinct with representative publication data', async ({ page }) => {
+test('uses the calendar as the project overview and keeps Queue distinct', async ({ page }) => {
     test.setTimeout(30_000)
 
     const suffix = randomUUID().slice(0, 8)
@@ -63,29 +63,19 @@ test('keeps Overview and Queue distinct with representative publication data', a
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 
     const overviewSummary = page.getByLabel('Overview summary', { exact: true })
-    await expect(overviewSummary).toContainText('8 publications')
     await expect(overviewSummary).toContainText('4 scheduled')
+    await expect(overviewSummary).toContainText('4 unscheduled')
     await expect(overviewSummary).toContainText('1 needs attention')
-    await expect(page.getByRole('link', { name: 'View all', exact: true })).toBeVisible()
-
-    const recentSection = page
-        .locator('section')
-        .filter({ has: page.getByRole('heading', { name: 'Recent publications', exact: true }) })
-    await expect(recentSection.locator('a[href*="/publications/"]')).toHaveCount(6)
-    await expect(page.getByText(`E2E-122 publication 7 ${suffix}`, { exact: true })).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toBeVisible()
+    const overviewCalendar = page.locator('[data-calendar-view="month"]')
+    await expect(overviewCalendar).toBeVisible()
+    await expect(overviewCalendar.locator('a[href*="/publications/"]')).toHaveCount(3)
+    await expect(overviewCalendar.getByText('+1', { exact: true })).toBeVisible()
     await expect(
-        page.getByRole('button', { name: 'Record as published', exact: true })
-    ).toBeVisible()
+        overviewCalendar.getByText(`E2E-122 publication 7 ${suffix}`, { exact: true })
+    ).toHaveCount(0)
 
     await page.setViewportSize({ width: 390, height: 844 })
-    const overviewAttentionBox = await page
-        .getByRole('heading', { name: 'Needs attention', exact: true })
-        .boundingBox()
-    const overviewRecentBox = await page
-        .getByRole('heading', { name: 'Recent publications', exact: true })
-        .boundingBox()
-    expect(overviewAttentionBox?.y).toBeLessThan(overviewRecentBox?.y ?? Number.POSITIVE_INFINITY)
+    await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
 
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     await expect(page.getByRole('heading', { name: 'Queue', exact: true })).toBeVisible()

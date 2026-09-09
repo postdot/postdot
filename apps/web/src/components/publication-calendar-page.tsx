@@ -24,7 +24,11 @@ import {
 } from '@/lib/publication-calendar'
 import * as m from '@/paraglide/messages.js'
 
-export function PublicationCalendarPage() {
+export function PublicationCalendarPage({
+    mode = 'calendar',
+}: {
+    readonly mode?: 'calendar' | 'overview'
+} = {}) {
     const { locale } = useLanguage()
     const { due, project, publications } = useProjectDashboard()
     const [monthCursor, setMonthCursor] = useState(() =>
@@ -52,6 +56,8 @@ export function PublicationCalendarPage() {
         setMonthCursor(startOfCalendarMonth(new Date(), project.timeZone))
     }
 
+    const isOverview = mode === 'overview'
+
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader
@@ -66,17 +72,17 @@ export function PublicationCalendarPage() {
                             />
                         }>
                         <CalendarMinimalisticIcon aria-hidden="true" />
-                        {m.calendar_new_publication()}
+                        {isOverview ? m.overview_new_publication() : m.calendar_new_publication()}
                     </Button>
                 }
-                title={m.calendar_title()}>
+                title={isOverview ? m.overview_title() : m.calendar_title()}>
                 <p className="mt-2 text-sm text-muted-foreground">
                     {project.name} · {project.timeZone}
                 </p>
             </DashboardPageHeader>
 
             <PublicationSummaryBar
-                ariaLabel={m.calendar_summary()}
+                ariaLabel={isOverview ? m.overview_summary_aria() : m.calendar_summary()}
                 items={[
                     {
                         id: 'scheduled',

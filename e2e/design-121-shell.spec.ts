@@ -21,9 +21,9 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
 
     const toggle = page.getByRole('button', { name: 'Toggle workspace navigation', exact: true })
     await toggle.click()
-    await expect(page.getByRole('link', { name: 'Calendar', exact: true })).toBeVisible()
-    await page.getByRole('link', { name: 'Calendar', exact: true }).click()
-    await expect(page).toHaveURL(/\/calendar$/)
+    await expect(page.getByRole('link', { name: 'Overview', exact: true })).toBeVisible()
+    await page.getByRole('link', { name: 'Overview', exact: true }).click()
+    await expect(page).toHaveURL(/\/overview$/)
 
     const monthCalendar = page.locator('[data-calendar-view="month"]')
     await expect(monthCalendar).toBeVisible()
@@ -56,11 +56,11 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
 
     await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Calendrier', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.waitForTimeout(50)
-    await expect(page.getByRole('heading', { name: 'Calendrier', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
     await expectNoHorizontalOverflow(page)
 
     await page

@@ -1,7 +1,16 @@
-import { createFileRoute } from '@tanstack/react-router'
-
-import { PublicationCalendarPage } from '@/components/publication-calendar-page'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/calendar')({
-    component: PublicationCalendarPage,
+    loader: ({ params }) => {
+        throw redirect({
+            to: '/dashboard/projects/$projectId/overview',
+            params,
+            replace: true,
+        })
+    },
+    component: LegacyCalendarRedirect,
 })
+
+function LegacyCalendarRedirect() {
+    return null
+}

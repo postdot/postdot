@@ -31,7 +31,7 @@ test('keeps instance settings separate from project navigation', async ({ page }
     await expect(
         page.getByRole('navigation', { name: 'Work navigation', exact: true })
     ).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Calendar', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Overview', exact: true })).toBeVisible()
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
