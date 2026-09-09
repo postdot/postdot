@@ -241,6 +241,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: 'Access', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/access$/)
     await expect(page.getByRole('heading', { name: 'Project access', level: 1 })).toBeVisible()
+    await expect(page.getByText('No project tokens', { exact: true })).toBeVisible()
 
     const tokenName = `E2E-68 token ${suffix}`
     await page.getByLabel('Name', { exact: true }).fill(tokenName)

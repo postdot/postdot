@@ -29,9 +29,6 @@ export function ProjectAccessTokenList({ onRevoke, pending, tokens }: ProjectAcc
                     <h2 id="active-tokens-title" className="font-heading text-base font-medium">
                         {m.access_tokens()}
                     </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {m.access_token_list_metadata()}
-                    </p>
                 </div>
                 {tokens ? (
                     <span className="text-xs tabular-nums text-muted-foreground">
@@ -45,13 +42,15 @@ export function ProjectAccessTokenList({ onRevoke, pending, tokens }: ProjectAcc
                     {m.access_loading()}
                 </p>
             ) : tokens.length === 0 ? (
-                <Empty className="mt-5 min-h-48 bg-muted px-5 py-8">
-                    <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                            <KeyMinimalisticIcon aria-hidden="true" />
-                        </EmptyMedia>
+                <Empty className="mt-4 min-h-0 flex-row items-center justify-start gap-3 rounded-lg border border-dashed border-border/80 bg-muted/40 px-4 py-3 text-left">
+                    <EmptyMedia className="mb-0 size-7" variant="icon">
+                        <KeyMinimalisticIcon aria-hidden="true" />
+                    </EmptyMedia>
+                    <EmptyHeader className="items-start gap-0.5">
                         <EmptyTitle>{m.access_empty_title()}</EmptyTitle>
-                        <EmptyDescription>{m.access_empty_workflow()}</EmptyDescription>
+                        <EmptyDescription className="text-left text-xs/5">
+                            {m.access_empty_workflow()}
+                        </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : (

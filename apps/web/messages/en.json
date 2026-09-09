@@ -551,7 +551,7 @@
     "access_token_name_help": "Use a name that will still be meaningful when this token needs to be revoked.",
     "access_create_section": "Create a token",
     "access_create_section_description": "Name the machine or workflow that will use this project boundary.",
-    "access_empty_workflow": "Create one when a script, agent, or CI workflow needs access.",
+    "access_empty_workflow": "Use the form to create your first token.",
     "access_token_copy": "Copy token",
     "access_token_done": "Done",
     "access_revoke_title": "Revoke this token?",
