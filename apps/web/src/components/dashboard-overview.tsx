@@ -87,6 +87,24 @@ export function DashboardOverview() {
                         title={m.overview_recent_publications()}
                     />
                     <PublicationList
+                        emptyAction={
+                            publications.length === 0 ? (
+                                <Button
+                                    nativeButton={false}
+                                    render={
+                                        <Link
+                                            params={{ projectId: project.id }}
+                                            search={{ date: undefined }}
+                                            to="/dashboard/projects/$projectId/compose"
+                                        />
+                                    }
+                                    size="sm"
+                                    variant="outline">
+                                    <PenIcon aria-hidden="true" />
+                                    {m.overview_new_publication()}
+                                </Button>
+                            ) : undefined
+                        }
                         emptyDescription={m.overview_recent_empty_description()}
                         emptyTitle={m.overview_recent_empty_title()}
                         publications={recentPublications}

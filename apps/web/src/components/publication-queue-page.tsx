@@ -126,6 +126,28 @@ export function PublicationQueuePage() {
                         title={m.queue_publications()}
                     />
                     <PublicationList
+                        emptyAction={
+                            filter === 'all' ? (
+                                <Button
+                                    nativeButton={false}
+                                    render={
+                                        <Link
+                                            params={{ projectId: project.id }}
+                                            search={{ date: undefined }}
+                                            to="/dashboard/projects/$projectId/compose"
+                                        />
+                                    }
+                                    size="sm"
+                                    variant="outline">
+                                    <PenIcon aria-hidden="true" />
+                                    {m.overview_new_publication()}
+                                </Button>
+                            ) : (
+                                <Button onClick={() => setFilter('all')} size="sm" variant="ghost">
+                                    {m.queue_show_all()}
+                                </Button>
+                            )
+                        }
                         emptyDescription={queueEmptyDescription(filter)}
                         emptyTitle={queueEmptyTitle(filter)}
                         publications={visiblePublications}
