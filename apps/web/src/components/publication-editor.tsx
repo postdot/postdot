@@ -15,6 +15,10 @@ import {
     PublicationEditorStatus,
 } from '@/components/publication-editor-status'
 import { PublicationEditorTargetSection } from '@/components/publication-editor-target-section'
+import {
+    PublicationOutcomePanel,
+    type PublicationOutcomeResolutionInput,
+} from '@/components/publication-outcome-panel'
 import { ApiError, api, formatApiError, type PublicationEditorState } from '@/lib/api'
 import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
@@ -453,6 +457,15 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
         }
     }
 
+    async function reconcilePublication(input: PublicationOutcomeResolutionInput) {
+        const response = await api.reconcileAmbiguousPublication(
+            projectId,
+            editor.publication.id,
+            input
+        )
+        setEditor(current => ({ ...current, publication: response.publication }))
+    }
+
     return (
         <section className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <div className="flex flex-col justify-between gap-5 pb-7 sm:flex-row sm:items-end">
@@ -495,6 +508,11 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
                     removeRecovery(recoveryKey)
                     setRecoveryAvailable(false)
                 }}
+            />
+
+            <PublicationOutcomePanel
+                publication={editor.publication}
+                onResolve={reconcilePublication}
             />
 
             <div className="mt-7 grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
