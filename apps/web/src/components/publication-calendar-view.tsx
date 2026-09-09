@@ -35,13 +35,13 @@ export function PublicationCalendarMonth({
     return (
         <div
             aria-label={m.calendar_month_aria({ month: month.label })}
-            className="hidden overflow-hidden rounded-lg bg-surface-inset p-2 shadow-surface md:block"
+            className="hidden overflow-hidden rounded-lg bg-surface-inset p-1 shadow-surface md:block"
             data-calendar-view="month"
             role="grid">
-            <div className="grid grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 gap-1">
                 {calendarWeekdays(locale).map(weekday => (
                     <div
-                        className="rounded-md bg-muted px-3 py-2 text-[0.68rem] font-medium tracking-[0.02em] text-muted-foreground shadow-field"
+                        className="bg-muted/70 px-3 py-2 text-[0.68rem] font-medium tracking-[0.02em] text-muted-foreground"
                         key={weekday}
                         role="columnheader">
                         {weekday}
@@ -188,7 +188,7 @@ function CalendarDayCell({
         </>
     )
     const cellClassName = cn(
-        'min-h-24 min-w-0 rounded-md bg-background p-2.5 align-top shadow-field',
+        'min-h-24 min-w-0 bg-background p-2.5 align-top',
         !day.isCurrentMonth && 'bg-muted/55 text-muted-foreground',
         day.isToday && 'bg-primary/[0.06]'
     )
