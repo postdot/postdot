@@ -1,11 +1,4 @@
 import { Badge } from '@herald/ui/components/badge'
-import {
-    Empty,
-    EmptyDescription,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-} from '@herald/ui/components/empty'
 import { cn } from '@herald/ui/lib/utils'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { ListIcon } from '@solar-icons/react/bold/list'
@@ -32,17 +25,22 @@ export function PublicationList({
     useLanguage()
     if (publications.length === 0) {
         return (
-            <Empty className="mt-4 min-h-36 bg-muted">
-                <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                        <ListIcon aria-hidden="true" />
-                    </EmptyMedia>
-                    <EmptyTitle>{emptyTitle ?? m.publication_empty_title()}</EmptyTitle>
-                    <EmptyDescription>
+            <div
+                aria-live="polite"
+                className="mt-4 flex min-w-0 items-center gap-3 border border-dashed border-border/70 bg-muted/35 px-4 py-4 text-left"
+                role="status">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+                    <ListIcon aria-hidden="true" className="size-4" />
+                </span>
+                <div className="min-w-0">
+                    <p className="font-heading text-sm font-medium tracking-tight">
+                        {emptyTitle ?? m.publication_empty_title()}
+                    </p>
+                    <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
                         {emptyDescription ?? m.publication_empty_description()}
-                    </EmptyDescription>
-                </EmptyHeader>
-            </Empty>
+                    </p>
+                </div>
+            </div>
         )
     }
 
