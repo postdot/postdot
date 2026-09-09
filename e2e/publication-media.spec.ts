@@ -146,7 +146,7 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
     const sidebarContainer = page.locator('[data-slot="sidebar-container"]')
-    await expect(sidebarContainer).toHaveCSS('width', '66px')
+    await expect(sidebarContainer).toHaveCSS('width', '72px')
     const collapsedSidebarLayout = await sidebarContainer.evaluate(container => {
         const sidebar = container as unknown as LayoutElement
         const containerRectangle = sidebar.getBoundingClientRect()
@@ -162,10 +162,10 @@ test('persists mixed and media-only publications through the dashboard', async (
             }),
         }
     })
-    expect(collapsedSidebarLayout.containerWidth).toBe(66)
+    expect(collapsedSidebarLayout.containerWidth).toBe(72)
     expect(collapsedSidebarLayout.buttons.length).toBeGreaterThan(0)
     expect(
-        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 0 && width === 66)
+        collapsedSidebarLayout.buttons.every(({ left, width }) => left === 0 && width === 72)
     ).toBe(true)
     await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
     await expect(sidebarContainer).toHaveCSS('width', '240px')
