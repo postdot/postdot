@@ -173,22 +173,28 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                                 <DashboardFormField
                                     htmlFor="new-post-content"
                                     label={m.compose_source_content()}>
-                                    <Textarea
-                                        id="new-post-content"
-                                        value={postContent}
-                                        onChange={event => onPostContentChange(event.target.value)}
-                                        placeholder={m.compose_source_placeholder()}
-                                        rows={10}
-                                        className="min-h-52 leading-6"
-                                    />
+                                    <div
+                                        data-composer-editor="true"
+                                        className="overflow-hidden rounded-md bg-background shadow-field ring-1 ring-border/70">
+                                        <Textarea
+                                            id="new-post-content"
+                                            value={postContent}
+                                            onChange={event =>
+                                                onPostContentChange(event.target.value)
+                                            }
+                                            placeholder={m.compose_source_placeholder()}
+                                            rows={10}
+                                            className="min-h-52 resize-y rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                        />
+                                        <MediaAttachmentPicker
+                                            variant="composer-inline"
+                                            projectId={project.id}
+                                            value={sourceMedia}
+                                            onChange={onSourceMediaChange}
+                                            disabled={pending}
+                                        />
+                                    </div>
                                 </DashboardFormField>
-                                <MediaAttachmentPicker
-                                    variant="composer"
-                                    projectId={project.id}
-                                    value={sourceMedia}
-                                    onChange={onSourceMediaChange}
-                                    disabled={pending}
-                                />
                             </div>
                         </div>
                     </section>

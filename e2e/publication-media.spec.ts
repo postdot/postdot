@@ -293,28 +293,14 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: 'Compose', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose$/)
 
-    const mediaLayout = await page.locator('[data-media-picker="true"]').evaluate(media => {
-        const mediaElement = media as unknown as LayoutElement & {
-            ownerDocument: { defaultView: LayoutView }
-        }
-        const button = mediaElement.querySelector('[data-slot="button"]')
-        const mediaStyles = mediaElement.ownerDocument.defaultView.getComputedStyle(mediaElement)
-        const buttonStyles =
-            button === null ? null : mediaElement.ownerDocument.defaultView.getComputedStyle(button)
-        const buttonRectangle = button?.getBoundingClientRect()
-        return {
-            mediaPadding: mediaStyles.padding,
-            mediaRadius: mediaStyles.borderRadius,
-            buttonBorderWidth: buttonStyles?.borderWidth ?? null,
-            buttonHeight: buttonRectangle === undefined ? null : buttonRectangle.height,
-        }
-    })
-    expect(mediaLayout).toEqual({
-        mediaPadding: '4px 0px 0px',
-        mediaRadius: '0px',
-        buttonBorderWidth: '1px',
-        buttonHeight: 28,
-    })
+    const composerEditor = page.locator('[data-composer-editor="true"]')
+    await expect(composerEditor).toBeVisible()
+    await expect(composerEditor.locator('[data-media-picker="true"]')).toHaveCount(1)
+    expect(
+        await composerEditor
+            .locator('[data-media-picker="true"]')
+            .evaluate(media => media.parentElement?.getAttribute('data-composer-editor'))
+    ).toBe('true')
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
@@ -366,6 +352,9 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await expect(
         page.getByRole('button', { name: new RegExp(`Remove ${mediaFilename}`) })
+    ).toBeVisible()
+    await expect(
+        page.locator('[data-composer-editor="true"] [data-media-picker="true"] img')
     ).toBeVisible()
 
     await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
