@@ -83,11 +83,11 @@ export function DashboardSidebar({
     return (
         <Sidebar
             collapsible="icon"
-            className="!border-0 !bg-transparent !shadow-none md:p-0! [&_[data-slot=sidebar-inner]]:!bg-surface-canvas [&_[data-slot=sidebar-inner]]:!shadow-none"
+            className="!border-0 !bg-surface-raised md:!bg-transparent !shadow-surface md:!shadow-none md:p-0! [&_[data-slot=sidebar-inner]]:!bg-surface-canvas [&_[data-slot=sidebar-inner]]:!shadow-none"
             mobileCloseLabel={m.common_close()}
             variant="inset">
             <SidebarHeader className="gap-4 p-3 group-data-[collapsible=icon]:p-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
                     {selectedProjectId === null ? (
                         <Link
                             to="/dashboard"
@@ -127,7 +127,7 @@ export function DashboardSidebar({
 
             <SidebarContent>
                 {isInstanceSettings ? (
-                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-0">
+                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                         <SidebarGroupLabel className="px-2">{m.nav_instance()}</SidebarGroupLabel>
                         <SidebarGroupContent>
                             <nav aria-label={m.nav_instance_navigation()}>
@@ -145,7 +145,7 @@ export function DashboardSidebar({
                     </SidebarGroup>
                 ) : (
                     <>
-                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-0">
+                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                             <SidebarGroupLabel className="px-2">{m.nav_work()}</SidebarGroupLabel>
                             <SidebarGroupContent>
                                 <nav aria-label={m.nav_work_navigation()}>
@@ -176,7 +176,7 @@ export function DashboardSidebar({
                             </SidebarGroupContent>
                         </SidebarGroup>
 
-                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-0">
+                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                             <SidebarGroupLabel className="px-2">
                                 {m.nav_project()}
                             </SidebarGroupLabel>
@@ -209,7 +209,7 @@ export function DashboardSidebar({
                             </SidebarGroupContent>
                         </SidebarGroup>
 
-                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-0">
+                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                             <SidebarGroupLabel className="px-2">
                                 {m.nav_channels()}
                             </SidebarGroupLabel>
@@ -286,7 +286,7 @@ export function DashboardSidebar({
                 )}
             </SidebarContent>
 
-            <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-0">
+            <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-2">
                 {!isInstanceSettings ? (
                     <div className="rounded-md bg-sidebar-accent px-3 py-3 text-xs text-muted-foreground shadow-surface group-data-[collapsible=icon]:hidden">
                         <div className="flex items-center justify-between gap-3">
