@@ -170,29 +170,31 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('button', { name: 'Toggle workspace navigation' }).click()
     await expect(sidebarContainer).toHaveCSS('width', '240px')
 
-    const shellLayout = await page.locator('[data-dashboard-scroll]').evaluate(scrollRegion => {
-        const scroll = scrollRegion as unknown as LayoutElement & {
+    const shellLayout = await page.locator('[data-slot="sidebar-inset"]').evaluate(inset => {
+        const shell = inset as unknown as LayoutElement & {
             ownerDocument: { defaultView: LayoutView }
         }
-        const header = scroll.querySelector('[data-dashboard-header]')
-        const regionRectangle = scroll.getBoundingClientRect()
+        const header = shell.querySelector('[data-dashboard-header]')
+        const scrollRegion = shell.querySelector('[data-dashboard-scroll]')
         const headerRectangle = header?.getBoundingClientRect()
+        const scrollRectangle = scrollRegion?.getBoundingClientRect()
         return {
-            headerIsChild: header?.parentElement === scrollRegion,
+            headerIsSiblingToScroll:
+                header?.parentElement !== null &&
+                header?.parentElement === scrollRegion?.parentElement,
             headerPosition:
                 header === null
                     ? null
-                    : scroll.ownerDocument.defaultView.getComputedStyle(header).position,
+                    : shell.ownerDocument.defaultView.getComputedStyle(header).position,
             headerTop: headerRectangle === undefined ? null : Math.round(headerRectangle.top),
-            regionTop: Math.round(regionRectangle.top),
+            scrollTop: scrollRectangle === undefined ? null : Math.round(scrollRectangle.top),
         }
     })
     expect(shellLayout).toMatchObject({
-        headerIsChild: true,
+        headerIsSiblingToScroll: true,
         headerPosition: 'sticky',
     })
-    expect(shellLayout.headerTop).toBe(shellLayout.regionTop)
-    expect(shellLayout.regionTop).toBeGreaterThan(0)
+    expect(shellLayout.scrollTop).toBeGreaterThan(shellLayout.headerTop ?? 0)
 
     await page.getByText('Create project', { exact: true }).click()
     const desktopProjectForm = page.locator('form').filter({ has: page.locator('#new-project') })

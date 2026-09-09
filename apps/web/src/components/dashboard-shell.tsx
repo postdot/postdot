@@ -80,12 +80,8 @@ export function DashboardShell({
                 selectedProjectId={selectedProjectId}
             />
 
-            <SidebarInset className="bg-surface-raised shadow-surface">
-                <div
-                    key={pathname}
-                    ref={scrollRegionRef}
-                    data-dashboard-scroll="true"
-                    className="min-h-0 flex-1 overflow-y-auto bg-surface-raised">
+            <SidebarInset className="!m-0 !rounded-none !bg-surface-canvas !shadow-none">
+                <div className="flex min-h-0 flex-1 flex-col bg-surface-canvas">
                     <DashboardHeader
                         isInstanceSettings={activeSection === 'settings'}
                         isPublicationRoute={isPublicationRoute}
@@ -96,17 +92,23 @@ export function DashboardShell({
                         sectionLabel={workspaceSectionLabel(activeSection)}
                         session={session}
                     />
-                    {error ? (
-                        <div className="px-4 pt-4 sm:px-6 lg:px-8">
-                            <Alert
-                                variant="destructive"
-                                className="rounded-md border-state-failed/35 bg-state-failed/10">
-                                <AlertTitle>{m.workspace_action_failed()}</AlertTitle>
-                                <AlertDescription>{error}</AlertDescription>
-                            </Alert>
-                        </div>
-                    ) : null}
-                    {children}
+                    <div
+                        key={pathname}
+                        ref={scrollRegionRef}
+                        data-dashboard-scroll="true"
+                        className="min-h-0 flex-1 overflow-y-auto bg-surface-raised shadow-surface md:m-2 md:mt-0 md:rounded-lg">
+                        {error ? (
+                            <div className="px-4 pt-4 sm:px-6 lg:px-8">
+                                <Alert
+                                    variant="destructive"
+                                    className="rounded-md border-state-failed/35 bg-state-failed/10">
+                                    <AlertTitle>{m.workspace_action_failed()}</AlertTitle>
+                                    <AlertDescription>{error}</AlertDescription>
+                                </Alert>
+                            </div>
+                        ) : null}
+                        {children}
+                    </div>
                 </div>
             </SidebarInset>
         </SidebarProvider>

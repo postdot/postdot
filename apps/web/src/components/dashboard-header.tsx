@@ -46,7 +46,7 @@ export function DashboardHeader({
     return (
         <header
             data-dashboard-header="true"
-            className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 bg-surface-raised/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
+            className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 bg-surface-canvas/95 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-2">
                 <SidebarTrigger aria-label={m.nav_toggle()} title={m.nav_toggle()} />
                 <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
