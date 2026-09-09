@@ -27,6 +27,7 @@ interface MediaAttachmentPickerProps {
     readonly onChange: (value: MediaSelection[]) => void
     readonly disabled?: boolean
     readonly emptyDescription?: string
+    readonly variant?: 'library' | 'composer'
 }
 
 export function MediaAttachmentPicker({
@@ -35,6 +36,7 @@ export function MediaAttachmentPicker({
     onChange,
     disabled = false,
     emptyDescription,
+    variant = 'library',
 }: MediaAttachmentPickerProps) {
     useLanguage()
     const inputRef = useRef<HTMLInputElement>(null)
@@ -143,22 +145,33 @@ export function MediaAttachmentPicker({
         )
     }
 
+    const compact = variant === 'composer'
+
     return (
-        <div data-media-picker="true" className="rounded-lg bg-muted p-4 sm:p-5">
-            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div
+            data-media-picker="true"
+            className={compact ? 'pt-1' : 'rounded-lg bg-muted p-4 sm:p-5'}>
+            <div
+                className={
+                    compact
+                        ? 'flex items-center justify-between gap-3'
+                        : 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center'
+                }>
                 <div>
                     <div className="flex items-center gap-2 text-sm font-medium">
                         <GalleryAddIcon aria-hidden="true" />
                         {m.media_attachments_title()}
                     </div>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        {m.media_picker_description()}
-                    </p>
+                    {!compact ? (
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            {m.media_picker_description()}
+                        </p>
+                    ) : null}
                 </div>
                 <Button
                     type="button"
-                    variant="secondary"
-                    size="default"
+                    variant={compact ? 'ghost' : 'secondary'}
+                    size={compact ? 'sm' : 'default'}
                     disabled={interactionDisabled}
                     onClick={() => inputRef.current?.click()}>
                     <UploadIcon aria-hidden="true" />
@@ -188,17 +201,21 @@ export function MediaAttachmentPicker({
             {loading ? (
                 <p className="mt-4 text-sm text-muted-foreground">{m.media_loading()}</p>
             ) : assets.length === 0 ? (
-                <Empty className="mt-4 min-h-28 bg-surface-field px-4 py-5">
-                    <EmptyHeader>
-                        <EmptyMedia variant="icon">
-                            <GalleryAddIcon aria-hidden="true" />
-                        </EmptyMedia>
-                        <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
-                        <EmptyDescription>
-                            {emptyDescription ?? m.media_empty_here()}
-                        </EmptyDescription>
-                    </EmptyHeader>
-                </Empty>
+                compact ? (
+                    <p className="mt-2 text-xs text-muted-foreground">{m.media_empty_compose()}</p>
+                ) : (
+                    <Empty className="mt-4 min-h-28 bg-surface-field px-4 py-5">
+                        <EmptyHeader>
+                            <EmptyMedia variant="icon">
+                                <GalleryAddIcon aria-hidden="true" />
+                            </EmptyMedia>
+                            <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
+                            <EmptyDescription>
+                                {emptyDescription ?? m.media_empty_here()}
+                            </EmptyDescription>
+                        </EmptyHeader>
+                    </Empty>
+                )
             ) : (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {assets.map(asset => {

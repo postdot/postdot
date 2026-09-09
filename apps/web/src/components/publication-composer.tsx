@@ -1,12 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@herald/ui/components/card'
 import { Input } from '@herald/ui/components/input'
 import { Textarea } from '@herald/ui/components/textarea'
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
@@ -96,71 +89,57 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
             ) : null}
 
             <form onSubmit={onCreatePost}>
-                <div className="grid min-w-0 gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.92fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
+                <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.06fr)_minmax(20rem,0.94fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
                     <section className="min-w-0">
-                        <div className="flex items-baseline justify-between gap-4">
-                            <div>
-                                <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                    {m.compose_source()}
-                                </h2>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {m.compose_source_description()}
-                                </p>
-                            </div>
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                                {m.compose_shared_content()}
-                            </span>
-                        </div>
+                        <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
+                            {m.compose_source()}
+                        </h2>
 
-                        <div className="mt-5 space-y-5">
-                            <DashboardFormField
-                                htmlFor="new-post-title"
-                                label={m.compose_post_title()}
-                                hint={m.compose_post_title_hint()}>
-                                <Input
-                                    id="new-post-title"
-                                    value={postTitle}
-                                    onChange={event => onPostTitleChange(event.target.value)}
-                                    placeholder={m.compose_optional_source_title()}
+                        <div className="mt-4 rounded-lg bg-muted/70 p-4 shadow-surface sm:p-5">
+                            <div className="space-y-4">
+                                <DashboardFormField
+                                    htmlFor="new-post-title"
+                                    label={m.compose_post_title()}>
+                                    <Input
+                                        id="new-post-title"
+                                        value={postTitle}
+                                        onChange={event => onPostTitleChange(event.target.value)}
+                                        placeholder={m.compose_optional_source_title()}
+                                    />
+                                </DashboardFormField>
+                                <DashboardFormField
+                                    htmlFor="new-post-content"
+                                    label={m.compose_source_content()}>
+                                    <Textarea
+                                        id="new-post-content"
+                                        value={postContent}
+                                        onChange={event => onPostContentChange(event.target.value)}
+                                        placeholder={m.compose_source_placeholder()}
+                                        rows={10}
+                                        className="min-h-52 leading-6"
+                                    />
+                                </DashboardFormField>
+                                <MediaAttachmentPicker
+                                    variant="composer"
+                                    projectId={project.id}
+                                    value={sourceMedia}
+                                    onChange={onSourceMediaChange}
+                                    disabled={pending}
                                 />
-                            </DashboardFormField>
-                            <DashboardFormField
-                                htmlFor="new-post-content"
-                                label={m.compose_source_content()}
-                                hint={m.compose_target_copy_hint()}>
-                                <Textarea
-                                    id="new-post-content"
-                                    value={postContent}
-                                    onChange={event => onPostContentChange(event.target.value)}
-                                    placeholder={m.compose_source_placeholder()}
-                                    rows={10}
-                                    className="min-h-52 leading-6"
-                                />
-                            </DashboardFormField>
-                            <MediaAttachmentPicker
-                                projectId={project.id}
-                                value={sourceMedia}
-                                onChange={onSourceMediaChange}
-                                disabled={pending}
-                            />
+                            </div>
                         </div>
                     </section>
 
-                    <Card className="min-w-0 bg-muted">
-                        <CardHeader className="flex flex-row items-baseline justify-between gap-4">
-                            <div className="min-w-0">
-                                <CardTitle className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                    {m.compose_destinations()}
-                                </CardTitle>
-                                <CardDescription className="mt-1">
-                                    {m.compose_destinations_description()}
-                                </CardDescription>
-                            </div>
+                    <section className="min-w-0">
+                        <div className="flex items-baseline justify-between gap-4">
+                            <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
+                                {m.compose_destinations()}
+                            </h2>
                             <span className="shrink-0 text-xs text-muted-foreground">
                                 {m.compose_target_count({ count: publicationTargets.length })}
                             </span>
-                        </CardHeader>
-                        <CardContent className="pt-0">
+                        </div>
+                        <div className="mt-4">
                             <PublicationTargetList
                                 channels={activeChannels}
                                 connections={connections}
@@ -170,18 +149,11 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                                 targets={publicationTargets}
                                 timeZone={project.timeZone}
                             />
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </section>
                 </div>
 
-                <div className="mt-7 flex flex-col justify-between gap-4 rounded-lg bg-muted p-4 sm:flex-row sm:items-center sm:p-5">
-                    <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-                        {publicationTargets.length === 1
-                            ? publicationTargets[0]?.deliveryMode === 'automatic'
-                                ? m.compose_delivery_automatic()
-                                : m.compose_delivery_manual()
-                            : m.compose_delivery_independent()}
-                    </p>
+                <div className="mt-7 flex justify-end rounded-lg bg-muted p-4 sm:p-5">
                     <Button type="submit" disabled={pending || activeChannels.length === 0}>
                         <CalendarAddIcon aria-hidden="true" />
                         {publicationTargets.length === 1

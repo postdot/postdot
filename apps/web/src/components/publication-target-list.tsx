@@ -75,7 +75,6 @@ export function PublicationTargetList({
                     projectId={projectId}
                     target={target}
                     removable={targets.length > 1}
-                    timeZone={timeZone}
                 />
             ))}
 
@@ -97,7 +96,6 @@ function PublicationTargetCard({
     projectId,
     removable,
     target,
-    timeZone,
 }: {
     readonly channels: readonly Channel[]
     readonly connections: readonly PublisherConnection[]
@@ -108,17 +106,11 @@ function PublicationTargetCard({
     readonly projectId: string
     readonly removable: boolean
     readonly target: PublicationTargetDraft
-    readonly timeZone: string
 }) {
     useLanguage()
     const channel = channels.find(candidate => candidate.id === target.channelId)
     const connection = connections.find(candidate => candidate.channelId === target.channelId)
     const fieldPrefix = `publication-target-${target.id}`
-    const channelLabel = channel?.name ?? m.compose_choose_channel()
-    const copyHint =
-        channel?.profileId === 'linkedin'
-            ? m.compose_linkedin_override()
-            : m.compose_target_override()
     const connectionStatus = resolveConnectionStatus(channel, connection, target.deliveryMode)
 
     return (
@@ -128,7 +120,6 @@ function PublicationTargetCard({
                     <p className="text-xs font-medium text-muted-foreground">
                         {m.compose_destination({ index: String(index + 1) })}
                     </p>
-                    <p className="mt-1 truncate text-sm font-medium">{channelLabel}</p>
                     {connectionStatus ? (
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                             <span className={connectionStatus.className}>
@@ -180,10 +171,7 @@ function PublicationTargetCard({
                 </Select>
             </TargetField>
 
-            <TargetField
-                htmlFor={`${fieldPrefix}-content`}
-                label={m.compose_channel_copy()}
-                hint={copyHint}>
+            <TargetField htmlFor={`${fieldPrefix}-content`} label={m.compose_channel_copy()}>
                 <Textarea
                     id={`${fieldPrefix}-content`}
                     value={target.content}
@@ -216,10 +204,7 @@ function PublicationTargetCard({
                         </SelectContent>
                     </Select>
                 </TargetField>
-                <TargetField
-                    htmlFor={`${fieldPrefix}-schedule`}
-                    label={m.compose_scheduled_for()}
-                    hint={m.compose_project_time({ timeZone })}>
+                <TargetField htmlFor={`${fieldPrefix}-schedule`} label={m.compose_scheduled_for()}>
                     <Input
                         id={`${fieldPrefix}-schedule`}
                         required
