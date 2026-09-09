@@ -3,6 +3,7 @@ import { cn } from '@herald/ui/lib/utils'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { ListIcon } from '@solar-icons/react/bold/list'
 import { Link } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 
 import type { PublicationSummary } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
@@ -13,11 +14,13 @@ export type PublicationState = PublicationSummary['state']
 
 export function PublicationList({
     emptyDescription,
+    emptyAction,
     emptyTitle,
     publications,
     timeZone,
 }: {
     readonly emptyDescription?: string
+    readonly emptyAction?: ReactNode
     readonly emptyTitle?: string
     readonly publications: readonly PublicationSummary[]
     readonly timeZone: string
@@ -27,12 +30,12 @@ export function PublicationList({
         return (
             <div
                 aria-live="polite"
-                className="mt-4 flex min-w-0 items-center gap-3 border border-dashed border-border/70 bg-muted/35 px-4 py-4 text-left"
+                className="mt-4 flex min-w-0 flex-wrap items-center gap-3 border border-dashed border-border/70 bg-muted/35 px-4 py-4 text-left"
                 role="status">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
                     <ListIcon aria-hidden="true" className="size-4" />
                 </span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                     <p className="font-heading text-sm font-medium tracking-tight">
                         {emptyTitle ?? m.publication_empty_title()}
                     </p>
@@ -40,6 +43,7 @@ export function PublicationList({
                         {emptyDescription ?? m.publication_empty_description()}
                     </p>
                 </div>
+                {emptyAction ? <div className="ml-auto shrink-0">{emptyAction}</div> : null}
             </div>
         )
     }
