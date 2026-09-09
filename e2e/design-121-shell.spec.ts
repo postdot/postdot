@@ -17,18 +17,39 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await page.getByRole('link', { name: 'Calendar', exact: true }).click()
     await expect(page).toHaveURL(/\/calendar$/)
 
+    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Calendrier', exact: true })).toBeVisible()
+
     await page.setViewportSize({ width: 390, height: 844 })
     await page.waitForTimeout(50)
-    await expect(page.getByRole('heading', { name: 'Calendar', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Calendrier', exact: true })).toBeVisible()
     await expectNoHorizontalOverflow(page)
 
-    await page.getByRole('button', { name: 'Toggle workspace navigation', exact: true }).click()
+    await page
+        .getByRole('button', {
+            name: 'Afficher ou masquer la navigation de l’espace de travail',
+            exact: true,
+        })
+        .click()
     await expect(
-        page.getByRole('navigation', { name: 'Work navigation', exact: true })
+        page.getByRole('navigation', { name: 'Navigation du travail', exact: true })
     ).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Compose', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Fermer', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Fermer', exact: true }).click()
+    await expect(
+        page.getByRole('navigation', { name: 'Navigation du travail', exact: true })
+    ).toBeHidden()
 
-    await page.getByRole('link', { name: 'Compose', exact: true }).click()
+    await page
+        .getByRole('button', {
+            name: 'Afficher ou masquer la navigation de l’espace de travail',
+            exact: true,
+        })
+        .click()
+    await expect(page.getByRole('link', { name: 'Composer', exact: true })).toBeVisible()
+
+    await page.getByRole('link', { name: 'Composer', exact: true }).click()
     await expect(page).toHaveURL(/\/compose$/)
     await expectNoHorizontalOverflow(page)
 })

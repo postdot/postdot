@@ -137,6 +137,7 @@ function Sidebar({
     side = 'left',
     variant = 'sidebar',
     collapsible = 'offcanvas',
+    mobileCloseLabel = 'Close',
     className,
     children,
     dir,
@@ -145,6 +146,7 @@ function Sidebar({
     side?: 'left' | 'right'
     variant?: 'sidebar' | 'floating' | 'inset'
     collapsible?: 'offcanvas' | 'icon' | 'none'
+    mobileCloseLabel?: string
 }) {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 
@@ -174,6 +176,7 @@ function Sidebar({
                         'w-(--sidebar-width) border-0 bg-sidebar p-0 text-sidebar-foreground',
                         className
                     )}
+                    closeLabel={mobileCloseLabel}
                     style={
                         {
                             '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
