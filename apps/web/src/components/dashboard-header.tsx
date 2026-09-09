@@ -20,6 +20,7 @@ import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface DashboardHeaderProps {
+    readonly isInstanceSettings: boolean
     readonly isPublicationRoute: boolean
     readonly onSignOut: () => void
     readonly pending: boolean
@@ -30,6 +31,7 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({
+    isInstanceSettings,
     isPublicationRoute,
     onSignOut,
     pending,
@@ -50,14 +52,22 @@ export function DashboardHeader({
                 <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
                 <div className="flex min-w-0 items-center gap-2 text-sm">
                     <span className="truncate text-muted-foreground">
-                        {isPublicationRoute ? m.nav_publication_editor() : sectionLabel}
+                        {isInstanceSettings
+                            ? m.nav_instance_settings()
+                            : isPublicationRoute
+                              ? m.nav_publication_editor()
+                              : sectionLabel}
                     </span>
-                    <span className="text-muted-foreground/50" aria-hidden="true">
-                        /
-                    </span>
-                    <span className="max-w-48 truncate font-medium text-foreground">
-                        {projectName}
-                    </span>
+                    {!isInstanceSettings ? (
+                        <>
+                            <span className="text-muted-foreground/50" aria-hidden="true">
+                                /
+                            </span>
+                            <span className="max-w-48 truncate font-medium text-foreground">
+                                {projectName}
+                            </span>
+                        </>
+                    ) : null}
                 </div>
             </div>
 

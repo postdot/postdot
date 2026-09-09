@@ -1,4 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
+import { Badge } from '@herald/ui/components/badge'
 import { Card } from '@herald/ui/components/card'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -140,9 +141,12 @@ export function ProviderApplicationSettingsPage() {
             <div className="mx-auto max-w-6xl">
                 <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                     <div className="min-w-0">
-                        <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
-                            {m.provider_apps_title()}
-                        </h1>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
+                                {m.provider_apps_title()}
+                            </h1>
+                            <Badge variant="secondary">{m.nav_instance_settings()}</Badge>
+                        </div>
                         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
                             {m.provider_apps_description()}
                         </p>
