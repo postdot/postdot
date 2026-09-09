@@ -83,7 +83,7 @@ export function DashboardSidebar({
     return (
         <Sidebar
             collapsible="icon"
-            className="!border-0 !bg-transparent !shadow-none [&_[data-slot=sidebar-inner]]:!bg-surface-canvas [&_[data-slot=sidebar-inner]]:!shadow-none"
+            className="!border-0 !bg-transparent !shadow-none md:p-0! group-data-[collapsible=icon]:p-2! [&_[data-slot=sidebar-inner]]:!bg-surface-canvas [&_[data-slot=sidebar-inner]]:!shadow-none"
             mobileCloseLabel={m.common_close()}
             variant="inset">
             <SidebarHeader className="gap-4 p-3 group-data-[collapsible=icon]:p-2">
