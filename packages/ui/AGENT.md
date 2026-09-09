@@ -32,6 +32,22 @@ the shared stylesheet.
 Add a component here only when it is reusable across Herald surfaces or is part
 of the shared visual language. Keep one-off product composition in the app.
 
+## Herald composition guardrails
+
+- Shared primitives provide behavior and geometry; consuming pages provide
+  product meaning, labels, and task-specific composition.
+- Do not add helper paragraphs or tutorial copy to a primitive by default. Add
+  copy at the page boundary only when it changes the operator's next action,
+  explains a state, or provides recovery guidance.
+- Every reusable control must retain a visible or programmatic name, keyboard
+  focus and activation, dark/light semantic roles, and locale-safe labels.
+- Long labels must have an intentional wrap, scroll, or truncation behavior.
+  Use `min-w-0` in flex children where appropriate, and keep the complete
+  accessible value even when the visual label is truncated.
+- Prefer a deliberate disclosure action for secondary options over rendering
+  every provider detail or override in the initial layer. Never hide an error,
+  destructive consequence, recovery path, or capability limitation.
+
 ## Motion
 
 - Keep essential state understandable without animation.
