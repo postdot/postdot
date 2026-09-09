@@ -35,3 +35,20 @@ changing this package.
 New shadcn components belong here when they are genuinely reusable. Keep
 application-specific composition in the consuming app and follow the package
 `components.json` configuration when generating or adapting components.
+
+## Product composition guardrails
+
+Herald's primitives are deliberately not a second product framework. Shared
+components own accessible behavior, stable geometry, and semantic tokens;
+pages own the operator's vocabulary, hierarchy, and progressive disclosure.
+
+- Keep the first layer focused on the current task, required state, and next
+  action. Put secondary options behind an explicit contextual action.
+- Do not add explanatory prose to a primitive by default. Page-level copy is
+  justified when it changes the next action, explains a state, or provides a
+  recovery path.
+- Controls must remain usable with keyboard input, long labels, English and
+  French copy, and both themes. Truncation must not remove the complete
+  accessible value.
+- Errors, destructive consequences, capability limits, and recovery actions
+  are never hidden merely to make a surface look simpler.

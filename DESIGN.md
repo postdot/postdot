@@ -170,6 +170,22 @@ future landing-page decisions remain explicit below.
   tools, not universal grammar. Product composition stays in the consuming
   surface; shared primitives belong in `@herald/ui` only when their role is
   stable.
+- Shared-foundation implementation checklist: a new or materially changed
+  shared primitive must preserve a visible or programmatic name, keyboard
+  focus and activation, dark/light semantic roles, and English/French copy
+  boundaries. Its default geometry must tolerate long labels through a
+  deliberate wrap, scroll, or truncation strategy; `min-w-0` and truncation
+  are preferred to viewport overflow, while the complete value remains
+  available to assistive technology or an intentional affordance. Product
+  pages own the meaning and copy of a control; the shared primitive should
+  not add explanatory prose by default.
+- Progressive-disclosure implementation checklist: keep the first layer to
+  the current task, its required state, and the next meaningful action. Put
+  per-destination overrides, provider details, media metadata, and other
+  secondary choices behind an explicit action or contextual surface. Do not
+  hide validation, recovery, destructive consequences, or capability limits.
+  A shorter screen is not a successful simplification if the operator loses
+  the reason for a state or the path to recover it.
 
 ## App viewport and responsive contract
 
