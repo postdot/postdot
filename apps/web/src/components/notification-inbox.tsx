@@ -1,26 +1,21 @@
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
-import {
-    Empty,
-    EmptyDescription,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-} from '@herald/ui/components/empty'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@herald/ui/components/empty'
 import { Field, FieldContent, FieldDescription, FieldTitle } from '@herald/ui/components/field'
-import { ScrollArea } from '@herald/ui/components/scroll-area'
 import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetHeader,
-    SheetTitle,
-} from '@herald/ui/components/sheet'
+    Popover,
+    PopoverClose,
+    PopoverContent,
+    PopoverTitle,
+    PopoverTrigger,
+} from '@herald/ui/components/popover'
+import { ScrollArea } from '@herald/ui/components/scroll-area'
 import { Switch } from '@herald/ui/components/switch'
 import { ArchiveIcon } from '@solar-icons/react/bold/archive'
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
 import { BellIcon } from '@solar-icons/react/bold/bell'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { CloseIcon } from '@solar-icons/react/bold/close'
 import { SettingsIcon } from '@solar-icons/react/bold/settings'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -193,65 +188,63 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
         actionError ??
         (queryError === null || queryError === undefined ? null : formatApiError(queryError))
 
+    const handleOpenChange = (nextOpen: boolean) => {
+        setOpen(nextOpen)
+        if (nextOpen) {
+            setPanel('inbox')
+            void inboxQuery.refetch()
+        }
+    }
+
     return (
         <>
-            <Button
-                aria-label={
-                    unreadCount === 0
-                        ? m.notifications_open()
-                        : m.notifications_open_unread({ count: unreadCount })
-                }
-                className="relative"
-                disabled={projectId === null}
-                size="icon-sm"
-                title={m.notifications_title()}
-                variant="ghost"
-                onClick={() => {
-                    setPanel('inbox')
-                    setOpen(true)
-                    void inboxQuery.refetch()
-                }}>
-                <BellIcon aria-hidden="true" />
-                {unreadCount > 0 ? (
-                    <span className="absolute top-0.5 right-0.5 flex min-w-3.5 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] leading-3.5 font-semibold text-primary-foreground tabular-nums">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                    </span>
-                ) : null}
-            </Button>
+            <Popover modal={false} open={open} onOpenChange={handleOpenChange}>
+                <PopoverTrigger
+                    render={
+                        <Button
+                            aria-label={
+                                unreadCount === 0
+                                    ? m.notifications_open()
+                                    : m.notifications_open_unread({ count: unreadCount })
+                            }
+                            className="relative"
+                            disabled={projectId === null}
+                            size="icon-sm"
+                            title={m.notifications_title()}
+                            variant="ghost"
+                        />
+                    }>
+                    <BellIcon aria-hidden="true" />
+                    {unreadCount > 0 ? (
+                        <span className="absolute top-0.5 right-0.5 flex min-w-3.5 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] leading-3.5 font-semibold text-primary-foreground tabular-nums">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                    ) : null}
+                </PopoverTrigger>
 
-            <Sheet open={open} onOpenChange={setOpen}>
-                <SheetContent
-                    className="w-full max-w-none gap-0 overflow-hidden p-0 sm:max-w-lg"
-                    closeLabel={m.common_close()}
-                    side="right">
-                    <SheetHeader className="gap-1 px-5 pt-5 pb-4 pr-12">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <SheetTitle>
-                                        {panel === 'inbox'
-                                            ? m.notifications_title()
-                                            : m.notifications_preferences()}
-                                    </SheetTitle>
-                                    {panel === 'inbox' && unreadCount > 0 ? (
-                                        <Badge variant="secondary">
-                                            {m.notifications_unread({ count: unreadCount })}
-                                        </Badge>
-                                    ) : null}
-                                </div>
-                                <SheetDescription className="mt-1">
-                                    {panel === 'inbox'
-                                        ? m.notifications_dialog_description()
-                                        : m.notifications_preferences_description()}
-                                </SheetDescription>
-                            </div>
+                <PopoverContent
+                    align="end"
+                    className="flex w-[min(26rem,calc(100vw-1rem))] flex-col p-0 sm:w-[26rem]">
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <PopoverTitle>
+                                {panel === 'inbox'
+                                    ? m.notifications_title()
+                                    : m.notifications_preferences()}
+                            </PopoverTitle>
+                            {panel === 'inbox' && unreadCount > 0 ? (
+                                <Badge variant="secondary">
+                                    {m.notifications_unread({ count: unreadCount })}
+                                </Badge>
+                            ) : null}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
                             <Button
                                 aria-label={
                                     panel === 'inbox'
                                         ? m.notifications_preferences_open()
                                         : m.notifications_back()
                                 }
-                                className="shrink-0"
                                 size="icon-sm"
                                 title={
                                     panel === 'inbox'
@@ -273,12 +266,23 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                     <ArrowLeftIcon aria-hidden="true" />
                                 )}
                             </Button>
+                            <PopoverClose
+                                render={
+                                    <Button
+                                        aria-label={m.common_close()}
+                                        size="icon-sm"
+                                        title={m.common_close()}
+                                        variant="ghost"
+                                    />
+                                }>
+                                <CloseIcon aria-hidden="true" />
+                            </PopoverClose>
                         </div>
-                    </SheetHeader>
+                    </div>
 
                     {error !== null ? (
                         <div
-                            className="mx-5 mb-4 flex items-center justify-between gap-3 rounded-md bg-state-failed/10 px-3 py-2.5 text-sm text-state-failed"
+                            className="mx-3 mb-3 flex items-center justify-between gap-3 rounded-md bg-state-failed/10 px-3 py-2.5 text-sm text-state-failed"
                             role="alert">
                             <span>{error}</span>
                             <Button
@@ -297,19 +301,16 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                     ) : null}
 
                     {panel === 'inbox' ? (
-                        <ScrollArea className="max-h-[min(36rem,calc(100vh-12rem))] px-5 pb-5">
+                        <ScrollArea className="max-h-[min(36rem,calc(100dvh-5rem))] px-3 pb-3">
                             {loading && inbox === undefined ? (
                                 <NotificationLoadingState />
                             ) : notifications.length === 0 ? (
-                                <Empty className="min-h-48 bg-muted px-5 py-8">
+                                <Empty className="min-h-40 bg-muted/60 px-5 py-8">
                                     <EmptyHeader>
                                         <EmptyMedia variant="icon">
                                             <BellIcon aria-hidden="true" />
                                         </EmptyMedia>
                                         <EmptyTitle>{m.notifications_empty()}</EmptyTitle>
-                                        <EmptyDescription>
-                                            {m.notifications_empty_description()}
-                                        </EmptyDescription>
                                     </EmptyHeader>
                                 </Empty>
                             ) : (
@@ -335,8 +336,8 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                             onChange={updatePreference}
                         />
                     )}
-                </SheetContent>
-            </Sheet>
+                </PopoverContent>
+            </Popover>
         </>
     )
 }
@@ -451,7 +452,7 @@ function NotificationPreferencesPanel({
     if (loading && preferences === null) {
         return (
             <div
-                className="grid gap-2 px-5 pb-5"
+                className="grid gap-2 px-3 pb-3"
                 aria-label={m.notifications_loading_preferences()}
                 role="status">
                 {[0, 1, 2].map(item => (
@@ -466,13 +467,10 @@ function NotificationPreferencesPanel({
 
     return (
         <div
-            className="grid gap-2 px-5 pb-5"
+            className="grid gap-2 px-3 pb-3"
             data-notification-preferences="true"
             role="group"
             aria-label={m.notifications_preferences_label()}>
-            <p className="mb-2 text-xs leading-5 text-muted-foreground">
-                {m.notifications_disabled_preserved()}
-            </p>
             {preferences.map(preference => {
                 const copy = preferenceCopy(preference.kind)
                 return (
