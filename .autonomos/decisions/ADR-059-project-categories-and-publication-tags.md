@@ -1,4 +1,4 @@
-# ADR-058 — Define project categories and publication tags
+# ADR-059 — Define project categories and publication tags
 
 - Status: proposed
 - Date: 2026-09-10
