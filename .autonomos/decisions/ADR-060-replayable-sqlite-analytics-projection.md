@@ -1,4 +1,4 @@
-# ADR-056 — Define a Replayable SQLite Analytics Projection Beyond the Interactive Envelope
+# ADR-060 — Define a Replayable SQLite Analytics Projection Beyond the Interactive Envelope
 
 - Status: proposed
 - Date: 2026-09-10
