@@ -27,6 +27,7 @@ import { Link } from '@tanstack/react-router'
 import type { FormEvent, ReactNode } from 'react'
 
 import { DashboardProjectContext } from '@/components/dashboard-project-context'
+import { ChannelAvatar } from '@/components/identity-visuals'
 import type { Channel, Project, PublisherConnection } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -259,14 +260,9 @@ export function DashboardSidebar({
                                                             ),
                                                             state: channelState,
                                                         })}>
-                                                        <span
-                                                            className={cn(
-                                                                'size-1.5 shrink-0 rounded-full bg-current',
-                                                                channelMarkerClass(
-                                                                    channel.profileId
-                                                                )
-                                                            )}
-                                                            aria-hidden="true"
+                                                        <ChannelAvatar
+                                                            channel={channel}
+                                                            size="sm"
                                                         />
                                                         <span className="truncate group-data-[collapsible=icon]:hidden">
                                                             {channel.name}
@@ -436,12 +432,6 @@ function workspaceLink(
             aria-current={active ? 'page' : undefined}
         />
     )
-}
-
-function channelMarkerClass(profileId: string) {
-    if (profileId === 'linkedin') return 'text-primary'
-    if (profileId === 'manual-message') return 'text-state-queued'
-    return 'text-primary'
 }
 
 function channelProviderLabel(profileId: string) {

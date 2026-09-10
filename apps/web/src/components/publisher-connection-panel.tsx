@@ -17,6 +17,7 @@ import { CustomHttpConnectionDialog } from '@/components/custom-http-connection-
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { DevtoConnectionDialog } from '@/components/devto-connection-dialog'
 import { DiscordConnectionDialog } from '@/components/discord-connection-dialog'
+import { ChannelAvatar } from '@/components/identity-visuals'
 import { MastodonConnectionDialog } from '@/components/mastodon-connection-dialog'
 import { ProviderApplicationSelect } from '@/components/provider-application-select'
 import type {
@@ -164,6 +165,7 @@ export function PublisherConnectionPanel({
                                 className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-muted/35 sm:flex-row sm:items-center sm:justify-between sm:gap-5 sm:px-5">
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 text-sm font-medium">
+                                        <ChannelAvatar channel={channel} size="md" />
                                         {connection === undefined ? (
                                             <AddIcon aria-hidden="true" className="text-primary" />
                                         ) : (

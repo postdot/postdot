@@ -32,6 +32,7 @@ export interface Session {
         readonly id: string
         readonly name: string
         readonly email: string
+        readonly image?: string | null
     }
     readonly session: {
         readonly id: string
