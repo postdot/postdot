@@ -1,6 +1,6 @@
 # ADR-061 — Establish human account bootstrap and instance/project access policy
 
-- Status: proposed
+- Status: accepted
 - Scope: self-hosted human accounts, instance administration, project membership,
   invitations, and authorization boundaries
 - Provenance: ACCESS-116; ISSUE-013; current Better Auth, project actor, notification,

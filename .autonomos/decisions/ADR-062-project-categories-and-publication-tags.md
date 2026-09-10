@@ -1,6 +1,6 @@
 # ADR-062 — Define project categories and publication tags
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-10
 - Scope: project classification, publication metadata, filtering, and future taxonomy extensions
 - Provenance: TAXONOMY-101; current domain-model, route, UX, localization, and analytics review
