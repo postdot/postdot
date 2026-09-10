@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { eq } from 'drizzle-orm'
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 
 import { closeDatabase, createDatabase } from './client'
 import { createManualStore } from './manual-store'
@@ -32,6 +33,68 @@ function unapplyMigrations(database: ReturnType<typeof createDatabase>, tags: re
             .query('DELETE FROM __drizzle_migrations WHERE created_at = ?1')
             .run(entry.when)
     }
+}
+
+function seedMigrationUser(database: ReturnType<typeof createDatabase>, id = 'user-1'): void {
+    database.$client
+        .query(
+            `insert into user (id, name, email, email_verified, created_at, updated_at)
+             values (?1, 'Migration User', ?2, 0, 1, 1)`
+        )
+        .run(id, `${id}@herald.local`)
+}
+
+/**
+ * Replays older migration tails with the historical access inputs intact.
+ * Migration 0028 predates the access backfill and cannot rebuild a claimed
+ * instance row while a user already exists, so seed the legacy user and its
+ * durable memberships only after that historical tail has been applied.
+ */
+function replayLegacyMigrations(database: ReturnType<typeof createDatabase>): void {
+    const client = database.$client
+    const foreignKeysWereEnabled =
+        client.query<{ readonly foreign_keys: number }, []>('PRAGMA foreign_keys').get()
+            ?.foreign_keys === 1
+    client.run('PRAGMA foreign_keys = OFF')
+
+    try {
+        migrate(database, { migrationsFolder: defaultMigrationsFolder })
+    } finally {
+        client.run(`PRAGMA foreign_keys = ${foreignKeysWereEnabled ? 'ON' : 'OFF'}`)
+    }
+
+    seedMigrationUser(database)
+    client.exec(`
+        INSERT OR IGNORE INTO instance_memberships (
+            id, user_id, role, state, created_at, updated_at
+        )
+        SELECT
+            'instance-membership:' || users.id,
+            users.id,
+            'member',
+            'enabled',
+            users.created_at,
+            users.updated_at
+        FROM user AS users;
+        INSERT OR IGNORE INTO project_memberships (
+            id, project_id, user_id, role, state, created_at, updated_at
+        )
+        SELECT
+            'project-membership:' || actors.project_id || ':' || actors.subject_id,
+            actors.project_id,
+            actors.subject_id,
+            'owner',
+            'active',
+            min(actors.created_at),
+            min(actors.updated_at)
+        FROM actors
+        INNER JOIN user AS users ON users.id = actors.subject_id
+        WHERE actors.kind = 'human'
+        GROUP BY actors.project_id, actors.subject_id;
+        UPDATE instance_state
+        SET bootstrap_blocked = 0
+        WHERE id = 'default';
+    `)
 }
 
 function revertChannelLifecycleMigration(database: ReturnType<typeof createDatabase>) {
@@ -184,7 +247,11 @@ function revertAccessMigration(database: ReturnType<typeof createDatabase>) {
         DROP TABLE instance_state;
         PRAGMA foreign_keys=ON;
     `)
-    unapplyMigrations(database, ['0028_old_orphan', '0027_sour_kitty_pryde'])
+    unapplyMigrations(database, [
+        '0029_durable_project_memberships',
+        '0028_old_orphan',
+        '0027_sour_kitty_pryde',
+    ])
 }
 
 describe('database migrations', () => {
@@ -259,7 +326,186 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(29)
+            expect(migrationCount?.count).toBe(30)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('backfills a deterministic owner for a legacy project and is idempotent', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            seedMigrationUser(database)
+            database.$client
+                .query(
+                    `insert into instance_memberships
+                     (id, user_id, role, state, created_at, updated_at)
+                     values ('instance-membership:user-1', 'user-1', 'member', 'enabled', 1, 1)`
+                )
+                .run()
+
+            const manualStore = createManualStore(database, {
+                now: () => 1_800_000_000_000,
+            })
+            const project = manualStore.createProject({
+                name: 'Legacy membership backfill',
+                subjectId: 'user-1',
+                displayName: 'Migration User',
+            })
+
+            expect(
+                database.$client
+                    .query('select 1 from project_memberships where project_id = ?1')
+                    .get(project.project.id)
+            ).toBeNull()
+
+            unapplyMigrations(database, ['0029_durable_project_memberships'])
+            runMigrations(database)
+
+            expect(
+                database.$client
+                    .query<
+                        {
+                            id: string
+                            projectId: string
+                            userId: string
+                            role: string
+                            state: string
+                            createdAt: number
+                            updatedAt: number
+                        },
+                        [string]
+                    >(
+                        `select id,
+                                project_id as projectId,
+                                user_id as userId,
+                                role,
+                                state,
+                                created_at as createdAt,
+                                updated_at as updatedAt
+                         from project_memberships
+                         where project_id = ?1`
+                    )
+                    .get(project.project.id)
+            ).toEqual({
+                id: `project-membership:${project.project.id}:user-1`,
+                projectId: project.project.id,
+                userId: 'user-1',
+                role: 'owner',
+                state: 'active',
+                createdAt: 1_800_000_000_000,
+                updatedAt: 1_800_000_000_000,
+            })
+
+            runMigrations(database)
+
+            expect(
+                database.$client
+                    .query<{ count: number }, [string]>(
+                        'select count(*) as count from project_memberships where project_id = ?1'
+                    )
+                    .get(project.project.id)
+            ).toEqual({ count: 1 })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('leaves an existing project membership unchanged during the backfill', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            seedMigrationUser(database)
+            database.$client
+                .query(
+                    `insert into instance_memberships
+                     (id, user_id, role, state, created_at, updated_at)
+                     values ('instance-membership:user-1', 'user-1', 'member', 'enabled', 1, 1)`
+                )
+                .run()
+
+            const project = createManualStore(database, {
+                now: () => 1_800_000_000_000,
+            }).createProject({
+                name: 'Already migrated membership',
+                subjectId: 'user-1',
+                displayName: 'Migration User',
+            })
+            database.$client
+                .query(
+                    `insert into project_memberships
+                     (id, project_id, user_id, role, state, created_at, updated_at)
+                     values ('existing-membership', ?1, 'user-1', 'editor', 'active', 2, 3)`
+                )
+                .run(project.project.id)
+
+            unapplyMigrations(database, ['0029_durable_project_memberships'])
+            runMigrations(database)
+
+            expect(
+                database.$client
+                    .query<
+                        { id: string; role: string; createdAt: number; updatedAt: number },
+                        [string]
+                    >(
+                        `select id, role, created_at as createdAt, updated_at as updatedAt
+                         from project_memberships where project_id = ?1`
+                    )
+                    .get(project.project.id)
+            ).toEqual({ id: 'existing-membership', role: 'editor', createdAt: 2, updatedAt: 3 })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('fails closed and keeps unrecoverable or disabled legacy projects without owners', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            seedMigrationUser(database, 'disabled-user')
+            database.$client
+                .query(
+                    `insert into instance_memberships
+                     (id, user_id, role, state, created_at, updated_at)
+                     values ('instance-membership:disabled-user', 'disabled-user', 'member',
+                         'disabled', 1, 1)`
+                )
+                .run()
+
+            const manualStore = createManualStore(database, {
+                now: () => 1_800_000_000_000,
+            })
+            const disabledProject = manualStore.createProject({
+                name: 'Disabled owner project',
+                subjectId: 'disabled-user',
+                displayName: 'Disabled User',
+            })
+            const missingUserProject = manualStore.createProject({
+                name: 'Missing owner project',
+                subjectId: 'missing-user',
+                displayName: 'Missing User',
+            })
+
+            unapplyMigrations(database, ['0029_durable_project_memberships'])
+            const unresolvedProjects = [
+                `${disabledProject.project.id} (user disabled-user has a disabled instance membership)`,
+                `${missingUserProject.project.id} (project actor subject missing-user has no user row)`,
+            ].sort()
+            expect(() => runMigrations(database)).toThrow(
+                `Legacy project membership backfill could not recover durable owners for: ${unresolvedProjects.join(', ')}`
+            )
+
+            expect(
+                database.$client
+                    .query<{ count: number }, []>(
+                        'select count(*) as count from project_memberships'
+                    )
+                    .get()
+            ).toEqual({ count: 0 })
         } finally {
             closeDatabase(database)
         }
@@ -300,6 +546,7 @@ describe('database migrations', () => {
             revertAccessMigration(database)
             unapplyMigrations(database, ['0026_superb_red_ghost', '0025_acoustic_sentinel'])
 
+            replayLegacyMigrations(database)
             runMigrations(database)
 
             expect(
@@ -362,7 +609,7 @@ describe('database migrations', () => {
             revertAccessMigration(database)
             unapplyMigrations(database, ['0026_superb_red_ghost', '0025_acoustic_sentinel'])
 
-            expect(() => runMigrations(database)).toThrow()
+            expect(() => replayLegacyMigrations(database)).toThrow()
             expect(
                 database.$client
                     .query<{ recipientActorId: string }, []>(
@@ -423,6 +670,7 @@ describe('database migrations', () => {
                 '0023_normalize_orphan_provider_applications',
             ])
 
+            replayLegacyMigrations(database)
             runMigrations(database)
 
             const repaired = database.$client
@@ -504,6 +752,7 @@ describe('database migrations', () => {
                 )
                 .run('legacy-observation', project.project.id, 1_800_000_000_000)
 
+            replayLegacyMigrations(database)
             runMigrations(database)
 
             expect(
@@ -580,6 +829,7 @@ describe('database migrations', () => {
                 '0017_glossy_zuras',
                 '0018_gigantic_bromley',
             ])
+            replayLegacyMigrations(database)
             runMigrations(database)
 
             const migrated = database.$client
@@ -668,7 +918,7 @@ describe('database migrations', () => {
                 '0018_gigantic_bromley',
             ])
 
-            expect(() => runMigrations(staleDatabase)).toThrow()
+            expect(() => replayLegacyMigrations(staleDatabase)).toThrow()
         } finally {
             closeDatabase(staleDatabase)
         }

@@ -72,8 +72,18 @@ const accessSummarySchema = Type.Object({
     membership: Type.Union([instanceMembershipSchema, Type.Null()]),
     isAdmin: Type.Boolean(),
 })
+const instanceMembershipsSchema = Type.Object({
+    members: Type.Array(instanceMembershipSchema),
+})
 const invitationsSchema = Type.Object({ invitations: Type.Array(invitationSchema) })
 const invitationResponseSchema = Type.Object({ invitation: invitationSchema })
+const updateInstanceMembershipBody = Type.Object(
+    {
+        role: Type.Optional(Type.Union([Type.Literal('admin'), Type.Literal('member')])),
+        state: Type.Optional(Type.Union([Type.Literal('enabled'), Type.Literal('disabled')])),
+    },
+    { minProperties: 1 }
+)
 const createInvitationBody = Type.Object({
     targetEmail: Type.String({ minLength: 1, maxLength: 320 }),
     projectId: Type.Optional(Type.Union([Type.String({ minLength: 1 }), Type.Null()])),
@@ -89,6 +99,7 @@ const createInvitationBody = Type.Object({
 })
 const acceptInvitationBody = Type.Object({ token: Type.String({ minLength: 1 }) })
 const invitationParams = Type.Object({ invitationId: Type.String({ minLength: 1 }) })
+const instanceMemberParams = Type.Object({ userId: Type.String({ minLength: 1 }) })
 const createdInvitationSchema = Type.Object({
     invitation: invitationSchema,
     token: Type.String({ minLength: 1 }),
@@ -151,6 +162,87 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     membership: access.getInstanceMembership(user.id),
                     isAdmin: access.isInstanceAdmin(user.id),
                 }
+            }
+        )
+        .get(
+            '/api/access/members',
+            {
+                auth: true,
+                response: {
+                    200: instanceMembershipsSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                },
+                detail: {
+                    operationId: 'listAccessMembers',
+                    summary: 'List instance members',
+                    tags: ['Access'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, status, user }) => {
+                if (!isInstanceAdmin(authMethod, user.id, access)) {
+                    return status(403, forbiddenResponse())
+                }
+                return { members: access.listInstanceMemberships() }
+            }
+        )
+        .patch(
+            '/api/access/members/:userId',
+            {
+                auth: true,
+                body: updateInstanceMembershipBody,
+                params: instanceMemberParams,
+                response: {
+                    200: Type.Object({ membership: instanceMembershipSchema }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'updateAccessMember',
+                    summary: 'Update an instance member role or state',
+                    tags: ['Access'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (!isInstanceAdmin(authMethod, user.id, access)) {
+                    return status(403, forbiddenResponse())
+                }
+
+                const result = access.updateInstanceMembership({
+                    actorUserId: user.id,
+                    userId: params.userId,
+                    role: body.role,
+                    state: body.state,
+                })
+                if (result.kind === 'not_found') {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Instance member not found' },
+                    })
+                }
+                if (result.kind === 'last_admin') {
+                    return status(409, {
+                        error: {
+                            code: 'last_admin',
+                            message:
+                                'The last enabled instance administrator cannot be demoted or disabled',
+                        },
+                    })
+                }
+                if (result.kind === 'self_update') {
+                    return status(409, {
+                        error: {
+                            code: 'self_membership_update',
+                            message:
+                                'An instance administrator cannot demote or disable their own membership',
+                        },
+                    })
+                }
+                return { membership: result.membership }
             }
         )
         .get(

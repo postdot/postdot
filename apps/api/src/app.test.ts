@@ -613,6 +613,8 @@ describe('Herald API', () => {
                 '/health',
                 '/ready',
                 '/api/access',
+                '/api/access/members',
+                '/api/access/members/{userId}',
                 '/api/access/invitations',
                 '/api/access/invitations/{invitationId}',
                 '/api/access/invitations/accept',

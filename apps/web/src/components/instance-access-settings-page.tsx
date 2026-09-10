@@ -10,6 +10,13 @@ import {
 } from '@herald/ui/components/empty'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@herald/ui/components/select'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { CopyIcon } from '@solar-icons/react/bold/copy'
@@ -17,7 +24,17 @@ import { KeyMinimalisticIcon } from '@solar-icons/react/bold/key-minimalistic'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 import { useEffect, useState, type FormEvent } from 'react'
 
-import { api, ApiError, formatApiError, type AccessInvitation, type AccessSummary } from '@/lib/api'
+import {
+    api,
+    ApiError,
+    formatApiError,
+    type AccessInstanceMembership,
+    type AccessInstanceMembershipState,
+    type AccessInstanceMembershipUpdate,
+    type AccessInstanceRole,
+    type AccessInvitation,
+    type AccessSummary,
+} from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -39,6 +56,7 @@ export function InstanceAccessSettingsPage({
     const { locale } = useLanguage()
     const global = useDashboardGlobal()
     const [access, setAccess] = useState<AccessSummary | null>(null)
+    const [members, setMembers] = useState<AccessInstanceMembership[] | null>(null)
     const [invitations, setInvitations] = useState<AccessInvitation[] | null>(null)
     const [email, setEmail] = useState('')
     const [createdInvitation, setCreatedInvitation] = useState<CreatedInvitationView | null>(null)
@@ -53,6 +71,7 @@ export function InstanceAccessSettingsPage({
 
         async function load() {
             setAccess(null)
+            setMembers(null)
             setInvitations(null)
             setError(null)
             try {
@@ -60,9 +79,16 @@ export function InstanceAccessSettingsPage({
                 if (cancelled) return
                 setAccess(summary)
                 if (summary.isAdmin) {
-                    const response = await api.listAccessInvitations()
-                    if (!cancelled) setInvitations(response.invitations)
+                    const [memberResponse, invitationResponse] = await Promise.all([
+                        api.listAccessMembers(),
+                        api.listAccessInvitations(),
+                    ])
+                    if (!cancelled) {
+                        setMembers(memberResponse.members)
+                        setInvitations(invitationResponse.invitations)
+                    }
                 } else {
+                    setMembers([])
                     setInvitations([])
                 }
             } catch (caughtError) {
@@ -120,6 +146,27 @@ export function InstanceAccessSettingsPage({
                 current => current?.filter(invitation => invitation.id !== invitationId) ?? null
             )
             setNotice(m.access_invitation_revoked())
+        })
+    }
+
+    async function handleUpdateMember(userId: string, update: AccessInstanceMembershipUpdate) {
+        const member = members?.find(candidate => candidate.userId === userId)
+        if (
+            member === undefined ||
+            member.userId === access?.membership?.userId ||
+            pendingAction !== null
+        )
+            return
+
+        await runAction(`member:${userId}`, async () => {
+            const response = await api.updateAccessMember(userId, update)
+            setMembers(
+                current =>
+                    current?.map(candidate =>
+                        candidate.userId === userId ? response.membership : candidate
+                    ) ?? null
+            )
+            setNotice(m.access_member_updated())
         })
     }
 
@@ -277,6 +324,133 @@ export function InstanceAccessSettingsPage({
                                 <Badge variant="secondary">{m.access_role_admin()}</Badge>
                             </div>
 
+                            <div className="mt-6">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-sm font-medium">
+                                        {m.access_members_title()}
+                                    </h3>
+                                    {members ? (
+                                        <span className="text-xs text-muted-foreground">
+                                            {members.length}
+                                        </span>
+                                    ) : null}
+                                </div>
+
+                                {members === null ? (
+                                    <p className="mt-4 text-sm text-muted-foreground" role="status">
+                                        {m.access_instance_loading()}
+                                    </p>
+                                ) : members.length === 0 ? (
+                                    <p className="mt-4 text-sm text-muted-foreground">
+                                        {m.access_members_empty()}
+                                    </p>
+                                ) : (
+                                    <ul
+                                        className="mt-3 grid gap-2"
+                                        aria-label={m.access_members_title()}>
+                                        {members.map(member => {
+                                            const isCurrent =
+                                                member.userId === access.membership?.userId
+                                            const isPending =
+                                                pendingAction === `member:${member.userId}`
+
+                                            return (
+                                                <li
+                                                    className="flex flex-col gap-3 bg-muted/60 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between"
+                                                    key={member.userId}
+                                                    aria-busy={isPending}>
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="truncate text-sm font-medium">
+                                                                {member.name}
+                                                            </p>
+                                                            {isCurrent ? (
+                                                                <Badge variant="outline">
+                                                                    {m.access_current_member()}
+                                                                </Badge>
+                                                            ) : null}
+                                                        </div>
+                                                        <p className="truncate text-xs text-muted-foreground">
+                                                            {member.email}
+                                                        </p>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                                                        <Select
+                                                            value={member.role}
+                                                            onValueChange={value => {
+                                                                if (value !== null)
+                                                                    void handleUpdateMember(
+                                                                        member.userId,
+                                                                        {
+                                                                            role: value as AccessInstanceRole,
+                                                                        }
+                                                                    )
+                                                            }}>
+                                                            <SelectTrigger
+                                                                aria-label={m.access_member_role_label(
+                                                                    {
+                                                                        email: member.email,
+                                                                    }
+                                                                )}
+                                                                className="min-w-32"
+                                                                disabled={
+                                                                    isCurrent ||
+                                                                    pendingAction !== null
+                                                                }
+                                                                size="sm">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent align="start">
+                                                                <SelectItem value="admin">
+                                                                    {m.access_role_admin()}
+                                                                </SelectItem>
+                                                                <SelectItem value="member">
+                                                                    {m.access_role_member()}
+                                                                </SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <Select
+                                                            value={member.state}
+                                                            onValueChange={value => {
+                                                                if (value !== null)
+                                                                    void handleUpdateMember(
+                                                                        member.userId,
+                                                                        {
+                                                                            state: value as AccessInstanceMembershipState,
+                                                                        }
+                                                                    )
+                                                            }}>
+                                                            <SelectTrigger
+                                                                aria-label={m.access_member_state_label(
+                                                                    {
+                                                                        email: member.email,
+                                                                    }
+                                                                )}
+                                                                className="min-w-32"
+                                                                disabled={
+                                                                    isCurrent ||
+                                                                    pendingAction !== null
+                                                                }
+                                                                size="sm">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent align="start">
+                                                                <SelectItem value="enabled">
+                                                                    {m.access_state_enabled()}
+                                                                </SelectItem>
+                                                                <SelectItem value="disabled">
+                                                                    {m.access_state_disabled()}
+                                                                </SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </li>
+                                            )
+                                        })}
+                                    </ul>
+                                )}
+                            </div>
+
                             <form
                                 className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
                                 onSubmit={handleCreateInvitation}>
@@ -406,6 +580,8 @@ function formatInvitationExpiry(timestamp: number, locale: string) {
 
 function accessErrorMessage(error: unknown) {
     if (error instanceof ApiError) {
+        if (error.code === 'last_admin') return m.access_last_admin()
+        if (error.code === 'self_membership_update') return m.access_self_membership_update()
         if (error.code === 'invalid_invitation') return m.access_invalid_invitation()
         if (error.code === 'invitation_not_pending') return m.access_invitation_not_pending()
     }

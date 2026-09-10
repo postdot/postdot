@@ -101,6 +101,10 @@ export interface AccessInstanceMembership {
     readonly updatedAt: number
 }
 
+export type AccessInstanceMembershipUpdate = Partial<
+    Pick<AccessInstanceMembership, 'role' | 'state'>
+>
+
 export interface AccessProjectMembership {
     readonly id: string
     readonly projectId: string
@@ -283,6 +287,20 @@ export const api = {
 
     async getInstanceAccess(): Promise<AccessSummary> {
         return requestAuth<AccessSummary>('/api/access')
+    },
+
+    async listAccessMembers(): Promise<{ members: AccessInstanceMembership[] }> {
+        return requestAuth<{ members: AccessInstanceMembership[] }>('/api/access/members')
+    },
+
+    async updateAccessMember(
+        userId: string,
+        input: AccessInstanceMembershipUpdate
+    ): Promise<{ membership: AccessInstanceMembership }> {
+        return requestAuth<{ membership: AccessInstanceMembership }>(
+            `/api/access/members/${encodeURIComponent(userId)}`,
+            jsonBody(input, 'PATCH')
+        )
     },
 
     async listAccessInvitations(): Promise<{ invitations: AccessInvitation[] }> {

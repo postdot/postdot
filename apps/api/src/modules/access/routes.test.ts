@@ -153,8 +153,20 @@ async function bearerRequest(app: ReturnType<typeof createApp>, path: string, to
     )
 }
 
+async function bearerJsonRequest(
+    app: ReturnType<typeof createApp>,
+    path: string,
+    token: string,
+    init: RequestInit = {}
+) {
+    const headers = new Headers(init.headers)
+    headers.set('authorization', `Bearer ${token}`)
+    if (init.body !== undefined) headers.set('content-type', 'application/json')
+    return app.handle(new Request(`${baseURL}${path}`, { ...init, headers }))
+}
+
 describe('access HTTP routes', () => {
-    it('publishes the four access paths with session security and typed status responses', async () => {
+    it('publishes access paths with session security and typed status responses', async () => {
         const { app, database } = createFixture()
 
         try {
@@ -169,6 +181,7 @@ describe('access HTTP routes', () => {
             expect(Object.keys(specification.paths)).toEqual(
                 expect.arrayContaining([
                     '/api/access',
+                    '/api/access/members',
                     '/api/access/invitations',
                     '/api/access/invitations/{invitationId}',
                     '/api/access/invitations/accept',
@@ -176,6 +189,12 @@ describe('access HTTP routes', () => {
             )
             expect(specification.paths['/api/access']?.get?.operationId).toBe(
                 'getCurrentInstanceAccess'
+            )
+            expect(specification.paths['/api/access/members']?.get?.operationId).toBe(
+                'listAccessMembers'
+            )
+            expect(specification.paths['/api/access/members/{userId}']?.patch?.operationId).toBe(
+                'updateAccessMember'
             )
             expect(specification.paths['/api/access/invitations']?.get?.operationId).toBe(
                 'listAccessInvitations'
@@ -251,6 +270,175 @@ describe('access HTTP routes', () => {
                     .status
             ).toBe(403)
             expect((await bearerRequest(app, '/api/categories', token.token)).status).toBe(403)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('lists and updates members only for admin sessions while preserving admin safety', async () => {
+        const { access, accessTokens, app, database } = createFixture()
+
+        try {
+            const adminCookie = await signUp(app, 'admin@herald.local')
+            const adminId = access.listInstanceMemberships()[0]?.userId
+            expect(adminId).toBeString()
+            if (adminId === undefined) throw new Error('The bootstrap admin was not created')
+
+            const memberId = await seedExistingUser(database, 'member@herald.local', 'Member')
+            const memberCookie = await signIn(app, 'member@herald.local')
+            const invitationResponse = await jsonRequest(
+                app,
+                '/api/access/invitations',
+                adminCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ targetEmail: 'member@herald.local' }),
+                }
+            )
+            expect(invitationResponse.status).toBe(201)
+            const invitation = (await invitationResponse.json()) as { token: string }
+            const accepted = await jsonRequest(
+                app,
+                '/api/access/invitations/accept',
+                memberCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ token: invitation.token }),
+                }
+            )
+            expect(accepted.status).toBe(200)
+
+            const listed = await jsonRequest(app, '/api/access/members', adminCookie)
+            expect(listed.status).toBe(200)
+            expect(await listed.json()).toMatchObject({
+                members: expect.arrayContaining([
+                    expect.objectContaining({
+                        userId: adminId,
+                        email: 'admin@herald.local',
+                        name: 'admin',
+                        role: 'admin',
+                        state: 'enabled',
+                    }),
+                    expect.objectContaining({
+                        userId: memberId,
+                        email: 'member@herald.local',
+                        name: 'Member',
+                        role: 'member',
+                        state: 'enabled',
+                    }),
+                ]),
+            })
+
+            expect((await jsonRequest(app, '/api/access/members', memberCookie)).status).toBe(403)
+            expect(
+                (
+                    await jsonRequest(app, `/api/access/members/${adminId}`, memberCookie, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ role: 'member' }),
+                    })
+                ).status
+            ).toBe(403)
+
+            const projectResponse = await jsonRequest(app, '/api/projects', adminCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Member administration project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const project = (await projectResponse.json()) as { project: { id: string } }
+            const token = accessTokens.create({
+                projectId: project.project.id,
+                subjectId: adminId,
+                name: 'member-administration-test',
+            })
+            expect(token).not.toBeNull()
+            if (token === null) throw new Error('The project token was not created')
+
+            expect((await bearerRequest(app, '/api/access/members', token.token)).status).toBe(403)
+            expect(
+                (
+                    await bearerJsonRequest(app, `/api/access/members/${memberId}`, token.token, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ role: 'admin' }),
+                    })
+                ).status
+            ).toBe(403)
+
+            const promoted = await jsonRequest(
+                app,
+                `/api/access/members/${memberId}`,
+                adminCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'admin' }),
+                }
+            )
+            expect(promoted.status).toBe(200)
+            const promotedBody = await promoted.json()
+            expect(promotedBody).toMatchObject({
+                membership: { userId: memberId, role: 'admin', state: 'enabled' },
+            })
+
+            const repeated = await jsonRequest(
+                app,
+                `/api/access/members/${memberId}`,
+                adminCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'admin' }),
+                }
+            )
+            expect(repeated.status).toBe(200)
+            expect(await repeated.json()).toEqual(promotedBody)
+
+            const selfUpdate = await jsonRequest(
+                app,
+                `/api/access/members/${adminId}`,
+                adminCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'member' }),
+                }
+            )
+            expect(selfUpdate.status).toBe(409)
+            expect(await selfUpdate.json()).toMatchObject({
+                error: { code: 'self_membership_update' },
+            })
+
+            const demoted = await jsonRequest(app, `/api/access/members/${memberId}`, adminCookie, {
+                method: 'PATCH',
+                body: JSON.stringify({ role: 'member' }),
+            })
+            expect(demoted.status).toBe(200)
+
+            const disabled = await jsonRequest(
+                app,
+                `/api/access/members/${memberId}`,
+                adminCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ state: 'disabled' }),
+                }
+            )
+            expect(disabled.status).toBe(200)
+            expect(await disabled.json()).toMatchObject({
+                membership: { userId: memberId, role: 'member', state: 'disabled' },
+            })
+
+            const lastAdmin = await jsonRequest(
+                app,
+                `/api/access/members/${adminId}`,
+                adminCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ state: 'disabled' }),
+                }
+            )
+            expect(lastAdmin.status).toBe(409)
+            expect(await lastAdmin.json()).toMatchObject({ error: { code: 'last_admin' } })
+            expect(access.getInstanceMembership(adminId)).toMatchObject({
+                role: 'admin',
+                state: 'enabled',
+            })
         } finally {
             closeDatabase(database)
         }

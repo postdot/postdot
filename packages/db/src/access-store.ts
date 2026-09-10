@@ -100,6 +100,19 @@ export interface CreateAccessInvitationInput {
     readonly expiresAt?: number
 }
 
+export interface UpdateInstanceMembershipInput {
+    readonly actorUserId: string
+    readonly userId: string
+    readonly role?: AccessInstanceRole
+    readonly state?: AccessInstanceMembershipState
+}
+
+export type UpdateInstanceMembershipResult =
+    | { readonly kind: 'updated'; readonly membership: AccessInstanceMembership }
+    | { readonly kind: 'not_found' }
+    | { readonly kind: 'last_admin' }
+    | { readonly kind: 'self_update' }
+
 export type CreateAccessInvitationResult =
     | CreatedAccessInvitation
     | { readonly kind: 'project_not_found' }
@@ -331,6 +344,26 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         inner join user as users on users.id = memberships.user_id
         order by memberships.created_at, memberships.id
     `)
+    const countEnabledInstanceAdminsStatement = client.query<{ readonly count: number }, []>(`
+        select count(*) as count
+        from instance_memberships
+        where role = 'admin' and state = 'enabled'
+    `)
+    const updateInstanceMembershipStatement = client.query<
+        { readonly changes: number },
+        [
+            role: AccessInstanceRole,
+            state: AccessInstanceMembershipState,
+            updatedAt: number,
+            userId: string,
+        ]
+    >(`
+        update instance_memberships
+        set role = ?1,
+            state = ?2,
+            updated_at = ?3
+        where user_id = ?4
+    `)
     const loadProjectMembershipStatement = client.query<
         ProjectMembershipRow,
         [projectId: string, userId: string]
@@ -524,6 +557,54 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             claimFirstAccountInCurrentTransaction(input)
     )
 
+    const updateInstanceMembershipTransaction = client.transaction(
+        (input: UpdateInstanceMembershipInput): UpdateInstanceMembershipResult => {
+            const actorUserId = requireNonBlank(input.actorUserId, 'actorUserId')
+            const userId = requireNonBlank(input.userId, 'userId')
+            if (input.role === undefined && input.state === undefined) {
+                throw new Error('At least one instance membership field must be provided')
+            }
+
+            const existing = loadInstanceMembershipStatement.get(userId)
+            if (existing === null) return { kind: 'not_found' }
+
+            const role = input.role ?? existing.role
+            const state = input.state ?? existing.state
+            if (role === existing.role && state === existing.state) {
+                return { kind: 'updated', membership: toInstanceMembership(existing) }
+            }
+
+            const isRemovingEnabledAdmin =
+                existing.role === 'admin' &&
+                existing.state === 'enabled' &&
+                (role !== 'admin' || state !== 'enabled')
+            if (
+                isRemovingEnabledAdmin &&
+                (countEnabledInstanceAdminsStatement.get()?.count ?? 0) <= 1
+            ) {
+                return { kind: 'last_admin' }
+            }
+
+            if (
+                actorUserId === userId &&
+                existing.role === 'admin' &&
+                existing.state === 'enabled'
+            ) {
+                return { kind: 'self_update' }
+            }
+
+            const timestamp = now()
+            const update = updateInstanceMembershipStatement.run(role, state, timestamp, userId)
+            if (update.changes !== 1) return { kind: 'not_found' }
+
+            const membership = loadInstanceMembershipStatement.get(userId)
+            if (membership === null) {
+                throw new Error('The instance membership was not persisted')
+            }
+            return { kind: 'updated', membership: toInstanceMembership(membership) }
+        }
+    )
+
     const createInvitationTransaction = client.transaction(
         (input: CreateAccessInvitationInput): CreateAccessInvitationResult => {
             const targetEmail = normalizeEmail(input.targetEmail)
@@ -670,6 +751,12 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                 userId,
                 timestamp
             )
+        },
+
+        updateInstanceMembership(
+            input: UpdateInstanceMembershipInput
+        ): UpdateInstanceMembershipResult {
+            return updateInstanceMembershipTransaction(input)
         },
 
         getInstanceMembership(userId: string): AccessInstanceMembership | null {

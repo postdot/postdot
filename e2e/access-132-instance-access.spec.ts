@@ -12,6 +12,10 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     await expect(page.getByRole('heading', { name: 'Instance access', exact: true })).toBeVisible()
     await expect(page.getByText('Administrator', { exact: true }).first()).toBeVisible()
     await expect(page.getByRole('link', { name: 'Members', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
+    await expect(page.getByText(account.email, { exact: true }).first()).toBeVisible()
+    await expect(page.getByRole('combobox', { name: `Role for ${account.email}` })).toBeDisabled()
+    await expect(page.getByRole('combobox', { name: `Status for ${account.email}` })).toBeDisabled()
 
     const pendingEmail = `pending-${suffix}@herald.local`
     await page.getByLabel('Email', { exact: true }).fill(pendingEmail)
