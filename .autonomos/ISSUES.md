@@ -1248,7 +1248,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-053] Define project categories and publication tags
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: Herald needs a way to organize publications beyond their channel,
   schedule, and lifecycle state. Categories and tags have been identified as
   useful product concepts, but their ownership, semantics, and query behavior
@@ -1262,6 +1262,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
   The design must remain useful for projects with many publications without
   turning organization into a second content model.
 - Tasks: TAXONOMY-101
+- Related decision: ADR-062
+- Resolution: ADR-062 accepts one optional instance-scoped primary category per
+  project and zero or more project-scoped tags per publication. Stable opaque
+  identifiers, normalized uniqueness, archive/restore, and all-selected-tags
+  filtering are the V1 boundaries. Runtime implementation remains a separate
+  follow-up and no provider hashtag behavior is inferred from these labels.
 
 ## [ISSUE-054] Define an analytics foundation without coupling Herald to provider dashboards
 
@@ -1409,7 +1415,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-058] Add a replayable analytics projection beyond the interactive envelope
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: ANALYTICS-111 establishes a provisional query-time envelope of 5,000
   publications / 20,000 historical facts per interactive request. Larger
   histories can still be read, but repeated reads retain material process RSS
@@ -1429,7 +1435,13 @@ channels` with a foreign-key constraint error even though a fresh empty database
   contract, add provider engagement metrics, or introduce an external service.
 - Tasks: ANALYTICS-113
 - Related issues: ISSUE-054, ISSUE-055, ISSUE-057
-- Related decisions: ADR-053, ADR-054
+- Related decisions: ADR-053, ADR-054, ADR-060
+- Resolution: ADR-060 defines the accepted replay boundary: SQLite remains the
+  source of truth, the projection is versioned and rebuildable from the durable
+  journal, cursor advancement and facts are idempotent, and freshness,
+  retention, crash recovery, and coverage are explicit. This merge records the
+  design only; no projection runtime or DuckDB dependency is introduced before
+  a representative workload justifies it.
 
 ## [ISSUE-059] Remove runtime friction from provider application configuration
 
@@ -1640,7 +1652,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-062] Define Herald human account, instance administration, and invitation policy
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: Herald currently supports local email/password account creation and
   human sessions, while project ownership initially belongs to the creating user.
   `ISSUE-013` and ADR-030 deliberately deferred memberships and invitations, but
@@ -1666,4 +1678,10 @@ channels` with a foreign-key constraint error even though a fresh empty database
   project-scoped machine-token contract.
 - Tasks: ACCESS-116
 - Related issues: ISSUE-013, ISSUE-059
-- Related decisions: ADR-012, ADR-030, ADR-056
+- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061
+- Resolution: ADR-061 establishes the local single-operator bootstrap and the
+  shared self-hosted boundary: the first account claims an empty instance and
+  becomes its administrator, later registration is closed by default, instance
+  and project membership are distinct, and invitations can use hashed tokens
+  without requiring SMTP. Account recovery and credential preservation remain
+  explicit boundaries; implementation is deferred to a later task.
