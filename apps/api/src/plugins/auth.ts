@@ -13,7 +13,9 @@ export interface AuthenticatedElysiaOptions {
 }
 
 type HeraldAuthSession = NonNullable<Awaited<ReturnType<HeraldAuth['api']['getSession']>>>
-export type HeraldAuthenticatedUser = Pick<HeraldAuthSession['user'], 'id' | 'name'>
+export type HeraldAuthenticatedUser = Pick<HeraldAuthSession['user'], 'id' | 'name'> & {
+    readonly email: string | null
+}
 export type HeraldAuthenticationMethod = 'session' | 'project_token'
 
 function createProjectTokenUser(
@@ -22,6 +24,7 @@ function createProjectTokenUser(
     return {
         id: authentication.subjectId,
         name: authentication.displayName,
+        email: null,
     }
 }
 
@@ -55,6 +58,7 @@ function createAuthenticatedElysiaContract(auth: HeraldAuth) {
                     user: {
                         id: session.user.id,
                         name: session.user.name,
+                        email: session.user.email,
                     },
                     session: session.session as HeraldAuthSession['session'] | null,
                     authMethod: 'session' as HeraldAuthenticationMethod,
@@ -110,6 +114,7 @@ export function createAuthenticatedElysia(
                     user: {
                         id: session.user.id,
                         name: session.user.name,
+                        email: session.user.email,
                     },
                     session: session.session,
                     authMethod: 'session' as const,

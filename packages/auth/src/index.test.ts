@@ -81,6 +81,63 @@ describe('Herald authentication', () => {
         }
     })
 
+    it('closes public signup after bootstrap while keeping the first account usable', async () => {
+        const { auth, database } = createFixture()
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+        const password = 'correct-horse-battery-staple'
+
+        try {
+            const firstSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'first@herald.local',
+                        name: 'First Herald Operator',
+                        password,
+                    }),
+                })
+            )
+            expect(firstSignup.status).toBe(200)
+
+            const secondSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'second@herald.local',
+                        name: 'Second Herald Operator',
+                        password,
+                    }),
+                })
+            )
+            expect(secondSignup.status).toBe(400)
+            expect(await secondSignup.json()).toMatchObject({
+                code: 'FAILED_TO_CREATE_USER',
+            })
+
+            const signIn = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-in/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'first@herald.local',
+                        password,
+                    }),
+                })
+            )
+            expect(signIn.status).toBe(200)
+            expect(await signIn.json()).toMatchObject({
+                user: { email: 'first@herald.local' },
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('exposes only the email and password strategy', () => {
         const { database } = createFixture()
         const configured = createAuth(database, { baseURL, secret })

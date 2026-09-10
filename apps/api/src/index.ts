@@ -3,6 +3,7 @@ import { createCustomHttpTransport, createNetworkControlledFetcher } from '@hera
 import {
     closeDatabase,
     createDatabase,
+    createAccessStore,
     createMediaAssetStore,
     createNotificationStore,
     createProjectAccessTokenStore,
@@ -81,6 +82,7 @@ async function startServer(config = createHeraldConfig()) {
     const database = createDatabase(config.database.fileName)
     runMigrations(database, config.database.migrationsDirectory)
     const accessTokens = createProjectAccessTokenStore(database)
+    const access = createAccessStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
     const realtime = createProjectRealtimeRuntime({
@@ -108,6 +110,9 @@ async function startServer(config = createHeraldConfig()) {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
         trustedOrigins: [config.web.origin],
+        access,
+        allowAdditionalSignups:
+            Bun.env.NODE_ENV === 'test' && Bun.env.HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true',
     })
     const mastodonFetcher = createNetworkControlledFetcher({
         privateDestinations: config.network.privateDestinations,
@@ -175,6 +180,7 @@ async function startServer(config = createHeraldConfig()) {
         logging: config.logging,
         onWorkScheduled: worker.replan,
         accessTokens,
+        access,
         notifications,
         projectChanges: realtime.hub,
         userChanges: realtime.userHub,

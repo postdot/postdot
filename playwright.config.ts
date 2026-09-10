@@ -26,6 +26,7 @@ const apiEnvironment = {
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     HERALD_PUBLISHER_ENCRYPTION_KEY_ID: 'e2e-v1',
     HERALD_WEB_ORIGIN: webOrigin,
+    HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS: 'true',
     LOG_LEVEL: 'silent',
     LOG_PRETTY: 'false',
 } as const

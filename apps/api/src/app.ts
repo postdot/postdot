@@ -7,6 +7,7 @@ import {
     createEventJournalStore,
     createNotificationStore,
     createProviderAnalyticsStore,
+    createAccessStore,
     createTaxonomyStore,
     type HeraldDatabase,
     type ManualStoreOptions,
@@ -14,6 +15,7 @@ import {
     type ProjectAccessTokenStore,
     type NotificationStore,
     type AnalyticsStore,
+    type AccessStore,
     type ProviderAnalyticsStore,
     type TaxonomyStore,
 } from '@herald/db'
@@ -46,6 +48,8 @@ export interface HeraldAppOptions {
     readonly devtoFetcher?: DevtoFetcher
     readonly runtime?: HealthRoutesOptions['runtime']
     readonly accessTokens?: ProjectAccessTokenStore
+    /** The shared Herald instance access store. */
+    readonly access?: AccessStore
     readonly notifications?: NotificationStore
     readonly analytics?: AnalyticsStore
     readonly providerAnalytics?: ProviderAnalyticsStore
@@ -68,6 +72,7 @@ function createDomainApp({
     onWorkScheduled,
     runtime,
     accessTokens,
+    access,
     notifications,
     analytics,
     providerAnalytics,
@@ -80,6 +85,7 @@ function createDomainApp({
     discordFetcher,
     devtoFetcher,
 }: HeraldAppOptions) {
+    const accessStore = access ?? createAccessStore(database)
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
         media,
@@ -136,6 +142,7 @@ function createDomainApp({
                     security: [{ bearerAuth: [] }, { sessionCookie: [] }],
                     tags: [
                         { name: 'System', description: 'Service health and runtime information.' },
+                        { name: 'Access', description: 'Instance membership and invitations.' },
                         { name: 'Projects', description: 'Project lifecycle and access.' },
                         { name: 'Channels', description: 'Project publication destinations.' },
                         { name: 'Posts', description: 'Source posts and publication creation.' },
@@ -182,6 +189,7 @@ function createDomainApp({
                 discordFetcher,
                 devtoFetcher,
                 accessTokens,
+                access: accessStore,
                 notifications: notificationStore,
                 analytics: analyticsStore,
                 providerAnalytics: providerAnalyticsStore,
@@ -215,6 +223,7 @@ export function createApp({
     onWorkScheduled,
     runtime,
     accessTokens,
+    access,
     notifications,
     analytics,
     providerAnalytics,
@@ -238,6 +247,7 @@ export function createApp({
         onWorkScheduled,
         runtime,
         accessTokens,
+        access,
         notifications,
         analytics,
         providerAnalytics,

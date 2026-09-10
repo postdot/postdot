@@ -111,6 +111,18 @@ export {
 export { createProjectAccessTokenStore } from './project-access-token-store'
 export { createTaxonomyStore } from './taxonomy-store'
 export {
+    accessInstanceId,
+    createAccessStore,
+    defaultInvitationTtlMs,
+    instanceMembershipStates,
+    instanceRoles,
+    instanceStates,
+    invitationStates,
+    maximumInvitationTtlMs,
+    projectMembershipStates,
+    projectRoles,
+} from './access-store'
+export {
     createAuthorizationAttemptStore,
     defaultAuthorizationAttemptTtlMs,
     maximumAuthorizationAttemptTtlMs,
@@ -161,6 +173,28 @@ export type {
     UpdateProviderApplicationInput,
     UpdateProviderApplicationResult,
 } from './provider-application-store'
+export type {
+    AcceptAccessInvitationResult,
+    AccessInstanceMembership,
+    AccessInstanceMembershipState,
+    AccessInstanceRole,
+    AccessInstanceState,
+    AccessInstanceStateRecord,
+    AccessInvitation,
+    AccessInvitationState,
+    AccessMigrationReport,
+    AccessProjectMembership,
+    AccessProjectMembershipState,
+    AccessProjectRole,
+    AccessStore,
+    AccessStoreOptions,
+    BootstrapFirstAccountInput,
+    BootstrapFirstAccountResult,
+    CreateAccessInvitationInput,
+    CreateAccessInvitationResult,
+    CreatedAccessInvitation,
+    RevokeAccessInvitationResult,
+} from './access-store'
 export type {
     AuthorizationAttempt,
     AuthorizationAttemptStoreOptions,

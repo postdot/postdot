@@ -169,6 +169,24 @@ function revertTaxonomyMigration(database: ReturnType<typeof createDatabase>) {
     `)
 }
 
+/**
+ * Older migration fixtures replay a tail of the migration history after
+ * deleting its journal rows. Keep the new access foundation out of those
+ * legacy-shaped schemas so the fixture can exercise the intended migration
+ * again instead of leaving a hole behind newer journal entries.
+ */
+function revertAccessMigration(database: ReturnType<typeof createDatabase>) {
+    database.$client.exec(`
+        PRAGMA foreign_keys=OFF;
+        DROP TABLE access_invitations;
+        DROP TABLE project_memberships;
+        DROP TABLE instance_memberships;
+        DROP TABLE instance_state;
+        PRAGMA foreign_keys=ON;
+    `)
+    unapplyMigrations(database, ['0028_old_orphan', '0027_sour_kitty_pryde'])
+}
+
 describe('database migrations', () => {
     it('applies the committed migration exactly once', () => {
         const database = createDatabase(':memory:')
@@ -189,11 +207,14 @@ describe('database migrations', () => {
 
             expect(tables).toEqual([
                 '__drizzle_migrations',
+                'access_invitations',
                 'account',
                 'actors',
                 'audit_events',
                 'channel_profile_versions',
                 'channels',
+                'instance_memberships',
+                'instance_state',
                 'jobs',
                 'media_assets',
                 'media_backup_fences',
@@ -212,6 +233,7 @@ describe('database migrations', () => {
                 'posts',
                 'project_access_tokens',
                 'project_categories',
+                'project_memberships',
                 'project_tags',
                 'projects',
                 'provider_analytics_observations',
@@ -237,7 +259,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(27)
+            expect(migrationCount?.count).toBe(29)
         } finally {
             closeDatabase(database)
         }
@@ -275,6 +297,7 @@ describe('database migrations', () => {
                 )
                 .run(project.project.id, project.actor.id, 1_800_000_000_000)
             revertTaxonomyMigration(database)
+            revertAccessMigration(database)
             unapplyMigrations(database, ['0026_superb_red_ghost', '0025_acoustic_sentinel'])
 
             runMigrations(database)
@@ -336,6 +359,7 @@ describe('database migrations', () => {
                 )
                 .run(project.project.id, 1_800_000_000_000)
             revertTaxonomyMigration(database)
+            revertAccessMigration(database)
             unapplyMigrations(database, ['0026_superb_red_ghost', '0025_acoustic_sentinel'])
 
             expect(() => runMigrations(database)).toThrow()
@@ -391,6 +415,7 @@ describe('database migrations', () => {
             database.$client.run('PRAGMA foreign_keys=ON')
             database.$client.exec('DROP TABLE notification_user_preferences')
             revertTaxonomyMigration(database)
+            revertAccessMigration(database)
             unapplyMigrations(database, [
                 '0026_superb_red_ghost',
                 '0025_acoustic_sentinel',
@@ -437,6 +462,7 @@ describe('database migrations', () => {
             })
 
             database.$client.exec('DROP TABLE provider_analytics_observations')
+            revertAccessMigration(database)
             unapplyMigrations(database, ['0021_thankful_jack_power'])
             database.$client.exec(`
                 CREATE TABLE provider_analytics_observations (
@@ -531,6 +557,7 @@ describe('database migrations', () => {
             revertEventJournalMigration(database)
             revertProviderApplicationMigration(database)
             revertTaxonomyMigration(database)
+            revertAccessMigration(database)
             unapplyMigrations(database, [
                 '0026_superb_red_ghost',
                 '0025_acoustic_sentinel',
@@ -617,6 +644,7 @@ describe('database migrations', () => {
             revertEventJournalMigration(staleDatabase)
             revertProviderApplicationMigration(staleDatabase)
             revertTaxonomyMigration(staleDatabase)
+            revertAccessMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
                 '0026_superb_red_ghost',
                 '0025_acoustic_sentinel',

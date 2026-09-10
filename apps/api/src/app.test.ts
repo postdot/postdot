@@ -5,6 +5,7 @@ import { createAuth } from '@herald/auth'
 import type { ChannelProfileDefinition } from '@herald/core'
 import {
     closeDatabase,
+    createAccessStore,
     createDatabase,
     createEventJournalStore,
     createNotificationStore,
@@ -107,11 +108,13 @@ function createFixture(
             handleResolver: 'https://bsky.social',
         },
     })
-    const auth = createAuth(database, { baseURL, secret })
+    const access = createAccessStore(database, { now: () => now })
+    const auth = createAuth(database, { baseURL, secret, access })
     const accessTokens = createProjectAccessTokenStore(database, { now: () => now })
     const notifications = createNotificationStore(database, { now: () => now + 1_000 })
     const app = createApp({
         auth,
+        access,
         database,
         publisher,
         manualStore: { now: () => now },
@@ -142,6 +145,73 @@ async function signUp(app: ReturnType<typeof createApp>, email = 'operator@heral
     expect(response.status).toBe(200)
     expect(cookie).toBeDefined()
     return cookie ?? ''
+}
+
+/**
+ * Test-only fixture for a second already-provisioned user. The production
+ * signup endpoint intentionally remains closed after bootstrap until
+ * invitation-based account creation gets its own transaction seam. Temporarily
+ * reopening the empty bootstrap marker lets Better Auth create a correctly
+ * signed session cookie, then the helper restores the original owner.
+ */
+async function signUpFixtureAdditionalUser(
+    app: ReturnType<typeof createApp>,
+    database: ReturnType<typeof createDatabase>,
+    email: string
+) {
+    const owner = database.$client
+        .query<{ readonly userId: string }, []>(
+            `select claimed_by_user_id as userId from instance_state where id = 'default'`
+        )
+        .get()
+    if (owner === null) throw new Error('The bootstrap owner is missing')
+
+    database.$client
+        .query(
+            `update instance_state
+             set state = 'claimable', bootstrap_blocked = 0,
+                 claimed_by_user_id = null, claimed_at = null
+             where id = 'default'`
+        )
+        .run()
+
+    try {
+        const cookie = await signUp(app, email)
+        const member = database.$client
+            .query<{ readonly userId: string }, [email: string]>(
+                `select id as userId from user where email = ?1`
+            )
+            .get(email)
+        if (member === null) throw new Error('The fixture user was not created')
+
+        database.$client
+            .query(
+                `update instance_state
+                 set state = 'claimed', bootstrap_blocked = 0,
+                     claimed_by_user_id = ?1, claimed_at = ?2
+                 where id = 'default'`
+            )
+            .run(owner.userId, now)
+        database.$client
+            .query(
+                `update instance_memberships
+                 set role = 'member', updated_at = ?1
+                 where user_id = ?2`
+            )
+            .run(now, member.userId)
+
+        return cookie
+    } catch (error) {
+        database.$client
+            .query(
+                `update instance_state
+                 set state = 'claimed', bootstrap_blocked = 0,
+                     claimed_by_user_id = ?1, claimed_at = ?2
+                 where id = 'default'`
+            )
+            .run(owner.userId, now)
+        throw error
+    }
 }
 
 async function jsonRequest(
@@ -542,6 +612,10 @@ describe('Herald API', () => {
             expect(Object.keys(specification.paths)).toEqual([
                 '/health',
                 '/ready',
+                '/api/access',
+                '/api/access/invitations',
+                '/api/access/invitations/{invitationId}',
+                '/api/access/invitations/accept',
                 '/api/settings/provider-applications',
                 '/api/settings/provider-applications/{applicationId}',
                 '/api/projects',
@@ -1374,7 +1448,11 @@ describe('Herald API', () => {
                 },
             })
 
-            const otherCookie = await signUp(app, 'other-realtime-operator@herald.local')
+            const otherCookie = await signUpFixtureAdditionalUser(
+                app,
+                database,
+                'other-realtime-operator@herald.local'
+            )
             const otherProjectResponse = await jsonRequest(app, '/api/projects', otherCookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Other realtime project' }),
@@ -2541,6 +2619,17 @@ describe('Herald API', () => {
             )
             expect(duplicateResponse.status).toBe(409)
 
+            database.$client.exec(`
+                update instance_state
+                set state = 'claimable',
+                    bootstrap_blocked = 0,
+                    claimed_by_user_id = null,
+                    claimed_at = null
+                where id = 'default';
+                delete from access_invitations;
+                delete from project_memberships;
+                delete from instance_memberships;
+            `)
             database.delete(authUser).run()
             expect(database.select().from(publisherCredentials).all()).toHaveLength(1)
 
@@ -2955,6 +3044,17 @@ describe('Herald API', () => {
             )
             expect(duplicateResponse.status).toBe(409)
 
+            database.$client.exec(`
+                update instance_state
+                set state = 'claimable',
+                    bootstrap_blocked = 0,
+                    claimed_by_user_id = null,
+                    claimed_at = null
+                where id = 'default';
+                delete from access_invitations;
+                delete from project_memberships;
+                delete from instance_memberships;
+            `)
             database.delete(authUser).run()
             expect(database.select().from(publisherCredentials).all()).toHaveLength(1)
 
@@ -3085,7 +3185,11 @@ describe('Herald API', () => {
                 'http://localhost:5173/dashboard?publisher=invalid_callback'
             )
 
-            const secondCookie = await signUp(app, 'x-second-operator@herald.local')
+            const secondCookie = await signUpFixtureAdditionalUser(
+                app,
+                database,
+                'x-second-operator@herald.local'
+            )
             const mismatchedResponse = await callback(
                 'authorization-code',
                 firstState,

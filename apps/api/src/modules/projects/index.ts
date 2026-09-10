@@ -2,6 +2,7 @@ import type { HeraldAuth } from '@herald/auth'
 import type { BlueskyFetcher } from '@herald/bluesky'
 import type {
     AnalyticsStore,
+    AccessStore,
     EventJournalStore,
     MediaAssetStore,
     NotificationStore,
@@ -14,6 +15,7 @@ import type { DiscordFetcher } from '@herald/discord'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
+import { registerAccessRoutes } from '../access/routes'
 import { registerMediaRoutes } from '../media/routes'
 import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
 import { registerProjectAccessTokenRoutes } from './access-token-routes'
@@ -43,6 +45,7 @@ export interface ProjectModuleOptions {
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly accessTokens?: ProjectAccessTokenStore
+    readonly access: AccessStore
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
     readonly providerAnalytics: ProviderAnalyticsStore
@@ -59,12 +62,14 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
         authenticateProjectAccessToken: options.accessTokens?.authenticate,
     })
+    const accessRoutes = registerAccessRoutes(authenticated, options.access)
     const providerApplicationRoutes = registerProviderApplicationRoutes(
-        authenticated,
-        options.publisher
+        accessRoutes,
+        options.publisher,
+        options.access
     )
     const projectRoutes = registerProjectRoutes(providerApplicationRoutes, options.manualStore)
-    const taxonomyRoutes = registerTaxonomyRoutes(projectRoutes, options.taxonomy)
+    const taxonomyRoutes = registerTaxonomyRoutes(projectRoutes, options.taxonomy, options.access)
     const accessTokenRoutes = registerProjectAccessTokenRoutes(taxonomyRoutes, options.accessTokens)
     const channelRoutes = registerChannelRoutes(accessTokenRoutes, options.manualStore)
     const channelProfileRoutes = registerChannelProfileRoutes(channelRoutes, options.manualStore)

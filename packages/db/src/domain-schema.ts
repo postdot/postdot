@@ -53,6 +53,12 @@ const notificationDeliveryStates = [
 ] as const
 const providerApplicationStates = ['active', 'disabled'] as const
 const taxonomyStates = ['active', 'archived'] as const
+const instanceStates = ['claimable', 'claimed'] as const
+const instanceMembershipStates = ['enabled', 'disabled'] as const
+const instanceRoles = ['admin', 'member'] as const
+const projectMembershipStates = ['active', 'removed'] as const
+const projectRoles = ['owner', 'editor', 'viewer'] as const
+const invitationStates = ['pending', 'accepted', 'revoked', 'expired'] as const
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
@@ -123,6 +129,128 @@ export const actors = sqliteTable(
             'actors_subject_id_nonblank',
             sql`${table.subjectId} is null or length(trim(${table.subjectId})) > 0`
         ),
+    ]
+)
+
+/**
+ * Herald owns the instance boundary separately from Better Auth identity.
+ * There is exactly one row per database, seeded by the access migration.
+ */
+export const instanceState = sqliteTable(
+    'instance_state',
+    {
+        id: text('id').primaryKey(),
+        state: text('state', { enum: instanceStates }).notNull(),
+        bootstrapBlocked: integer('bootstrap_blocked', { mode: 'boolean' })
+            .default(false)
+            .notNull(),
+        claimedByUserId: text('claimed_by_user_id').references(() => user.id, {
+            onDelete: 'restrict',
+        }),
+        claimedAt: integer('claimed_at'),
+        ...timestamps(),
+    },
+    table => [
+        check('instance_state_singleton', sql`${table.id} = 'default'`),
+        check('instance_state_value_valid', sql`${table.state} in ('claimable', 'claimed')`),
+        check(
+            'instance_state_bootstrap_block_valid',
+            sql`${table.bootstrapBlocked} = 0 or ${table.state} = 'claimable'`
+        ),
+        check(
+            'instance_state_claim_consistency',
+            sql`(${table.state} = 'claimable' and ${table.claimedByUserId} is null and ${table.claimedAt} is null)
+                or (${table.state} = 'claimed' and ${table.claimedByUserId} is not null and ${table.claimedAt} is not null)`
+        ),
+    ]
+)
+
+export const instanceMemberships = sqliteTable(
+    'instance_memberships',
+    {
+        id: text('id').primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'restrict' }),
+        role: text('role', { enum: instanceRoles }).notNull(),
+        state: text('state', { enum: instanceMembershipStates }).default('enabled').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('instance_memberships_user_uidx').on(table.userId),
+        check('instance_memberships_role_valid', sql`${table.role} in ('admin', 'member')`),
+        check('instance_memberships_state_valid', sql`${table.state} in ('enabled', 'disabled')`),
+    ]
+)
+
+export const projectMemberships = sqliteTable(
+    'project_memberships',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'restrict' }),
+        role: text('role', { enum: projectRoles }).notNull(),
+        state: text('state', { enum: projectMembershipStates }).default('active').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('project_memberships_project_user_uidx').on(table.projectId, table.userId),
+        index('project_memberships_user_state_idx').on(table.userId, table.state),
+        check(
+            'project_memberships_role_valid',
+            sql`${table.role} in ('owner', 'editor', 'viewer')`
+        ),
+        check('project_memberships_state_valid', sql`${table.state} in ('active', 'removed')`),
+    ]
+)
+
+export const accessInvitations = sqliteTable(
+    'access_invitations',
+    {
+        id: text('id').primaryKey(),
+        targetEmail: text('target_email').notNull(),
+        tokenHash: text('token_hash').notNull(),
+        instanceRole: text('instance_role', { enum: ['member'] })
+            .default('member')
+            .notNull(),
+        projectId: text('project_id').references(() => projects.id, { onDelete: 'restrict' }),
+        projectRole: text('project_role', { enum: projectRoles }),
+        state: text('state', { enum: invitationStates }).default('pending').notNull(),
+        createdByUserId: text('created_by_user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'restrict' }),
+        expiresAt: integer('expires_at').notNull(),
+        acceptedAt: integer('accepted_at'),
+        acceptedByUserId: text('accepted_by_user_id').references(() => user.id, {
+            onDelete: 'restrict',
+        }),
+        revokedAt: integer('revoked_at'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('access_invitations_token_hash_uidx').on(table.tokenHash),
+        index('access_invitations_target_state_idx').on(table.targetEmail, table.state),
+        index('access_invitations_expiry_idx').on(table.state, table.expiresAt),
+        check('access_invitations_email_nonblank', sql`length(trim(${table.targetEmail})) > 0`),
+        check('access_invitations_token_hash_nonblank', sql`length(trim(${table.tokenHash})) > 0`),
+        check('access_invitations_instance_role_valid', sql`${table.instanceRole} = 'member'`),
+        check(
+            'access_invitations_project_scope_valid',
+            sql`(${table.projectId} is null and ${table.projectRole} is null)
+                or (${table.projectId} is not null and ${table.projectRole} is not null)`
+        ),
+        check(
+            'access_invitations_state_valid',
+            sql`(${table.state} = 'pending' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is null)
+                or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedByUserId} is not null and ${table.revokedAt} is null)
+                or (${table.state} = 'revoked' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is not null)
+                or (${table.state} = 'expired' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is null)`
+        ),
+        check('access_invitations_expiry_valid', sql`${table.expiresAt} > ${table.createdAt}`),
     ]
 )
 
