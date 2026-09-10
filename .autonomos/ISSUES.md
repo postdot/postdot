@@ -1710,12 +1710,15 @@ channels` with a foreign-key constraint error even though a fresh empty database
   not add email delivery, invitations, organization billing, SSO, or an admin UI;
   it does not replace Better Auth for human authentication or alter the existing
   project-scoped machine-token contract.
-- Tasks: ACCESS-116
+- Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132
 - Related issues: ISSUE-013, ISSUE-059
 - Related decisions: ADR-012, ADR-030, ADR-056, ADR-061
 - Resolution: ADR-061 establishes the local single-operator bootstrap and the
   shared self-hosted boundary: the first account claims an empty instance and
   becomes its administrator, later registration is closed by default, instance
   and project membership are distinct, and invitations can use hashed tokens
-  without requiring SMTP. Account recovery and credential preservation remain
-  explicit boundaries; implementation is deferred to a later task.
+  without requiring SMTP. ACCESS-116 closed the policy decision. ACCESS-131 and
+  ACCESS-132 now track its implementation in separate backend and web slices.
+  Account recovery/mail delivery and credential preservation remain explicit
+  boundaries; recovery is not silently invented as part of the first access
+  foundation.
