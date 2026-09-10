@@ -7,6 +7,7 @@ import {
     createEventJournalStore,
     createNotificationStore,
     createProviderAnalyticsStore,
+    createTaxonomyStore,
     type HeraldDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
@@ -14,6 +15,7 @@ import {
     type NotificationStore,
     type AnalyticsStore,
     type ProviderAnalyticsStore,
+    type TaxonomyStore,
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
@@ -47,6 +49,7 @@ export interface HeraldAppOptions {
     readonly notifications?: NotificationStore
     readonly analytics?: AnalyticsStore
     readonly providerAnalytics?: ProviderAnalyticsStore
+    readonly taxonomy?: TaxonomyStore
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
     readonly blueskyAnalyticsTimeoutMs?: number
     readonly blueskyAnalyticsNow?: () => number
@@ -68,6 +71,7 @@ function createDomainApp({
     notifications,
     analytics,
     providerAnalytics,
+    taxonomy,
     blueskyAnalyticsFetcher,
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
@@ -91,6 +95,12 @@ function createDomainApp({
     const notificationStore = notifications ?? createNotificationStore(database)
     const analyticsStore = analytics ?? createAnalyticsStore(database)
     const providerAnalyticsStore = providerAnalytics ?? createProviderAnalyticsStore(database)
+    const taxonomyStore =
+        taxonomy ??
+        createTaxonomyStore(database, {
+            now: manualStoreOptions?.now,
+            createId: manualStoreOptions?.createId,
+        })
     const eventJournal = createEventJournalStore(database)
 
     return new Elysia({ name: 'herald-api' })
@@ -130,6 +140,10 @@ function createDomainApp({
                         { name: 'Channels', description: 'Project publication destinations.' },
                         { name: 'Posts', description: 'Source posts and publication creation.' },
                         { name: 'Publications', description: 'Publication workflow operations.' },
+                        {
+                            name: 'Taxonomy',
+                            description: 'Project categories and publication tags.',
+                        },
                         { name: 'Media', description: 'Project media assets and uploads.' },
                         {
                             name: 'Settings',
@@ -171,6 +185,7 @@ function createDomainApp({
                 notifications: notificationStore,
                 analytics: analyticsStore,
                 providerAnalytics: providerAnalyticsStore,
+                taxonomy: taxonomyStore,
                 blueskyAnalyticsFetcher,
                 blueskyAnalyticsTimeoutMs,
                 blueskyAnalyticsNow,
@@ -203,6 +218,7 @@ export function createApp({
     notifications,
     analytics,
     providerAnalytics,
+    taxonomy,
     blueskyAnalyticsFetcher,
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
@@ -225,6 +241,7 @@ export function createApp({
         notifications,
         analytics,
         providerAnalytics,
+        taxonomy,
         blueskyAnalyticsFetcher,
         blueskyAnalyticsTimeoutMs,
         blueskyAnalyticsNow,

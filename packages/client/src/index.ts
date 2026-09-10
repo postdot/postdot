@@ -32,6 +32,8 @@ import type {
     PublicationSummaryResponse,
     BlueskyAnalyticsCollectionResponse,
     ProviderAnalyticsObservationPage,
+    ProjectCategoryResponse,
+    ProjectTagResponse,
 } from '@herald/api'
 
 type HeraldFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
@@ -63,6 +65,8 @@ export function createHeraldClient(
 export type HeraldClient = ReturnType<typeof createHeraldClient>
 
 export type Project = ProjectResponse
+export type ProjectCategory = ProjectCategoryResponse
+export type ProjectTag = ProjectTagResponse
 export type Channel = ChannelResponse
 export type ChannelProfileVersion = ChannelProfileVersionResponse
 export type ChannelProfileState = ChannelProfileStateResponse

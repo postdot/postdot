@@ -46,6 +46,7 @@ interface ProjectEntity extends Entity {
 export interface Project extends Entity {
     readonly name: string
     readonly timeZone: ProjectTimeZone
+    readonly primaryCategoryId: string | null
 }
 
 export interface Actor extends ProjectEntity {
@@ -151,6 +152,7 @@ export function createProject(
         ...entityFields(input),
         name: requireNonBlank(input.name, 'name'),
         timeZone: requireProjectTimeZone(input.timeZone),
+        primaryCategoryId: null,
     }
 }
 

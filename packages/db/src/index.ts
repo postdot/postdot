@@ -109,6 +109,7 @@ export {
     providerApplicationStates,
 } from './provider-application-store'
 export { createProjectAccessTokenStore } from './project-access-token-store'
+export { createTaxonomyStore } from './taxonomy-store'
 export {
     createAuthorizationAttemptStore,
     defaultAuthorizationAttemptTtlMs,
@@ -177,6 +178,19 @@ export type {
     ProjectAccessTokenStoreOptions,
     RevokeProjectAccessTokenInput,
 } from './project-access-token-store'
+export type {
+    CreateProjectCategoryInput,
+    CreateProjectTagInput,
+    ListProjectTagsInput,
+    ListPublicationTagsInput,
+    ProjectCategoryLifecycleInput,
+    ProjectTagLifecycleInput,
+    RenameProjectCategoryInput,
+    RenameProjectTagInput,
+    ReplacePublicationTagsInput,
+    SetProjectPrimaryCategoryInput,
+    TaxonomyStore,
+} from './taxonomy-store'
 export type {
     ArchiveChannelInput,
     AuditEvent,

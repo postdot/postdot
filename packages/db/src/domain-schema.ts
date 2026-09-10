@@ -30,6 +30,7 @@ import {
     foreignKey,
     index,
     integer,
+    primaryKey,
     real,
     sqliteTable,
     text,
@@ -51,11 +52,42 @@ const notificationDeliveryStates = [
     'ambiguous',
 ] as const
 const providerApplicationStates = ['active', 'disabled'] as const
+const taxonomyStates = ['active', 'archived'] as const
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
     updatedAt: integer('updated_at').default(epochMilliseconds).notNull(),
 })
+
+export const projectCategories = sqliteTable(
+    'project_categories',
+    {
+        id: text('id').primaryKey(),
+        name: text('name').notNull(),
+        normalizedName: text('normalized_name').notNull(),
+        state: text('state', { enum: taxonomyStates }).default('active').notNull(),
+        archivedAt: integer('archived_at'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('project_categories_normalized_name_uidx').on(table.normalizedName),
+        check('project_categories_name_nonblank', sql`length(trim(${table.name})) > 0`),
+        check(
+            'project_categories_normalized_name_nonblank',
+            sql`length(trim(${table.normalizedName})) > 0`
+        ),
+        check(
+            'project_categories_name_length_valid',
+            sql`length(${table.name}) <= 120 and length(${table.normalizedName}) <= 120`
+        ),
+        check('project_categories_state_valid', sql`${table.state} in ('active', 'archived')`),
+        check(
+            'project_categories_archived_timestamp_valid',
+            sql`(${table.state} = 'active' and ${table.archivedAt} is null)
+                or (${table.state} = 'archived' and ${table.archivedAt} is not null)`
+        ),
+    ]
+)
 
 export const projects = sqliteTable(
     'projects',
@@ -63,6 +95,9 @@ export const projects = sqliteTable(
         id: text('id').primaryKey(),
         name: text('name').notNull(),
         timeZone: text('time_zone').notNull().default('UTC'),
+        primaryCategoryId: text('primary_category_id').references(() => projectCategories.id, {
+            onDelete: 'restrict',
+        }),
         ...timestamps(),
     },
     table => [check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`)]
@@ -87,6 +122,43 @@ export const actors = sqliteTable(
         check(
             'actors_subject_id_nonblank',
             sql`${table.subjectId} is null or length(trim(${table.subjectId})) > 0`
+        ),
+    ]
+)
+
+export const projectTags = sqliteTable(
+    'project_tags',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        name: text('name').notNull(),
+        normalizedName: text('normalized_name').notNull(),
+        state: text('state', { enum: taxonomyStates }).default('active').notNull(),
+        archivedAt: integer('archived_at'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('project_tags_project_id_id_uidx').on(table.projectId, table.id),
+        uniqueIndex('project_tags_project_id_normalized_name_uidx').on(
+            table.projectId,
+            table.normalizedName
+        ),
+        check('project_tags_name_nonblank', sql`length(trim(${table.name})) > 0`),
+        check(
+            'project_tags_normalized_name_nonblank',
+            sql`length(trim(${table.normalizedName})) > 0`
+        ),
+        check(
+            'project_tags_name_length_valid',
+            sql`length(${table.name}) <= 120 and length(${table.normalizedName}) <= 120`
+        ),
+        check('project_tags_state_valid', sql`${table.state} in ('active', 'archived')`),
+        check(
+            'project_tags_archived_timestamp_valid',
+            sql`(${table.state} = 'active' and ${table.archivedAt} is null)
+                or (${table.state} = 'archived' and ${table.archivedAt} is not null)`
         ),
     ]
 )
@@ -1152,6 +1224,38 @@ export const publications = sqliteTable(
             'publications_nonfailure_has_no_error',
             sql`${table.state} in ('failed', 'ambiguous') or ${table.errorMessage} is null`
         ),
+    ]
+)
+
+export const publicationTags = sqliteTable(
+    'publication_tags',
+    {
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        publicationId: text('publication_id').notNull(),
+        tagId: text('tag_id').notNull(),
+        createdAt: integer('created_at').default(epochMilliseconds).notNull(),
+    },
+    table => [
+        primaryKey({ columns: [table.projectId, table.publicationId, table.tagId] }),
+        foreignKey({
+            name: 'publication_tags_project_publication_fk',
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_tags_project_tag_fk',
+            columns: [table.projectId, table.tagId],
+            foreignColumns: [projectTags.projectId, projectTags.id],
+        }).onDelete('restrict'),
+        index('publication_tags_project_publication_idx').on(table.projectId, table.publicationId),
+        index('publication_tags_project_tag_idx').on(table.projectId, table.tagId),
+        check(
+            'publication_tags_publication_id_nonblank',
+            sql`length(trim(${table.publicationId})) > 0`
+        ),
+        check('publication_tags_tag_id_nonblank', sql`length(trim(${table.tagId})) > 0`),
     ]
 )
 

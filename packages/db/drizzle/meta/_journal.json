@@ -183,6 +183,13 @@
             "when": 1789046780802,
             "tag": "0025_acoustic_sentinel",
             "breakpoints": true
+        },
+        {
+            "idx": 26,
+            "version": "6",
+            "when": 1789062300743,
+            "tag": "0026_superb_red_ghost",
+            "breakpoints": true
         }
     ]
 }
