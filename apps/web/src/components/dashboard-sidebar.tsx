@@ -128,22 +128,46 @@ export function DashboardSidebar({
 
             <SidebarContent>
                 {isInstanceSettings ? (
-                    <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                        <SidebarGroupLabel className="px-2">{m.nav_instance()}</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <nav aria-label={m.nav_instance_navigation()}>
-                                <SidebarMenu>
-                                    <WorkspaceMenuItem
-                                        active
-                                        destination="settings"
-                                        icon={<SettingsIcon aria-hidden="true" />}
-                                        label={m.nav_settings()}
-                                        projectId={null}
-                                    />
-                                </SidebarMenu>
-                            </nav>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
+                    <>
+                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                            <SidebarGroupLabel className="px-2">
+                                {m.nav_instance()}
+                            </SidebarGroupLabel>
+                            <SidebarGroupContent>
+                                <nav aria-label={m.nav_instance_navigation()}>
+                                    <SidebarMenu>
+                                        <WorkspaceMenuItem
+                                            active
+                                            destination="settings"
+                                            icon={<SettingsIcon aria-hidden="true" />}
+                                            label={m.nav_settings()}
+                                            projectId={selectedProjectId}
+                                        />
+                                    </SidebarMenu>
+                                </nav>
+                            </SidebarGroupContent>
+                        </SidebarGroup>
+
+                        {selectedProjectId !== null ? (
+                            <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
+                                <SidebarGroupLabel className="px-2">
+                                    {m.nav_project()}
+                                </SidebarGroupLabel>
+                                <SidebarGroupContent>
+                                    <nav aria-label={m.nav_project_management_navigation()}>
+                                        <SidebarMenu>
+                                            <WorkspaceMenuItem
+                                                destination="overview"
+                                                icon={<Widget2Icon aria-hidden="true" />}
+                                                label={m.nav_overview()}
+                                                projectId={selectedProjectId}
+                                            />
+                                        </SidebarMenu>
+                                    </nav>
+                                </SidebarGroupContent>
+                            </SidebarGroup>
+                        ) : null}
+                    </>
                 ) : (
                     <>
                         <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
@@ -310,7 +334,7 @@ export function DashboardSidebar({
                             <SidebarMenuButton
                                 render={workspaceLink(
                                     'settings',
-                                    null,
+                                    selectedProjectId,
                                     m.nav_settings(),
                                     activeSection === 'settings'
                                 )}
@@ -397,6 +421,7 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/settings/provider-applications"
+                search={{ projectId: projectId ?? undefined }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />

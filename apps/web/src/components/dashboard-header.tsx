@@ -56,7 +56,7 @@ export function DashboardHeader({
                               ? m.nav_publication_editor()
                               : sectionLabel}
                     </span>
-                    {!isInstanceSettings ? (
+                    {projectId !== null ? (
                         <>
                             <span className="text-muted-foreground/50" aria-hidden="true">
                                 /
@@ -97,7 +97,12 @@ export function DashboardHeader({
                         </div>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                            render={<Link to="/dashboard/settings/provider-applications" />}>
+                            render={
+                                <Link
+                                    to="/dashboard/settings/provider-applications"
+                                    search={{ projectId: projectId ?? undefined }}
+                                />
+                            }>
                             <SettingsIcon aria-hidden="true" />
                             {m.nav_settings()}
                         </DropdownMenuItem>

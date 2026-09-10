@@ -9,6 +9,22 @@ test('keeps instance settings separate from project navigation', async ({ page }
     const projectId = await createAccountAndProject(page, suffix)
 
     await page.setViewportSize({ width: 1280, height: 720 })
+    await page.getByRole('link', { name: 'Settings', exact: true }).click()
+
+    await expect(page).toHaveURL(
+        new RegExp(`/dashboard/settings/provider-applications\\?projectId=${projectId}$`)
+    )
+    await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
+        `E2E-121 scope project ${suffix}`
+    )
+    await expect(page.getByRole('link', { name: 'Overview', exact: true }).first()).toBeVisible()
+    await expect(
+        page.getByRole('navigation', { name: 'Project management navigation', exact: true }).first()
+    ).toBeVisible()
+
+    await page.getByRole('link', { name: 'Overview', exact: true }).first().click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+
     await page.goto('/dashboard/settings/provider-applications')
 
     await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications$/)
