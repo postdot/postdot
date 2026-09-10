@@ -224,6 +224,7 @@ export interface PublicationSummary extends Publication {
     readonly draftRevision: number
     readonly draftReviewState: PublicationReviewState
     readonly draftDiffersFromTarget: boolean
+    readonly tagIds: readonly string[]
 }
 
 export interface PublicationEditorState {

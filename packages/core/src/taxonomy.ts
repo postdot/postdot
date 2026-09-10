@@ -8,6 +8,7 @@ import type { Actor, Project, Publication, Timestamp } from './model'
 
 export const taxonomyStates = ['active', 'archived'] as const
 export const taxonomyLabelMaximumLength = 120
+export const publicationTagFilterMaximumIds = 20
 
 export type TaxonomyState = (typeof taxonomyStates)[number]
 
@@ -60,6 +61,30 @@ export interface ProjectTag {
     readonly archivedAt: Timestamp | null
     readonly createdAt: Timestamp
     readonly updatedAt: Timestamp
+}
+
+export interface PublicationTagFilter {
+    readonly tagIds: readonly string[]
+}
+
+/**
+ * Builds the canonical Queue publication tag filter.
+ *
+ * Tag IDs are an unordered set and selecting several IDs has all-selected-tags
+ * semantics. The raw number of requested values is bounded before duplicates
+ * are collapsed so repeated input cannot bypass the transport safety bound.
+ */
+export function createPublicationTagFilter(tagIds: readonly string[] = []): PublicationTagFilter {
+    if (tagIds.length > publicationTagFilterMaximumIds) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            `A publication tag filter may contain at most ${publicationTagFilterMaximumIds} tag IDs`
+        )
+    }
+
+    const normalizedTagIds = [...new Set(tagIds.map(tagId => requireNonBlank(tagId, 'tagId')))]
+    normalizedTagIds.sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
+    return { tagIds: normalizedTagIds }
 }
 
 export function createProjectCategory(input: {

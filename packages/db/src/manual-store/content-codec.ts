@@ -64,6 +64,19 @@ export function parseJsonArray(value: string, label: string): readonly Record<st
     return parsed
 }
 
+export function parseJsonStringArray(value: string, label: string): readonly string[] {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(value)
+    } catch {
+        throw new DomainInvariantError('invalid_content', `${label} is not valid JSON`)
+    }
+    if (!Array.isArray(parsed) || !parsed.every(item => typeof item === 'string')) {
+        throw new DomainInvariantError('invalid_content', `${label} must be an array of strings`)
+    }
+    return parsed
+}
+
 export function invalidProfileError(issues: readonly ValidationIssue[]): DomainInvariantError {
     return new DomainInvariantError(
         'invalid_content',

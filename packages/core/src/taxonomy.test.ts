@@ -4,8 +4,10 @@ import {
     createProject,
     createProjectCategory,
     createProjectTag,
+    createPublicationTagFilter,
     DomainInvariantError,
     normalizeTaxonomyLabel,
+    publicationTagFilterMaximumIds,
 } from './index'
 
 describe('taxonomy domain vocabulary', () => {
@@ -59,5 +61,20 @@ describe('taxonomy domain vocabulary', () => {
             state: 'active',
             archivedAt: null,
         })
+    })
+
+    it('canonicalizes a bounded stable-ID publication tag filter', () => {
+        expect(createPublicationTagFilter(['tag-b', 'tag-a', 'tag-b'])).toEqual({
+            tagIds: ['tag-a', 'tag-b'],
+        })
+        expect(() => createPublicationTagFilter([' '])).toThrow(DomainInvariantError)
+        expect(() =>
+            createPublicationTagFilter(
+                Array.from(
+                    { length: publicationTagFilterMaximumIds + 1 },
+                    (_, index) => `tag-${index}`
+                )
+            )
+        ).toThrow('may contain at most 20 tag IDs')
     })
 })

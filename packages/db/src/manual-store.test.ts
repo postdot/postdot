@@ -20,6 +20,7 @@ import {
     publications,
     publishers,
 } from './schema'
+import { createTaxonomyStore } from './taxonomy-store'
 
 const automaticTestProfile: ChannelProfileDefinition = {
     id: 'future-provider',
@@ -280,6 +281,113 @@ describe('manual workflow store', () => {
                 'publication.published',
                 'publication.ready',
             ])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('filters publication summaries by all selected project-scoped tag IDs', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const taxonomy = createTaxonomyStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Queue Filter Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const firstChannel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'First destination',
+            })
+            const secondChannel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Second destination',
+            })
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                title: 'Queue filter source',
+                sourceContent: sourceContent('Queue filter source'),
+                publications: [
+                    {
+                        channelId: firstChannel?.id ?? '',
+                        targetContent: { body: 'First destination', media: [] },
+                    },
+                    {
+                        channelId: secondChannel?.id ?? '',
+                        targetContent: { body: 'Second destination', media: [] },
+                    },
+                ],
+            })
+            const firstPublication = created?.publications[0]
+            const secondPublication = created?.publications[1]
+            expect(firstPublication).toBeDefined()
+            expect(secondPublication).toBeDefined()
+
+            const alpha = taxonomy.createTag({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Alpha',
+            })
+            const beta = taxonomy.createTag({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Beta',
+            })
+            expect(alpha).not.toBeNull()
+            expect(beta).not.toBeNull()
+            taxonomy.replacePublicationTags({
+                projectId: project.project.id,
+                publicationId: firstPublication?.id ?? '',
+                subjectId: 'user-1',
+                tagIds: [beta?.id ?? '', alpha?.id ?? ''],
+            })
+            taxonomy.replacePublicationTags({
+                projectId: project.project.id,
+                publicationId: secondPublication?.id ?? '',
+                subjectId: 'user-1',
+                tagIds: [alpha?.id ?? ''],
+            })
+
+            const otherProject = store.createProject({
+                name: 'Other Queue Filter Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const foreignTag = taxonomy.createTag({
+                projectId: otherProject.project.id,
+                subjectId: 'user-1',
+                name: 'Foreign',
+            })
+
+            expect(
+                store
+                    .listPublicationSummaries(project.project.id, 'user-1')
+                    ?.map(publication => ({ id: publication.id, tagIds: publication.tagIds }))
+            ).toEqual(
+                expect.arrayContaining([
+                    { id: firstPublication?.id, tagIds: [alpha?.id, beta?.id] },
+                    { id: secondPublication?.id, tagIds: [alpha?.id] },
+                ])
+            )
+            expect(
+                store
+                    .listPublicationSummaries(project.project.id, 'user-1', {
+                        tagIds: [beta?.id ?? '', alpha?.id ?? ''],
+                    })
+                    ?.map(publication => publication.id)
+            ).toEqual([firstPublication?.id ?? ''])
+            expect(
+                store.listPublicationSummaries(project.project.id, 'user-1', {
+                    tagIds: [foreignTag?.id ?? ''],
+                })
+            ).toEqual([])
         } finally {
             closeDatabase(database)
         }

@@ -7,8 +7,10 @@ import {
     projectParams,
     publicationParams,
     publicationEditorStateSchema,
+    publicationListQuery,
     publicationSchema,
     publicationSummarySchema,
+    parsePublicationTagFilter,
     publishPublicationBody,
     reconcilePublicationBody,
     promotePublicationDraftBody,
@@ -27,10 +29,13 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
             {
                 auth: true,
                 params: projectParams,
+                query: publicationListQuery,
                 response: {
                     200: Type.Object({ publications: Type.Array(publicationSummarySchema) }),
+                    400: errorResponse,
                     401: errorResponse,
                     404: errorResponse,
+                    422: errorResponse,
                 },
                 detail: {
                     operationId: 'listPublicationSummaries',
@@ -38,8 +43,12 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ params, status, user }) => {
-                const publications = manualStore.listPublicationSummaries(params.projectId, user.id)
+            ({ params, query, status, user }) => {
+                const publications = manualStore.listPublicationSummaries(
+                    params.projectId,
+                    user.id,
+                    parsePublicationTagFilter(query.tagIds)
+                )
                 if (publications === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
