@@ -204,7 +204,7 @@ export function createEventJournalStore(
 
         latestCursor(): EventJournalCursor | null {
             const sequence = latestSequenceStatement.get()?.sequence ?? null
-            return sequence === null ? null : encodeCursor(sequence)
+            return sequence === null || sequence < 1 ? null : encodeCursor(sequence)
         },
     }
 }

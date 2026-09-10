@@ -41,6 +41,22 @@ function eventInput(project: ReturnType<typeof seedProject>, suffix: string) {
 }
 
 describe('event journal store', () => {
+    it('returns no cursor for an empty journal, including a zero sqlite sequence', () => {
+        const database = createDatabase(':memory:')
+        try {
+            runMigrations(database)
+            database.$client.run(
+                "insert into sqlite_sequence (name, seq) values ('audit_events', 0)"
+            )
+
+            const store = createEventJournalStore(database)
+
+            expect(store.latestCursor()).toBeNull()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('persists versioned facts and reads equal-timestamp entries in append order', () => {
         const database = createDatabase(':memory:')
         try {
