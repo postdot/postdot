@@ -1261,18 +1261,20 @@ channels` with a foreign-key constraint error even though a fresh empty database
   permissions, lifecycle, filtering/search behavior, and client/API exposure.
   The design must remain useful for projects with many publications without
   turning organization into a second content model.
-- Tasks: TAXONOMY-101
+- Tasks: TAXONOMY-101, TAXONOMY-129, TAXONOMY-130
 - Related decision: ADR-062
 - Resolution: ADR-062 accepts one optional instance-scoped primary category per
   project and zero or more project-scoped tags per publication. Stable opaque
   identifiers, normalized uniqueness, archive/restore, and all-selected-tags
-  filtering are the V1 boundaries. TAXONOMY-129 now delivers the additive
+  filtering are the V1 boundaries. TAXONOMY-129 delivered the additive
   domain/SQLite/API foundation with project isolation, publication assignments,
-  deterministic ordering, and archived-state handling. The web integration and
-  Queue filtering remain TAXONOMY-130; no provider hashtag behavior is inferred
-  from these labels. Shared category-definition mutations retain the documented
-  temporary human-session boundary until ACCESS-116 supplies the instance-admin
-  authority.
+  deterministic ordering, and archived-state handling. TAXONOMY-130 now exposes
+  categories in project context, tags in Compose and publication detail, and
+  stable-ID all-selected-tags filtering in Queue with URL state. The API also
+  supports bounded repeated/comma-separated tag filters without N+1 reads. No
+  provider hashtag behavior is inferred from these labels. Shared
+  category-definition mutations retain the documented temporary human-session
+  boundary until ACCESS-116 supplies the instance-admin authority.
 
 ## [ISSUE-054] Define an analytics foundation without coupling Herald to provider dashboards
 
