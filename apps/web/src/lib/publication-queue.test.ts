@@ -1,9 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 
 import type { PublicationSummary } from '@/lib/api'
-import { filterQueuePublications } from '@/lib/publication-queue'
+import { filterQueueByTags, filterQueuePublications } from '@/lib/publication-queue'
 
-function publication(id: string, overrides: Partial<PublicationSummary> = {}): PublicationSummary {
+type TestPublicationSummary = PublicationSummary & {
+    readonly tagIds?: readonly string[]
+}
+
+function publication(
+    id: string,
+    overrides: Partial<TestPublicationSummary> = {}
+): TestPublicationSummary {
     return {
         channelName: 'Channel',
         createdAt: 1,
@@ -17,6 +24,7 @@ function publication(id: string, overrides: Partial<PublicationSummary> = {}): P
         projectId: 'project-1',
         scheduledAt: null,
         state: 'draft',
+        tagIds: [],
         updatedAt: 1,
         ...overrides,
     } as PublicationSummary
@@ -49,5 +57,16 @@ describe('publication queue filters', () => {
             publications[2]!,
             publications[3]!,
         ])
+    })
+
+    test('requires every selected tag', () => {
+        const tagged = [
+            publication('release', { tagIds: ['release', 'external'] }),
+            publication('internal', { tagIds: ['release'] }),
+        ]
+
+        expect(filterQueueByTags(tagged, ['release'])).toEqual(tagged)
+        expect(filterQueueByTags(tagged, ['release', 'external'])).toEqual([tagged[0]!])
+        expect(filterQueueByTags(tagged, [])).toEqual(tagged)
     })
 })

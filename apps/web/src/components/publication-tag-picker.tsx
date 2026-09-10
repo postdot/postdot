@@ -19,6 +19,7 @@ export interface PublicationTagPickerProps {
     readonly emptyLabel?: string
     readonly selectedLabel?: (count: number) => string
     readonly ariaLabel?: string
+    readonly archivedLabel?: string
 }
 
 export function PublicationTagPicker({
@@ -30,6 +31,7 @@ export function PublicationTagPicker({
     emptyLabel,
     selectedLabel,
     ariaLabel,
+    archivedLabel,
 }: PublicationTagPickerProps) {
     const selectedIds = new Set(selectedTagIds)
     const selectedCount = tags.reduce((count, tag) => count + (selectedIds.has(tag.id) ? 1 : 0), 0)
@@ -74,8 +76,10 @@ export function PublicationTagPicker({
                     <DropdownMenuCheckboxItem
                         key={tag.id}
                         checked={selectedIds.has(tag.id)}
+                        disabled={tag.state === 'archived' && !selectedIds.has(tag.id)}
                         onCheckedChange={checked => handleTagChange(tag.id, checked)}>
                         {tag.name}
+                        {tag.state === 'archived' && archivedLabel ? ` · ${archivedLabel}` : null}
                     </DropdownMenuCheckboxItem>
                 ))}
             </DropdownMenuContent>

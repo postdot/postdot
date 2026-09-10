@@ -10,6 +10,7 @@ import {
     workspaceSectionLabel,
 } from '@/components/dashboard-sidebar'
 import type { Channel, Project, PublisherConnection, Session } from '@/lib/api'
+import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -53,6 +54,7 @@ export function DashboardShell({
     const scrollRegionRef = useRef<HTMLDivElement>(null)
     const isPublicationRoute = pathname.includes('/publications/')
     const activeSection = workspaceSection(pathname)
+    const global = useDashboardGlobal()
     const selectedProjectId = selectedProject?.id ?? null
     const selectedProjectName = selectedProject?.name ?? m.nav_no_project_selected()
 
@@ -70,11 +72,13 @@ export function DashboardShell({
                 isPublicationRoute={isPublicationRoute}
                 onCreateProject={onCreateProject}
                 onProjectChange={onProjectChange}
+                onProjectCategoryChange={global.onProjectCategoryChange}
                 onProjectNameChange={onProjectNameChange}
                 onSignOut={onSignOut}
                 pending={pending}
                 projectName={projectName}
                 projects={projects}
+                categories={global.categories}
                 publisherConnections={publisherConnections}
                 publicationsCount={publicationsCount}
                 selectedProjectId={selectedProjectId}

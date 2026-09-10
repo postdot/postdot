@@ -11,15 +11,19 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
             throw redirect({ to: '/login' })
         }
 
-        const { editor } = await api.getPublicationEditor(params.projectId, params.publicationId)
-        return { editor }
+        const [{ editor }, { tags: projectTags }, { tags: publicationTags }] = await Promise.all([
+            api.getPublicationEditor(params.projectId, params.publicationId),
+            api.listProjectTags(params.projectId, { includeArchived: true }),
+            api.listPublicationTags(params.projectId, params.publicationId),
+        ])
+        return { editor, projectTags, publicationTags }
     },
     component: PublicationEditorRoute,
 })
 
 function PublicationEditorRoute() {
     const { projectId } = Route.useParams()
-    const { editor } = Route.useLoaderData()
+    const { editor, projectTags, publicationTags } = Route.useLoaderData()
     const { project } = useProjectDashboard()
 
     return (
@@ -27,6 +31,8 @@ function PublicationEditorRoute() {
             key={editor.draft.id}
             projectId={projectId}
             initialEditor={editor}
+            initialPublicationTags={publicationTags}
+            projectTags={projectTags}
             timeZone={project.timeZone}
         />
     )

@@ -192,6 +192,7 @@ export function PublicationCalendarPage({
                     <Link
                         className="text-primary underline-offset-4 hover:text-foreground hover:underline"
                         params={{ projectId: project.id }}
+                        search={{ tagIds: undefined }}
                         to="/dashboard/projects/$projectId/queue">
                         {m.calendar_review_queue()}
                     </Link>

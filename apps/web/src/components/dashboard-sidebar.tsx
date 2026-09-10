@@ -28,7 +28,7 @@ import type { FormEvent, ReactNode } from 'react'
 
 import { DashboardProjectContext } from '@/components/dashboard-project-context'
 import { ChannelAvatar } from '@/components/identity-visuals'
-import type { Channel, Project, PublisherConnection } from '@/lib/api'
+import type { Channel, Project, ProjectCategory, PublisherConnection } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -43,12 +43,14 @@ export type DashboardSection =
 
 interface DashboardSidebarProps {
     readonly activeSection: DashboardSection
+    readonly categories: readonly ProjectCategory[]
     readonly channels: readonly Channel[]
     readonly dueCount: number
     readonly isInstanceSettings: boolean
     readonly isPublicationRoute: boolean
     readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
     readonly onProjectChange: (projectId: string | null) => void
+    readonly onProjectCategoryChange: (projectId: string, categoryId: string | null) => void
     readonly onProjectNameChange: (value: string) => void
     readonly onSignOut: () => void
     readonly pending: boolean
@@ -61,12 +63,14 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({
     activeSection,
+    categories,
     channels,
     dueCount,
     isInstanceSettings,
     isPublicationRoute,
     onCreateProject,
     onProjectChange,
+    onProjectCategoryChange,
     onProjectNameChange,
     onSignOut,
     pending,
@@ -117,10 +121,12 @@ export function DashboardSidebar({
                     <DashboardProjectContext
                         onCreateProject={onCreateProject}
                         onProjectChange={onProjectChange}
+                        onProjectCategoryChange={onProjectCategoryChange}
                         onProjectNameChange={onProjectNameChange}
                         pending={pending}
                         projectName={projectName}
                         projects={projects}
+                        categories={categories}
                         selectedProjectId={selectedProjectId}
                     />
                 </div>

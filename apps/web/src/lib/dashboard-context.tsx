@@ -17,6 +17,8 @@ import {
     type DuePublication,
     type LinkedInConnectionDestination,
     type Project,
+    type ProjectCategory,
+    type ProjectTag,
     type PublisherConnection,
     type PublicationSummary,
     formatApiError,
@@ -36,15 +38,17 @@ export interface ProjectData {
     readonly due: DuePublication[]
     readonly connections: PublisherConnection[]
     readonly publications: PublicationSummary[]
+    readonly projectTags: ProjectTag[]
 }
 
 export async function loadProjectData(projectId: string): Promise<ProjectData> {
-    const [channelResponse, dueResponse, publisherResponse, publicationResponse] =
+    const [channelResponse, dueResponse, publisherResponse, publicationResponse, tagResponse] =
         await Promise.all([
             api.listChannels(projectId),
             api.listDuePublications(projectId),
             api.listPublisherConnections(projectId),
             api.listPublications(projectId),
+            api.listProjectTags(projectId),
         ])
 
     return {
@@ -52,13 +56,16 @@ export async function loadProjectData(projectId: string): Promise<ProjectData> {
         due: dueResponse.publications,
         connections: publisherResponse.connections,
         publications: publicationResponse.publications,
+        projectTags: tagResponse.tags,
     }
 }
 
 export interface DashboardGlobalContextValue {
+    readonly categories: readonly ProjectCategory[]
     readonly error: string | null
     readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
     readonly onProjectChange: (projectId: string | null) => void
+    readonly onProjectCategoryChange: (projectId: string, categoryId: string | null) => void
     readonly onProjectNameChange: (value: string) => void
     readonly onSignOut: () => void
     readonly pending: boolean
@@ -123,6 +130,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
     readonly onRestoreChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
     readonly onPostContentChange: (value: string) => void
     readonly onPostTitleChange: (value: string) => void
+    readonly onPublicationTagIdsChange: Dispatch<SetStateAction<string[]>>
     readonly onPublicationTargetsChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
     readonly onSourceMediaChange: (value: MediaSelection[]) => void
     readonly onStartLinkedInConnection: (
@@ -145,6 +153,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
     readonly pending: boolean
     readonly postContent: string
     readonly postTitle: string
+    readonly publicationTagIds: readonly string[]
     readonly project: Project
     readonly publicationTargets: readonly PublicationTargetDraft[]
     readonly sourceMedia: readonly MediaSelection[]
@@ -180,6 +189,7 @@ export function ProjectDashboardProvider({
             project.timeZone
         ),
     ])
+    const [publicationTagIds, setPublicationTagIds] = useState<string[]>([])
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -281,7 +291,7 @@ export function ProjectDashboardProvider({
         )
 
         await runAction(async () => {
-            await api.createPost(project.id, {
+            const response = await api.createPost(project.id, {
                 title: postTitle.trim() === '' ? undefined : postTitle,
                 sourceContent: {
                     ...(postTitle.trim() === '' ? {} : { headline: postTitle.trim() }),
@@ -292,13 +302,33 @@ export function ProjectDashboardProvider({
                 },
                 publications: validPublicationInputs,
             })
+            let tagAssignmentError: unknown = null
+            if (publicationTagIds.length > 0) {
+                try {
+                    await Promise.all(
+                        response.publications.map(publication =>
+                            api.replacePublicationTags(
+                                project.id,
+                                publication.id,
+                                publicationTagIds
+                            )
+                        )
+                    )
+                } catch (caughtError) {
+                    tagAssignmentError = caughtError
+                }
+            }
             setPostTitle('')
             setPostContent('')
             setSourceMedia([])
+            setPublicationTagIds([])
             setPublicationTargets([
                 createPublicationTarget(activeChannels[0]?.id ?? '', project.timeZone),
             ])
             await refreshProject()
+            if (tagAssignmentError !== null) {
+                setError(`${m.taxonomy_assignment_failed()} ${formatApiError(tagAssignmentError)}`)
+            }
         })
     }
 
@@ -524,6 +554,7 @@ export function ProjectDashboardProvider({
         onRestoreChannel: handleRestoreChannel,
         onPostContentChange: setPostContent,
         onPostTitleChange: setPostTitle,
+        onPublicationTagIdsChange: setPublicationTagIds,
         onPublicationTargetsChange: setPublicationTargets,
         onSourceMediaChange: setSourceMedia,
         onStartLinkedInConnection: handleStartLinkedInConnection,
@@ -535,6 +566,7 @@ export function ProjectDashboardProvider({
         pending,
         postContent,
         postTitle,
+        publicationTagIds,
         project,
         publicationTargets,
         sourceMedia,
