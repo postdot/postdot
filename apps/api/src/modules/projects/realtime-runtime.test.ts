@@ -47,6 +47,32 @@ describe('project realtime runtime', () => {
         runtime.stop()
     })
 
+    it('wakes only users who belong to changed projects', async () => {
+        const runtime = createProjectRealtimeRuntime({
+            resolveUserIdsForProjects: projectIds =>
+                projectIds.includes('project-1') ? ['user-1'] : ['user-2'],
+        })
+        const firstController = new AbortController()
+        const secondController = new AbortController()
+        let firstResolved = false
+        let secondResolved = false
+        const first = runtime.userHub.waitForChange('user-1', firstController.signal).then(() => {
+            firstResolved = true
+        })
+        const second = runtime.userHub.waitForChange('user-2', secondController.signal).then(() => {
+            secondResolved = true
+        })
+
+        runtime.publish(['project-1'])
+        await first
+
+        expect(firstResolved).toBe(true)
+        expect(secondResolved).toBe(false)
+        secondController.abort()
+        await second
+        runtime.stop()
+    })
+
     it('still wakes streams when the projection callback fails', async () => {
         const errors: unknown[] = []
         const runtime = createProjectRealtimeRuntime({

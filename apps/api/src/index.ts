@@ -82,6 +82,7 @@ async function startServer(config = createHeraldConfig()) {
     const notificationProjection = createNotificationProjectionRuntime(notifications)
     const realtime = createProjectRealtimeRuntime({
         onProjectsChanged: projectIds => notificationProjection.runProjects(projectIds),
+        resolveUserIdsForProjects: projectIds => notifications.listUserIdsForProjects(projectIds),
         onError: error => console.error('[herald-realtime] post-commit wakeup failed', error),
     })
     const clearDatabaseCommitObserver = setDatabaseCommitObserver(
@@ -173,6 +174,7 @@ async function startServer(config = createHeraldConfig()) {
         accessTokens,
         notifications,
         projectChanges: realtime.hub,
+        userChanges: realtime.userHub,
         runtime: {
             scheduler: worker.scheduler,
             mediaMaintenance,

@@ -64,6 +64,7 @@ describe('event journal store', () => {
             expect(
                 store.readAfter({ projectId: firstProject.projectId, after: first.cursor })
             ).toEqual([second])
+            expect(store.readAllAfter({ after: first.cursor })).toEqual([second, hidden])
         } finally {
             closeDatabase(database)
         }

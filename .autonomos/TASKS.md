@@ -166,3 +166,7 @@ surface and operational copy-density work.
 ## 🧭 Notification scope follow-up
 
 - [x] **[NOTIFY-127]** Make the in-app notification inbox user-global with optional project context `Priority: 🔴` `Complexity: L`
+
+## 🔔 User-wide notification realtime
+
+- [x] **[NOTIFY-128]** Add one authenticated user-wide SSE stream for notification invalidation `Priority: 🟠` `Complexity: M`

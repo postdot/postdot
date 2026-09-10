@@ -1,15 +1,21 @@
-export interface ProjectRealtimeHub {
+export interface RealtimeHub {
     waitForChange(projectId: string, signal: AbortSignal): Promise<void>
 }
 
+export interface ProjectRealtimeHub extends RealtimeHub {}
+export interface UserRealtimeHub extends RealtimeHub {}
+
 export interface ProjectRealtimeRuntime {
     readonly hub: ProjectRealtimeHub
+    readonly userHub: UserRealtimeHub
     publish(projectIds: readonly string[]): void
+    publishUsers(userIds: readonly string[]): void
     stop(): void
 }
 
 export interface ProjectRealtimeRuntimeOptions {
     readonly onProjectsChanged?: (projectIds: readonly string[]) => void
+    readonly resolveUserIdsForProjects?: (projectIds: readonly string[]) => readonly string[]
     readonly onError?: (error: unknown) => void
 }
 
@@ -27,40 +33,65 @@ interface Waiter {
 export function createProjectRealtimeRuntime(
     options: ProjectRealtimeRuntimeOptions = {}
 ): ProjectRealtimeRuntime {
-    const waiters = new Map<string, Set<Waiter>>()
+    const projectWaiters = new Map<string, Set<Waiter>>()
+    const userWaiters = new Map<string, Set<Waiter>>()
     let stopped = false
 
-    function removeWaiter(projectId: string, waiter: Waiter): void {
-        const projectWaiters = waiters.get(projectId)
-        if (projectWaiters === undefined) return
-        projectWaiters.delete(waiter)
-        if (projectWaiters.size === 0) waiters.delete(projectId)
+    function removeWaiter(
+        waiterMap: Map<string, Set<Waiter>>,
+        scopeId: string,
+        waiter: Waiter
+    ): void {
+        const scopedWaiters = waiterMap.get(scopeId)
+        if (scopedWaiters === undefined) return
+        scopedWaiters.delete(waiter)
+        if (scopedWaiters.size === 0) waiterMap.delete(scopeId)
     }
 
-    function waitForChange(projectId: string, signal: AbortSignal): Promise<void> {
+    function waitForChange(
+        waiterMap: Map<string, Set<Waiter>>,
+        scopeId: string,
+        signal: AbortSignal
+    ): Promise<void> {
         if (stopped || signal.aborted) return Promise.resolve()
 
         return new Promise(resolve => {
             const waiter: Waiter = {
                 resolve: () => {
                     signal.removeEventListener('abort', onAbort)
-                    removeWaiter(projectId, waiter)
+                    removeWaiter(waiterMap, scopeId, waiter)
                     resolve()
                 },
             }
             const onAbort = () => waiter.resolve()
-            const projectWaiters = waiters.get(projectId) ?? new Set<Waiter>()
-            projectWaiters.add(waiter)
-            waiters.set(projectId, projectWaiters)
+            const scopedWaiters = waiterMap.get(scopeId) ?? new Set<Waiter>()
+            scopedWaiters.add(waiter)
+            waiterMap.set(scopeId, scopedWaiters)
             signal.addEventListener('abort', onAbort, { once: true })
         })
     }
 
-    function notify(projectIds: readonly string[]): void {
-        for (const projectId of projectIds) {
-            const projectWaiters = waiters.get(projectId)
-            if (projectWaiters === undefined) continue
-            for (const waiter of projectWaiters) waiter.resolve()
+    function notify(waiterMap: Map<string, Set<Waiter>>, scopeIds: readonly string[]): void {
+        for (const scopeId of scopeIds) {
+            const scopedWaiters = waiterMap.get(scopeId)
+            if (scopedWaiters === undefined) continue
+            for (const waiter of scopedWaiters) waiter.resolve()
+        }
+    }
+
+    function resolveUserIds(projectIds: readonly string[]): readonly string[] {
+        if (options.resolveUserIdsForProjects === undefined) return []
+        try {
+            return [
+                ...new Set(
+                    options
+                        .resolveUserIdsForProjects(projectIds)
+                        .filter(userId => userId.length > 0)
+                ),
+            ]
+        } catch (error) {
+            reportError(error)
+            return []
         }
     }
 
@@ -82,21 +113,39 @@ export function createProjectRealtimeRuntime(
         } catch (error) {
             reportError(error)
         }
-        notify(uniqueProjectIds)
+        notify(projectWaiters, uniqueProjectIds)
+        notify(userWaiters, resolveUserIds(uniqueProjectIds))
+    }
+
+    function publishUsers(userIds: readonly string[]): void {
+        if (stopped) return
+        const uniqueUserIds = [...new Set(userIds.filter(userId => userId.length > 0))]
+        if (uniqueUserIds.length === 0) return
+        notify(userWaiters, uniqueUserIds)
     }
 
     function stop(): void {
         if (stopped) return
         stopped = true
-        for (const [projectId, projectWaiters] of waiters) {
-            for (const waiter of projectWaiters) waiter.resolve()
-            waiters.delete(projectId)
+        for (const [projectId, waiters] of projectWaiters) {
+            for (const waiter of waiters) waiter.resolve()
+            projectWaiters.delete(projectId)
+        }
+        for (const [userId, waiters] of userWaiters) {
+            for (const waiter of waiters) waiter.resolve()
+            userWaiters.delete(userId)
         }
     }
 
     return {
-        hub: { waitForChange },
+        hub: {
+            waitForChange: (projectId, signal) => waitForChange(projectWaiters, projectId, signal),
+        },
+        userHub: {
+            waitForChange: (userId, signal) => waitForChange(userWaiters, userId, signal),
+        },
         publish,
+        publishUsers,
         stop,
     }
 }

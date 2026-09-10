@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
     createProjectRealtimeClient,
+    createUserRealtimeClient,
     type ProjectRealtimeEventSourceLike,
 } from '@/lib/project-realtime'
 
@@ -86,6 +87,57 @@ describe('project realtime event source', () => {
         })
 
         unsubscribe()
+        source.close()
+        expect(fake.closed).toBe(true)
+    })
+
+    test('opens the user-wide notification stream and validates project context', () => {
+        const fake = new FakeEventSource()
+        const signals: unknown[] = []
+        const source = createUserRealtimeClient((url, init) => {
+            expect(url).toBe('/api/notifications/events')
+            expect(init).toEqual({ withCredentials: true })
+            return fake
+        })
+
+        source.subscribe(signal => signals.push(signal))
+        fake.emit(
+            'user.update',
+            JSON.stringify({
+                id: 'event-1',
+                cursor: 'event-sequence:1',
+                projectId: 'project-1',
+                version: 1,
+                type: 'publication.execution.failed',
+                entity: { type: 'publication', id: 'publication-1' },
+                occurredAt: 1_800_000_000_000,
+                payload: {},
+            })
+        )
+        fake.emit(
+            'user.update',
+            JSON.stringify({
+                id: 'event-2',
+                cursor: 'event-sequence:2',
+                projectId: 'project-2',
+                version: 1,
+                type: 'publication.execution.failed',
+                entity: { type: 'publication', id: 'publication-2' },
+                occurredAt: 1_800_000_000_001,
+                payload: {},
+            })
+        )
+        fake.emit('user.update', '{invalid')
+
+        expect(signals).toHaveLength(2)
+        expect(signals[0]).toMatchObject({
+            kind: 'update',
+            event: { id: 'event-1', projectId: 'project-1' },
+        })
+        expect(signals[1]).toMatchObject({
+            kind: 'update',
+            event: { id: 'event-2', projectId: 'project-2' },
+        })
         source.close()
         expect(fake.closed).toBe(true)
     })

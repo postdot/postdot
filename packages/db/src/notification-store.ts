@@ -111,6 +111,22 @@ export function createNotificationStore(
     const listProjectIdsStatement = client.query<{ readonly id: string }, []>(`
         select id from projects order by created_at, id
     `)
+    const listUserProjectIdsStatement = client.query<{ readonly id: string }, [userId: string]>(`
+        select distinct project_id as id from actors
+        where subject_id = ?1
+          and kind in ('human', 'agent', 'api_token')
+        order by project_id
+    `)
+    const listProjectUserIdsStatement = client.query<
+        { readonly userId: string },
+        [projectId: string]
+    >(`
+        select distinct subject_id as userId from actors
+        where project_id = ?1
+          and kind in ('human', 'agent', 'api_token')
+          and subject_id is not null
+        order by subject_id
+    `)
     const loadHumanActorStatement = client.query<
         HumanActorRow,
         [projectId: string, subjectId: string]
@@ -399,6 +415,24 @@ export function createNotificationStore(
     return {
         listProjectIds(): readonly string[] {
             return listProjectIdsStatement.all().map(row => row.id)
+        },
+
+        listProjectIdsForUser(userId: string): readonly string[] {
+            return listUserProjectIdsStatement
+                .all(requireNonBlank(userId, 'userId'))
+                .map(row => row.id)
+        },
+
+        listUserIdsForProjects(projectIds: readonly string[]): readonly string[] {
+            const users = new Set<string>()
+            for (const projectId of projectIds) {
+                for (const row of listProjectUserIdsStatement.all(
+                    requireNonBlank(projectId, 'projectId')
+                )) {
+                    users.add(row.userId)
+                }
+            }
+            return [...users].sort()
         },
 
         project(projectId: string, limit = defaultProjectionLimit): ProjectNotificationsResult {

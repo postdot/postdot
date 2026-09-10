@@ -31,6 +31,7 @@ export type {
     EventJournalEntry,
     EventJournalStore,
     EventJournalStoreOptions,
+    ReadAllEventJournalInput,
     ReadEventJournalInput,
 } from './event-journal-store'
 export { createAnalyticsStore } from './analytics-store'

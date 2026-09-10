@@ -27,7 +27,7 @@ import { registerProviderAnalyticsRoutes } from './provider-analytics-routes'
 import { registerPublicationRoutes } from './publication-routes'
 import { registerPublisherRoutes } from './publisher-routes'
 import { registerRealtimeRoutes } from './realtime-routes'
-import type { ProjectRealtimeHub } from './realtime-runtime'
+import type { ProjectRealtimeHub, UserRealtimeHub } from './realtime-runtime'
 import { registerProjectRoutes } from './routes'
 import type { ManualStore, PublisherRuntime } from './types'
 
@@ -49,6 +49,7 @@ export interface ProjectModuleOptions {
     readonly blueskyAnalyticsNow?: () => number
     readonly eventJournal: EventJournalStore
     readonly projectChanges?: ProjectRealtimeHub
+    readonly userChanges?: UserRealtimeHub
 }
 
 export function createProjectModule(options: ProjectModuleOptions) {
@@ -92,6 +93,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
         auditRoutes,
         options.eventJournal,
         options.notifications,
-        options.projectChanges
+        options.projectChanges,
+        options.userChanges
     )
 }

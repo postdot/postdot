@@ -599,6 +599,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/analytics/provider/bluesky/collect',
                 '/api/projects/{projectId}/audit-events',
                 '/api/projects/{projectId}/events',
+                '/api/notifications/events',
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
             expect(specification.paths['/ready']?.get?.operationId).toBe('getReadiness')
@@ -941,6 +942,16 @@ describe('Herald API', () => {
             expect(firstChunk.text).not.toContain('provider-refresh-token-must-not-leak')
             expect(firstChunk.text).not.toContain('provider-response-must-not-leak')
             expect(firstChunk.text).not.toContain(actor.id)
+
+            const globalResponse = await jsonRequest(app, '/api/notifications/events', cookie)
+            expect(globalResponse.status).toBe(200)
+            expect(globalResponse.headers.get('content-type')).toContain('text/event-stream')
+            const globalChunk = await readStreamChunk(globalResponse)
+            expect(globalChunk.text).toContain(`event: user.update`)
+            expect(globalChunk.text).toContain(`id: ${first.cursor}`)
+            expect(globalChunk.text).toContain(`"projectId":"${projectId}"`)
+            expect(globalChunk.text).not.toContain('provider-access-token-must-not-leak')
+            expect(globalChunk.text).not.toContain(actor.id)
 
             const second = journal.append({
                 id: 'realtime-api-event-2',
