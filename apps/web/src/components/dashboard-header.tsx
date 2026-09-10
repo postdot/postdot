@@ -1,4 +1,3 @@
-import { Avatar, AvatarFallback } from '@herald/ui/components/avatar'
 import { Button } from '@herald/ui/components/button'
 import {
     DropdownMenu,
@@ -12,6 +11,7 @@ import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
 import { SettingsIcon } from '@solar-icons/react/bold/settings'
 import { Link } from '@tanstack/react-router'
 
+import { UserAvatar } from '@/components/identity-visuals'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -41,8 +41,6 @@ export function DashboardHeader({
     session,
 }: DashboardHeaderProps) {
     useLanguage()
-    const userInitial = session.user.name.trim().charAt(0).toUpperCase() || 'H'
-
     return (
         <header
             data-dashboard-header="true"
@@ -84,9 +82,11 @@ export function DashboardHeader({
                                 className="h-auto gap-2 px-1.5 py-1.5"
                             />
                         }>
-                        <Avatar size="sm">
-                            <AvatarFallback>{userInitial}</AvatarFallback>
-                        </Avatar>
+                        <UserAvatar
+                            imageUrl={session.user.image}
+                            name={session.user.name}
+                            seed={session.user.id}
+                        />
                         <span className="hidden max-w-44 truncate text-left text-sm font-medium sm:block">
                             {session.user.name}
                         </span>

@@ -14,6 +14,7 @@ import { CloseIcon } from '@solar-icons/react/bold/close'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 
+import { ChannelAvatar } from '@/components/identity-visuals'
 import type { Channel, PublisherConnection } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import {
@@ -173,6 +174,7 @@ export function PublicationTargetList({
                                         ? 'bg-background text-foreground shadow-field'
                                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                 }`}>
+                                {channel ? <ChannelAvatar channel={channel} size="sm" /> : null}
                                 <span className="max-w-40 truncate">
                                     {channel?.name ??
                                         m.compose_destination({ index: String(index + 1) })}
@@ -263,25 +265,31 @@ function PublicationTargetCard({
     return (
         <div className="space-y-4 rounded-md bg-background/70 p-4 shadow-field sm:p-5">
             <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground">
-                        {m.compose_destination({ index: String(index + 1) })}
-                    </p>
-                    {connectionStatus ? (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                            <span className={connectionStatus.className}>
-                                {connectionStatus.label}
-                            </span>
-                            {connectionStatus.requiresConnection ? (
-                                <Link
-                                    className="text-primary underline-offset-4 hover:underline"
-                                    params={{ projectId }}
-                                    to="/dashboard/projects/$projectId/channels">
-                                    {m.compose_manage_connection()}
-                                </Link>
-                            ) : null}
-                        </div>
-                    ) : null}
+                <div className="flex min-w-0 items-center gap-3">
+                    {channel ? <ChannelAvatar channel={channel} size="md" /> : null}
+                    <div className="min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground">
+                            {m.compose_destination({ index: String(index + 1) })}
+                        </p>
+                        {channel ? (
+                            <p className="mt-1 truncate text-sm font-medium">{channel.name}</p>
+                        ) : null}
+                        {connectionStatus ? (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                <span className={connectionStatus.className}>
+                                    {connectionStatus.label}
+                                </span>
+                                {connectionStatus.requiresConnection ? (
+                                    <Link
+                                        className="text-primary underline-offset-4 hover:underline"
+                                        params={{ projectId }}
+                                        to="/dashboard/projects/$projectId/channels">
+                                        {m.compose_manage_connection()}
+                                    </Link>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
                 {removable ? (
                     <Button

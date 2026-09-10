@@ -19,8 +19,12 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
+        "@dicebear/core": "10.7.0",
+        "@dicebear/styles": "10.6.0",
         "@herald/client": "workspace:*",
         "@herald/ui": "workspace:*",
+        "@iconify-icons/logos": "2.0.1",
+        "@iconify/react": "6.0.2",
         "@solar-icons/react": "2.1.0",
         "@tanstack/query-db-collection": "^1.2.12",
         "@tanstack/react-db": "^0.3.7",
