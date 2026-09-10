@@ -186,7 +186,7 @@
     "nav_instance_settings": "Réglages de l’instance",
     "nav_instance_navigation": "Navigation des réglages de l’instance",
     "provider_apps_title": "Applications des providers",
-    "provider_apps_description": "Configurez les apps des connexions OAuth.",
+    "provider_apps_description": "Configurez les apps OAuth partagées entre les projets Herald.",
     "provider_apps_new": "Nouvelle application",
     "provider_apps_edit": "Modifier l’application",
     "provider_apps_create": "Créer l’application",

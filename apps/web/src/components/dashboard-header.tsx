@@ -58,7 +58,7 @@ export function DashboardHeader({
                               ? m.nav_publication_editor()
                               : sectionLabel}
                     </span>
-                    {projectId !== null ? (
+                    {projectId !== null && !isInstanceSettings ? (
                         <>
                             <span className="text-muted-foreground/50" aria-hidden="true">
                                 /

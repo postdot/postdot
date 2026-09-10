@@ -17,13 +17,21 @@ test('keeps instance settings separate from project navigation', async ({ page }
     await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
         `E2E-121 scope project ${suffix}`
     )
+    const dashboardHeader = page.locator('[data-dashboard-header="true"]:visible')
+    await expect(
+        dashboardHeader.getByText('Instance settings', { exact: true }).first()
+    ).toBeVisible()
+    await expect(dashboardHeader).not.toContainText(`E2E-121 scope project ${suffix}`)
+    await expect(
+        page.getByText('Configure OAuth apps shared across Herald projects.', { exact: true })
+    ).toBeVisible()
     await expect(page.getByRole('link', { name: 'Overview', exact: true }).first()).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Project management navigation', exact: true }).first()
     ).toBeVisible()
 
     await page.getByRole('link', { name: 'Overview', exact: true }).first().click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/overview$`))
 
     await page.goto('/dashboard/settings/provider-applications')
 
