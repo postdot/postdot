@@ -1,6 +1,6 @@
 # ADR-060 — Define a Replayable SQLite Analytics Projection Beyond the Interactive Envelope
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-09-10
 - Scope: historical operational analytics projection and serving boundary
 - Provenance: ANALYTICS-113, ISSUE-057, ADR-053, ADR-054

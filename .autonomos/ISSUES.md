@@ -1272,7 +1272,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-054] Define an analytics foundation without coupling Herald to provider dashboards
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The provider-neutral analytics foundation has been identified in
   durable publication and execution events, but Herald does not yet have an
   accepted read model, measurement vocabulary, retention policy, or explicit
@@ -1288,6 +1288,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
   without external provider analytics and must not require a dashboard UI yet.
 - Tasks: ANALYTICS-107, ANALYTICS-108
 - Related issues: ISSUE-045, ISSUE-050, ISSUE-053, ISSUE-055
+- Related decision: ADR-051
+- Resolution: ANALYTICS-107 and ANALYTICS-108 established the provider-neutral
+  operational analytics contract, measurement vocabulary, coverage semantics,
+  project authorization, and typed read model. Provider-owned engagement remains
+  outside this contract and is tracked separately; no dashboard or universal
+  engagement score is inferred here.
 
 ## [ISSUE-055] Close historical analytics coverage gaps and measure read-model cost
 
@@ -1329,7 +1335,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-056] Define provider-owned engagement analytics without conflating operational metrics
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: The current Herald analytics contract measures operational facts
   created by Herald: publication lifecycle, queue depth, attempts, retries,
   failures, ambiguity, recovery, and latency. The competitor review shows a
@@ -1363,6 +1369,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: ANALYTICS-109
 - Related issues: ISSUE-054, ISSUE-055
 - Related decisions: ADR-051
+- Resolution: ANALYTICS-109 accepts a separate provider-owned observation
+  boundary with provider-specific subjects, metrics, freshness, availability,
+  permissions, cadence, retention, and discovery semantics. The bounded Bluesky
+  slice proves the first provider-specific path without creating a universal
+  engagement score; cadence and broader provider coverage remain follow-ups.
 - Research sources:
   - https://docs.postiz.com/public-api/analytics/platform
   - https://docs.postiz.com/public-api/analytics/post
@@ -1532,7 +1543,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-063] Recompose Herald's route information architecture and progressive disclosure
 
 - Type: problem
-- Status: open
+- Status: accepted
 - Evidence: Two independent read-only UX/UI audits found that Overview,
   Calendar, and Queue become near-identical empty states, while Compose carries
   most of the source-to-destination relationship. The audits also found that
@@ -1560,11 +1571,14 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related decision: ADR-057 (accepted)
 - Related specification: SPEC-007 (draft)
 - Related specification: SPEC-006
+- Follow-up: The accepted route contracts are implemented, but the remaining
+  empty-state and density observations stay as a bounded UX follow-up rather
+  than being treated as a completed visual redesign.
 
 ## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: Both independent audits found that reduced navigation loses or
   obscures labels, and one audit found truncated section labels without a
   reliable tooltip or accessible name. The audits also found tablet Compose
@@ -1588,11 +1602,15 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: DESIGN-121, WEB-123, WEB-124
 - Related issues: ISSUE-042, ISSUE-051, ISSUE-059, ISSUE-060
 - Related specification: SPEC-006
+- Resolution: DESIGN-121, WEB-123, WEB-124, and WEB-126 established the shared
+  shell, project-context, reduced-navigation, responsive, labeling, and
+  instance-settings boundaries. The browser regression matrix confirms the
+  resulting navigation remains reachable at supported widths.
 
 ## [ISSUE-065] Make Herald's visual and content foundation operational beyond default shadcn grammar
 
 - Type: proposal
-- Status: open
+- Status: accepted
 - Evidence: The owner explicitly wants shadcn/Base UI to remain a source-code
   foundation rather than Herald's visual identity. The independent audits found
   that the current visual tokens are mostly coherent, but also identified
@@ -1617,11 +1635,14 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: DESIGN-120, DESIGN-98, WEB-124
 - Related issues: ISSUE-004, ISSUE-042, ISSUE-052, ISSUE-063
 - Related specification: SPEC-006
+- Follow-up: DESIGN-120 and the UX sprint establish the accepted foundation;
+  remaining Access/provider-configuration and empty-state calibration should be
+  handled as small evidence-driven passes, not a broad branding rewrite.
 
 ## [ISSUE-066] Validate UX against realistic data, transitions, and realtime feedback
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: The audits were correctly read-only and therefore did not exercise
   populated publications, failed or ambiguous outcomes, media uploads, multiple
   channels, network failures, loading states, notification state changes, or
@@ -1647,6 +1668,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: WEB-117, WEB-119, WEB-124, AUDIT-125
 - Related issues: ISSUE-050, ISSUE-051, ISSUE-052, ISSUE-063, ISSUE-064
 - Related decisions: ADR-047, ADR-048, ADR-050
+- Resolution: WEB-124 and the post-merge browser validation matrix now cover
+  authentication, project isolation, two destinations, media upload and reuse,
+  manual and scheduled delivery, queue filters, notification loading/error/
+  retry, SSE reconnect/resync, failed and ambiguous recovery, and responsive
+  layouts. The disposable run passed 12/12 tests without real provider side
+  effects; recurring real-provider validation remains under ISSUE-021.
 - Related specification: SPEC-006
 
 ## [ISSUE-062] Define Herald human account, instance administration, and invitation policy
