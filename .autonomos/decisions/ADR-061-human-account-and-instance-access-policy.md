@@ -1,4 +1,4 @@
-# ADR-058 — Establish human account bootstrap and instance/project access policy
+# ADR-061 — Establish human account bootstrap and instance/project access policy
 
 - Status: proposed
 - Scope: self-hosted human accounts, instance administration, project membership,
