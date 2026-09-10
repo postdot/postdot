@@ -54,7 +54,7 @@ export const Route = createFileRoute('/dashboard')({
 
 function DashboardPage() {
     const navigate = useNavigate()
-    const { pathname } = useLocation()
+    const { pathname, search } = useLocation()
     useLanguage()
     const initialData = Route.useLoaderData()
     const [projects, setProjects] = useState<Project[]>(initialData.projects)
@@ -121,10 +121,17 @@ function DashboardPage() {
         session: initialData.session,
     }
 
+    const settingsProjectId = pathname.startsWith('/dashboard/settings/')
+        ? readProjectContextId(search)
+        : undefined
+    const selectedSettingsProject = pathname.startsWith('/dashboard/settings/')
+        ? (projects.find(project => project.id === settingsProjectId) ?? null)
+        : null
+
     return (
         <DashboardGlobalProvider value={value}>
             {pathname.startsWith('/dashboard/settings/') ? (
-                <GlobalSettingsShell />
+                <GlobalSettingsShell selectedProject={selectedSettingsProject} />
             ) : projects.length === 0 ? (
                 <EmptyProjectShell />
             ) : pathname === '/dashboard' || pathname === '/dashboard/' ? (
@@ -136,7 +143,14 @@ function DashboardPage() {
     )
 }
 
-function GlobalSettingsShell() {
+function readProjectContextId(search: unknown) {
+    if (typeof search !== 'object' || search === null) return undefined
+
+    const projectId = (search as { readonly projectId?: unknown }).projectId
+    return typeof projectId === 'string' && projectId.length > 0 ? projectId : undefined
+}
+
+function GlobalSettingsShell({ selectedProject }: { readonly selectedProject: Project | null }) {
     const global = useDashboardGlobal()
 
     return (
@@ -153,7 +167,7 @@ function GlobalSettingsShell() {
                 projectName={global.projectName}
                 projects={global.projects}
                 publisherConnections={[]}
-                selectedProject={null}
+                selectedProject={selectedProject}
                 session={global.session}
                 publicationsCount={0}>
                 <Outlet />
