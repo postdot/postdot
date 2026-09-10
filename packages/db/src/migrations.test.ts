@@ -158,6 +158,17 @@ function revertUserNotificationMigration(database: ReturnType<typeof createDatab
     `)
 }
 
+function revertTaxonomyMigration(database: ReturnType<typeof createDatabase>) {
+    database.$client.exec(`
+        PRAGMA foreign_keys=OFF;
+        DROP TABLE publication_tags;
+        DROP TABLE project_tags;
+        ALTER TABLE projects DROP COLUMN primary_category_id;
+        DROP TABLE project_categories;
+        PRAGMA foreign_keys=ON;
+    `)
+}
+
 describe('database migrations', () => {
     it('applies the committed migration exactly once', () => {
         const database = createDatabase(':memory:')
@@ -200,6 +211,8 @@ describe('database migrations', () => {
                 'oauth_authorization_attempts',
                 'posts',
                 'project_access_tokens',
+                'project_categories',
+                'project_tags',
                 'projects',
                 'provider_analytics_observations',
                 'provider_application_configurations',
@@ -207,6 +220,7 @@ describe('database migrations', () => {
                 'publication_execution_revision_media',
                 'publication_execution_revisions',
                 'publication_revision_media',
+                'publication_tags',
                 'publication_target_revisions',
                 'publication_working_drafts',
                 'publications',
@@ -223,7 +237,7 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(26)
+            expect(migrationCount?.count).toBe(27)
         } finally {
             closeDatabase(database)
         }
@@ -260,7 +274,8 @@ describe('database migrations', () => {
                         'Legacy publication failed', 'The legacy publication needs attention.', ?3)`
                 )
                 .run(project.project.id, project.actor.id, 1_800_000_000_000)
-            unapplyMigrations(database, ['0025_acoustic_sentinel'])
+            revertTaxonomyMigration(database)
+            unapplyMigrations(database, ['0026_superb_red_ghost', '0025_acoustic_sentinel'])
 
             runMigrations(database)
 
@@ -320,7 +335,8 @@ describe('database migrations', () => {
                         'This row must not disappear.', ?2)`
                 )
                 .run(project.project.id, 1_800_000_000_000)
-            unapplyMigrations(database, ['0025_acoustic_sentinel'])
+            revertTaxonomyMigration(database)
+            unapplyMigrations(database, ['0026_superb_red_ghost', '0025_acoustic_sentinel'])
 
             expect(() => runMigrations(database)).toThrow()
             expect(
@@ -374,7 +390,9 @@ describe('database migrations', () => {
                 .run()
             database.$client.run('PRAGMA foreign_keys=ON')
             database.$client.exec('DROP TABLE notification_user_preferences')
+            revertTaxonomyMigration(database)
             unapplyMigrations(database, [
+                '0026_superb_red_ghost',
                 '0025_acoustic_sentinel',
                 '0024_sour_wolfsbane',
                 '0023_normalize_orphan_provider_applications',
@@ -512,7 +530,9 @@ describe('database migrations', () => {
             revertNotificationMigration(database)
             revertEventJournalMigration(database)
             revertProviderApplicationMigration(database)
+            revertTaxonomyMigration(database)
             unapplyMigrations(database, [
+                '0026_superb_red_ghost',
                 '0025_acoustic_sentinel',
                 '0024_sour_wolfsbane',
                 '0023_normalize_orphan_provider_applications',
@@ -596,7 +616,9 @@ describe('database migrations', () => {
             revertNotificationMigration(staleDatabase)
             revertEventJournalMigration(staleDatabase)
             revertProviderApplicationMigration(staleDatabase)
+            revertTaxonomyMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
+                '0026_superb_red_ghost',
                 '0025_acoustic_sentinel',
                 '0024_sour_wolfsbane',
                 '0023_normalize_orphan_provider_applications',

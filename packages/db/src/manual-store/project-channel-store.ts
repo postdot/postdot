@@ -60,7 +60,12 @@ export function createProjectChannelStore(
     const profileCompiler = new ChannelProfileCompiler()
 
     const loadProjectStatement = client.query<ProjectRow, [projectId: string]>(`
-        select id, name, time_zone as timeZone, created_at as createdAt, updated_at as updatedAt
+        select id,
+               name,
+               time_zone as timeZone,
+               primary_category_id as primaryCategoryId,
+               created_at as createdAt,
+               updated_at as updatedAt
         from projects
         where id = ?1
     `)
@@ -83,6 +88,7 @@ export function createProjectChannelStore(
         select distinct projects.id,
                projects.name,
                projects.time_zone as timeZone,
+               projects.primary_category_id as primaryCategoryId,
                projects.created_at as createdAt,
                projects.updated_at as updatedAt
         from projects

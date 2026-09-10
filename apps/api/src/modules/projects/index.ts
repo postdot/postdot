@@ -7,6 +7,7 @@ import type {
     NotificationStore,
     ProviderAnalyticsStore,
     ProjectAccessTokenStore,
+    TaxonomyStore,
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
@@ -29,6 +30,7 @@ import { registerPublisherRoutes } from './publisher-routes'
 import { registerRealtimeRoutes } from './realtime-routes'
 import type { ProjectRealtimeHub, UserRealtimeHub } from './realtime-runtime'
 import { registerProjectRoutes } from './routes'
+import { registerTaxonomyRoutes } from './taxonomy-routes'
 import type { ManualStore, PublisherRuntime } from './types'
 
 export interface ProjectModuleOptions {
@@ -44,6 +46,7 @@ export interface ProjectModuleOptions {
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
     readonly providerAnalytics: ProviderAnalyticsStore
+    readonly taxonomy: TaxonomyStore
     readonly blueskyAnalyticsFetcher?: BlueskyFetcher
     readonly blueskyAnalyticsTimeoutMs?: number
     readonly blueskyAnalyticsNow?: () => number
@@ -61,7 +64,8 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.publisher
     )
     const projectRoutes = registerProjectRoutes(providerApplicationRoutes, options.manualStore)
-    const accessTokenRoutes = registerProjectAccessTokenRoutes(projectRoutes, options.accessTokens)
+    const taxonomyRoutes = registerTaxonomyRoutes(projectRoutes, options.taxonomy)
+    const accessTokenRoutes = registerProjectAccessTokenRoutes(taxonomyRoutes, options.accessTokens)
     const channelRoutes = registerChannelRoutes(accessTokenRoutes, options.manualStore)
     const channelProfileRoutes = registerChannelProfileRoutes(channelRoutes, options.manualStore)
     const publisherRoutes = registerPublisherRoutes(channelProfileRoutes, options.publisher, {

@@ -65,6 +65,8 @@ export type {
     ProjectResponse,
     PublicationResponse,
     PublicationSummaryResponse,
+    ProjectCategoryResponse,
+    ProjectTagResponse,
 } from './modules/projects/models'
 export type { BlueskyAnalyticsCollectionResponse } from './modules/projects/bluesky-analytics-service'
 export type { ProviderAnalyticsObservationPage } from '@herald/db'

@@ -1,5 +1,9 @@
 import { blueskyChannelProfile } from '@herald/bluesky'
-import { createManualChannelProfile, sourceContentSchema } from '@herald/core'
+import {
+    createManualChannelProfile,
+    sourceContentSchema,
+    taxonomyLabelMaximumLength,
+} from '@herald/core'
 import type { ChannelProfileDefinition, Publication } from '@herald/core'
 import type { ChannelProfileImpactAssessment } from '@herald/core'
 import type {
@@ -35,6 +39,34 @@ function createElysiaSelectSchema<const TableType extends Table>(table: TableTyp
 }
 
 export const projectSchema = createElysiaSelectSchema(projects)
+const taxonomyStateSchema = Type.Union([Type.Literal('active'), Type.Literal('archived')])
+export const projectCategorySchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1, maxLength: taxonomyLabelMaximumLength }),
+    normalizedName: Type.String({ minLength: 1, maxLength: taxonomyLabelMaximumLength }),
+    state: taxonomyStateSchema,
+    archivedAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+    createdAt: Type.Integer({ minimum: 0 }),
+    updatedAt: Type.Integer({ minimum: 0 }),
+})
+export const projectTagSchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    projectId: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1, maxLength: taxonomyLabelMaximumLength }),
+    normalizedName: Type.String({ minLength: 1, maxLength: taxonomyLabelMaximumLength }),
+    state: taxonomyStateSchema,
+    archivedAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+    createdAt: Type.Integer({ minimum: 0 }),
+    updatedAt: Type.Integer({ minimum: 0 }),
+})
+export const projectCategoriesSchema = Type.Object({
+    categories: Type.Array(projectCategorySchema),
+})
+export const projectTagsSchema = Type.Object({
+    tags: Type.Array(projectTagSchema),
+})
+export type ProjectCategoryResponse = Static<typeof projectCategorySchema>
+export type ProjectTagResponse = Static<typeof projectTagSchema>
 export const channelSchema = Type.Intersect([
     createElysiaSelectSchema(channels),
     Type.Object({ profileId: Type.String({ minLength: 1 }) }),
@@ -281,6 +313,15 @@ export const projectParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
 })
 
+export const categoryParams = Type.Object({
+    categoryId: Type.String({ minLength: 1 }),
+})
+
+export const tagParams = Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    tagId: Type.String({ minLength: 1 }),
+})
+
 export const projectAccessTokenParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
     tokenId: Type.String({ minLength: 1 }),
@@ -289,6 +330,12 @@ export const projectAccessTokenParams = Type.Object({
 export const publicationParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
     publicationId: Type.String({ minLength: 1 }),
+})
+
+export const publicationTagParams = publicationParams
+
+export const taxonomyListQuery = Type.Object({
+    includeArchived: Type.Optional(Type.Boolean()),
 })
 
 export const channelParams = Type.Object({
@@ -309,6 +356,26 @@ export const createProjectBody = Type.Object({
 
 export const updateProjectBody = Type.Object({
     timeZone: Type.String({ minLength: 1 }),
+})
+
+export const createProjectCategoryBody = Type.Object({
+    name: Type.String({ minLength: 1, maxLength: taxonomyLabelMaximumLength }),
+})
+
+export const renameProjectCategoryBody = createProjectCategoryBody
+
+export const setProjectPrimaryCategoryBody = Type.Object({
+    categoryId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+})
+
+export const createProjectTagBody = Type.Object({
+    name: Type.String({ minLength: 1, maxLength: taxonomyLabelMaximumLength }),
+})
+
+export const renameProjectTagBody = createProjectTagBody
+
+export const replacePublicationTagsBody = Type.Object({
+    tagIds: Type.Array(Type.String({ minLength: 1 })),
 })
 
 export const createProjectAccessTokenBody = Type.Object({

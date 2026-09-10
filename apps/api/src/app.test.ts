@@ -546,6 +546,16 @@ describe('Herald API', () => {
                 '/api/settings/provider-applications/{applicationId}',
                 '/api/projects',
                 '/api/projects/{projectId}',
+                '/api/categories',
+                '/api/categories/{categoryId}',
+                '/api/categories/{categoryId}/archive',
+                '/api/categories/{categoryId}/restore',
+                '/api/projects/{projectId}/category',
+                '/api/projects/{projectId}/tags',
+                '/api/projects/{projectId}/tags/{tagId}',
+                '/api/projects/{projectId}/tags/{tagId}/archive',
+                '/api/projects/{projectId}/tags/{tagId}/restore',
+                '/api/projects/{projectId}/publications/{publicationId}/tags',
                 '/api/projects/{projectId}/access-tokens',
                 '/api/projects/{projectId}/access-tokens/{tokenId}',
                 '/api/projects/{projectId}/channels',
@@ -644,6 +654,246 @@ describe('Herald API', () => {
             expect(readOpenApiStatus(specification.paths['/ready']?.get?.responses?.['503'])).toBe(
                 'not_ready'
             )
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('keeps taxonomy definitions instance-scoped and tags project-scoped', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'taxonomy-operator@herald.local')
+            const categoryResponse = await jsonRequest(app, '/api/categories', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: '  Product   Updates ' }),
+            })
+            expect(categoryResponse.status).toBe(201)
+            const category = (await categoryResponse.json()) as {
+                category: { id: string; name: string; normalizedName: string; state: string }
+            }
+            expect(category.category).toMatchObject({
+                name: 'Product Updates',
+                normalizedName: 'product updates',
+                state: 'active',
+            })
+
+            const duplicateCategoryResponse = await jsonRequest(app, '/api/categories', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'product updates' }),
+            })
+            expect(duplicateCategoryResponse.status).toBe(409)
+            expect(await duplicateCategoryResponse.json()).toMatchObject({
+                error: { code: 'write_conflict' },
+            })
+
+            const firstProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Taxonomy project one' }),
+            })
+            expect(firstProjectResponse.status).toBe(201)
+            const firstProject = (await firstProjectResponse.json()) as { project: { id: string } }
+
+            const assignmentResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/category`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ categoryId: category.category.id }),
+                }
+            )
+            expect(assignmentResponse.status).toBe(200)
+            expect(await assignmentResponse.json()).toMatchObject({
+                id: firstProject.project.id,
+                primaryCategoryId: category.category.id,
+            })
+
+            const tagResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/tags`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Launch' }),
+                }
+            )
+            expect(tagResponse.status).toBe(201)
+            const tag = (await tagResponse.json()) as {
+                tag: { id: string; projectId: string; name: string; state: string }
+            }
+            expect(tag.tag).toMatchObject({
+                projectId: firstProject.project.id,
+                name: 'Launch',
+                state: 'active',
+            })
+
+            const duplicateTagResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/tags`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: ' launch ' }),
+                }
+            )
+            expect(duplicateTagResponse.status).toBe(409)
+
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Taxonomy destination' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const channel = (await channelResponse.json()) as { channel: { id: string } }
+            const postResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title: 'Taxonomy post',
+                        sourceContent: {
+                            body: {
+                                text: 'A post to exercise publication tags.',
+                                format: 'plain_text',
+                            },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channel.channel.id,
+                                targetContent: { body: 'A tagged publication.', media: [] },
+                                deliveryMode: 'manual',
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(postResponse.status).toBe(201)
+            const post = (await postResponse.json()) as {
+                publications: Array<{ id: string }>
+            }
+            const publicationId = post.publications[0]?.id
+            expect(publicationId).toBeString()
+
+            const assignPublicationTagsResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/publications/${publicationId}/tags`,
+                cookie,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify({ tagIds: [tag.tag.id] }),
+                }
+            )
+            expect(assignPublicationTagsResponse.status).toBe(200)
+            expect(await assignPublicationTagsResponse.json()).toMatchObject({
+                tags: [expect.objectContaining({ id: tag.tag.id })],
+            })
+
+            const secondProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Taxonomy project two' }),
+            })
+            expect(secondProjectResponse.status).toBe(201)
+            const secondProject = (await secondProjectResponse.json()) as {
+                project: { id: string }
+            }
+            const secondTagResponse = await jsonRequest(
+                app,
+                `/api/projects/${secondProject.project.id}/tags`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Launch' }),
+                }
+            )
+            expect(secondTagResponse.status).toBe(201)
+            const secondTag = (await secondTagResponse.json()) as { tag: { id: string } }
+            expect(secondTag.tag.id).not.toBe(tag.tag.id)
+
+            const firstTagsResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/tags`,
+                cookie
+            )
+            expect(firstTagsResponse.status).toBe(200)
+            expect(await firstTagsResponse.json()).toMatchObject({
+                tags: [
+                    expect.objectContaining({ id: tag.tag.id, projectId: firstProject.project.id }),
+                ],
+            })
+
+            const archiveTagResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/tags/${tag.tag.id}/archive`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(archiveTagResponse.status).toBe(200)
+            expect(await archiveTagResponse.json()).toMatchObject({
+                tag: { id: tag.tag.id, state: 'archived' },
+            })
+
+            const activeTagsResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/tags`,
+                cookie
+            )
+            expect(activeTagsResponse.status).toBe(200)
+            expect(await activeTagsResponse.json()).toEqual({ tags: [] })
+
+            const archivedTagsResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/tags?includeArchived=true`,
+                cookie
+            )
+            expect(archivedTagsResponse.status).toBe(200)
+            expect(await archivedTagsResponse.json()).toMatchObject({
+                tags: [expect.objectContaining({ id: tag.tag.id, state: 'archived' })],
+            })
+
+            const publicationTagsResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/publications/${publicationId}/tags`,
+                cookie
+            )
+            expect(publicationTagsResponse.status).toBe(200)
+            expect(await publicationTagsResponse.json()).toMatchObject({
+                tags: [expect.objectContaining({ id: tag.tag.id, state: 'archived' })],
+            })
+
+            const archiveCategoryResponse = await jsonRequest(
+                app,
+                `/api/categories/${category.category.id}/archive`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(archiveCategoryResponse.status).toBe(200)
+            expect(await archiveCategoryResponse.json()).toMatchObject({
+                category: { id: category.category.id, state: 'archived' },
+            })
+
+            const visibleCategoriesResponse = await jsonRequest(app, '/api/categories', cookie)
+            expect(visibleCategoriesResponse.status).toBe(200)
+            expect(await visibleCategoriesResponse.json()).toEqual({ categories: [] })
+
+            const archivedCategoriesResponse = await jsonRequest(
+                app,
+                '/api/categories?includeArchived=true',
+                cookie
+            )
+            expect(archivedCategoriesResponse.status).toBe(200)
+            expect(await archivedCategoriesResponse.json()).toMatchObject({
+                categories: [
+                    expect.objectContaining({ id: category.category.id, state: 'archived' }),
+                ],
+            })
         } finally {
             closeDatabase(database)
         }

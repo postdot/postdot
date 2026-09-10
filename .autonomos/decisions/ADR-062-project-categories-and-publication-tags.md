@@ -374,7 +374,9 @@ Costs and risks:
 
 ## Phased implementation proposal
 
-This is a sequencing proposal, not an implementation performed by TAXONOMY-101.
+This is the implementation sequence for the accepted policy. TAXONOMY-101
+established the policy; TAXONOMY-129 implements the durable/API foundation, and
+TAXONOMY-130 is the follow-up for the web integration.
 
 1. **Governance and authority.** Accept this ADR, resolve the category
    definition authority with ACCESS-116, and choose the exact instance-scope
@@ -420,7 +422,9 @@ This is a sequencing proposal, not an implementation performed by TAXONOMY-101.
 
 ## Acceptance note
 
-This ADR is a proposed project decision. Per `.autonomos/PROTOCOL.md`, it is
-not normative until project governance accepts it. TAXONOMY-101 records the
-policy and implementation phases only; it does not modify the domain model,
-database schema, routes, UI, analytics contract, or task board.
+This ADR is an accepted project decision and is normative for the taxonomy
+boundary. It does not imply that every implementation phase is complete:
+TAXONOMY-129 covers the durable/API foundation, while TAXONOMY-130 covers the
+web integration. The temporary human-session boundary for instance category
+definitions remains explicit until ACCESS-116 provides the final instance-admin
+authority.
