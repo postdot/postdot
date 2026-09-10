@@ -1,12 +1,12 @@
 import {
-    createProjectNotification,
+    createUserNotification,
     DomainInvariantError,
     notificationKinds,
     projectNotificationTemplate,
     requireNonBlank,
     requireTimestamp,
     type NotificationKind,
-    type ProjectNotification,
+    type UserNotification,
 } from '@herald/core'
 
 import type { HeraldDatabase } from './client'
@@ -21,6 +21,7 @@ const notificationCursorPrefix = 'notification:'
 
 interface HumanActorRow {
     readonly id: string
+    readonly userId: string
 }
 
 interface PreferenceRow {
@@ -33,11 +34,12 @@ interface CursorRow {
 
 interface NotificationRow {
     readonly id: string
-    readonly projectId: string
-    readonly recipientActorId: string
+    readonly projectId: string | null
+    readonly recipientUserId: string
+    readonly recipientActorId: string | null
     readonly sourceEventId: string
     readonly kind: NotificationKind
-    readonly severity: ProjectNotification['severity']
+    readonly severity: UserNotification['severity']
     readonly subjectType: string
     readonly subjectId: string
     readonly title: string
@@ -67,13 +69,27 @@ export interface ListNotificationsInput {
 }
 
 export interface NotificationInboxPage {
-    readonly items: readonly ProjectNotification[]
+    readonly items: readonly UserNotification[]
     readonly nextCursor: string | null
 }
 
 export interface UpdateNotificationPreferenceInput {
     readonly projectId: string
     readonly subjectId: string
+    readonly kind: NotificationKind
+    readonly inAppEnabled: boolean
+}
+
+export interface ListUserNotificationsInput {
+    readonly userId: string
+    readonly projectId?: string | null
+    readonly includeArchived?: boolean
+    readonly limit?: number
+    readonly before?: string | null
+}
+
+export interface UpdateUserNotificationPreferenceInput {
+    readonly userId: string
     readonly kind: NotificationKind
     readonly inAppEnabled: boolean
 }
@@ -95,18 +111,41 @@ export function createNotificationStore(
     const listProjectIdsStatement = client.query<{ readonly id: string }, []>(`
         select id from projects order by created_at, id
     `)
+    const listUserProjectIdsStatement = client.query<{ readonly id: string }, [userId: string]>(`
+        select distinct project_id as id from actors
+        where subject_id = ?1
+          and kind in ('human', 'agent', 'api_token')
+        order by project_id
+    `)
+    const listProjectUserIdsStatement = client.query<
+        { readonly userId: string },
+        [projectId: string]
+    >(`
+        select distinct subject_id as userId from actors
+        where project_id = ?1
+          and kind in ('human', 'agent', 'api_token')
+          and subject_id is not null
+        order by subject_id
+    `)
     const loadHumanActorStatement = client.query<
         HumanActorRow,
         [projectId: string, subjectId: string]
     >(`
-        select id from actors
+        select id, subject_id as userId from actors
         where project_id = ?1 and subject_id = ?2 and kind = 'human'
         order by created_at, id limit 1
     `)
     const listHumanActorsStatement = client.query<HumanActorRow, [projectId: string]>(`
-        select id from actors
+        select id, subject_id as userId from actors
         where project_id = ?1 and kind = 'human' and subject_id is not null
         order by created_at, id
+    `)
+    const loadUserPreferenceStatement = client.query<
+        PreferenceRow,
+        [userId: string, kind: NotificationKind]
+    >(`
+        select in_app_enabled as enabled from notification_user_preferences
+        where user_id = ?1 and kind = ?2
     `)
     const loadPreferenceStatement = client.query<
         PreferenceRow,
@@ -124,10 +163,11 @@ export function createNotificationStore(
         [
             id: string,
             projectId: string,
+            recipientUserId: string,
             recipientActorId: string,
             sourceEventId: string,
             kind: NotificationKind,
-            severity: ProjectNotification['severity'],
+            severity: UserNotification['severity'],
             subjectType: string,
             subjectId: string,
             title: string,
@@ -136,10 +176,10 @@ export function createNotificationStore(
         ]
     >(`
         insert into notifications (
-            id, project_id, recipient_actor_id, source_event_id, kind, severity,
-            subject_type, subject_id, title, body, created_at
-        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
-        on conflict(project_id, recipient_actor_id, source_event_id) do nothing
+            id, project_id, recipient_user_id, recipient_actor_id, source_event_id,
+            kind, severity, subject_type, subject_id, title, body, created_at
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+        on conflict(recipient_user_id, project_id, source_event_id) do nothing
     `)
     const upsertCursorStatement = client.query<
         void,
@@ -152,7 +192,8 @@ export function createNotificationStore(
             cursor = excluded.cursor, updated_at = excluded.updated_at
     `)
     const notificationColumns = `
-        id, project_id as projectId, recipient_actor_id as recipientActorId,
+        id, project_id as projectId, recipient_user_id as recipientUserId,
+        recipient_actor_id as recipientActorId,
         source_event_id as sourceEventId, kind, severity, subject_type as subjectType,
         subject_id as subjectId, title, body, read_at as readAt,
         archived_at as archivedAt, created_at as createdAt
@@ -178,12 +219,42 @@ export function createNotificationStore(
           )
         order by created_at desc, id desc limit ?6
     `)
+    const listUserNotificationsStatement = client.query<
+        NotificationRow,
+        [
+            userId: string,
+            projectId: string | null,
+            includeArchived: number,
+            beforeCreatedAt: number | null,
+            beforeId: string | null,
+            limit: number,
+        ]
+    >(`
+        select ${notificationColumns} from notifications
+        where recipient_user_id = ?1
+          and (?2 is null or project_id = ?2)
+          and (?3 = 1 or archived_at is null)
+          and (
+              ?4 is null
+              or created_at < ?4
+              or (created_at = ?4 and id < ?5)
+          )
+        order by created_at desc, id desc limit ?6
+    `)
     const countUnreadStatement = client.query<
         { readonly count: number },
         [projectId: string, actorId: string]
     >(`
         select count(*) as count from notifications
         where project_id = ?1 and recipient_actor_id = ?2
+          and read_at is null and archived_at is null
+    `)
+    const countUnreadForUserStatement = client.query<
+        { readonly count: number },
+        [userId: string, projectId: string | null]
+    >(`
+        select count(*) as count from notifications
+        where recipient_user_id = ?1 and (?2 is null or project_id = ?2)
           and read_at is null and archived_at is null
     `)
     const loadNotificationStatement = client.query<
@@ -206,6 +277,27 @@ export function createNotificationStore(
     >(`
         update notifications set archived_at = coalesce(archived_at, ?1)
         where id = ?2 and project_id = ?3 and recipient_actor_id = ?4
+    `)
+    const loadUserNotificationStatement = client.query<
+        NotificationRow,
+        [id: string, userId: string]
+    >(`
+        select ${notificationColumns} from notifications
+        where id = ?1 and recipient_user_id = ?2
+    `)
+    const markUserNotificationReadStatement = client.query<
+        void,
+        [readAt: number, id: string, userId: string]
+    >(`
+        update notifications set read_at = coalesce(read_at, ?1)
+        where id = ?2 and recipient_user_id = ?3
+    `)
+    const archiveUserNotificationStatement = client.query<
+        void,
+        [archivedAt: number, id: string, userId: string]
+    >(`
+        update notifications set archived_at = coalesce(archived_at, ?1)
+        where id = ?2 and recipient_user_id = ?3
     `)
     const listPreferencesStatement = client.query<
         { readonly kind: NotificationKind; readonly enabled: number },
@@ -231,6 +323,23 @@ export function createNotificationStore(
         on conflict(project_id, recipient_actor_id, kind) do update set
             in_app_enabled = excluded.in_app_enabled, updated_at = excluded.updated_at
     `)
+    const listUserPreferencesStatement = client.query<
+        { readonly kind: NotificationKind; readonly enabled: number },
+        [userId: string]
+    >(`
+        select kind, in_app_enabled as enabled from notification_user_preferences
+        where user_id = ?1
+    `)
+    const upsertUserPreferenceStatement = client.query<
+        void,
+        [id: string, userId: string, kind: NotificationKind, enabled: number, timestamp: number]
+    >(`
+        insert into notification_user_preferences (
+            id, user_id, kind, in_app_enabled, created_at, updated_at
+        ) values (?1, ?2, ?3, ?4, ?5, ?5)
+        on conflict(user_id, kind) do update set
+            in_app_enabled = excluded.in_app_enabled, updated_at = excluded.updated_at
+    `)
 
     const projectTransaction = client.transaction(
         (projectId: string, limit: number): ProjectNotificationsResult => {
@@ -246,16 +355,15 @@ export function createNotificationStore(
                 if (template === null) continue
 
                 for (const recipient of recipients) {
-                    const preference = loadPreferenceStatement.get(
-                        projectId,
-                        recipient.id,
-                        template.kind
-                    )
+                    const preference =
+                        loadUserPreferenceStatement.get(recipient.userId, template.kind) ??
+                        loadPreferenceStatement.get(projectId, recipient.id, template.kind)
                     if (preference?.enabled === 0) continue
 
-                    const notification = createProjectNotification({
+                    const notification = createUserNotification({
                         id: createId(),
                         projectId,
+                        recipientUserId: recipient.userId,
                         recipientActorId: recipient.id,
                         sourceEventId: event.id,
                         kind: template.kind,
@@ -267,8 +375,9 @@ export function createNotificationStore(
                     })
                     created += insertNotificationStatement.run(
                         notification.id,
-                        notification.projectId,
-                        notification.recipientActorId,
+                        projectId,
+                        notification.recipientUserId,
+                        recipient.id,
                         notification.sourceEventId,
                         notification.kind,
                         notification.severity,
@@ -308,6 +417,24 @@ export function createNotificationStore(
             return listProjectIdsStatement.all().map(row => row.id)
         },
 
+        listProjectIdsForUser(userId: string): readonly string[] {
+            return listUserProjectIdsStatement
+                .all(requireNonBlank(userId, 'userId'))
+                .map(row => row.id)
+        },
+
+        listUserIdsForProjects(projectIds: readonly string[]): readonly string[] {
+            const users = new Set<string>()
+            for (const projectId of projectIds) {
+                for (const row of listProjectUserIdsStatement.all(
+                    requireNonBlank(projectId, 'projectId')
+                )) {
+                    users.add(row.userId)
+                }
+            }
+            return [...users].sort()
+        },
+
         project(projectId: string, limit = defaultProjectionLimit): ProjectNotificationsResult {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumProjectionLimit) {
@@ -317,6 +444,38 @@ export function createNotificationStore(
                 )
             }
             return projectTransaction.immediate(normalizedProjectId, limit)
+        },
+
+        listForUser(input: ListUserNotificationsInput): NotificationInboxPage {
+            const userId = requireNonBlank(input.userId, 'userId')
+            const projectId =
+                input.projectId === undefined || input.projectId === null
+                    ? null
+                    : requireNonBlank(input.projectId, 'projectId')
+            const limit = input.limit ?? defaultListLimit
+            if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximumListLimit) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `notification list limit must be between 1 and ${maximumListLimit}`
+                )
+            }
+            const before = parseNotificationCursor(input.before)
+            const rows = listUserNotificationsStatement.all(
+                userId,
+                projectId,
+                input.includeArchived === true ? 1 : 0,
+                before?.createdAt ?? null,
+                before?.id ?? null,
+                limit + 1
+            )
+            const hasMore = rows.length > limit
+            const items = rows.slice(0, limit).map(toNotification)
+            const last = hasMore ? items.at(-1) : undefined
+            return {
+                items,
+                nextCursor:
+                    last === undefined ? null : encodeNotificationCursor(last.createdAt, last.id),
+            }
         },
 
         list(input: ListNotificationsInput): NotificationInboxPage | null {
@@ -354,11 +513,22 @@ export function createNotificationStore(
             return countUnreadStatement.get(projectId, actor.id)?.count ?? 0
         },
 
+        countUnreadForUser(userId: string, projectId?: string | null): number {
+            const normalizedUserId = requireNonBlank(userId, 'userId')
+            const normalizedProjectId =
+                projectId === undefined || projectId === null
+                    ? null
+                    : requireNonBlank(projectId, 'projectId')
+            return (
+                countUnreadForUserStatement.get(normalizedUserId, normalizedProjectId)?.count ?? 0
+            )
+        },
+
         markRead(
             projectId: string,
             notificationId: string,
             subjectId: string
-        ): ProjectNotification | null {
+        ): UserNotification | null {
             const actor = resolveHumanActor(projectId, subjectId)
             if (actor === null) return null
             const id = requireNonBlank(notificationId, 'notificationId')
@@ -378,7 +548,7 @@ export function createNotificationStore(
             projectId: string,
             notificationId: string,
             subjectId: string
-        ): ProjectNotification | null {
+        ): UserNotification | null {
             const actor = resolveHumanActor(projectId, subjectId)
             if (actor === null) return null
             const id = requireNonBlank(notificationId, 'notificationId')
@@ -391,6 +561,34 @@ export function createNotificationStore(
                 actor.id
             )
             const row = loadNotificationStatement.get(id, projectId, actor.id)
+            return row === null ? null : toNotification(row)
+        },
+
+        markReadForUser(notificationId: string, userId: string): UserNotification | null {
+            const normalizedUserId = requireNonBlank(userId, 'userId')
+            const id = requireNonBlank(notificationId, 'notificationId')
+            const existing = loadUserNotificationStatement.get(id, normalizedUserId)
+            if (existing === null) return null
+            markUserNotificationReadStatement.run(
+                Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
+                id,
+                normalizedUserId
+            )
+            const row = loadUserNotificationStatement.get(id, normalizedUserId)
+            return row === null ? null : toNotification(row)
+        },
+
+        archiveForUser(notificationId: string, userId: string): UserNotification | null {
+            const normalizedUserId = requireNonBlank(userId, 'userId')
+            const id = requireNonBlank(notificationId, 'notificationId')
+            const existing = loadUserNotificationStatement.get(id, normalizedUserId)
+            if (existing === null) return null
+            archiveUserNotificationStatement.run(
+                Math.max(requireTimestamp(now(), 'now'), existing.createdAt),
+                id,
+                normalizedUserId
+            )
+            const row = loadUserNotificationStatement.get(id, normalizedUserId)
             return row === null ? null : toNotification(row)
         },
 
@@ -421,6 +619,34 @@ export function createNotificationStore(
                 createId(),
                 input.projectId,
                 actor.id,
+                input.kind,
+                input.inAppEnabled ? 1 : 0,
+                requireTimestamp(now(), 'now')
+            )
+            return { kind: input.kind, inAppEnabled: input.inAppEnabled }
+        },
+
+        listUserPreferences(userId: string): readonly NotificationPreference[] {
+            const normalizedUserId = requireNonBlank(userId, 'userId')
+            const explicit = new Map(
+                listUserPreferencesStatement
+                    .all(normalizedUserId)
+                    .map(row => [row.kind, row.enabled === 1] as const)
+            )
+            return notificationKinds.map(kind => ({
+                kind,
+                inAppEnabled: explicit.get(kind) ?? true,
+            }))
+        },
+
+        updateUserPreference(input: UpdateUserNotificationPreferenceInput): NotificationPreference {
+            const userId = requireNonBlank(input.userId, 'userId')
+            if (!notificationKinds.includes(input.kind)) {
+                throw new DomainInvariantError('invalid_input', 'notification kind is invalid')
+            }
+            upsertUserPreferenceStatement.run(
+                createId(),
+                userId,
                 input.kind,
                 input.inAppEnabled ? 1 : 0,
                 requireTimestamp(now(), 'now')
@@ -465,10 +691,11 @@ function parseNotificationCursor(
     return { createdAt, id }
 }
 
-function toNotification(row: NotificationRow): ProjectNotification {
-    return createProjectNotification({
+function toNotification(row: NotificationRow): UserNotification {
+    return createUserNotification({
         id: row.id,
         projectId: row.projectId,
+        recipientUserId: row.recipientUserId,
         recipientActorId: row.recipientActorId,
         sourceEventId: row.sourceEventId,
         kind: row.kind,

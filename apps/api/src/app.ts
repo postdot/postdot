@@ -24,7 +24,7 @@ import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/r
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
 import { createProjectModule } from './modules/projects'
-import type { ProjectRealtimeHub } from './modules/projects/realtime-runtime'
+import type { ProjectRealtimeHub, UserRealtimeHub } from './modules/projects/realtime-runtime'
 import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-routes'
 import type { PublisherRuntime } from './modules/publishers/runtime'
 import { createAuthRoutes } from './plugins/auth'
@@ -51,6 +51,7 @@ export interface HeraldAppOptions {
     readonly blueskyAnalyticsTimeoutMs?: number
     readonly blueskyAnalyticsNow?: () => number
     readonly projectChanges?: ProjectRealtimeHub
+    readonly userChanges?: UserRealtimeHub
 }
 
 function createDomainApp({
@@ -71,6 +72,7 @@ function createDomainApp({
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
     projectChanges,
+    userChanges,
     discordFetcher,
     devtoFetcher,
 }: HeraldAppOptions) {
@@ -136,7 +138,8 @@ function createDomainApp({
                         { name: 'Audit', description: 'Project audit history.' },
                         {
                             name: 'Notifications',
-                            description: 'Project human inboxes and preferences.',
+                            description:
+                                'Signed-in user notification inboxes with optional project context.',
                         },
                         {
                             name: 'Analytics',
@@ -173,6 +176,7 @@ function createDomainApp({
                 blueskyAnalyticsNow,
                 eventJournal,
                 projectChanges,
+                userChanges,
             })
         )
         .use(publicMediaRoutes)
@@ -203,6 +207,7 @@ export function createApp({
     blueskyAnalyticsTimeoutMs,
     blueskyAnalyticsNow,
     projectChanges,
+    userChanges,
     discordFetcher,
     devtoFetcher,
 }: HeraldAppOptions) {
@@ -224,6 +229,7 @@ export function createApp({
         blueskyAnalyticsTimeoutMs,
         blueskyAnalyticsNow,
         projectChanges,
+        userChanges,
         discordFetcher,
         devtoFetcher,
     }).use(createAuthRoutes(auth))

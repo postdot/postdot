@@ -100,6 +100,7 @@ function revertProviderApplicationMigration(database: ReturnType<typeof createDa
 
 function revertNotificationMigration(database: ReturnType<typeof createDatabase>) {
     database.$client.exec(`
+        DROP TABLE notification_user_preferences;
         DROP TABLE notification_deliveries;
         DROP TABLE notification_delivery_projection_cursors;
         DROP TABLE notification_subscriptions;
@@ -111,6 +112,49 @@ function revertNotificationMigration(database: ReturnType<typeof createDatabase>
         DROP TABLE notification_projection_cursors;
         DROP TABLE notification_preferences;
         DROP INDEX audit_events_project_id_id_uidx;
+    `)
+}
+
+function revertUserNotificationMigration(database: ReturnType<typeof createDatabase>) {
+    database.$client.exec(`
+        PRAGMA foreign_keys=OFF;
+        DROP TABLE notification_user_preferences;
+        CREATE TABLE herald_legacy_notifications (
+            id text PRIMARY KEY NOT NULL,
+            project_id text NOT NULL,
+            recipient_actor_id text NOT NULL,
+            source_event_id text NOT NULL,
+            kind text NOT NULL,
+            severity text NOT NULL,
+            subject_type text NOT NULL,
+            subject_id text NOT NULL,
+            title text NOT NULL,
+            body text NOT NULL,
+            read_at integer,
+            archived_at integer,
+            created_at integer NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE cascade,
+            FOREIGN KEY (project_id, recipient_actor_id)
+                REFERENCES actors(project_id, id) ON DELETE cascade,
+            FOREIGN KEY (project_id, source_event_id)
+                REFERENCES audit_events(project_id, id) ON DELETE cascade
+        );
+        INSERT INTO herald_legacy_notifications (
+            id, project_id, recipient_actor_id, source_event_id, kind, severity,
+            subject_type, subject_id, title, body, read_at, archived_at, created_at
+        )
+        SELECT id, project_id, recipient_actor_id, source_event_id, kind, severity,
+            subject_type, subject_id, title, body, read_at, archived_at, created_at
+        FROM notifications;
+        DROP TABLE notifications;
+        ALTER TABLE herald_legacy_notifications RENAME TO notifications;
+        CREATE UNIQUE INDEX notifications_recipient_source_event_uidx
+            ON notifications (project_id, recipient_actor_id, source_event_id);
+        CREATE INDEX notifications_recipient_inbox_idx
+            ON notifications (project_id, recipient_actor_id, archived_at, created_at);
+        CREATE INDEX notifications_recipient_unread_idx
+            ON notifications (project_id, recipient_actor_id, read_at, archived_at);
+        PRAGMA foreign_keys=ON;
     `)
 }
 
@@ -151,6 +195,7 @@ describe('database migrations', () => {
                 'notification_preferences',
                 'notification_projection_cursors',
                 'notification_subscriptions',
+                'notification_user_preferences',
                 'notifications',
                 'oauth_authorization_attempts',
                 'posts',
@@ -178,7 +223,114 @@ describe('database migrations', () => {
                 .query<{ count: number }, []>('SELECT count(*) AS count FROM __drizzle_migrations')
                 .get()
 
-            expect(migrationCount?.count).toBe(25)
+            expect(migrationCount?.count).toBe(26)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('preserves legacy notification rows while backfilling their user recipient', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const manualStore = createManualStore(database, { now: () => 1_800_000_000_000 })
+            const project = manualStore.createProject({
+                name: 'Notification migration',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            database.$client
+                .query(
+                    `insert into audit_events (
+                        id, project_id, actor_id, action, entity_type, entity_id,
+                        event_version, created_at
+                    ) values ('legacy-notification-event', ?1, ?2,
+                        'publication.execution.failed', 'publication', 'publication-1', 1, ?3)`
+                )
+                .run(project.project.id, project.actor.id, 1_800_000_000_000)
+            revertUserNotificationMigration(database)
+            database.$client
+                .query(
+                    `insert into notifications (
+                        id, project_id, recipient_actor_id, source_event_id, kind, severity,
+                        subject_type, subject_id, title, body, created_at
+                    ) values ('legacy-notification', ?1, ?2, 'legacy-notification-event',
+                        'publication_failed', 'error', 'publication', 'publication-1',
+                        'Legacy publication failed', 'The legacy publication needs attention.', ?3)`
+                )
+                .run(project.project.id, project.actor.id, 1_800_000_000_000)
+            unapplyMigrations(database, ['0025_acoustic_sentinel'])
+
+            runMigrations(database)
+
+            expect(
+                database.$client
+                    .query<{ recipientUserId: string; title: string; body: string }, []>(
+                        `select recipient_user_id as recipientUserId, title, body
+                         from notifications where id = 'legacy-notification'`
+                    )
+                    .get()
+            ).toEqual({
+                recipientUserId: 'user-1',
+                title: 'Legacy publication failed',
+                body: 'The legacy publication needs attention.',
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('refuses legacy notifications that cannot be mapped to a human user', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const manualStore = createManualStore(database, { now: () => 1_800_000_000_000 })
+            const project = manualStore.createProject({
+                name: 'Unrecoverable notification migration',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            database.$client
+                .query(
+                    `insert into actors (
+                        id, project_id, kind, subject_id, display_name, created_at, updated_at
+                    ) values ('machine-recipient', ?1, 'system', null, 'System', ?2, ?2)`
+                )
+                .run(project.project.id, 1_800_000_000_000)
+            database.$client
+                .query(
+                    `insert into audit_events (
+                        id, project_id, actor_id, action, entity_type, entity_id,
+                        event_version, created_at
+                    ) values ('unrecoverable-notification-event', ?1, ?2,
+                        'publication.execution.failed', 'publication', 'publication-2', 1, ?3)`
+                )
+                .run(project.project.id, project.actor.id, 1_800_000_000_000)
+            revertUserNotificationMigration(database)
+            database.$client
+                .query(
+                    `insert into notifications (
+                        id, project_id, recipient_actor_id, source_event_id, kind, severity,
+                        subject_type, subject_id, title, body, created_at
+                    ) values ('unrecoverable-notification', ?1, 'machine-recipient',
+                        'unrecoverable-notification-event', 'publication_failed', 'error',
+                        'publication', 'publication-2', 'Unrecoverable notification',
+                        'This row must not disappear.', ?2)`
+                )
+                .run(project.project.id, 1_800_000_000_000)
+            unapplyMigrations(database, ['0025_acoustic_sentinel'])
+
+            expect(() => runMigrations(database)).toThrow()
+            expect(
+                database.$client
+                    .query<{ recipientActorId: string }, []>(
+                        `select recipient_actor_id as recipientActorId
+                         from notifications where id = 'unrecoverable-notification'`
+                    )
+                    .get()
+            ).toEqual({ recipientActorId: 'machine-recipient' })
         } finally {
             closeDatabase(database)
         }
@@ -221,7 +373,9 @@ describe('database migrations', () => {
                 )
                 .run()
             database.$client.run('PRAGMA foreign_keys=ON')
+            database.$client.exec('DROP TABLE notification_user_preferences')
             unapplyMigrations(database, [
+                '0025_acoustic_sentinel',
                 '0024_sour_wolfsbane',
                 '0023_normalize_orphan_provider_applications',
             ])
@@ -359,6 +513,7 @@ describe('database migrations', () => {
             revertEventJournalMigration(database)
             revertProviderApplicationMigration(database)
             unapplyMigrations(database, [
+                '0025_acoustic_sentinel',
                 '0024_sour_wolfsbane',
                 '0023_normalize_orphan_provider_applications',
                 '0022_fresh_human_robot',
@@ -442,6 +597,7 @@ describe('database migrations', () => {
             revertEventJournalMigration(staleDatabase)
             revertProviderApplicationMigration(staleDatabase)
             unapplyMigrations(staleDatabase, [
+                '0025_acoustic_sentinel',
                 '0024_sour_wolfsbane',
                 '0023_normalize_orphan_provider_applications',
                 '0022_fresh_human_robot',

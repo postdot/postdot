@@ -1,3 +1,4 @@
+import { projectNotificationTemplate } from '@herald/core'
 import {
     eventJournalCursorSequence,
     parseEventJournalCursor,
@@ -10,7 +11,7 @@ import type { OpenAPIV3 } from 'openapi-types'
 
 import { sessionSecurity } from '../../plugins/auth'
 import { errorResponse, projectParams } from './models'
-import type { ProjectRealtimeHub } from './realtime-runtime'
+import type { RealtimeHub, UserRealtimeHub } from './realtime-runtime'
 import type { AuthenticatedElysia } from './types'
 
 const supportedProjectEventSubjects = {
@@ -70,7 +71,17 @@ interface ProjectEventStreamInput {
     readonly projectId: string
     readonly journal: Pick<EventJournalStore, 'readAfter'>
     readonly after: EventJournalCursor | null
-    readonly projectChanges?: ProjectRealtimeHub
+    readonly projectChanges?: RealtimeHub
+    readonly options?: ProjectEventStreamOptions
+}
+
+interface UserEventStreamInput {
+    readonly request: Request
+    readonly userId: string
+    readonly listProjectIds: () => readonly string[]
+    readonly journal: Pick<EventJournalStore, 'readAllAfter'>
+    readonly after: EventJournalCursor | null
+    readonly userChanges?: UserRealtimeHub
     readonly options?: ProjectEventStreamOptions
 }
 
@@ -103,9 +114,10 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
     app: AuthenticatedElysia<Routes>,
     journal: EventJournalStore,
     notifications: NotificationStore,
-    projectChanges?: ProjectRealtimeHub
+    projectChanges?: RealtimeHub,
+    userChanges?: UserRealtimeHub
 ) {
-    return app.get(
+    const withProjectEvents = app.get(
         '/api/projects/:projectId/events',
         {
             auth: true,
@@ -169,6 +181,75 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                     journal,
                     after,
                     projectChanges,
+                }),
+                {
+                    headers: {
+                        'cache-control': 'no-cache, no-store',
+                        connection: 'keep-alive',
+                        'content-type': 'text/event-stream; charset=utf-8',
+                        'x-accel-buffering': 'no',
+                    },
+                }
+            )
+        }
+    )
+
+    return withProjectEvents.get(
+        '/api/notifications/events',
+        {
+            auth: true,
+            response: {
+                400: errorResponse,
+                401: errorResponse,
+                403: errorResponse,
+                409: errorResponse,
+            },
+            detail: {
+                operationId: 'streamUserNotificationEvents',
+                summary: 'Stream user-visible updates over Server-Sent Events',
+                tags: ['Notifications'],
+                security: sessionSecurity,
+                responses: {
+                    200: {
+                        description: 'A reconnectable user notification event stream',
+                        content: {
+                            'text/event-stream': {
+                                schema: {
+                                    type: 'string',
+                                } as OpenAPIV3.SchemaObject,
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        ({ authMethod, request, status, user }) => {
+            if (authMethod !== 'session') return status(403, humanOnlyResponse)
+
+            let after: EventJournalCursor | null
+            try {
+                after = parseLastEventId(request.headers.get('last-event-id'))
+            } catch {
+                return status(400, invalidCursorResponse)
+            }
+
+            const latestCursor = journal.latestCursor()
+            if (
+                after !== null &&
+                (latestCursor === null ||
+                    eventJournalCursorSequence(after) > eventJournalCursorSequence(latestCursor))
+            ) {
+                return status(409, cursorAheadResponse)
+            }
+
+            return new Response(
+                createUserEventStream({
+                    request,
+                    userId: user.id,
+                    listProjectIds: () => notifications.listProjectIdsForUser(user.id),
+                    journal,
+                    after,
+                    userChanges,
                 }),
                 {
                     headers: {
@@ -349,8 +430,156 @@ export function createProjectEventStream({
     })
 }
 
+export function createUserEventStream({
+    request,
+    userId,
+    listProjectIds,
+    journal,
+    after,
+    userChanges,
+    options,
+}: UserEventStreamInput): ReadableStream<Uint8Array> {
+    const streamOptions = normalizeStreamOptions(options)
+    const encoder = new TextEncoder()
+    let scanCursor = after
+    let lastSequence = after === null ? 0 : eventJournalCursorSequence(after)
+    let heartbeatAt = Date.now() + streamOptions.heartbeatIntervalMs
+    let closed = false
+    let releaseWait: (() => void) | undefined
+
+    function close(controller: ReadableStreamDefaultController<Uint8Array>) {
+        if (closed) return
+        closed = true
+        releaseWait?.()
+        releaseWait = undefined
+        try {
+            controller.close()
+        } catch {
+            // The reader may already have cancelled the stream.
+        }
+    }
+
+    function closeWithResync(
+        controller: ReadableStreamDefaultController<Uint8Array>,
+        reason: 'cursor_gap' | 'journal_error'
+    ) {
+        if (closed) return
+        closed = true
+        releaseWait?.()
+        releaseWait = undefined
+        try {
+            controller.enqueue(
+                encoder.encode(
+                    `event: user.resync-required\ndata: ${JSON.stringify({ reason })}\n\n`
+                )
+            )
+            controller.close()
+        } catch {
+            // The reader may already have cancelled the stream.
+        }
+    }
+
+    return new ReadableStream<Uint8Array>({
+        async pull(controller) {
+            if (closed) return
+
+            while (!closed) {
+                if (request.signal.aborted) {
+                    close(controller)
+                    return
+                }
+
+                let entries: readonly EventJournalEntry[]
+                try {
+                    entries = journal.readAllAfter({
+                        after: scanCursor,
+                        limit: streamOptions.batchSize,
+                    })
+                } catch {
+                    closeWithResync(controller, 'journal_error')
+                    return
+                }
+
+                const projectIds = new Set(listProjectIds())
+                const frames: string[] = []
+                for (const entry of entries) {
+                    let sequence: number
+                    try {
+                        sequence = eventJournalCursorSequence(entry.cursor)
+                    } catch {
+                        closeWithResync(controller, 'cursor_gap')
+                        return
+                    }
+                    if (sequence <= lastSequence) {
+                        closeWithResync(controller, 'cursor_gap')
+                        return
+                    }
+
+                    lastSequence = sequence
+                    scanCursor = entry.cursor
+                    const event = toProjectRealtimeEvent(entry)
+                    if (
+                        event !== null &&
+                        projectIds.has(event.projectId) &&
+                        projectNotificationTemplate(entry) !== null
+                    ) {
+                        frames.push(formatUserRealtimeEvent(event))
+                    }
+                }
+
+                if (frames.length > 0) {
+                    try {
+                        controller.enqueue(encoder.encode(frames.join('')))
+                    } catch {
+                        closed = true
+                        return
+                    }
+                    heartbeatAt = Date.now() + streamOptions.heartbeatIntervalMs
+                    return
+                }
+
+                if (entries.length >= streamOptions.batchSize) continue
+
+                const now = Date.now()
+                if (now >= heartbeatAt) {
+                    try {
+                        controller.enqueue(encoder.encode(': heartbeat\n\n'))
+                    } catch {
+                        closed = true
+                        return
+                    }
+                    heartbeatAt = now + streamOptions.heartbeatIntervalMs
+                    return
+                }
+
+                const active = await waitForChangeOrHeartbeat({
+                    projectChanges: userChanges,
+                    projectId: userId,
+                    request,
+                    timeoutMs: heartbeatAt - now,
+                    setCancellation: cancel => {
+                        releaseWait = cancel
+                    },
+                    clearCancellation: cancel => {
+                        if (releaseWait === cancel) releaseWait = undefined
+                    },
+                })
+                if (!active && (closed || request.signal.aborted)) {
+                    close(controller)
+                    return
+                }
+            }
+        },
+        cancel() {
+            closed = true
+            releaseWait?.()
+            releaseWait = undefined
+        },
+    })
+}
+
 async function waitForChangeOrHeartbeat(input: {
-    readonly projectChanges: ProjectRealtimeHub | undefined
+    readonly projectChanges: RealtimeHub | undefined
     readonly projectId: string
     readonly request: Request
     readonly timeoutMs: number
@@ -433,6 +662,10 @@ function parseLastEventId(value: string | null): EventJournalCursor | null {
 
 function formatProjectRealtimeEvent(event: ProjectRealtimeEvent): string {
     return `id: ${event.cursor}\nevent: project.update\ndata: ${JSON.stringify(event)}\n\n`
+}
+
+function formatUserRealtimeEvent(event: ProjectRealtimeEvent): string {
+    return `id: ${event.cursor}\nevent: user.update\ndata: ${JSON.stringify(event)}\n\n`
 }
 
 function normalizeStreamOptions(

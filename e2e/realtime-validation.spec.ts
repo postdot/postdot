@@ -92,7 +92,7 @@ test('shows notification loading, error, and retry states', async ({ page }) => 
 
     await installFakeEventSource(page)
     const suffix = randomUUID().slice(0, 8)
-    const notificationsUrl = '**/api/projects/**'
+    const notificationsUrl = '**/api/**'
     let releaseNotifications: (() => void) | undefined
     const notificationsReleased = new Promise<void>(resolve => {
         releaseNotifications = resolve
@@ -106,7 +106,7 @@ test('shows notification loading, error, and retry states', async ({ page }) => 
         await route.continue()
     })
 
-    const projectId = await createAccountAndProject(page, suffix)
+    await createAccountAndProject(page, suffix)
 
     await page.getByRole('button', { name: 'Open notifications', exact: true }).click()
     await expect(page.getByRole('status', { name: /Loading notifications/ })).toBeVisible()
@@ -114,11 +114,9 @@ test('shows notification loading, error, and retry states', async ({ page }) => 
     await expect(page.getByText('No notifications', { exact: true })).toBeVisible()
     await page.unroute(notificationsUrl)
 
-    const notificationErrorUrl = '**/api/projects/**'
+    const notificationErrorUrl = '**/api/**'
     await page.route(notificationErrorUrl, async route => {
-        if (
-            !route.request().url().includes(`/api/projects/${projectId}/notification-preferences`)
-        ) {
+        if (!route.request().url().includes('/api/notification-preferences')) {
             await route.continue()
             return
         }

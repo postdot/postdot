@@ -162,3 +162,11 @@ surface and operational copy-density work.
 - [x] **[WEB-124]** Validate realistic data, loading transitions, notifications, and realtime feedback in the browser `Priority: 🟠` `Complexity: L`
 - [x] **[AUDIT-125]** Reconcile an independent UX/UI audit after the sprint implementation `Priority: 🟠` `Complexity: M`
 - [x] **[WEB-126]** Preserve the active project context while opening instance settings `Priority: 🟠` `Complexity: S`
+
+## 🧭 Notification scope follow-up
+
+- [x] **[NOTIFY-127]** Make the in-app notification inbox user-global with optional project context `Priority: 🔴` `Complexity: L`
+
+## 🔔 User-wide notification realtime
+
+- [x] **[NOTIFY-128]** Add one authenticated user-wide SSE stream for notification invalidation `Priority: 🟠` `Complexity: M`

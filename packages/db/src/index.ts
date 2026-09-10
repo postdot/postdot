@@ -31,6 +31,7 @@ export type {
     EventJournalEntry,
     EventJournalStore,
     EventJournalStoreOptions,
+    ReadAllEventJournalInput,
     ReadEventJournalInput,
 } from './event-journal-store'
 export { createAnalyticsStore } from './analytics-store'
@@ -227,12 +228,14 @@ export type {
 } from './media-asset-store'
 export type {
     ListNotificationsInput,
+    ListUserNotificationsInput,
     NotificationPreference,
     NotificationInboxPage,
     NotificationStore,
     NotificationStoreOptions,
     ProjectNotificationsResult,
     UpdateNotificationPreferenceInput,
+    UpdateUserNotificationPreferenceInput,
 } from './notification-store'
 export type {
     CreateNotificationDestinationInput,

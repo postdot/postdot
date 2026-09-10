@@ -27,7 +27,7 @@ function createFixture() {
         createId,
         now: () => operationTime,
     })
-    return { database, project, journal, notifications }
+    return { database, manual, project, journal, notifications }
 }
 
 function appendPublicationEvent(
@@ -324,6 +324,79 @@ describe('notification store', () => {
                     })
                 ).toThrow(DomainInvariantError)
             }
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('builds one user inbox across projects and keeps projectless notifications supported', () => {
+        const fixture = createFixture()
+        try {
+            const second = fixture.manual.createProject({
+                name: 'Second project',
+                subjectId: 'human-1',
+                displayName: 'First human',
+            })
+            const secondEvent = fixture.journal.append({
+                id: 'event-second-project',
+                projectId: second.project.id,
+                actorId: second.actor.id,
+                name: 'publication.execution.succeeded',
+                version: 1,
+                subject: { type: 'publication', id: 'publication-second-project' },
+                occurredAt: eventTime + 1,
+            })
+            fixture.notifications.project(second.project.id)
+
+            fixture.database.$client.run(
+                `insert into notifications (
+                    id, project_id, recipient_user_id, recipient_actor_id, source_event_id,
+                    kind, severity, subject_type, subject_id, title, body, created_at
+                ) values ('global-notification', null, 'human-1', null, 'system-update-1',
+                    'publication_ambiguous', 'warning', 'system', 'system-update-1',
+                    'Herald update available', 'A new Herald update is available.', ?1)`,
+                [eventTime + 2]
+            )
+
+            const page = fixture.notifications.listForUser({ userId: 'human-1' })
+            expect(page.items.map(item => item.sourceEventId)).toEqual([
+                'system-update-1',
+                secondEvent.id,
+            ])
+            expect(page.items[0]?.projectId).toBeNull()
+            expect(page.items[1]?.projectId).toBe(second.project.id)
+            expect(fixture.notifications.countUnreadForUser('human-1')).toBe(2)
+
+            const read = fixture.notifications.markReadForUser('global-notification', 'human-1')
+            expect(read?.readAt).toBe(operationTime)
+            expect(fixture.notifications.countUnreadForUser('human-1')).toBe(1)
+            expect(
+                fixture.notifications.markReadForUser('global-notification', 'other-user')
+            ).toBeNull()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('applies user preferences before project fallbacks during projection', () => {
+        const fixture = createFixture()
+        try {
+            fixture.notifications.updateUserPreference({
+                userId: 'human-1',
+                kind: 'publication_failed',
+                inAppEnabled: false,
+            })
+            appendPublicationEvent(fixture, {
+                id: 'event-user-preference-failed',
+                name: 'publication.execution.failed',
+            })
+            fixture.notifications.project(fixture.project.project.id)
+
+            expect(fixture.notifications.listForUser({ userId: 'human-1' }).items).toEqual([])
+            expect(fixture.notifications.listUserPreferences('human-1')).toContainEqual({
+                kind: 'publication_failed',
+                inAppEnabled: false,
+            })
         } finally {
             closeDatabase(fixture.database)
         }

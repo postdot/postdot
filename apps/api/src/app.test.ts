@@ -584,6 +584,11 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/media',
                 '/api/projects/{projectId}/media/{assetId}/content',
                 '/api/projects/{projectId}/media/{assetId}',
+                '/api/notifications',
+                '/api/notifications/{notificationId}/read',
+                '/api/notifications/{notificationId}/archive',
+                '/api/notification-preferences',
+                '/api/notification-preferences/{kind}',
                 '/api/projects/{projectId}/notifications',
                 '/api/projects/{projectId}/notifications/{notificationId}/read',
                 '/api/projects/{projectId}/notifications/{notificationId}/archive',
@@ -594,6 +599,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/analytics/provider/bluesky/collect',
                 '/api/projects/{projectId}/audit-events',
                 '/api/projects/{projectId}/events',
+                '/api/notifications/events',
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
             expect(specification.paths['/ready']?.get?.operationId).toBe('getReadiness')
@@ -767,6 +773,48 @@ describe('Herald API', () => {
             expect(inbox.notifications).toHaveLength(1)
             expect(inbox.nextCursor).not.toBeNull()
 
+            const userInboxResponse = await jsonRequest(
+                app,
+                '/api/notifications?projectId=' + encodeURIComponent(created.project.id),
+                cookie
+            )
+            expect(userInboxResponse.status).toBe(200)
+            const userInbox = (await userInboxResponse.json()) as {
+                unreadCount: number
+                totalUnreadCount: number
+                notifications: Array<{ projectId: string | null }>
+            }
+            expect(userInbox.unreadCount).toBe(2)
+            expect(userInbox.totalUnreadCount).toBe(2)
+            expect(
+                userInbox.notifications.every(item => item.projectId === created.project.id)
+            ).toBe(true)
+
+            const userPreferencesResponse = await jsonRequest(
+                app,
+                '/api/notification-preferences',
+                cookie
+            )
+            expect(userPreferencesResponse.status).toBe(200)
+            expect(
+                ((await userPreferencesResponse.json()) as { preferences: unknown[] }).preferences
+            ).toHaveLength(3)
+
+            const userPreferenceUpdate = await jsonRequest(
+                app,
+                '/api/notification-preferences/publication_failed',
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ inAppEnabled: false }),
+                }
+            )
+            expect(userPreferenceUpdate.status).toBe(200)
+            expect(await userPreferenceUpdate.json()).toEqual({
+                kind: 'publication_failed',
+                inAppEnabled: false,
+            })
+
             const nextInboxResponse = await jsonRequest(
                 app,
                 `/api/projects/${created.project.id}/notifications?limit=1&before=${encodeURIComponent(inbox.nextCursor ?? '')}`,
@@ -894,6 +942,16 @@ describe('Herald API', () => {
             expect(firstChunk.text).not.toContain('provider-refresh-token-must-not-leak')
             expect(firstChunk.text).not.toContain('provider-response-must-not-leak')
             expect(firstChunk.text).not.toContain(actor.id)
+
+            const globalResponse = await jsonRequest(app, '/api/notifications/events', cookie)
+            expect(globalResponse.status).toBe(200)
+            expect(globalResponse.headers.get('content-type')).toContain('text/event-stream')
+            const globalChunk = await readStreamChunk(globalResponse)
+            expect(globalChunk.text).toContain(`event: user.update`)
+            expect(globalChunk.text).toContain(`id: ${first.cursor}`)
+            expect(globalChunk.text).toContain(`"projectId":"${projectId}"`)
+            expect(globalChunk.text).not.toContain('provider-access-token-must-not-leak')
+            expect(globalChunk.text).not.toContain(actor.id)
 
             const second = journal.append({
                 id: 'realtime-api-event-2',

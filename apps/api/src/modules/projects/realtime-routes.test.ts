@@ -4,6 +4,7 @@ import { parseEventJournalCursor, type EventJournalEntry } from '@herald/db'
 
 import {
     createProjectEventStream,
+    createUserEventStream,
     toProjectRealtimeEvent,
     type ProjectRealtimeEventType,
 } from './realtime-routes'
@@ -62,6 +63,28 @@ describe('project event stream', () => {
         expect(result.text).not.toContain('must-not-be-streamed')
         expect(result.text).not.toContain('actor-1')
         expect(result.text).not.toContain('correlation-secret-context')
+    })
+
+    it('emits a user stream only for the projects currently visible to that user', async () => {
+        const visible = journalEntry({ id: 'visible-event', projectId: 'project-1', sequence: 1 })
+        const hidden = journalEntry({ id: 'hidden-event', projectId: 'project-2', sequence: 2 })
+        const stream = createUserEventStream({
+            request: new Request('http://localhost/api/notifications/events'),
+            userId: 'user-1',
+            listProjectIds: () => ['project-1'],
+            journal: { readAllAfter: () => [visible, hidden] },
+            after: null,
+            options: { heartbeatIntervalMs: 100, batchSize: 10 },
+        })
+
+        const reader = stream.getReader()
+        const result = await readText(reader)
+        await reader.cancel()
+
+        expect(result.text).toContain('event: user.update')
+        expect(result.text).toContain('"id":"visible-event"')
+        expect(result.text).not.toContain('hidden-event')
+        expect(result.text).not.toContain('project-2')
     })
 
     it('replays after a cursor and emits heartbeats while idle', async () => {

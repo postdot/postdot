@@ -176,6 +176,13 @@
             "when": 1788885441013,
             "tag": "0024_sour_wolfsbane",
             "breakpoints": true
+        },
+        {
+            "idx": 25,
+            "version": "6",
+            "when": 1789046780802,
+            "tag": "0025_acoustic_sentinel",
+            "breakpoints": true
         }
     ]
 }

@@ -74,6 +74,20 @@ export interface ProjectRealtimeEventSourceLike {
     close(): void
 }
 
+export type UserRealtimeEvent = ProjectRealtimeEvent
+
+export type UserRealtimeSignal =
+    | { readonly kind: 'update'; readonly event: UserRealtimeEvent }
+    | { readonly kind: 'resync-required'; readonly reason: string }
+
+export interface UserRealtimeEventSource {
+    subscribe(
+        listener: (signal: UserRealtimeSignal) => void,
+        statusListener?: (status: ProjectRealtimeStatus) => void
+    ): () => void
+    close(): void
+}
+
 export type ProjectRealtimeEventSourceFactory = (
     url: string,
     init: { readonly withCredentials: boolean }
@@ -147,6 +161,12 @@ export function createProjectRealtimeClient(
     return new BrowserProjectRealtimeEventSource(projectId, eventSourceFactory)
 }
 
+export function createUserRealtimeClient(
+    eventSourceFactory: ProjectRealtimeEventSourceFactory = createBrowserEventSource
+): UserRealtimeEventSource {
+    return new BrowserUserRealtimeEventSource(eventSourceFactory)
+}
+
 export function ProjectRealtimeProvider({
     children,
     projectId,
@@ -174,10 +194,124 @@ export function ProjectRealtimeProvider({
 
     return (
         <QueryClientProvider client={queryClient}>
+            <UserRealtimeBridge />
             {projectId === null ? null : <ProjectRealtimeBridge projectId={projectId} />}
             {children}
         </QueryClientProvider>
     )
+}
+
+class BrowserUserRealtimeEventSource implements UserRealtimeEventSource {
+    private readonly listeners = new Set<(signal: UserRealtimeSignal) => void>()
+    private readonly statusListeners = new Set<(status: ProjectRealtimeStatus) => void>()
+    private readonly eventSource: ProjectRealtimeEventSourceLike
+    private closed = false
+    private status: ProjectRealtimeStatus = 'disconnected'
+
+    constructor(eventSourceFactory: ProjectRealtimeEventSourceFactory) {
+        this.eventSource = eventSourceFactory('/api/notifications/events', {
+            withCredentials: true,
+        })
+        this.eventSource.addEventListener('open', () => this.setStatus('connected'))
+        this.eventSource.addEventListener('error', () => this.setStatus('disconnected'))
+        this.eventSource.addEventListener('user.update', event => {
+            const parsed = parseProjectRealtimeEvent(event.data, null)
+            if (parsed === null) return
+            for (const listener of this.listeners) listener({ kind: 'update', event: parsed })
+        })
+        this.eventSource.addEventListener('user.resync-required', event => {
+            const value = parseJsonObject(event.data)
+            const reason = typeof value?.reason === 'string' ? value.reason : 'unknown'
+            for (const listener of this.listeners) listener({ kind: 'resync-required', reason })
+        })
+    }
+
+    subscribe(
+        listener: (signal: UserRealtimeSignal) => void,
+        statusListener?: (status: ProjectRealtimeStatus) => void
+    ): () => void {
+        this.listeners.add(listener)
+        if (statusListener !== undefined) this.statusListeners.add(statusListener)
+        if (statusListener !== undefined) statusListener(this.status)
+
+        return () => {
+            this.listeners.delete(listener)
+            if (statusListener !== undefined) this.statusListeners.delete(statusListener)
+        }
+    }
+
+    close(): void {
+        if (this.closed) return
+        this.closed = true
+        this.eventSource.close()
+        this.setStatus('disconnected')
+        this.listeners.clear()
+        this.statusListeners.clear()
+    }
+
+    private setStatus(status: ProjectRealtimeStatus): void {
+        if (this.closed || this.status === status) return
+        this.status = status
+        for (const listener of this.statusListeners) listener(status)
+    }
+}
+
+function UserRealtimeBridge() {
+    const queryClient = useQueryClient()
+
+    useEffect(() => {
+        const source = createUserRealtimeClient()
+        let stopped = false
+        let wasDisconnected = false
+        let pendingRefresh: Promise<void> | undefined
+
+        const refresh = (full = false): Promise<void> => {
+            if (pendingRefresh !== undefined) return pendingRefresh
+
+            pendingRefresh = (async () => {
+                for (const delay of reconnectRefreshDelays) {
+                    if (stopped) return
+                    if (delay > 0) await wait(delay)
+                    await queryClient.invalidateQueries({
+                        queryKey: ['notifications'],
+                        refetchType: full ? 'all' : 'active',
+                    })
+                }
+            })().finally(() => {
+                pendingRefresh = undefined
+            })
+
+            return pendingRefresh
+        }
+
+        const unsubscribe = source.subscribe(
+            signal => {
+                if (signal.kind === 'resync-required') {
+                    void refresh(true)
+                    return
+                }
+                void refresh()
+            },
+            status => {
+                if (status === 'disconnected') {
+                    wasDisconnected = true
+                    return
+                }
+                if (!wasDisconnected) return
+                wasDisconnected = false
+                void refresh(true)
+            }
+        )
+
+        return () => {
+            stopped = true
+            unsubscribe()
+            source.close()
+            pendingRefresh = undefined
+        }
+    }, [queryClient])
+
+    return null
 }
 
 function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
@@ -197,13 +331,23 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                 for (const delay of reconnectRefreshDelays) {
                     if (stopped) return
                     if (delay > 0) await wait(delay)
-                    await queryClient.invalidateQueries({
-                        queryKey:
-                            key === 'project'
-                                ? projectQueryKeys.data(projectId)
-                                : projectQueryKeys.notifications(projectId),
-                        refetchType: full ? 'all' : 'active',
-                    })
+                    if (key === 'project') {
+                        await queryClient.invalidateQueries({
+                            queryKey: projectQueryKeys.data(projectId),
+                            refetchType: full ? 'all' : 'active',
+                        })
+                    } else {
+                        await Promise.all([
+                            queryClient.invalidateQueries({
+                                queryKey: projectQueryKeys.notifications(projectId),
+                                refetchType: full ? 'all' : 'active',
+                            }),
+                            queryClient.invalidateQueries({
+                                queryKey: ['notifications', projectId],
+                                refetchType: full ? 'all' : 'active',
+                            }),
+                        ])
+                    }
                 }
             })().finally(() => pendingRefreshes.delete(key))
 
@@ -255,12 +399,13 @@ function createBrowserEventSource(url: string, init: { readonly withCredentials:
 
 function parseProjectRealtimeEvent(
     data: string,
-    expectedProjectId: string
+    expectedProjectId: string | null
 ): ProjectRealtimeEvent | null {
     const value = parseJsonObject(data)
     if (
         value === null ||
-        value.projectId !== expectedProjectId ||
+        typeof value.projectId !== 'string' ||
+        (expectedProjectId !== null && value.projectId !== expectedProjectId) ||
         value.version !== 1 ||
         typeof value.id !== 'string' ||
         typeof value.cursor !== 'string' ||
@@ -277,7 +422,7 @@ function parseProjectRealtimeEvent(
     return {
         id: value.id,
         cursor: value.cursor,
-        projectId: expectedProjectId,
+        projectId: value.projectId,
         version: 1,
         type: value.type as ProjectRealtimeEventType,
         entity: value.entity,
