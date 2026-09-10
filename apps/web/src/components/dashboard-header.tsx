@@ -15,7 +15,7 @@ import { UserAvatar } from '@/components/identity-visuals'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
 import { ThemeToggle } from '@/components/theme-toggle'
-import type { Session } from '@/lib/api'
+import type { Project, Session } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -26,6 +26,7 @@ interface DashboardHeaderProps {
     readonly pending: boolean
     readonly projectId: string | null
     readonly projectName: string
+    readonly projects: readonly Project[]
     readonly sectionLabel: string
     readonly session: Session
 }
@@ -37,6 +38,7 @@ export function DashboardHeader({
     pending,
     projectId,
     projectName,
+    projects,
     sectionLabel,
     session,
 }: DashboardHeaderProps) {
@@ -70,7 +72,7 @@ export function DashboardHeader({
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
-                <NotificationInbox projectId={projectId} />
+                <NotificationInbox projectId={projectId} projects={projects} />
                 <LanguageSwitcher />
                 <ThemeToggle />
                 <DropdownMenu>

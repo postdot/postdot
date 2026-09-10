@@ -584,6 +584,11 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/media',
                 '/api/projects/{projectId}/media/{assetId}/content',
                 '/api/projects/{projectId}/media/{assetId}',
+                '/api/notifications',
+                '/api/notifications/{notificationId}/read',
+                '/api/notifications/{notificationId}/archive',
+                '/api/notification-preferences',
+                '/api/notification-preferences/{kind}',
                 '/api/projects/{projectId}/notifications',
                 '/api/projects/{projectId}/notifications/{notificationId}/read',
                 '/api/projects/{projectId}/notifications/{notificationId}/archive',
@@ -766,6 +771,48 @@ describe('Herald API', () => {
             expect(inbox.unreadCount).toBe(2)
             expect(inbox.notifications).toHaveLength(1)
             expect(inbox.nextCursor).not.toBeNull()
+
+            const userInboxResponse = await jsonRequest(
+                app,
+                '/api/notifications?projectId=' + encodeURIComponent(created.project.id),
+                cookie
+            )
+            expect(userInboxResponse.status).toBe(200)
+            const userInbox = (await userInboxResponse.json()) as {
+                unreadCount: number
+                totalUnreadCount: number
+                notifications: Array<{ projectId: string | null }>
+            }
+            expect(userInbox.unreadCount).toBe(2)
+            expect(userInbox.totalUnreadCount).toBe(2)
+            expect(
+                userInbox.notifications.every(item => item.projectId === created.project.id)
+            ).toBe(true)
+
+            const userPreferencesResponse = await jsonRequest(
+                app,
+                '/api/notification-preferences',
+                cookie
+            )
+            expect(userPreferencesResponse.status).toBe(200)
+            expect(
+                ((await userPreferencesResponse.json()) as { preferences: unknown[] }).preferences
+            ).toHaveLength(3)
+
+            const userPreferenceUpdate = await jsonRequest(
+                app,
+                '/api/notification-preferences/publication_failed',
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ inAppEnabled: false }),
+                }
+            )
+            expect(userPreferenceUpdate.status).toBe(200)
+            expect(await userPreferenceUpdate.json()).toEqual({
+                kind: 'publication_failed',
+                inAppEnabled: false,
+            })
 
             const nextInboxResponse = await jsonRequest(
                 app,

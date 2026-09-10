@@ -386,6 +386,24 @@ export const api = {
         )
     },
 
+    async listUserNotifications(
+        projectId: string | null,
+        options: {
+            before?: string
+            limit?: number
+            view?: 'active' | 'all'
+        } = {}
+    ): Promise<NotificationInbox> {
+        return unwrap<NotificationInbox>(
+            await client.api.notifications.get({
+                query: {
+                    ...options,
+                    ...(projectId === null ? {} : { projectId }),
+                },
+            })
+        )
+    },
+
     async markNotificationRead(projectId: string, notificationId: string): Promise<Notification> {
         return unwrap<Notification>(
             await client.api.projects({ projectId }).notifications({ notificationId }).read.post()
@@ -398,6 +416,16 @@ export const api = {
                 .projects({ projectId })
                 .notifications({ notificationId })
                 .archive.post()
+        )
+    },
+
+    async markUserNotificationRead(notificationId: string): Promise<Notification> {
+        return unwrap<Notification>(await client.api.notifications({ notificationId }).read.post())
+    },
+
+    async archiveUserNotification(notificationId: string): Promise<Notification> {
+        return unwrap<Notification>(
+            await client.api.notifications({ notificationId }).archive.post()
         )
     },
 
@@ -419,6 +447,21 @@ export const api = {
                 .projects({ projectId })
                 ['notification-preferences']({ kind })
                 .patch({ inAppEnabled })
+        )
+    },
+
+    async listUserNotificationPreferences(): Promise<{ preferences: NotificationPreference[] }> {
+        return unwrap<{ preferences: NotificationPreference[] }>(
+            await client.api['notification-preferences'].get()
+        )
+    },
+
+    async updateUserNotificationPreference(
+        kind: NotificationPreference['kind'],
+        inAppEnabled: boolean
+    ): Promise<NotificationPreference> {
+        return unwrap<NotificationPreference>(
+            await client.api['notification-preferences']({ kind }).patch({ inAppEnabled })
         )
     },
 

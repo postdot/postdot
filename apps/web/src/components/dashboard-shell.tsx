@@ -89,6 +89,7 @@ export function DashboardShell({
                         pending={pending}
                         projectId={selectedProjectId}
                         projectName={selectedProjectName}
+                        projects={projects}
                         sectionLabel={workspaceSectionLabel(activeSection)}
                         session={session}
                     />

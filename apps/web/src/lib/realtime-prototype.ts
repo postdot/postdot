@@ -241,6 +241,9 @@ export function toRealtimePublication(publication: PublicationSummary): Realtime
 }
 
 export function toRealtimeNotification(notification: Notification): RealtimeNotification {
+    if (notification.projectId === null) {
+        throw new Error('Project realtime notifications require a project scope')
+    }
     return {
         id: notification.id,
         projectId: notification.projectId,

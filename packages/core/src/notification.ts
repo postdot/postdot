@@ -26,7 +26,35 @@ export interface ProjectNotification {
     readonly createdAt: number
 }
 
+/**
+ * A notification shown in the signed-in user's inbox.
+ *
+ * Publication outcomes currently carry a project, while the nullable project
+ * scope leaves room for instance/user notifications that do not belong to one
+ * project.
+ */
+export interface UserNotification {
+    readonly id: string
+    readonly projectId: string | null
+    readonly recipientUserId: string
+    readonly recipientActorId: string | null
+    readonly sourceEventId: string
+    readonly kind: NotificationKind
+    readonly severity: NotificationSeverity
+    readonly subject: { readonly type: string; readonly id: string }
+    readonly title: string
+    readonly body: string
+    readonly readAt: number | null
+    readonly archivedAt: number | null
+    readonly createdAt: number
+}
+
 export type CreateProjectNotificationInput = Omit<ProjectNotification, 'readAt' | 'archivedAt'> & {
+    readonly readAt?: number | null
+    readonly archivedAt?: number | null
+}
+
+export type CreateUserNotificationInput = Omit<UserNotification, 'readAt' | 'archivedAt'> & {
     readonly readAt?: number | null
     readonly archivedAt?: number | null
 }
@@ -57,6 +85,44 @@ export function createProjectNotification(
         projectId: requireNonBlank(input.projectId, 'notification projectId'),
         recipientActorId: requireNonBlank(input.recipientActorId, 'notification recipientActorId'),
         sourceEventId: requireNonBlank(input.sourceEventId, 'notification sourceEventId'),
+        kind: input.kind,
+        severity: input.severity,
+        subject: {
+            type: requireNonBlank(input.subject.type, 'notification subject type'),
+            id: requireNonBlank(input.subject.id, 'notification subject id'),
+        },
+        title: requireNonBlank(input.title, 'notification title'),
+        body: requireNonBlank(input.body, 'notification body'),
+        readAt,
+        archivedAt,
+        createdAt,
+    }
+}
+
+export function createUserNotification(input: CreateUserNotificationInput): UserNotification {
+    if (!notificationKinds.includes(input.kind)) {
+        throw new DomainInvariantError('invalid_input', 'notification kind is invalid')
+    }
+    if (!notificationSeverities.includes(input.severity)) {
+        throw new DomainInvariantError('invalid_input', 'notification severity is invalid')
+    }
+
+    const createdAt = requireTimestamp(input.createdAt, 'notification createdAt')
+    const readAt = requireOptionalLifecycleTimestamp(input.readAt, createdAt, 'readAt')
+    const archivedAt = requireOptionalLifecycleTimestamp(input.archivedAt, createdAt, 'archivedAt')
+
+    return {
+        id: requireNonBlank(input.id, 'notification id'),
+        projectId:
+            input.projectId === null
+                ? null
+                : requireNonBlank(input.projectId, 'notification projectId'),
+        recipientUserId: requireNonBlank(input.recipientUserId, 'notification recipient user id'),
+        recipientActorId:
+            input.recipientActorId === null
+                ? null
+                : requireNonBlank(input.recipientActorId, 'notification recipient actor id'),
+        sourceEventId: requireNonBlank(input.sourceEventId, 'notification source event id'),
         kind: input.kind,
         severity: input.severity,
         subject: {

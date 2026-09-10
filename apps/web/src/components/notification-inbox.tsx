@@ -26,20 +26,21 @@ import {
     type Notification,
     type NotificationInbox as NotificationInboxState,
     type NotificationPreference,
+    type Project,
 } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { notificationContent } from '@/lib/notification-content'
-import { projectQueryKeys } from '@/lib/project-realtime'
 import * as m from '@/paraglide/messages.js'
 
 interface NotificationInboxProps {
     readonly projectId: string | null
+    readonly projects: readonly Project[]
 }
 
 type NotificationPanel = 'inbox' | 'preferences'
 
-export function NotificationInbox({ projectId }: NotificationInboxProps) {
+export function NotificationInbox({ projectId, projects }: NotificationInboxProps) {
     const { locale } = useLanguage()
     const queryClient = useQueryClient()
     const [open, setOpen] = useState(false)
@@ -51,15 +52,9 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
     const [actionError, setActionError] = useState<string | null>(null)
 
     const inboxQuery = useQuery<NotificationInboxState>({
-        queryKey:
-            projectId === null
-                ? ['project', 'none', 'notifications']
-                : projectQueryKeys.notifications(projectId),
-        queryFn: () => {
-            if (projectId === null) throw new Error('A project is required to load notifications')
-            return api.listNotifications(projectId, { limit: 25 })
-        },
-        enabled: projectId !== null,
+        queryKey: ['notifications', projectId ?? 'all'],
+        queryFn: () => api.listUserNotifications(projectId, { limit: 25 }),
+        enabled: open,
         staleTime: Number.POSITIVE_INFINITY,
         retry: false,
         refetchOnWindowFocus: false,
@@ -67,16 +62,9 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
     })
 
     const preferencesQuery = useQuery<{ preferences: NotificationPreference[] }>({
-        queryKey:
-            projectId === null
-                ? ['project', 'none', 'notification-preferences']
-                : projectQueryKeys.notificationPreferences(projectId),
-        queryFn: () => {
-            if (projectId === null)
-                throw new Error('A project is required to load notification preferences')
-            return api.listNotificationPreferences(projectId)
-        },
-        enabled: projectId !== null && panel === 'preferences',
+        queryKey: ['notification-preferences', 'user'],
+        queryFn: () => api.listUserNotificationPreferences(),
+        enabled: panel === 'preferences',
         staleTime: Number.POSITIVE_INFINITY,
         retry: false,
         refetchOnWindowFocus: false,
@@ -89,14 +77,14 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
     }, [projectId])
 
     const markRead = async (notification: Notification) => {
-        if (projectId === null || notification.readAt !== null) return
+        if (notification.readAt !== null) return
 
         setWorkingId(notification.id)
         setActionError(null)
         try {
-            const updated = await api.markNotificationRead(projectId, notification.id)
+            const updated = await api.markUserNotificationRead(notification.id)
             queryClient.setQueryData<NotificationInboxState>(
-                projectQueryKeys.notifications(projectId),
+                ['notifications', projectId ?? 'all'],
                 current =>
                     current === undefined
                         ? current
@@ -106,6 +94,7 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                   item.id === updated.id ? updated : item
                               ),
                               unreadCount: Math.max(0, current.unreadCount - 1),
+                              totalUnreadCount: Math.max(0, current.totalUnreadCount - 1),
                           }
             )
         } catch (caughtError) {
@@ -117,18 +106,17 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
     }
 
     const updatePreference = async (preference: NotificationPreference, inAppEnabled: boolean) => {
-        if (projectId === null || preference.inAppEnabled === inAppEnabled) return
+        if (preference.inAppEnabled === inAppEnabled) return
 
         setWorkingPreferenceKind(preference.kind)
         setActionError(null)
         try {
-            const updated = await api.updateNotificationPreference(
-                projectId,
+            const updated = await api.updateUserNotificationPreference(
                 preference.kind,
                 inAppEnabled
             )
             queryClient.setQueryData<{ preferences: NotificationPreference[] }>(
-                projectQueryKeys.notificationPreferences(projectId),
+                ['notification-preferences', 'user'],
                 current =>
                     current === undefined
                         ? current
@@ -147,14 +135,12 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
     }
 
     const archive = async (notification: Notification) => {
-        if (projectId === null) return
-
         setWorkingId(notification.id)
         setActionError(null)
         try {
-            await api.archiveNotification(projectId, notification.id)
+            await api.archiveUserNotification(notification.id)
             queryClient.setQueryData<NotificationInboxState>(
-                projectQueryKeys.notifications(projectId),
+                ['notifications', projectId ?? 'all'],
                 current =>
                     current === undefined
                         ? current
@@ -167,6 +153,10 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                   notification.readAt === null
                                       ? Math.max(0, current.unreadCount - 1)
                                       : current.unreadCount,
+                              totalUnreadCount:
+                                  notification.readAt === null
+                                      ? Math.max(0, current.totalUnreadCount - 1)
+                                      : current.totalUnreadCount,
                           }
             )
         } catch (caughtError) {
@@ -179,7 +169,11 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
 
     const inbox = inboxQuery.data
     const preferences = preferencesQuery.data?.preferences ?? null
-    const unreadCount = inbox?.unreadCount ?? 0
+    // The bell follows the visible context. A project page should not show a
+    // global count whose items are intentionally hidden until the user opens
+    // the instance-wide inbox without a project selected.
+    const unreadCount =
+        projectId === null ? (inbox?.totalUnreadCount ?? 0) : (inbox?.unreadCount ?? 0)
     const notifications = inbox?.notifications ?? []
     const loading = inboxQuery.isPending || inboxQuery.isFetching
     const preferencesLoading = preferencesQuery.isPending || preferencesQuery.isFetching
@@ -208,7 +202,6 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                     : m.notifications_open_unread({ count: unreadCount })
                             }
                             className="relative"
-                            disabled={projectId === null}
                             size="icon-sm"
                             title={m.notifications_title()}
                             variant="ghost"
@@ -320,6 +313,14 @@ export function NotificationInbox({ projectId }: NotificationInboxProps) {
                                             key={notification.id}
                                             disabled={workingId === notification.id}
                                             notification={notification}
+                                            projectName={
+                                                notification.projectId === null
+                                                    ? null
+                                                    : (projects.find(
+                                                          project =>
+                                                              project.id === notification.projectId
+                                                      )?.name ?? null)
+                                            }
                                             locale={locale}
                                             onArchive={archive}
                                             onMarkRead={markRead}
@@ -346,11 +347,13 @@ function NotificationItem({
     disabled,
     locale,
     notification,
+    projectName,
     onArchive,
     onMarkRead,
 }: {
     readonly disabled: boolean
     readonly notification: Notification
+    readonly projectName: string | null
     readonly locale: string
     readonly onArchive: (notification: Notification) => Promise<void>
     readonly onMarkRead: (notification: Notification) => Promise<void>
@@ -380,6 +383,11 @@ function NotificationItem({
                             <p className="mt-1 text-xs leading-5 text-muted-foreground">
                                 {copy.body}
                             </p>
+                            {projectName !== null ? (
+                                <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground/80">
+                                    {projectName}
+                                </p>
+                            ) : null}
                         </div>
                         <time
                             className="shrink-0 text-[0.68rem] leading-4 text-muted-foreground"

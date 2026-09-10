@@ -227,12 +227,14 @@ export type {
 } from './media-asset-store'
 export type {
     ListNotificationsInput,
+    ListUserNotificationsInput,
     NotificationPreference,
     NotificationInboxPage,
     NotificationStore,
     NotificationStoreOptions,
     ProjectNotificationsResult,
     UpdateNotificationPreferenceInput,
+    UpdateUserNotificationPreferenceInput,
 } from './notification-store'
 export type {
     CreateNotificationDestinationInput,

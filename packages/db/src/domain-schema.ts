@@ -1917,6 +1917,33 @@ export const notificationPreferences = sqliteTable(
     ]
 )
 
+/**
+ * User-level preferences apply across every project in the signed-in user's
+ * inbox. Project preferences remain available as a backwards-compatible
+ * fallback for the project notification API.
+ */
+export const notificationUserPreferences = sqliteTable(
+    'notification_user_preferences',
+    {
+        id: text('id').primaryKey(),
+        userId: text('user_id').notNull(),
+        kind: text('kind', { enum: notificationKinds }).notNull(),
+        inAppEnabled: integer('in_app_enabled', { mode: 'boolean' }).default(true).notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('notification_user_preferences_user_kind_uidx').on(table.userId, table.kind),
+        check(
+            'notification_user_preferences_user_nonblank',
+            sql`length(trim(${table.userId})) > 0`
+        ),
+        check(
+            'notification_user_preferences_kind_valid',
+            sql`${table.kind} in ('publication_published', 'publication_failed', 'publication_ambiguous')`
+        ),
+    ]
+)
+
 export const notificationProjectionCursors = sqliteTable(
     'notification_projection_cursors',
     {
@@ -1948,10 +1975,9 @@ export const notifications = sqliteTable(
     'notifications',
     {
         id: text('id').primaryKey(),
-        projectId: text('project_id')
-            .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
-        recipientActorId: text('recipient_actor_id').notNull(),
+        projectId: text('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+        recipientUserId: text('recipient_user_id').notNull(),
+        recipientActorId: text('recipient_actor_id'),
         sourceEventId: text('source_event_id').notNull(),
         kind: text('kind', { enum: notificationKinds }).notNull(),
         severity: text('severity', { enum: notificationSeverities }).notNull(),
@@ -1964,20 +1990,20 @@ export const notifications = sqliteTable(
         createdAt: integer('created_at').notNull(),
     },
     table => [
-        uniqueIndex('notifications_recipient_source_event_uidx').on(
+        uniqueIndex('notifications_user_project_source_event_uidx').on(
+            table.recipientUserId,
             table.projectId,
-            table.recipientActorId,
             table.sourceEventId
         ),
-        index('notifications_recipient_inbox_idx').on(
+        index('notifications_user_inbox_idx').on(
+            table.recipientUserId,
             table.projectId,
-            table.recipientActorId,
             table.archivedAt,
             table.createdAt
         ),
-        index('notifications_recipient_unread_idx').on(
+        index('notifications_user_unread_idx').on(
+            table.recipientUserId,
             table.projectId,
-            table.recipientActorId,
             table.readAt,
             table.archivedAt
         ),
@@ -1998,6 +2024,15 @@ export const notifications = sqliteTable(
         check(
             'notifications_severity_valid',
             sql`${table.severity} in ('success', 'warning', 'error')`
+        ),
+        check(
+            'notifications_project_actor_scope_valid',
+            sql`(${table.projectId} is null and ${table.recipientActorId} is null)
+                or (${table.projectId} is not null and ${table.recipientActorId} is not null)`
+        ),
+        check(
+            'notifications_recipient_user_nonblank',
+            sql`length(trim(${table.recipientUserId})) > 0`
         ),
         check('notifications_subject_type_nonblank', sql`length(trim(${table.subjectType})) > 0`),
         check('notifications_subject_id_nonblank', sql`length(trim(${table.subjectId})) > 0`),

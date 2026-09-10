@@ -136,7 +136,8 @@ function createDomainApp({
                         { name: 'Audit', description: 'Project audit history.' },
                         {
                             name: 'Notifications',
-                            description: 'Project human inboxes and preferences.',
+                            description:
+                                'Signed-in user notification inboxes with optional project context.',
                         },
                         {
                             name: 'Analytics',

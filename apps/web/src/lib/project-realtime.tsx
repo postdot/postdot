@@ -197,13 +197,23 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                 for (const delay of reconnectRefreshDelays) {
                     if (stopped) return
                     if (delay > 0) await wait(delay)
-                    await queryClient.invalidateQueries({
-                        queryKey:
-                            key === 'project'
-                                ? projectQueryKeys.data(projectId)
-                                : projectQueryKeys.notifications(projectId),
-                        refetchType: full ? 'all' : 'active',
-                    })
+                    if (key === 'project') {
+                        await queryClient.invalidateQueries({
+                            queryKey: projectQueryKeys.data(projectId),
+                            refetchType: full ? 'all' : 'active',
+                        })
+                    } else {
+                        await Promise.all([
+                            queryClient.invalidateQueries({
+                                queryKey: projectQueryKeys.notifications(projectId),
+                                refetchType: full ? 'all' : 'active',
+                            }),
+                            queryClient.invalidateQueries({
+                                queryKey: ['notifications', projectId],
+                                refetchType: full ? 'all' : 'active',
+                            }),
+                        ])
+                    }
                 }
             })().finally(() => pendingRefreshes.delete(key))
 
