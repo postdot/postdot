@@ -21,6 +21,8 @@ import {
     type Project,
     type Publication,
     type PublicationSummary,
+    type ProjectCategory,
+    type ProjectTag,
 } from '@herald/client'
 
 import * as m from '@/paraglide/messages.js'
@@ -226,6 +228,58 @@ export const api = {
 
     async updateProjectTimeZone(projectId: string, timeZone: string): Promise<Project> {
         return unwrap<Project>(await client.api.projects({ projectId }).patch({ timeZone }))
+    },
+
+    async listCategories(options: { includeArchived?: boolean } = {}): Promise<{
+        categories: ProjectCategory[]
+    }> {
+        return unwrap<{ categories: ProjectCategory[] }>(
+            await client.api.categories.get({ query: options })
+        )
+    },
+
+    async setProjectPrimaryCategory(
+        projectId: string,
+        categoryId: string | null
+    ): Promise<Project> {
+        return unwrap<Project>(
+            await client.api.projects({ projectId }).category.patch({ categoryId })
+        )
+    },
+
+    async listProjectTags(
+        projectId: string,
+        options: { includeArchived?: boolean } = {}
+    ): Promise<{ tags: ProjectTag[] }> {
+        return unwrap<{ tags: ProjectTag[] }>(
+            await client.api.projects({ projectId }).tags.get({ query: options })
+        )
+    },
+
+    async listPublicationTags(
+        projectId: string,
+        publicationId: string,
+        options: { includeArchived?: boolean } = {}
+    ): Promise<{ tags: ProjectTag[] }> {
+        return unwrap<{ tags: ProjectTag[] }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .tags.get({ query: options })
+        )
+    },
+
+    async replacePublicationTags(
+        projectId: string,
+        publicationId: string,
+        tagIds: readonly string[]
+    ): Promise<{ tags: ProjectTag[] }> {
+        return unwrap<{ tags: ProjectTag[] }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .tags.put({ tagIds: [...tagIds] })
+        )
     },
 
     async listProjectAccessTokens(
@@ -667,9 +721,17 @@ export const api = {
         )
     },
 
-    async listPublications(projectId: string): Promise<{ publications: PublicationSummary[] }> {
+    async listPublications(
+        projectId: string,
+        options: { tagIds?: readonly string[] } = {}
+    ): Promise<{ publications: PublicationSummary[] }> {
         return unwrap<{ publications: PublicationSummary[] }>(
-            await client.api.projects({ projectId }).publications.get()
+            await client.api.projects({ projectId }).publications.get({
+                query:
+                    options.tagIds === undefined || options.tagIds.length === 0
+                        ? undefined
+                        : { tagIds: [...options.tagIds] },
+            })
         )
     },
 
@@ -784,6 +846,8 @@ export type {
     ProjectAccessToken,
     PublisherConnection,
     Project,
+    ProjectCategory,
+    ProjectTag,
     Publication,
     PublicationSummary,
     Notification,

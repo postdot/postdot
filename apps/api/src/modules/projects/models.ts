@@ -1,6 +1,8 @@
 import { blueskyChannelProfile } from '@herald/bluesky'
 import {
+    createPublicationTagFilter,
     createManualChannelProfile,
+    publicationTagFilterMaximumIds,
     sourceContentSchema,
     taxonomyLabelMaximumLength,
 } from '@herald/core'
@@ -291,6 +293,7 @@ export const publicationSummarySchema = Type.Unsafe<PublicationSummary>(
                 Type.Literal('review_required'),
             ]),
             draftDiffersFromTarget: Type.Boolean(),
+            tagIds: Type.Array(Type.String({ minLength: 1 })),
         }),
     ])
 )
@@ -337,6 +340,25 @@ export const publicationTagParams = publicationParams
 export const taxonomyListQuery = Type.Object({
     includeArchived: Type.Optional(Type.Boolean()),
 })
+
+export const publicationListQuery = Type.Object({
+    /** Accepts both ?tagIds=a&tagIds=b and ?tagIds=a,b. */
+    tagIds: Type.Optional(
+        Type.Union([
+            Type.String({ minLength: 1 }),
+            Type.Array(Type.String({ minLength: 1 }), {
+                maxItems: publicationTagFilterMaximumIds,
+            }),
+        ])
+    ),
+})
+
+export type PublicationListQuery = Static<typeof publicationListQuery>
+
+export function parsePublicationTagFilter(value: PublicationListQuery['tagIds']) {
+    const values = value === undefined ? [] : Array.isArray(value) ? value : [value]
+    return createPublicationTagFilter(values.flatMap(item => item.split(',')))
+}
 
 export const channelParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),

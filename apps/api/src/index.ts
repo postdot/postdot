@@ -65,6 +65,7 @@ export type {
     ProjectResponse,
     PublicationResponse,
     PublicationSummaryResponse,
+    PublicationListQuery,
     ProjectCategoryResponse,
     ProjectTagResponse,
 } from './modules/projects/models'

@@ -3,25 +3,45 @@ import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
 import { cn } from '@herald/ui/lib/utils'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { PublicationAttentionPanel } from '@/components/publication-attention-panel'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
+import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
-import { filterQueuePublications, isQueueFilter, type QueueFilter } from '@/lib/publication-queue'
+import {
+    filterQueueByTags,
+    filterQueuePublications,
+    isQueueFilter,
+    type QueueFilter,
+} from '@/lib/publication-queue'
 import * as m from '@/paraglide/messages.js'
 
-export function PublicationQueuePage() {
+export function PublicationQueuePage({
+    initialTagIds = [],
+}: {
+    readonly initialTagIds?: readonly string[]
+}) {
     const { locale } = useLanguage()
-    const { due, onPublish, pending, project, publications } = useProjectDashboard()
+    const { due, onPublish, pending, project, projectTags, publications } = useProjectDashboard()
+    const navigate = useNavigate({ from: '/dashboard/projects/$projectId/queue' })
     const [filter, setFilter] = useState<QueueFilter>('all')
+    const [tagIds, setTagIds] = useState<string[]>(() => [...initialTagIds])
+    const initialTagIdsKey = initialTagIds.join('\u0000')
+    useEffect(() => {
+        setTagIds(initialTagIdsKey === '' ? [] : initialTagIdsKey.split('\u0000'))
+    }, [initialTagIdsKey])
     const duePublicationIds = new Set(due.map(publication => publication.id))
-    const visiblePublications = filterQueuePublications(publications, duePublicationIds, filter)
+    const visiblePublications = filterQueueByTags(
+        filterQueuePublications(publications, duePublicationIds, filter),
+        tagIds
+    )
     const automaticCount = publications.filter(
         publication => publication.deliveryMode === 'automatic'
     ).length
@@ -114,6 +134,28 @@ export function PublicationQueuePage() {
                     </TabsTrigger>
                 </TabsList>
             </Tabs>
+
+            {projectTags.length > 0 ? (
+                <div className="mt-3 flex items-center">
+                    <PublicationTagPicker
+                        ariaLabel={m.taxonomy_filter_tags()}
+                        emptyLabel={m.taxonomy_no_tags()}
+                        label={m.taxonomy_filter_tags()}
+                        onChange={nextTagIds => {
+                            setTagIds(nextTagIds)
+                            void navigate({
+                                search: current => ({
+                                    ...current,
+                                    tagIds: nextTagIds.length > 0 ? nextTagIds : undefined,
+                                }),
+                            })
+                        }}
+                        selectedTagIds={tagIds}
+                        selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                        tags={projectTags}
+                    />
+                </div>
+            ) : null}
 
             <div
                 className={cn(

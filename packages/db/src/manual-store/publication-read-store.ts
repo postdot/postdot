@@ -1,4 +1,9 @@
-import { DomainInvariantError, requireNonBlank } from '@herald/core'
+import {
+    createPublicationTagFilter,
+    DomainInvariantError,
+    requireNonBlank,
+    type PublicationTagFilter,
+} from '@herald/core'
 
 import type { HeraldDatabase } from '../client'
 import type {
@@ -47,7 +52,8 @@ export interface PublicationReadStoreApi {
     ) => PublicationEditorState | null
     readonly listPublicationSummaries: (
         projectId: string,
-        subjectId: string
+        subjectId: string,
+        filter?: PublicationTagFilter
     ) => PublicationSummary[] | null
 }
 
@@ -123,8 +129,21 @@ export function createPublicationReadStore(
     `)
     const listPublicationSummariesStatement = client.query<
         PublicationSummaryRow,
-        [projectId: string, limit: number]
+        [projectId: string, tagIdsJson: string, limit: number]
     >(`
+        with selected_tag_ids as (
+            select value as tagId
+            from json_each(?2)
+        ),
+        matching_publications as (
+            select assignments.publication_id as publicationId
+            from publication_tags as assignments
+            inner join selected_tag_ids
+                on selected_tag_ids.tagId = assignments.tag_id
+            where assignments.project_id = ?1
+            group by assignments.publication_id
+            having count(distinct assignments.tag_id) = (select count(*) from selected_tag_ids)
+        )
         select ${publicationColumns},
                posts.title as postTitle,
                channels.name as channelName,
@@ -133,7 +152,20 @@ export function createPublicationReadStore(
                working_drafts.source_revision as draftSourceRevision,
                working_drafts.content_json as draftContentJson,
                target_revisions.source_revision as targetSourceRevision,
-               target_revisions.content_json as targetContentJson
+               target_revisions.content_json as targetContentJson,
+               coalesce((
+                   select json_group_array(ordered_tags.tagId)
+                   from (
+                       select assignments.tag_id as tagId
+                       from publication_tags as assignments
+                       inner join project_tags as tags
+                           on tags.project_id = assignments.project_id
+                          and tags.id = assignments.tag_id
+                       where assignments.project_id = publications.project_id
+                         and assignments.publication_id = publications.id
+                       order by tags.normalized_name, tags.id
+                   ) as ordered_tags
+               ), '[]') as tagIdsJson
         from publications
         inner join posts
             on posts.project_id = publications.project_id
@@ -149,12 +181,20 @@ export function createPublicationReadStore(
            and target_revisions.id = publications.target_revision_id
            and target_revisions.publication_id = publications.id
         where publications.project_id = ?1
+          and (
+              not exists (select 1 from selected_tag_ids)
+              or exists (
+                  select 1
+                  from matching_publications
+                  where matching_publications.publicationId = publications.id
+              )
+          )
         order by
             case when publications.scheduled_at is null then 1 else 0 end,
             publications.scheduled_at,
             publications.updated_at desc,
             publications.id
-        limit ?2
+        limit ?3
     `)
 
     const loadWorkingDraft = (projectId: string, publicationId: string) =>
@@ -246,7 +286,8 @@ export function createPublicationReadStore(
 
             listPublicationSummaries(
                 projectId: string,
-                subjectId: string
+                subjectId: string,
+                filter?: PublicationTagFilter
             ): PublicationSummary[] | null {
                 const normalizedProjectId = requireNonBlank(projectId, 'projectId')
                 if (
@@ -258,8 +299,9 @@ export function createPublicationReadStore(
                     return null
                 }
 
+                const normalizedFilter = createPublicationTagFilter(filter?.tagIds ?? [])
                 return listPublicationSummariesStatement
-                    .all(normalizedProjectId, 100)
+                    .all(normalizedProjectId, JSON.stringify(normalizedFilter.tagIds), 100)
                     .map(toPublicationSummary)
             },
         },

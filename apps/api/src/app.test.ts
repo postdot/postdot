@@ -796,6 +796,103 @@ describe('Herald API', () => {
                 tags: [expect.objectContaining({ id: tag.tag.id })],
             })
 
+            const reviewTagResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/tags`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Needs review' }),
+                }
+            )
+            expect(reviewTagResponse.status).toBe(201)
+            const reviewTag = (await reviewTagResponse.json()) as { tag: { id: string } }
+
+            const secondPostResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title: 'Second taxonomy post',
+                        sourceContent: {
+                            body: { text: 'A second tagged post.', format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channel.channel.id,
+                                targetContent: { body: 'A second tagged publication.', media: [] },
+                                deliveryMode: 'manual',
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(secondPostResponse.status).toBe(201)
+            const secondPost = (await secondPostResponse.json()) as {
+                publications: Array<{ id: string }>
+            }
+            const secondPublicationId = secondPost.publications[0]?.id
+            expect(secondPublicationId).toBeString()
+
+            const replaceFirstTagsResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/publications/${publicationId}/tags`,
+                cookie,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify({ tagIds: [tag.tag.id, reviewTag.tag.id] }),
+                }
+            )
+            expect(replaceFirstTagsResponse.status).toBe(200)
+            const replaceSecondTagsResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/publications/${secondPublicationId}/tags`,
+                cookie,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify({ tagIds: [tag.tag.id] }),
+                }
+            )
+            expect(replaceSecondTagsResponse.status).toBe(200)
+
+            const csvFilterResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/publications?tagIds=${encodeURIComponent(`${tag.tag.id},${reviewTag.tag.id}`)}`,
+                cookie
+            )
+            expect(csvFilterResponse.status).toBe(200)
+            expect(await csvFilterResponse.json()).toEqual({
+                publications: [
+                    expect.objectContaining({
+                        id: publicationId,
+                        tagIds: [tag.tag.id, reviewTag.tag.id],
+                    }),
+                ],
+            })
+
+            const repeatedFilterResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/publications?tagIds=${tag.tag.id}&tagIds=${reviewTag.tag.id}`,
+                cookie
+            )
+            expect(repeatedFilterResponse.status).toBe(200)
+            expect(await repeatedFilterResponse.json()).toMatchObject({
+                publications: [expect.objectContaining({ id: publicationId })],
+            })
+
+            const boundedFilterResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/publications?tagIds=${encodeURIComponent(Array.from({ length: 21 }, (_, index) => `tag-${index}`).join(','))}`,
+                cookie
+            )
+            expect(boundedFilterResponse.status).toBe(400)
+            expect(await boundedFilterResponse.json()).toMatchObject({
+                error: { code: 'invalid_input' },
+            })
+
             const secondProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Taxonomy project two' }),
@@ -817,6 +914,14 @@ describe('Herald API', () => {
             const secondTag = (await secondTagResponse.json()) as { tag: { id: string } }
             expect(secondTag.tag.id).not.toBe(tag.tag.id)
 
+            const foreignFilterResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/publications?tagIds=${secondTag.tag.id}`,
+                cookie
+            )
+            expect(foreignFilterResponse.status).toBe(200)
+            expect(await foreignFilterResponse.json()).toEqual({ publications: [] })
+
             const firstTagsResponse = await jsonRequest(
                 app,
                 `/api/projects/${firstProject.project.id}/tags`,
@@ -824,9 +929,13 @@ describe('Herald API', () => {
             )
             expect(firstTagsResponse.status).toBe(200)
             expect(await firstTagsResponse.json()).toMatchObject({
-                tags: [
+                tags: expect.arrayContaining([
                     expect.objectContaining({ id: tag.tag.id, projectId: firstProject.project.id }),
-                ],
+                    expect.objectContaining({
+                        id: reviewTag.tag.id,
+                        projectId: firstProject.project.id,
+                    }),
+                ]),
             })
 
             const archiveTagResponse = await jsonRequest(
@@ -839,6 +948,14 @@ describe('Herald API', () => {
             expect(await archiveTagResponse.json()).toMatchObject({
                 tag: { id: tag.tag.id, state: 'archived' },
             })
+
+            const archiveReviewTagResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/tags/${reviewTag.tag.id}/archive`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(archiveReviewTagResponse.status).toBe(200)
 
             const activeTagsResponse = await jsonRequest(
                 app,
@@ -855,7 +972,10 @@ describe('Herald API', () => {
             )
             expect(archivedTagsResponse.status).toBe(200)
             expect(await archivedTagsResponse.json()).toMatchObject({
-                tags: [expect.objectContaining({ id: tag.tag.id, state: 'archived' })],
+                tags: expect.arrayContaining([
+                    expect.objectContaining({ id: tag.tag.id, state: 'archived' }),
+                    expect.objectContaining({ id: reviewTag.tag.id, state: 'archived' }),
+                ]),
             })
 
             const publicationTagsResponse = await jsonRequest(
@@ -865,7 +985,10 @@ describe('Herald API', () => {
             )
             expect(publicationTagsResponse.status).toBe(200)
             expect(await publicationTagsResponse.json()).toMatchObject({
-                tags: [expect.objectContaining({ id: tag.tag.id, state: 'archived' })],
+                tags: expect.arrayContaining([
+                    expect.objectContaining({ id: tag.tag.id, state: 'archived' }),
+                    expect.objectContaining({ id: reviewTag.tag.id, state: 'archived' }),
+                ]),
             })
 
             const archiveCategoryResponse = await jsonRequest(

@@ -174,4 +174,4 @@ surface and operational copy-density work.
 ## 🏷️ Taxonomy implementation
 
 - [x] **[TAXONOMY-129]** Implement the durable categories and publication-tags foundation `Priority: 🟠` `Complexity: L`
-- [ ] **[TAXONOMY-130]** Integrate taxonomy into project context, Compose, publication detail, and Queue filtering `Priority: 🟠` `Complexity: XL`
+- [x] **[TAXONOMY-130]** Integrate taxonomy into project context, Compose, publication detail, and Queue filtering `Priority: 🟠` `Complexity: XL`

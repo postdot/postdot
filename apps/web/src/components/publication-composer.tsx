@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { DashboardFormField } from '@/components/dashboard-form-field'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
+import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import { PublicationTargetList } from '@/components/publication-target-list'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -31,8 +32,11 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
         postContent,
         postTitle,
         project,
+        projectTags,
+        publicationTagIds,
         publicationTargets,
         sourceMedia,
+        onPublicationTagIdsChange,
     } = useProjectDashboard()
     const appliedCalendarDate = useRef<string | undefined>(undefined)
     const [defaultDeliveryMode, setDefaultDeliveryMode] = useState<DeliveryMode>(
@@ -195,6 +199,18 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
                                         />
                                     </div>
                                 </DashboardFormField>
+                                {projectTags.length > 0 ? (
+                                    <PublicationTagPicker
+                                        ariaLabel={m.taxonomy_select_tags()}
+                                        disabled={pending}
+                                        emptyLabel={m.taxonomy_no_tags()}
+                                        label={m.taxonomy_tags()}
+                                        onChange={onPublicationTagIdsChange}
+                                        selectedTagIds={publicationTagIds}
+                                        selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                                        tags={projectTags}
+                                    />
+                                ) : null}
                             </div>
                         </div>
                     </section>

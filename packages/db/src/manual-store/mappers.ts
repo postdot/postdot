@@ -13,7 +13,13 @@ import type {
     PublicationTargetRevision,
     PublicationWorkingDraft,
 } from '../manual-store'
-import { parseJsonArray, parseJsonObject, parseProfile, parseSourceContent } from './content-codec'
+import {
+    parseJsonArray,
+    parseJsonObject,
+    parseJsonStringArray,
+    parseProfile,
+    parseSourceContent,
+} from './content-codec'
 import type {
     ActorRow,
     AuditEventRow,
@@ -170,6 +176,7 @@ export function toPublicationSummary(row: PublicationSummaryRow): PublicationSum
             row.targetContentJson === null ||
             row.draftSourceRevision !== row.targetSourceRevision ||
             row.draftContentJson !== row.targetContentJson,
+        tagIds: parseJsonStringArray(row.tagIdsJson, 'publication tag IDs'),
     }
 }
 

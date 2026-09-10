@@ -35,7 +35,10 @@ export const Route = createFileRoute('/dashboard')({
             throw redirect({ to: '/login' })
         }
 
-        const { projects } = await api.listProjects()
+        const [{ projects }, { categories }] = await Promise.all([
+            api.listProjects(),
+            api.listCategories({ includeArchived: true }),
+        ])
         const isDashboardIndex =
             location.pathname === '/dashboard' || location.pathname === '/dashboard/'
         const firstProject = projects[0]
@@ -47,7 +50,7 @@ export const Route = createFileRoute('/dashboard')({
             })
         }
 
-        return { session, projects }
+        return { categories, session, projects }
     },
     component: DashboardPage,
 })
@@ -58,6 +61,7 @@ function DashboardPage() {
     useLanguage()
     const initialData = Route.useLoaderData()
     const [projects, setProjects] = useState<Project[]>(initialData.projects)
+    const categories = initialData.categories
     const [projectName, setProjectName] = useState('')
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -90,6 +94,15 @@ function DashboardPage() {
         })
     }
 
+    async function handleProjectCategoryChange(projectId: string, categoryId: string | null) {
+        await runAction(async () => {
+            const project = await api.setProjectPrimaryCategory(projectId, categoryId)
+            setProjects(current =>
+                current.map(candidate => (candidate.id === project.id ? project : candidate))
+            )
+        })
+    }
+
     async function handleSignOut() {
         await runAction(async () => {
             await api.signOut()
@@ -110,9 +123,12 @@ function DashboardPage() {
     }
 
     const value: DashboardGlobalContextValue = {
+        categories,
         error,
         onCreateProject: event => void handleCreateProject(event),
         onProjectChange: projectId => void handleProjectChange(projectId),
+        onProjectCategoryChange: (projectId, categoryId) =>
+            void handleProjectCategoryChange(projectId, categoryId),
         onProjectNameChange: setProjectName,
         onSignOut: () => void handleSignOut(),
         pending,

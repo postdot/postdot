@@ -183,6 +183,7 @@ export interface PublicationSummaryRow extends PublicationRow {
     readonly draftContentJson: string
     readonly targetSourceRevision: number | null
     readonly targetContentJson: string | null
+    readonly tagIdsJson: string
 }
 
 export interface ResolvedTargetMedia {

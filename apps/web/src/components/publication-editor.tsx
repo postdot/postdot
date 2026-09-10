@@ -19,7 +19,14 @@ import {
     PublicationOutcomePanel,
     type PublicationOutcomeResolutionInput,
 } from '@/components/publication-outcome-panel'
-import { ApiError, api, formatApiError, type PublicationEditorState } from '@/lib/api'
+import { PublicationTagPicker } from '@/components/publication-tag-picker'
+import {
+    ApiError,
+    api,
+    formatApiError,
+    type ProjectTag,
+    type PublicationEditorState,
+} from '@/lib/api'
 import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { updateTargetMedia } from '@/lib/target-media'
@@ -31,6 +38,8 @@ type Profile = PublicationEditorState['profile']['profile']
 interface PublicationEditorProps {
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
+    readonly initialPublicationTags: readonly ProjectTag[]
+    readonly projectTags: readonly ProjectTag[]
     readonly timeZone: string
 }
 
@@ -47,7 +56,13 @@ type SaveState = PublicationEditorSaveState
 
 const recoveryVersion = 3 as const
 
-export function PublicationEditor({ projectId, initialEditor, timeZone }: PublicationEditorProps) {
+export function PublicationEditor({
+    initialEditor,
+    initialPublicationTags,
+    projectId,
+    projectTags,
+    timeZone,
+}: PublicationEditorProps) {
     useLanguage()
     const recoveryKey = useMemo(
         () => createRecoveryKey(projectId, initialEditor.publication.id),
@@ -107,7 +122,21 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
             : toDateTimeLocal(initialEditor.publication.scheduledAt, timeZone)
     )
     const [scheduleDirty, setScheduleDirty] = useState(recoveredScheduleDiffers)
+    const [publicationTagIds, setPublicationTagIds] = useState<string[]>(() =>
+        initialPublicationTags.map(tag => tag.id)
+    )
+    const [tagSavePending, setTagSavePending] = useState(false)
+    const [tagError, setTagError] = useState<string | null>(null)
     const requestGeneration = useRef(0)
+
+    const availableTags = useMemo(() => {
+        const byId = new Map<string, ProjectTag>()
+        for (const tag of projectTags) {
+            if (tag.state === 'active') byId.set(tag.id, tag)
+        }
+        for (const tag of initialPublicationTags) byId.set(tag.id, tag)
+        return [...byId.values()]
+    }, [initialPublicationTags, projectTags])
 
     const targetResult = useMemo(() => parseTargetText(targetText), [targetText])
     const sourceIssue = useMemo(() => sourceContentIssue(sourceContent), [sourceContent])
@@ -120,6 +149,26 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
         formatJson(editor.draft.content) !== formatJson(editor.selectedTarget.content)
     const hasLocalChanges = dirty || scheduleDirty
     const isRebasing = saveState === 'rebasing'
+
+    async function handlePublicationTagIdsChange(nextTagIds: string[]) {
+        const previousTagIds = publicationTagIds
+        setPublicationTagIds(nextTagIds)
+        setTagError(null)
+        setTagSavePending(true)
+        try {
+            const response = await api.replacePublicationTags(
+                projectId,
+                editor.publication.id,
+                nextTagIds
+            )
+            setPublicationTagIds(response.tags.map(tag => tag.id))
+        } catch (caughtError) {
+            setPublicationTagIds(previousTagIds)
+            setTagError(formatApiError(caughtError))
+        } finally {
+            setTagSavePending(false)
+        }
+    }
 
     useEffect(() => {
         if (!hasLocalChanges) {
@@ -473,6 +522,7 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
                     <Link
                         to="/dashboard/projects/$projectId/queue"
                         params={{ projectId }}
+                        search={{ tagIds: undefined }}
                         className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
                         <ArrowLeftIcon aria-hidden="true" className="size-4" />
                         {m.editor_back_to_queue()}
@@ -514,6 +564,27 @@ export function PublicationEditor({ projectId, initialEditor, timeZone }: Public
                 publication={editor.publication}
                 onResolve={reconcilePublication}
             />
+
+            {availableTags.length > 0 ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <PublicationTagPicker
+                        ariaLabel={m.taxonomy_select_tags()}
+                        archivedLabel={m.common_archived()}
+                        disabled={isRebasing || tagSavePending}
+                        emptyLabel={m.taxonomy_no_tags()}
+                        label={m.taxonomy_tags()}
+                        onChange={value => void handlePublicationTagIdsChange(value)}
+                        selectedTagIds={publicationTagIds}
+                        selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                        tags={availableTags}
+                    />
+                    {tagError ? (
+                        <p className="text-xs text-state-failed" role="alert">
+                            {tagError}
+                        </p>
+                    ) : null}
+                </div>
+            ) : null}
 
             <div className="mt-7 grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="min-w-0 space-y-8">
