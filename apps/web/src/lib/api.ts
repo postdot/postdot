@@ -75,6 +75,71 @@ export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x'
 export type ProviderApplicationState = 'active' | 'disabled'
 export type ProviderApplicationOAuthMode = 'loopback' | 'web'
 
+export type AccessInstanceRole = 'admin' | 'member'
+export type AccessInstanceMembershipState = 'enabled' | 'disabled'
+export type AccessInstanceState = 'claimable' | 'claimed'
+export type AccessInvitationState = 'pending' | 'accepted' | 'revoked' | 'expired'
+
+export interface AccessInstanceStateRecord {
+    readonly id: 'default'
+    readonly state: AccessInstanceState
+    readonly bootstrapBlocked: boolean
+    readonly claimedByUserId: string | null
+    readonly claimedAt: number | null
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface AccessInstanceMembership {
+    readonly id: string
+    readonly userId: string
+    readonly email: string
+    readonly name: string
+    readonly role: AccessInstanceRole
+    readonly state: AccessInstanceMembershipState
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface AccessProjectMembership {
+    readonly id: string
+    readonly projectId: string
+    readonly userId: string
+    readonly email: string
+    readonly name: string
+    readonly role: 'owner' | 'editor' | 'viewer'
+    readonly state: 'active' | 'removed'
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface AccessInvitation {
+    readonly id: string
+    readonly targetEmail: string
+    readonly instanceRole: 'member'
+    readonly projectId: string | null
+    readonly projectRole: 'owner' | 'editor' | 'viewer' | null
+    readonly state: AccessInvitationState
+    readonly createdByUserId: string
+    readonly expiresAt: number
+    readonly acceptedAt: number | null
+    readonly acceptedByUserId: string | null
+    readonly revokedAt: number | null
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface AccessSummary {
+    readonly instance: AccessInstanceStateRecord
+    readonly membership: AccessInstanceMembership | null
+    readonly isAdmin: boolean
+}
+
+export interface CreatedAccessInvitation {
+    readonly invitation: AccessInvitation
+    readonly token: string
+}
+
 export interface ProviderApplication {
     readonly id: string
     readonly providerId: ProviderApplicationProvider
@@ -214,6 +279,40 @@ export const api = {
             `/api/settings/provider-applications/${encodeURIComponent(applicationId)}`,
             jsonBody(input, 'PATCH')
         )
+    },
+
+    async getInstanceAccess(): Promise<AccessSummary> {
+        return requestAuth<AccessSummary>('/api/access')
+    },
+
+    async listAccessInvitations(): Promise<{ invitations: AccessInvitation[] }> {
+        return requestAuth<{ invitations: AccessInvitation[] }>('/api/access/invitations')
+    },
+
+    async createAccessInvitation(targetEmail: string): Promise<CreatedAccessInvitation> {
+        return requestAuth<CreatedAccessInvitation>(
+            '/api/access/invitations',
+            jsonBody({ targetEmail })
+        )
+    },
+
+    async revokeAccessInvitation(invitationId: string): Promise<{ invitation: AccessInvitation }> {
+        return requestAuth<{ invitation: AccessInvitation }>(
+            `/api/access/invitations/${encodeURIComponent(invitationId)}`,
+            { method: 'DELETE' }
+        )
+    },
+
+    async acceptAccessInvitation(token: string): Promise<{
+        invitation: AccessInvitation
+        instanceMembership: AccessInstanceMembership
+        projectMembership: AccessProjectMembership | null
+    }> {
+        return requestAuth<{
+            invitation: AccessInvitation
+            instanceMembership: AccessInstanceMembership
+            projectMembership: AccessProjectMembership | null
+        }>('/api/access/invitations/accept', jsonBody({ token }))
     },
 
     async listProjects(): Promise<{ projects: Project[] }> {

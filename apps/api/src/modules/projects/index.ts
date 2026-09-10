@@ -61,6 +61,13 @@ export interface ProjectModuleOptions {
 export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
         authenticateProjectAccessToken: options.accessTokens?.authenticate,
+        authorizeProjectSessionAccess: (projectId, userId) =>
+            // A project with no membership rows is a legacy fixture/data set;
+            // its existing actor-backed store remains the compatibility guard
+            // until the membership backfill has been applied. Once any durable
+            // membership exists, it becomes authoritative.
+            options.access.listProjectMemberships(projectId).length === 0 ||
+            options.access.canAccessProject(projectId, userId),
     })
     const accessRoutes = registerAccessRoutes(authenticated, options.access)
     const providerApplicationRoutes = registerProviderApplicationRoutes(
@@ -68,7 +75,11 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.publisher,
         options.access
     )
-    const projectRoutes = registerProjectRoutes(providerApplicationRoutes, options.manualStore)
+    const projectRoutes = registerProjectRoutes(
+        providerApplicationRoutes,
+        options.manualStore,
+        options.access
+    )
     const taxonomyRoutes = registerTaxonomyRoutes(projectRoutes, options.taxonomy, options.access)
     const accessTokenRoutes = registerProjectAccessTokenRoutes(taxonomyRoutes, options.accessTokens)
     const channelRoutes = registerChannelRoutes(accessTokenRoutes, options.manualStore)

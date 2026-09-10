@@ -123,7 +123,7 @@ function createFixture(
         notifications,
     })
 
-    return { accessTokens, app, database, notifications, publisher }
+    return { access, accessTokens, app, database, notifications, publisher }
 }
 
 async function signUp(app: ReturnType<typeof createApp>, email = 'operator@herald.local') {
@@ -1538,6 +1538,185 @@ describe('Herald API', () => {
                     message: 'timeZone must be a valid IANA time zone identifier',
                 },
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('authorizes project lifecycle operations with instance and project memberships', async () => {
+        const { access, accessTokens, app, database } = createFixture()
+
+        try {
+            const ownerCookie = await signUp(app, 'lifecycle-owner@herald.local')
+            const owner = database.$client
+                .query<{ readonly userId: string }, []>(
+                    `select claimed_by_user_id as userId from instance_state where id = 'default'`
+                )
+                .get()
+            expect(owner).not.toBeNull()
+
+            const ownerProjectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Lifecycle owner project' }),
+            })
+            expect(ownerProjectResponse.status).toBe(201)
+            const ownerProject = (await ownerProjectResponse.json()) as {
+                project: { id: string }
+            }
+            expect(
+                database.$client
+                    .query<{ readonly role: string; readonly state: string }, [string, string]>(
+                        `select role, state from project_memberships
+                         where project_id = ?1 and user_id = ?2`
+                    )
+                    .get(ownerProject.project.id, owner?.userId ?? '')
+            ).toEqual({ role: 'owner', state: 'active' })
+
+            const memberEmail = 'lifecycle-member@herald.local'
+            const memberCookie = await signUpFixtureAdditionalUser(app, database, memberEmail)
+            const member = database.$client
+                .query<{ readonly userId: string }, [string]>(
+                    `select id as userId from user where email = ?1`
+                )
+                .get(memberEmail)
+            expect(member).not.toBeNull()
+
+            const memberProjectResponse = await jsonRequest(app, '/api/projects', memberCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Lifecycle member project' }),
+            })
+            expect(memberProjectResponse.status).toBe(201)
+            const memberProject = (await memberProjectResponse.json()) as {
+                project: { id: string }
+            }
+            expect(
+                database.$client
+                    .query<{ readonly role: string; readonly state: string }, [string, string]>(
+                        `select role, state from project_memberships
+                         where project_id = ?1 and user_id = ?2`
+                    )
+                    .get(memberProject.project.id, member?.userId ?? '')
+            ).toEqual({ role: 'owner', state: 'active' })
+
+            const invitation = access.createInvitation({
+                targetEmail: memberEmail,
+                createdByUserId: owner?.userId ?? '',
+                projectId: ownerProject.project.id,
+                projectRole: 'viewer',
+            })
+            expect('token' in invitation).toBe(true)
+            if (!('token' in invitation) || member === null) {
+                throw new Error('The project invitation was not created')
+            }
+            expect(
+                access.acceptInvitation({
+                    token: invitation.token,
+                    userId: member.userId,
+                    email: memberEmail,
+                    displayName: 'Herald Operator',
+                }).kind
+            ).toBe('accepted')
+
+            const viewerListResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/channels`,
+                memberCookie
+            )
+            expect(viewerListResponse.status).toBe(200)
+
+            const viewerUpdateResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}`,
+                memberCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ timeZone: 'Europe/Paris' }),
+                }
+            )
+            expect(viewerUpdateResponse.status).toBe(403)
+
+            database.$client
+                .query(
+                    `update project_memberships
+                     set role = 'editor'
+                     where project_id = ?1 and user_id = ?2`
+                )
+                .run(ownerProject.project.id, member.userId)
+            const editorUpdateResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}`,
+                memberCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ timeZone: 'Europe/Paris' }),
+                }
+            )
+            expect(editorUpdateResponse.status).toBe(200)
+
+            database.$client
+                .query(
+                    `update project_memberships
+                     set state = 'removed'
+                     where project_id = ?1 and user_id = ?2`
+                )
+                .run(ownerProject.project.id, member.userId)
+            const removedMemberResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/channels`,
+                memberCookie
+            )
+            expect(removedMemberResponse.status).toBe(404)
+
+            const outsiderEmail = 'lifecycle-outsider@herald.local'
+            const outsiderCookie = await signUpFixtureAdditionalUser(app, database, outsiderEmail)
+            const outsiderUpdateResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}`,
+                outsiderCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ timeZone: 'America/New_York' }),
+                }
+            )
+            expect(outsiderUpdateResponse.status).toBe(404)
+
+            const outsider = database.$client
+                .query<{ readonly userId: string }, [string]>(
+                    `select id as userId from user where email = ?1`
+                )
+                .get(outsiderEmail)
+            expect(outsider).not.toBeNull()
+            database.$client
+                .query(`update instance_memberships set state = 'disabled' where user_id = ?1`)
+                .run(outsider?.userId ?? '')
+            const disabledCreateResponse = await jsonRequest(app, '/api/projects', outsiderCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Should not be created' }),
+            })
+            expect(disabledCreateResponse.status).toBe(403)
+
+            const tokenResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/access-tokens`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Lifecycle token' }),
+                }
+            )
+            expect(tokenResponse.status).toBe(201)
+            const tokenBody = (await tokenResponse.json()) as { token: string }
+            const bearerUpdateResponse = await bearerRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}`,
+                tokenBody.token,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ timeZone: 'America/New_York' }),
+                }
+            )
+            expect(bearerUpdateResponse.status).toBe(403)
+            expect(accessTokens.authenticate(tokenBody.token)).not.toBeNull()
         } finally {
             closeDatabase(database)
         }

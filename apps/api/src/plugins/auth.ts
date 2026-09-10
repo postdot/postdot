@@ -10,6 +10,7 @@ export interface AuthenticatedElysiaOptions {
     readonly authenticateProjectAccessToken?: (
         token: string
     ) => ProjectAccessTokenAuthentication | null
+    readonly authorizeProjectSessionAccess?: (projectId: string, userId: string) => boolean
 }
 
 type HeraldAuthSession = NonNullable<Awaited<ReturnType<HeraldAuth['api']['getSession']>>>
@@ -68,6 +69,13 @@ function createAuthenticatedElysiaContract(auth: HeraldAuth) {
     })
 }
 
+function readProjectIdFromRequest(requestUrl: string): string | null {
+    const segments = new URL(requestUrl).pathname.split('/').filter(Boolean)
+    const projectIndex = segments.indexOf('projects')
+    const projectId = projectIndex >= 0 ? segments[projectIndex + 1] : undefined
+    return projectId === undefined || projectId.length === 0 ? null : projectId
+}
+
 type AuthenticatedElysiaBase = ReturnType<typeof createAuthenticatedElysiaContract>
 
 export function createAuthenticatedElysia(
@@ -76,7 +84,7 @@ export function createAuthenticatedElysia(
 ): AuthenticatedElysiaBase {
     const authenticated = new Elysia().macro({
         auth: {
-            async derive({ request: { headers }, status }) {
+            async derive({ request: { headers }, status, request }) {
                 const authorization = headers.get('authorization')
                 if (authorization !== null) {
                     const token = parseBearerToken(authorization)
@@ -107,6 +115,17 @@ export function createAuthenticatedElysia(
                             code: 'unauthorized',
                             message: 'Authentication required',
                         },
+                    })
+                }
+
+                const projectId = readProjectIdFromRequest(request.url)
+                if (
+                    projectId !== null &&
+                    options.authorizeProjectSessionAccess !== undefined &&
+                    !options.authorizeProjectSessionAccess(projectId, session.user.id)
+                ) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
 

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboard/projects/$projectId'
+import { Route as DashboardSettingsAccessRouteImport } from './routes/dashboard/settings/access'
 import { Route as DashboardSettingsProviderApplicationsRouteImport } from './routes/dashboard/settings/provider-applications'
 import { Route as DashboardProjectsProjectIdAccessRouteImport } from './routes/dashboard/projects/$projectId/access'
 import { Route as DashboardProjectsProjectIdCalendarRouteImport } from './routes/dashboard/projects/$projectId/calendar'
@@ -45,6 +46,11 @@ const DashboardProjectsProjectIdRoute =
     path: '/projects/$projectId',
     getParentRoute: () => DashboardRoute,
   } as any)
+const DashboardSettingsAccessRoute = DashboardSettingsAccessRouteImport.update({
+  id: '/settings/access',
+  path: '/settings/access',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardSettingsProviderApplicationsRoute =
   DashboardSettingsProviderApplicationsRouteImport.update({
     id: '/settings/provider-applications',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
+  '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/dashboard/projects/$projectId'
+    | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/calendar'
@@ -240,6 +252,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId'
       fullPath: '/dashboard/projects/$projectId'
       preLoaderRoute: typeof DashboardProjectsProjectIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings/access': {
+      id: '/dashboard/settings/access'
+      path: '/settings/access'
+      fullPath: '/dashboard/settings/access'
+      preLoaderRoute: typeof DashboardSettingsAccessRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/settings/provider-applications': {
@@ -354,11 +373,13 @@ const DashboardProjectsProjectIdRouteWithChildren =
 
 interface DashboardRouteChildren {
   DashboardProjectsProjectIdRoute: typeof DashboardProjectsProjectIdRouteWithChildren
+  DashboardSettingsAccessRoute: typeof DashboardSettingsAccessRoute
   DashboardSettingsProviderApplicationsRoute: typeof DashboardSettingsProviderApplicationsRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardProjectsProjectIdRoute: DashboardProjectsProjectIdRouteWithChildren,
+  DashboardSettingsAccessRoute: DashboardSettingsAccessRoute,
   DashboardSettingsProviderApplicationsRoute:
     DashboardSettingsProviderApplicationsRoute,
 }

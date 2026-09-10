@@ -68,7 +68,9 @@ export function DashboardShell({
                 activeSection={activeSection}
                 channels={channels}
                 dueCount={dueCount}
-                isInstanceSettings={activeSection === 'settings'}
+                isInstanceSettings={
+                    activeSection === 'settings' || activeSection === 'settings-access'
+                }
                 isPublicationRoute={isPublicationRoute}
                 onCreateProject={onCreateProject}
                 onProjectChange={onProjectChange}
@@ -87,7 +89,9 @@ export function DashboardShell({
             <SidebarInset className="!m-0 !rounded-none !bg-surface-canvas !shadow-none">
                 <div className="flex min-h-0 flex-1 flex-col bg-surface-canvas">
                     <DashboardHeader
-                        isInstanceSettings={activeSection === 'settings'}
+                        isInstanceSettings={
+                            activeSection === 'settings' || activeSection === 'settings-access'
+                        }
                         isPublicationRoute={isPublicationRoute}
                         onSignOut={onSignOut}
                         pending={pending}

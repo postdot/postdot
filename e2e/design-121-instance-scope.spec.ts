@@ -21,7 +21,7 @@ test('keeps instance settings separate from project navigation', async ({ page }
     await expect(
         dashboardHeader.getByText('Instance settings', { exact: true }).first()
     ).toBeVisible()
-    await expect(dashboardHeader).not.toContainText(`E2E-121 scope project ${suffix}`)
+    await expect(dashboardHeader.first()).not.toContainText(`E2E-121 scope project ${suffix}`)
     await expect(
         page.getByText('Configure OAuth apps shared across Herald projects.', { exact: true })
     ).toBeVisible()

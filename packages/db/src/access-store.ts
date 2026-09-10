@@ -699,6 +699,40 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             return membership !== null && hasProjectRole(membership.role, minimumRole)
         },
 
+        /**
+         * Create the durable owner membership for a project created by an
+         * enabled instance member. The project actor remains the operational
+         * identity used by the legacy manual store; this record is the new
+         * authorization identity and the operation is intentionally idempotent.
+         */
+        ensureProjectOwnerMembership(input: {
+            readonly projectId: string
+            readonly userId: string
+        }): AccessProjectMembership | null {
+            const projectId = requireNonBlank(input.projectId, 'projectId')
+            const userId = requireNonBlank(input.userId, 'userId')
+            if (projectExistsStatement.get(projectId) === null) return null
+
+            const instanceMembership = loadInstanceMembershipStatement.get(userId)
+            if (instanceMembership === null || instanceMembership.state !== 'enabled') {
+                return null
+            }
+
+            const timestamp = now()
+            upsertProjectMembershipStatement.run(
+                `project-membership:${projectId}:${userId}`,
+                projectId,
+                userId,
+                'owner',
+                timestamp
+            )
+            const membership = loadProjectMembershipStatement.get(projectId, userId)
+            if (membership === null) {
+                throw new Error('The project owner membership was not persisted')
+            }
+            return toProjectMembership(membership)
+        },
+
         listInstanceMemberships(): AccessInstanceMembership[] {
             return listInstanceMembershipsStatement.all().map(toInstanceMembership)
         },

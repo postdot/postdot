@@ -1,3 +1,4 @@
+import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'
@@ -13,7 +14,8 @@ import type { ManualStore } from './types'
 
 export function registerProjectRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    manualStore: ManualStore
+    manualStore: ManualStore,
+    access: AccessStore
 ) {
     return app
         .get(
@@ -61,12 +63,29 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     })
                 }
 
+                if (access.getInstanceMembership(user.id)?.state !== 'enabled') {
+                    return status(403, {
+                        error: {
+                            code: 'forbidden',
+                            message:
+                                'An enabled instance membership is required to create a project',
+                        },
+                    })
+                }
+
                 const created = manualStore.createProject({
                     name: body.name,
                     subjectId: user.id,
                     displayName: user.name,
                     timeZone: body.timeZone,
                 })
+                const ownerMembership = access.ensureProjectOwnerMembership({
+                    projectId: created.project.id,
+                    userId: user.id,
+                })
+                if (ownerMembership === null) {
+                    throw new Error('The project owner membership could not be created')
+                }
                 return status(201, { project: created.project })
             }
         )
@@ -97,6 +116,16 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                         error: {
                             code: 'forbidden',
                             message: 'Human authentication is required to update project settings',
+                        },
+                    })
+                }
+
+                if (!access.canAccessProject(params.projectId, user.id, 'editor')) {
+                    return status(403, {
+                        error: {
+                            code: 'forbidden',
+                            message:
+                                'An active project editor membership is required to update project settings',
                         },
                     })
                 }
