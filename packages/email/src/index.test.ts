@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'bun:test'
 
+import { render } from '@react-email/render'
+
 import {
     renderHeraldEmailVerificationEmail,
     renderHeraldOrganizationInvitationEmail,
     renderHeraldPasswordResetEmail,
 } from './index'
+import EmailVerificationEmailPreview from './templates/EmailVerificationEmail'
+import OrganizationInvitationEmailPreview from './templates/OrganizationInvitationEmail'
+import PasswordResetEmailPreview from './templates/PasswordResetEmail'
 
 describe('Herald email templates', () => {
     it('renders a safe invitation with HTML and plain-text alternatives', async () => {
@@ -46,5 +51,18 @@ describe('Herald email templates', () => {
         expect(reset.subject).toBe('Reset your Herald password')
         expect(reset.html).toContain('Reset password')
         expect(reset.text).toContain('https://api.example.test/reset?token=reset-1')
+    })
+
+    it('renders preview entrypoints without runtime props', async () => {
+        const [verification, invitation, reset] = await Promise.all([
+            render(EmailVerificationEmailPreview()),
+            render(OrganizationInvitationEmailPreview()),
+            render(PasswordResetEmailPreview()),
+        ])
+
+        expect(verification).toContain('Alex Martin')
+        expect(invitation).toContain('Herald Studio')
+        expect(invitation).toContain('Accept invitation')
+        expect(reset).toContain('Reset your Herald password')
     })
 })

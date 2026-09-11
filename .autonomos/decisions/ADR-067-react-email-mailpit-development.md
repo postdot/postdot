@@ -17,7 +17,9 @@ checking the complete submission path without using a real mailbox.
 
 The monorepo owns transactional messages in the private `@herald/email` package.
 Each template is a React Email component with a default export for the local
-preview server. The package exposes typed renderers that return the recipient,
+preview server. Those preview entrypoints wrap the strict, typed components with
+safe, non-production fixture data so the preview server can render them without
+runtime props. The package exposes typed renderers that return the recipient,
 subject, HTML body, and plain-text alternative. User-provided values are passed
 through JSX so React Email performs the escaping; deployment origins and
 credentials remain outside the package.
@@ -66,8 +68,9 @@ database, queue, retry, or provider-specific state.
 ## Verification
 
 `@herald/email` unit tests render all three messages and assert HTML escaping,
-action URLs, subjects, and plain-text alternatives. The package build is
-importable, and its preview server starts on port `3001`. The API delivery tests
+action URLs, subjects, and plain-text alternatives, including the three
+no-props preview entrypoints. The package build is importable, and its preview
+server starts on port `3001` with all three routes rendering successfully. The API delivery tests
 assert that the transport consumes those renderers without blocking Better Auth
 flows. `docker compose config`, an alternate-port Mailpit startup/health/cleanup
 cycle, and a real local SMTP capture through Mailpit were verified without using

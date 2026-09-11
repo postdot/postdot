@@ -41,4 +41,14 @@ export function EmailVerificationEmail({ user, url }: HeraldAccountEmailInput) {
     )
 }
 
-export default EmailVerificationEmail
+const previewProps: HeraldAccountEmailInput = {
+    user: {
+        email: 'preview@example.test',
+        name: 'Alex Martin',
+    },
+    url: 'http://localhost:5173/auth/verify-email?token=preview-token',
+}
+
+export default function EmailVerificationEmailPreview() {
+    return <EmailVerificationEmail {...previewProps} />
+}

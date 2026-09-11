@@ -44,4 +44,14 @@ export function PasswordResetEmail({ user, url }: HeraldPasswordResetEmailInput)
     )
 }
 
-export default PasswordResetEmail
+const previewProps: HeraldPasswordResetEmailInput = {
+    user: {
+        email: 'preview@example.test',
+        name: 'Alex Martin',
+    },
+    url: 'http://localhost:5173/auth/reset-password?token=preview-token',
+}
+
+export default function PasswordResetEmailPreview() {
+    return <PasswordResetEmail {...previewProps} />
+}

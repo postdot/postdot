@@ -58,4 +58,16 @@ export function OrganizationInvitationEmail({
 }
 
 export { subject as organizationInvitationSubject }
-export default OrganizationInvitationEmail
+
+const previewProps: HeraldOrganizationInvitationEmailInput = {
+    email: 'new.member@example.test',
+    role: 'editor',
+    organizationName: 'Herald Studio',
+    inviterName: 'Alex Martin',
+    expiresAt: new Date('2026-09-18T12:00:00.000Z'),
+    invitationURL: 'http://localhost:5173/invitations/preview?token=preview-token',
+}
+
+export default function OrganizationInvitationEmailPreview() {
+    return <OrganizationInvitationEmail {...previewProps} />
+}
