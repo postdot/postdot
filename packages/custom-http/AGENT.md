@@ -3,9 +3,10 @@
 - **Purpose:** Execute the bounded declarative HTTP transport for automatic custom
   channels and expose the shared operator-controlled outbound network boundary
   used by per-instance provider clients.
-- **Boundary:** Interpret only the versioned Herald webhook and the approved
-  structural mapping AST. This package must not evaluate scripts, access the
-  database, read process environment, or know Better Auth.
+- **Boundary:** Interpret only the versioned Herald webhook, the approved
+  structural mapping AST, and its dedicated secret path binding. This package
+  must not evaluate scripts, access the database, read process environment, or
+  know Better Auth.
 - **Network:** Resolve and classify every destination at execution time, pin the
   validated address for the request, disable redirects, and enforce operator-owned
   private-destination policy. `createNetworkControlledFetcher` may be injected into

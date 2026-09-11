@@ -731,7 +731,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-031] Support path-authenticated custom HTTP receivers safely
 
 - Type: question
-- Status: open
+- Status: resolved
 - Evidence: Custom HTTP connections currently store and validate one origin-only
   endpoint. The declarative mapped HTTP contract can construct bounded path and
   query values beneath that origin, but the connection secret can only be applied
@@ -746,8 +746,16 @@ exists` error. At the same time, the Vite development proxy always targets port
   authentication or routing requires URL components, while preserving origin-only
   network authority, encrypted-secret handling, SSRF protections, redaction, and
   immutable execution semantics.
-- Tasks: to be triaged
-- Related decisions: ADR-017, ADR-018
+- Tasks: SECURITY-141
+- Related decisions: [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-069](decisions/ADR-069-custom-http-path-authentication.md)
+- Resolution: `SECURITY-141` adds an explicit `path` authentication binding for
+  mapped HTTP profiles. A profile may declare exactly one dedicated
+  `{ "kind": "secret" }` path segment; Herald resolves it only from the
+  encrypted connection credential, encodes it as one URL component, and keeps
+  the connection endpoint origin-only. Path authentication is rejected for
+  Herald webhooks, query/header/body mappings, and profiles without the exact
+  secret segment. The API, database connection boundary, transport, response
+  schema, UI, and redaction tests now fail closed around this contract.
 
 ## [ISSUE-032] Expose project machine access through supported operator clients
 

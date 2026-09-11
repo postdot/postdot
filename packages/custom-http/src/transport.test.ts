@@ -231,6 +231,143 @@ describe('custom HTTP transport', () => {
         })
     })
 
+    test('places a path-authenticated secret in one encoded URL segment', async () => {
+        const { requester, requests } = createRequester()
+        const pathSecret = 'path-secret/with?reserved-characters-123456789'
+        const transport = createCustomHttpTransport({
+            requester,
+            resolveHostname: endpointResolver,
+            now: () => context.deliveredAt,
+        })
+
+        const result = await transport.deliver(
+            createInput(
+                {
+                    kind: 'declarative_http',
+                    contractId: 'custom-path',
+                    revision: '1',
+                    mode: 'mapped_http',
+                    request: {
+                        method: 'POST',
+                        path: ['hooks', { kind: 'secret' }, 'publish'],
+                        response: {
+                            successStatuses: [202],
+                            retryableStatuses: [429],
+                            rejectedStatuses: [400],
+                            ambiguousStatuses: [500],
+                        },
+                    },
+                },
+                {
+                    connection: {
+                        endpointUrl: 'https://receiver.example.test',
+                        authentication: { kind: 'path' },
+                        secret: pathSecret,
+                    },
+                }
+            )
+        )
+
+        expect(result).toEqual({ type: 'published' })
+        const request = requests[0]!
+        expect(request.url.pathname).toBe(
+            '/hooks/path-secret%2Fwith%3Freserved-characters-123456789/publish'
+        )
+        expect(request.headers.authorization).toBeUndefined()
+        expect(request.headers['content-type']).toBeUndefined()
+    })
+
+    test('fails closed before dispatch when path authentication has no secret segment', async () => {
+        const { requester, requests } = createRequester()
+        const transport = createCustomHttpTransport({
+            requester,
+            resolveHostname: endpointResolver,
+            now: () => context.deliveredAt,
+        })
+
+        const result = await transport.deliver(
+            createInput(
+                {
+                    kind: 'declarative_http',
+                    contractId: 'custom-path',
+                    revision: '1',
+                    mode: 'mapped_http',
+                    request: {
+                        method: 'POST',
+                        path: ['hooks'],
+                        response: {
+                            successStatuses: [202],
+                            retryableStatuses: [429],
+                            rejectedStatuses: [400],
+                            ambiguousStatuses: [500],
+                        },
+                    },
+                },
+                {
+                    connection: {
+                        endpointUrl: 'https://receiver.example.test',
+                        authentication: { kind: 'path' },
+                        secret,
+                    },
+                }
+            )
+        )
+
+        expect(result).toMatchObject({ type: 'permanent_failure' })
+        expect(requests).toHaveLength(0)
+    })
+
+    test('does not persist an encoded path secret echoed by the receiver', async () => {
+        const pathSecret = 'path-secret/with?reserved-characters-123456789'
+        const { requester, requests } = createRequester({
+            status: 201,
+            headers: {},
+            body: JSON.stringify({
+                url: `https://receiver.example.test/posts/${encodeURIComponent(pathSecret)}`,
+            }),
+            bodyTruncated: false,
+        })
+        const transport = createCustomHttpTransport({
+            requester,
+            resolveHostname: endpointResolver,
+            now: () => context.deliveredAt,
+        })
+
+        const result = await transport.deliver(
+            createInput(
+                {
+                    kind: 'declarative_http',
+                    contractId: 'custom-path',
+                    revision: '1',
+                    mode: 'mapped_http',
+                    request: {
+                        method: 'POST',
+                        path: ['hooks', { kind: 'secret' }, 'publish'],
+                        response: {
+                            successStatuses: [201],
+                            retryableStatuses: [429],
+                            rejectedStatuses: [400],
+                            ambiguousStatuses: [500],
+                            externalUrlPointer: '/url',
+                        },
+                    },
+                },
+                {
+                    connection: {
+                        endpointUrl: 'https://receiver.example.test',
+                        authentication: { kind: 'path' },
+                        secret: pathSecret,
+                    },
+                }
+            )
+        )
+
+        expect(result).toMatchObject({ type: 'ambiguous' })
+        expect(JSON.stringify(result)).not.toContain(pathSecret)
+        expect(JSON.stringify(result)).not.toContain(encodeURIComponent(pathSecret))
+        expect(requests).toHaveLength(1)
+    })
+
     test('streams mapped multipart media and classifies retryable responses', async () => {
         const { requester, requests } = createRequester({
             status: 429,

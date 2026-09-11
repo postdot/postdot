@@ -63,6 +63,9 @@ export type DeclarativeHttpPathSegment =
           readonly kind: 'content' | 'context'
           readonly pointer: string
       }
+    | {
+          readonly kind: 'secret'
+      }
 
 export interface DeclarativeHttpMultipartMediaPart {
     readonly fieldName: string
@@ -115,10 +118,11 @@ export type CustomHttpAuthentication =
     | { readonly kind: 'none' }
     | { readonly kind: 'bearer' }
     | { readonly kind: 'header'; readonly headerName: string }
+    | { readonly kind: 'path' }
 
 export function isCustomHttpAuthentication(value: unknown): value is CustomHttpAuthentication {
     if (!isRecord(value)) return false
-    if (value.kind === 'none' || value.kind === 'bearer') return true
+    if (value.kind === 'none' || value.kind === 'bearer' || value.kind === 'path') return true
     return (
         value.kind === 'header' &&
         typeof value.headerName === 'string' &&
@@ -220,6 +224,60 @@ export function validateDeclarativeHttpExecution(
     return issues
 }
 
+export function validateCustomHttpAuthenticationBinding(
+    execution: DeclarativeHttpExecutionContract,
+    authentication: CustomHttpAuthentication
+): readonly ValidationIssue[] {
+    const issues: ValidationIssue[] = []
+    const addIssue = (path: string, code: string, message: string) => {
+        issues.push({ path, code, message, severity: 'error', source: 'domain' })
+    }
+
+    if (!isCustomHttpAuthentication(authentication)) {
+        addIssue(
+            '/authentication',
+            'authentication.invalid',
+            'Custom HTTP authentication configuration is invalid'
+        )
+        return issues
+    }
+
+    const secretPathSegments =
+        execution.mode === 'mapped_http' && execution.request !== undefined
+            ? execution.request.path.filter(
+                  segment => typeof segment !== 'string' && segment.kind === 'secret'
+              ).length
+            : 0
+
+    if (authentication.kind === 'path') {
+        if (execution.mode !== 'mapped_http' || execution.request === undefined) {
+            addIssue(
+                '/authentication/kind',
+                'authentication.path_mode_invalid',
+                'Path authentication requires a mapped HTTP execution contract'
+            )
+        }
+        if (secretPathSegments !== 1) {
+            addIssue(
+                '/execution/request/path',
+                'mapping.secret_path_required',
+                'Path authentication requires exactly one secret path segment'
+            )
+        }
+        return issues
+    }
+
+    if (secretPathSegments > 0) {
+        addIssue(
+            '/execution/request/path',
+            'mapping.secret_path_auth_required',
+            'A secret path segment requires path authentication'
+        )
+    }
+
+    return issues
+}
+
 function validateRequest(
     request: DeclarativeHttpRequestMapping,
     addIssue: (path: string, code: string, message: string) => void
@@ -239,6 +297,7 @@ function validateRequest(
             `HTTP paths may contain at most ${maximumPathSegments} segments`
         )
     } else {
+        let secretPathSegments = 0
         request.path.forEach((segment, index) => {
             const path = `/execution/request/path/${index}`
             if (typeof segment === 'string') {
@@ -262,8 +321,22 @@ function validateRequest(
                 return
             }
 
-            if (!isRecord(segment) || !['content', 'context'].includes(String(segment.kind))) {
+            if (
+                !isRecord(segment) ||
+                !['content', 'context', 'secret'].includes(String(segment.kind))
+            ) {
                 addIssue(path, 'mapping.path_segment_invalid', 'Path expressions are not valid')
+                return
+            }
+            if (segment.kind === 'secret') {
+                secretPathSegments += 1
+                if (secretPathSegments > 1) {
+                    addIssue(
+                        path,
+                        'mapping.secret_path_limit',
+                        'HTTP mappings may contain at most one secret path segment'
+                    )
+                }
                 return
             }
             validatePointerExpression(segment, path, addIssue, segment.kind === 'context')

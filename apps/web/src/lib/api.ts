@@ -70,6 +70,7 @@ export type CustomHttpAuthentication =
     | { readonly kind: 'none' }
     | { readonly kind: 'bearer' }
     | { readonly kind: 'header'; readonly headerName: string }
+    | { readonly kind: 'path' }
 
 export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x'
 export type ProviderApplicationState = 'active' | 'disabled'

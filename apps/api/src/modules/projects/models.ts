@@ -610,6 +610,7 @@ export const publisherConnectionSchema = Type.Object({
             kind: Type.Literal('header'),
             headerName: Type.String({ minLength: 1 }),
         }),
+        Type.Object({ kind: Type.Literal('path') }),
         Type.Null(),
     ]),
     providerId: Type.String({ minLength: 1 }),
@@ -704,6 +705,7 @@ export const customHttpConnectionBody = Type.Object({
             kind: Type.Literal('header'),
             headerName: Type.String({ minLength: 1, maxLength: 128 }),
         }),
+        Type.Object({ kind: Type.Literal('path') }),
     ]),
     externalAccountName: Type.Optional(
         Type.Union([Type.String({ minLength: 1, maxLength: 255 }), Type.Null()])

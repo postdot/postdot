@@ -40,8 +40,31 @@ JSON Pointer values from target content and execution context into:
 
 The connection owns the fixed origin and authentication secret. A mapped profile
 may select `none`, bearer, or one connection-owned header authentication, but it
-cannot read secrets from content or redefine the connection origin. Response
-status classes and optional remote identifiers are declared by the profile.
+cannot read secrets from content or redefine the connection origin. A mapped
+profile may also use one dedicated `{ "kind": "secret" }` path segment when the
+connection selects `path` authentication; the segment is encoded as one URL
+component at delivery time. It cannot be used in a query, header, or body, and
+path authentication is not available for `herald_webhook`. Response status
+classes and optional remote identifiers are declared by the profile.
+
+For example, a path-authenticated profile can use:
+
+```json
+{
+    "method": "POST",
+    "path": ["hooks", { "kind": "secret" }, "publish"],
+    "response": {
+        "successStatuses": [200, 202],
+        "retryableStatuses": [429],
+        "rejectedStatuses": [400, 401, 403],
+        "ambiguousStatuses": [500]
+    }
+}
+```
+
+The connection still stores only the origin in `endpointUrl`; the secret remains
+in the encrypted publisher credential. The exact encoded request URL is never
+included in Herald envelopes, mapped content, errors, or logs.
 
 ## Network boundary
 

@@ -62,6 +62,33 @@ const customWebhookProfile: ChannelProfileDefinition = {
     },
 }
 
+const customPathProfile: ChannelProfileDefinition = {
+    ...customWebhookProfile,
+    id: 'custom-path',
+    profileHash: 'sha256:custom-path-profile-v1',
+    schemaHash: 'sha256:custom-path-schema-v1',
+    execution: {
+        kind: 'declarative_http',
+        contractId: 'custom-path',
+        revision: '1',
+        mode: 'mapped_http',
+        request: {
+            method: 'POST',
+            path: ['hooks', { kind: 'secret' }, 'publish'],
+            body: {
+                kind: 'json',
+                value: { kind: 'content', pointer: '/body' },
+            },
+            response: {
+                successStatuses: [202],
+                retryableStatuses: [429],
+                rejectedStatuses: [400],
+                ambiguousStatuses: [500],
+            },
+        },
+    },
+}
+
 type HealthRuntime = NonNullable<Parameters<typeof createApp>[0]['runtime']>
 type OpenApiResponse = {
     readonly description?: string
@@ -2025,6 +2052,73 @@ describe('Herald API', () => {
                 authentication: { kind: 'none' },
             })
             expect(JSON.stringify(connectionBody)).not.toContain(secret)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('accepts path authentication when the active profile owns one secret path segment', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'custom-path-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Custom path project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: 'Path Receiver',
+                        profile: customPathProfile,
+                    }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const channelBody = (await channelResponse.json()) as { channel: { id: string } }
+            const pathSecret = 'path-auth-secret-with-at-least-32-characters'
+
+            const connectionResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/custom-http/connect`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        endpointUrl: 'https://receiver.example.test',
+                        authentication: { kind: 'path' },
+                        externalAccountName: 'Path receiver',
+                        secret: pathSecret,
+                    }),
+                }
+            )
+
+            expect(connectionResponse.status).toBe(200)
+            const connectionBody = (await connectionResponse.json()) as {
+                connection: Record<string, unknown>
+            }
+            expect(connectionBody.connection).toMatchObject({
+                kind: 'custom_http',
+                endpointUrl: 'https://receiver.example.test',
+                authentication: { kind: 'path' },
+            })
+            expect(JSON.stringify(connectionBody)).not.toContain(pathSecret)
+
+            const listResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publishers`,
+                cookie
+            )
+            expect(listResponse.status).toBe(200)
+            const listBody = (await listResponse.json()) as {
+                connections: Array<{ authentication: { kind: string } | null }>
+            }
+            expect(listBody.connections[0]?.authentication).toEqual({ kind: 'path' })
         } finally {
             closeDatabase(database)
         }
