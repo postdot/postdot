@@ -569,6 +569,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/members',
                 '/api/projects/{projectId}/invitations',
                 '/api/projects/{projectId}/invitations/{invitationId}',
+                '/api/projects/{projectId}/invitations/{invitationId}/resend',
                 '/api/projects/{projectId}/members/{memberId}',
                 '/api/categories',
                 '/api/categories/{categoryId}',
@@ -643,6 +644,10 @@ describe('Herald API', () => {
             expect(
                 specification.paths['/api/projects/{projectId}/invitations']?.post?.operationId
             ).toBe('createProjectInvitation')
+            expect(
+                specification.paths['/api/projects/{projectId}/invitations/{invitationId}/resend']
+                    ?.post?.operationId
+            ).toBe('resendProjectInvitation')
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
                     bearerFormat: 'Herald project access token',
@@ -2381,18 +2386,62 @@ describe('Herald API', () => {
             )
             expect(secondInviteResponse.status).toBe(201)
             const secondInvitation = (await secondInviteResponse.json()) as {
-                invitation: { id: string }
+                invitation: { id: string; email: string; role: string }
             }
+            const resendResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/invitations/${secondInvitation.invitation.id}/resend`,
+                ownerCookie,
+                { method: 'POST' }
+            )
+            expect(resendResponse.status).toBe(200)
+            const resentInvitation = (await resendResponse.json()) as {
+                invitation: { id: string; email: string; role: string; status: string }
+            }
+            expect(resentInvitation.invitation).toEqual(
+                expect.objectContaining({
+                    email: secondInvitation.invitation.email,
+                    role: secondInvitation.invitation.role,
+                    status: 'pending',
+                })
+            )
+            expect(resentInvitation.invitation.id).not.toBe(secondInvitation.invitation.id)
+
+            const afterResendInvitationsResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/invitations`,
+                ownerCookie
+            )
+            expect(afterResendInvitationsResponse.status).toBe(200)
+            const afterResendInvitations = (await afterResendInvitationsResponse.json()) as {
+                invitations: Array<{ id: string; email: string; status: string }>
+            }
+            const pendingInvitationsForEmail = afterResendInvitations.invitations.filter(
+                invitation =>
+                    invitation.email === secondInvitation.invitation.email &&
+                    invitation.status === 'pending'
+            )
+            expect(pendingInvitationsForEmail).toEqual([
+                expect.objectContaining({ id: resentInvitation.invitation.id }),
+            ])
+            expect(afterResendInvitations.invitations).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        id: secondInvitation.invitation.id,
+                        status: 'canceled',
+                    }),
+                ])
+            )
             const cancelResponse = await jsonRequest(
                 app,
-                `/api/projects/${projectId}/invitations/${secondInvitation.invitation.id}`,
+                `/api/projects/${projectId}/invitations/${resentInvitation.invitation.id}`,
                 ownerCookie,
                 { method: 'DELETE' }
             )
             expect(cancelResponse.status).toBe(200)
             expect(await cancelResponse.json()).toEqual({
                 invitation: expect.objectContaining({
-                    id: secondInvitation.invitation.id,
+                    id: resentInvitation.invitation.id,
                     status: 'canceled',
                 }),
             })

@@ -411,6 +411,96 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 }
             }
         )
+        .post(
+            '/api/projects/:projectId/invitations/:invitationId/resend',
+            {
+                auth: true,
+                params: projectInvitationParams,
+                response: {
+                    200: projectInvitationResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'resendProjectInvitation',
+                    summary: 'Resend a project invitation',
+                    tags: ['Projects'],
+                    security: sessionSecurity,
+                },
+            },
+            async ({ authMethod, params, request, status, user }) => {
+                const organizationId = getProjectOrganizationId(
+                    params.projectId,
+                    access,
+                    authMethod,
+                    user.id,
+                    'owner'
+                )
+                if (authMethod !== 'session') return status(403, projectOwnerForbiddenResponse())
+                if (access.getProjectOrganizationId(params.projectId) === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                if (organizationId === null) return status(403, projectOwnerForbiddenResponse())
+
+                try {
+                    const invitations = await auth.api.listInvitations({
+                        query: { organizationId },
+                        headers: request.headers,
+                    })
+                    const existing = invitations.find(
+                        invitation => invitation.id === params.invitationId
+                    )
+                    if (existing === undefined) {
+                        return status(404, {
+                            error: { code: 'not_found', message: 'Project invitation not found' },
+                        })
+                    }
+                    if (existing.status !== 'pending') {
+                        return status(409, {
+                            error: {
+                                code: 'invitation_not_pending',
+                                message: 'Project invitation is no longer pending',
+                            },
+                        })
+                    }
+
+                    // Better Auth's `resend` option keeps the same invitation ID.
+                    // Herald deliberately rotates it so an old copied link stops
+                    // working as soon as the owner asks for a new one. Cancel every
+                    // pending duplicate as a repair guard for development databases
+                    // created before the one-active-invitation policy.
+                    for (const invitation of invitations) {
+                        if (
+                            invitation.status === 'pending' &&
+                            invitation.email.toLowerCase() === existing.email.toLowerCase()
+                        ) {
+                            await auth.api.cancelInvitation({
+                                body: { invitationId: invitation.id },
+                                headers: request.headers,
+                            })
+                        }
+                    }
+
+                    const invitation = await auth.api.createInvitation({
+                        body: {
+                            email: existing.email,
+                            role: existing.role,
+                            organizationId,
+                        },
+                        headers: request.headers,
+                    })
+                    return { invitation: toProjectInvitation(invitation) }
+                } catch {
+                    return status(503, organizationOperationFailedResponse())
+                }
+            }
+        )
         .patch(
             '/api/projects/:projectId/members/:memberId',
             {

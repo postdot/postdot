@@ -20,6 +20,7 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { CopyIcon } from '@solar-icons/react/bold/copy'
+import { RestartIcon } from '@solar-icons/react/bold/restart'
 import { UserCrossRoundedIcon } from '@solar-icons/react/bold/user-cross-rounded'
 import { UserPlusRoundedIcon } from '@solar-icons/react/bold/user-plus-rounded'
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/bold/users-group-two-rounded'
@@ -129,20 +130,16 @@ export function ProjectMembersSection({
                 normalizedEmail,
                 inviteRole
             )
-            const url = new URL('/dashboard/settings/access', window.location.origin)
-            url.searchParams.set('projectId', projectId)
-            url.searchParams.set('organizationInvitation', response.invitation.id)
+            const invitationResponse = await api.listProjectInvitations(projectId)
             setCreatedInvitation({
                 id: response.invitation.id,
                 email: response.invitation.email,
-                link: url.toString(),
+                link: projectInvitationLink(projectId, response.invitation.id),
             })
             setCopied(false)
             setCopyError(false)
             setEmail('')
-            setInvitations(current =>
-                current === null ? [response.invitation] : [response.invitation, ...current]
-            )
+            setInvitations(invitationResponse.invitations)
             setNotice(m.access_project_invitation_created())
         })
     }
@@ -172,6 +169,24 @@ export function ProjectMembersSection({
             )
             if (createdInvitation?.id === invitationId) setCreatedInvitation(null)
             setNotice(m.access_project_invitation_canceled())
+        })
+    }
+
+    async function handleResendInvitation(invitationId: string) {
+        if (pendingAction !== null || !canManage) return
+
+        await runAction(`resend:${invitationId}`, async () => {
+            const response = await api.resendProjectInvitation(projectId, invitationId)
+            const invitationResponse = await api.listProjectInvitations(projectId)
+            setInvitations(invitationResponse.invitations)
+            setCreatedInvitation({
+                id: response.invitation.id,
+                email: response.invitation.email,
+                link: projectInvitationLink(projectId, response.invitation.id),
+            })
+            setCopied(false)
+            setCopyError(false)
+            setNotice(m.access_project_invitation_resent())
         })
     }
 
@@ -471,23 +486,44 @@ export function ProjectMembersSection({
                                             key={invitation.id}
                                             className="flex min-w-0 flex-col gap-3 bg-muted/60 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between">
                                             <div className="min-w-0">
-                                                <p className="truncate text-sm font-medium">
-                                                    {invitation.email}
-                                                </p>
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <p className="truncate text-sm font-medium">
+                                                        {invitation.email}
+                                                    </p>
+                                                    {isProjectInvitationExpired(invitation) ? (
+                                                        <Badge variant="secondary">
+                                                            {m.access_project_invitation_expired()}
+                                                        </Badge>
+                                                    ) : null}
+                                                </div>
                                                 <p className="mt-1 text-xs text-muted-foreground">
                                                     {projectInvitationDetails(invitation, locale)}
                                                 </p>
                                             </div>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                disabled={pendingAction !== null}
-                                                onClick={() =>
-                                                    void handleCancelInvitation(invitation.id)
-                                                }>
-                                                {m.access_project_cancel_invitation()}
-                                            </Button>
+                                            <div className="flex shrink-0 items-center gap-1">
+                                                <Button
+                                                    type="button"
+                                                    aria-label={`${m.access_project_invitation_resend()} ${invitation.email}`}
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    disabled={pendingAction !== null}
+                                                    onClick={() =>
+                                                        void handleResendInvitation(invitation.id)
+                                                    }>
+                                                    <RestartIcon aria-hidden="true" />
+                                                    {m.access_project_invitation_resend()}
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    disabled={pendingAction !== null}
+                                                    onClick={() =>
+                                                        void handleCancelInvitation(invitation.id)
+                                                    }>
+                                                    {m.access_project_cancel_invitation()}
+                                                </Button>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
@@ -533,6 +569,17 @@ function projectRoleLabel(role: ProjectMemberRole) {
     if (role === 'owner') return m.access_project_role_owner()
     if (role === 'editor') return m.access_project_role_editor()
     return m.access_project_role_viewer()
+}
+
+function projectInvitationLink(projectId: string, invitationId: string) {
+    const url = new URL('/dashboard/settings/access', window.location.origin)
+    url.searchParams.set('projectId', projectId)
+    url.searchParams.set('organizationInvitation', invitationId)
+    return url.toString()
+}
+
+function isProjectInvitationExpired(invitation: ProjectInvitation) {
+    return invitation.expiresAt <= Date.now()
 }
 
 function projectInvitationDetails(invitation: ProjectInvitation, locale: string) {

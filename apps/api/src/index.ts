@@ -108,6 +108,7 @@ async function startServer(config = createHeraldConfig()) {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
         trustedOrigins: [config.web.origin],
+        requireEmailVerificationOnInvitation: config.auth.requireEmailVerificationOnInvitation,
         access,
         allowAdditionalSignups:
             Bun.env.NODE_ENV === 'test' && Bun.env.HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true',

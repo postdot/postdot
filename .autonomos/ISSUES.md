@@ -1726,7 +1726,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   Better Auth Admin, Organization, and API Key plugins for the applicable access
   lifecycle; project-member administration is now delivered by ACCESS-134, while
   the UI deliberately remains a Herald surface over those Better Auth records.
-- Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132, ACCESS-134
+  Invitation re-send rotation and the optional transport-neutral email hook are
+  delivered by ACCESS-136; choosing and wiring a concrete mail provider remains
+  separate.
+- Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132, ACCESS-134, ACCESS-136,
+  ACCESS-137
 - Related issues: ISSUE-013, ISSUE-059
 - Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063
 - Resolution: ADR-061 establishes the local single-operator bootstrap and the
@@ -1738,7 +1742,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   seven days, and new project keys expire after 180 days by default. Herald retains
   instance membership and actor projections, while ACCESS-134 exposes the project
   member and invitation workflow through the dashboard. ACCESS-131 through
-  ACCESS-134 are complete. Account recovery/mail delivery, user
+  ACCESS-136 are complete. Concrete account recovery/mail delivery, user
   deletion/anonymization, ownership transfer policy, and post-retirement physical
   cleanup remain explicit follow-ups.
 

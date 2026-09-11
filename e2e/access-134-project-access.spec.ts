@@ -34,6 +34,18 @@ test('an owner can invite, update, and remove project members', async ({ page })
         await page.getByRole('button', { name: 'Invite', exact: true }).click()
         await expect(page.getByText(`Invitation for ${memberEmail}`, { exact: true })).toBeVisible()
 
+        const initialInvitationLink = await page
+            .locator('code')
+            .filter({ hasText: 'organizationInvitation=' })
+            .textContent()
+        expect(initialInvitationLink).toContain(
+            `/dashboard/settings/access?projectId=${owner.projectId}&organizationInvitation=`
+        )
+        if (initialInvitationLink === null)
+            throw new Error('The project invitation link was not rendered')
+
+        await page.getByRole('button', { name: `Resend ${memberEmail}`, exact: true }).click()
+        await expect(page.getByText('Invitation resent.', { exact: true })).toBeVisible()
         const invitationLink = await page
             .locator('code')
             .filter({ hasText: 'organizationInvitation=' })
@@ -41,7 +53,9 @@ test('an owner can invite, update, and remove project members', async ({ page })
         expect(invitationLink).toContain(
             `/dashboard/settings/access?projectId=${owner.projectId}&organizationInvitation=`
         )
-        if (invitationLink === null) throw new Error('The project invitation link was not rendered')
+        expect(invitationLink).not.toBe(initialInvitationLink)
+        if (invitationLink === null)
+            throw new Error('The resent project invitation link was not rendered')
 
         await memberPage.goto(invitationLink)
         await expect(

@@ -17,6 +17,7 @@ describe('Herald configuration', () => {
                 HERALD_WEB_ASSETS_DIR: '/tmp/herald-web',
                 BETTER_AUTH_URL: 'http://localhost:3100/some-path',
                 BETTER_AUTH_SECRET: secret,
+                HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: 'true',
                 HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 HERALD_WEB_ORIGIN: 'http://localhost:5173/dashboard',
@@ -44,6 +45,7 @@ describe('Herald configuration', () => {
             auth: {
                 baseURL: 'http://localhost:3100',
                 secret,
+                requireEmailVerificationOnInvitation: true,
             },
             security: {
                 mediaPublicUrlSecret,

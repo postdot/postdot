@@ -8,12 +8,24 @@ import {
     runMigrations,
 } from '@herald/db'
 
-import { createAuth } from './index'
+import {
+    createAuth,
+    type HeraldAuthRuntimeOptions,
+    type HeraldOrganizationInvitationEmail,
+} from './index'
 
 const baseURL = 'http://localhost:3000'
 const secret = 'herald-test-secret-with-at-least-32-characters'
 
-function createFixture(options: { readonly allowAdditionalSignups?: boolean } = {}) {
+function createFixture(
+    options: Pick<
+        HeraldAuthRuntimeOptions,
+        | 'allowAdditionalSignups'
+        | 'organizationInvitationURL'
+        | 'requireEmailVerificationOnInvitation'
+        | 'sendOrganizationInvitationEmail'
+    > = {}
+) {
     const database = createDatabase(':memory:')
     runMigrations(database)
     const access = createAccessStore(database)
@@ -24,6 +36,9 @@ function createFixture(options: { readonly allowAdditionalSignups?: boolean } = 
             secret,
             access,
             allowAdditionalSignups: options.allowAdditionalSignups,
+            organizationInvitationURL: options.organizationInvitationURL,
+            requireEmailVerificationOnInvitation: options.requireEmailVerificationOnInvitation,
+            sendOrganizationInvitationEmail: options.sendOrganizationInvitationEmail,
         }),
         access,
         database,
@@ -264,6 +279,29 @@ describe('Herald authentication', () => {
             })
             expect(invitation.expiresAt.getTime()).toBeGreaterThan(Date.now())
 
+            const reissuedInvitation = await auth.api.createInvitation({
+                body: {
+                    email: 'organization-member@herald.local',
+                    role: 'editor',
+                    organizationId: organization.id,
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+            expect(reissuedInvitation.id).not.toBe(invitation.id)
+            expect(reissuedInvitation.status).toBe('pending')
+            expect(
+                (
+                    await auth.api.listInvitations({
+                        query: { organizationId: organization.id },
+                        headers: new Headers({ cookie: ownerCookie }),
+                    })
+                ).filter(
+                    candidate =>
+                        candidate.email === 'organization-member@herald.local' &&
+                        candidate.status === 'pending'
+                )
+            ).toEqual([expect.objectContaining({ id: reissuedInvitation.id })])
+
             const memberSignup = await auth.handler(
                 new Request(`${baseURL}/api/auth/sign-up/email`, {
                     method: 'POST',
@@ -279,13 +317,77 @@ describe('Herald authentication', () => {
             const memberCookie = memberSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
 
             const accepted = await auth.api.acceptInvitation({
-                body: { invitationId: invitation.id },
+                body: { invitationId: reissuedInvitation.id },
                 headers: new Headers({ cookie: memberCookie }),
             })
             expect(accepted).toMatchObject({
-                invitation: { id: invitation.id, status: 'accepted' },
+                invitation: { id: reissuedInvitation.id, status: 'accepted' },
                 member: { organizationId: organization.id, role: 'editor' },
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('forwards optional organization invitation delivery through a deployment hook', async () => {
+        const deliveries: HeraldOrganizationInvitationEmail[] = []
+        const { auth, database } = createFixture({
+            organizationInvitationURL: ({ id, organizationId }) =>
+                `https://app.example.test/invitations/${id}?organizationId=${organizationId}`,
+            sendOrganizationInvitationEmail: delivery => {
+                deliveries.push(delivery)
+            },
+        })
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const ownerSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'invitation-sender@herald.local',
+                        name: 'Invitation Sender',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(ownerSignup.status).toBe(200)
+            const owner = (await ownerSignup.json()) as { user: { id: string } }
+            const ownerCookie = ownerSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
+
+            const organization = await auth.api.createOrganization({
+                body: {
+                    name: 'Delivery Hook Project',
+                    slug: 'delivery-hook-project-test',
+                    userId: owner.user.id,
+                },
+            })
+            const invitation = await auth.api.createInvitation({
+                body: {
+                    email: 'invitation-recipient@herald.local',
+                    role: 'viewer',
+                    organizationId: organization.id,
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+
+            expect(invitation.status).toBe('pending')
+            expect(deliveries).toHaveLength(1)
+            expect(deliveries[0]).toMatchObject({
+                id: invitation.id,
+                email: 'invitation-recipient@herald.local',
+                organizationId: organization.id,
+                organizationName: 'Delivery Hook Project',
+                inviterId: owner.user.id,
+                inviterEmail: 'invitation-sender@herald.local',
+                inviterName: 'Invitation Sender',
+                invitationURL: `https://app.example.test/invitations/${invitation.id}?organizationId=${organization.id}`,
+            })
+            expect(deliveries[0]?.expiresAt).toEqual(invitation.expiresAt)
         } finally {
             closeDatabase(database)
         }

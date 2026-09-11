@@ -69,6 +69,9 @@ const environmentDefinitions = {
         },
     }),
     BETTER_AUTH_SECRET: env.secret({ example: exampleBetterAuthSecret }),
+    HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: env.boolean({
+        defaultValue: false,
+    }),
     HERALD_MEDIA_PUBLIC_URL_SECRET: env.secret({ example: exampleMediaPublicUrlSecret }),
     HERALD_PUBLISHER_ENCRYPTION_KEY: env.hexSecret({ example: examplePublisherEncryptionKey }),
     HERALD_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
@@ -126,6 +129,7 @@ export interface HeraldConfig {
     readonly auth: {
         readonly baseURL: string
         readonly secret: string
+        readonly requireEmailVerificationOnInvitation: boolean
     }
     readonly security: {
         readonly mediaPublicUrlSecret: string
@@ -280,6 +284,8 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
         auth: {
             baseURL: environment.BETTER_AUTH_URL,
             secret: environment.BETTER_AUTH_SECRET,
+            requireEmailVerificationOnInvitation:
+                environment.HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION,
         },
         security: {
             mediaPublicUrlSecret: environment.HERALD_MEDIA_PUBLIC_URL_SECRET,

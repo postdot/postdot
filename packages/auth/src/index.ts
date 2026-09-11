@@ -5,14 +5,17 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 
 import {
     createHeraldAuthPlugins,
+    type HeraldAuthInvitationOptions,
     type HeraldAuthPluginHooks,
     type HeraldAuthPlugins,
 } from './plugins'
 
-export interface HeraldAuthRuntimeOptions extends Pick<
-    BetterAuthOptions,
-    'baseURL' | 'secret' | 'trustedOrigins'
-> {
+export type { HeraldAuthInvitationOptions, HeraldOrganizationInvitationEmail } from './plugins'
+
+export interface HeraldAuthRuntimeOptions
+    extends
+        Pick<BetterAuthOptions, 'baseURL' | 'secret' | 'trustedOrigins'>,
+        HeraldAuthInvitationOptions {
     /** Shared Herald access state used by the Better Auth bootstrap hooks. */
     readonly access?: AccessStore
     /**
@@ -245,6 +248,9 @@ export function createAuth(
     const {
         access: accessOption,
         allowAdditionalSignups = false,
+        organizationInvitationURL,
+        requireEmailVerificationOnInvitation,
+        sendOrganizationInvitationEmail,
         ...betterAuthOptions
     } = runtimeOptions
     const access = accessOption ?? createAccessStore(database)
@@ -289,40 +295,52 @@ export function createAuth(
         emailAndPassword: {
             enabled: true,
         },
-        plugins: createHeraldAuthPlugins({
-            afterOrganizationMemberAdded: ({ organizationId, userId, role, displayName }) => {
-                access.syncProjectMembershipFromOrganizationMember({
+        plugins: createHeraldAuthPlugins(
+            {
+                afterOrganizationMemberAdded: ({ organizationId, userId, role, displayName }) => {
+                    access.syncProjectMembershipFromOrganizationMember({
+                        organizationId,
+                        userId,
+                        role,
+                        displayName,
+                    })
+                },
+                afterOrganizationMemberRemoved: ({ organizationId, userId }) => {
+                    access.removeProjectMembershipForOrganizationMember({ organizationId, userId })
+                },
+                afterOrganizationMemberRoleUpdated: ({
                     organizationId,
                     userId,
                     role,
                     displayName,
-                })
-            },
-            afterOrganizationMemberRemoved: ({ organizationId, userId }) => {
-                access.removeProjectMembershipForOrganizationMember({ organizationId, userId })
-            },
-            afterOrganizationMemberRoleUpdated: ({ organizationId, userId, role, displayName }) => {
-                access.updateProjectMembershipForOrganizationMember({
+                }) => {
+                    access.updateProjectMembershipForOrganizationMember({
+                        organizationId,
+                        userId,
+                        role,
+                        displayName,
+                    })
+                },
+                afterOrganizationInvitationAccepted: ({
                     organizationId,
                     userId,
                     role,
                     displayName,
-                })
-            },
-            afterOrganizationInvitationAccepted: ({
-                organizationId,
-                userId,
-                role,
-                displayName,
-            }) => {
-                access.ensureProjectMembershipForOrganizationInvitation({
-                    organizationId,
-                    userId,
-                    role,
-                    displayName,
-                })
-            },
-        } satisfies HeraldAuthPluginHooks),
+                }) => {
+                    access.ensureProjectMembershipForOrganizationInvitation({
+                        organizationId,
+                        userId,
+                        role,
+                        displayName,
+                    })
+                },
+            } satisfies HeraldAuthPluginHooks,
+            {
+                organizationInvitationURL,
+                requireEmailVerificationOnInvitation,
+                sendOrganizationInvitationEmail,
+            }
+        ),
         databaseHooks: {
             user: {
                 create: {

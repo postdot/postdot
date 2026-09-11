@@ -1,6 +1,6 @@
 import { apiKey } from '@better-auth/api-key'
 import { admin } from 'better-auth/plugins/admin'
-import { organization } from 'better-auth/plugins/organization'
+import { organization, type OrganizationOptions } from 'better-auth/plugins/organization'
 
 import { heraldOrganizationAccess, heraldOrganizationRoles } from './access-control'
 
@@ -29,6 +29,64 @@ export interface HeraldAuthPluginHooks {
     }) => Promise<void> | void
 }
 
+type BetterAuthInvitationEmailData = Parameters<
+    NonNullable<OrganizationOptions['sendInvitationEmail']>
+>[0]
+
+export interface HeraldOrganizationInvitationEmail {
+    readonly id: string
+    readonly email: string
+    readonly role: string
+    readonly organizationId: string
+    readonly organizationName: string
+    readonly inviterId: string
+    readonly inviterEmail: string
+    readonly inviterName: string
+    readonly expiresAt: Date
+    readonly invitationURL?: string
+}
+
+export interface HeraldAuthInvitationOptions {
+    /** Optional deployment-provided mail transport. */
+    readonly sendOrganizationInvitationEmail?: (
+        input: HeraldOrganizationInvitationEmail
+    ) => Promise<void> | void
+    /** Builds the public invitation URL for the deployment's web application. */
+    readonly organizationInvitationURL?: (input: {
+        readonly id: string
+        readonly organizationId: string
+    }) => string
+    /** Enables Better Auth's verified-email gate for invitation acceptance. */
+    readonly requireEmailVerificationOnInvitation?: boolean
+}
+
+function createInvitationEmailOption(
+    options: HeraldAuthInvitationOptions
+): Pick<OrganizationOptions, 'sendInvitationEmail'> {
+    if (options.sendOrganizationInvitationEmail === undefined) return {}
+
+    return {
+        sendInvitationEmail: async (data: BetterAuthInvitationEmailData) => {
+            const invitationURL = options.organizationInvitationURL?.({
+                id: data.id,
+                organizationId: data.organization.id,
+            })
+            await options.sendOrganizationInvitationEmail?.({
+                id: data.id,
+                email: data.email,
+                role: data.role,
+                organizationId: data.organization.id,
+                organizationName: data.organization.name,
+                inviterId: data.inviter.userId,
+                inviterEmail: data.inviter.user.email,
+                inviterName: data.inviter.user.name,
+                expiresAt: data.invitation.expiresAt,
+                ...(invitationURL === undefined ? {} : { invitationURL }),
+            })
+        },
+    }
+}
+
 function readHeraldApiKey(request: Request | undefined): string | null {
     if (request === undefined) return null
 
@@ -48,14 +106,23 @@ export type HeraldAuthPlugins = [
     ReturnType<typeof apiKey>,
 ]
 
-export function createHeraldAuthPlugins(hooks: HeraldAuthPluginHooks = {}): HeraldAuthPlugins {
+export function createHeraldAuthPlugins(
+    hooks: HeraldAuthPluginHooks = {},
+    invitationOptions: HeraldAuthInvitationOptions = {}
+): HeraldAuthPlugins {
+    const requireEmailVerification = invitationOptions.requireEmailVerificationOnInvitation
+
     return [
         admin(),
         organization({
             ac: heraldOrganizationAccess,
             allowUserToCreateOrganization: false,
+            cancelPendingInvitationsOnReInvite: true,
             creatorRole: 'owner',
             invitationExpiresIn: 7 * 24 * 60 * 60,
+            ...(requireEmailVerification === undefined
+                ? {}
+                : { requireEmailVerificationOnInvitation: requireEmailVerification }),
             organizationHooks: {
                 afterAddMember: async ({ member, user, organization }) => {
                     await hooks.afterOrganizationMemberAdded?.({
@@ -88,6 +155,7 @@ export function createHeraldAuthPlugins(hooks: HeraldAuthPluginHooks = {}): Hera
                     })
                 },
             },
+            ...createInvitationEmailOption(invitationOptions),
             roles: heraldOrganizationRoles,
         }),
         apiKey({

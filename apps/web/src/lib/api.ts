@@ -489,6 +489,16 @@ export const api = {
         )
     },
 
+    async resendProjectInvitation(
+        projectId: string,
+        invitationId: string
+    ): Promise<{ invitation: ProjectInvitation }> {
+        return requestAuth<{ invitation: ProjectInvitation }>(
+            `/api/projects/${encodeURIComponent(projectId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
+            { method: 'POST' }
+        )
+    },
+
     async updateProjectMember(
         projectId: string,
         memberId: string,
