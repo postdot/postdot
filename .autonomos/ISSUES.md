@@ -1721,12 +1721,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
   deletion, and abuse/rate-limit boundaries. The decision must state which parts
   are required before exposing Herald beyond a trusted local operator and must
   preserve project-owned publisher credentials and machine-token attribution.
-- Scope boundary: The accepted first implementation does not add email delivery,
-  organization billing, SSO, recovery, user deletion/anonymization, or a complete
-  project-member UI. It does adopt Better Auth Admin, Organization, and API Key
-  plugins for the access lifecycle and keeps the existing project-token contract only
-  as a migration compatibility path.
-- Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132
+- Scope boundary: The accepted access policy does not add email delivery,
+  organization billing, SSO, recovery, or user deletion/anonymization. It adopts
+  Better Auth Admin, Organization, and API Key plugins for the applicable access
+  lifecycle; project-member administration is now delivered by ACCESS-134, while
+  the UI deliberately remains a Herald surface over those Better Auth records.
+- Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132, ACCESS-134
 - Related issues: ISSUE-013, ISSUE-059
 - Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063
 - Resolution: ADR-061 establishes the local single-operator bootstrap and the
@@ -1736,11 +1736,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   Better Auth Admin, Organization, and API Key plugins: each project has one
   organization, its member rows authorize project access, invitations expire after
   seven days, and new project keys expire after 180 days by default. Herald retains
-  instance membership and actor projections, while legacy invitations/tokens are
-  retained only until the explicit ACCESS-133 cutover. ACCESS-131, ACCESS-132, and
-  ACCESS-133 are complete. Account recovery/mail delivery, user
-  deletion/anonymization, project-member UI, and post-retirement physical cleanup
-  remain explicit follow-ups.
+  instance membership and actor projections, while ACCESS-134 exposes the project
+  member and invitation workflow through the dashboard. ACCESS-131 through
+  ACCESS-134 are complete. Account recovery/mail delivery, user
+  deletion/anonymization, ownership transfer policy, and post-retirement physical
+  cleanup remain explicit follow-ups.
 
 ## [ISSUE-067] Establish a clean development access baseline
 

@@ -566,6 +566,10 @@ describe('Herald API', () => {
                 '/api/settings/provider-applications/{applicationId}',
                 '/api/projects',
                 '/api/projects/{projectId}',
+                '/api/projects/{projectId}/members',
+                '/api/projects/{projectId}/invitations',
+                '/api/projects/{projectId}/invitations/{invitationId}',
+                '/api/projects/{projectId}/members/{memberId}',
                 '/api/categories',
                 '/api/categories/{categoryId}',
                 '/api/categories/{categoryId}/archive',
@@ -633,6 +637,12 @@ describe('Herald API', () => {
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
             expect(specification.paths['/ready']?.get?.operationId).toBe('getReadiness')
+            expect(specification.paths['/api/projects/{projectId}/members']?.get?.operationId).toBe(
+                'listProjectMembers'
+            )
+            expect(
+                specification.paths['/api/projects/{projectId}/invitations']?.post?.operationId
+            ).toBe('createProjectInvitation')
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
                     bearerFormat: 'Herald project access token',
@@ -2170,6 +2180,222 @@ describe('Herald API', () => {
 
             const revokedResponse = await bearerRequest(app, '/api/projects', createdBody.token)
             expect(revokedResponse.status).toBe(401)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('manages project members and invitations through the Herald access surface', async () => {
+        const { access, app, auth, database } = createFixture({
+            allowAdditionalSignups: true,
+        })
+
+        try {
+            const ownerCookie = await signUp(app, 'project-access-owner@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Project access surface' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const project = (await projectResponse.json()) as { project: { id: string } }
+            const projectId = project.project.id
+
+            const membersResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members`,
+                ownerCookie
+            )
+            expect(membersResponse.status).toBe(200)
+            const initialMembers = (await membersResponse.json()) as {
+                members: Array<{ id: string; userId: string; role: string }>
+                total: number
+            }
+            expect(initialMembers.total).toBe(1)
+            expect(initialMembers.members[0]?.role).toBe('owner')
+
+            const initialInvitationsResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/invitations`,
+                ownerCookie
+            )
+            expect(initialInvitationsResponse.status).toBe(200)
+            expect(await initialInvitationsResponse.json()).toEqual({ invitations: [] })
+
+            const memberEmail = 'project-access-member@herald.local'
+            const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
+            const beforeInviteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members`,
+                memberCookie
+            )
+            // Project routes deliberately hide projects from users who are not
+            // members, so the auth macro returns the same 404 as any unknown
+            // project before the route-level policy can run.
+            expect(beforeInviteResponse.status).toBe(404)
+
+            const invitationResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/invitations`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ email: memberEmail, role: 'editor' }),
+                }
+            )
+            expect(invitationResponse.status).toBe(201)
+            const invitationBody = (await invitationResponse.json()) as {
+                invitation: { id: string; email: string; role: string; status: string }
+            }
+            expect(invitationBody.invitation).toEqual(
+                expect.objectContaining({
+                    email: memberEmail,
+                    role: 'editor',
+                    status: 'pending',
+                })
+            )
+
+            const pendingInvitationsResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/invitations`,
+                ownerCookie
+            )
+            expect(pendingInvitationsResponse.status).toBe(200)
+            expect(await pendingInvitationsResponse.json()).toEqual({
+                invitations: [expect.objectContaining({ id: invitationBody.invitation.id })],
+            })
+
+            const memberInvitationBypassResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/invitations`,
+                memberCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: 'another-project-member@herald.local',
+                        role: 'viewer',
+                    }),
+                }
+            )
+            expect(memberInvitationBypassResponse.status).toBe(404)
+
+            await auth.api.acceptInvitation({
+                body: { invitationId: invitationBody.invitation.id },
+                headers: new Headers({ cookie: memberCookie }),
+            })
+
+            const acceptedMembersResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members`,
+                ownerCookie
+            )
+            expect(acceptedMembersResponse.status).toBe(200)
+            const acceptedMembers = (await acceptedMembersResponse.json()) as {
+                members: Array<{ id: string; userId: string; role: string; image: string | null }>
+            }
+            const projectMember = acceptedMembers.members.find(member => member.role === 'editor')
+            expect(projectMember).toEqual(expect.objectContaining({ role: 'editor', image: null }))
+            if (projectMember === undefined)
+                throw new Error('The invited project member is missing')
+
+            const memberListResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members`,
+                memberCookie
+            )
+            expect(memberListResponse.status).toBe(200)
+
+            const memberUpdateResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members/${projectMember.id}`,
+                memberCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'viewer' }),
+                }
+            )
+            expect(memberUpdateResponse.status).toBe(403)
+
+            const ownerUpdateResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members/${projectMember.id}`,
+                ownerCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'viewer' }),
+                }
+            )
+            expect(ownerUpdateResponse.status).toBe(200)
+            expect(await ownerUpdateResponse.json()).toEqual({
+                membership: expect.objectContaining({ id: projectMember.id, role: 'viewer' }),
+            })
+
+            const ownerMember = acceptedMembers.members.find(member => member.role === 'owner')
+            expect(ownerMember).toBeDefined()
+            if (ownerMember === undefined) throw new Error('The project owner is missing')
+
+            const ownerSelfUpdateResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members/${ownerMember.id}`,
+                ownerCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'viewer' }),
+                }
+            )
+            expect(ownerSelfUpdateResponse.status).toBe(409)
+            expect(await ownerSelfUpdateResponse.json()).toEqual({
+                error: {
+                    code: 'self_membership_update',
+                    message: 'A project owner cannot change or remove their own membership',
+                },
+            })
+
+            const removeResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members/${projectMember.id}`,
+                ownerCookie,
+                { method: 'DELETE' }
+            )
+            expect(removeResponse.status).toBe(200)
+            expect(await removeResponse.json()).toEqual({ removed: true })
+            expect(access.canAccessProject(projectId, projectMember.userId)).toBe(false)
+
+            const afterRemoveResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members`,
+                memberCookie
+            )
+            expect(afterRemoveResponse.status).toBe(404)
+
+            const secondInviteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/invitations`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: 'project-access-pending@herald.local',
+                        role: 'viewer',
+                    }),
+                }
+            )
+            expect(secondInviteResponse.status).toBe(201)
+            const secondInvitation = (await secondInviteResponse.json()) as {
+                invitation: { id: string }
+            }
+            const cancelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/invitations/${secondInvitation.invitation.id}`,
+                ownerCookie,
+                { method: 'DELETE' }
+            )
+            expect(cancelResponse.status).toBe(200)
+            expect(await cancelResponse.json()).toEqual({
+                invitation: expect.objectContaining({
+                    id: secondInvitation.invitation.id,
+                    status: 'canceled',
+                }),
+            })
         } finally {
             closeDatabase(database)
         }

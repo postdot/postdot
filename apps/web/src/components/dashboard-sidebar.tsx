@@ -448,7 +448,11 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/settings/access"
-                search={{ projectId: projectId ?? undefined, invitation: undefined }}
+                search={{
+                    projectId: projectId ?? undefined,
+                    invitation: undefined,
+                    organizationInvitation: undefined,
+                }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />

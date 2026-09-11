@@ -15,7 +15,7 @@ import {
     useLocation,
     useNavigate,
 } from '@tanstack/react-router'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
 import { api, formatApiError, type Project } from '@/lib/api'
@@ -65,6 +65,10 @@ function DashboardPage() {
     const [projectName, setProjectName] = useState('')
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        setProjects(initialData.projects)
+    }, [initialData.projects])
 
     async function handleCreateProject(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()

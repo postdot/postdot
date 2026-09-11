@@ -46,6 +46,13 @@ const heraldManagedAuthMutationPaths = new Set([
     '/api-key/create',
     '/api-key/update',
     '/api-key/delete',
+    '/organization/invite-member',
+    '/organization/cancel-invitation',
+    '/organization/remove-member',
+    '/organization/update-member-role',
+    '/organization/delete',
+    '/organization/update',
+    '/organization/leave',
 ])
 
 function isHeraldManagedAuthMutation(path: string): boolean {
@@ -107,6 +114,20 @@ export interface HeraldOrganizationAuthApi {
     }): Promise<unknown>
 }
 
+export interface HeraldOrganizationMember {
+    readonly id: string
+    readonly organizationId: string
+    readonly role: string
+    readonly createdAt: Date
+    readonly userId: string
+    readonly user: {
+        readonly id: string
+        readonly email: string
+        readonly name: string
+        readonly image?: string | null
+    }
+}
+
 export interface HeraldApiKeyRecord {
     readonly id: string
     readonly name: string | null
@@ -161,6 +182,17 @@ export interface HeraldOrganizationInvitation {
 }
 
 export interface HeraldOrganizationInvitationAuthApi {
+    listMembers(input: {
+        query: { organizationId: string; limit?: number; offset?: number }
+        headers: Headers
+    }): Promise<{
+        readonly members: readonly HeraldOrganizationMember[]
+        readonly total: number
+    }>
+    listInvitations(input: {
+        query: { organizationId: string }
+        headers: Headers
+    }): Promise<readonly HeraldOrganizationInvitation[]>
     createInvitation(input: {
         body: {
             email: string
@@ -183,7 +215,7 @@ export interface HeraldOrganizationInvitationAuthApi {
     cancelInvitation(input: {
         body: { invitationId: string }
         headers: Headers
-    }): Promise<{ readonly invitation: HeraldOrganizationInvitation }>
+    }): Promise<HeraldOrganizationInvitation>
 }
 
 export interface HeraldAdminAuthApi {

@@ -162,6 +162,22 @@ describe('Herald authentication', () => {
             )
             expect(unguardedApiKeyMutation.status).toBe(403)
 
+            const unguardedOrganizationMutation = await auth.handler(
+                new Request(`${baseURL}/api/auth/organization/invite-member`, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        cookie: sessionCookie ?? '',
+                    },
+                    body: JSON.stringify({
+                        email: 'bypass@herald.local',
+                        role: 'viewer',
+                        organizationId: 'not-a-herald-project',
+                    }),
+                })
+            )
+            expect(unguardedOrganizationMutation.status).toBe(403)
+
             const organization = await auth.api.createOrganization({
                 body: {
                     name: 'Herald Project',

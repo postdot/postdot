@@ -24,6 +24,7 @@ import { registerAuditEventRoutes } from './audit-event-routes'
 import { createBlueskyAnalyticsService } from './bluesky-analytics-service'
 import { registerChannelProfileRoutes } from './channel-profile-routes'
 import { registerChannelRoutes } from './channel-routes'
+import { registerProjectMemberRoutes } from './member-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
 import { registerProviderAnalyticsRoutes } from './provider-analytics-routes'
@@ -105,7 +106,16 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.access,
         options.auth
     )
-    const taxonomyRoutes = registerTaxonomyRoutes(projectRoutes, options.taxonomy, options.access)
+    const projectMemberRoutes = registerProjectMemberRoutes(
+        projectRoutes,
+        options.auth,
+        options.access
+    )
+    const taxonomyRoutes = registerTaxonomyRoutes(
+        projectMemberRoutes,
+        options.taxonomy,
+        options.access
+    )
     const accessTokenRoutes = registerProjectAccessTokenRoutes(
         taxonomyRoutes,
         options.auth,

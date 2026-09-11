@@ -111,10 +111,38 @@ export interface AccessProjectMembership {
     readonly userId: string
     readonly email: string
     readonly name: string
+    readonly image: string | null
     readonly role: 'owner' | 'editor' | 'viewer'
     readonly state: 'active'
     readonly createdAt: number
     readonly updatedAt: number
+}
+
+export type ProjectMemberRole = 'owner' | 'editor' | 'viewer'
+export type ProjectInvitationStatus = 'pending' | 'accepted' | 'rejected' | 'canceled'
+
+export interface ProjectMember {
+    readonly id: string
+    readonly projectId: string
+    readonly userId: string
+    readonly email: string
+    readonly name: string
+    readonly image: string | null
+    readonly role: ProjectMemberRole
+    readonly state: 'active'
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface ProjectInvitation {
+    readonly id: string
+    readonly email: string
+    readonly role: ProjectMemberRole
+    readonly organizationId: string
+    readonly inviterId: string
+    readonly status: ProjectInvitationStatus
+    readonly expiresAt: number
+    readonly createdAt: number
 }
 
 export interface AccessInvitation {
@@ -421,6 +449,66 @@ export const api = {
         return unwrap<{ accessToken: ProjectAccessToken }>(
             await client.api.projects({ projectId })['access-tokens']({ tokenId }).delete()
         )
+    },
+
+    async listProjectMembers(projectId: string): Promise<{
+        members: ProjectMember[]
+        total: number
+    }> {
+        return requestAuth<{ members: ProjectMember[]; total: number }>(
+            `/api/projects/${encodeURIComponent(projectId)}/members`
+        )
+    },
+
+    async listProjectInvitations(projectId: string): Promise<{
+        invitations: ProjectInvitation[]
+    }> {
+        return requestAuth<{ invitations: ProjectInvitation[] }>(
+            `/api/projects/${encodeURIComponent(projectId)}/invitations`
+        )
+    },
+
+    async createProjectInvitation(
+        projectId: string,
+        email: string,
+        role: Exclude<ProjectMemberRole, 'owner'>
+    ): Promise<{ invitation: ProjectInvitation }> {
+        return requestAuth<{ invitation: ProjectInvitation }>(
+            `/api/projects/${encodeURIComponent(projectId)}/invitations`,
+            jsonBody({ email, role })
+        )
+    },
+
+    async cancelProjectInvitation(
+        projectId: string,
+        invitationId: string
+    ): Promise<{ invitation: ProjectInvitation }> {
+        return requestAuth<{ invitation: ProjectInvitation }>(
+            `/api/projects/${encodeURIComponent(projectId)}/invitations/${encodeURIComponent(invitationId)}`,
+            { method: 'DELETE' }
+        )
+    },
+
+    async updateProjectMember(
+        projectId: string,
+        memberId: string,
+        role: Exclude<ProjectMemberRole, 'owner'>
+    ): Promise<{ membership: ProjectMember }> {
+        return requestAuth<{ membership: ProjectMember }>(
+            `/api/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
+            jsonBody({ role }, 'PATCH')
+        )
+    },
+
+    async removeProjectMember(projectId: string, memberId: string): Promise<{ removed: true }> {
+        return requestAuth<{ removed: true }>(
+            `/api/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
+            { method: 'DELETE' }
+        )
+    },
+
+    async acceptProjectInvitation(invitationId: string): Promise<unknown> {
+        return requestAuth('/api/auth/organization/accept-invitation', jsonBody({ invitationId }))
     },
 
     async listChannels(projectId: string): Promise<{ channels: Channel[] }> {

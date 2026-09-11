@@ -112,6 +112,56 @@ export const projectAccessTokenSchema = Type.Object({
     updatedAt: Type.Integer({ minimum: 0 }),
 })
 
+export const projectMemberSchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    projectId: Type.String({ minLength: 1 }),
+    userId: Type.String({ minLength: 1 }),
+    email: Type.String({ minLength: 1 }),
+    name: Type.String({ minLength: 1 }),
+    image: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    role: Type.Union([Type.Literal('owner'), Type.Literal('editor'), Type.Literal('viewer')]),
+    state: Type.Literal('active'),
+    createdAt: Type.Integer({ minimum: 0 }),
+    updatedAt: Type.Integer({ minimum: 0 }),
+})
+
+export const projectInvitationSchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    email: Type.String({ minLength: 1 }),
+    role: Type.Union([Type.Literal('owner'), Type.Literal('editor'), Type.Literal('viewer')]),
+    organizationId: Type.String({ minLength: 1 }),
+    inviterId: Type.String({ minLength: 1 }),
+    status: Type.Union([
+        Type.Literal('pending'),
+        Type.Literal('accepted'),
+        Type.Literal('rejected'),
+        Type.Literal('canceled'),
+    ]),
+    expiresAt: Type.Integer({ minimum: 0 }),
+    createdAt: Type.Integer({ minimum: 0 }),
+})
+
+export const projectMembersSchema = Type.Object({
+    members: Type.Array(projectMemberSchema),
+    total: Type.Integer({ minimum: 0 }),
+})
+
+export const projectInvitationsSchema = Type.Object({
+    invitations: Type.Array(projectInvitationSchema),
+})
+
+export const projectInvitationResponseSchema = Type.Object({
+    invitation: projectInvitationSchema,
+})
+
+export const projectMemberResponseSchema = Type.Object({
+    membership: projectMemberSchema,
+})
+
+export const projectMemberRemovedSchema = Type.Object({
+    removed: Type.Literal(true),
+})
+
 const profileVersionStateSchema = Type.Union([
     Type.Literal('draft'),
     Type.Literal('active'),
@@ -313,6 +363,8 @@ export type PublicationEditorStateResponse = Static<typeof publicationEditorStat
 export type PublicationSummaryResponse = Static<typeof publicationSummarySchema>
 export type AuditEventResponse = Static<typeof auditEventSchema>
 export type ProjectAccessTokenResponse = Static<typeof projectAccessTokenSchema>
+export type ProjectMemberResponse = Static<typeof projectMemberSchema>
+export type ProjectInvitationResponse = Static<typeof projectInvitationSchema>
 
 export const projectParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
@@ -330,6 +382,16 @@ export const tagParams = Type.Object({
 export const projectAccessTokenParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
     tokenId: Type.String({ minLength: 1 }),
+})
+
+export const projectMemberParams = Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    memberId: Type.String({ minLength: 1 }),
+})
+
+export const projectInvitationParams = Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    invitationId: Type.String({ minLength: 1 }),
 })
 
 export const publicationParams = Type.Object({
@@ -405,6 +467,15 @@ export const replacePublicationTagsBody = Type.Object({
 export const createProjectAccessTokenBody = Type.Object({
     name: Type.String({ minLength: 1, maxLength: 100 }),
     expiresAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
+})
+
+export const createProjectInvitationBody = Type.Object({
+    email: Type.String({ minLength: 1, maxLength: 320 }),
+    role: Type.Union([Type.Literal('editor'), Type.Literal('viewer')]),
+})
+
+export const updateProjectMemberBody = Type.Object({
+    role: Type.Union([Type.Literal('editor'), Type.Literal('viewer')]),
 })
 
 export const createdProjectAccessTokenSchema = Type.Object({

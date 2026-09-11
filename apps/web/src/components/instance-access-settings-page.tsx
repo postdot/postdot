@@ -41,6 +41,7 @@ import * as m from '@/paraglide/messages.js'
 
 interface InstanceAccessSettingsPageProps {
     readonly invitationToken?: string
+    readonly organizationInvitationId?: string
     readonly onInvitationHandled: () => Promise<void>
 }
 
@@ -51,6 +52,7 @@ interface CreatedInvitationView {
 
 export function InstanceAccessSettingsPage({
     invitationToken,
+    organizationInvitationId,
     onInvitationHandled,
 }: InstanceAccessSettingsPageProps) {
     const { locale } = useLanguage()
@@ -183,6 +185,16 @@ export function InstanceAccessSettingsPage({
         })
     }
 
+    async function handleAcceptOrganizationInvitation() {
+        if (organizationInvitationId === undefined || pendingAction !== null) return
+
+        await runAction('accept-project', async () => {
+            await api.acceptProjectInvitation(organizationInvitationId)
+            setNotice(m.access_project_invitation_accepted())
+            await onInvitationHandled()
+        })
+    }
+
     async function runAction(action: string, operation: () => Promise<void>) {
         setError(null)
         setNotice(null)
@@ -249,6 +261,31 @@ export function InstanceAccessSettingsPage({
                                 disabled={pendingAction !== null || access === null}
                                 onClick={() => void handleAcceptInvitation()}>
                                 {m.access_accept_invitation_button()}
+                            </Button>
+                        </div>
+                    </section>
+                ) : null}
+
+                {organizationInvitationId ? (
+                    <section
+                        aria-labelledby="accept-project-invitation-title"
+                        className="mt-8 bg-primary/10 p-5 shadow-surface sm:p-6">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2
+                                    id="accept-project-invitation-title"
+                                    className="font-heading text-base font-medium">
+                                    {m.access_project_invitation_accept_title()}
+                                </h2>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    {m.access_project_invitation_accept_description()}
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                disabled={pendingAction !== null}
+                                onClick={() => void handleAcceptOrganizationInvitation()}>
+                                {m.access_project_invitation_accept_button()}
                             </Button>
                         </div>
                     </section>
