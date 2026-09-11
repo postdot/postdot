@@ -28,6 +28,19 @@ const idleHeartbeatIntervalMs = 60_000
 function createFixture(database: HeraldDatabase) {
     let nextId = 0
     const createId = () => `realtime-106-${++nextId}`
+    database.$client
+        .query(
+            `insert into user (id, name, email, email_verified, created_at, updated_at)
+             values ('realtime-106-human', 'Realtime Validation Human', 'realtime-106-human@herald.local', 0, ?1, ?1)`
+        )
+        .run(eventTime)
+    database.$client
+        .query(
+            `insert into instance_memberships
+             (id, user_id, role, state, created_at, updated_at)
+             values ('instance-membership:realtime-106-human', 'realtime-106-human', 'admin', 'enabled', ?1, ?1)`
+        )
+        .run(eventTime)
     const manual = createManualStore(database, {
         createId,
         now: () => eventTime,

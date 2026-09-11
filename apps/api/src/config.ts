@@ -69,6 +69,15 @@ const environmentDefinitions = {
         },
     }),
     BETTER_AUTH_SECRET: env.secret({ example: exampleBetterAuthSecret }),
+    HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: env.boolean({
+        defaultValue: false,
+    }),
+    HERALD_EMAIL_SMTP_HOST: env.optionalString({ minLength: 1 }),
+    HERALD_EMAIL_SMTP_PORT: env.optionalInteger({ minimum: 1, maximum: 65_535 }),
+    HERALD_EMAIL_SMTP_SECURE: env.boolean({ defaultValue: false }),
+    HERALD_EMAIL_SMTP_USERNAME: env.optionalString({ minLength: 1 }),
+    HERALD_EMAIL_SMTP_PASSWORD: env.optionalString({ minLength: 1 }),
+    HERALD_EMAIL_FROM: env.optionalString({ minLength: 1 }),
     HERALD_MEDIA_PUBLIC_URL_SECRET: env.secret({ example: exampleMediaPublicUrlSecret }),
     HERALD_PUBLISHER_ENCRYPTION_KEY: env.hexSecret({ example: examplePublisherEncryptionKey }),
     HERALD_PUBLISHER_ENCRYPTION_KEY_ID: env.string({ defaultValue: 'v1', minLength: 1 }),
@@ -126,6 +135,17 @@ export interface HeraldConfig {
     readonly auth: {
         readonly baseURL: string
         readonly secret: string
+        readonly requireEmailVerificationOnInvitation: boolean
+    }
+    readonly email?: {
+        readonly smtp: {
+            readonly host: string
+            readonly port: number
+            readonly secure: boolean
+            readonly from: string
+            readonly username?: string
+            readonly password?: string
+        }
     }
     readonly security: {
         readonly mediaPublicUrlSecret: string
@@ -237,6 +257,12 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
         environment.HERALD_OUTBOUND_PRIVATE_DESTINATIONS,
         'HERALD_OUTBOUND_PRIVATE_DESTINATIONS'
     )
+    const email = createEmailConfig(environment)
+    if (environment.HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION && email === undefined) {
+        throw new Error(
+            'HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION requires a configured email transport'
+        )
+    }
 
     return {
         environment: environment.NODE_ENV,
@@ -280,7 +306,10 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
         auth: {
             baseURL: environment.BETTER_AUTH_URL,
             secret: environment.BETTER_AUTH_SECRET,
+            requireEmailVerificationOnInvitation:
+                environment.HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION,
         },
+        ...(email === undefined ? {} : { email }),
         security: {
             mediaPublicUrlSecret: environment.HERALD_MEDIA_PUBLIC_URL_SECRET,
             publisherEncryptionKey: environment.HERALD_PUBLISHER_ENCRYPTION_KEY,
@@ -302,6 +331,50 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             enabled: environment.LOG_LEVEL !== 'silent',
             level: environment.LOG_LEVEL,
             pretty: environment.LOG_PRETTY,
+        },
+    }
+}
+
+function createEmailConfig(environment: HeraldEnvironment): HeraldConfig['email'] | undefined {
+    const hasEmailConfiguration =
+        environment.HERALD_EMAIL_SMTP_HOST !== undefined ||
+        environment.HERALD_EMAIL_SMTP_PORT !== undefined ||
+        environment.HERALD_EMAIL_SMTP_SECURE ||
+        environment.HERALD_EMAIL_SMTP_USERNAME !== undefined ||
+        environment.HERALD_EMAIL_SMTP_PASSWORD !== undefined ||
+        environment.HERALD_EMAIL_FROM !== undefined
+
+    if (!hasEmailConfiguration) return undefined
+
+    if (environment.HERALD_EMAIL_SMTP_HOST === undefined) {
+        throw new Error(
+            'HERALD_EMAIL_SMTP_HOST is required when email transport configuration is present'
+        )
+    }
+    if (environment.HERALD_EMAIL_FROM === undefined) {
+        throw new Error('HERALD_EMAIL_FROM is required when SMTP email delivery is enabled')
+    }
+
+    const hasUsername = environment.HERALD_EMAIL_SMTP_USERNAME !== undefined
+    const hasPassword = environment.HERALD_EMAIL_SMTP_PASSWORD !== undefined
+    if (hasUsername !== hasPassword) {
+        throw new Error(
+            'HERALD_EMAIL_SMTP_USERNAME and HERALD_EMAIL_SMTP_PASSWORD must be set together'
+        )
+    }
+
+    return {
+        smtp: {
+            host: environment.HERALD_EMAIL_SMTP_HOST,
+            port: environment.HERALD_EMAIL_SMTP_PORT ?? 587,
+            secure: environment.HERALD_EMAIL_SMTP_SECURE,
+            from: environment.HERALD_EMAIL_FROM,
+            ...(hasUsername
+                ? {
+                      username: environment.HERALD_EMAIL_SMTP_USERNAME!,
+                      password: environment.HERALD_EMAIL_SMTP_PASSWORD!,
+                  }
+                : {}),
         },
     }
 }

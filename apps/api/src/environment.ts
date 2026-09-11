@@ -119,6 +119,28 @@ export const env = {
         }
     },
 
+    optionalInteger(
+        options: { readonly minimum?: number; readonly maximum?: number } = {}
+    ): EnvironmentVariable<number | undefined> {
+        return {
+            schema: Type.Union([
+                Type.Integer({
+                    ...(options.minimum === undefined ? {} : { minimum: options.minimum }),
+                    ...(options.maximum === undefined ? {} : { maximum: options.maximum }),
+                }),
+                Type.Undefined(),
+            ]),
+            optional: true,
+            parse: (rawValue, variableName) => {
+                if (!/^-?\d+$/.test(rawValue)) {
+                    throw new Error(`${variableName} must be an integer`)
+                }
+
+                return Number(rawValue)
+            },
+        }
+    },
+
     boolean(options: DefaultValueOptions<boolean> = {}): EnvironmentVariable<boolean> {
         return {
             schema: Type.Boolean(),

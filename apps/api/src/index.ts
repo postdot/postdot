@@ -3,9 +3,10 @@ import { createCustomHttpTransport, createNetworkControlledFetcher } from '@hera
 import {
     closeDatabase,
     createDatabase,
+    createAccessStore,
     createMediaAssetStore,
     createNotificationStore,
-    createProjectAccessTokenStore,
+    acquireRuntimeQuiescenceLock,
     setDatabaseCommitObserver,
     runMigrations,
 } from '@herald/db'
@@ -14,6 +15,7 @@ import { createMastodonPublisher } from '@herald/mastodon'
 import { createApp } from './app'
 import { createHeraldConfig, decodeHexKey } from './config'
 import { runMaintenanceCommand } from './maintenance'
+import { createHeraldAuthEmailDelivery } from './modules/email/delivery'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
 import {
     createConfiguredMediaStore,
@@ -53,6 +55,8 @@ export type {
     ChannelResponse,
     ChannelProfileActivationResponse,
     ChannelProfileAssessmentResponse,
+    ChannelProfilePresetResponse,
+    ChannelProfilePresetsResponse,
     ChannelProfileStateResponse,
     ChannelProfileVersionResponse,
     DuePublicationResponse,
@@ -78,9 +82,22 @@ export type {
 } from './modules/projects/notification-models'
 
 async function startServer(config = createHeraldConfig()) {
+    const runtimeLock = acquireRuntimeQuiescenceLock(config.database.fileName, 'server')
+    try {
+        await startServerWithRuntimeLock(config, runtimeLock)
+    } catch (error) {
+        runtimeLock.release()
+        throw error
+    }
+}
+
+async function startServerWithRuntimeLock(
+    config: ReturnType<typeof createHeraldConfig>,
+    runtimeLock: ReturnType<typeof acquireRuntimeQuiescenceLock>
+) {
     const database = createDatabase(config.database.fileName)
     runMigrations(database, config.database.migrationsDirectory)
-    const accessTokens = createProjectAccessTokenStore(database)
+    const access = createAccessStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
     const realtime = createProjectRealtimeRuntime({
@@ -104,10 +121,25 @@ async function startServer(config = createHeraldConfig()) {
     })
     await media.reconcile()
     const mediaMaintenance = createMediaReconciliationRuntime(media)
+    const email = createHeraldAuthEmailDelivery({
+        smtp: config.email?.smtp,
+        webOrigin: config.web.origin,
+        getProjectIdForOrganization: organizationId =>
+            access.getProjectIdForOrganization(organizationId),
+        onDeliveryError: (kind, error) => {
+            const message = error instanceof Error ? error.message : 'unknown transport error'
+            console.error(`[herald-email] ${kind} delivery failed: ${message}`)
+        },
+    })
     const auth = createAuth(database, {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
         trustedOrigins: [config.web.origin],
+        requireEmailVerificationOnInvitation: config.auth.requireEmailVerificationOnInvitation,
+        ...email,
+        access,
+        allowAdditionalSignups:
+            Bun.env.NODE_ENV === 'test' && Bun.env.HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true',
     })
     const mastodonFetcher = createNetworkControlledFetcher({
         privateDestinations: config.network.privateDestinations,
@@ -174,7 +206,7 @@ async function startServer(config = createHeraldConfig()) {
         mediaPublicDelivery,
         logging: config.logging,
         onWorkScheduled: worker.replan,
-        accessTokens,
+        access,
         notifications,
         projectChanges: realtime.hub,
         userChanges: realtime.userHub,
@@ -199,13 +231,20 @@ async function startServer(config = createHeraldConfig()) {
         if (shuttingDown) return
         shuttingDown = true
 
-        worker.stop()
-        mediaMaintenance.stop()
-        notificationProjection.stop()
-        realtime.stop()
-        clearDatabaseCommitObserver()
-        await app.stop()
-        closeDatabase(database)
+        try {
+            worker.stop()
+            mediaMaintenance.stop()
+            notificationProjection.stop()
+            realtime.stop()
+            clearDatabaseCommitObserver()
+            await app.stop()
+        } finally {
+            try {
+                closeDatabase(database)
+            } finally {
+                runtimeLock.release()
+            }
+        }
     }
 
     process.once('SIGINT', () => void shutdown())

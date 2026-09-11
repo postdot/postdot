@@ -16,12 +16,12 @@ describe('Herald CLI', () => {
         expect(output[0]).toContain('--token <value>')
     })
 
-    it('uses a project bearer token for ordinary project operations', async () => {
+    it('uses a project API key for ordinary project operations', async () => {
         const requests: Request[] = []
         const output: string[] = []
 
         await runCli(
-            ['projects', 'list', '--token', 'herald_pat_v1_machine-secret'],
+            ['projects', 'list', '--token', 'herald_pat_machine-secret'],
             {},
             {
                 fetcher: async (input, init) => {
@@ -33,14 +33,14 @@ describe('Herald CLI', () => {
         )
 
         expect(requests[0]?.headers.get('authorization')).toEqual(
-            'Bearer herald_pat_v1_machine-secret'
+            'Bearer herald_pat_machine-secret'
         )
         expect(requests[0]?.headers.get('cookie')).toBeNull()
         expect(output).toEqual(['project-1\tHerald'])
     })
 
     it('uses the human session for one-time token creation and never exposes it in metadata output', async () => {
-        const secret = 'herald_pat_v1_only-returned-once'
+        const secret = 'herald_pat_only-returned-once'
         const output: string[] = []
         let requestBody: unknown
         let requestAuthorization: string | null = null
@@ -58,7 +58,7 @@ describe('Herald CLI', () => {
                             id: 'token-1',
                             projectId: 'project-1',
                             name: 'Release agent',
-                            tokenPrefix: 'herald_pat_v1_only-ret',
+                            tokenPrefix: 'herald_pat_only-ret',
                             expiresAt: null,
                             revokedAt: null,
                             createdAt: 1_800_000_000_000,
@@ -87,7 +87,7 @@ describe('Herald CLI', () => {
                                 id: 'token-1',
                                 projectId: 'project-1',
                                 name: 'Release agent',
-                                tokenPrefix: 'herald_pat_v1_only-ret',
+                                tokenPrefix: 'herald_pat_only-ret',
                                 expiresAt: null,
                                 revokedAt: null,
                                 createdAt: 1_800_000_000_000,
@@ -100,13 +100,13 @@ describe('Herald CLI', () => {
         )
 
         expect(output[0]).not.toContain(secret)
-        expect(output[0]).toContain('herald_pat_v1_only-ret')
+        expect(output[0]).toContain('herald_pat_only-ret')
     })
 
     it('rejects token management without a human session', async () => {
         await expect(
             runCli(['access-tokens', 'list', '--project', 'project-1'], {
-                HERALD_PROJECT_TOKEN: 'herald_pat_v1_machine-secret',
+                HERALD_PROJECT_TOKEN: 'herald_pat_machine-secret',
             })
         ).rejects.toThrow('requires a human session')
     })

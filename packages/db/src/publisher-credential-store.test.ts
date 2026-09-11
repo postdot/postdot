@@ -382,6 +382,57 @@ describe('publisher credential store', () => {
         }
     })
 
+    it('reactivates a revoked credential with the scopes from a fresh grant', async () => {
+        const fixture = createFixture()
+
+        try {
+            const created = await fixture.store.createPublisherCredential({
+                projectId: fixture.project.project.id,
+                connectedByActorId: fixture.project.actor.id,
+                providerId: 'bluesky',
+                externalAccountId: 'did:plc:account-1',
+                scopes: ['atproto'],
+                accessToken: 'access-token-1',
+            })
+            expect(created.kind).toBe('created')
+            if (created.kind !== 'created') return
+
+            fixture.store.revokePublisherCredential(
+                fixture.project.project.id,
+                created.credential.id
+            )
+
+            const reconnected = await fixture.store.replacePublisherCredentialTokens({
+                projectId: fixture.project.project.id,
+                credentialId: created.credential.id,
+                scopes: ['blob:image/*', 'atproto', 'repo:app.bsky.feed.post?action=create'],
+                accessToken: 'access-token-2',
+                refreshToken: null,
+                expiresAt: null,
+            })
+
+            expect(reconnected).toMatchObject({
+                kind: 'updated',
+                credential: {
+                    state: 'active',
+                    scopes: ['atproto', 'blob:image/*', 'repo:app.bsky.feed.post?action=create'],
+                },
+            })
+            expect(
+                await fixture.store.resolvePublisherCredentialSecrets(
+                    fixture.project.project.id,
+                    created.credential.id
+                )
+            ).toEqual({
+                accessToken: 'access-token-2',
+                refreshToken: null,
+                providerSession: null,
+            })
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
     it('fails closed when the database envelope or deployment key is wrong', async () => {
         const fixture = createFixture()
 

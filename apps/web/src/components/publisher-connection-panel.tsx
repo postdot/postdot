@@ -263,7 +263,9 @@ export function PublisherConnectionPanel({
                                                 ? ` · ${connection.authentication.headerName}`
                                                 : connection.authentication?.kind === 'bearer'
                                                   ? ` · ${m.publisher_bearer_auth()}`
-                                                  : ''}
+                                                  : connection.authentication?.kind === 'path'
+                                                    ? ` · ${m.publisher_path_auth()}`
+                                                    : ''}
                                         </p>
                                     ) : null}
                                     {connection !== undefined && connection.state !== 'active' ? (

@@ -1,4 +1,4 @@
-import type { TaxonomyStore } from '@herald/db'
+import type { AccessStore, TaxonomyStore } from '@herald/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'
@@ -24,13 +24,14 @@ import {
 import type { AuthenticatedElysia } from './types'
 
 /**
- * Categories are instance-level definitions. Until ACCESS-116 provides an
- * explicit instance-admin role, a human session is the deliberate temporary
- * operator boundary; project bearer tokens are never accepted for this scope.
+ * Categories are instance-level definitions. Human sessions may read them for
+ * project context and filters; only enabled instance administrators may mutate
+ * them. Project API keys are never accepted on this instance surface.
  */
 export function registerTaxonomyRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    taxonomy: TaxonomyStore
+    taxonomy: TaxonomyStore,
+    access: AccessStore
 ) {
     return app
         .get(
@@ -54,8 +55,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     return status(403, {
                         error: {
                             code: 'forbidden',
-                            message:
-                                'Human authentication is required for project category administration',
+                            message: 'A human session is required to read project categories',
                         },
                     })
                 }
@@ -84,13 +84,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, status }) => {
-                if (authMethod !== 'session') {
+            ({ authMethod, body, status, user }) => {
+                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'Human authentication is required for project category administration',
+                                'An instance administrator session is required for project category administration',
                         },
                     })
                 }
@@ -119,13 +119,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status }) => {
-                if (authMethod !== 'session') {
+            ({ authMethod, body, params, status, user }) => {
+                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'Human authentication is required for project category administration',
+                                'An instance administrator session is required for project category administration',
                         },
                     })
                 }
@@ -161,13 +161,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status }) => {
-                if (authMethod !== 'session') {
+            ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'Human authentication is required for project category administration',
+                                'An instance administrator session is required for project category administration',
                         },
                     })
                 }
@@ -200,13 +200,13 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, params, status }) => {
-                if (authMethod !== 'session') {
+            ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'Human authentication is required for project category administration',
+                                'An instance administrator session is required for project category administration',
                         },
                     })
                 }

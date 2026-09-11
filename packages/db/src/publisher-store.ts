@@ -5,6 +5,7 @@ import {
     requireNonBlank,
     requireTimestamp,
     isCustomHttpAuthentication,
+    validateCustomHttpAuthenticationBinding,
     type Actor,
     type Channel,
     type CustomHttpAuthentication,
@@ -644,7 +645,11 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
             )
             if (
                 profileRow === null ||
-                !isCompatiblePublisherProfile(profileRow.profileJson, input.kind)
+                !isCompatiblePublisherProfile(
+                    profileRow.profileJson,
+                    input.kind,
+                    connectionSettings.authentication
+                )
             ) {
                 return { kind: 'incompatible_profile' }
             }
@@ -925,7 +930,11 @@ function toChannel(row: ChannelRow): Channel {
     }
 }
 
-function isCompatiblePublisherProfile(profileJson: string, kind: string): boolean {
+function isCompatiblePublisherProfile(
+    profileJson: string,
+    kind: string,
+    authentication?: CustomHttpAuthentication | null
+): boolean {
     let parsed: unknown
     try {
         parsed = JSON.parse(profileJson)
@@ -937,9 +946,15 @@ function isCompatiblePublisherProfile(profileJson: string, kind: string): boolea
     const compiled = new ChannelProfileCompiler().compile(profile)
     if (!compiled.ok) return false
     const execution = compiled.value.profile.execution
-    return kind === 'custom_http'
-        ? execution.kind === 'declarative_http'
-        : execution.kind === 'built_in' && execution.contractId === kind
+    if (kind === 'custom_http') {
+        return (
+            execution.kind === 'declarative_http' &&
+            (authentication === undefined ||
+                authentication === null ||
+                validateCustomHttpAuthenticationBinding(execution, authentication).length === 0)
+        )
+    }
+    return execution.kind === 'built_in' && execution.contractId === kind
 }
 
 function normalizeConnectionSettings(

@@ -39,6 +39,8 @@ export type CreatePublisherCredentialResult =
 export interface ReplacePublisherCredentialTokensInput {
     readonly projectId: string
     readonly credentialId: string
+    /** Undefined preserves the scopes granted to the credential. */
+    readonly scopes?: readonly string[]
     /** Undefined preserves the application that issued the credential. */
     readonly providerApplicationId?: string | null
     readonly accessToken: string
@@ -362,6 +364,7 @@ export function createPublisherCredentialStore(
             providerSessionCiphertext: Uint8Array | null,
             providerSessionNonce: Uint8Array | null,
             expiresAt: number | null,
+            scopesJson: string,
             providerApplicationId: string | null,
             timestamp: number,
             projectId: string,
@@ -379,13 +382,14 @@ export function createPublisherCredentialStore(
             provider_session_ciphertext = ?7,
             provider_session_nonce = ?8,
             expires_at = ?9,
-            provider_application_id = ?10,
+            scopes = ?10,
+            provider_application_id = ?11,
             state = 'active',
             revision = revision + 1,
-            updated_at = ?11
-        where project_id = ?12
-          and id = ?13
-          and revision = ?14
+            updated_at = ?12
+        where project_id = ?13
+          and id = ?14
+          and revision = ?15
     `)
     const markReconnectRequiredStatement = client.query<
         { changes: number },
@@ -619,6 +623,16 @@ export function createPublisherCredentialStore(
                 input.expiresAt === null ? null : requireTimestamp(input.expiresAt, 'expiresAt')
             const row = loadCredentialSecretsStatement.get(projectId, credentialId)
             if (row === null) return { kind: 'not_found' }
+            const scopesJson =
+                input.scopes === undefined
+                    ? row.scopesJson
+                    : JSON.stringify(
+                          [
+                              ...new Set(
+                                  input.scopes.map(scope => requireNonBlank(scope, 'scope'))
+                              ),
+                          ].sort()
+                      )
 
             let refreshTokenValue = input.refreshToken
             if (refreshTokenValue === undefined) {
@@ -693,6 +707,7 @@ export function createPublisherCredentialStore(
                 providerSession?.ciphertext ?? null,
                 providerSession?.nonce ?? null,
                 expiresAt,
+                scopesJson,
                 input.providerApplicationId === undefined
                     ? row.providerApplicationId
                     : input.providerApplicationId,

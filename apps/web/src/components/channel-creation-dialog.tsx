@@ -19,10 +19,16 @@ import {
 import { Textarea } from '@herald/ui/components/textarea'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CodeFileIcon } from '@solar-icons/react/bold/code-file'
-import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
 
-import type { ChannelCreationProfile, RuntimeChannelProfile } from '@/lib/api'
-import { channelProfileTemplates, profileForTemplate } from '@/lib/channel-profile-presets'
+import { api, type ChannelCreationProfile, type RuntimeChannelProfile } from '@/lib/api'
+import {
+    builtInChannelProfileTemplatePrefix,
+    channelProfileTemplates,
+    profileForTemplate,
+    templatesFromPresets,
+} from '@/lib/channel-profile-presets'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -43,6 +49,26 @@ export function ChannelCreationDialog({
     readonly pending: boolean
 }) {
     useLanguage()
+    const presetsQuery = useQuery({
+        queryKey: ['channel-profile-presets'],
+        queryFn: () => api.listChannelProfilePresets(),
+        staleTime: Number.POSITIVE_INFINITY,
+        retry: 1,
+    })
+    const templates = useMemo(() => {
+        const presets = presetsQuery.data?.presets
+        return [
+            ...channelProfileTemplates,
+            ...(presets === undefined ? [] : templatesFromPresets(presets)),
+        ]
+    }, [presetsQuery.data?.presets])
+    const templateItems = useMemo(
+        () =>
+            Object.fromEntries(
+                templates.map(template => [template.id, templateLabel(template.id)])
+            ),
+        [templates]
+    )
     const [open, setOpen] = useState(false)
     const [name, setName] = useState('')
     const [choice, setChoice] = useState<ProfileChoice>('manual-message')
@@ -61,7 +87,7 @@ export function ChannelCreationDialog({
     function selectCustomTemplate(value: string | null) {
         if (value === null) return
         setTemplateId(value)
-        const profile = profileForTemplate(value)
+        const profile = profileForTemplate(value, templates)
         if (profile !== undefined) setProfileText(JSON.stringify(profile, null, 2))
         setValidationError(null)
     }
@@ -147,7 +173,7 @@ export function ChannelCreationDialog({
                                     const nextChoice = value as ProfileChoice
                                     setChoice(nextChoice)
                                     if (nextChoice === 'custom' && profileText === '') {
-                                        const profile = profileForTemplate(templateId)
+                                        const profile = profileForTemplate(templateId, templates)
                                         if (profile !== undefined)
                                             setProfileText(JSON.stringify(profile, null, 2))
                                     }
@@ -187,12 +213,15 @@ export function ChannelCreationDialog({
                                     <FieldLabel htmlFor="new-channel-template">
                                         {m.channel_starter_template()}
                                     </FieldLabel>
-                                    <Select value={templateId} onValueChange={selectCustomTemplate}>
+                                    <Select
+                                        items={templateItems}
+                                        value={templateId}
+                                        onValueChange={selectCustomTemplate}>
                                         <SelectTrigger id="new-channel-template">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent align="start">
-                                            {channelProfileTemplates.map(template => (
+                                            {templates.map(template => (
                                                 <SelectItem key={template.id} value={template.id}>
                                                     {templateLabel(template.id)}
                                                 </SelectItem>
@@ -213,7 +242,10 @@ export function ChannelCreationDialog({
                                         onChange={event => setProfileText(event.target.value)}
                                         onFocus={() => {
                                             if (profileText !== '') return
-                                            const profile = profileForTemplate(templateId)
+                                            const profile = profileForTemplate(
+                                                templateId,
+                                                templates
+                                            )
                                             if (profile !== undefined)
                                                 setProfileText(JSON.stringify(profile, null, 2))
                                         }}
@@ -257,11 +289,22 @@ export function ChannelCreationDialog({
 function templateLabel(templateId: string) {
     if (templateId === 'custom-manual') return m.channel_template_custom_manual_label()
     if (templateId === 'custom-webhook') return m.channel_template_custom_webhook_label()
+    if (templateId.startsWith(builtInChannelProfileTemplatePrefix)) {
+        const profileId = templateId.slice(builtInChannelProfileTemplatePrefix.length)
+        if (profileId === 'linkedin') return m.channel_linkedin_profile()
+        if (profileId === 'bluesky') return m.channel_bluesky_profile()
+        if (profileId === 'mastodon') return m.channel_mastodon_profile()
+        if (profileId === 'discord') return m.channel_discord_profile()
+        if (profileId === 'devto') return m.channel_devto_profile()
+        if (profileId === 'x') return m.channel_x_profile()
+    }
     return templateId
 }
 
 function templateDescription(templateId: string) {
     if (templateId === 'custom-manual') return m.channel_template_custom_manual_description()
     if (templateId === 'custom-webhook') return m.channel_template_custom_webhook_description()
+    if (templateId.startsWith(builtInChannelProfileTemplatePrefix))
+        return m.channel_custom_profile_starter_description()
     return m.channel_custom_profile_fallback()
 }

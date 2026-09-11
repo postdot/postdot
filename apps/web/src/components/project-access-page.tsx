@@ -12,6 +12,13 @@ import {
 } from '@herald/ui/components/dialog'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@herald/ui/components/select'
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { CopyIcon } from '@solar-icons/react/bold/copy'
 import { KeyMinimalisticIcon } from '@solar-icons/react/bold/key-minimalistic'
@@ -19,16 +26,23 @@ import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-mini
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { ProjectAccessTokenList } from '@/components/project-access-token-list'
+import { ProjectMembersSection } from '@/components/project-members-section'
 import { api, formatApiError, type ProjectAccessToken } from '@/lib/api'
-import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
+
+const tokenExpirationDays = [30, 90, 180, 365] as const
+const millisecondsPerDay = 24 * 60 * 60 * 1_000
 
 export function ProjectAccessPage() {
     useLanguage()
     const { project } = useProjectDashboard()
+    const global = useDashboardGlobal()
+    const [canManageMembers, setCanManageMembers] = useState<boolean | null>(null)
     const [tokens, setTokens] = useState<ProjectAccessToken[] | null>(null)
     const [name, setName] = useState('')
+    const [expirationDays, setExpirationDays] = useState('180')
     const [createdToken, setCreatedToken] = useState<{ name: string; token: string } | null>(null)
     const [tokenToRevoke, setTokenToRevoke] = useState<ProjectAccessToken | null>(null)
     const [copied, setCopied] = useState(false)
@@ -38,6 +52,14 @@ export function ProjectAccessPage() {
 
     useEffect(() => {
         let cancelled = false
+        if (canManageMembers !== true) {
+            setTokens(canManageMembers === false ? [] : null)
+            setError(null)
+            return () => {
+                cancelled = true
+            }
+        }
+
         setTokens(null)
         setError(null)
 
@@ -53,7 +75,7 @@ export function ProjectAccessPage() {
         return () => {
             cancelled = true
         }
-    }, [project.id])
+    }, [canManageMembers, project.id])
 
     async function handleCreate(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -61,7 +83,11 @@ export function ProjectAccessPage() {
         if (normalizedName === '') return
 
         await runAction(async () => {
-            const response = await api.createProjectAccessToken(project.id, normalizedName)
+            const response = await api.createProjectAccessToken(
+                project.id,
+                normalizedName,
+                Date.now() + Number(expirationDays) * millisecondsPerDay
+            )
             setCreatedToken({ name: response.accessToken.name, token: response.token })
             setCopied(false)
             setCopyError(null)
@@ -180,38 +206,69 @@ export function ProjectAccessPage() {
                     </section>
                 ) : null}
 
-                <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-                    <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
-                        <h2 className="font-heading text-base font-medium">
-                            {m.access_create_section()}
-                        </h2>
-                        <form className="mt-4 grid gap-4" onSubmit={handleCreate}>
-                            <Field className="gap-1.5">
-                                <FieldLabel htmlFor="project-access-token-name">
-                                    {m.access_token_name()}
-                                </FieldLabel>
-                                <Input
-                                    id="project-access-token-name"
-                                    maxLength={100}
-                                    required
-                                    value={name}
-                                    onChange={event => setName(event.target.value)}
-                                    placeholder={m.access_token_name_placeholder()}
-                                />
-                            </Field>
-                            <Button type="submit" disabled={pending}>
-                                <AddIcon aria-hidden="true" />
-                                {m.access_create_button()}
-                            </Button>
-                        </form>
-                    </section>
-
-                    <ProjectAccessTokenList
-                        onRevoke={setTokenToRevoke}
-                        pending={pending}
-                        tokens={tokens}
+                <div className="mt-8">
+                    <ProjectMembersSection
+                        currentUserId={global.session.user.id}
+                        onManageabilityChange={setCanManageMembers}
+                        projectId={project.id}
                     />
                 </div>
+
+                {canManageMembers === true ? (
+                    <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+                        <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
+                            <h2 className="font-heading text-base font-medium">
+                                {m.access_create_section()}
+                            </h2>
+                            <form className="mt-4 grid gap-4" onSubmit={handleCreate}>
+                                <Field className="gap-1.5">
+                                    <FieldLabel htmlFor="project-access-token-name">
+                                        {m.access_token_name()}
+                                    </FieldLabel>
+                                    <Input
+                                        id="project-access-token-name"
+                                        maxLength={100}
+                                        required
+                                        value={name}
+                                        onChange={event => setName(event.target.value)}
+                                        placeholder={m.access_token_name_placeholder()}
+                                    />
+                                </Field>
+                                <Field className="gap-1.5">
+                                    <FieldLabel htmlFor="project-access-token-expiration">
+                                        {m.access_token_expiration()}
+                                    </FieldLabel>
+                                    <Select
+                                        value={expirationDays}
+                                        onValueChange={value => {
+                                            if (value !== null) setExpirationDays(value)
+                                        }}>
+                                        <SelectTrigger id="project-access-token-expiration">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="start">
+                                            {tokenExpirationDays.map(days => (
+                                                <SelectItem key={days} value={String(days)}>
+                                                    {expirationLabel(days)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                                <Button type="submit" disabled={pending}>
+                                    <AddIcon aria-hidden="true" />
+                                    {m.access_create_button()}
+                                </Button>
+                            </form>
+                        </section>
+
+                        <ProjectAccessTokenList
+                            onRevoke={setTokenToRevoke}
+                            pending={pending}
+                            tokens={tokens}
+                        />
+                    </div>
+                ) : null}
             </div>
 
             <Dialog
@@ -245,6 +302,13 @@ export function ProjectAccessPage() {
             </Dialog>
         </main>
     )
+}
+
+function expirationLabel(days: (typeof tokenExpirationDays)[number]) {
+    if (days === 30) return m.access_token_expiration_30_days()
+    if (days === 90) return m.access_token_expiration_90_days()
+    if (days === 365) return m.access_token_expiration_365_days()
+    return m.access_token_expiration_180_days()
 }
 
 function errorMessage(error: unknown) {

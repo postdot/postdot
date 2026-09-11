@@ -37,7 +37,7 @@ import {
     uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 
-import { user } from './auth-schema'
+import { organization, user } from './auth-schema'
 
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
@@ -53,6 +53,10 @@ const notificationDeliveryStates = [
 ] as const
 const providerApplicationStates = ['active', 'disabled'] as const
 const taxonomyStates = ['active', 'archived'] as const
+const instanceStates = ['claimable', 'claimed'] as const
+const instanceMembershipStates = ['enabled', 'disabled'] as const
+const instanceRoles = ['admin', 'member'] as const
+const invitationStates = ['pending', 'accepted', 'revoked', 'expired'] as const
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
@@ -95,12 +99,18 @@ export const projects = sqliteTable(
         id: text('id').primaryKey(),
         name: text('name').notNull(),
         timeZone: text('time_zone').notNull().default('UTC'),
+        organizationId: text('organization_id').references(() => organization.id, {
+            onDelete: 'restrict',
+        }),
         primaryCategoryId: text('primary_category_id').references(() => projectCategories.id, {
             onDelete: 'restrict',
         }),
         ...timestamps(),
     },
-    table => [check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`)]
+    table => [
+        uniqueIndex('projects_organization_id_uidx').on(table.organizationId),
+        check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`),
+    ]
 )
 
 export const actors = sqliteTable(
@@ -122,6 +132,113 @@ export const actors = sqliteTable(
         check(
             'actors_subject_id_nonblank',
             sql`${table.subjectId} is null or length(trim(${table.subjectId})) > 0`
+        ),
+    ]
+)
+
+/**
+ * Herald owns the instance boundary separately from Better Auth identity.
+ * There is exactly one row per database, seeded by the access migration.
+ */
+export const instanceState = sqliteTable(
+    'instance_state',
+    {
+        id: text('id').primaryKey(),
+        state: text('state', { enum: instanceStates }).notNull(),
+        bootstrapBlocked: integer('bootstrap_blocked', { mode: 'boolean' })
+            .default(false)
+            .notNull(),
+        claimedByUserId: text('claimed_by_user_id').references(() => user.id, {
+            onDelete: 'restrict',
+        }),
+        claimedAt: integer('claimed_at'),
+        ...timestamps(),
+    },
+    table => [
+        check('instance_state_singleton', sql`${table.id} = 'default'`),
+        check('instance_state_value_valid', sql`${table.state} in ('claimable', 'claimed')`),
+        check(
+            'instance_state_bootstrap_block_valid',
+            sql`${table.bootstrapBlocked} = 0 or ${table.state} = 'claimable'`
+        ),
+        check(
+            'instance_state_claim_consistency',
+            sql`(${table.state} = 'claimable' and ${table.claimedByUserId} is null and ${table.claimedAt} is null)
+                or (${table.state} = 'claimed' and ${table.claimedByUserId} is not null and ${table.claimedAt} is not null)`
+        ),
+    ]
+)
+
+export const instanceMemberships = sqliteTable(
+    'instance_memberships',
+    {
+        id: text('id').primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'restrict' }),
+        role: text('role', { enum: instanceRoles }).notNull(),
+        state: text('state', { enum: instanceMembershipStates }).default('enabled').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('instance_memberships_user_uidx').on(table.userId),
+        check('instance_memberships_role_valid', sql`${table.role} in ('admin', 'member')`),
+        check('instance_memberships_state_valid', sql`${table.state} in ('enabled', 'disabled')`),
+    ]
+)
+
+/**
+ * Instance invitations are Herald-owned because the instance itself is not a
+ * Better Auth organization. Project invitations use the Better Auth
+ * Organization plugin and therefore have no duplicate Herald table.
+ */
+export const instanceAccessInvitations = sqliteTable(
+    'instance_access_invitations',
+    {
+        id: text('id').primaryKey(),
+        targetEmail: text('target_email').notNull(),
+        tokenHash: text('token_hash').notNull(),
+        instanceRole: text('instance_role', { enum: ['member'] })
+            .default('member')
+            .notNull(),
+        state: text('state', { enum: invitationStates }).default('pending').notNull(),
+        createdByUserId: text('created_by_user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'restrict' }),
+        expiresAt: integer('expires_at').notNull(),
+        acceptedAt: integer('accepted_at'),
+        acceptedByUserId: text('accepted_by_user_id').references(() => user.id, {
+            onDelete: 'restrict',
+        }),
+        revokedAt: integer('revoked_at'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('instance_access_invitations_token_hash_uidx').on(table.tokenHash),
+        index('instance_access_invitations_target_state_idx').on(table.targetEmail, table.state),
+        index('instance_access_invitations_expiry_idx').on(table.state, table.expiresAt),
+        check(
+            'instance_access_invitations_email_nonblank',
+            sql`length(trim(${table.targetEmail})) > 0`
+        ),
+        check(
+            'instance_access_invitations_token_hash_nonblank',
+            sql`length(trim(${table.tokenHash})) > 0`
+        ),
+        check(
+            'instance_access_invitations_instance_role_valid',
+            sql`${table.instanceRole} = 'member'`
+        ),
+        check(
+            'instance_access_invitations_state_valid',
+            sql`(${table.state} = 'pending' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is null)
+                or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedByUserId} is not null and ${table.revokedAt} is null)
+                or (${table.state} = 'revoked' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is not null)
+                or (${table.state} = 'expired' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is null)`
+        ),
+        check(
+            'instance_access_invitations_expiry_valid',
+            sql`${table.expiresAt} > ${table.createdAt}`
         ),
     ]
 )
@@ -244,50 +361,6 @@ export const providerApplicationConfigurations = sqliteTable(
                     and length(${table.clientSecretCiphertext}) > 16
                     and ${table.clientSecretNonce} is not null
                     and length(${table.clientSecretNonce}) = 12)`
-        ),
-    ]
-)
-
-export const projectAccessTokens = sqliteTable(
-    'project_access_tokens',
-    {
-        id: text('id').primaryKey(),
-        projectId: text('project_id')
-            .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
-        actorId: text('actor_id').notNull(),
-        name: text('name').notNull(),
-        tokenPrefix: text('token_prefix').notNull(),
-        tokenHash: text('token_hash').notNull(),
-        expiresAt: integer('expires_at'),
-        revokedAt: integer('revoked_at'),
-        createdByActorId: text('created_by_actor_id').notNull(),
-        ...timestamps(),
-    },
-    table => [
-        uniqueIndex('project_access_tokens_project_id_id_uidx').on(table.projectId, table.id),
-        uniqueIndex('project_access_tokens_token_hash_uidx').on(table.tokenHash),
-        index('project_access_tokens_project_revoked_idx').on(table.projectId, table.revokedAt),
-        foreignKey({
-            name: 'project_access_tokens_project_actor_fk',
-            columns: [table.projectId, table.actorId],
-            foreignColumns: [actors.projectId, actors.id],
-        }).onDelete('cascade'),
-        foreignKey({
-            name: 'project_access_tokens_project_creator_fk',
-            columns: [table.projectId, table.createdByActorId],
-            foreignColumns: [actors.projectId, actors.id],
-        }).onDelete('restrict'),
-        check('project_access_tokens_name_nonblank', sql`length(trim(${table.name})) > 0`),
-        check('project_access_tokens_prefix_nonblank', sql`length(trim(${table.tokenPrefix})) > 0`),
-        check('project_access_tokens_hash_nonblank', sql`length(trim(${table.tokenHash})) > 0`),
-        check(
-            'project_access_tokens_expiry_valid',
-            sql`${table.expiresAt} is null or ${table.expiresAt} > ${table.createdAt}`
-        ),
-        check(
-            'project_access_tokens_revocation_valid',
-            sql`${table.revokedAt} is null or ${table.revokedAt} >= ${table.createdAt}`
         ),
     ]
 )

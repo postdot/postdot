@@ -2,11 +2,12 @@ import type { HeraldAuth } from '@herald/auth'
 import type { BlueskyFetcher } from '@herald/bluesky'
 import type {
     AnalyticsStore,
+    AccessStore,
     EventJournalStore,
     MediaAssetStore,
     NotificationStore,
     ProviderAnalyticsStore,
-    ProjectAccessTokenStore,
+    ProjectApiKeyActorStore,
     TaxonomyStore,
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
@@ -14,14 +15,17 @@ import type { DiscordFetcher } from '@herald/discord'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
+import { registerAccessRoutes } from '../access/routes'
 import { registerMediaRoutes } from '../media/routes'
 import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
 import { registerProjectAccessTokenRoutes } from './access-token-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
 import { registerAuditEventRoutes } from './audit-event-routes'
 import { createBlueskyAnalyticsService } from './bluesky-analytics-service'
+import { registerChannelProfilePresetRoutes } from './channel-profile-preset-routes'
 import { registerChannelProfileRoutes } from './channel-profile-routes'
 import { registerChannelRoutes } from './channel-routes'
+import { registerProjectMemberRoutes } from './member-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
 import { registerProviderAnalyticsRoutes } from './provider-analytics-routes'
@@ -40,9 +44,11 @@ export interface ProjectModuleOptions {
     readonly media?: MediaAssetStore
     readonly logger?: Logger
     readonly onWorkScheduled?: () => void
+    readonly now?: () => number
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
-    readonly accessTokens?: ProjectAccessTokenStore
+    readonly apiKeyActors: ProjectApiKeyActorStore
+    readonly access: AccessStore
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
     readonly providerAnalytics: ProviderAnalyticsStore
@@ -57,15 +63,68 @@ export interface ProjectModuleOptions {
 
 export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
-        authenticateProjectAccessToken: options.accessTokens?.authenticate,
+        authenticateBetterAuthProjectApiKey: async token => {
+            if (!token.startsWith('herald_pat_')) return null
+
+            try {
+                const verified = await options.auth.api.verifyApiKey({ body: { key: token } })
+                if (!verified.valid || verified.key === null) return null
+
+                const metadata = verified.key.metadata
+                if (typeof metadata !== 'object' || metadata === null) return null
+                const projectId = (metadata as { heraldProjectId?: unknown }).heraldProjectId
+                if (typeof projectId !== 'string' || projectId.length === 0) return null
+
+                const organizationId = options.access.getProjectOrganizationId(projectId)
+                if (organizationId === null || organizationId !== verified.key.referenceId) {
+                    return null
+                }
+
+                return {
+                    id: verified.key.id,
+                    projectId,
+                    actorId: `api-key:${verified.key.id}`,
+                    subjectId: `api-key:${verified.key.id}`,
+                    displayName: `API key: ${verified.key.name ?? verified.key.id}`,
+                }
+            } catch {
+                return null
+            }
+        },
+        authorizeProjectSessionAccess: (projectId, userId) => {
+            return options.access.canAccessProject(projectId, userId)
+        },
     })
+    const accessRoutes = registerAccessRoutes(authenticated, options.access, options.auth)
     const providerApplicationRoutes = registerProviderApplicationRoutes(
-        authenticated,
-        options.publisher
+        accessRoutes,
+        options.publisher,
+        options.access
     )
-    const projectRoutes = registerProjectRoutes(providerApplicationRoutes, options.manualStore)
-    const taxonomyRoutes = registerTaxonomyRoutes(projectRoutes, options.taxonomy)
-    const accessTokenRoutes = registerProjectAccessTokenRoutes(taxonomyRoutes, options.accessTokens)
+    const channelProfilePresetRoutes = registerChannelProfilePresetRoutes(providerApplicationRoutes)
+    const projectRoutes = registerProjectRoutes(
+        channelProfilePresetRoutes,
+        options.manualStore,
+        options.access,
+        options.auth
+    )
+    const projectMemberRoutes = registerProjectMemberRoutes(
+        projectRoutes,
+        options.auth,
+        options.access
+    )
+    const taxonomyRoutes = registerTaxonomyRoutes(
+        projectMemberRoutes,
+        options.taxonomy,
+        options.access
+    )
+    const accessTokenRoutes = registerProjectAccessTokenRoutes(
+        taxonomyRoutes,
+        options.auth,
+        options.access,
+        options.apiKeyActors,
+        options.now
+    )
     const channelRoutes = registerChannelRoutes(accessTokenRoutes, options.manualStore)
     const channelProfileRoutes = registerChannelProfileRoutes(channelRoutes, options.manualStore)
     const publisherRoutes = registerPublisherRoutes(channelProfileRoutes, options.publisher, {
@@ -77,7 +136,9 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, {
         onWorkScheduled: options.onWorkScheduled,
     })
-    const publicationRoutes = registerPublicationRoutes(postRoutes, options.manualStore)
+    const publicationRoutes = registerPublicationRoutes(postRoutes, options.manualStore, {
+        onWorkScheduled: options.onWorkScheduled,
+    })
     const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media)
     const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
     const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)

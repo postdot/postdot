@@ -64,6 +64,65 @@ loopback OAuth mode and the public HTTPS mode, are documented in
 Request logging is readable by default in development. Set `LOG_LEVEL=silent` to
 disable it, or set `NODE_ENV=production` to make the default log level silent.
 
+Email delivery is optional. Leave the SMTP variables unset for local/manual-link
+operation. To deliver project invitations, signup verification, and password-reset
+messages through a relay, add the following to the ignored `apps/api/.env` file and
+restart the API:
+
+```dotenv
+HERALD_EMAIL_SMTP_HOST=smtp.example.com
+HERALD_EMAIL_SMTP_PORT=587
+HERALD_EMAIL_SMTP_SECURE=false
+HERALD_EMAIL_SMTP_USERNAME=your-smtp-user
+HERALD_EMAIL_SMTP_PASSWORD=your-smtp-password
+HERALD_EMAIL_FROM=Herald <no-reply@example.com>
+```
+
+The username and password must be supplied together; an unauthenticated local
+relay may omit both. Set
+`HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION=true` only when the configured
+relay is reachable and verified-account delivery is part of the deployment policy.
+Mail submission is best-effort, so operators should monitor the API’s
+`[herald-email]` errors and should not treat a successful invitation request as
+proof of inbox delivery. See
+[`ADR-066`](.autonomos/decisions/ADR-066-smtp-auth-email-delivery.md) for the
+transport and reliability boundary.
+
+For local email development, the repository includes a disposable Mailpit relay.
+Start it from the repository root, then point the API at its host SMTP port:
+
+```sh
+docker compose -f docker-compose.dev.yml up -d mailpit
+```
+
+The defaults are the conventional Mailpit ports (`1025` for SMTP and `8025` for
+the inbox). If another local service already uses one of them, override the host
+ports without changing the container ports:
+
+```sh
+HERALD_MAILPIT_SMTP_PORT=11025 HERALD_MAILPIT_UI_PORT=18025 \
+  docker compose -f docker-compose.dev.yml up -d mailpit
+```
+
+```dotenv
+HERALD_EMAIL_SMTP_HOST=127.0.0.1
+HERALD_EMAIL_SMTP_PORT=1025
+HERALD_EMAIL_SMTP_SECURE=false
+HERALD_EMAIL_FROM=Herald <no-reply@herald.local>
+```
+
+Inspect captured messages at <http://127.0.0.1:8025> (or the overridden UI port).
+Stop the relay when it is no longer needed with
+`docker compose -f docker-compose.dev.yml down`. The email templates live in
+[`packages/email`](packages/email) and can be previewed with:
+
+```sh
+bun run --cwd packages/email dev
+```
+
+The preview server uses port `3001`; it is independent from the API and Vite
+development servers.
+
 The API applies the committed Drizzle migrations at startup. For a local,
 unreleased database whose migration history no longer matches the repository,
 stop the API and move that ignored database file aside before restarting. Herald
@@ -83,11 +142,14 @@ Chromium binary once on a development machine before running it:
 npx --no-install playwright install chromium
 ```
 
-`bun run test:e2e` starts isolated Bun API and Vite processes with a temporary
-SQLite database and local media directory. The suite creates only disposable
-local data, never calls a real publisher, and removes its application data when
-it finishes. The Playwright runner requires Node.js 20 or newer; Herald's
-application processes continue to run on Bun.
+`bun run test:e2e` starts isolated Bun API and Vite processes with a unique
+temporary SQLite database, local media directory, loopback ports, and test
+output directory for that invocation. The suite creates only disposable local
+data, never calls a real publisher, and removes only the runtime it owns when it
+finishes. The Playwright runner requires Node.js 20 or newer; Herald's
+application processes continue to run on Bun. Set `HERALD_E2E_API_PORT` and
+`HERALD_E2E_WEB_PORT` when debugging on chosen ports; explicit ports are
+caller-reserved and must not be reused by overlapping runs.
 
 The HTTP CLI uses the same API as the dashboard. Sign in once, then export the
 session cookie printed by the command:
@@ -102,9 +164,10 @@ bun run herald publications due --project <project-id> --json
 Use `bun run herald --help` for the available project, channel, publication, and
 audit commands. Set `HERALD_URL` or pass `--base-url` when the API is not local.
 
-Project access tokens are created and revoked through a human session. The full
-secret is printed only by the create command, so copy it into a secret manager
-before leaving the command output:
+Project access keys are created and revoked through a project owner's human session.
+New projects use Better Auth's organization-owned API Key plugin: keys expire after
+180 days by default, and the full secret is printed only by the create command. Copy
+it into a secret manager before leaving the command output:
 
 ```sh
 bun run herald access-tokens create --project <project-id> --name release-agent
@@ -112,9 +175,10 @@ bun run herald access-tokens list --project <project-id> --json
 bun run herald access-tokens revoke --project <project-id> --token-id <token-id>
 ```
 
-Use a project token for ordinary machine operations through `HERALD_PROJECT_TOKEN`
-or `--token`. Project tokens cannot create projects, manage tokens, or start
-interactive publisher OAuth flows:
+Use a project key for ordinary machine operations through `HERALD_PROJECT_TOKEN` or
+`--token`. Project keys cannot create projects, manage keys, or start interactive
+publisher OAuth flows. The key lifecycle is provided by Better Auth and Herald keeps
+only the project binding and actor attribution needed by its domain routes.
 
 ```sh
 export HERALD_PROJECT_TOKEN='paste-the-token-once'
@@ -168,8 +232,9 @@ versioned [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/market
 using the [LinkedIn Images API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api)
 for verified JPEG and PNG uploads. The opt-in smoke-test procedure above remains
 text-only until a disposable image test is explicitly approved.
-Better Auth is used only for Herald email/password sessions. Publisher access and
-refresh tokens are project-owned and encrypted at rest using the required
+Better Auth owns human identity and sessions, global administration, project
+organizations/memberships, invitations, and new project API keys. Publisher access
+and refresh tokens remain project-owned and encrypted at rest using the required
 `HERALD_PUBLISHER_ENCRYPTION_KEY`; token material must not be copied into the
 environment file or passed to the dashboard, CLI, or provider adapter by an
 operator. The encryption key itself is deployment configuration and must be
@@ -232,9 +297,10 @@ docker run --rm \
   herald:local backup --media --output /backups/herald.bundle
 ```
 
-Stop the application before restoring. The command validates the database, manifest,
-and every media object before replacing the database; start the application again
-afterward:
+Stop the application before restoring. The API owns a sidecar runtime lock next to
+the database while it is running, and restore acquires the same lock before
+validating or replacing anything. A restore therefore fails closed while Herald
+is active; start the application again only after the restore completes:
 
 ```sh
 docker run --rm \
@@ -242,6 +308,12 @@ docker run --rm \
   --mount type=bind,source="$PWD/backups",target=/backups \
   herald:local restore --media --input /backups/herald.bundle
 ```
+
+The lock is intentionally not reclaimed automatically after a forced process
+termination. If a restart or restore reports an existing lock, first verify
+that no Herald process is using the database, then remove only the exact
+`<database>.runtime.lock` sidecar before retrying. Never remove the marker to
+override a live process.
 
 The commands without `--media` remain available for database-only recovery, but do
 not include stored media objects.
@@ -292,6 +364,7 @@ The current workspace contains:
 - `packages/core`: framework-independent domain and workflow contracts;
 - `packages/custom-http`: bounded webhook and mapped HTTP delivery for custom channels;
 - `packages/db`: Drizzle ORM schema, Bun SQLite client, and migrations;
+- `packages/email`: React Email transactional templates and HTML/text renderers;
 - `packages/linkedin`: LinkedIn OAuth profile and publication adapter;
 - `packages/media`: local and S3-compatible media storage contracts and adapters;
 - `packages/oauth`: OAuth authorization-code and PKCE protocol mechanics;

@@ -214,6 +214,14 @@ proposition, audience, proof, and next action legible through a more narrative
 composition while retaining Cobalt as a signal, neutral foundations, and the
 source-to-destinations mental model as its product-specific anchor.
 
+Transactional email is a compact public-surface adaptation of the same system:
+the Herald mark and Recursive Variable remain recognizable, while Ash and the
+near-flat raised surface provide the quiet canvas and Cobalt is reserved for the
+mark and primary action. It deliberately avoids a decorative dark banner,
+oversized depth, and rounded notice cards. Email clients that do not support the
+webfont or inline SVG must still receive a deliberate, readable fallback rather
+than an unbranded default template.
+
 The landing-page audience, proposition, proof assets, and conversion action
 are open questions. A separate direction comparison is required before
 building it; the current app contract must not silently decide those choices.
@@ -289,7 +297,11 @@ building it; the current app contract must not silently decide those choices.
   icon weight, and reserved sidebar badge space to prevent channel labels from
   overlapping their status; 2026-09-02 — the owner-supplied Herald bird mark
   accepted as the product logo, with an inline current-color implementation for
-  themed application surfaces and standalone app-rail treatment.
+  themed application surfaces and standalone app-rail treatment; 2026-09-11
+  — the transactional email adaptation accepted as a compact brand surface
+  with the shared mark, Recursive Variable progressive enhancement, a near-flat
+  Ash/raised composition, restrained surface depth, Cobalt action, and
+  client-safe fallbacks.
 
 ## Calibration
 

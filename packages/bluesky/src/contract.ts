@@ -3,7 +3,19 @@ import type { ExternalEffectOutcome } from '@herald/core'
 
 export const BLUESKY_PROVIDER = 'bluesky' as const
 export const BLUESKY_EXECUTION_CONTRACT_REVISION = 'post-v1'
-export const BLUESKY_REQUIRED_SCOPES = ['atproto'] as const
+/**
+ * The minimum AT Protocol permissions required by Herald's Bluesky adapter.
+ *
+ * `atproto` only authenticates the account. Publishing requires permission to
+ * create `app.bsky.feed.post` records, and image posts additionally require
+ * blob upload permission. Keep these granular instead of requesting the broad
+ * transitional `transition:generic` scope.
+ */
+export const BLUESKY_REQUIRED_SCOPES = [
+    'atproto',
+    'repo:app.bsky.feed.post?action=create',
+    'blob:image/*',
+] as const
 export const BLUESKY_MAX_GRAPHEMES = 300
 export const BLUESKY_MAX_TEXT_LENGTH = 3_000
 export const BLUESKY_MAX_IMAGES = 4

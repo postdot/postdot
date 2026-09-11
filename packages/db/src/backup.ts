@@ -6,6 +6,8 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 import type { MediaStore } from '@herald/media'
 
+import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
+
 const SQLITE_BUSY_TIMEOUT_MILLISECONDS = 5_000
 const MEDIA_BACKUP_VERSION = 1
 const MEDIA_BACKUP_DATABASE_FILENAME = 'database.sqlite'
@@ -92,6 +94,16 @@ export function backupDatabase(sourceFilename: string, destinationFilename: stri
 export function restoreDatabase(sourceFilename: string, destinationFilename: string) {
     const sourcePath = resolve(sourceFilename)
     const destinationPath = resolve(destinationFilename)
+    const runtimeLock = acquireRuntimeQuiescenceLock(destinationPath, 'restore')
+
+    try {
+        restoreDatabaseWithoutRuntimeLock(sourcePath, destinationPath)
+    } finally {
+        runtimeLock.release()
+    }
+}
+
+function restoreDatabaseWithoutRuntimeLock(sourcePath: string, destinationPath: string) {
     const temporaryPath = `${destinationPath}.${randomUUID()}.restore`
 
     assertDifferentPaths(sourcePath, destinationPath)
@@ -241,6 +253,20 @@ export async function backupWithMedia(options: MediaBackupOptions): Promise<Medi
 export async function restoreWithMedia(options: MediaRestoreOptions): Promise<void> {
     const sourcePath = resolve(options.sourceDirectory)
     const destinationPath = resolve(options.databaseFilename)
+    const runtimeLock = acquireRuntimeQuiescenceLock(destinationPath, 'restore')
+
+    try {
+        await restoreWithMediaWithoutRuntimeLock(options, sourcePath, destinationPath)
+    } finally {
+        runtimeLock.release()
+    }
+}
+
+async function restoreWithMediaWithoutRuntimeLock(
+    options: MediaRestoreOptions,
+    sourcePath: string,
+    destinationPath: string
+): Promise<void> {
     const temporaryPath = `${destinationPath}.${randomUUID()}.restore`
     const now = options.now ?? Date.now
     const ownerId = options.ownerId ?? `restore-${randomUUID()}`

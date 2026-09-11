@@ -18,6 +18,8 @@ export type {
     MediaBackupRepresentation,
     MediaRestoreOptions,
 } from './backup'
+export { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
+export type { RuntimeQuiescenceLock, RuntimeQuiescenceOwner } from './runtime-quiescence'
 export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
 export {
@@ -108,8 +110,20 @@ export {
     providerApplicationOAuthModes,
     providerApplicationStates,
 } from './provider-application-store'
-export { createProjectAccessTokenStore } from './project-access-token-store'
+export { createProjectApiKeyActorStore } from './project-api-key-actor-store'
 export { createTaxonomyStore } from './taxonomy-store'
+export {
+    accessInstanceId,
+    createAccessStore,
+    defaultInvitationTtlMs,
+    instanceMembershipStates,
+    instanceRoles,
+    instanceStates,
+    invitationStates,
+    maximumInvitationTtlMs,
+    projectMembershipStates,
+    projectRoles,
+} from './access-store'
 export {
     createAuthorizationAttemptStore,
     defaultAuthorizationAttemptTtlMs,
@@ -162,6 +176,27 @@ export type {
     UpdateProviderApplicationResult,
 } from './provider-application-store'
 export type {
+    AcceptAccessInvitationResult,
+    AccessInstanceMembership,
+    AccessInstanceMembershipState,
+    AccessInstanceRole,
+    AccessInstanceState,
+    AccessInstanceStateRecord,
+    AccessInvitation,
+    AccessInvitationState,
+    AccessProjectMembership,
+    AccessProjectMembershipState,
+    AccessProjectRole,
+    AccessStore,
+    AccessStoreOptions,
+    BootstrapFirstAccountInput,
+    BootstrapFirstAccountResult,
+    CreateAccessInvitationInput,
+    CreateAccessInvitationResult,
+    CreatedAccessInvitation,
+    RevokeAccessInvitationResult,
+} from './access-store'
+export type {
     AuthorizationAttempt,
     AuthorizationAttemptStoreOptions,
     ConsumeAuthorizationAttemptInput,
@@ -170,14 +205,10 @@ export type {
     CreateAuthorizationAttemptResult,
 } from './oauth-authorization-attempt-store'
 export type {
-    CreateProjectAccessTokenInput,
-    CreatedProjectAccessToken,
-    ProjectAccessToken,
-    ProjectAccessTokenAuthentication,
-    ProjectAccessTokenStore,
-    ProjectAccessTokenStoreOptions,
-    RevokeProjectAccessTokenInput,
-} from './project-access-token-store'
+    CreateProjectApiKeyActorInput,
+    ProjectApiKeyActor,
+    ProjectApiKeyActorStore,
+} from './project-api-key-actor-store'
 export type {
     CreateProjectCategoryInput,
     CreateProjectTagInput,

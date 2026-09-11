@@ -9,8 +9,14 @@
   [ADR-030](ADR-030-project-scoped-machine-access.md),
   [ADR-038](ADR-038-project-durable-facts-into-recipient-owned-notifications.md),
   [ADR-056](ADR-056-runtime-provider-application-configurations.md),
-  [ADR-057](ADR-057-propose-route-information-architecture.md)
-- Superseded by: none
+  [ADR-057](ADR-057-propose-route-information-architecture.md),
+  [ADR-063](ADR-063-adopt-better-auth-access-plugins.md),
+  [ADR-064](ADR-064-clean-development-access-baseline.md)
+- Current access storage: [ADR-064](ADR-064-clean-development-access-baseline.md)
+- Superseded by: [ADR-063](ADR-063-adopt-better-auth-access-plugins.md) for the
+  implementation of project membership, invitations, and machine-key lifecycle;
+  the bootstrap and instance-policy decisions remain active. ADR-064 supersedes
+  the migration and compatibility portions for the private development baseline.
 
 ## Context
 
@@ -97,10 +103,11 @@ The effective authorization check for a human request is:
    minimum project role; or
 4. for an instance route, require `admin`.
 
-Project bearer tokens remain the separate machine principal from ADR-030. They are
-project-scoped, cannot access instance administration, cannot accept invitations,
-cannot create projects, and cannot start interactive publisher OAuth. A bearer token
-is authoritative when supplied and never falls back to a human session.
+Better Auth organization-owned API keys remain the separate machine principal from
+ADR-030/ADR-063. They are project-scoped, cannot access instance administration,
+cannot accept invitations, cannot create projects, and cannot start interactive
+publisher OAuth. A key is authoritative when supplied and never falls back to a
+human session.
 
 Instance administrators do not receive implicit project notifications or project data
 access merely because they administer the instance. They may grant themselves or
@@ -110,23 +117,26 @@ administration without broadening ordinary project visibility.
 
 ### 3. Membership lifecycle
 
-Membership is Herald domain data and is not represented by Better Auth organization
-tables or by the existence of an `actors` row alone.
+Instance membership remains a small Herald extension because it describes access to
+the self-hosted installation even when a user belongs to no project. For a project
+with a Better Auth organization bridge, the Better Auth `member` row is the authority
+for project access; Herald keeps a projection for actors and historical data. An
+actor row alone never grants authorization.
 
 - An instance membership has an enabled/disabled lifecycle and an instance role.
   Disabling it blocks new sessions and invalidates active sessions; it also makes all
   project memberships ineffective without deleting project data.
-- A project membership has an active/removed lifecycle and a project role. Removing
-  access invalidates future project authorization immediately. The human actor row is
-  retained for audit attribution and historical notifications; it is not reused as an
-  authorization shortcut.
+- A project membership has an active lifecycle and a project role. Adding, changing,
+  or removing the Better Auth member changes authorization immediately. The human
+  actor row is retained for audit attribution and historical notifications; it is not
+  reused as an authorization shortcut.
 - Re-adding a person reactivates their existing membership and human actor where
   possible. Role changes are durable and auditable.
 - Removing or disabling a human does not revoke project-owned publisher credentials,
-  channel connections, or project bearer tokens. Those are owned by the project and
+  channel connections, or project API keys. Those are owned by the project and
   must survive the departure of the person who connected or created them, as required
   by the existing publisher and machine-access decisions. An owner/admin may revoke
-  machine tokens explicitly.
+  machine keys explicitly.
 - Hard deletion of a Better Auth user is not the normal access-removal operation. A
   future privacy/anonymization operation must preserve the non-personal actor and
   audit invariants, expire sessions and invitations, and be a separate decision.
@@ -140,18 +150,22 @@ tables or by the existence of an `actors` row alone.
   project roles in the same invitation. Only an existing instance admin may grant
   `admin`; admin promotion is never granted by an ordinary project invitation.
 - A project owner may invite an existing or new person to that project as `editor` or
-  `viewer`. Accepting a project invitation creates or activates the recipient's
-  instance `member` record, but never an instance admin record.
-- An invitation is single-use, expires after seven days by default, can be revoked,
-  and can be replaced without invalidating unrelated invitations. The database stores
-  only a hash of its high-entropy token. The raw link is displayed once to the inviter
-  and is never logged.
+  `viewer` through Better Auth Organization. Accepting the invitation creates the
+  Better Auth member and synchronizes the recipient's Herald instance membership and
+  human actor projection; it never creates an instance admin. The Herald invitation
+  route is reserved for instance invitations.
+- A Better Auth organization invitation is single-use and expires after seven days by
+  default. Instance invitations remain single-use, revocable, and hash only their
+  high-entropy token. The raw link is displayed once to the inviter and is never
+  logged.
 - Invitations carry a normalized target email. Acceptance must use that email when a
   new account is created or an existing account accepts the invitation. An already
   authenticated account cannot use a link addressed to another email.
-- Acceptance is transactional: consume the invitation, create or resolve the Better
-  Auth account, create/activate Herald memberships and human actors, and issue the
-  session together. A failed transaction leaves the invitation available.
+- Better Auth owns the organization invitation transaction and account/member
+  lifecycle. Its accepted-invitation hook projects the member into Herald. The
+  instance invitation transaction consumes its own hashed token and writes the
+  instance membership directly. A failed transaction leaves the relevant invitation
+  available.
 - Pending invitations do not grant access. Revoking or disabling a person revokes
   their pending invitations; disabling an instance or project also prevents
   acceptance for that scope.
@@ -185,7 +199,7 @@ tables or by the existence of an `actors` row alone.
 - A separate offline `admin recover` operation may designate a new admin only when
   the operator can prove local deployment control. It must report the target database,
   require explicit confirmation, write an audit record once the server starts, and
-  preserve all projects, publisher credentials, tokens, and historical actors.
+  preserve all projects, publisher credentials, API keys, and historical actors.
 - The web/API path refuses to remove, disable, or demote the last active instance
   admin. Recovery is intentionally an operator/deployment responsibility, not a
   hidden backdoor or a magic environment value.
@@ -208,12 +222,14 @@ The following remain deployment/environment configuration:
 The following are business or instance data stored by Herald, with secrets protected
 by their existing boundaries:
 
-- Better Auth users, password hashes, sessions, and verification records;
-- Herald instance membership, project membership, role, invitation, and audit state;
+- Better Auth users, password hashes, sessions, verification records, organization
+  memberships/invitations, and organization-owned API keys;
+- Herald instance membership, the instance invitation records, actor projections,
+  and audit state;
 - runtime provider-application configurations and their encrypted client secrets
   (ADR-056);
 - project-owned encrypted publisher credentials and channel connections; and
-- project-scoped bearer-token digests and their lifecycle metadata (ADR-030).
+- organization-owned Better Auth API keys and their Herald actor bridge (ADR-030).
 
 An operator changing the environment changes deployment trust and cryptographic
 boundaries. It must not be required for ordinary team membership, project invitation,
@@ -221,19 +237,25 @@ provider-app setup, publisher connection, or token rotation.
 
 ## Migration from the current state
 
+This section is retained as historical planning for a deployed installation. It is
+superseded for the current private development database by [ADR-064](ADR-064-clean-development-access-baseline.md),
+which intentionally does not carry out a data migration or a compatibility window.
+
 Migration is additive and must not infer authorization from an actor after the new
-guards are enabled.
+guards are enabled. Organization-backed project routes read Better Auth membership;
+the Herald rows created below are compatibility projections, not a second authority.
 
 1. Add one instance-state row and membership/invitation tables. If Better Auth users
    already exist, mark them active instance members. The earliest user by
    `created_at, id` becomes the initial admin because current data contains no admin
    marker; record this deterministic choice in the migration report and expose a
    transfer-admin action immediately.
-2. For every project human actor whose `subject_id` matches a user, create an active
-   project membership for that user and project. Map each existing human project
-   actor to `owner` to preserve current project-wide human rights. Keep actor IDs,
-   audit events, notification rows, publisher connections, and machine-token actors
-   unchanged.
+2. Create one Better Auth organization for every project and store its id on the
+   project. For every project human actor whose `subject_id` matches a user, create a
+   Better Auth member and a matching active Herald projection. Map each existing human
+   project actor to `owner` to preserve current project-wide human rights. Keep actor
+   IDs, audit events, notification rows, publisher connections, and machine-token
+   actors unchanged.
 3. Existing users with no actor remain instance members but have no project access.
    Existing projects with no resolvable human owner are marked for operator recovery;
    they are not silently assigned to a random account.
@@ -242,8 +264,9 @@ guards are enabled.
    unchanged. The current temporary any-session operator behavior ends after the
    authorization guard is deployed.
 5. Existing project access tokens continue to authenticate and retain their project
-   scope. Human token management is checked through project `owner` membership after
-   migration; token rows and token actors are not re-owned by the instance admin.
+   scope. New project keys use Better Auth's organization-owned API Key plugin and
+   retain a Herald `api-key:<id>` actor. Human key management is restricted to the
+   project owner; legacy token rows and token actors remain untouched until retirement.
 6. Update notification recipient resolution to use active project memberships. Do not
    delete or rewrite existing inbox items during migration.
 7. Once the migration has created the claimed instance state, disable anonymous
@@ -264,11 +287,13 @@ Rejected. It is convenient for local development but turns an exposed self-hoste
 instance into an open registration surface and cannot express instance versus project
 responsibility.
 
-### Use Better Auth's organization/team plugin as the authority
+### Keep all project membership in Herald-owned tables
 
-Rejected. Herald's project membership, actor attribution, notification recipients,
-project tokens, and publisher ownership have different lifecycles. Better Auth should
-authenticate people; Herald should own domain authorization.
+Rejected for migrated projects. Herald still owns instance membership, actors,
+notifications, and domain data, but Better Auth Organization is a better authority for
+project membership, invitations, and organization-owned API keys. ADR-063 records the
+implementation boundary and keeps a compatibility projection while legacy data is
+retired.
 
 ### Give instance admins implicit access to every project
 
@@ -329,16 +354,18 @@ Costs and risks:
 
 ## Phased implementation proposal
 
-1. **Foundation and migration:** add instance state, instance memberships, project
-   memberships, invitations, role checks, migration report, and deterministic legacy
-   backfill. Keep existing project actors and tokens intact.
+1. **Foundation and migration:** add instance state, instance memberships, Better Auth
+   organizations/members/invitations/API keys, compatibility projections, role checks,
+   migration report, and deterministic legacy backfill. Keep existing project actors
+   and tokens intact.
 2. **Bootstrap and invitation UX:** gate first-account signup, close anonymous signup,
    add admin/member and project-membership surfaces, copyable one-use invitation links,
    and clear no-mail states.
 3. **Authorization cutover:** apply instance-admin guards to provider-application
-   settings, project-role guards to project routes and token management, and replace
-   actor-existence checks in notifications and project reads with active membership
-   checks. Add session invalidation on disable/remove.
+   settings, project-role guards to project routes and token management, use Better
+   Auth Organization membership for migrated projects, and replace actor-existence
+   checks in notifications and project reads with active membership checks. Add
+   session invalidation on disable/remove.
 4. **Recovery and optional mail:** implement local password/admin recovery, optional
    mail transport, verification/reset/invitation templates, and backup/restore
    documentation for environment secrets and Herald business data.
@@ -350,10 +377,10 @@ Costs and risks:
 ## Verification targets
 
 Implementation must prove that only one first account can claim an empty instance;
-anonymous signup closes after claim; invitations are hashed, single-use, scoped, and
-email-bound; disabled/removed users lose access without deleting project credentials;
-instance admins cannot read projects without a project role; viewers cannot mutate;
-bearer tokens cannot cross into instance administration; provider application secrets,
-invitation tokens, and recovery material are never returned or logged; and legacy
-databases retain projects, actors, audit history, publisher credentials, and machine
-access during migration.
+anonymous signup closes after claim; Better Auth invitations and legacy invitations are
+single-use, scoped, and email-bound; disabled/removed users lose access without
+deleting project credentials; instance admins cannot read projects without a project
+role; viewers cannot mutate; Better Auth and legacy bearer tokens cannot cross into
+instance administration; provider application secrets, invitation tokens, and
+recovery material are never returned or logged; and legacy databases retain projects,
+actors, audit history, publisher credentials, and machine access during migration.

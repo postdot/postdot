@@ -26,6 +26,7 @@ export interface CreateProjectInput {
     readonly name: string
     readonly subjectId: string
     readonly displayName: string
+    readonly organizationId?: string | null
     readonly timeZone?: string
 }
 
@@ -63,6 +64,7 @@ export function createProjectChannelStore(
         select id,
                name,
                time_zone as timeZone,
+               organization_id as organizationId,
                primary_category_id as primaryCategoryId,
                created_at as createdAt,
                updated_at as updatedAt
@@ -88,6 +90,7 @@ export function createProjectChannelStore(
         select distinct projects.id,
                projects.name,
                projects.time_zone as timeZone,
+               projects.organization_id as organizationId,
                projects.primary_category_id as primaryCategoryId,
                projects.created_at as createdAt,
                projects.updated_at as updatedAt
@@ -119,10 +122,10 @@ export function createProjectChannelStore(
     `)
     const insertProjectStatement = client.query<
         void,
-        [id: string, name: string, timeZone: string, now: number]
+        [id: string, name: string, timeZone: string, organizationId: string | null, now: number]
     >(`
-        insert into projects (id, name, time_zone, created_at, updated_at)
-        values (?1, ?2, ?3, ?4, ?4)
+        insert into projects (id, name, time_zone, organization_id, created_at, updated_at)
+        values (?1, ?2, ?3, ?4, ?5, ?5)
     `)
     const updateProjectTimeZoneStatement = client.query<
         { readonly changes: number },
@@ -259,7 +262,13 @@ export function createProjectChannelStore(
                 now: timestamp,
             })
 
-            insertProjectStatement.run(project.id, project.name, project.timeZone, timestamp)
+            insertProjectStatement.run(
+                project.id,
+                project.name,
+                project.timeZone,
+                input.organizationId ?? null,
+                timestamp
+            )
             insertActorStatement.run(
                 actor.id,
                 project.id,

@@ -1,27 +1,36 @@
 import type { HeraldAuth } from '@herald/auth'
-import type { ProjectAccessTokenAuthentication } from '@herald/db'
 import { Elysia } from 'elysia'
+
+interface ProjectApiKeyAuthentication {
+    readonly projectId: string
+    readonly subjectId: string
+    readonly displayName: string
+}
 
 export function createAuthRoutes(auth: HeraldAuth) {
     return new Elysia({ name: 'herald-auth-routes' }).mount(auth.handler)
 }
 
 export interface AuthenticatedElysiaOptions {
-    readonly authenticateProjectAccessToken?: (
+    readonly authenticateBetterAuthProjectApiKey?: (
         token: string
-    ) => ProjectAccessTokenAuthentication | null
+    ) => Promise<ProjectApiKeyAuthentication | null>
+    readonly authorizeProjectSessionAccess?: (projectId: string, userId: string) => boolean
 }
 
 type HeraldAuthSession = NonNullable<Awaited<ReturnType<HeraldAuth['api']['getSession']>>>
-export type HeraldAuthenticatedUser = Pick<HeraldAuthSession['user'], 'id' | 'name'>
+export type HeraldAuthenticatedUser = Pick<HeraldAuthSession['user'], 'id' | 'name'> & {
+    readonly email: string | null
+}
 export type HeraldAuthenticationMethod = 'session' | 'project_token'
 
 function createProjectTokenUser(
-    authentication: ProjectAccessTokenAuthentication
+    authentication: ProjectApiKeyAuthentication
 ): HeraldAuthenticatedUser {
     return {
         id: authentication.subjectId,
         name: authentication.displayName,
+        email: null,
     }
 }
 
@@ -55,13 +64,22 @@ function createAuthenticatedElysiaContract(auth: HeraldAuth) {
                     user: {
                         id: session.user.id,
                         name: session.user.name,
+                        email: session.user.email,
                     },
                     session: session.session as HeraldAuthSession['session'] | null,
                     authMethod: 'session' as HeraldAuthenticationMethod,
+                    projectTokenProjectId: undefined,
                 }
             },
         },
     })
+}
+
+function readProjectIdFromRequest(requestUrl: string): string | null {
+    const segments = new URL(requestUrl).pathname.split('/').filter(Boolean)
+    const projectIndex = segments.indexOf('projects')
+    const projectId = projectIndex >= 0 ? segments[projectIndex + 1] : undefined
+    return projectId === undefined || projectId.length === 0 ? null : projectId
 }
 
 type AuthenticatedElysiaBase = ReturnType<typeof createAuthenticatedElysiaContract>
@@ -72,14 +90,15 @@ export function createAuthenticatedElysia(
 ): AuthenticatedElysiaBase {
     const authenticated = new Elysia().macro({
         auth: {
-            async derive({ request: { headers }, status }) {
+            async derive({ request: { headers }, status, request }) {
                 const authorization = headers.get('authorization')
-                if (authorization !== null) {
-                    const token = parseBearerToken(authorization)
+                const token =
+                    authorization === null
+                        ? headers.get('x-api-key')
+                        : parseBearerToken(authorization)
+                if (token !== null) {
                     const authentication =
-                        token === null
-                            ? null
-                            : (options.authenticateProjectAccessToken?.(token) ?? null)
+                        (await options.authenticateBetterAuthProjectApiKey?.(token)) ?? null
                     if (authentication === null) {
                         return status(401, {
                             error: {
@@ -89,10 +108,18 @@ export function createAuthenticatedElysia(
                         })
                     }
 
+                    const projectId = readProjectIdFromRequest(request.url)
+                    if (projectId !== null && authentication.projectId !== projectId) {
+                        return status(404, {
+                            error: { code: 'not_found', message: 'Project not found' },
+                        })
+                    }
+
                     return {
                         user: createProjectTokenUser(authentication),
                         session: null,
                         authMethod: 'project_token' as const,
+                        projectTokenProjectId: authentication.projectId,
                     }
                 }
 
@@ -106,10 +133,22 @@ export function createAuthenticatedElysia(
                     })
                 }
 
+                const projectId = readProjectIdFromRequest(request.url)
+                if (
+                    projectId !== null &&
+                    options.authorizeProjectSessionAccess !== undefined &&
+                    !options.authorizeProjectSessionAccess(projectId, session.user.id)
+                ) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+
                 return {
                     user: {
                         id: session.user.id,
                         name: session.user.name,
+                        email: session.user.email,
                     },
                     session: session.session,
                     authMethod: 'session' as const,

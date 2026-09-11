@@ -19,9 +19,14 @@ import {
 } from './models'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
+export interface PublicationRouteOptions {
+    readonly onWorkScheduled?: () => void
+}
+
 export function registerPublicationRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    manualStore: ManualStore
+    manualStore: ManualStore,
+    options: PublicationRouteOptions = {}
 ) {
     return app
         .get(
@@ -261,6 +266,9 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                         error: { code: 'not_found', message: 'Publication not found' },
                     })
                 }
+                // Promotion can create, reschedule, or cancel a worker job. Wake the
+                // scheduler so a changed run time is applied immediately.
+                options.onWorkScheduled?.()
                 return { editor }
             }
         )

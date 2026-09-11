@@ -2,6 +2,18 @@ import { Type } from 'typebox'
 
 import type { ChannelProfileDefinition } from './channel-profile'
 
+/**
+ * A reusable starting point for creating a channel profile.
+ *
+ * Presets are copied into a channel profile draft by their consumer. They are
+ * not references that remain authoritative after a channel is created.
+ */
+export interface ChannelProfilePreset {
+    readonly id: string
+    readonly version: number
+    readonly profile: ChannelProfileDefinition
+}
+
 const manualTargetContentSchema = Type.Object(
     {
         body: Type.Optional(Type.String({ minLength: 1, maxLength: 1_000_000 })),

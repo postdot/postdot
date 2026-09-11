@@ -46,9 +46,9 @@ export function CustomHttpConnectionDialog({
     useLanguage()
     const [open, setOpen] = useState(false)
     const [endpointUrl, setEndpointUrl] = useState('')
-    const [authenticationKind, setAuthenticationKind] = useState<'none' | 'bearer' | 'header'>(
-        'none'
-    )
+    const [authenticationKind, setAuthenticationKind] = useState<
+        'none' | 'bearer' | 'header' | 'path'
+    >('none')
     const [headerName, setHeaderName] = useState('')
     const [externalAccountName, setExternalAccountName] = useState('')
     const [secret, setSecret] = useState('')
@@ -134,7 +134,9 @@ export function CustomHttpConnectionDialog({
                             <Select
                                 value={authenticationKind}
                                 onValueChange={value =>
-                                    setAuthenticationKind(value as 'none' | 'bearer' | 'header')
+                                    setAuthenticationKind(
+                                        value as 'none' | 'bearer' | 'header' | 'path'
+                                    )
                                 }>
                                 <SelectTrigger id={`custom-http-auth-${channel.id}`}>
                                     <SelectValue />
@@ -148,6 +150,9 @@ export function CustomHttpConnectionDialog({
                                     </SelectItem>
                                     <SelectItem value="header">
                                         {m.provider_custom_header()}
+                                    </SelectItem>
+                                    <SelectItem value="path">
+                                        {m.provider_path_authentication()}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -164,6 +169,9 @@ export function CustomHttpConnectionDialog({
                                     placeholder={m.provider_header_name_placeholder()}
                                 />
                             </Field>
+                        ) : null}
+                        {authenticationKind === 'path' ? (
+                            <FieldDescription>{m.provider_path_auth_help()}</FieldDescription>
                         ) : null}
                         <Field className="gap-1.5">
                             <FieldLabel htmlFor={`custom-http-account-${channel.id}`}>

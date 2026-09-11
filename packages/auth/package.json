@@ -19,6 +19,7 @@
         "test": "bun test"
     },
     "dependencies": {
+        "@better-auth/api-key": "1.7.2",
         "@herald/db": "workspace:*",
         "better-auth": "1.7.2"
     },

@@ -2,6 +2,7 @@ import { createHmac, randomUUID } from 'node:crypto'
 
 import {
     isCustomHttpAuthentication,
+    validateCustomHttpAuthenticationBinding,
     validateDeclarativeHttpExecution,
     type DeclarativeHttpBodyMapping,
     type DeclarativeHttpRequestMapping,
@@ -77,6 +78,16 @@ export function createCustomHttpTransport(
             }
             if (!isCustomHttpAuthentication(input.connection.authentication)) {
                 return permanentFailure('The custom HTTP authentication configuration is invalid')
+            }
+            if (
+                validateCustomHttpAuthenticationBinding(
+                    input.execution,
+                    input.connection.authentication
+                ).length > 0
+            ) {
+                return permanentFailure(
+                    'The custom HTTP authentication configuration is incompatible with the execution contract'
+                )
             }
 
             let endpoint: AuthorizedCustomHttpEndpoint
@@ -178,7 +189,7 @@ async function buildMappedRequest(
         item: undefined,
         mediaUrlResolver: input.resolveMediaUrl,
     }
-    const url = await buildRequestUrl(endpoint.url, request, scope, input.media)
+    const url = await buildRequestUrl(endpoint.url, request, scope, input.media, input.connection)
     const headers = await evaluateHeaders(request, scope, input.media)
     const body = await buildBody(request.body, scope, input)
 
@@ -229,16 +240,23 @@ async function buildRequestUrl(
     endpoint: URL,
     request: DeclarativeHttpRequestMapping,
     scope: EvaluationScope,
-    media: readonly CustomHttpMediaDescriptor[]
+    media: readonly CustomHttpMediaDescriptor[],
+    connection: CustomHttpConnection
 ): Promise<URL> {
     const segments: string[] = []
     for (const segment of request.path) {
-        const value =
-            typeof segment === 'string'
-                ? segment
-                : segment.kind === 'context'
-                  ? requiredPointer(scope.context, segment.pointer, 'Context')
-                  : requiredPointer(scope.content, segment.pointer, 'Content')
+        let value: unknown
+        if (typeof segment === 'string') value = segment
+        else if (segment.kind === 'secret') {
+            if (connection.authentication.kind !== 'path') {
+                throw new MappingError('A secret path segment requires path authentication')
+            }
+            value = connection.secret
+        } else if (segment.kind === 'context') {
+            value = requiredPointer(scope.context, segment.pointer, 'Context')
+        } else {
+            value = requiredPointer(scope.content, segment.pointer, 'Content')
+        }
         if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
             throw new MappingError('HTTP path expressions must resolve to scalar values')
         }
@@ -411,6 +429,8 @@ function applyConnectionAuthentication(
         case 'header':
             headers[connection.authentication.headerName] = connection.secret
             return
+        case 'path':
+            return
         default:
             throw new MappingError('Custom HTTP authentication is not supported')
     }
@@ -456,6 +476,11 @@ function classifyResponse(
             return ambiguousFailure(`The custom HTTP response was not valid JSON: ${parsed.error}`)
         const externalId = readOptionalString(parsed.value, mapping.externalIdPointer)
         const externalUrl = readOptionalString(parsed.value, mapping.externalUrlPointer)
+        if (containsSecret(externalId, secret) || containsSecret(externalUrl, secret)) {
+            return ambiguousFailure(
+                'The custom HTTP response contained protected credential material'
+            )
+        }
         if (mapping.externalIdPointer !== undefined && externalId === null) {
             return ambiguousFailure(
                 'The custom HTTP response did not contain the configured external ID'
@@ -730,7 +755,18 @@ function publicErrorMessage(error: unknown, secret: string): string {
 }
 
 function redactSecret(value: string, secret: string): string {
-    return secret.length === 0 ? value : value.replaceAll(secret, '[redacted]')
+    if (secret.length === 0) return value
+    return value
+        .replaceAll(secret, '[redacted]')
+        .replaceAll(encodeURIComponent(secret), '[redacted]')
+}
+
+function containsSecret(value: string | null, secret: string): boolean {
+    return (
+        value !== null &&
+        secret.length > 0 &&
+        (value.includes(secret) || value.includes(encodeURIComponent(secret)))
+    )
 }
 
 function limitMessage(value: string): string {

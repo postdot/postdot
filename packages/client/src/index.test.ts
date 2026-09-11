@@ -2,12 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import { createApp, createPublisherRuntime } from '@herald/api'
 import { createAuth } from '@herald/auth'
-import {
-    closeDatabase,
-    createDatabase,
-    createProjectAccessTokenStore,
-    runMigrations,
-} from '@herald/db'
+import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
 
 import { createHeraldClient } from './index'
 
@@ -83,7 +78,6 @@ describe('Herald client', () => {
             publisherEncryptionKey: new Uint8Array(32).fill(7),
             publisherEncryptionKeyId: 'test-v1',
         })
-        const accessTokens = createProjectAccessTokenStore(database)
         const app = createApp({
             auth: createAuth(database, {
                 baseURL: 'http://localhost:3000',
@@ -91,7 +85,6 @@ describe('Herald client', () => {
             }),
             database,
             publisher,
-            accessTokens,
         })
 
         try {
@@ -171,10 +164,10 @@ describe('Herald client', () => {
         }
     })
 
-    it('sends a project bearer token through the typed client', async () => {
+    it('sends a project API key through the typed client', async () => {
         let authorization: string | null = null
         const client = createHeraldClient('http://localhost:3000', {
-            token: 'herald_pat_v1_test-token',
+            token: 'herald_pat_test-token',
             fetcher: async (input, init) => {
                 const request =
                     typeof input === 'string'
@@ -190,6 +183,6 @@ describe('Herald client', () => {
         const response = await client.api.projects.get()
 
         expect(response.error).toBeNull()
-        expect(authorization === 'Bearer herald_pat_v1_test-token').toBe(true)
+        expect(authorization === 'Bearer herald_pat_test-token').toBe(true)
     })
 })

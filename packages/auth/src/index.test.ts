@@ -1,19 +1,55 @@
 import { describe, expect, it } from 'bun:test'
 
-import { closeDatabase, createDatabase, runMigrations } from '@herald/db'
+import {
+    closeDatabase,
+    createAccessStore,
+    createDatabase,
+    createManualStore,
+    runMigrations,
+} from '@herald/db'
 
-import { createAuth } from './index'
+import {
+    createAuth,
+    type HeraldAuthRuntimeOptions,
+    type HeraldAuthVerificationEmail,
+    type HeraldOrganizationInvitationEmail,
+} from './index'
 
 const baseURL = 'http://localhost:3000'
 const secret = 'herald-test-secret-with-at-least-32-characters'
 
-function createFixture() {
+function createFixture(
+    options: Pick<
+        HeraldAuthRuntimeOptions,
+        | 'allowAdditionalSignups'
+        | 'organizationInvitationURL'
+        | 'requireEmailVerificationOnInvitation'
+        | 'sendOrganizationInvitationEmail'
+        | 'sendEmailVerification'
+        | 'sendEmailVerificationOnSignUp'
+        | 'sendPasswordResetEmail'
+    > = {}
+) {
     const database = createDatabase(':memory:')
     runMigrations(database)
+    const access = createAccessStore(database)
 
     return {
-        auth: createAuth(database, { baseURL, secret }),
+        auth: createAuth(database, {
+            baseURL,
+            secret,
+            access,
+            allowAdditionalSignups: options.allowAdditionalSignups,
+            organizationInvitationURL: options.organizationInvitationURL,
+            requireEmailVerificationOnInvitation: options.requireEmailVerificationOnInvitation,
+            sendOrganizationInvitationEmail: options.sendOrganizationInvitationEmail,
+            sendEmailVerification: options.sendEmailVerification,
+            sendEmailVerificationOnSignUp: options.sendEmailVerificationOnSignUp,
+            sendPasswordResetEmail: options.sendPasswordResetEmail,
+        }),
+        access,
         database,
+        manualStore: createManualStore(database, { now: Date.now }),
     }
 }
 
@@ -76,6 +112,527 @@ describe('Herald authentication', () => {
                 user: { email: string }
             }
             expect(sessionBody.user.email).toBe('operator@herald.local')
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('gives the bootstrap account admin capabilities and supports organization API keys', async () => {
+        const { auth, database } = createFixture()
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const signUpResponse = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'owner@herald.local',
+                        name: 'Herald Owner',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(signUpResponse.status).toBe(200)
+
+            const signUpBody = (await signUpResponse.json()) as { user: { id: string } }
+            expect(
+                database.$client
+                    .query<{ role: string | null }, [string]>('select role from user where id = ?1')
+                    .get(signUpBody.user.id)
+            ).toEqual({ role: 'admin' })
+
+            const sessionCookie = signUpResponse.headers.get('set-cookie')?.split(';', 1)[0]
+            expect(sessionCookie).toBeDefined()
+            const adminResponse = await auth.handler(
+                new Request(`${baseURL}/api/auth/admin/list-users?limit=10`, {
+                    headers: { cookie: sessionCookie ?? '' },
+                })
+            )
+            expect(adminResponse.status).toBe(200)
+            expect(await adminResponse.json()).toMatchObject({
+                users: [expect.objectContaining({ id: signUpBody.user.id })],
+            })
+
+            const unguardedRoleMutation = await auth.handler(
+                new Request(`${baseURL}/api/auth/admin/set-role`, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        cookie: sessionCookie ?? '',
+                    },
+                    body: JSON.stringify({ userId: signUpBody.user.id, role: 'user' }),
+                })
+            )
+            expect(unguardedRoleMutation.status).toBe(403)
+
+            const unguardedApiKeyMutation = await auth.handler(
+                new Request(`${baseURL}/api/auth/api-key/create`, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        cookie: sessionCookie ?? '',
+                    },
+                    body: JSON.stringify({
+                        name: 'Unbound key must be rejected',
+                        organizationId: 'not-a-herald-project',
+                    }),
+                })
+            )
+            expect(unguardedApiKeyMutation.status).toBe(403)
+
+            const unguardedOrganizationMutation = await auth.handler(
+                new Request(`${baseURL}/api/auth/organization/invite-member`, {
+                    method: 'POST',
+                    headers: {
+                        ...headers,
+                        cookie: sessionCookie ?? '',
+                    },
+                    body: JSON.stringify({
+                        email: 'bypass@herald.local',
+                        role: 'viewer',
+                        organizationId: 'not-a-herald-project',
+                    }),
+                })
+            )
+            expect(unguardedOrganizationMutation.status).toBe(403)
+
+            const organization = await auth.api.createOrganization({
+                body: {
+                    name: 'Herald Project',
+                    slug: 'herald-project-test',
+                    userId: signUpBody.user.id,
+                },
+            })
+            const createdKey = await auth.api.createApiKey({
+                body: {
+                    name: 'CI key',
+                    organizationId: organization.id,
+                    userId: signUpBody.user.id,
+                    expiresIn: 24 * 60 * 60,
+                },
+            })
+            expect(createdKey.key).toMatch(/^herald_pat_/)
+            expect(createdKey.expiresAt).toBeInstanceOf(Date)
+
+            const verified = await auth.api.verifyApiKey({ body: { key: createdKey.key } })
+            expect(verified).toMatchObject({
+                valid: true,
+                key: { referenceId: organization.id },
+            })
+
+            const listed = await auth.api.listApiKeys({
+                query: { organizationId: organization.id },
+                headers: new Headers({ cookie: sessionCookie ?? '' }),
+            })
+            expect(listed.total).toBe(1)
+            expect(listed.apiKeys[0]).toMatchObject({
+                id: createdKey.id,
+                name: 'CI key',
+                referenceId: organization.id,
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('uses organization invitations with Better Auth roles and expiry', async () => {
+        const { auth, database } = createFixture()
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const ownerSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'organization-owner@herald.local',
+                        name: 'Organization Owner',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(ownerSignup.status).toBe(200)
+            const owner = (await ownerSignup.json()) as { user: { id: string } }
+            const ownerCookie = ownerSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
+
+            const organization = await auth.api.createOrganization({
+                body: {
+                    name: 'Invitation Project',
+                    slug: 'invitation-project-test',
+                    userId: owner.user.id,
+                },
+            })
+            const invitation = await auth.api.createInvitation({
+                body: {
+                    email: 'organization-member@herald.local',
+                    role: 'editor',
+                    organizationId: organization.id,
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+
+            expect(invitation).toMatchObject({
+                email: 'organization-member@herald.local',
+                organizationId: organization.id,
+                role: 'editor',
+                status: 'pending',
+            })
+            expect(invitation.expiresAt.getTime()).toBeGreaterThan(Date.now())
+
+            const reissuedInvitation = await auth.api.createInvitation({
+                body: {
+                    email: 'organization-member@herald.local',
+                    role: 'editor',
+                    organizationId: organization.id,
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+            expect(reissuedInvitation.id).not.toBe(invitation.id)
+            expect(reissuedInvitation.status).toBe('pending')
+            expect(
+                (
+                    await auth.api.listInvitations({
+                        query: { organizationId: organization.id },
+                        headers: new Headers({ cookie: ownerCookie }),
+                    })
+                ).filter(
+                    candidate =>
+                        candidate.email === 'organization-member@herald.local' &&
+                        candidate.status === 'pending'
+                )
+            ).toEqual([expect.objectContaining({ id: reissuedInvitation.id })])
+
+            const memberSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'organization-member@herald.local',
+                        name: 'Organization Member',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(memberSignup.status).toBe(200)
+            const memberCookie = memberSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
+
+            const accepted = await auth.api.acceptInvitation({
+                body: { invitationId: reissuedInvitation.id },
+                headers: new Headers({ cookie: memberCookie }),
+            })
+            expect(accepted).toMatchObject({
+                invitation: { id: reissuedInvitation.id, status: 'accepted' },
+                member: { organizationId: organization.id, role: 'editor' },
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('forwards optional organization invitation delivery through a deployment hook', async () => {
+        const deliveries: HeraldOrganizationInvitationEmail[] = []
+        const { auth, database } = createFixture({
+            organizationInvitationURL: ({ id, organizationId }) =>
+                `https://app.example.test/invitations/${id}?organizationId=${organizationId}`,
+            sendOrganizationInvitationEmail: delivery => {
+                deliveries.push(delivery)
+            },
+        })
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const ownerSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'invitation-sender@herald.local',
+                        name: 'Invitation Sender',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(ownerSignup.status).toBe(200)
+            const owner = (await ownerSignup.json()) as { user: { id: string } }
+            const ownerCookie = ownerSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
+
+            const organization = await auth.api.createOrganization({
+                body: {
+                    name: 'Delivery Hook Project',
+                    slug: 'delivery-hook-project-test',
+                    userId: owner.user.id,
+                },
+            })
+            const invitation = await auth.api.createInvitation({
+                body: {
+                    email: 'invitation-recipient@herald.local',
+                    role: 'viewer',
+                    organizationId: organization.id,
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+
+            expect(invitation.status).toBe('pending')
+            expect(deliveries).toHaveLength(1)
+            expect(deliveries[0]).toMatchObject({
+                id: invitation.id,
+                email: 'invitation-recipient@herald.local',
+                organizationId: organization.id,
+                organizationName: 'Delivery Hook Project',
+                inviterId: owner.user.id,
+                inviterEmail: 'invitation-sender@herald.local',
+                inviterName: 'Invitation Sender',
+                invitationURL: `https://app.example.test/invitations/${invitation.id}?organizationId=${organization.id}`,
+            })
+            expect(deliveries[0]?.expiresAt).toEqual(invitation.expiresAt)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('forwards account verification and password reset delivery through deployment hooks', async () => {
+        const verificationDeliveries: HeraldAuthVerificationEmail[] = []
+        const resetDeliveries: HeraldAuthVerificationEmail[] = []
+        const { auth, database } = createFixture({
+            sendEmailVerificationOnSignUp: true,
+            sendEmailVerification: delivery => {
+                verificationDeliveries.push(delivery)
+            },
+            sendPasswordResetEmail: delivery => {
+                resetDeliveries.push(delivery)
+            },
+        })
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const signUpResponse = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'verification-recipient@herald.local',
+                        name: 'Verification Recipient',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(signUpResponse.status).toBe(200)
+            const signUp = (await signUpResponse.json()) as { user: { id: string } }
+            expect(verificationDeliveries).toHaveLength(1)
+            expect(verificationDeliveries[0]).toMatchObject({
+                user: {
+                    email: 'verification-recipient@herald.local',
+                    name: 'Verification Recipient',
+                },
+            })
+            expect(verificationDeliveries[0]?.url).toContain('/api/auth/verify-email?')
+
+            const resetResponse = await auth.handler(
+                new Request(`${baseURL}/api/auth/request-password-reset`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'verification-recipient@herald.local',
+                        redirectTo: 'https://app.example.test/reset-password',
+                    }),
+                })
+            )
+            expect(resetResponse.status).toBe(200)
+            expect(resetDeliveries).toHaveLength(1)
+            expect(resetDeliveries[0]).toMatchObject({
+                user: { email: 'verification-recipient@herald.local' },
+            })
+            expect(resetDeliveries[0]?.url).toContain('/api/auth/reset-password/')
+            expect(signUp.user.id).toBeTruthy()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('keeps the Herald project projection aligned with native organization membership changes', async () => {
+        const { access, auth, database, manualStore } = createFixture({
+            allowAdditionalSignups: true,
+        })
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const ownerSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'native-organization-owner@herald.local',
+                        name: 'Native Organization Owner',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            const memberSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'native-organization-member@herald.local',
+                        name: 'Native Organization Member',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(ownerSignup.status).toBe(200)
+            expect(memberSignup.status).toBe(200)
+
+            const owner = (await ownerSignup.json()) as { user: { id: string } }
+            const member = (await memberSignup.json()) as { user: { id: string } }
+            const ownerCookie = ownerSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
+            const memberCookie = memberSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
+            const organization = await auth.api.createOrganization({
+                body: {
+                    name: 'Native Organization Project',
+                    slug: 'native-organization-project-test',
+                    userId: owner.user.id,
+                },
+            })
+            const project = manualStore.createProject({
+                name: 'Native organization project',
+                subjectId: owner.user.id,
+                displayName: 'Native Organization Owner',
+                organizationId: organization.id,
+            })
+            expect(
+                access.ensureProjectOwnerMembership({
+                    projectId: project.project.id,
+                    userId: owner.user.id,
+                })
+            ).not.toBeNull()
+
+            const added = await auth.api.addMember({
+                body: {
+                    userId: member.user.id,
+                    role: 'editor',
+                    organizationId: organization.id,
+                },
+            })
+            expect(added).toMatchObject({
+                organizationId: organization.id,
+                userId: member.user.id,
+                role: 'editor',
+            })
+            expect(access.canAccessProject(project.project.id, member.user.id, 'editor')).toBe(true)
+            expect(manualStore.listProjects(member.user.id)).toEqual([
+                expect.objectContaining({ id: project.project.id }),
+            ])
+
+            await auth.api.updateMemberRole({
+                body: {
+                    memberId: added.id,
+                    role: 'viewer',
+                    organizationId: organization.id,
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+            expect(access.canAccessProject(project.project.id, member.user.id, 'editor')).toBe(
+                false
+            )
+            expect(access.canAccessProject(project.project.id, member.user.id, 'viewer')).toBe(true)
+
+            await auth.api.removeMember({
+                body: {
+                    memberIdOrEmail: added.id,
+                    organizationId: organization.id,
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+            expect(access.canAccessProject(project.project.id, member.user.id)).toBe(false)
+            expect(access.getProjectMembership(project.project.id, member.user.id)).toBeNull()
+
+            const readded = await auth.api.addMember({
+                body: {
+                    userId: member.user.id,
+                    role: 'viewer',
+                    organizationId: organization.id,
+                },
+            })
+            await auth.api.leaveOrganization({
+                body: { organizationId: organization.id },
+                headers: new Headers({ cookie: memberCookie }),
+            })
+            expect(readded.userId).toBe(member.user.id)
+            // `leaveOrganization` has no projection hook in Better Auth 1.7;
+            // access still follows the deleted Better Auth member row.
+            expect(access.canAccessProject(project.project.id, member.user.id)).toBe(false)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('closes public signup after bootstrap while keeping the first account usable', async () => {
+        const { auth, database } = createFixture()
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+        const password = 'correct-horse-battery-staple'
+
+        try {
+            const firstSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'first@herald.local',
+                        name: 'First Herald Operator',
+                        password,
+                    }),
+                })
+            )
+            expect(firstSignup.status).toBe(200)
+
+            const secondSignup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'second@herald.local',
+                        name: 'Second Herald Operator',
+                        password,
+                    }),
+                })
+            )
+            expect(secondSignup.status).toBe(400)
+            expect(await secondSignup.json()).toMatchObject({
+                code: 'FAILED_TO_CREATE_USER',
+            })
+
+            const signIn = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-in/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'first@herald.local',
+                        password,
+                    }),
+                })
+            )
+            expect(signIn.status).toBe(200)
+            expect(await signIn.json()).toMatchObject({
+                user: { email: 'first@herald.local' },
+            })
         } finally {
             closeDatabase(database)
         }

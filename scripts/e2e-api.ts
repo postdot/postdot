@@ -1,16 +1,16 @@
 import { mkdir, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { basename, dirname } from 'node:path'
+import { join } from 'node:path'
+
+import { isSafeE2EDataDirectory } from './e2e-runtime'
 
 const dataDirectory = Bun.env.HERALD_E2E_DATA_DIRECTORY
 const databaseFile = Bun.env.DB_FILE_NAME
+const mediaDirectory = Bun.env.HERALD_MEDIA_DIRECTORY
 
 if (
-    dataDirectory === undefined ||
-    databaseFile === undefined ||
-    dirname(databaseFile) !== dataDirectory ||
-    dirname(dataDirectory) !== tmpdir() ||
-    basename(dataDirectory) !== 'herald-e2e-data'
+    !isSafeE2EDataDirectory(dataDirectory) ||
+    databaseFile !== join(dataDirectory, 'herald.sqlite') ||
+    mediaDirectory !== join(dataDirectory, 'media')
 ) {
     throw new Error('The E2E API data directory is not safely configured')
 }

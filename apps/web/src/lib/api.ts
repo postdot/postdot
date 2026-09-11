@@ -4,6 +4,8 @@ import {
     type Channel,
     type ChannelProfileActivation,
     type ChannelProfileAssessment,
+    type ChannelProfilePreset,
+    type ChannelProfilePresets,
     type ChannelProfileState,
     type ChannelProfileVersion,
     type DuePublication,
@@ -66,14 +68,112 @@ export type ChannelCreationProfile =
     | 'devto'
     | RuntimeChannelProfile
 
+export type { ChannelProfilePreset, ChannelProfilePresets }
+
 export type CustomHttpAuthentication =
     | { readonly kind: 'none' }
     | { readonly kind: 'bearer' }
     | { readonly kind: 'header'; readonly headerName: string }
+    | { readonly kind: 'path' }
 
 export type ProviderApplicationProvider = 'linkedin' | 'bluesky' | 'x'
 export type ProviderApplicationState = 'active' | 'disabled'
 export type ProviderApplicationOAuthMode = 'loopback' | 'web'
+
+export type AccessInstanceRole = 'admin' | 'member'
+export type AccessInstanceMembershipState = 'enabled' | 'disabled'
+export type AccessInstanceState = 'claimable' | 'claimed'
+export type AccessInvitationState = 'pending' | 'accepted' | 'revoked' | 'expired'
+
+export interface AccessInstanceStateRecord {
+    readonly id: 'default'
+    readonly state: AccessInstanceState
+    readonly bootstrapBlocked: boolean
+    readonly claimedByUserId: string | null
+    readonly claimedAt: number | null
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface AccessInstanceMembership {
+    readonly id: string
+    readonly userId: string
+    readonly email: string
+    readonly name: string
+    readonly role: AccessInstanceRole
+    readonly state: AccessInstanceMembershipState
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export type AccessInstanceMembershipUpdate = Partial<
+    Pick<AccessInstanceMembership, 'role' | 'state'>
+>
+
+export interface AccessProjectMembership {
+    readonly id: string
+    readonly projectId: string
+    readonly userId: string
+    readonly email: string
+    readonly name: string
+    readonly image: string | null
+    readonly role: 'owner' | 'editor' | 'viewer'
+    readonly state: 'active'
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export type ProjectMemberRole = 'owner' | 'editor' | 'viewer'
+export type ProjectInvitationStatus = 'pending' | 'accepted' | 'rejected' | 'canceled'
+
+export interface ProjectMember {
+    readonly id: string
+    readonly projectId: string
+    readonly userId: string
+    readonly email: string
+    readonly name: string
+    readonly image: string | null
+    readonly role: ProjectMemberRole
+    readonly state: 'active'
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface ProjectInvitation {
+    readonly id: string
+    readonly email: string
+    readonly role: ProjectMemberRole
+    readonly organizationId: string
+    readonly inviterId: string
+    readonly status: ProjectInvitationStatus
+    readonly expiresAt: number
+    readonly createdAt: number
+}
+
+export interface AccessInvitation {
+    readonly id: string
+    readonly targetEmail: string
+    readonly instanceRole: 'member'
+    readonly state: AccessInvitationState
+    readonly createdByUserId: string
+    readonly expiresAt: number
+    readonly acceptedAt: number | null
+    readonly acceptedByUserId: string | null
+    readonly revokedAt: number | null
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+export interface AccessSummary {
+    readonly instance: AccessInstanceStateRecord
+    readonly membership: AccessInstanceMembership | null
+    readonly isAdmin: boolean
+}
+
+export interface CreatedAccessInvitation {
+    readonly invitation: AccessInvitation
+    readonly token: string
+}
 
 export interface ProviderApplication {
     readonly id: string
@@ -197,6 +297,10 @@ export const api = {
         )
     },
 
+    listChannelProfilePresets(): Promise<ChannelProfilePresets> {
+        return requestAuth<ChannelProfilePresets>('/api/channel-profile-presets')
+    },
+
     async createProviderApplication(
         input: ProviderApplicationInput
     ): Promise<{ application: ProviderApplication }> {
@@ -214,6 +318,52 @@ export const api = {
             `/api/settings/provider-applications/${encodeURIComponent(applicationId)}`,
             jsonBody(input, 'PATCH')
         )
+    },
+
+    async getInstanceAccess(): Promise<AccessSummary> {
+        return requestAuth<AccessSummary>('/api/access')
+    },
+
+    async listAccessMembers(): Promise<{ members: AccessInstanceMembership[] }> {
+        return requestAuth<{ members: AccessInstanceMembership[] }>('/api/access/members')
+    },
+
+    async updateAccessMember(
+        userId: string,
+        input: AccessInstanceMembershipUpdate
+    ): Promise<{ membership: AccessInstanceMembership }> {
+        return requestAuth<{ membership: AccessInstanceMembership }>(
+            `/api/access/members/${encodeURIComponent(userId)}`,
+            jsonBody(input, 'PATCH')
+        )
+    },
+
+    async listAccessInvitations(): Promise<{ invitations: AccessInvitation[] }> {
+        return requestAuth<{ invitations: AccessInvitation[] }>('/api/access/invitations')
+    },
+
+    async createAccessInvitation(targetEmail: string): Promise<CreatedAccessInvitation> {
+        return requestAuth<CreatedAccessInvitation>(
+            '/api/access/invitations',
+            jsonBody({ targetEmail })
+        )
+    },
+
+    async revokeAccessInvitation(invitationId: string): Promise<{ invitation: AccessInvitation }> {
+        return requestAuth<{ invitation: AccessInvitation }>(
+            `/api/access/invitations/${encodeURIComponent(invitationId)}`,
+            { method: 'DELETE' }
+        )
+    },
+
+    async acceptAccessInvitation(token: string): Promise<{
+        invitation: AccessInvitation
+        instanceMembership: AccessInstanceMembership
+    }> {
+        return requestAuth<{
+            invitation: AccessInvitation
+            instanceMembership: AccessInstanceMembership
+        }>('/api/access/invitations/accept', jsonBody({ token }))
     },
 
     async listProjects(): Promise<{ projects: Project[] }> {
@@ -292,10 +442,12 @@ export const api = {
 
     async createProjectAccessToken(
         projectId: string,
-        name: string
+        name: string,
+        expiresAt?: number | null
     ): Promise<{ accessToken: ProjectAccessToken; token: string }> {
+        const body = expiresAt === undefined ? { name } : { name, expiresAt }
         return unwrap<{ accessToken: ProjectAccessToken; token: string }>(
-            await client.api.projects({ projectId })['access-tokens'].post({ name })
+            await client.api.projects({ projectId })['access-tokens'].post(body)
         )
     },
 
@@ -306,6 +458,76 @@ export const api = {
         return unwrap<{ accessToken: ProjectAccessToken }>(
             await client.api.projects({ projectId })['access-tokens']({ tokenId }).delete()
         )
+    },
+
+    async listProjectMembers(projectId: string): Promise<{
+        members: ProjectMember[]
+        total: number
+    }> {
+        return requestAuth<{ members: ProjectMember[]; total: number }>(
+            `/api/projects/${encodeURIComponent(projectId)}/members`
+        )
+    },
+
+    async listProjectInvitations(projectId: string): Promise<{
+        invitations: ProjectInvitation[]
+    }> {
+        return requestAuth<{ invitations: ProjectInvitation[] }>(
+            `/api/projects/${encodeURIComponent(projectId)}/invitations`
+        )
+    },
+
+    async createProjectInvitation(
+        projectId: string,
+        email: string,
+        role: Exclude<ProjectMemberRole, 'owner'>
+    ): Promise<{ invitation: ProjectInvitation }> {
+        return requestAuth<{ invitation: ProjectInvitation }>(
+            `/api/projects/${encodeURIComponent(projectId)}/invitations`,
+            jsonBody({ email, role })
+        )
+    },
+
+    async cancelProjectInvitation(
+        projectId: string,
+        invitationId: string
+    ): Promise<{ invitation: ProjectInvitation }> {
+        return requestAuth<{ invitation: ProjectInvitation }>(
+            `/api/projects/${encodeURIComponent(projectId)}/invitations/${encodeURIComponent(invitationId)}`,
+            { method: 'DELETE' }
+        )
+    },
+
+    async resendProjectInvitation(
+        projectId: string,
+        invitationId: string
+    ): Promise<{ invitation: ProjectInvitation }> {
+        return requestAuth<{ invitation: ProjectInvitation }>(
+            `/api/projects/${encodeURIComponent(projectId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
+            { method: 'POST' }
+        )
+    },
+
+    async updateProjectMember(
+        projectId: string,
+        memberId: string,
+        role: Exclude<ProjectMemberRole, 'owner'>
+    ): Promise<{ membership: ProjectMember }> {
+        return requestAuth<{ membership: ProjectMember }>(
+            `/api/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
+            jsonBody({ role }, 'PATCH')
+        )
+    },
+
+    async removeProjectMember(projectId: string, memberId: string): Promise<{ removed: true }> {
+        return requestAuth<{ removed: true }>(
+            `/api/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(memberId)}`,
+            { method: 'DELETE' }
+        )
+    },
+
+    async acceptProjectInvitation(invitationId: string): Promise<unknown> {
+        return requestAuth('/api/auth/organization/accept-invitation', jsonBody({ invitationId }))
     },
 
     async listChannels(projectId: string): Promise<{ channels: Channel[] }> {

@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@herald/auth'
-import {
-    closeDatabase,
-    createDatabase,
-    createNotificationStore,
-    createProjectAccessTokenStore,
-    runMigrations,
-} from '@herald/db'
+import { closeDatabase, createDatabase, createNotificationStore, runMigrations } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 
 import { createApp } from '../../../app'
@@ -49,14 +43,12 @@ function createFixture(devtoFetcher?: DevtoFetcher) {
         publisherEncryptionKeyId: 'test-v1',
     })
     const auth = createAuth(database, { baseURL, secret })
-    const accessTokens = createProjectAccessTokenStore(database, { now: () => now })
     const notifications = createNotificationStore(database, { now: () => now + 1_000 })
     const app = createApp({
         auth,
         database,
         publisher,
         manualStore: { now: () => now },
-        accessTokens,
         notifications,
         ...(devtoFetcher === undefined ? {} : { devtoFetcher }),
     })

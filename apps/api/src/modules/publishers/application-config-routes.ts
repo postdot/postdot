@@ -3,6 +3,7 @@ import {
     providerApplicationOAuthModes,
     type ProviderApplicationProvider,
     type ProviderApplicationState,
+    type AccessStore,
 } from '@herald/db'
 import { Type } from 'typebox'
 
@@ -71,12 +72,13 @@ const applicationResponseSchema = Type.Object({ application: applicationSchema }
 
 /**
  * Provider applications are instance-level configuration, not project data.
- * Until Herald has an explicit instance-admin role, a Better Auth session is
- * the deliberate operator boundary; project bearer tokens are never accepted.
+ * Only enabled instance administrators may manage these settings; project API keys
+ * are never accepted for this instance-scoped surface.
  */
 export function registerProviderApplicationRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    publisher: PublisherRuntime
+    publisher: PublisherRuntime,
+    access: AccessStore
 ) {
     return app
         .get(
@@ -95,12 +97,13 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, status }) => {
-                if (authMethod !== 'session') {
+            ({ authMethod, status, user }) => {
+                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
-                            message: 'A human session is required to manage provider applications',
+                            message:
+                                'An instance administrator session is required to manage provider applications',
                         },
                     })
                 }
@@ -130,11 +133,12 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                 },
             },
             async ({ authMethod, body, status, user }) => {
-                if (authMethod !== 'session') {
+                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
-                            message: 'A human session is required to manage provider applications',
+                            message:
+                                'An instance administrator session is required to manage provider applications',
                         },
                     })
                 }
@@ -186,12 +190,13 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                     security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, status }) => {
-                if (authMethod !== 'session') {
+            async ({ authMethod, body, params, status, user }) => {
+                if (authMethod !== 'session' || !access.isInstanceAdmin(user.id)) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
-                            message: 'A human session is required to manage provider applications',
+                            message:
+                                'An instance administrator session is required to manage provider applications',
                         },
                     })
                 }

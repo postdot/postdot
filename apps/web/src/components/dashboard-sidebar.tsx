@@ -39,6 +39,7 @@ export type DashboardSection =
     | 'channels'
     | 'media'
     | 'access'
+    | 'settings-access'
     | 'settings'
 
 interface DashboardSidebarProps {
@@ -143,10 +144,17 @@ export function DashboardSidebar({
                                 <nav aria-label={m.nav_instance_navigation()}>
                                     <SidebarMenu>
                                         <WorkspaceMenuItem
-                                            active
+                                            active={activeSection === 'settings'}
                                             destination="settings"
                                             icon={<SettingsIcon aria-hidden="true" />}
                                             label={m.nav_settings()}
+                                            projectId={selectedProjectId}
+                                        />
+                                        <WorkspaceMenuItem
+                                            active={activeSection === 'settings-access'}
+                                            destination="settings-access"
+                                            icon={<KeyMinimalisticIcon aria-hidden="true" />}
+                                            label={m.nav_instance_access()}
                                             projectId={selectedProjectId}
                                         />
                                     </SidebarMenu>
@@ -372,6 +380,7 @@ export function DashboardSidebar({
 }
 
 export function workspaceSection(pathname: string): DashboardSection {
+    if (pathname.includes('/settings/access')) return 'settings-access'
     if (pathname.includes('/settings')) return 'settings'
     if (pathname.includes('/compose')) return 'compose'
     if (pathname.includes('/queue')) return 'queue'
@@ -387,6 +396,7 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'channels') return m.nav_channels()
     if (section === 'media') return m.nav_media()
     if (section === 'access') return m.nav_access()
+    if (section === 'settings-access') return m.nav_instance_access()
     if (section === 'settings') return m.nav_settings()
     return m.nav_overview()
 }
@@ -428,6 +438,21 @@ function workspaceLink(
             <Link
                 to="/dashboard/settings/provider-applications"
                 search={{ projectId: projectId ?? undefined }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'settings-access') {
+        return (
+            <Link
+                to="/dashboard/settings/access"
+                search={{
+                    projectId: projectId ?? undefined,
+                    invitation: undefined,
+                    organizationInvitation: undefined,
+                }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />

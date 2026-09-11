@@ -284,24 +284,29 @@ exists` error. At the same time, the Vite development proxy always targets port
 
 - Type: problem
 - Status: resolved
-- Evidence: Projects currently expose access through the creating user's actor;
-  there are no project membership, invitation, or project-token models or routes.
-  The CLI authenticates with `HERALD_SESSION_COOKIE`, while `SPEC-002` lists
-  project-scoped API tokens in the operable milestone. Better Auth remains limited
-  to application email/password authentication.
+- Evidence: The initial implementation exposed access through the creating user's
+  actor and a Herald-owned project-token model. `SPEC-002` lists project-scoped API
+  tokens in the operable milestone. The access reassessment showed that Better Auth's
+  Admin, Organization, and API Key plugins cover the standard identity, membership,
+  invitation, expiry, and machine-key primitives needed by Herald.
 - Impact: Herald cannot yet provide a deliberate access model for trusted humans,
   scripts, and agents before the instance is exposed beyond local development.
 - Desired outcome: The instance has an explicit bootstrap policy and project access
   model, including attributable machine access where required, without coupling
   project ownership or publisher credentials to Better Auth account rows.
 - Tasks: ACCESS-14 (completed)
-- Resolution: Herald now supports project-scoped opaque bearer tokens with
-  hash-only persistence, optional expiry, durable revocation, one-time secret
-  disclosure, and project-scoped `api_token` actors. Human sessions manage the
-  tokens; machine tokens use ordinary project operations but cannot create
-  projects, manage tokens, or start interactive LinkedIn OAuth flows. Better Auth
-  remains limited to human email/password authentication.
-- Decision: [ADR-030](decisions/ADR-030-project-scoped-machine-access.md)
+- Resolution: Better Auth now owns global user administration, project organizations,
+  project membership/invitations, and new organization-owned API keys with bounded
+  expiry. Herald keeps the instance membership boundary, actor attribution, publisher
+  credentials, and a compatibility projection. New keys use `herald_pat_`, carry a
+  verified project binding, and are managed through guarded Herald routes. ACCESS-133
+  now provides the offline report and backup-gated cutover that revokes legacy
+  `herald_pat_v1_` tokens and old project invitation links; physical cleanup remains
+  explicitly tracked by ACCESS-135.
+  Machine tokens use ordinary project operations but cannot create projects, manage
+  tokens, or start interactive publisher OAuth flows.
+- Decision: [ADR-030](decisions/ADR-030-project-scoped-machine-access.md),
+  [ADR-063](decisions/ADR-063-adopt-better-auth-access-plugins.md)
 - Verification: Database and API integration tests cover secret handling,
   project isolation, expiry, revocation, actor attribution, human-only management,
   bearer precedence, OAuth session-only behavior, and OpenAPI security metadata.
@@ -482,6 +487,16 @@ exists` error. At the same time, the Vite development proxy always targets port
   persisted the successful media checkpoint and publication outcome, and the
   dashboard displayed the target as published. This remains a recurring
   validation practice rather than a release gate.
+- The 2026-09-11 validation completed the same controlled loop with the Bluesky
+  provider: the local loopback OAuth flow was accepted on the real provider,
+  the project-owned connection was restored, and an automatic text publication
+  was acknowledged by Bluesky and displayed as published in the Herald queue.
+  The validation also corrected two provider-boundary defects found during the
+  run: the OAuth grant now requests the granular repository/blob permissions
+  required for publication, and a revoked credential is reactivated with the
+  scopes from a fresh grant instead of being rejected by the uniqueness guard.
+  The publication scheduler is explicitly woken after a reschedule so the
+  requested run time is applied without waiting for the previous timer.
 
 ## [ISSUE-022] Separate LinkedIn authorization principals from publication destinations
 
@@ -566,7 +581,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-025] Isolate concurrent local and test runtime resources
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: The browser test configuration uses a shared temporary data root
   that startup and teardown remove, while development and E2E commands rely on
   conventional ports and local database/media paths.
@@ -576,12 +591,22 @@ exists` error. At the same time, the Vite development proxy always targets port
   its own temporary data and media roots and reserved ports, with teardown
   limited to resources owned by that run. Shared/default paths remain a
   serialized orchestrator concern until then.
-- Tasks: to be triaged
+- Tasks: OPS-139 (completed)
+- Resolution: Playwright now creates a unique disposable runtime root and
+  invocation-specific loopback ports and output directory. Worker processes
+  reuse the parent runtime through explicit environment propagation, while the
+  API launcher and global teardown validate and remove only the generated run
+  root. The legacy `/tmp/herald-e2e-data` root is not accepted as a cleanup
+  target. Default development ports and data paths remain operator-owned and
+  serialized; explicit E2E debug ports remain caller-reserved.
+- Verification: The isolated runtime unit tests pass, two concurrent realtime
+  Playwright runs pass on distinct ports, the CI-mode browser suite passes all
+  15 tests, and no generated E2E data root remains after teardown.
 
 ## [ISSUE-026] Enforce runtime quiescence before backup restore
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: The restore path can replace the database and media state while the
   API, scheduler, or maintenance runtime may still hold open resources. The
   operator documentation asks for a stop but the restore operation does not
@@ -591,7 +616,21 @@ exists` error. At the same time, the Vite development proxy always targets port
   diagnose.
 - Desired outcome: Restore has an explicit fail-closed quiescence boundary and
   a verified operator lifecycle for stopping, restoring, and restarting Herald.
-- Tasks: to be triaged
+- Tasks: OPS-140 (completed)
+- Related decision: [ADR-068](decisions/ADR-068-runtime-quiescence-sidecar-lock.md) (proposed)
+- Resolution: The API process acquires a database-specific `.runtime.lock`
+  sidecar before opening the database, and the database and media restore
+  primitives acquire the same lock before validating a backup or touching the
+  destination. Atomic exclusive creation prevents an active server and a
+  restore from proceeding together. Graceful shutdown releases the marker;
+  forced termination leaves it in place so a later startup or restore fails
+  closed until an operator verifies that no Herald process is using the database
+  and removes only that exact stale marker.
+- Verification: Runtime-lock unit tests cover exclusive ownership, stale-marker
+  refusal, release, and in-memory rejection. Backup tests cover restore refusal
+  while the server boundary is held and successful retry after release. The
+  full repository quality gate and local server readiness checks remain required
+  before integration.
 
 ## [ISSUE-027] Isolate built-in provider execution behind an explicit contract
 
@@ -692,7 +731,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-031] Support path-authenticated custom HTTP receivers safely
 
 - Type: question
-- Status: open
+- Status: resolved
 - Evidence: Custom HTTP connections currently store and validate one origin-only
   endpoint. The declarative mapped HTTP contract can construct bounded path and
   query values beneath that origin, but the connection secret can only be applied
@@ -707,8 +746,16 @@ exists` error. At the same time, the Vite development proxy always targets port
   authentication or routing requires URL components, while preserving origin-only
   network authority, encrypted-secret handling, SSRF protections, redaction, and
   immutable execution semantics.
-- Tasks: to be triaged
-- Related decisions: ADR-017, ADR-018
+- Tasks: SECURITY-141
+- Related decisions: [ADR-017](decisions/ADR-017-use-versioned-webhooks-and-mapped-http-for-custom-channels.md), [ADR-018](decisions/ADR-018-restrict-custom-channel-network-egress.md), [ADR-069](decisions/ADR-069-custom-http-path-authentication.md)
+- Resolution: `SECURITY-141` adds an explicit `path` authentication binding for
+  mapped HTTP profiles. A profile may declare exactly one dedicated
+  `{ "kind": "secret" }` path segment; Herald resolves it only from the
+  encrypted connection credential, encodes it as one URL component, and keeps
+  the connection endpoint origin-only. Path authentication is rejected for
+  Herald webhooks, query/header/body mappings, and profiles without the exact
+  secret segment. The API, database connection boundary, transport, response
+  schema, UI, and redaction tests now fail closed around this contract.
 
 ## [ISSUE-032] Expose project machine access through supported operator clients
 
@@ -826,7 +873,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-037] Add reusable built-in channel profile presets
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: Runtime-defined profiles intentionally allow complete custom schemas,
   while common provider shapes are currently represented by individually defined
   built-in profiles. The audit identified reusable presets for recurring channel
@@ -837,8 +884,13 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: Herald can offer editable, versioned starting profiles for
   common channel families without making presets live authorities or restricting
   fully runtime-defined custom channels.
-- Tasks: to be triaged
+- Tasks: CHANNEL-142 (completed)
 - Related decisions: ADR-013, ADR-020, ADR-021
+- Resolution: Provider-owned built-in profiles are now exposed through an
+  authenticated, typed preset catalog. The web channel-creation flow can use
+  those profiles as editable custom snapshots for common provider families,
+  while preserving manual/webhook starters and fully runtime-defined profiles.
+  Presets do not remain live authorities after a channel is created.
 
 ## [ISSUE-038] Prevent execution of disabled channel profiles
 
@@ -1706,16 +1758,53 @@ channels` with a foreign-key constraint error even though a fresh empty database
   deletion, and abuse/rate-limit boundaries. The decision must state which parts
   are required before exposing Herald beyond a trusted local operator and must
   preserve project-owned publisher credentials and machine-token attribution.
-- Scope boundary: This is a product and security policy investigation. It does
-  not add email delivery, invitations, organization billing, SSO, or an admin UI;
-  it does not replace Better Auth for human authentication or alter the existing
-  project-scoped machine-token contract.
-- Tasks: ACCESS-116
+- Scope boundary: The accepted access policy does not add organization billing,
+  SSO, or user deletion/anonymization. It adopts
+  Better Auth Admin, Organization, and API Key plugins for the applicable access
+  lifecycle; project-member administration is now delivered by ACCESS-134, while
+  the UI deliberately remains a Herald surface over those Better Auth records.
+  Invitation re-send rotation and the optional transport-neutral email hook are
+  delivered by ACCESS-136. ACCESS-137 adds an optional SMTP transport and
+  ACCESS-138 extracts React Email templates with a local Mailpit development
+  relay for invitations, signup verification, and password reset; the
+  local/manual-link profile remains usable without mail.
+- Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132, ACCESS-134, ACCESS-136,
+  ACCESS-137, ACCESS-138
 - Related issues: ISSUE-013, ISSUE-059
-- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061
+- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063, ADR-066, ADR-067
 - Resolution: ADR-061 establishes the local single-operator bootstrap and the
   shared self-hosted boundary: the first account claims an empty instance and
-  becomes its administrator, later registration is closed by default, instance
-  and project membership are distinct, and invitations can use hashed tokens
-  without requiring SMTP. Account recovery and credential preservation remain
-  explicit boundaries; implementation is deferred to a later task.
+  becomes its administrator, later registration is closed by default, and instance
+  and project membership are distinct. ADR-063 implements the access lifecycle with
+  Better Auth Admin, Organization, and API Key plugins: each project has one
+  organization, its member rows authorize project access, invitations expire after
+  seven days, and new project keys expire after 180 days by default. Herald retains
+  instance membership and actor projections, while ACCESS-134 exposes the project
+  member and invitation workflow through the dashboard. ACCESS-131 through
+  ACCESS-137 are complete. A complete recovery UI/policy, user
+  deletion/anonymization, ownership transfer policy, and post-retirement physical
+  cleanup remain explicit follow-ups.
+
+## [ISSUE-067] Establish a clean development access baseline
+
+- Type: problem
+- Status: resolved
+- Evidence: Herald is a private, unused development application with no database
+  file or deployed user data in the repository. The Better Auth cutover had
+  temporarily kept project-membership, mixed invitation, and Herald bearer-token
+  compatibility paths solely to support a hypothetical deployed upgrade.
+- Impact: Retaining those paths would make the development model harder to reason
+  about, keep untested authorization branches alive, and force every future schema
+  change to carry an unnecessary historical migration chain.
+- Desired outcome: The current codebase starts from one generated Drizzle baseline,
+  uses Better Auth Organization members/invitations/API keys as the project access
+  authority, and keeps only the Herald-owned instance boundary and actor projection
+  that have independent domain meaning.
+- Tasks: ACCESS-133, ACCESS-135
+- Related decisions: [ADR-064](decisions/ADR-064-clean-development-access-baseline.md)
+- Resolution: The old project access tables, legacy project bearer-token store,
+  retirement marker, and runtime compatibility branches were removed. Instance
+  invitations now use a dedicated table, the migration directory contains one
+  generated baseline, and the test suite verifies that obsolete tables cannot appear
+  in a fresh database. A database file is intentionally not reset by application
+  code; a stale disposable local file must be moved aside explicitly.

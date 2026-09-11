@@ -15,7 +15,7 @@ import {
     useLocation,
     useNavigate,
 } from '@tanstack/react-router'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
 import { DashboardShell } from '@/components/dashboard-shell'
 import { api, formatApiError, type Project } from '@/lib/api'
@@ -32,7 +32,11 @@ export const Route = createFileRoute('/dashboard')({
     loader: async ({ location }) => {
         const session = await api.getSession()
         if (session === null) {
-            throw redirect({ to: '/login' })
+            const continuation = createLoginContinuation(location.pathname, location.search)
+            throw redirect({
+                to: '/login',
+                search: { continue: continuation },
+            })
         }
 
         const [{ projects }, { categories }] = await Promise.all([
@@ -65,6 +69,10 @@ function DashboardPage() {
     const [projectName, setProjectName] = useState('')
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        setProjects(initialData.projects)
+    }, [initialData.projects])
 
     async function handleCreateProject(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -106,7 +114,7 @@ function DashboardPage() {
     async function handleSignOut() {
         await runAction(async () => {
             await api.signOut()
-            await navigate({ to: '/login' })
+            await navigate({ to: '/login', search: { continue: undefined } })
         })
     }
 
@@ -160,10 +168,27 @@ function DashboardPage() {
 }
 
 function readProjectContextId(search: unknown) {
+    return readSearchString(search, 'projectId')
+}
+
+function createLoginContinuation(pathname: string, search: unknown) {
+    if (pathname !== '/dashboard' && !pathname.startsWith('/dashboard/')) return undefined
+
+    const params = new URLSearchParams()
+    for (const key of ['invitation', 'organizationInvitation', 'projectId']) {
+        const value = readSearchString(search, key)
+        if (value !== undefined) params.set(key, value)
+    }
+
+    const query = params.toString()
+    return `${pathname}${query === '' ? '' : `?${query}`}`
+}
+
+function readSearchString(search: unknown, key: string) {
     if (typeof search !== 'object' || search === null) return undefined
 
-    const projectId = (search as { readonly projectId?: unknown }).projectId
-    return typeof projectId === 'string' && projectId.length > 0 ? projectId : undefined
+    const value = Reflect.get(search, key)
+    return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
 function GlobalSettingsShell({ selectedProject }: { readonly selectedProject: Project | null }) {

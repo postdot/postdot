@@ -10,6 +10,7 @@ import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } fr
 import { closeDatabase, createDatabase } from './client'
 import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
+import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 
 describe('SQLite backup and restore', () => {
     it('creates a consistent backup and restores it atomically', async () => {
@@ -64,6 +65,28 @@ describe('SQLite backup and restore', () => {
             expect(() => backupDatabase(sourcePath, sourcePath)).toThrow(
                 'Source and destination database paths must be different'
             )
+        } finally {
+            await rm(directory, { recursive: true, force: true })
+        }
+    })
+
+    it('refuses restore while the Herald runtime owns the database boundary', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'herald-db-recovery-'))
+        const sourcePath = join(directory, 'source.sqlite')
+        const restoredPath = join(directory, 'restored.sqlite')
+
+        try {
+            const source = createDatabase(sourcePath)
+            runMigrations(source)
+            closeDatabase(source)
+
+            const serverLock = acquireRuntimeQuiescenceLock(restoredPath, 'server')
+            expect(() => restoreDatabase(sourcePath, restoredPath)).toThrow('already held')
+            serverLock.release()
+
+            restoreDatabase(sourcePath, restoredPath)
+            expect(await Bun.file(restoredPath).exists()).toBe(true)
+            expect(await Bun.file(`${restoredPath}.runtime.lock`).exists()).toBe(false)
         } finally {
             await rm(directory, { recursive: true, force: true })
         }

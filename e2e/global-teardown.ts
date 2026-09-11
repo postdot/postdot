@@ -1,12 +1,18 @@
 import { rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { basename, dirname, join } from 'node:path'
 
 import type { FullConfig } from '@playwright/test'
 
-export default async function globalTeardown(_config: FullConfig) {
-    const directory = join(tmpdir(), 'herald-e2e-data')
-    if (dirname(directory) !== tmpdir() || basename(directory) !== 'herald-e2e-data') return
+import { isSafeE2EDataDirectory } from '../scripts/e2e-runtime'
+
+export default async function globalTeardown(config: FullConfig) {
+    const metadata = config.metadata as Record<string, unknown> | undefined
+    const metadataDirectory = metadata?.heraldE2eDataDirectory
+    const directory =
+        typeof metadataDirectory === 'string'
+            ? metadataDirectory
+            : process.env.HERALD_E2E_DATA_DIRECTORY
+
+    if (!isSafeE2EDataDirectory(directory)) return
 
     await rm(directory, { recursive: true, force: true })
 }

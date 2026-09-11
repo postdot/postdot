@@ -9,15 +9,15 @@ export const defaultMigrationsFolder = fileURLToPath(new URL('../drizzle', impor
 export function runMigrations(
     database: HeraldDatabase,
     migrationsFolder = defaultMigrationsFolder
-) {
+): void {
     const client = database.$client
     const foreignKeysWereEnabled =
         client.query<{ readonly foreign_keys: number }, []>('PRAGMA foreign_keys').get()
             ?.foreign_keys === 1
 
-    // SQLite cannot change this pragma from inside Drizzle's migration transaction. The
-    // committed migrations already use the same bounded rebuild pattern, so disable checks
-    // before Drizzle starts the transaction and validate the final schema before restoring them.
+    // SQLite cannot change this pragma from inside Drizzle's migration transaction.
+    // Run the generated baseline with checks temporarily disabled, then validate
+    // the resulting schema before restoring the connection setting.
     client.run('PRAGMA foreign_keys = OFF')
 
     try {
@@ -27,7 +27,7 @@ export function runMigrations(
             if (!hasExistingSchemaObject(error)) throw error
 
             throw new Error(
-                `The database schema conflicts with the committed migration history in "${migrationsFolder}". If this is an unreleased local database, stop Herald and move the database file aside before restarting. Do not use this recovery for a database with data to preserve.`,
+                `The database schema conflicts with the committed migration history in "${migrationsFolder}". This development database has no supported upgrade path; stop Herald and move the disposable database file aside before restarting. Do not use this recovery for a database with data to preserve.`,
                 { cause: error }
             )
         }

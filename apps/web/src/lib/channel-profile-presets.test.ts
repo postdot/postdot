@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
-import { channelProfileTemplates } from '@/lib/channel-profile-presets'
+import type { ChannelProfilePreset } from '@/lib/api'
+import {
+    builtInChannelProfileTemplatePrefix,
+    channelProfileTemplates,
+    profileForTemplate,
+    templatesFromPresets,
+} from '@/lib/channel-profile-presets'
 
 describe('channel profile templates', () => {
     test('provide valid JSON-compatible starter profiles', () => {
@@ -29,5 +35,86 @@ describe('channel profile templates', () => {
             kind: 'declarative_http',
             mode: 'herald_webhook',
         })
+    })
+
+    test('turns built-in profiles into independent editable custom starters', () => {
+        const source: ChannelProfilePreset = {
+            id: 'bluesky',
+            version: 1,
+            profile: {
+                id: 'bluesky',
+                version: 1,
+                profileHash: 'sha256:bluesky-profile-v1',
+                schemaHash: 'sha256:bluesky-schema-v1',
+                origin: 'built_in',
+                contentSchema: {
+                    type: 'object',
+                    properties: {
+                        text: { type: 'string' },
+                        media: {
+                            type: 'array',
+                            maxItems: 4,
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    assetId: { type: 'string', minLength: 1 },
+                                },
+                                required: ['assetId'],
+                                additionalProperties: false,
+                            },
+                        },
+                    },
+                    required: ['text', 'media'],
+                    additionalProperties: false,
+                },
+                fieldBindings: [{ id: 'text', semantic: 'primary_text', path: '/text' }],
+                capabilities: {
+                    revision: 'bluesky-v1',
+                    textFields: [],
+                    mediaFields: [],
+                    relations: [],
+                },
+                execution: {
+                    kind: 'built_in',
+                    contractId: 'bluesky',
+                    revision: 'bluesky@post-v1',
+                },
+            },
+        }
+
+        const [template] = templatesFromPresets([source])
+        expect(template?.id).toBe(`${builtInChannelProfileTemplatePrefix}bluesky`)
+        expect(template?.profile).toMatchObject({
+            id: 'custom-bluesky',
+            version: 1,
+            origin: 'custom',
+            schemaHash: 'sha256:herald-custom-bluesky-schema-v1',
+            execution: source.profile.execution,
+        })
+        expect(template?.profile).not.toBe(source.profile)
+        expect(template?.profile.contentSchema).not.toBe(source.profile.contentSchema)
+        expect(template?.profile.contentSchema).toMatchObject({
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            properties: {
+                media: {
+                    items: {
+                        properties: {
+                            assetId: { maxLength: 255 },
+                        },
+                    },
+                },
+            },
+        })
+        expect(profileForTemplate(template?.id ?? '', [template!])).toBe(template?.profile)
+
+        expect(
+            templatesFromPresets([
+                {
+                    ...source,
+                    id: 'manual-message',
+                    profile: { ...source.profile, id: 'manual-message' },
+                },
+            ])
+        ).toEqual([])
     })
 })

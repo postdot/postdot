@@ -1,0 +1,52 @@
+{
+    "name": "@herald/email",
+    "version": "0.0.0",
+    "private": true,
+    "description": "React Email templates for Herald transactional messages",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./src/index.ts",
+        "./templates/*": "./src/templates/*.tsx"
+    },
+    "scripts": {
+        "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+        "dev": "email dev --dir ./src/templates --port 3001",
+        "lint": "oxlint --deny-warnings .",
+        "lint:fix": "oxlint --fix .",
+        "format": "oxfmt --check .",
+        "format:fix": "oxfmt --write .",
+        "typecheck": "tsc --noEmit",
+        "test": "bun test",
+        "clean": "rimraf dist .turbo"
+    },
+    "dependencies": {
+        "@herald/ui": "workspace:*",
+        "@react-email/body": "0.3.0",
+        "@react-email/button": "0.2.1",
+        "@react-email/container": "0.0.16",
+        "@react-email/font": "0.0.10",
+        "@react-email/head": "0.0.13",
+        "@react-email/heading": "0.0.16",
+        "@react-email/html": "0.0.12",
+        "@react-email/link": "0.0.13",
+        "@react-email/preview": "0.0.14",
+        "@react-email/render": "2.1.0",
+        "@react-email/section": "0.0.17",
+        "@react-email/text": "0.1.6",
+        "react": "19.2.8",
+        "react-dom": "19.2.8"
+    },
+    "devDependencies": {
+        "@react-email/ui": "6.9.5",
+        "@tala-tools/tsconfig": "0.1.0",
+        "@types/bun": "1.4.0",
+        "@types/react": "19.2.18",
+        "@types/react-dom": "19.2.5",
+        "react-email": "6.9.5",
+        "typescript": "7.0.2"
+    },
+    "engines": {
+        "bun": ">=1.4"
+    }
+}

@@ -7,13 +7,16 @@ import {
     createEventJournalStore,
     createNotificationStore,
     createProviderAnalyticsStore,
+    createAccessStore,
+    createProjectApiKeyActorStore,
     createTaxonomyStore,
     type HeraldDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
-    type ProjectAccessTokenStore,
+    type ProjectApiKeyActorStore,
     type NotificationStore,
     type AnalyticsStore,
+    type AccessStore,
     type ProviderAnalyticsStore,
     type TaxonomyStore,
 } from '@herald/db'
@@ -45,7 +48,9 @@ export interface HeraldAppOptions {
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly runtime?: HealthRoutesOptions['runtime']
-    readonly accessTokens?: ProjectAccessTokenStore
+    readonly apiKeyActors?: ProjectApiKeyActorStore
+    /** The shared Herald instance access store. */
+    readonly access?: AccessStore
     readonly notifications?: NotificationStore
     readonly analytics?: AnalyticsStore
     readonly providerAnalytics?: ProviderAnalyticsStore
@@ -67,7 +72,8 @@ function createDomainApp({
     logging,
     onWorkScheduled,
     runtime,
-    accessTokens,
+    apiKeyActors,
+    access,
     notifications,
     analytics,
     providerAnalytics,
@@ -80,6 +86,8 @@ function createDomainApp({
     discordFetcher,
     devtoFetcher,
 }: HeraldAppOptions) {
+    const accessStore = access ?? createAccessStore(database)
+    const apiKeyActorStore = apiKeyActors ?? createProjectApiKeyActorStore(database)
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
         media,
@@ -136,6 +144,7 @@ function createDomainApp({
                     security: [{ bearerAuth: [] }, { sessionCookie: [] }],
                     tags: [
                         { name: 'System', description: 'Service health and runtime information.' },
+                        { name: 'Access', description: 'Instance membership and invitations.' },
                         { name: 'Projects', description: 'Project lifecycle and access.' },
                         { name: 'Channels', description: 'Project publication destinations.' },
                         { name: 'Posts', description: 'Source posts and publication creation.' },
@@ -179,9 +188,11 @@ function createDomainApp({
                 media,
                 logger,
                 onWorkScheduled,
+                now: manualStoreOptions?.now,
                 discordFetcher,
                 devtoFetcher,
-                accessTokens,
+                apiKeyActors: apiKeyActorStore,
+                access: accessStore,
                 notifications: notificationStore,
                 analytics: analyticsStore,
                 providerAnalytics: providerAnalyticsStore,
@@ -214,7 +225,8 @@ export function createApp({
     logging,
     onWorkScheduled,
     runtime,
-    accessTokens,
+    apiKeyActors,
+    access,
     notifications,
     analytics,
     providerAnalytics,
@@ -237,7 +249,8 @@ export function createApp({
         logging,
         onWorkScheduled,
         runtime,
-        accessTokens,
+        apiKeyActors,
+        access,
         notifications,
         analytics,
         providerAnalytics,

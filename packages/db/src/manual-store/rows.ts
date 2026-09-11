@@ -13,6 +13,7 @@ export interface ProjectRow {
     readonly id: string
     readonly name: string
     readonly timeZone: string
+    readonly organizationId: string | null
     readonly primaryCategoryId: string | null
     readonly createdAt: number
     readonly updatedAt: number

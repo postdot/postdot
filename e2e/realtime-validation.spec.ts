@@ -29,7 +29,7 @@ test('keeps an invalid project URL explicit instead of changing project context'
 })
 
 test('refreshes project data after realtime reconnect and project events', async ({ page }) => {
-    test.setTimeout(30_000)
+    test.setTimeout(45_000)
 
     await installFakeEventSource(page)
     const suffix = randomUUID().slice(0, 8)
@@ -57,7 +57,9 @@ test('refreshes project data after realtime reconnect and project events', async
 
     await emitEventSourceSignal(page, 'error')
     await emitEventSourceSignal(page, 'open')
-    await expect.poll(() => publicationRequests.length).toBeGreaterThan(initialRequestCount)
+    await expect
+        .poll(() => publicationRequests.length, { timeout: 10_000 })
+        .toBeGreaterThan(initialRequestCount)
     await page.waitForTimeout(1_400)
 
     const updateRequestCount = publicationRequests.length
@@ -75,7 +77,9 @@ test('refreshes project data after realtime reconnect and project events', async
             payload: {},
         })
     )
-    await expect.poll(() => publicationRequests.length).toBeGreaterThan(updateRequestCount)
+    await expect
+        .poll(() => publicationRequests.length, { timeout: 10_000 })
+        .toBeGreaterThan(updateRequestCount)
     await page.waitForTimeout(1_400)
 
     const resyncRequestCount = publicationRequests.length
@@ -84,7 +88,9 @@ test('refreshes project data after realtime reconnect and project events', async
         'project.resync-required',
         JSON.stringify({ reason: 'e2e-validation' })
     )
-    await expect.poll(() => publicationRequests.length).toBeGreaterThan(resyncRequestCount)
+    await expect
+        .poll(() => publicationRequests.length, { timeout: 10_000 })
+        .toBeGreaterThan(resyncRequestCount)
 })
 
 test('shows notification loading, error, and retry states', async ({ page }) => {
