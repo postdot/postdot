@@ -215,10 +215,12 @@ composition while retaining Cobalt as a signal, neutral foundations, and the
 source-to-destinations mental model as its product-specific anchor.
 
 Transactional email is a compact public-surface adaptation of the same system:
-the Herald mark and Recursive Variable remain recognizable, while Graphite,
-Ash, and Cobalt carry the header, surface, and action roles. Email clients that
-do not support the webfont or inline SVG must still receive a deliberate,
-readable fallback rather than an unbranded default template.
+the Herald mark and Recursive Variable remain recognizable, while Ash and the
+near-flat raised surface provide the quiet canvas and Cobalt is reserved for the
+mark and primary action. It deliberately avoids a decorative dark banner,
+oversized depth, and rounded notice cards. Email clients that do not support the
+webfont or inline SVG must still receive a deliberate, readable fallback rather
+than an unbranded default template.
 
 The landing-page audience, proposition, proof assets, and conversion action
 are open questions. A separate direction comparison is required before
@@ -297,8 +299,9 @@ building it; the current app contract must not silently decide those choices.
   accepted as the product logo, with an inline current-color implementation for
   themed application surfaces and standalone app-rail treatment; 2026-09-11
   — the transactional email adaptation accepted as a compact brand surface
-  with the shared mark, Recursive Variable progressive enhancement, and
-  Graphite/Ash/Cobalt roles plus client-safe fallbacks.
+  with the shared mark, Recursive Variable progressive enhancement, a near-flat
+  Ash/raised composition, restrained surface depth, Cobalt action, and
+  client-safe fallbacks.
 
 ## Calibration
 

@@ -28,9 +28,12 @@ The shared layout reuses the owner-supplied `HeraldLogo` from `@herald/ui` and
 adapts the accepted Graphite/Ash/Cobalt visual system to email-safe inline
 styles. It declares the accepted Recursive Variable family through
 `@react-email/font`, with a pinned public webfont URL as progressive enhancement
-and Arial/Helvetica fallbacks for clients that do not load webfonts. The
-Graphite header, compact logo lockup, neutral Ash surface, restrained shadow,
-and Cobalt action establish the Herald identity without adding instructional
+and Arial/Helvetica fallbacks for clients that do not load webfonts. The email
+surface stays close to the application: an Ash canvas, a near-flat raised
+surface with a six-pixel radius and the shared restrained surface shadow, a
+small cobalt mark lockup, and a flat Cobalt action. There is no decorative dark
+banner, oversized shadow, or rounded notice card; the identity comes from the
+same typography, mark, spacing, and color roles without adding instructional
 copy to each message.
 
 The runtime uses the focused `@react-email/*` component and render packages so

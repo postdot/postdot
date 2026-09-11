@@ -28,6 +28,9 @@ describe('Herald email templates', () => {
         expect(result.html).toContain('Project Owner &amp; team')
         expect(result.html).toContain('Recursive Variable')
         expect(result.html).toContain('viewBox="0 0 189 189"')
+        expect(result.html).toContain('border-radius:6px')
+        expect(result.html).toContain('0 2px 4px rgba(24, 24, 27, 0.04)')
+        expect(result.html).not.toContain('background-color:#121210')
         expect(result.html).toContain(
             'href="https://app.example.test/invite?id=one&amp;source=email"'
         )

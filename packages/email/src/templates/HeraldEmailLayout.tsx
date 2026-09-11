@@ -43,9 +43,9 @@ export function HeraldEmailLayout({ preview, title, children }: HeraldEmailLayou
                                         <td style={emailStyles.brandLogoCell}>
                                             <HeraldLogo
                                                 aria-label="Herald"
-                                                height="38"
-                                                style={{ color: '#7ca2f6', display: 'block' }}
-                                                width="38"
+                                                height="30"
+                                                style={{ color: '#426bce', display: 'block' }}
+                                                width="30"
                                             />
                                         </td>
                                         <td style={emailStyles.brandWordmarkCell}>

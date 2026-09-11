@@ -19,8 +19,9 @@ without using a real mailbox.
   preview server can render each template without runtime props; production
   renderers keep their required typed inputs.
 - Reworked the shared email layout to reuse Herald's logo and Recursive Variable
-  type role, with Graphite/Ash/Cobalt surfaces, a compact brand lockup, and
-  restrained depth; webfont and client fallbacks remain explicit.
+  type role, with the application's Ash canvas, near-flat raised surface,
+  compact cobalt mark lockup, flat action treatment, and restrained surface
+  shadow; webfont and client fallbacks remain explicit.
 - Moved template rendering out of the API email transport; the API now maps
   Better Auth callback data to the package and retains Nodemailer ownership.
 - Added the development-only `docker-compose.dev.yml` Mailpit service on loopback
