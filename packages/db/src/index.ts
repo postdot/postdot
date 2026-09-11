@@ -251,6 +251,8 @@ export type {
     PublicationWorkingDraft,
     PublicationEditorState,
     PublicationSummary,
+    PublicationSummaryPage,
+    PublicationSummaryPageOptions,
     PublicationTargetRevision,
     SavePublicationDraftInput,
     RebasePublicationDraftInput,

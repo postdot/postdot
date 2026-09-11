@@ -174,6 +174,31 @@ describe('project event stream', () => {
         expect(calls).toBe(callsAtClose)
     })
 
+    it('closes with an access-revoked signal before serving events after membership removal', async () => {
+        const entry = journalEntry({ id: 'must-not-leak', sequence: 1 })
+        let authorized = true
+        const stream = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: { readAfter: () => [entry] },
+            after: null,
+            isAuthorized: () => {
+                authorized = false
+                return authorized
+            },
+            options: { heartbeatIntervalMs: 100, batchSize: 10 },
+        })
+
+        const reader = stream.getReader()
+        const result = await readText(reader)
+        const terminal = await readText(reader)
+
+        expect(result.text).toContain('event: project.access-revoked')
+        expect(result.text).toContain('"reason":"access_revoked"')
+        expect(result.text).not.toContain('must-not-leak')
+        expect(terminal.done).toBe(true)
+    })
+
     it('waits for a process wakeup instead of polling SQLite per connection', async () => {
         const entry = journalEntry({ id: 'event-1', sequence: 1 })
         let calls = 0
@@ -225,6 +250,32 @@ describe('project event stream', () => {
 
         expect(unsupported).toBeNull()
         expect(mismatched).toBeNull()
+    })
+
+    it('delivers taxonomy changes through the same safe project event contract', () => {
+        const tagCreated = toProjectRealtimeEvent({
+            ...journalEntry({ id: 'tag-created', name: 'project_tag.created', sequence: 1 }),
+            subject: { type: 'project_tag', id: 'tag-1' },
+        })
+        const tagsReplaced = toProjectRealtimeEvent({
+            ...journalEntry({
+                id: 'tags-replaced',
+                name: 'publication.tags_replaced',
+                sequence: 2,
+            }),
+            subject: { type: 'publication', id: 'publication-1' },
+        })
+
+        expect(tagCreated).toMatchObject({
+            type: 'project_tag.created',
+            entity: { type: 'project_tag', id: 'tag-1' },
+            payload: {},
+        })
+        expect(tagsReplaced).toMatchObject({
+            type: 'publication.tags_replaced',
+            entity: { type: 'publication', id: 'publication-1' },
+            payload: {},
+        })
     })
 
     it('closes instead of emitting an entry returned for another project', async () => {

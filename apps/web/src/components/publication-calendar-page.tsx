@@ -3,6 +3,7 @@ import { Input } from '@herald/ui/components/input'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 
@@ -13,10 +14,13 @@ import {
     PublicationCalendarMonth,
 } from '@/components/publication-calendar-view'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
+import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
+import { projectQueryKeys } from '@/lib/project-realtime'
 import {
     createCalendarMonth,
+    getCalendarMonthTimestampRange,
     getUnscheduledPublications,
     shiftCalendarMonth,
     startOfCalendarMonth,
@@ -36,9 +40,31 @@ export function PublicationCalendarPage({
     )
     const todayDate = toDateKey(new Date(), project.timeZone)
     const [mobileCreateDate, setMobileCreateDate] = useState(todayDate)
+    const calendarRange = useMemo(
+        () => getCalendarMonthTimestampRange(monthCursor, project.timeZone),
+        [monthCursor, project.timeZone]
+    )
+    const calendarPublicationsQuery = useQuery({
+        queryKey: [
+            ...projectQueryKeys.calendarPublications(project.id),
+            calendarRange.from,
+            calendarRange.to,
+        ],
+        queryFn: () => loadCalendarPublications(project.id, calendarRange),
+        staleTime: Number.POSITIVE_INFINITY,
+        retry: 1,
+    })
+    const calendarPublications = calendarPublicationsQuery.data ?? publications
     const month = useMemo(
-        () => createCalendarMonth(monthCursor, publications, new Date(), project.timeZone, locale),
-        [locale, monthCursor, project.timeZone, publications]
+        () =>
+            createCalendarMonth(
+                monthCursor,
+                calendarPublications,
+                new Date(),
+                project.timeZone,
+                locale
+            ),
+        [calendarPublications, locale, monthCursor, project.timeZone]
     )
     const scheduledPublications = publications.filter(
         publication => publication.scheduledAt !== null
@@ -201,4 +227,25 @@ export function PublicationCalendarPage({
             ) : null}
         </main>
     )
+}
+
+async function loadCalendarPublications(
+    projectId: string,
+    range: { readonly from: number; readonly to: number }
+) {
+    const publications = [] as Awaited<ReturnType<typeof api.listPublications>>['publications']
+    let cursor: string | undefined
+
+    do {
+        const page = await api.listPublications(projectId, {
+            cursor,
+            from: range.from,
+            limit: 100,
+            to: range.to,
+        })
+        publications.push(...page.publications)
+        cursor = page.nextCursor ?? undefined
+    } while (cursor !== undefined)
+
+    return publications
 }

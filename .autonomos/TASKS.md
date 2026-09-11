@@ -205,3 +205,19 @@ surface and operational copy-density work.
 ## 🧩 Built-in channel profile follow-up
 
 - [x] **[CHANNEL-142]** Add reusable built-in channel profile presets `Priority: 🔵` `Complexity: M` — expose editable, versioned starting profiles for common channel families without making presets live authorities or limiting fully runtime-defined custom channels. Provider-owned profiles are published through a typed catalog and copied into editable custom starters in the channel flow.
+
+## 🧱 Foundation consolidation after the 2026-09-11 audit
+
+The independent foundation audit is recorded in `worklogs/2026-09-11-herald-audit/`.
+The following tasks are intentionally linked to separate accepted issues so that
+each correction retains its evidence and its own completion contract. The practical
+sequence starts with low-risk hygiene, then closes the access boundary, then fixes
+the central project reads and projection/realtime reliability.
+
+- [x] **[OPS-148]** Keep Drizzle migration sources intact during ordinary cleanup `Priority: 🟠` `Complexity: S` — [ISSUE-073]; clean only disposable build outputs and prove the migration directory survives a disposable clean/start cycle.
+- [x] **[QUAL-149]** Add root script tests to the standard repository gate `Priority: 🟠` `Complexity: S` — [ISSUE-074]; make the eight CLI/runtime-isolation tests part of `bun run check` and prove the gate catches a regression in that family.
+- [x] **[ACCESS-143]** Enforce the accepted role matrix across all project mutations `Priority: 🔴` `Complexity: L` — [ISSUE-068]; cover viewer/editor/owner and project-key principals across content, channels, profiles, media, tags, delivery, and access operations with no side effects on denial.
+- [x] **[REALTIME-144]** Reauthorize or close project SSE streams after access lifecycle changes `Priority: 🔴` `Complexity: L` — [ISSUE-069]; cover removal, downgrade, disablement, session expiry/logout, bounded revocation delay, and fully authorized reconnects.
+- [x] **[WEB-145]** Make Queue pagination and calendar range reads complete and bounded `Priority: 🔴` `Complexity: L` — [ISSUE-070]; define stable continuation for Queue and a date-scoped calendar read so history cannot silently hide relevant work.
+- [x] **[NOTIFY-146]** Make notification projection recovery drain durable backlogs `Priority: 🟠` `Complexity: M` — [ISSUE-071]; continue bounded batches, recover after transient errors, and expose a truthful lag/runtime state.
+- [x] **[REALTIME-147]** Complete the server/client realtime event contract for taxonomy `Priority: 🟠` `Complexity: M` — [ISSUE-072]; deliver tag changes to other clients and verify deterministic invalidation without widening event payloads.

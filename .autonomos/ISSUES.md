@@ -1808,3 +1808,180 @@ channels` with a foreign-key constraint error even though a fresh empty database
   generated baseline, and the test suite verifies that obsolete tables cannot appear
   in a fresh database. A database file is intentionally not reset by application
   code; a stale disposable local file must be moved aside explicitly.
+
+## [ISSUE-068] Enforce the accepted project role boundary on every mutation
+
+- Type: problem
+- Status: resolved
+- Evidence: The 2026-09-11 foundation audit reproduced a project member with the
+  Better Auth `viewer` role receiving `201 Created` from both channel creation and
+  post creation. The same fixture received `403` for the existing project timezone
+  mutation, proving that the role is known but not enforced consistently. See the
+  [security audit](worklogs/2026-09-11-herald-audit/01-securite-et-acces.md).
+- Impact: A principal explicitly granted read-only access can modify project
+  content and potentially influence downstream publication work. The current
+  route-level test coverage can therefore pass while the product-wide role contract
+  remains false.
+- Desired outcome: Every project operation accepts only a principal with the
+  current capability required by that operation; read-only members cannot mutate
+  project state, valid editors and owners retain their intended operations, and
+  denied requests leave no durable or external side effect.
+- Tasks: ACCESS-143
+- Related issues: ISSUE-013, ISSUE-062, ISSUE-067
+- Related decisions: ADR-061, ADR-064
+- Resolution: A shared project-role guard now protects every project content,
+  channel, profile, media, taxonomy, delivery, and provider-analytics mutation.
+  It runs before the domain store or external provider flow, so viewers receive
+  403 without side effects while editors and owners retain their capabilities.
+  Owner-only membership, project-setting, and API-key operations remain explicit
+  human-session boundaries. The lifecycle integration test covers viewer denial,
+  editor success, removed access, and project-token restrictions.
+
+## [ISSUE-069] End or reauthorize project event streams after access revocation
+
+- Type: problem
+- Status: resolved
+- Evidence: The audit opened a project SSE stream as a viewer, removed the
+  membership, confirmed a new project read was rejected, and then observed a later
+  `channel.created` event on the already-open stream. The stream currently checks
+  access at connection time but does not revalidate the principal during its
+  lifetime. See the [security audit](worklogs/2026-09-11-herald-audit/01-securite-et-acces.md).
+- Impact: Revoked members can continue observing project identifiers, event types,
+  subjects, and timestamps. The reproduction did not expose post text, tokens, or
+  provider responses, but it violates the expected lifetime of a revoked project
+  access grant.
+- Desired outcome: A project event stream stops exposing project facts after a
+  revoked, expired, disabled, or logged-out principal is no longer authorized, and
+  every reconnect performs the complete current access check within an explicit
+  bounded delay.
+- Tasks: REALTIME-144
+- Related issues: ISSUE-050, ISSUE-064, ISSUE-068
+- Related decisions: ADR-048, ADR-050
+- Resolution: Project SSE streams revalidate the Better Auth session and current
+  project membership before each journal read and again before serving the
+  resulting batch. A failed check emits a terminal `project.access-revoked`
+  signal and closes the stream; the browser consumes that signal and disables
+  automatic reconnection. The default recheck bound is the existing 15-second
+  heartbeat interval, and the stream tests cover fail-closed revocation.
+
+## [ISSUE-070] Make publication history and calendar reads complete at supported scale
+
+- Type: problem
+- Status: resolved
+- Evidence: The publication summary reader applies a fixed limit of 100 while the
+  API returns only `{ publications }` and the web project context consumes that
+  array as the complete data set for Queue and calendar views. The audit created 101
+  stored publications and received 100 with no continuation metadata. See the
+  [reliability audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+- Impact: Queue filters, counters, and the calendar can silently omit valid work.
+  Ordering the bounded result before the calendar groups it can also hide future
+  publications behind older history; the database rows themselves are not lost.
+- Desired outcome: Users can reach every publication relevant to Queue filters and
+  every publication in a selected calendar period without silent truncation, while
+  response size and query cost remain bounded and the scope of counters is explicit.
+- Tasks: WEB-145
+- Related issues: ISSUE-009, ISSUE-019, ISSUE-063, ISSUE-066
+- Related decisions: ADR-002, ADR-032, ADR-057
+- Resolution: Publication summaries now use a bounded keyset page with a
+  versioned continuation cursor. Queue exposes an explicit load-more action,
+  while calendar reads request the selected month as a half-open timestamp range
+  and drain its pages. Calendar queries have their own cache key and realtime
+  invalidation path, and the database/API tests cover tails, filters, invalid
+  cursors, ranges, and timezone boundaries.
+
+## [ISSUE-071] Make notification projection catch up completely after a delay
+
+- Type: problem
+- Status: resolved
+- Evidence: The notification projection runtime stops after ten batches even when
+  the store reports more work and returns to `started`. Production constructs the
+  runtime without a recovery interval, so a backlog larger than the bounded pass can
+  remain unprojected until another signal or restart. The audit reproduced twelve
+  required batches as ten processed with state `started`. See the [reliability
+  audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+- Impact: The durable fact journal remains intact, but the user-global notification
+  inbox can be stale or incomplete while readiness still reports the runtime as
+  active. Recovery after interruption is therefore not guaranteed by the current
+  projection lifecycle.
+- Desired outcome: A bounded notification projection eventually processes all
+  eligible durable facts after interruption or transient failure, exposes meaningful
+  lag or failure state, and does not block the API with an unbounded synchronous loop.
+- Tasks: NOTIFY-146
+- Related issues: ISSUE-046, ISSUE-050, ISSUE-066
+- Related decisions: ADR-038, ADR-058, ADR-059
+- Resolution: The projection runtime keeps the per-run ten-batch bound but
+  schedules an asynchronous continuation whenever a project still reports work.
+  It also schedules delayed retry after a transient failure, merges project
+  wakeups without overlapping runs, cancels pending work on stop, and exposes a
+  `recovering` or `failed` state instead of silently returning to `started`.
+  Runtime tests cover backlog continuation and lifecycle behavior.
+
+## [ISSUE-072] Deliver taxonomy changes through the realtime contract
+
+- Type: problem
+- Status: resolved
+- Evidence: Taxonomy mutations append `project_tag.*` and
+  `publication.tags_replaced` facts, but those event names are absent from both the
+  server and browser realtime allowlists. The real `publication.tags_replaced`
+  event is therefore converted to no client event. See the [client architecture
+  audit](worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md).
+- Impact: Another tab or session can retain stale tags, filters, and publication
+  data indefinitely because the project query uses an infinite stale time and relies
+  on realtime invalidation or an explicit local action.
+- Desired outcome: Every committed taxonomy mutation that affects a visible project
+  resource either produces a supported realtime invalidation event or causes a
+  deterministic resynchronization, with server and client event contracts kept in
+  agreement.
+- Tasks: REALTIME-147
+- Related issues: ISSUE-050, ISSUE-053, ISSUE-063, ISSUE-066
+- Related decisions: ADR-050, ADR-062
+- Resolution: Project-tag creation, rename, archive, restore, and publication
+  tag replacement are now present in both the server and browser realtime
+  allowlists. The existing empty-payload contract is preserved; the web bridge
+  invalidates project data, publication data, and notifications deterministically
+  for the affected resource. Server and browser tests exercise the taxonomy
+  event contract.
+
+## [ISSUE-073] Keep migration sources outside ordinary build cleanup
+
+- Type: problem
+- Status: resolved
+- Evidence: `packages/db/package.json` defines `clean` as `rimraf dist .turbo drizzle`,
+  while `drizzle` contains the committed migration SQL and metadata. The audit did
+  not execute the destructive command against the repository, but the script and
+  tracked files establish the behavior statically. See the [reliability audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+- Impact: A normal cleanup can remove the source history required for a fresh
+  startup or package build. Git can restore committed files, but a local migration
+  that has not been committed is not recoverable through that path.
+- Desired outcome: Routine cleanup removes only disposable build outputs; any
+  deliberate migration reset is a separately named, explicit, documented operation
+  and cleanup is proven safe in a disposable clone.
+- Tasks: OPS-148
+- Related issues: ISSUE-001, ISSUE-008, ISSUE-026, ISSUE-067
+- Related decisions: ADR-005, ADR-064
+- Resolution: The database package cleanup now removes only `dist` and `.turbo`;
+  the committed Drizzle migration directory is outside ordinary cleanup. A
+  disposable clean verification preserved the baseline SQL and migration journal
+  byte-for-byte.
+
+## [ISSUE-074] Include repository-level test families in the standard quality gate
+
+- Type: problem
+- Status: resolved
+- Evidence: `bun run check` reaches workspace tests through Turbo but does not run
+  the eight tests under `scripts/`; those tests are only green when invoked
+  separately with `bun test scripts`. The audit confirmed the omission in the Turbo
+  task graph and the root package scripts. See the [client and quality audit](worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md).
+- Impact: Regressions in the CLI and runtime-isolation helpers can merge while the
+  repository's advertised check remains green. This weakens confidence in the same
+  orchestration paths used by local development and browser validation.
+- Desired outcome: The normal repository quality gate executes every required test
+  family, including root-level scripts, and a deliberate regression in that family
+  fails the gate.
+- Tasks: QUAL-149
+- Related issues: ISSUE-017, ISSUE-025, ISSUE-066
+- Related decisions: ADR-029
+- Resolution: The root `test:unit` command now runs the Turbo workspace suites
+  and the dedicated `test:scripts` command. The eight CLI and runtime-isolation
+  tests pass through that explicit gate, so root script regressions are no longer
+  outside the normal repository check.

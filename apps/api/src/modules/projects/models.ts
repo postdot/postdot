@@ -357,6 +357,11 @@ export const publicationSummarySchema = Type.Unsafe<PublicationSummary>(
     ])
 )
 
+export const publicationSummaryPageSchema = Type.Object({
+    publications: Type.Array(publicationSummarySchema),
+    nextCursor: Type.Union([Type.String({ minLength: 1, maxLength: 1_024 }), Type.Null()]),
+})
+
 export type ProjectResponse = Static<typeof projectSchema>
 export type ChannelResponse = Static<typeof channelSchema>
 export type ChannelProfileVersionResponse = Static<typeof channelProfileVersionSchema>
@@ -370,6 +375,7 @@ export type PublicationResponse = Static<typeof publicationSchema>
 export type DuePublicationResponse = Static<typeof duePublicationSchema>
 export type PublicationEditorStateResponse = Static<typeof publicationEditorStateSchema>
 export type PublicationSummaryResponse = Static<typeof publicationSummarySchema>
+export type PublicationSummaryPageResponse = Static<typeof publicationSummaryPageSchema>
 export type AuditEventResponse = Static<typeof auditEventSchema>
 export type ProjectAccessTokenResponse = Static<typeof projectAccessTokenSchema>
 export type ProjectMemberResponse = Static<typeof projectMemberSchema>
@@ -424,6 +430,10 @@ export const publicationListQuery = Type.Object({
             }),
         ])
     ),
+    cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    from: Type.Optional(Type.Integer({ minimum: 0 })),
+    to: Type.Optional(Type.Integer({ minimum: 0 })),
 })
 
 export type PublicationListQuery = Static<typeof publicationListQuery>

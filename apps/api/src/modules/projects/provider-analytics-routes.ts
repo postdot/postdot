@@ -1,5 +1,6 @@
-import type { ProviderAnalyticsStore } from '@herald/db'
+import type { AccessStore, ProviderAnalyticsStore } from '@herald/db'
 
+import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import type { BlueskyAnalyticsService } from './bluesky-analytics-service'
 import { errorResponse, projectParams } from './models'
 import {
@@ -13,7 +14,8 @@ import type { AuthenticatedElysia } from './types'
 export function registerProviderAnalyticsRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     providerAnalytics: ProviderAnalyticsStore,
-    blueskyAnalytics: BlueskyAnalyticsService
+    blueskyAnalytics: BlueskyAnalyticsService,
+    access: AccessStore
 ) {
     return app
         .get(
@@ -60,6 +62,7 @@ export function registerProviderAnalyticsRoutes<const Routes extends Record<stri
                     200: blueskyAnalyticsCollectionResponseSchema,
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     422: errorResponse,
                 },
@@ -69,7 +72,18 @@ export function registerProviderAnalyticsRoutes<const Routes extends Record<stri
                     tags: ['Provider Analytics'],
                 },
             },
-            async ({ body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const result = await blueskyAnalytics.collect({
                     projectId: params.projectId,
                     subjectId: user.id,

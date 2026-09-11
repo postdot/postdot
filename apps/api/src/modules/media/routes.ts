@@ -1,8 +1,9 @@
-import type { MediaAssetStore } from '@herald/db'
+import type { AccessStore, MediaAssetStore } from '@herald/db'
 import type { OpenAPIV3 } from 'openapi-types'
 import { Type, type Static } from 'typebox'
 
 import type { AuthenticatedElysia } from '../../plugins/auth'
+import { canAccessProjectRole, forbiddenProjectMutation } from '../projects/authorization'
 import { errorResponse } from '../projects/models'
 
 const mediaProjectParams = Type.Object({
@@ -167,7 +168,8 @@ export type MediaDeletionResponse = Static<typeof deletionResponse>
 
 export function registerMediaRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    media: MediaAssetStore | undefined
+    media: MediaAssetStore | undefined,
+    access: AccessStore
 ) {
     return app
         .post(
@@ -179,6 +181,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 response: {
                     201: mediaReservationSchema,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
                 },
@@ -188,8 +191,19 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const reservation = media.reserveUpload({
                     projectId: params.projectId,
                     subjectId: user.id,
@@ -215,6 +229,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     200: uploadedResponse,
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                     503: errorResponse,
@@ -225,8 +240,19 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            async ({ params, request, status, user }) => {
+            async ({ authMethod, params, request, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 if (request.body === null) {
                     return status(400, {
                         error: {
@@ -277,6 +303,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     200: finalizedResponse,
                     202: pendingResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
                 },
@@ -286,8 +313,19 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            async ({ params, status, user }) => {
+            async ({ authMethod, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const result = await media.finalizeUpload({
                     projectId: params.projectId,
                     subjectId: user.id,
@@ -445,6 +483,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     200: deletionResponse,
                     202: deletionResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
                 },
@@ -454,8 +493,19 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ params, status, user }) => {
+            ({ authMethod, params, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const result = media.requestDeletion(params.projectId, params.assetId, user.id)
                 if (result.kind === 'not_found') {
                     return status(404, {

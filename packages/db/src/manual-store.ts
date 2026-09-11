@@ -51,6 +51,10 @@ export type {
     RestoreChannelInput,
 } from './manual-store/channel-lifecycle-store'
 export type {
+    PublicationSummaryPage,
+    PublicationSummaryPageOptions,
+} from './manual-store/publication-read-store'
+export type {
     CreateChannelInput,
     CreateProjectInput,
     CreatedProject,

@@ -38,6 +38,7 @@ export interface ProjectData {
     readonly due: DuePublication[]
     readonly connections: PublisherConnection[]
     readonly publications: PublicationSummary[]
+    readonly publicationsNextCursor: string | null
     readonly projectTags: ProjectTag[]
 }
 
@@ -56,6 +57,7 @@ export async function loadProjectData(projectId: string): Promise<ProjectData> {
         due: dueResponse.publications,
         connections: publisherResponse.connections,
         publications: publicationResponse.publications,
+        publicationsNextCursor: publicationResponse.nextCursor,
         projectTags: tagResponse.tags,
     }
 }
@@ -150,6 +152,8 @@ export interface ProjectDashboardContextValue extends ProjectData {
     ) => Promise<boolean>
     readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
     readonly onPublish: (publicationId: string) => Promise<void>
+    readonly onLoadMorePublications: () => Promise<void>
+    readonly loadingMorePublications: boolean
     readonly pending: boolean
     readonly postContent: string
     readonly postTitle: string
@@ -191,6 +195,7 @@ export function ProjectDashboardProvider({
     ])
     const [publicationTagIds, setPublicationTagIds] = useState<string[]>([])
     const [pending, setPending] = useState(false)
+    const [loadingMorePublications, setLoadingMorePublications] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     function setProjectData(updater: (current: ProjectData) => ProjectData): void {
@@ -337,6 +342,37 @@ export function ProjectDashboardProvider({
             await api.publishManualPublication(project.id, publicationId)
             await refreshProject()
         })
+    }
+
+    async function handleLoadMorePublications() {
+        if (loadingMorePublications) return
+
+        const current =
+            queryClient.getQueryData<ProjectData>(projectQueryKeys.data(project.id)) ?? initialData
+        const cursor = current.publicationsNextCursor
+        if (cursor === null) return
+
+        setLoadingMorePublications(true)
+        try {
+            const response = await api.listPublications(project.id, { cursor, limit: 100 })
+            setProjectData(currentData => {
+                const knownIds = new Set(
+                    currentData.publications.map(publication => publication.id)
+                )
+                const newPublications = response.publications.filter(
+                    publication => !knownIds.has(publication.id)
+                )
+                return {
+                    ...currentData,
+                    publications: [...currentData.publications, ...newPublications],
+                    publicationsNextCursor: response.nextCursor,
+                }
+            })
+        } catch (caughtError) {
+            setError(formatApiError(caughtError))
+        } finally {
+            setLoadingMorePublications(false)
+        }
     }
 
     async function handleStartLinkedInConnection(
@@ -563,6 +599,8 @@ export function ProjectDashboardProvider({
         onConnectDiscordPublisher: handleConnectDiscordPublisher,
         onConnectDevtoPublisher: handleConnectDevtoPublisher,
         onPublish: handlePublish,
+        onLoadMorePublications: handleLoadMorePublications,
+        loadingMorePublications,
         pending,
         postContent,
         postTitle,

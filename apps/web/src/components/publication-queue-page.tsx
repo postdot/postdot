@@ -29,7 +29,17 @@ export function PublicationQueuePage({
     readonly initialTagIds?: readonly string[]
 }) {
     const { locale } = useLanguage()
-    const { due, onPublish, pending, project, projectTags, publications } = useProjectDashboard()
+    const {
+        due,
+        loadingMorePublications,
+        onLoadMorePublications,
+        onPublish,
+        pending,
+        project,
+        projectTags,
+        publications,
+        publicationsNextCursor,
+    } = useProjectDashboard()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/queue' })
     const [filter, setFilter] = useState<QueueFilter>('all')
     const [tagIds, setTagIds] = useState<string[]>(() => [...initialTagIds])
@@ -196,6 +206,16 @@ export function PublicationQueuePage({
                         publications={visiblePublications}
                         timeZone={project.timeZone}
                     />
+                    {publicationsNextCursor !== null ? (
+                        <div className="mt-5 flex justify-center">
+                            <Button
+                                disabled={loadingMorePublications}
+                                onClick={() => void onLoadMorePublications()}
+                                variant="outline">
+                                {loadingMorePublications ? m.common_loading() : m.queue_load_more()}
+                            </Button>
+                        </div>
+                    ) : null}
                 </section>
                 {due.length > 0 ? (
                     <div className="order-first min-w-0 xl:order-last">

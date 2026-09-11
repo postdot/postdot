@@ -55,6 +55,26 @@ export interface PublicationReadStoreApi {
         subjectId: string,
         filter?: PublicationTagFilter
     ) => PublicationSummary[] | null
+    readonly listPublicationSummaryPage: (
+        projectId: string,
+        subjectId: string,
+        options?: PublicationSummaryPageOptions
+    ) => PublicationSummaryPage | null
+}
+
+export interface PublicationSummaryPageOptions {
+    readonly filter?: PublicationTagFilter
+    readonly cursor?: string | null
+    readonly limit?: number
+    /** Inclusive UTC timestamp lower bound for scheduled publications. */
+    readonly from?: number | null
+    /** Exclusive UTC timestamp upper bound for scheduled publications. */
+    readonly to?: number | null
+}
+
+export interface PublicationSummaryPage {
+    readonly publications: PublicationSummary[]
+    readonly nextCursor: string | null
 }
 
 export interface PublicationReadStoreHandle {
@@ -127,9 +147,19 @@ export function createPublicationReadStore(
           and id = ?2
           and publication_id = ?3
     `)
-    const listPublicationSummariesStatement = client.query<
+    const listPublicationSummaryPageStatement = client.query<
         PublicationSummaryRow,
-        [projectId: string, tagIdsJson: string, limit: number]
+        [
+            projectId: string,
+            tagIdsJson: string,
+            cursorBucket: number | null,
+            cursorScheduledAt: number | null,
+            cursorUpdatedAt: number | null,
+            cursorId: string | null,
+            from: number | null,
+            to: number | null,
+            limit: number,
+        ]
     >(`
         with selected_tag_ids as (
             select value as tagId
@@ -189,16 +219,126 @@ export function createPublicationReadStore(
                   where matching_publications.publicationId = publications.id
               )
           )
+          and (
+              ?3 is null
+              or (
+                  ?3 = 0
+                  and (
+                      publications.scheduled_at is null
+                      or publications.scheduled_at > ?4
+                      or (
+                          publications.scheduled_at = ?4
+                          and (
+                              publications.updated_at < ?5
+                              or (
+                                  publications.updated_at = ?5
+                                  and publications.id > ?6
+                              )
+                          )
+                      )
+                  )
+              )
+              or (
+                  ?3 = 1
+                  and publications.scheduled_at is null
+                  and (
+                      publications.updated_at < ?5
+                      or (
+                          publications.updated_at = ?5
+                          and publications.id > ?6
+                      )
+                  )
+              )
+          )
+          and (?7 is null or publications.scheduled_at >= ?7)
+          and (?8 is null or publications.scheduled_at < ?8)
         order by
             case when publications.scheduled_at is null then 1 else 0 end,
             publications.scheduled_at,
             publications.updated_at desc,
             publications.id
-        limit ?3
+        limit ?9
     `)
 
     const loadWorkingDraft = (projectId: string, publicationId: string) =>
         loadWorkingDraftStatement.get(projectId, publicationId)
+
+    const listPublicationSummaryPage = (
+        projectId: string,
+        subjectId: string,
+        pageOptions: PublicationSummaryPageOptions = {}
+    ): PublicationSummaryPage | null => {
+        const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+        const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+        if (options.loadActor(normalizedProjectId, normalizedSubjectId) === null) return null
+
+        const limit = pageOptions.limit ?? 100
+        if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+            throw new DomainInvariantError(
+                'invalid_input',
+                'publication list limit must be between 1 and 100'
+            )
+        }
+
+        const from = normalizeOptionalTimestamp(pageOptions.from, 'from')
+        const to = normalizeOptionalTimestamp(pageOptions.to, 'to')
+        if (from !== null && to !== null && to <= from) {
+            throw new DomainInvariantError(
+                'invalid_input',
+                'publication list range must have a to timestamp after from'
+            )
+        }
+
+        const cursor = parsePublicationCursor(pageOptions.cursor)
+        const normalizedFilter = createPublicationTagFilter(pageOptions.filter?.tagIds ?? [])
+        const rows = listPublicationSummaryPageStatement.all(
+            normalizedProjectId,
+            JSON.stringify(normalizedFilter.tagIds),
+            cursor?.scheduledAt === null ? 1 : cursor === null ? null : 0,
+            cursor?.scheduledAt ?? null,
+            cursor?.updatedAt ?? null,
+            cursor?.id ?? null,
+            from,
+            to,
+            limit + 1
+        )
+        const hasMore = rows.length > limit
+        const pageRows = rows.slice(0, limit)
+        const lastRow = hasMore ? pageRows.at(-1) : undefined
+
+        return {
+            publications: pageRows.map(toPublicationSummary),
+            nextCursor:
+                lastRow === undefined
+                    ? null
+                    : encodePublicationCursor({
+                          scheduledAt: lastRow.scheduledAt,
+                          updatedAt: lastRow.updatedAt,
+                          id: lastRow.id,
+                      }),
+        }
+    }
+
+    const listPublicationSummaries = (
+        projectId: string,
+        subjectId: string,
+        filter?: PublicationTagFilter
+    ): PublicationSummary[] | null => {
+        const publications: PublicationSummary[] = []
+        let cursor: string | null = null
+
+        do {
+            const page = listPublicationSummaryPage(projectId, subjectId, {
+                cursor,
+                filter,
+            })
+            if (page === null) return null
+            publications.push(...page.publications)
+            cursor = page.nextCursor
+        } while (cursor !== null)
+
+        return publications
+    }
 
     return {
         loadWorkingDraft,
@@ -284,26 +424,67 @@ export function createPublicationReadStore(
                 }
             },
 
-            listPublicationSummaries(
-                projectId: string,
-                subjectId: string,
-                filter?: PublicationTagFilter
-            ): PublicationSummary[] | null {
-                const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-                if (
-                    options.loadActor(
-                        normalizedProjectId,
-                        requireNonBlank(subjectId, 'subjectId')
-                    ) === null
-                ) {
-                    return null
-                }
-
-                const normalizedFilter = createPublicationTagFilter(filter?.tagIds ?? [])
-                return listPublicationSummariesStatement
-                    .all(normalizedProjectId, JSON.stringify(normalizedFilter.tagIds), 100)
-                    .map(toPublicationSummary)
-            },
+            listPublicationSummaries,
+            listPublicationSummaryPage,
         },
     }
+}
+
+interface PublicationCursor {
+    readonly scheduledAt: number | null
+    readonly updatedAt: number
+    readonly id: string
+}
+
+const publicationCursorPrefix = 'publication-v1:'
+
+function encodePublicationCursor(cursor: PublicationCursor): string {
+    return `${publicationCursorPrefix}${cursor.scheduledAt === null ? 'null' : cursor.scheduledAt}:${cursor.updatedAt}:${encodeURIComponent(cursor.id)}`
+}
+
+function parsePublicationCursor(cursor: string | null | undefined): PublicationCursor | null {
+    if (cursor === null || cursor === undefined) return null
+    if (!cursor.startsWith(publicationCursorPrefix)) {
+        throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+    }
+
+    const parts = cursor.slice(publicationCursorPrefix.length).split(':')
+    if (parts.length !== 3) {
+        throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+    }
+
+    const scheduledAt =
+        parts[0] === 'null' ? null : parseCursorTimestamp(parts[0], 'publication cursor')
+    const updatedAt = parseCursorTimestamp(parts[1], 'publication cursor')
+    let id: string
+    try {
+        id = decodeURIComponent(parts[2] ?? '')
+    } catch {
+        throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+    }
+    if (id.length === 0) {
+        throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+    }
+
+    const parsed = { scheduledAt, updatedAt, id }
+    if (encodePublicationCursor(parsed) !== cursor) {
+        throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+    }
+    return parsed
+}
+
+function normalizeOptionalTimestamp(value: number | null | undefined, name: string): number | null {
+    if (value === null || value === undefined) return null
+    if (!Number.isSafeInteger(value) || value < 0) {
+        throw new DomainInvariantError('invalid_input', `${name} must be a non-negative timestamp`)
+    }
+    return value
+}
+
+function parseCursorTimestamp(value: string | undefined, label: string): number {
+    const parsed = Number(value)
+    if (!Number.isSafeInteger(parsed) || parsed < 0) {
+        throw new DomainInvariantError('invalid_input', `${label} is invalid`)
+    }
+    return parsed
 }

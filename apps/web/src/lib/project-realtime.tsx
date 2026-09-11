@@ -3,6 +3,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 
 export const projectQueryKeys = {
     data: (projectId: string) => ['project', projectId, 'data'] as const,
+    calendarPublications: (projectId: string) =>
+        ['project', projectId, 'calendar-publications'] as const,
     notifications: (projectId: string) => ['project', projectId, 'notifications'] as const,
     notificationPreferences: (projectId: string) =>
         ['project', projectId, 'notification-preferences'] as const,
@@ -37,6 +39,11 @@ const projectRealtimeEventTypes = [
     'publication.execution.cancelled',
     'publisher.connected',
     'publisher.disconnected',
+    'project_tag.created',
+    'project_tag.renamed',
+    'project_tag.archived',
+    'project_tag.restored',
+    'publication.tags_replaced',
 ] as const
 
 export type ProjectRealtimeEventType = (typeof projectRealtimeEventTypes)[number]
@@ -58,6 +65,7 @@ export interface ProjectRealtimeEvent {
 export type ProjectRealtimeSignal =
     | { readonly kind: 'update'; readonly event: ProjectRealtimeEvent }
     | { readonly kind: 'resync-required'; readonly reason: string }
+    | { readonly kind: 'access-revoked' }
 
 export type ProjectRealtimeStatus = 'connected' | 'disconnected'
 
@@ -121,6 +129,12 @@ export class BrowserProjectRealtimeEventSource implements ProjectRealtimeEventSo
             const value = parseJsonObject(event.data)
             const reason = typeof value?.reason === 'string' ? value.reason : 'unknown'
             for (const listener of this.listeners) listener({ kind: 'resync-required', reason })
+        })
+        this.eventSource.addEventListener('project.access-revoked', event => {
+            const value = parseJsonObject(event.data)
+            if (value?.projectId !== this.projectId) return
+            for (const listener of this.listeners) listener({ kind: 'access-revoked' })
+            this.close()
         })
     }
 
@@ -332,10 +346,16 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                     if (stopped) return
                     if (delay > 0) await wait(delay)
                     if (key === 'project') {
-                        await queryClient.invalidateQueries({
-                            queryKey: projectQueryKeys.data(projectId),
-                            refetchType: full ? 'all' : 'active',
-                        })
+                        await Promise.all([
+                            queryClient.invalidateQueries({
+                                queryKey: projectQueryKeys.data(projectId),
+                                refetchType: full ? 'all' : 'active',
+                            }),
+                            queryClient.invalidateQueries({
+                                queryKey: projectQueryKeys.calendarPublications(projectId),
+                                refetchType: full ? 'all' : 'active',
+                            }),
+                        ])
                     } else {
                         await Promise.all([
                             queryClient.invalidateQueries({
@@ -358,6 +378,11 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
         const unsubscribe = source.subscribe(
             signal => {
                 if (signal.kind === 'resync-required') {
+                    void refresh('project', true)
+                    void refresh('notifications', true)
+                    return
+                }
+                if (signal.kind === 'access-revoked') {
                     void refresh('project', true)
                     void refresh('notifications', true)
                     return

@@ -25,6 +25,25 @@ describe('notification projection runtime', () => {
         expect(runtime.state).toBe('stopped')
     })
 
+    it('continues projecting after the per-run batch budget is reached', async () => {
+        let calls = 0
+        const runtime = createNotificationProjectionRuntime({
+            listProjectIds: () => ['project-1'],
+            project: () => ({
+                scanned: 1,
+                created: 0,
+                hasMore: ++calls < 25,
+            }),
+        })
+
+        runtime.start()
+        await new Promise(resolve => setTimeout(resolve, 25))
+
+        expect(calls).toBe(25)
+        expect(runtime.state).toBe('started')
+        runtime.stop()
+    })
+
     it('reports failure and recovers on a later run', () => {
         let fail = true
         const errors: unknown[] = []

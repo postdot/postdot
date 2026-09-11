@@ -26,22 +26,25 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
         targetContent: { body: 'A publication waiting for a human confirmation.' },
     }
 
-    await page.route(`**/api/projects/${projectId}/publications`, async route => {
-        const requestUrl = new URL(route.request().url())
-        if (
-            route.request().method() !== 'GET' ||
-            requestUrl.pathname !== `/api/projects/${projectId}/publications`
-        ) {
-            await route.continue()
-            return
-        }
+    await page.route(
+        new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
+        async route => {
+            const requestUrl = new URL(route.request().url())
+            if (
+                route.request().method() !== 'GET' ||
+                requestUrl.pathname !== `/api/projects/${projectId}/publications`
+            ) {
+                await route.continue()
+                return
+            }
 
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ publications }),
-        })
-    })
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ publications, nextCursor: null }),
+            })
+        }
+    )
     await page.route(`**/api/projects/${projectId}/publications/due`, async route => {
         const requestUrl = new URL(route.request().url())
         if (

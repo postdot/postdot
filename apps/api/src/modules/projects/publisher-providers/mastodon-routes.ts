@@ -1,3 +1,4 @@
+import type { AccessStore } from '@herald/db'
 import {
     MASTODON_PROVIDER,
     MASTODON_REQUIRED_SCOPES,
@@ -18,6 +19,7 @@ import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth'
 import type { PublisherRuntime } from '../../publishers/runtime'
+import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { errorResponse, mastodonConnectionBody, mastodonConnectionSchema } from '../models'
 
 interface MastodonAuthorizationState {
@@ -31,10 +33,11 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
         readonly mastodonFetcher?: MastodonFetcher
-    } = {}
+    }
 ) {
     const { authorizationAttemptStore, credentialStore, mastodon, publisherStore } = publisher
 
@@ -72,6 +75,17 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                             message: 'Human authentication is required to connect Mastodon',
                         },
                     })
+                }
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
                 }
 
                 if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
@@ -256,6 +270,22 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                     return redirectMastodonPublisher(
                         publisher.webOrigin,
                         '/dashboard',
+                        'invalid_callback'
+                    )
+                }
+
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: pendingAttempt.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return redirectMastodonPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
                         'invalid_callback'
                     )
                 }

@@ -982,6 +982,7 @@ describe('Herald API', () => {
                         tagIds: [tag.tag.id, reviewTag.tag.id],
                     }),
                 ],
+                nextCursor: null,
             })
 
             const repeatedFilterResponse = await jsonRequest(
@@ -1031,7 +1032,10 @@ describe('Herald API', () => {
                 cookie
             )
             expect(foreignFilterResponse.status).toBe(200)
-            expect(await foreignFilterResponse.json()).toEqual({ publications: [] })
+            expect(await foreignFilterResponse.json()).toEqual({
+                publications: [],
+                nextCursor: null,
+            })
 
             const firstTagsResponse = await jsonRequest(
                 app,
@@ -1612,6 +1616,20 @@ describe('Herald API', () => {
                     .get(ownerProject.project.id, owner?.userId ?? '')
             ).toEqual({ role: 'owner', state: 'active' })
 
+            const ownerChannelResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/channels`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Lifecycle destination' }),
+                }
+            )
+            expect(ownerChannelResponse.status).toBe(201)
+            const ownerChannel = (await ownerChannelResponse.json()) as {
+                channel: { id: string }
+            }
+
             const memberEmail = 'lifecycle-member@herald.local'
             const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
             const member = database.$client
@@ -1667,6 +1685,40 @@ describe('Herald API', () => {
             )
             expect(viewerListResponse.status).toBe(200)
 
+            const viewerCreateChannelResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/channels`,
+                memberCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Viewer must not create' }),
+                }
+            )
+            expect(viewerCreateChannelResponse.status).toBe(403)
+
+            const viewerCreatePostResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/posts`,
+                memberCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent: {
+                            body: { text: 'Viewer must not publish', format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: ownerChannel.channel.id,
+                                targetContent: { body: 'Viewer must not publish', media: [] },
+                                deliveryMode: 'manual',
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(viewerCreatePostResponse.status).toBe(403)
+
             const viewerUpdateResponse = await jsonRequest(
                 app,
                 `/api/projects/${ownerProject.project.id}`,
@@ -1707,6 +1759,29 @@ describe('Herald API', () => {
                 }
             )
             expect(editorUpdateResponse.status).toBe(200)
+
+            const editorCreatePostResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/posts`,
+                memberCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent: {
+                            body: { text: 'Editor can publish', format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: ownerChannel.channel.id,
+                                targetContent: { body: 'Editor can publish', media: [] },
+                                deliveryMode: 'manual',
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(editorCreatePostResponse.status).toBe(201)
 
             const editorTokenResponse = await jsonRequest(
                 app,

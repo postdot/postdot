@@ -69,6 +69,7 @@ export type {
     ProjectResponse,
     PublicationResponse,
     PublicationSummaryResponse,
+    PublicationSummaryPageResponse,
     PublicationListQuery,
     ProjectCategoryResponse,
     ProjectTagResponse,

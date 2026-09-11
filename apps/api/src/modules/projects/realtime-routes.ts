@@ -1,3 +1,4 @@
+import type { HeraldAuth } from '@herald/auth'
 import { projectNotificationTemplate } from '@herald/core'
 import {
     eventJournalCursorSequence,
@@ -6,6 +7,7 @@ import {
     type EventJournalEntry,
     type EventJournalStore,
     type NotificationStore,
+    type AccessStore,
 } from '@herald/db'
 import type { OpenAPIV3 } from 'openapi-types'
 
@@ -43,6 +45,11 @@ const supportedProjectEventSubjects = {
     'publication.execution.cancelled': 'publication',
     'publisher.connected': 'publisher',
     'publisher.disconnected': 'publisher',
+    'project_tag.created': 'project_tag',
+    'project_tag.renamed': 'project_tag',
+    'project_tag.archived': 'project_tag',
+    'project_tag.restored': 'project_tag',
+    'publication.tags_replaced': 'publication',
 } as const
 
 export type ProjectRealtimeEventType = keyof typeof supportedProjectEventSubjects
@@ -72,6 +79,7 @@ interface ProjectEventStreamInput {
     readonly journal: Pick<EventJournalStore, 'readAfter'>
     readonly after: EventJournalCursor | null
     readonly projectChanges?: RealtimeHub
+    readonly isAuthorized?: () => boolean | Promise<boolean>
     readonly options?: ProjectEventStreamOptions
 }
 
@@ -114,6 +122,8 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
     app: AuthenticatedElysia<Routes>,
     journal: EventJournalStore,
     notifications: NotificationStore,
+    access: AccessStore,
+    auth: HeraldAuth,
     projectChanges?: RealtimeHub,
     userChanges?: UserRealtimeHub
 ) {
@@ -151,12 +161,12 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
         ({ authMethod, params, request, status, user }) => {
             if (authMethod !== 'session') return status(403, humanOnlyResponse)
 
-            const access = notifications.list({
+            const notificationAccess = notifications.list({
                 projectId: params.projectId,
                 subjectId: user.id,
                 limit: 1,
             })
-            if (access === null) return status(404, notFoundResponse)
+            if (notificationAccess === null) return status(404, notFoundResponse)
 
             let after: EventJournalCursor | null
             try {
@@ -181,6 +191,13 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                     journal,
                     after,
                     projectChanges,
+                    isAuthorized: async () => {
+                        const session = await auth.api.getSession({ headers: request.headers })
+                        return (
+                            session !== null &&
+                            access.canAccessProject(params.projectId, session.user.id)
+                        )
+                    },
                 }),
                 {
                     headers: {
@@ -291,6 +308,7 @@ export function createProjectEventStream({
     journal,
     after,
     projectChanges,
+    isAuthorized,
     options,
 }: ProjectEventStreamInput): ReadableStream<Uint8Array> {
     const streamOptions = normalizeStreamOptions(options)
@@ -333,6 +351,37 @@ export function createProjectEventStream({
         }
     }
 
+    function closeWithAccessRevoked(controller: ReadableStreamDefaultController<Uint8Array>) {
+        if (closed) return
+        closed = true
+        releaseWait?.()
+        releaseWait = undefined
+        try {
+            controller.enqueue(
+                encoder.encode(
+                    `event: project.access-revoked\ndata: ${JSON.stringify({ projectId, reason: 'access_revoked' })}\n\n`
+                )
+            )
+            controller.close()
+        } catch {
+            // The reader may already have cancelled the stream.
+        }
+    }
+
+    async function ensureAuthorized(
+        controller: ReadableStreamDefaultController<Uint8Array>
+    ): Promise<boolean> {
+        if (isAuthorized === undefined) return true
+        try {
+            if (await isAuthorized()) return true
+        } catch {
+            // Treat an authorization lookup failure as a revocation. A stream
+            // must fail closed rather than continue serving project events.
+        }
+        closeWithAccessRevoked(controller)
+        return false
+    }
+
     return new ReadableStream<Uint8Array>({
         async pull(controller) {
             if (closed) return
@@ -342,6 +391,8 @@ export function createProjectEventStream({
                     close(controller)
                     return
                 }
+
+                if (!(await ensureAuthorized(controller))) return
 
                 let entries: readonly EventJournalEntry[]
                 try {
@@ -354,6 +405,8 @@ export function createProjectEventStream({
                     closeWithResync(controller, 'journal_error')
                     return
                 }
+
+                if (!(await ensureAuthorized(controller))) return
 
                 const frames: string[] = []
                 for (const entry of entries) {

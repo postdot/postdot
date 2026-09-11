@@ -1,3 +1,4 @@
+import type { AccessStore } from '@herald/db'
 import {
     DISCORD_PROVIDER,
     DISCORD_TEXT_CHANNEL_TYPES,
@@ -11,16 +12,18 @@ import { Type } from 'typebox'
 
 import type { AuthenticatedElysia } from '../../../plugins/auth'
 import type { PublisherRuntime } from '../../publishers/runtime'
+import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { discordConnectionBody, discordConnectionResponse, errorResponse } from '../models'
 
 export function registerDiscordPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
         readonly discordFetcher?: DiscordFetcher
-    } = {}
+    }
 ) {
     const { credentialStore, publisherStore } = publisher
 
@@ -56,6 +59,17 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                         message: 'Human authentication is required to connect Discord',
                     },
                 })
+            }
+            if (
+                !canAccessProjectRole({
+                    access: options.access,
+                    authMethod,
+                    minimumRole: 'editor',
+                    projectId: params.projectId,
+                    userId: user.id,
+                })
+            ) {
+                return status(403, forbiddenProjectMutation())
             }
 
             if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {

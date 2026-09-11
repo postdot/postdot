@@ -153,7 +153,7 @@ describe('Herald client', () => {
                 .projects({ projectId })
                 .publications.get({ query: { tagIds: 'missing-a,missing-b' } })
             expect(filteredPublications.error).toBeNull()
-            expect(filteredPublications.data).toEqual({ publications: [] })
+            expect(filteredPublications.data).toEqual({ publications: [], nextCursor: null })
 
             const deniedTokenList = await machineClient.api
                 .projects({ projectId })

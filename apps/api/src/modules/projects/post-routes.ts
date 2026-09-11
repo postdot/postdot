@@ -1,5 +1,7 @@
+import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
+import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     createPostBody,
     errorResponse,
@@ -16,6 +18,7 @@ export interface PostRouteOptions {
 export function registerPostRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     manualStore: ManualStore,
+    access: AccessStore,
     options: PostRouteOptions = {}
 ) {
     return app.post(
@@ -31,6 +34,7 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                 }),
                 400: errorResponse,
                 401: errorResponse,
+                403: errorResponse,
                 404: errorResponse,
                 409: errorResponse,
                 422: errorResponse,
@@ -41,7 +45,18 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                 tags: ['Posts'],
             },
         },
-        ({ body, params, status, user }) => {
+        ({ authMethod, body, params, status, user }) => {
+            if (
+                !canAccessProjectRole({
+                    access,
+                    authMethod,
+                    minimumRole: 'editor',
+                    projectId: params.projectId,
+                    userId: user.id,
+                })
+            ) {
+                return status(403, forbiddenProjectMutation())
+            }
             const created = manualStore.createPost({
                 projectId: params.projectId,
                 subjectId: user.id,

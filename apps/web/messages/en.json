@@ -264,6 +264,7 @@
     "queue_no_publications": "Queue is empty",
     "queue_no_publications_description": "Create a publication to add work here.",
     "queue_show_all": "Show all",
+    "queue_load_more": "Load more",
     "queue_no_attention_title": "Nothing needs attention",
     "queue_no_attention_description": "Publications needing attention will appear here.",
     "queue_no_scheduled_title": "Nothing scheduled",
