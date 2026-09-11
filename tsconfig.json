@@ -1,6 +1,7 @@
 {
     "extends": ["@tala-tools/tsconfig/bun-base.json"],
     "compilerOptions": {
+        "lib": ["ESNext", "DOM", "DOM.Iterable"],
         "types": ["bun", "node"]
     },
     "include": ["e2e/**/*.ts", "playwright.config.ts", "scripts/**/*.ts", "tsconfig.json"],

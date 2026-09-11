@@ -88,6 +88,41 @@ proof of inbox delivery. See
 [`ADR-066`](.autonomos/decisions/ADR-066-smtp-auth-email-delivery.md) for the
 transport and reliability boundary.
 
+For local email development, the repository includes a disposable Mailpit relay.
+Start it from the repository root, then point the API at its host SMTP port:
+
+```sh
+docker compose -f docker-compose.dev.yml up -d mailpit
+```
+
+The defaults are the conventional Mailpit ports (`1025` for SMTP and `8025` for
+the inbox). If another local service already uses one of them, override the host
+ports without changing the container ports:
+
+```sh
+HERALD_MAILPIT_SMTP_PORT=11025 HERALD_MAILPIT_UI_PORT=18025 \
+  docker compose -f docker-compose.dev.yml up -d mailpit
+```
+
+```dotenv
+HERALD_EMAIL_SMTP_HOST=127.0.0.1
+HERALD_EMAIL_SMTP_PORT=1025
+HERALD_EMAIL_SMTP_SECURE=false
+HERALD_EMAIL_FROM=Herald <no-reply@herald.local>
+```
+
+Inspect captured messages at <http://127.0.0.1:8025> (or the overridden UI port).
+Stop the relay when it is no longer needed with
+`docker compose -f docker-compose.dev.yml down`. The email templates live in
+[`packages/email`](packages/email) and can be previewed with:
+
+```sh
+bun run --cwd packages/email dev
+```
+
+The preview server uses port `3001`; it is independent from the API and Vite
+development servers.
+
 The API applies the committed Drizzle migrations at startup. For a local,
 unreleased database whose migration history no longer matches the repository,
 stop the API and move that ignored database file aside before restarting. Herald
@@ -319,6 +354,7 @@ The current workspace contains:
 - `packages/core`: framework-independent domain and workflow contracts;
 - `packages/custom-http`: bounded webhook and mapped HTTP delivery for custom channels;
 - `packages/db`: Drizzle ORM schema, Bun SQLite client, and migrations;
+- `packages/email`: React Email transactional templates and HTML/text renderers;
 - `packages/linkedin`: LinkedIn OAuth profile and publication adapter;
 - `packages/media`: local and S3-compatible media storage contracts and adapters;
 - `packages/oauth`: OAuth authorization-code and PKCE protocol mechanics;

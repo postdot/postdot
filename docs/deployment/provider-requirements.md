@@ -36,6 +36,11 @@ copyable one-use links. Enable
 mail transport. SMTP submission is asynchronous and best-effort; delivery
 guarantees, retries, bounces, and provider webhooks are outside this boundary.
 
+For local development, `docker-compose.dev.yml` starts a Mailpit relay on
+`127.0.0.1:1025` and its inspection UI on `127.0.0.1:8025`. The React Email
+templates are owned by the `@herald/email` workspace package; the API owns only
+the SMTP transport and deployment configuration.
+
 ## Bluesky / AT Protocol
 
 Herald supports two OAuth deployment profiles:

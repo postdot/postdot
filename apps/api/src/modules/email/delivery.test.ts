@@ -4,6 +4,14 @@ import type { SendMailOptions } from 'nodemailer'
 
 import { createHeraldAuthEmailDelivery, type HeraldEmailTransport } from './delivery'
 
+async function waitForDelivery(condition: () => boolean): Promise<void> {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+        if (condition()) return
+        await Bun.sleep(1)
+    }
+    throw new Error('Timed out waiting for email delivery')
+}
+
 describe('Herald auth email delivery', () => {
     it('renders invitation, verification, and reset emails through an injected transport', async () => {
         const sent: SendMailOptions[] = []
@@ -51,25 +59,33 @@ describe('Herald auth email delivery', () => {
             url: 'https://api.example.test/api/auth/reset-password/reset-1',
             token: 'reset-1',
         })
-        await Promise.resolve()
+        await waitForDelivery(() => sent.length === 3)
 
         expect(invitationURL).toBe(
             'https://app.example.test/dashboard/settings/access?organizationInvitation=invitation-1&projectId=project-1'
         )
         expect(delivery.sendEmailVerificationOnSignUp).toBe(true)
         expect(sent).toHaveLength(3)
-        expect(sent[0]).toMatchObject({
+        const invitationMessage = sent.find(
+            message => message.subject === 'Invitation to join Project <one> on Herald'
+        )
+        const verificationMessage = sent.find(
+            message => message.subject === 'Verify your Herald email address'
+        )
+        const resetMessage = sent.find(message => message.subject === 'Reset your Herald password')
+
+        expect(invitationMessage).toMatchObject({
             from: 'Herald <no-reply@example.test>',
             to: 'member@example.test',
             subject: 'Invitation to join Project <one> on Herald',
         })
-        expect(sent[0]?.text).toContain(invitationURL)
-        expect(sent[0]?.html).toContain('Project &lt;one&gt;')
-        expect(sent[1]).toMatchObject({
+        expect(invitationMessage?.text).toContain(invitationURL)
+        expect(invitationMessage?.html).toContain('Project &lt;one&gt;')
+        expect(verificationMessage).toMatchObject({
             subject: 'Verify your Herald email address',
             to: 'member@example.test',
         })
-        expect(sent[2]).toMatchObject({
+        expect(resetMessage).toMatchObject({
             subject: 'Reset your Herald password',
             to: 'member@example.test',
         })
@@ -98,8 +114,7 @@ describe('Herald auth email delivery', () => {
             url: 'http://localhost:3000/api/auth/verify-email?token=verification-1',
             token: 'verification-1',
         })
-        await Promise.resolve()
-        await Promise.resolve()
+        await waitForDelivery(() => failures.length === 1)
 
         expect(failures).toEqual(['email_verification:SMTP unavailable'])
     })

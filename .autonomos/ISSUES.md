@@ -1727,13 +1727,14 @@ channels` with a foreign-key constraint error even though a fresh empty database
   lifecycle; project-member administration is now delivered by ACCESS-134, while
   the UI deliberately remains a Herald surface over those Better Auth records.
   Invitation re-send rotation and the optional transport-neutral email hook are
-  delivered by ACCESS-136. ACCESS-137 adds an optional SMTP transport and templates
-  for invitations, signup verification, and password reset; the local/manual-link
-  profile remains usable without mail.
+  delivered by ACCESS-136. ACCESS-137 adds an optional SMTP transport and
+  ACCESS-138 extracts React Email templates with a local Mailpit development
+  relay for invitations, signup verification, and password reset; the
+  local/manual-link profile remains usable without mail.
 - Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132, ACCESS-134, ACCESS-136,
-  ACCESS-137
+  ACCESS-137, ACCESS-138
 - Related issues: ISSUE-013, ISSUE-059
-- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063, ADR-066
+- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063, ADR-066, ADR-067
 - Resolution: ADR-061 establishes the local single-operator bootstrap and the
   shared self-hosted boundary: the first account claims an empty instance and
   becomes its administrator, later registration is closed by default, and instance

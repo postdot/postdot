@@ -45,10 +45,11 @@ provider webhook in this slice. A future hosted/shared deployment that needs
 delivery guarantees must add those as a separate reliability decision rather than
 silently pretending SMTP submission is durable.
 
-Templates are small HTML/text messages in the API package and use English as the
-current server-side base language. Localization and branded template management
-remain follow-ups once the deployment profiles and product language policy are
-settled.
+Templates are small React Email components in the `@herald/email` package and
+use English as the current server-side base language. The API maps Better Auth
+callbacks to rendered HTML/text messages and remains responsible for Nodemailer
+transport configuration. Localization and branded template management remain
+follow-ups once the deployment profiles and product language policy are settled.
 
 ## Consequences
 
@@ -67,3 +68,5 @@ Focused tests inject a fake transport and assert recipients, subjects, escaped
 HTML, invitation project context, account-verification and password-reset hooks,
 disabled no-mail behavior, and non-blocking failure reporting. Configuration tests
 cover optional SMTP, incomplete credentials, and the verified-invitation guard.
+Template tests live in `@herald/email`; local SMTP delivery is exercised through
+the Mailpit compose profile rather than a real external mailbox.
