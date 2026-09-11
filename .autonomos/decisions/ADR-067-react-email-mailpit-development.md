@@ -24,6 +24,15 @@ subject, HTML body, and plain-text alternative. User-provided values are passed
 through JSX so React Email performs the escaping; deployment origins and
 credentials remain outside the package.
 
+The shared layout reuses the owner-supplied `HeraldLogo` from `@herald/ui` and
+adapts the accepted Graphite/Ash/Cobalt visual system to email-safe inline
+styles. It declares the accepted Recursive Variable family through
+`@react-email/font`, with a pinned public webfont URL as progressive enhancement
+and Arial/Helvetica fallbacks for clients that do not load webfonts. The
+Graphite header, compact logo lockup, neutral Ash surface, restrained shadow,
+and Cobalt action establish the Herald identity without adding instructional
+copy to each message.
+
 The runtime uses the focused `@react-email/*` component and render packages so
 the API does not bundle the React Email preview application. The `react-email`
 CLI and `@react-email/ui` are development dependencies used only by the package's
@@ -69,8 +78,9 @@ database, queue, retry, or provider-specific state.
 
 `@herald/email` unit tests render all three messages and assert HTML escaping,
 action URLs, subjects, and plain-text alternatives, including the three
-no-props preview entrypoints. The package build is importable, and its preview
-server starts on port `3001` with all three routes rendering successfully. The API delivery tests
+no-props preview entrypoints and the shared logo/font identity markers. The
+package build is importable, and its preview server starts on port `3001` with
+all three routes rendering successfully. The API delivery tests
 assert that the transport consumes those renderers without blocking Better Auth
 flows. `docker compose config`, an alternate-port Mailpit startup/health/cleanup
 cycle, and a real local SMTP capture through Mailpit were verified without using

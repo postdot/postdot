@@ -36,7 +36,7 @@ export function PasswordResetEmail({ user, url }: HeraldPasswordResetEmailInput)
                     {url}
                 </Link>
             </Text>
-            <Text style={emailStyles.mutedText}>
+            <Text style={emailStyles.notice}>
                 This link expires after one hour. If you did not request this, you can ignore this
                 email.
             </Text>

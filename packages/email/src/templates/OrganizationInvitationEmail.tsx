@@ -49,7 +49,7 @@ export function OrganizationInvitationEmail({
                     {invitationURL}
                 </Link>
             </Text>
-            <Text style={emailStyles.mutedText}>This invitation expires on {formattedExpiry}.</Text>
+            <Text style={emailStyles.notice}>This invitation expires on {formattedExpiry}.</Text>
             <Text style={emailStyles.mutedText}>
                 If you were not expecting this invitation, you can ignore this email.
             </Text>

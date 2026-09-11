@@ -18,6 +18,9 @@ without using a real mailbox.
 - Added safe preview fixtures behind the default exports so React Email's local
   preview server can render each template without runtime props; production
   renderers keep their required typed inputs.
+- Reworked the shared email layout to reuse Herald's logo and Recursive Variable
+  type role, with Graphite/Ash/Cobalt surfaces, a compact brand lockup, and
+  restrained depth; webfont and client fallbacks remain explicit.
 - Moved template rendering out of the API email transport; the API now maps
   Better Auth callback data to the package and retains Nodemailer ownership.
 - Added the development-only `docker-compose.dev.yml` Mailpit service on loopback
@@ -31,7 +34,7 @@ without using a real mailbox.
 
 - `@herald/email`: typecheck, lint, format, unit tests, build, import smoke test,
   preview startup on port `3001`, and all three preview routes rendered with
-  fixture data.
+  fixture data and the Herald brand lockup.
 - `apps/api`: typecheck, lint, format, delivery tests, and production build.
 - `docker compose config`, plus an isolated alternate-port Mailpit startup,
   `/livez` check, process listing, and cleanup.

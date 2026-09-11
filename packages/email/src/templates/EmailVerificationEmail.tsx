@@ -36,7 +36,7 @@ export function EmailVerificationEmail({ user, url }: HeraldAccountEmailInput) {
                     {url}
                 </Link>
             </Text>
-            <Text style={emailStyles.mutedText}>This link expires after one hour.</Text>
+            <Text style={emailStyles.notice}>This link expires after one hour.</Text>
         </HeraldEmailLayout>
     )
 }

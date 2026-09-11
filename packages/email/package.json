@@ -21,9 +21,11 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
+        "@herald/ui": "workspace:*",
         "@react-email/body": "0.3.0",
         "@react-email/button": "0.2.1",
         "@react-email/container": "0.0.16",
+        "@react-email/font": "0.0.10",
         "@react-email/head": "0.0.13",
         "@react-email/heading": "0.0.16",
         "@react-email/html": "0.0.12",

@@ -26,6 +26,8 @@ describe('Herald email templates', () => {
         expect(result.subject).toBe('Invitation to join Project <one> on Herald')
         expect(result.html).toContain('Project &lt;one&gt;')
         expect(result.html).toContain('Project Owner &amp; team')
+        expect(result.html).toContain('Recursive Variable')
+        expect(result.html).toContain('viewBox="0 0 189 189"')
         expect(result.html).toContain(
             'href="https://app.example.test/invite?id=one&amp;source=email"'
         )
