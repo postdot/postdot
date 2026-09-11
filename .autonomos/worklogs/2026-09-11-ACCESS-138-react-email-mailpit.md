@@ -41,5 +41,9 @@ without using a real mailbox.
   `/livez` check, process listing, and cleanup.
 - End-to-end SMTP submission to the existing local Mailpit relay, with the
   captured verification message found through the Mailpit API.
+- Repeated the SMTP capture after the Herald surface correction with synthetic
+  verification, invitation, and password-reset recipients. Mailpit returned
+  all three messages with the Recursive Variable declaration, shared Herald
+  mark, compact six-pixel surface, and no legacy dark banner.
 - Repository `bun run check`: 17 package format/lint/typecheck/build tasks, 151
   unit tests, and 15 Playwright E2E tests passed.
