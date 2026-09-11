@@ -1,9 +1,15 @@
-import type { RuntimeChannelProfile } from '@/lib/api'
+import type { ChannelProfilePreset, RuntimeChannelProfile } from '@/lib/api'
 
 export interface ChannelProfileTemplate {
     readonly id: string
     readonly profile: RuntimeChannelProfile
 }
+
+export const builtInChannelProfileTemplatePrefix = 'builtin:'
+
+const jsonSchema202012Dialect = 'https://json-schema.org/draft/2020-12/schema'
+const customStringMaximum = 10_000
+const customAssetIdMaximum = 255
 
 const sharedContentSchema = {
     type: 'object',
@@ -104,6 +110,61 @@ export const channelProfileTemplates: readonly ChannelProfileTemplate[] = [
     },
 ]
 
-export function profileForTemplate(templateId: string): RuntimeChannelProfile | undefined {
-    return channelProfileTemplates.find(template => template.id === templateId)?.profile
+/**
+ * Turn server-owned built-in profiles into editable custom starters. The
+ * snapshot keeps the provider's content contract and execution identity, but
+ * receives a custom identity before it is submitted as a channel profile.
+ */
+export function templatesFromPresets(
+    presets: readonly ChannelProfilePreset[]
+): readonly ChannelProfileTemplate[] {
+    return presets
+        .filter(preset => preset.id !== 'manual-message' && preset.profile.origin === 'built_in')
+        .map(preset => {
+            const profile = structuredClone(preset.profile)
+            return {
+                id: `${builtInChannelProfileTemplatePrefix}${preset.id}`,
+                profile: {
+                    ...profile,
+                    id: `custom-${preset.id}`,
+                    profileHash: `sha256:herald-custom-${preset.id}-v${preset.version}`,
+                    schemaHash: `sha256:herald-custom-${preset.id}-schema-v${preset.version}`,
+                    origin: 'custom',
+                    contentSchema: prepareCustomContentSchema(profile.contentSchema),
+                },
+            }
+        })
+}
+
+function prepareCustomContentSchema(value: unknown, path: readonly string[] = []): unknown {
+    if (Array.isArray(value)) {
+        return value.map((item, index) =>
+            prepareCustomContentSchema(item, [...path, String(index)])
+        )
+    }
+    if (value === null || typeof value !== 'object') return value
+
+    const record = value as Record<string, unknown>
+    const prepared = Object.fromEntries(
+        Object.entries(record).map(([key, child]) => [
+            key,
+            prepareCustomContentSchema(child, [...path, key]),
+        ])
+    )
+
+    if (path.length === 0 && prepared.$schema === undefined) {
+        prepared.$schema = jsonSchema202012Dialect
+    }
+    if (prepared.type === 'string' && prepared.maxLength === undefined) {
+        prepared.maxLength = path.at(-1) === 'assetId' ? customAssetIdMaximum : customStringMaximum
+    }
+
+    return prepared
+}
+
+export function profileForTemplate(
+    templateId: string,
+    templates: readonly ChannelProfileTemplate[] = channelProfileTemplates
+): RuntimeChannelProfile | undefined {
+    return templates.find(template => template.id === templateId)?.profile
 }

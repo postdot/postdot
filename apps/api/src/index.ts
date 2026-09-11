@@ -55,6 +55,8 @@ export type {
     ChannelResponse,
     ChannelProfileActivationResponse,
     ChannelProfileAssessmentResponse,
+    ChannelProfilePresetResponse,
+    ChannelProfilePresetsResponse,
     ChannelProfileStateResponse,
     ChannelProfileVersionResponse,
     DuePublicationResponse,

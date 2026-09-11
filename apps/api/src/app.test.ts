@@ -329,6 +329,51 @@ describe('Herald API', () => {
         }
     })
 
+    it('lists provider-owned channel profile presets for authenticated clients', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const unauthenticatedResponse = await app.handle(
+                new Request(`${baseURL}/api/channel-profile-presets`)
+            )
+            expect(unauthenticatedResponse.status).toBe(401)
+
+            const cookie = await signUp(app, 'channel-profile-presets@herald.local')
+            const response = await jsonRequest(app, '/api/channel-profile-presets', cookie)
+            expect(response.status).toBe(200)
+
+            const body = (await response.json()) as {
+                presets: Array<{
+                    id: string
+                    version: number
+                    profile: {
+                        id: string
+                        version: number
+                        origin: string
+                    }
+                }>
+            }
+            expect(body.presets.map(preset => preset.id)).toEqual([
+                'manual-message',
+                'linkedin',
+                'bluesky',
+                'mastodon',
+                'discord',
+                'devto',
+                'x',
+            ])
+            for (const preset of body.presets) {
+                expect(preset.profile).toMatchObject({
+                    id: preset.id,
+                    version: preset.version,
+                    origin: 'built_in',
+                })
+            }
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('accepts a local Bluesky application without exposing public metadata', async () => {
         const { app, database } = createFixture({
             apiOrigin: 'http://127.0.0.1:3000',
@@ -591,6 +636,7 @@ describe('Herald API', () => {
                 '/api/access/invitations/accept',
                 '/api/settings/provider-applications',
                 '/api/settings/provider-applications/{applicationId}',
+                '/api/channel-profile-presets',
                 '/api/projects',
                 '/api/projects/{projectId}',
                 '/api/projects/{projectId}/members',
@@ -665,6 +711,9 @@ describe('Herald API', () => {
             ])
             expect(specification.paths['/health']?.get?.operationId).toBe('getHealth')
             expect(specification.paths['/ready']?.get?.operationId).toBe('getReadiness')
+            expect(specification.paths['/api/channel-profile-presets']?.get?.operationId).toBe(
+                'listChannelProfilePresets'
+            )
             expect(specification.paths['/api/projects/{projectId}/members']?.get?.operationId).toBe(
                 'listProjectMembers'
             )

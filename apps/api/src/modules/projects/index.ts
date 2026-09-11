@@ -22,6 +22,7 @@ import { registerProjectAccessTokenRoutes } from './access-token-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
 import { registerAuditEventRoutes } from './audit-event-routes'
 import { createBlueskyAnalyticsService } from './bluesky-analytics-service'
+import { registerChannelProfilePresetRoutes } from './channel-profile-preset-routes'
 import { registerChannelProfileRoutes } from './channel-profile-routes'
 import { registerChannelRoutes } from './channel-routes'
 import { registerProjectMemberRoutes } from './member-routes'
@@ -100,8 +101,9 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.publisher,
         options.access
     )
+    const channelProfilePresetRoutes = registerChannelProfilePresetRoutes(providerApplicationRoutes)
     const projectRoutes = registerProjectRoutes(
-        providerApplicationRoutes,
+        channelProfilePresetRoutes,
         options.manualStore,
         options.access,
         options.auth

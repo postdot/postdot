@@ -873,7 +873,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-037] Add reusable built-in channel profile presets
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: Runtime-defined profiles intentionally allow complete custom schemas,
   while common provider shapes are currently represented by individually defined
   built-in profiles. The audit identified reusable presets for recurring channel
@@ -884,8 +884,13 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: Herald can offer editable, versioned starting profiles for
   common channel families without making presets live authorities or restricting
   fully runtime-defined custom channels.
-- Tasks: to be triaged
+- Tasks: CHANNEL-142 (completed)
 - Related decisions: ADR-013, ADR-020, ADR-021
+- Resolution: Provider-owned built-in profiles are now exposed through an
+  authenticated, typed preset catalog. The web channel-creation flow can use
+  those profiles as editable custom snapshots for common provider families,
+  while preserving manual/webhook starters and fully runtime-defined profiles.
+  Presets do not remain live authorities after a channel is created.
 
 ## [ISSUE-038] Prevent execution of disabled channel profiles
 

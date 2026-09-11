@@ -4,6 +4,8 @@ import {
     type Channel,
     type ChannelProfileActivation,
     type ChannelProfileAssessment,
+    type ChannelProfilePreset,
+    type ChannelProfilePresets,
     type ChannelProfileState,
     type ChannelProfileVersion,
     type DuePublication,
@@ -65,6 +67,8 @@ export type ChannelCreationProfile =
     | 'discord'
     | 'devto'
     | RuntimeChannelProfile
+
+export type { ChannelProfilePreset, ChannelProfilePresets }
 
 export type CustomHttpAuthentication =
     | { readonly kind: 'none' }
@@ -291,6 +295,10 @@ export const api = {
         return requestAuth<{ applications: ProviderApplication[] }>(
             '/api/settings/provider-applications'
         )
+    },
+
+    listChannelProfilePresets(): Promise<ChannelProfilePresets> {
+        return requestAuth<ChannelProfilePresets>('/api/channel-profile-presets')
     },
 
     async createProviderApplication(

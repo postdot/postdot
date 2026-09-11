@@ -6,6 +6,8 @@ import type {
     ChannelResponse,
     ChannelProfileActivationResponse,
     ChannelProfileAssessmentResponse,
+    ChannelProfilePresetResponse,
+    ChannelProfilePresetsResponse,
     ChannelProfileStateResponse,
     ChannelProfileVersionResponse,
     DuePublicationResponse,
@@ -70,6 +72,8 @@ export type ProjectCategory = ProjectCategoryResponse
 export type ProjectTag = ProjectTagResponse
 export type Channel = ChannelResponse
 export type ChannelProfileVersion = ChannelProfileVersionResponse
+export type ChannelProfilePreset = ChannelProfilePresetResponse
+export type ChannelProfilePresets = ChannelProfilePresetsResponse
 export type ChannelProfileState = ChannelProfileStateResponse
 export type ChannelProfileAssessment = ChannelProfileAssessmentResponse
 export type ChannelProfileActivation = ChannelProfileActivationResponse

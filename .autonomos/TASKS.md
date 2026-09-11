@@ -201,3 +201,7 @@ surface and operational copy-density work.
 ## 🔐 Custom HTTP authentication follow-up
 
 - [x] **[SECURITY-141]** Support path-authenticated custom HTTP receivers safely `Priority: 🔴` `Complexity: M` — mapped profiles may bind exactly one encrypted connection secret to a dedicated encoded path segment; origin-only egress, webhook separation, response redaction, API validation, and UI guidance are covered by regression tests.
+
+## 🧩 Built-in channel profile follow-up
+
+- [x] **[CHANNEL-142]** Add reusable built-in channel profile presets `Priority: 🔵` `Complexity: M` — expose editable, versioned starting profiles for common channel families without making presets live authorities or limiting fully runtime-defined custom channels. Provider-owned profiles are published through a typed catalog and copied into editable custom starters in the channel flow.

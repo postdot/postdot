@@ -1,12 +1,10 @@
-import { blueskyChannelProfile } from '@herald/bluesky'
 import {
     createPublicationTagFilter,
-    createManualChannelProfile,
     publicationTagFilterMaximumIds,
     sourceContentSchema,
     taxonomyLabelMaximumLength,
 } from '@herald/core'
-import type { ChannelProfileDefinition, Publication } from '@herald/core'
+import type { ChannelProfilePreset, ChannelProfileDefinition, Publication } from '@herald/core'
 import type { ChannelProfileImpactAssessment } from '@herald/core'
 import type {
     ChannelProfileActivationResult,
@@ -19,14 +17,11 @@ import type {
     PublicationWorkingDraft,
 } from '@herald/db'
 import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
-import { devtoChannelProfile } from '@herald/devto'
-import { discordChannelProfile } from '@herald/discord'
-import { linkedinChannelProfile } from '@herald/linkedin'
-import { mastodonChannelProfile } from '@herald/mastodon'
-import { xChannelProfile } from '@herald/x'
 import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'
+
+import { resolveBuiltInChannelProfile } from './channel-profile-presets'
 
 const { createSelectSchema: createDrizzleSelectSchema } = createSchemaFactory({
     typeboxInstance: Type,
@@ -201,6 +196,18 @@ export const channelProfileVersionSchema = Type.Unsafe<ChannelProfileVersion>(
     })
 )
 
+export const channelProfilePresetSchema = Type.Unsafe<ChannelProfilePreset>(
+    Type.Object({
+        id: Type.String({ minLength: 1 }),
+        version: Type.Integer({ minimum: 1 }),
+        profile: Type.Record(Type.String(), Type.Unknown()),
+    })
+)
+
+export const channelProfilePresetsSchema = Type.Object({
+    presets: Type.Array(channelProfilePresetSchema),
+})
+
 const channelProfileImpactSchema = Type.Object({
     id: Type.String({ minLength: 1 }),
     kind: Type.Union([Type.Literal('working_draft'), Type.Literal('pending_target')]),
@@ -353,6 +360,8 @@ export const publicationSummarySchema = Type.Unsafe<PublicationSummary>(
 export type ProjectResponse = Static<typeof projectSchema>
 export type ChannelResponse = Static<typeof channelSchema>
 export type ChannelProfileVersionResponse = Static<typeof channelProfileVersionSchema>
+export type ChannelProfilePresetResponse = Static<typeof channelProfilePresetSchema>
+export type ChannelProfilePresetsResponse = Static<typeof channelProfilePresetsSchema>
 export type ChannelProfileStateResponse = Static<typeof channelProfileStateSchema>
 export type ChannelProfileAssessmentResponse = Static<typeof channelProfileAssessmentSchema>
 export type ChannelProfileActivationResponse = Static<typeof channelProfileActivationSchema>
@@ -558,14 +567,16 @@ export const promotePublicationDraftBody = Type.Object({
 })
 
 export function resolveChannelProfile(profile: unknown): ChannelProfileDefinition {
-    if (profile === 'linkedin') return linkedinChannelProfile
-    if (profile === 'bluesky') return blueskyChannelProfile
-    if (profile === 'mastodon') return mastodonChannelProfile
-    if (profile === 'discord') return discordChannelProfile
-    if (profile === 'devto') return devtoChannelProfile
-    if (profile === 'x') return xChannelProfile
+    if (typeof profile === 'string') {
+        const resolved = resolveBuiltInChannelProfile(profile)
+        if (resolved !== undefined) return resolved
+    }
     if (profile === undefined || profile === 'manual-message') {
-        return createManualChannelProfile()
+        const manualProfile = resolveBuiltInChannelProfile('manual-message')
+        if (manualProfile === undefined) {
+            throw new Error('The manual channel profile preset is not registered')
+        }
+        return manualProfile
     }
     return profile as ChannelProfileDefinition
 }
