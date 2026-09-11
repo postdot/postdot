@@ -1,0 +1,65 @@
+import { expect, test } from 'bun:test'
+import { rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+import { createE2ERuntimeResources, isSafeE2EDataDirectory } from './e2e-runtime'
+
+test('allocates independent resources for concurrent E2E runs', async () => {
+    const resources = await Promise.all([
+        createE2ERuntimeResources({}),
+        createE2ERuntimeResources({}),
+    ])
+
+    try {
+        expect(new Set(resources.map(resource => resource.dataDirectory)).size).toBe(2)
+        expect(new Set(resources.map(resource => resource.apiPort)).size).toBe(2)
+        expect(new Set(resources.map(resource => resource.webPort)).size).toBe(2)
+        expect(
+            new Set(resources.flatMap(resource => [resource.apiPort, resource.webPort])).size
+        ).toBe(4)
+        expect(resources.every(resource => isSafeE2EDataDirectory(resource.dataDirectory))).toBe(
+            true
+        )
+    } finally {
+        await Promise.all(
+            resources.map(resource => rm(resource.dataDirectory, { recursive: true, force: true }))
+        )
+    }
+})
+
+test('rejects the legacy shared directory as a cleanup target', () => {
+    expect(isSafeE2EDataDirectory(join(tmpdir(), 'herald-e2e-data'))).toBe(false)
+    expect(isSafeE2EDataDirectory(tmpdir())).toBe(false)
+    expect(isSafeE2EDataDirectory(undefined)).toBe(false)
+})
+
+test('honors explicitly reserved debug ports', async () => {
+    const resources = await createE2ERuntimeResources({
+        HERALD_E2E_API_PORT: '32101',
+        HERALD_E2E_WEB_PORT: '32102',
+    })
+
+    try {
+        expect(resources.apiPort).toBe(32101)
+        expect(resources.webPort).toBe(32102)
+    } finally {
+        await rm(resources.dataDirectory, { recursive: true, force: true })
+    }
+})
+
+test('reuses the parent runtime when Playwright loads its config in a worker', async () => {
+    const parentResources = await createE2ERuntimeResources({})
+
+    try {
+        const workerResources = await createE2ERuntimeResources({
+            HERALD_E2E_API_PORT: String(parentResources.apiPort),
+            HERALD_E2E_DATA_DIRECTORY: parentResources.dataDirectory,
+            HERALD_E2E_WEB_PORT: String(parentResources.webPort),
+        })
+
+        expect(workerResources).toEqual(parentResources)
+    } finally {
+        await rm(parentResources.dataDirectory, { recursive: true, force: true })
+    }
+})

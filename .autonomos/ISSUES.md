@@ -581,7 +581,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-025] Isolate concurrent local and test runtime resources
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: The browser test configuration uses a shared temporary data root
   that startup and teardown remove, while development and E2E commands rely on
   conventional ports and local database/media paths.
@@ -591,7 +591,17 @@ exists` error. At the same time, the Vite development proxy always targets port
   its own temporary data and media roots and reserved ports, with teardown
   limited to resources owned by that run. Shared/default paths remain a
   serialized orchestrator concern until then.
-- Tasks: to be triaged
+- Tasks: OPS-139 (completed)
+- Resolution: Playwright now creates a unique disposable runtime root and
+  invocation-specific loopback ports and output directory. Worker processes
+  reuse the parent runtime through explicit environment propagation, while the
+  API launcher and global teardown validate and remove only the generated run
+  root. The legacy `/tmp/herald-e2e-data` root is not accepted as a cleanup
+  target. Default development ports and data paths remain operator-owned and
+  serialized; explicit E2E debug ports remain caller-reserved.
+- Verification: The isolated runtime unit tests pass, two concurrent realtime
+  Playwright runs pass on distinct ports, the CI-mode browser suite passes all
+  15 tests, and no generated E2E data root remains after teardown.
 
 ## [ISSUE-026] Enforce runtime quiescence before backup restore
 

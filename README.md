@@ -142,11 +142,14 @@ Chromium binary once on a development machine before running it:
 npx --no-install playwright install chromium
 ```
 
-`bun run test:e2e` starts isolated Bun API and Vite processes with a temporary
-SQLite database and local media directory. The suite creates only disposable
-local data, never calls a real publisher, and removes its application data when
-it finishes. The Playwright runner requires Node.js 20 or newer; Herald's
-application processes continue to run on Bun.
+`bun run test:e2e` starts isolated Bun API and Vite processes with a unique
+temporary SQLite database, local media directory, loopback ports, and test
+output directory for that invocation. The suite creates only disposable local
+data, never calls a real publisher, and removes only the runtime it owns when it
+finishes. The Playwright runner requires Node.js 20 or newer; Herald's
+application processes continue to run on Bun. Set `HERALD_E2E_API_PORT` and
+`HERALD_E2E_WEB_PORT` when debugging on chosen ports; explicit ports are
+caller-reserved and must not be reused by overlapping runs.
 
 The HTTP CLI uses the same API as the dashboard. Sign in once, then export the
 session cookie printed by the command:

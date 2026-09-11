@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test } from '@playwright/test'
 
-const e2eApiOrigin = `http://127.0.0.1:${process.env.HERALD_E2E_API_PORT ?? '3101'}`
+const e2eApiPort = process.env.HERALD_E2E_API_PORT
+if (e2eApiPort === undefined) {
+    throw new Error('HERALD_E2E_API_PORT must be set by the Playwright E2E runtime')
+}
+const e2eApiOrigin = `http://127.0.0.1:${e2eApiPort}`
 
 const mediaFilename = 'herald-e2e-pixel.png'
 const mediaBytes = Buffer.from(
