@@ -233,8 +233,8 @@ async function startServerWithRuntimeLock(
         shuttingDown = true
 
         try {
-            worker.stop()
-            mediaMaintenance.stop()
+            await worker.stop()
+            await mediaMaintenance.stop()
             notificationProjection.stop()
             realtime.stop()
             clearDatabaseCommitObserver()

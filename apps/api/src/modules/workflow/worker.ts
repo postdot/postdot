@@ -60,7 +60,7 @@ export interface PublicationWorker {
     readonly scheduler: NextEventScheduler
     processDueEvents(now: number): Promise<void>
     start(): void
-    stop(): void
+    stop(): Promise<void>
     replan(): void
 }
 
@@ -125,7 +125,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
             scheduler.start()
         },
         stop() {
-            scheduler.stop()
+            return scheduler.stop()
         },
         replan() {
             if (scheduler.state === 'started') scheduler.replan()

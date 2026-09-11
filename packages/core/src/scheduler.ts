@@ -45,6 +45,8 @@ export class NextEventScheduler {
 
     #state: SchedulerState = 'idle'
     #timer: unknown | null = null
+    #activeRun: Promise<void> | null = null
+    #stopping = false
     #generation = 0
     #scheduledAt: number | null = null
 
@@ -96,11 +98,13 @@ export class NextEventScheduler {
         this.#plan()
     }
 
-    stop(): void {
-        if (this.#state === 'stopped') return
+    stop(): Promise<void> {
+        if (this.#state === 'stopped') return this.#activeRun ?? Promise.resolve()
 
+        this.#stopping = true
         this.#clearTimer()
         this.#state = 'stopped'
+        return this.#activeRun ?? Promise.resolve()
     }
 
     #plan(): void {
@@ -123,6 +127,16 @@ export class NextEventScheduler {
     async #wake(generation: number): Promise<void> {
         if (generation !== this.#generation || this.#state !== 'started') return
 
+        const activeRun = this.#run()
+        this.#activeRun = activeRun
+        try {
+            await activeRun
+        } finally {
+            if (this.#activeRun === activeRun) this.#activeRun = null
+        }
+    }
+
+    async #run(): Promise<void> {
         this.#timer = null
         this.#scheduledAt = null
         this.#state = 'running'
@@ -139,6 +153,10 @@ export class NextEventScheduler {
             this.#state = 'started'
             this.#plan()
         } catch (error) {
+            if (this.#stopping) {
+                this.#onError(error)
+                return
+            }
             this.#fail(error)
         }
     }

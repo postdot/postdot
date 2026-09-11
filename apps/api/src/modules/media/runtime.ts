@@ -46,7 +46,7 @@ export type MediaReconciliationRuntimeState =
 export interface MediaReconciliationRuntime {
     readonly state: MediaReconciliationRuntimeState
     start(): void
-    stop(): void
+    stop(): Promise<void>
 }
 
 export interface MediaReconciliationRuntimeOptions {
@@ -65,25 +65,30 @@ export function createMediaReconciliationRuntime(
 
     let timer: ReturnType<typeof setInterval> | undefined
     let running = false
+    let activeReconciliation: Promise<void> | null = null
     let recoveryRequired = false
     let state: MediaReconciliationRuntimeState = 'idle'
     const handleError = options.onError ?? defaultMediaReconciliationErrorHandler
 
-    const reconcile = async () => {
-        if (running) return
+    const reconcile = (): Promise<void> => {
+        if (running) return activeReconciliation ?? Promise.resolve()
         running = true
         state = recoveryRequired ? 'recovering' : 'running'
-        try {
-            await media.reconcile()
-            recoveryRequired = false
-            if (timer !== undefined) state = 'started'
-        } catch (error) {
-            recoveryRequired = true
-            state = timer === undefined ? 'stopped' : 'failed'
-            handleError(error)
-        } finally {
-            running = false
-        }
+        const run = (async () => {
+            try {
+                await media.reconcile()
+                recoveryRequired = false
+                if (timer !== undefined) state = 'started'
+            } catch (error) {
+                recoveryRequired = true
+                state = timer === undefined ? 'stopped' : 'failed'
+                handleError(error)
+            } finally {
+                running = false
+            }
+        })()
+        activeReconciliation = run
+        return run
     }
 
     return {
@@ -96,10 +101,11 @@ export function createMediaReconciliationRuntime(
             state = recoveryRequired ? 'recovering' : 'started'
         },
         stop() {
-            if (timer === undefined) return
+            if (timer === undefined) return activeReconciliation ?? Promise.resolve()
             clearInterval(timer)
             timer = undefined
             state = 'stopped'
+            return activeReconciliation ?? Promise.resolve()
         },
     }
 }

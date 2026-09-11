@@ -1985,3 +1985,36 @@ channels` with a foreign-key constraint error even though a fresh empty database
   and the dedicated `test:scripts` command. The eight CLI and runtime-isolation
   tests pass through that explicit gate, so root script regressions are no longer
   outside the normal repository check.
+
+## [ISSUE-075] Prove graceful runtime shutdown and durable restart recovery
+
+- Type: problem
+- Status: resolved
+- Evidence: The foundation audit's medium-term follow-up identified shutdown during
+  a provider effect, notification projection, or media reconciliation as unverified.
+  `NextEventScheduler.stop()`, the publication worker, and media maintenance stop
+  scheduling synchronously, while the production entrypoint closes the database
+  immediately afterward. Existing tests cover idle cleanup and restart-readable
+  state, but do not prove that in-flight work drains before the database and runtime
+  lock are released.
+- Impact: A SIGTERM during an external effect can close SQLite while the worker is
+  still completing its durable outcome, or can leave a provider/media operation
+  without a clear final checkpoint. A process that exits without a durable final
+  state must be recoverable on restart without claiming that an unknown external
+  effect was successful.
+- Desired outcome: Graceful shutdown prevents new work, waits for in-flight worker,
+  projection, and media maintenance operations to settle before closing resources,
+  and releases the runtime boundary only after that drain. Restart tests must prove
+  durable job recovery, notification projection recovery, media maintenance
+  lifecycle, and an explicit behavior for forced-stop leftovers.
+- Scope boundary: This issue proves the existing single-process lifecycle and
+  recovery contracts; it does not introduce a supervisor, a distributed lock,
+  provider-specific cancellation APIs, or a new deployment architecture.
+- Tasks: OPS-150
+- Related issues: ISSUE-012, ISSUE-026, ISSUE-067
+- Related decisions: ADR-005, ADR-038, ADR-058, ADR-064
+- Resolution: The scheduler now stops planning new work and exposes an async
+  drain barrier; the worker and media maintenance propagate it, and production
+  awaits those drains before closing SQLite or releasing the runtime lock.
+  Restart, notification projection, workflow lease, backup/restore, and stale
+  lock tests preserve durable recovery and explicit forced-stop handling.
