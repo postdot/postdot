@@ -1,15 +1,20 @@
 import type { HeraldAuth } from '@herald/auth'
-import type { ProjectAccessTokenAuthentication } from '@herald/db'
 import { Elysia } from 'elysia'
+
+interface ProjectApiKeyAuthentication {
+    readonly projectId: string
+    readonly subjectId: string
+    readonly displayName: string
+}
 
 export function createAuthRoutes(auth: HeraldAuth) {
     return new Elysia({ name: 'herald-auth-routes' }).mount(auth.handler)
 }
 
 export interface AuthenticatedElysiaOptions {
-    readonly authenticateProjectAccessToken?: (
+    readonly authenticateBetterAuthProjectApiKey?: (
         token: string
-    ) => ProjectAccessTokenAuthentication | null
+    ) => Promise<ProjectApiKeyAuthentication | null>
     readonly authorizeProjectSessionAccess?: (projectId: string, userId: string) => boolean
 }
 
@@ -20,7 +25,7 @@ export type HeraldAuthenticatedUser = Pick<HeraldAuthSession['user'], 'id' | 'na
 export type HeraldAuthenticationMethod = 'session' | 'project_token'
 
 function createProjectTokenUser(
-    authentication: ProjectAccessTokenAuthentication
+    authentication: ProjectApiKeyAuthentication
 ): HeraldAuthenticatedUser {
     return {
         id: authentication.subjectId,
@@ -63,6 +68,7 @@ function createAuthenticatedElysiaContract(auth: HeraldAuth) {
                     },
                     session: session.session as HeraldAuthSession['session'] | null,
                     authMethod: 'session' as HeraldAuthenticationMethod,
+                    projectTokenProjectId: undefined,
                 }
             },
         },
@@ -86,12 +92,13 @@ export function createAuthenticatedElysia(
         auth: {
             async derive({ request: { headers }, status, request }) {
                 const authorization = headers.get('authorization')
-                if (authorization !== null) {
-                    const token = parseBearerToken(authorization)
+                const token =
+                    authorization === null
+                        ? headers.get('x-api-key')
+                        : parseBearerToken(authorization)
+                if (token !== null) {
                     const authentication =
-                        token === null
-                            ? null
-                            : (options.authenticateProjectAccessToken?.(token) ?? null)
+                        (await options.authenticateBetterAuthProjectApiKey?.(token)) ?? null
                     if (authentication === null) {
                         return status(401, {
                             error: {
@@ -101,10 +108,18 @@ export function createAuthenticatedElysia(
                         })
                     }
 
+                    const projectId = readProjectIdFromRequest(request.url)
+                    if (projectId !== null && authentication.projectId !== projectId) {
+                        return status(404, {
+                            error: { code: 'not_found', message: 'Project not found' },
+                        })
+                    }
+
                     return {
                         user: createProjectTokenUser(authentication),
                         session: null,
                         authMethod: 'project_token' as const,
+                        projectTokenProjectId: authentication.projectId,
                     }
                 }
 

@@ -67,6 +67,9 @@ describe('instance access store', () => {
                     ('owner', 'Project Owner', 'owner@herald.local', 0, 1, 1),
                     ('member', 'Project Member', 'member@herald.local', 0, 2, 2),
                     ('outsider', 'Project Outsider', 'outsider@herald.local', 0, 3, 3)
+                ;
+                insert into organization (id, name, slug, created_at)
+                values ('access-project-org', 'Access Project', 'access-project', 1)
             `)
 
             const access = createAccessStore(database, { now: () => 1_800_000_000_000 })
@@ -84,6 +87,7 @@ describe('instance access store', () => {
                 name: 'Access project',
                 subjectId: 'owner',
                 displayName: 'Project Owner',
+                organizationId: 'access-project-org',
             })
 
             expect(access.getProjectMembership(created.project.id, 'owner')).toBeNull()
@@ -107,9 +111,9 @@ describe('instance access store', () => {
 
             database.$client
                 .query(
-                    `insert into project_memberships
-                     (id, project_id, user_id, role, state, created_at, updated_at)
-                     values ('project-membership:viewer', ?1, 'member', 'viewer', 'active', 2, 2)`
+                    `insert into member
+                     (id, organization_id, user_id, role, created_at)
+                     values ('project-member-row', 'access-project-org', 'member', 'viewer', 2)`
                 )
                 .run(created.project.id)
             expect(access.canAccessProject(created.project.id, 'member', 'viewer')).toBe(true)
@@ -118,9 +122,9 @@ describe('instance access store', () => {
 
             database.$client
                 .query(
-                    `update project_memberships
+                    `update member
                      set role = 'editor'
-                     where project_id = ?1 and user_id = 'member'`
+                     where organization_id = 'access-project-org' and user_id = 'member'`
                 )
                 .run(created.project.id)
             expect(access.canAccessProject(created.project.id, 'member', 'editor')).toBe(true)
@@ -138,6 +142,89 @@ describe('instance access store', () => {
                     userId: 'member',
                 })
             ).toBeNull()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('uses Better Auth organization membership as the authority for migrated projects', () => {
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            database.$client.exec(`
+                insert into user (id, name, email, email_verified, created_at, updated_at)
+                values
+                    ('organization-owner', 'Organization Owner', 'owner@herald.local', 0, 1, 1),
+                    ('organization-member', 'Organization Member', 'member@herald.local', 0, 2, 2)
+                ;
+                insert into organization (id, name, slug, created_at)
+                values ('organization-project', 'Organization Project', 'organization-project', 1)
+            `)
+
+            const access = createAccessStore(database, { now: () => 1_800_000_000_000 })
+            access.claimFirstAccount({ userId: 'organization-owner' })
+            database.$client.exec(`
+                insert into instance_memberships
+                    (id, user_id, role, state, created_at, updated_at)
+                values ('instance-membership:organization-member', 'organization-member', 'member', 'enabled', 2, 2)
+            `)
+
+            const manualStore = createManualStore(database, { now: () => 1_800_000_000_000 })
+            const created = manualStore.createProject({
+                name: 'Organization project',
+                subjectId: 'organization-owner',
+                displayName: 'Organization Owner',
+                organizationId: 'organization-project',
+            })
+            access.ensureProjectOwnerMembership({
+                projectId: created.project.id,
+                userId: 'organization-owner',
+            })
+            database.$client
+                .query(
+                    `insert into member (id, organization_id, user_id, role, created_at)
+                     values ('organization-member-row', 'organization-project', 'organization-member', 'viewer', 2)`
+                )
+                .run()
+
+            expect(
+                access.getProjectMembership(created.project.id, 'organization-member')
+            ).toMatchObject({
+                projectId: created.project.id,
+                userId: 'organization-member',
+                role: 'viewer',
+                state: 'active',
+            })
+            expect(access.canAccessProject(created.project.id, 'organization-member')).toBe(true)
+            expect(
+                access.canAccessProject(created.project.id, 'organization-member', 'editor')
+            ).toBe(false)
+
+            database.$client
+                .query(
+                    `update member
+                     set role = 'editor'
+                     where organization_id = 'organization-project'
+                       and user_id = 'organization-member'`
+                )
+                .run()
+            expect(
+                access.canAccessProject(created.project.id, 'organization-member', 'editor')
+            ).toBe(true)
+
+            database.$client
+                .query(
+                    `delete from member
+                     where organization_id = 'organization-project'
+                       and user_id = 'organization-member'`
+                )
+                .run()
+            expect(
+                access.getProjectMembership(created.project.id, 'organization-member')
+            ).toBeNull()
+            expect(access.canAccessProject(created.project.id, 'organization-member')).toBe(false)
+            expect(access.listProjectMemberships(created.project.id)).toHaveLength(1)
         } finally {
             closeDatabase(database)
         }

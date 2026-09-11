@@ -40,7 +40,9 @@ function createElysiaSelectSchema<const TableType extends Table>(table: TableTyp
     return Type.Unsafe<TableType['$inferSelect']>(schema)
 }
 
-export const projectSchema = createElysiaSelectSchema(projects)
+export const projectSchema = Type.Unsafe<Omit<typeof projects.$inferSelect, 'organizationId'>>(
+    Type.Omit(createElysiaSelectSchema(projects), ['organizationId'])
+)
 const taxonomyStateSchema = Type.Union([Type.Literal('active'), Type.Literal('archived')])
 export const projectCategorySchema = Type.Object({
     id: Type.String({ minLength: 1 }),

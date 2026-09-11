@@ -327,7 +327,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         )
                     }
 
-                    const credential = await credentialStore.createPublisherCredential({
+                    const savedCredential = await credentialStore.createPublisherCredential({
                         projectId: consumed.attempt.projectId,
                         connectedByActorId: consumed.attempt.connectedByActorId,
                         providerId: BLUESKY_PROVIDER,
@@ -340,12 +340,37 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         providerSession: serializedSession,
                         expiresAt: tokenExpiry(tokenSet.expiresAt, publisher.now()),
                     })
-                    if (credential.kind !== 'created') {
+                    let credentialId: string
+                    if (savedCredential.kind === 'created') {
+                        credentialId = savedCredential.credential.id
+                    } else if (savedCredential.kind === 'not_found') {
                         return redirectBlueskyPublisher(
                             publisher.webOrigin,
                             consumed.attempt.returnPath,
                             'provider_unavailable'
                         )
+                    } else {
+                        // Revocation intentionally keeps the credential row for audit/history.
+                        // Reusing that row lets a later OAuth grant restore the connection without
+                        // violating the project/provider/account uniqueness constraint.
+                        const replaced = await credentialStore.replacePublisherCredentialTokens({
+                            projectId: consumed.attempt.projectId,
+                            credentialId: savedCredential.credential.id,
+                            providerApplicationId: consumed.attempt.providerApplicationId,
+                            scopes: [...BLUESKY_REQUIRED_SCOPES],
+                            accessToken: tokenSet.accessToken,
+                            refreshToken: tokenSet.refreshToken,
+                            providerSession: serializedSession,
+                            expiresAt: tokenExpiry(tokenSet.expiresAt, publisher.now()),
+                        })
+                        if (replaced.kind !== 'updated') {
+                            return redirectBlueskyPublisher(
+                                publisher.webOrigin,
+                                consumed.attempt.returnPath,
+                                'provider_unavailable'
+                            )
+                        }
+                        credentialId = replaced.credential.id
                     }
 
                     callbackStage = 'create_connection'
@@ -354,7 +379,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         channelId: consumed.attempt.channelId,
                         subjectId: user.id,
                         kind: BLUESKY_PROVIDER,
-                        credentialId: credential.credential.id,
+                        credentialId,
                         destination: {
                             type: 'account',
                             id: callback.session.did,

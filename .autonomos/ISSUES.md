@@ -284,24 +284,29 @@ exists` error. At the same time, the Vite development proxy always targets port
 
 - Type: problem
 - Status: resolved
-- Evidence: Projects currently expose access through the creating user's actor;
-  there are no project membership, invitation, or project-token models or routes.
-  The CLI authenticates with `HERALD_SESSION_COOKIE`, while `SPEC-002` lists
-  project-scoped API tokens in the operable milestone. Better Auth remains limited
-  to application email/password authentication.
+- Evidence: The initial implementation exposed access through the creating user's
+  actor and a Herald-owned project-token model. `SPEC-002` lists project-scoped API
+  tokens in the operable milestone. The access reassessment showed that Better Auth's
+  Admin, Organization, and API Key plugins cover the standard identity, membership,
+  invitation, expiry, and machine-key primitives needed by Herald.
 - Impact: Herald cannot yet provide a deliberate access model for trusted humans,
   scripts, and agents before the instance is exposed beyond local development.
 - Desired outcome: The instance has an explicit bootstrap policy and project access
   model, including attributable machine access where required, without coupling
   project ownership or publisher credentials to Better Auth account rows.
 - Tasks: ACCESS-14 (completed)
-- Resolution: Herald now supports project-scoped opaque bearer tokens with
-  hash-only persistence, optional expiry, durable revocation, one-time secret
-  disclosure, and project-scoped `api_token` actors. Human sessions manage the
-  tokens; machine tokens use ordinary project operations but cannot create
-  projects, manage tokens, or start interactive LinkedIn OAuth flows. Better Auth
-  remains limited to human email/password authentication.
-- Decision: [ADR-030](decisions/ADR-030-project-scoped-machine-access.md)
+- Resolution: Better Auth now owns global user administration, project organizations,
+  project membership/invitations, and new organization-owned API keys with bounded
+  expiry. Herald keeps the instance membership boundary, actor attribution, publisher
+  credentials, and a compatibility projection. New keys use `herald_pat_`, carry a
+  verified project binding, and are managed through guarded Herald routes. ACCESS-133
+  now provides the offline report and backup-gated cutover that revokes legacy
+  `herald_pat_v1_` tokens and old project invitation links; physical cleanup remains
+  explicitly tracked by ACCESS-135.
+  Machine tokens use ordinary project operations but cannot create projects, manage
+  tokens, or start interactive publisher OAuth flows.
+- Decision: [ADR-030](decisions/ADR-030-project-scoped-machine-access.md),
+  [ADR-063](decisions/ADR-063-adopt-better-auth-access-plugins.md)
 - Verification: Database and API integration tests cover secret handling,
   project isolation, expiry, revocation, actor attribution, human-only management,
   bearer precedence, OAuth session-only behavior, and OpenAPI security metadata.
@@ -482,6 +487,16 @@ exists` error. At the same time, the Vite development proxy always targets port
   persisted the successful media checkpoint and publication outcome, and the
   dashboard displayed the target as published. This remains a recurring
   validation practice rather than a release gate.
+- The 2026-09-11 validation completed the same controlled loop with the Bluesky
+  provider: the local loopback OAuth flow was accepted on the real provider,
+  the project-owned connection was restored, and an automatic text publication
+  was acknowledged by Bluesky and displayed as published in the Herald queue.
+  The validation also corrected two provider-boundary defects found during the
+  run: the OAuth grant now requests the granular repository/blob permissions
+  required for publication, and a revoked credential is reactivated with the
+  scopes from a fresh grant instead of being rejected by the uniqueness guard.
+  The publication scheduler is explicitly woken after a reschedule so the
+  requested run time is applied without waiting for the previous timer.
 
 ## [ISSUE-022] Separate LinkedIn authorization principals from publication destinations
 
@@ -1706,19 +1721,47 @@ channels` with a foreign-key constraint error even though a fresh empty database
   deletion, and abuse/rate-limit boundaries. The decision must state which parts
   are required before exposing Herald beyond a trusted local operator and must
   preserve project-owned publisher credentials and machine-token attribution.
-- Scope boundary: This is a product and security policy investigation. It does
-  not add email delivery, invitations, organization billing, SSO, or an admin UI;
-  it does not replace Better Auth for human authentication or alter the existing
-  project-scoped machine-token contract.
+- Scope boundary: The accepted first implementation does not add email delivery,
+  organization billing, SSO, recovery, user deletion/anonymization, or a complete
+  project-member UI. It does adopt Better Auth Admin, Organization, and API Key
+  plugins for the access lifecycle and keeps the existing project-token contract only
+  as a migration compatibility path.
 - Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132
 - Related issues: ISSUE-013, ISSUE-059
-- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061
+- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063
 - Resolution: ADR-061 establishes the local single-operator bootstrap and the
   shared self-hosted boundary: the first account claims an empty instance and
-  becomes its administrator, later registration is closed by default, instance
-  and project membership are distinct, and invitations can use hashed tokens
-  without requiring SMTP. ACCESS-116 closed the policy decision. ACCESS-131 and
-  ACCESS-132 now track its implementation in separate backend and web slices.
-  Account recovery/mail delivery and credential preservation remain explicit
-  boundaries; recovery is not silently invented as part of the first access
-  foundation.
+  becomes its administrator, later registration is closed by default, and instance
+  and project membership are distinct. ADR-063 implements the access lifecycle with
+  Better Auth Admin, Organization, and API Key plugins: each project has one
+  organization, its member rows authorize project access, invitations expire after
+  seven days, and new project keys expire after 180 days by default. Herald retains
+  instance membership and actor projections, while legacy invitations/tokens are
+  retained only until the explicit ACCESS-133 cutover. ACCESS-131, ACCESS-132, and
+  ACCESS-133 are complete. Account recovery/mail delivery, user
+  deletion/anonymization, project-member UI, and post-retirement physical cleanup
+  remain explicit follow-ups.
+
+## [ISSUE-067] Establish a clean development access baseline
+
+- Type: problem
+- Status: resolved
+- Evidence: Herald is a private, unused development application with no database
+  file or deployed user data in the repository. The Better Auth cutover had
+  temporarily kept project-membership, mixed invitation, and Herald bearer-token
+  compatibility paths solely to support a hypothetical deployed upgrade.
+- Impact: Retaining those paths would make the development model harder to reason
+  about, keep untested authorization branches alive, and force every future schema
+  change to carry an unnecessary historical migration chain.
+- Desired outcome: The current codebase starts from one generated Drizzle baseline,
+  uses Better Auth Organization members/invitations/API keys as the project access
+  authority, and keeps only the Herald-owned instance boundary and actor projection
+  that have independent domain meaning.
+- Tasks: ACCESS-133, ACCESS-135
+- Related decisions: [ADR-064](decisions/ADR-064-clean-development-access-baseline.md)
+- Resolution: The old project access tables, legacy project bearer-token store,
+  retirement marker, and runtime compatibility branches were removed. Instance
+  invitations now use a dedicated table, the migration directory contains one
+  generated baseline, and the test suite verifies that obsolete tables cannot appear
+  in a fresh database. A database file is intentionally not reset by application
+  code; a stale disposable local file must be moved aside explicitly.

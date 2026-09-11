@@ -5,7 +5,9 @@ import { defaultDatabaseFileName } from './config'
 
 export async function runMaintenanceCommand(
     args: readonly string[],
-    options: { readonly mediaStore?: MediaStore } = {}
+    options: {
+        readonly mediaStore?: MediaStore
+    } = {}
 ) {
     const command = args[0]
     if (command !== 'backup' && command !== 'restore') return false

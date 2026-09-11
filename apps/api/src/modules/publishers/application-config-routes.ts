@@ -72,8 +72,8 @@ const applicationResponseSchema = Type.Object({ application: applicationSchema }
 
 /**
  * Provider applications are instance-level configuration, not project data.
- * Only enabled instance administrators may manage these settings; project bearer
- * tokens are never accepted for this instance-scoped surface.
+ * Only enabled instance administrators may manage these settings; project API keys
+ * are never accepted for this instance-scoped surface.
  */
 export function registerProviderApplicationRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,

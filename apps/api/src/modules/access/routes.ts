@@ -1,3 +1,4 @@
+import type { HeraldAuth } from '@herald/auth'
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
@@ -30,28 +31,10 @@ const instanceMembershipSchema = Type.Object({
     createdAt: Type.Integer({ minimum: 0 }),
     updatedAt: Type.Integer({ minimum: 0 }),
 })
-const projectMembershipSchema = Type.Object({
-    id: Type.String({ minLength: 1 }),
-    projectId: Type.String({ minLength: 1 }),
-    userId: Type.String({ minLength: 1 }),
-    email: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1 }),
-    role: Type.Union([Type.Literal('owner'), Type.Literal('editor'), Type.Literal('viewer')]),
-    state: Type.Union([Type.Literal('active'), Type.Literal('removed')]),
-    createdAt: Type.Integer({ minimum: 0 }),
-    updatedAt: Type.Integer({ minimum: 0 }),
-})
 const invitationSchema = Type.Object({
     id: Type.String({ minLength: 1 }),
     targetEmail: Type.String({ minLength: 1 }),
     instanceRole: Type.Literal('member'),
-    projectId: nullableString,
-    projectRole: Type.Union([
-        Type.Literal('owner'),
-        Type.Literal('editor'),
-        Type.Literal('viewer'),
-        Type.Null(),
-    ]),
     state: Type.Union([
         Type.Literal('pending'),
         Type.Literal('accepted'),
@@ -86,15 +69,6 @@ const updateInstanceMembershipBody = Type.Object(
 )
 const createInvitationBody = Type.Object({
     targetEmail: Type.String({ minLength: 1, maxLength: 320 }),
-    projectId: Type.Optional(Type.Union([Type.String({ minLength: 1 }), Type.Null()])),
-    projectRole: Type.Optional(
-        Type.Union([
-            Type.Literal('owner'),
-            Type.Literal('editor'),
-            Type.Literal('viewer'),
-            Type.Null(),
-        ])
-    ),
     expiresAt: Type.Optional(Type.Integer({ minimum: 0 })),
 })
 const acceptInvitationBody = Type.Object({ token: Type.String({ minLength: 1 }) })
@@ -107,7 +81,6 @@ const createdInvitationSchema = Type.Object({
 const acceptedInvitationSchema = Type.Object({
     invitation: invitationSchema,
     instanceMembership: instanceMembershipSchema,
-    projectMembership: Type.Union([projectMembershipSchema, Type.Null()]),
 })
 
 const forbiddenResponse = () => ({
@@ -122,6 +95,12 @@ const sessionOnlyForbiddenResponse = () => ({
         message: 'A human session is required to view instance access',
     },
 })
+const adminSyncFailedResponse = () => ({
+    error: {
+        code: 'admin_sync_failed',
+        message: 'The instance membership changed, but Better Auth could not be synchronized',
+    },
+})
 
 function isInstanceAdmin(
     authMethod: 'session' | 'project_token',
@@ -133,7 +112,8 @@ function isInstanceAdmin(
 
 export function registerAccessRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    access: AccessStore
+    access: AccessStore,
+    auth: HeraldAuth
 ) {
     return app
         .get(
@@ -200,6 +180,7 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     404: errorResponse,
                     409: errorResponse,
                     422: errorResponse,
+                    503: errorResponse,
                 },
                 detail: {
                     operationId: 'updateAccessMember',
@@ -208,11 +189,12 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, params, status, user }) => {
+            async ({ authMethod, body, params, request, status, user }) => {
                 if (!isInstanceAdmin(authMethod, user.id, access)) {
                     return status(403, forbiddenResponse())
                 }
 
+                const previousMembership = access.getInstanceMembership(params.userId)
                 const result = access.updateInstanceMembership({
                     actorUserId: user.id,
                     userId: params.userId,
@@ -242,7 +224,81 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                         },
                     })
                 }
-                return { membership: result.membership }
+                const previousRole = previousMembership?.role ?? result.membership.role
+                const previousState = previousMembership?.state ?? result.membership.state
+                const nextRole = body.role ?? previousRole
+                const nextState = body.state ?? previousState
+
+                try {
+                    await auth.api.setRole({
+                        body: {
+                            userId: params.userId,
+                            role: nextRole === 'admin' ? 'admin' : 'user',
+                        },
+                        headers: request.headers,
+                    })
+                    if (nextState === 'disabled') {
+                        await auth.api.banUser({
+                            body: {
+                                userId: params.userId,
+                                banReason: 'Disabled by a Herald instance administrator',
+                            },
+                            headers: request.headers,
+                        })
+                    } else {
+                        await auth.api.unbanUser({
+                            body: { userId: params.userId },
+                            headers: request.headers,
+                        })
+                    }
+                } catch {
+                    // The custom table was updated first so it could enforce Herald's
+                    // last-admin and self-protection invariants. Compensate both
+                    // projections if Better Auth rejects the subsequent sync.
+                    if (
+                        previousMembership !== null &&
+                        (previousMembership.role !== nextRole ||
+                            previousMembership.state !== nextState)
+                    ) {
+                        access.updateInstanceMembership({
+                            actorUserId: user.id,
+                            userId: params.userId,
+                            role: previousMembership.role,
+                            state: previousMembership.state,
+                        })
+                    }
+                    try {
+                        await auth.api.setRole({
+                            body: {
+                                userId: params.userId,
+                                role: previousRole === 'admin' ? 'admin' : 'user',
+                            },
+                            headers: request.headers,
+                        })
+                        if (previousState === 'disabled') {
+                            await auth.api.banUser({
+                                body: {
+                                    userId: params.userId,
+                                    banReason: 'Disabled by a Herald instance administrator',
+                                },
+                                headers: request.headers,
+                            })
+                        } else {
+                            await auth.api.unbanUser({
+                                body: { userId: params.userId },
+                                headers: request.headers,
+                            })
+                        }
+                    } catch {
+                        // The 503 makes a partial projection visible to operators;
+                        // the next reconciliation/read still uses Better Auth fields.
+                    }
+                    return status(503, adminSyncFailedResponse())
+                }
+
+                return {
+                    membership: access.getInstanceMembership(params.userId) ?? result.membership,
+                }
             }
         )
         .get(
@@ -278,7 +334,6 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     400: errorResponse,
                     401: errorResponse,
                     403: errorResponse,
-                    404: errorResponse,
                 },
                 detail: {
                     operationId: 'createAccessInvitation',
@@ -296,15 +351,8 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     const result = access.createInvitation({
                         targetEmail: body.targetEmail,
                         createdByUserId: user.id,
-                        projectId: body.projectId,
-                        projectRole: body.projectRole,
                         expiresAt: body.expiresAt,
                     })
-                    if ('kind' in result) {
-                        return status(404, {
-                            error: { code: 'not_found', message: 'Project not found' },
-                        })
-                    }
                     return status(201, result)
                 } catch {
                     return status(400, {
@@ -384,9 +432,8 @@ export function registerAccessRoutes<const Routes extends Record<string, unknown
                     })
                 }
 
-                // TODO(ACCESS-132): account creation from an invitation needs a safe
-                // Better Auth transaction seam. This route intentionally accepts only
-                // an already-authenticated user until that seam exists.
+                // Better Auth handles project invitations separately. This route
+                // accepts only Herald instance invitations.
                 const result = access.acceptInvitation({
                     token: body.token,
                     userId: user.id,

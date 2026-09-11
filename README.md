@@ -102,9 +102,10 @@ bun run herald publications due --project <project-id> --json
 Use `bun run herald --help` for the available project, channel, publication, and
 audit commands. Set `HERALD_URL` or pass `--base-url` when the API is not local.
 
-Project access tokens are created and revoked through a human session. The full
-secret is printed only by the create command, so copy it into a secret manager
-before leaving the command output:
+Project access keys are created and revoked through a project owner's human session.
+New projects use Better Auth's organization-owned API Key plugin: keys expire after
+180 days by default, and the full secret is printed only by the create command. Copy
+it into a secret manager before leaving the command output:
 
 ```sh
 bun run herald access-tokens create --project <project-id> --name release-agent
@@ -112,9 +113,10 @@ bun run herald access-tokens list --project <project-id> --json
 bun run herald access-tokens revoke --project <project-id> --token-id <token-id>
 ```
 
-Use a project token for ordinary machine operations through `HERALD_PROJECT_TOKEN`
-or `--token`. Project tokens cannot create projects, manage tokens, or start
-interactive publisher OAuth flows:
+Use a project key for ordinary machine operations through `HERALD_PROJECT_TOKEN` or
+`--token`. Project keys cannot create projects, manage keys, or start interactive
+publisher OAuth flows. The key lifecycle is provided by Better Auth and Herald keeps
+only the project binding and actor attribution needed by its domain routes.
 
 ```sh
 export HERALD_PROJECT_TOKEN='paste-the-token-once'
@@ -168,8 +170,9 @@ versioned [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/market
 using the [LinkedIn Images API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api)
 for verified JPEG and PNG uploads. The opt-in smoke-test procedure above remains
 text-only until a disposable image test is explicitly approved.
-Better Auth is used only for Herald email/password sessions. Publisher access and
-refresh tokens are project-owned and encrypted at rest using the required
+Better Auth owns human identity and sessions, global administration, project
+organizations/memberships, invitations, and new project API keys. Publisher access
+and refresh tokens remain project-owned and encrypted at rest using the required
 `HERALD_PUBLISHER_ENCRYPTION_KEY`; token material must not be copied into the
 environment file or passed to the dashboard, CLI, or provider adapter by an
 operator. The encryption key itself is deployment configuration and must be

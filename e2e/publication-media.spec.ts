@@ -242,7 +242,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.getByRole('heading', { name: `Token created for ${tokenName}` })
     ).toBeVisible()
     const tokenSecret = await page.locator('code').innerText()
-    expect(tokenSecret).toMatch(/^herald_pat_v1_/)
+    expect(tokenSecret).toMatch(/^herald_pat_[A-Za-z0-9]+$/)
     await expect(page.getByText('Shown once', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(page.locator('code')).toHaveCount(0)

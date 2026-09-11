@@ -108,7 +108,7 @@ export {
     providerApplicationOAuthModes,
     providerApplicationStates,
 } from './provider-application-store'
-export { createProjectAccessTokenStore } from './project-access-token-store'
+export { createProjectApiKeyActorStore } from './project-api-key-actor-store'
 export { createTaxonomyStore } from './taxonomy-store'
 export {
     accessInstanceId,
@@ -182,7 +182,6 @@ export type {
     AccessInstanceStateRecord,
     AccessInvitation,
     AccessInvitationState,
-    AccessMigrationReport,
     AccessProjectMembership,
     AccessProjectMembershipState,
     AccessProjectRole,
@@ -204,14 +203,10 @@ export type {
     CreateAuthorizationAttemptResult,
 } from './oauth-authorization-attempt-store'
 export type {
-    CreateProjectAccessTokenInput,
-    CreatedProjectAccessToken,
-    ProjectAccessToken,
-    ProjectAccessTokenAuthentication,
-    ProjectAccessTokenStore,
-    ProjectAccessTokenStoreOptions,
-    RevokeProjectAccessTokenInput,
-} from './project-access-token-store'
+    CreateProjectApiKeyActorInput,
+    ProjectApiKeyActor,
+    ProjectApiKeyActorStore,
+} from './project-api-key-actor-store'
 export type {
     CreateProjectCategoryInput,
     CreateProjectTagInput,

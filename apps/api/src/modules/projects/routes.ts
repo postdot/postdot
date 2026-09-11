@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto'
+
+import type { HeraldAuth } from '@herald/auth'
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
@@ -15,7 +18,8 @@ import type { ManualStore } from './types'
 export function registerProjectRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     manualStore: ManualStore,
-    access: AccessStore
+    access: AccessStore,
+    auth: HeraldAuth
 ) {
     return app
         .get(
@@ -32,7 +36,26 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     tags: ['Projects'],
                 },
             },
-            ({ user }) => ({ projects: manualStore.listProjects(user.id) })
+            ({ authMethod, projectTokenProjectId, user }) => {
+                const projects = manualStore
+                    .listProjects(user.id)
+                    .filter(
+                        project =>
+                            projectTokenProjectId === undefined ||
+                            project.id === projectTokenProjectId
+                    )
+
+                if (authMethod !== 'session') return { projects }
+
+                return {
+                    projects: projects.filter(project => {
+                        return (
+                            access.getProjectOrganizationId(project.id) !== null &&
+                            access.canAccessProject(project.id, user.id)
+                        )
+                    }),
+                }
+            }
         )
         .post(
             '/api/projects',
@@ -53,7 +76,7 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     security: sessionSecurity,
                 },
             },
-            ({ authMethod, body, status, user }) => {
+            async ({ authMethod, body, request, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, {
                         error: {
@@ -73,20 +96,47 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     })
                 }
 
-                const created = manualStore.createProject({
-                    name: body.name,
-                    subjectId: user.id,
-                    displayName: user.name,
-                    timeZone: body.timeZone,
+                // Better Auth owns the organization and member records used by
+                // invitations, project-scoped API keys, and access control. The
+                // Herald project keeps the generated organization id as its
+                // durable bridge; the organization endpoint is called server-side
+                // so users cannot create unrelated organizations directly.
+                const organization = await auth.api.createOrganization({
+                    body: {
+                        name: body.name,
+                        slug: `herald-${randomUUID()}`,
+                        userId: user.id,
+                        metadata: { heraldResource: 'project' },
+                    },
                 })
-                const ownerMembership = access.ensureProjectOwnerMembership({
-                    projectId: created.project.id,
-                    userId: user.id,
-                })
-                if (ownerMembership === null) {
-                    throw new Error('The project owner membership could not be created')
+
+                try {
+                    const created = manualStore.createProject({
+                        name: body.name,
+                        subjectId: user.id,
+                        displayName: user.name,
+                        organizationId: organization.id,
+                        timeZone: body.timeZone,
+                    })
+                    const ownerMembership = access.ensureProjectOwnerMembership({
+                        projectId: created.project.id,
+                        userId: user.id,
+                    })
+                    if (ownerMembership === null) {
+                        throw new Error('The project owner membership could not be created')
+                    }
+                    return status(201, { project: created.project })
+                } catch (error) {
+                    // Do not leave an organization behind when the domain
+                    // transaction or its Better Auth owner membership fails.
+                    await auth.api
+                        .deleteOrganization({
+                            body: { organizationId: organization.id },
+                            headers: request.headers,
+                        })
+                        .catch(() => undefined)
+                    throw error
                 }
-                return status(201, { project: created.project })
             }
         )
         .patch(

@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import { requireNonBlank } from '@herald/core'
 
@@ -11,7 +11,7 @@ export const maximumInvitationTtlMs = 30 * 24 * 60 * 60 * 1_000
 export const instanceStates = ['claimable', 'claimed'] as const
 export const instanceMembershipStates = ['enabled', 'disabled'] as const
 export const instanceRoles = ['admin', 'member'] as const
-export const projectMembershipStates = ['active', 'removed'] as const
+export const projectMembershipStates = ['active'] as const
 export const projectRoles = ['owner', 'editor', 'viewer'] as const
 export const invitationStates = ['pending', 'accepted', 'revoked', 'expired'] as const
 
@@ -31,7 +31,7 @@ export interface AccessStoreOptions {
 export interface AccessInstanceStateRecord {
     readonly id: typeof accessInstanceId
     readonly state: AccessInstanceState
-    /** True when migration found project data without an account owner. */
+    /** Reserved for an explicit operator recovery workflow. */
     readonly bootstrapBlocked: boolean
     readonly claimedByUserId: string | null
     readonly claimedAt: number | null
@@ -62,12 +62,11 @@ export interface AccessProjectMembership {
     readonly updatedAt: number
 }
 
+/** Instance invitations are the only invitation records owned by Herald. */
 export interface AccessInvitation {
     readonly id: string
     readonly targetEmail: string
     readonly instanceRole: 'member'
-    readonly projectId: string | null
-    readonly projectRole: AccessProjectRole | null
     readonly state: AccessInvitationState
     readonly createdByUserId: string
     readonly expiresAt: number
@@ -95,8 +94,6 @@ export type BootstrapFirstAccountResult =
 export interface CreateAccessInvitationInput {
     readonly targetEmail: string
     readonly createdByUserId: string
-    readonly projectId?: string | null
-    readonly projectRole?: AccessProjectRole | null
     readonly expiresAt?: number
 }
 
@@ -113,9 +110,7 @@ export type UpdateInstanceMembershipResult =
     | { readonly kind: 'last_admin' }
     | { readonly kind: 'self_update' }
 
-export type CreateAccessInvitationResult =
-    | CreatedAccessInvitation
-    | { readonly kind: 'project_not_found' }
+export type CreateAccessInvitationResult = CreatedAccessInvitation
 
 export type RevokeAccessInvitationResult =
     | { readonly kind: 'revoked'; readonly invitation: AccessInvitation }
@@ -127,19 +122,8 @@ export type AcceptAccessInvitationResult =
           readonly kind: 'accepted'
           readonly invitation: AccessInvitation
           readonly instanceMembership: AccessInstanceMembership
-          readonly projectMembership: AccessProjectMembership | null
       }
     | { readonly kind: 'invalid' }
-
-export interface AccessMigrationReport {
-    readonly instanceState: AccessInstanceStateRecord
-    readonly instanceMemberships: number
-    readonly activeInstanceAdmins: number
-    readonly projects: number
-    readonly projectMemberships: number
-    readonly usersWithoutProjectMembership: number
-    readonly orphanedHumanActors: number
-}
 
 interface InstanceStateRow {
     readonly id: string
@@ -158,6 +142,8 @@ interface InstanceMembershipRow {
     readonly name: string
     readonly role: AccessInstanceRole
     readonly state: AccessInstanceMembershipState
+    readonly authRole: string | null
+    readonly authBanned: number | null
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -169,7 +155,7 @@ interface ProjectMembershipRow {
     readonly email: string
     readonly name: string
     readonly role: AccessProjectRole
-    readonly state: AccessProjectMembershipState
+    readonly state: 'active'
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -178,8 +164,6 @@ interface InvitationRow {
     readonly id: string
     readonly targetEmail: string
     readonly instanceRole: 'member'
-    readonly projectId: string | null
-    readonly projectRole: AccessProjectRole | null
     readonly state: AccessInvitationState
     readonly createdByUserId: string
     readonly expiresAt: number
@@ -211,13 +195,14 @@ function toInstanceState(row: InstanceStateRow): AccessInstanceStateRecord {
 }
 
 function toInstanceMembership(row: InstanceMembershipRow): AccessInstanceMembership {
+    const authRoles = row.authRole?.split(',').map(role => role.trim()) ?? []
     return {
         id: row.id,
         userId: row.userId,
         email: row.email,
         name: row.name,
-        role: row.role,
-        state: row.state,
+        role: row.authRole === null ? row.role : authRoles.includes('admin') ? 'admin' : 'member',
+        state: row.authBanned === 1 ? 'disabled' : row.state,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
@@ -242,8 +227,6 @@ function toInvitation(row: InvitationRow): AccessInvitation {
         id: row.id,
         targetEmail: row.targetEmail,
         instanceRole: row.instanceRole,
-        projectId: row.projectId,
-        projectRole: row.projectRole,
         state: row.state,
         createdByUserId: row.createdByUserId,
         expiresAt: row.expiresAt,
@@ -260,10 +243,20 @@ function hasProjectRole(role: AccessProjectRole, minimumRole: AccessProjectRole)
     return rank[role] >= rank[minimumRole]
 }
 
+function parseOrganizationProjectRole(role: string): AccessProjectRole | null {
+    const rank: Record<AccessProjectRole, number> = { viewer: 1, editor: 2, owner: 3 }
+    let selected: AccessProjectRole | null = null
+    for (const candidate of role.split(',').map(value => value.trim())) {
+        if (candidate !== 'owner' && candidate !== 'editor' && candidate !== 'viewer') continue
+        if (selected === null || rank[candidate] > rank[selected]) selected = candidate
+    }
+    return selected
+}
+
 export function createAccessStore(database: HeraldDatabase, options: AccessStoreOptions = {}) {
     const client = database.$client
     const now = options.now ?? Date.now
-    const createId = options.createId ?? (() => crypto.randomUUID())
+    const createId = options.createId ?? randomUUID
     const invitationTtlMs = options.invitationTtlMs ?? defaultInvitationTtlMs
 
     if (invitationTtlMs <= 0 || invitationTtlMs > maximumInvitationTtlMs) {
@@ -318,6 +311,14 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             state = 'enabled',
             updated_at = excluded.updated_at
     `)
+    const ensureTestAdminUserStatement = client.query<void, [userId: string]>(`
+        update user
+        set role = 'admin',
+            banned = 0,
+            ban_reason = null,
+            ban_expires = null
+        where id = ?1
+    `)
     const loadInstanceMembershipStatement = client.query<InstanceMembershipRow, [userId: string]>(`
         select memberships.id,
                memberships.user_id as userId,
@@ -325,6 +326,8 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                users.name,
                memberships.role,
                memberships.state,
+               users.role as authRole,
+               users.banned as authBanned,
                memberships.created_at as createdAt,
                memberships.updated_at as updatedAt
         from instance_memberships as memberships
@@ -338,6 +341,8 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                users.name,
                memberships.role,
                memberships.state,
+               users.role as authRole,
+               users.banned as authBanned,
                memberships.created_at as createdAt,
                memberships.updated_at as updatedAt
         from instance_memberships as memberships
@@ -346,8 +351,11 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
     `)
     const countEnabledInstanceAdminsStatement = client.query<{ readonly count: number }, []>(`
         select count(*) as count
-        from instance_memberships
-        where role = 'admin' and state = 'enabled'
+        from instance_memberships as memberships
+        inner join user as users on users.id = memberships.user_id
+        where memberships.state = 'enabled'
+          and (users.banned is null or users.banned = 0)
+          and instr(',' || coalesce(users.role, memberships.role) || ',', ',admin,') > 0
     `)
     const updateInstanceMembershipStatement = client.query<
         { readonly changes: number },
@@ -368,50 +376,76 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         ProjectMembershipRow,
         [projectId: string, userId: string]
     >(`
-        select memberships.id,
-               memberships.project_id as projectId,
-               memberships.user_id as userId,
+        select members.id,
+               projects.id as projectId,
+               members.user_id as userId,
                users.email,
                users.name,
-               memberships.role,
-               memberships.state,
-               memberships.created_at as createdAt,
-               memberships.updated_at as updatedAt
-        from project_memberships as memberships
-        inner join user as users on users.id = memberships.user_id
-        inner join instance_memberships as instance_members
-            on instance_members.user_id = memberships.user_id
-           and instance_members.state = 'enabled'
-        where memberships.project_id = ?1
-          and memberships.user_id = ?2
+               members.role,
+               'active' as state,
+               members.created_at as createdAt,
+               members.created_at as updatedAt
+        from projects
+        inner join member as members
+            on members.organization_id = projects.organization_id
+           and members.user_id = ?2
+        inner join user as users
+            on users.id = members.user_id
+           and (users.banned is null or users.banned = 0)
+        inner join instance_memberships
+            on instance_memberships.user_id = members.user_id
+           and instance_memberships.state = 'enabled'
+        where projects.id = ?1
+          and projects.organization_id is not null
     `)
     const listProjectMembershipsStatement = client.query<
         ProjectMembershipRow,
         [projectId: string]
     >(`
-        select memberships.id,
-               memberships.project_id as projectId,
-               memberships.user_id as userId,
+        select members.id,
+               projects.id as projectId,
+               members.user_id as userId,
                users.email,
                users.name,
-               memberships.role,
-               memberships.state,
-               memberships.created_at as createdAt,
-               memberships.updated_at as updatedAt
-        from project_memberships as memberships
-        inner join user as users on users.id = memberships.user_id
-        where memberships.project_id = ?1
-        order by memberships.created_at, memberships.id
+               members.role,
+               'active' as state,
+               members.created_at as createdAt,
+               members.created_at as updatedAt
+        from projects
+        inner join member as members on members.organization_id = projects.organization_id
+        inner join user as users
+            on users.id = members.user_id
+           and (users.banned is null or users.banned = 0)
+        inner join instance_memberships
+            on instance_memberships.user_id = members.user_id
+           and instance_memberships.state = 'enabled'
+        where projects.id = ?1
+          and projects.organization_id is not null
+        order by members.created_at, members.id
     `)
     const projectExistsStatement = client.query<{ readonly id: string }, [projectId: string]>(`
         select id from projects where id = ?1
+    `)
+    const loadProjectOrganizationStatement = client.query<
+        { readonly organizationId: string | null },
+        [projectId: string]
+    >(`
+        select organization_id as organizationId
+        from projects
+        where id = ?1
+    `)
+    const loadProjectByOrganizationStatement = client.query<
+        { readonly projectId: string },
+        [organizationId: string]
+    >(`
+        select id as projectId
+        from projects
+        where organization_id = ?1
     `)
     const loadInvitationByHashStatement = client.query<InvitationRow, [tokenHash: string]>(`
         select id,
                target_email as targetEmail,
                instance_role as instanceRole,
-               project_id as projectId,
-               project_role as projectRole,
                state,
                created_by_user_id as createdByUserId,
                expires_at as expiresAt,
@@ -420,15 +454,13 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                revoked_at as revokedAt,
                created_at as createdAt,
                updated_at as updatedAt
-        from access_invitations
+        from instance_access_invitations
         where token_hash = ?1
     `)
     const listInvitationsStatement = client.query<InvitationRow, []>(`
         select id,
                target_email as targetEmail,
                instance_role as instanceRole,
-               project_id as projectId,
-               project_role as projectRole,
                state,
                created_by_user_id as createdByUserId,
                expires_at as expiresAt,
@@ -437,14 +469,29 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                revoked_at as revokedAt,
                created_at as createdAt,
                updated_at as updatedAt
-        from access_invitations
+        from instance_access_invitations
         order by created_at desc, id desc
+    `)
+    const loadInvitationByIdStatement = client.query<InvitationRow, [id: string]>(`
+        select id,
+               target_email as targetEmail,
+               instance_role as instanceRole,
+               state,
+               created_by_user_id as createdByUserId,
+               expires_at as expiresAt,
+               accepted_at as acceptedAt,
+               accepted_by_user_id as acceptedByUserId,
+               revoked_at as revokedAt,
+               created_at as createdAt,
+               updated_at as updatedAt
+        from instance_access_invitations
+        where id = ?1
     `)
     const expireInvitationsStatement = client.query<
         { readonly changes: number },
         [updatedAt: number, now: number]
     >(`
-        update access_invitations
+        update instance_access_invitations
         set state = 'expired', updated_at = ?1
         where state = 'pending' and expires_at <= ?2
     `)
@@ -454,23 +501,21 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             id: string,
             targetEmail: string,
             tokenHash: string,
-            projectId: string | null,
-            projectRole: AccessProjectRole | null,
             createdByUserId: string,
             expiresAt: number,
             createdAt: number,
         ]
     >(`
-        insert into access_invitations (
-            id, target_email, token_hash, instance_role, project_id, project_role,
-            state, created_by_user_id, expires_at, created_at, updated_at
-        ) values (?1, ?2, ?3, 'member', ?4, ?5, 'pending', ?6, ?7, ?8, ?8)
+        insert into instance_access_invitations (
+            id, target_email, token_hash, instance_role, state,
+            created_by_user_id, expires_at, created_at, updated_at
+        ) values (?1, ?2, ?3, 'member', 'pending', ?4, ?5, ?6, ?6)
     `)
     const revokeInvitationStatement = client.query<
         { readonly changes: number },
         [updatedAt: number, revokedAt: number, invitationId: string]
     >(`
-        update access_invitations
+        update instance_access_invitations
         set state = 'revoked', revoked_at = ?2, updated_at = ?1
         where id = ?3 and state = 'pending'
     `)
@@ -484,7 +529,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             targetEmail: string,
         ]
     >(`
-        update access_invitations
+        update instance_access_invitations
         set state = 'accepted', accepted_at = ?1, accepted_by_user_id = ?2, updated_at = ?1
         where id = ?3
           and token_hash = ?4
@@ -503,16 +548,31 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             state = 'enabled',
             updated_at = excluded.updated_at
     `)
-    const upsertProjectMembershipStatement = client.query<
+    const ensureOrganizationMemberInstanceMembershipStatement = client.query<
         void,
-        [id: string, projectId: string, userId: string, role: AccessProjectRole, now: number]
+        [id: string, userId: string, now: number]
     >(`
-        insert into project_memberships (id, project_id, user_id, role, state, created_at, updated_at)
-        values (?1, ?2, ?3, ?4, 'active', ?5, ?5)
-        on conflict (project_id, user_id) do update set
-            role = case when project_memberships.role = 'owner' then 'owner' else excluded.role end,
-            state = 'active',
+        insert into instance_memberships (id, user_id, role, state, created_at, updated_at)
+        values (?1, ?2, 'member', 'enabled', ?3, ?3)
+        on conflict (user_id) do update set
+            role = case when instance_memberships.role = 'admin' then 'admin' else 'member' end,
+            state = instance_memberships.state,
             updated_at = excluded.updated_at
+    `)
+    const upsertBetterAuthMemberStatement = client.query<
+        void,
+        [
+            id: string,
+            organizationId: string,
+            userId: string,
+            role: AccessProjectRole,
+            createdAt: number,
+        ]
+    >(`
+        insert into member (id, organization_id, user_id, role, created_at)
+        values (?1, ?2, ?3, ?4, ?5)
+        on conflict (organization_id, user_id) do update set
+            role = case when member.role = 'owner' then 'owner' else excluded.role end
     `)
     const loadHumanActorStatement = client.query<
         { readonly id: string },
@@ -530,10 +590,33 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         insert into actors (id, project_id, kind, subject_id, display_name, created_at, updated_at)
         values (?1, ?2, 'human', ?3, ?4, ?5, ?5)
     `)
+    const updateHumanActorStatement = client.query<
+        void,
+        [displayName: string, updatedAt: number, projectId: string, userId: string]
+    >(`
+        update actors
+        set display_name = ?1,
+            updated_at = ?2
+        where project_id = ?3
+          and subject_id = ?4
+          and kind = 'human'
+    `)
 
     const expirePendingInvitations = (timestamp: number): void => {
         expireInvitationsStatement.run(timestamp, timestamp)
     }
+
+    const hasPendingInvitationForEmail = (email: string): boolean =>
+        client
+            .query<{ readonly id: string }, [email: string, now: number]>(`
+            select id
+            from instance_access_invitations
+            where target_email = ?1
+              and state = 'pending'
+              and expires_at > ?2
+            limit 1
+        `)
+            .get(normalizeEmail(email), now()) !== null
 
     const claimFirstAccountInCurrentTransaction = (
         input: BootstrapFirstAccountInput
@@ -543,8 +626,13 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         const update = claimInstanceStatement.run(userId, timestamp, timestamp)
         if (update.changes !== 1) return { kind: 'already_claimed' }
 
-        const membershipId = `instance-membership:${userId}`
-        insertInstanceMembershipStatement.run(membershipId, userId, 'admin', 'enabled', timestamp)
+        insertInstanceMembershipStatement.run(
+            `instance-membership:${userId}`,
+            userId,
+            'admin',
+            'enabled',
+            timestamp
+        )
         const membership = loadInstanceMembershipStatement.get(userId)
         if (membership === null) {
             throw new Error('The first account membership could not be read after claiming Herald')
@@ -598,9 +686,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             if (update.changes !== 1) return { kind: 'not_found' }
 
             const membership = loadInstanceMembershipStatement.get(userId)
-            if (membership === null) {
-                throw new Error('The instance membership was not persisted')
-            }
+            if (membership === null) throw new Error('The instance membership was not persisted')
             return { kind: 'updated', membership: toInstanceMembership(membership) }
         }
     )
@@ -609,36 +695,24 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         (input: CreateAccessInvitationInput): CreateAccessInvitationResult => {
             const targetEmail = normalizeEmail(input.targetEmail)
             const createdByUserId = requireNonBlank(input.createdByUserId, 'createdByUserId')
-            const projectId = input.projectId === undefined ? null : input.projectId
-            const projectRole = input.projectRole === undefined ? null : input.projectRole
-            if ((projectId === null) !== (projectRole === null)) {
-                throw new Error('projectId and projectRole must be provided together')
-            }
-            if (projectId !== null && projectExistsStatement.get(projectId) === null) {
-                return { kind: 'project_not_found' }
-            }
-
             const createdAt = now()
             const expiresAt = input.expiresAt ?? createdAt + invitationTtlMs
             if (expiresAt <= createdAt || expiresAt - createdAt > maximumInvitationTtlMs) {
                 throw new Error('Invitation expiry is outside the supported range')
             }
+
             const token = randomBytes(32).toString('base64url')
             const invitationId = createId()
             insertInvitationStatement.run(
                 invitationId,
                 targetEmail,
                 hashInvitationToken(token),
-                projectId,
-                projectRole,
                 createdByUserId,
                 expiresAt,
                 createdAt
             )
-            const invitation = listInvitationsStatement
-                .all()
-                .find(candidate => candidate.id === invitationId)
-            if (invitation === undefined) throw new Error('The invitation was not persisted')
+            const invitation = loadInvitationByIdStatement.get(invitationId)
+            if (invitation === null) throw new Error('The invitation was not persisted')
             return { invitation: toInvitation(invitation), token }
         }
     )
@@ -679,29 +753,6 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                 userId,
                 timestamp
             )
-            let projectMembership: AccessProjectMembership | null = null
-            if (invitation.projectId !== null && invitation.projectRole !== null) {
-                upsertProjectMembershipStatement.run(
-                    `project-membership:${invitation.projectId}:${userId}`,
-                    invitation.projectId,
-                    userId,
-                    invitation.projectRole,
-                    timestamp
-                )
-                if (loadHumanActorStatement.get(invitation.projectId, userId) === null) {
-                    insertHumanActorStatement.run(
-                        createId(),
-                        invitation.projectId,
-                        userId,
-                        requireNonBlank(input.displayName, 'displayName'),
-                        timestamp
-                    )
-                }
-                const membership = loadProjectMembershipStatement.get(invitation.projectId, userId)
-                if (membership === null) throw new Error('The project membership was not persisted')
-                projectMembership = toProjectMembership(membership)
-            }
-
             const instanceMembership = loadInstanceMembershipStatement.get(userId)
             const acceptedInvitation = loadInvitationByHashStatement.get(tokenHash)
             if (instanceMembership === null || acceptedInvitation === null) {
@@ -711,7 +762,6 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                 kind: 'accepted',
                 invitation: toInvitation(acceptedInvitation),
                 instanceMembership: toInstanceMembership(instanceMembership),
-                projectMembership,
             }
         }
     )
@@ -732,17 +782,10 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             return claimFirstAccountTransaction(input)
         },
 
-        /**
-         * Called by Better Auth's user.create.before hook. Better Auth's Drizzle
-         * transaction owns the surrounding SQLite transaction, so this method
-         * deliberately does not open a nested transaction.
-         */
+        /** Called by Better Auth's user.create.before hook inside its transaction. */
         claimFirstAccountInCurrentTransaction,
 
-        /**
-         * Isolated browser fixtures may opt into additional independent admin
-         * accounts. This is intentionally not used by the production runtime.
-         */
+        /** Test-only fixture helper for independent browser sessions. */
         ensureTestAdminMembershipInCurrentTransaction(input: BootstrapFirstAccountInput): void {
             const userId = requireNonBlank(input.userId, 'userId')
             const timestamp = now()
@@ -751,6 +794,7 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
                 userId,
                 timestamp
             )
+            ensureTestAdminUserStatement.run(userId)
         },
 
         updateInstanceMembership(
@@ -764,17 +808,90 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             return row === null ? null : toInstanceMembership(row)
         },
 
+        hasPendingInvitationForEmail,
+
         isInstanceAdmin(userId: string): boolean {
             const membership = this.getInstanceMembership(userId)
             return membership?.state === 'enabled' && membership.role === 'admin'
         },
 
         getProjectMembership(projectId: string, userId: string): AccessProjectMembership | null {
-            const row = loadProjectMembershipStatement.get(
-                requireNonBlank(projectId, 'projectId'),
-                requireNonBlank(userId, 'userId')
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedUserId = requireNonBlank(userId, 'userId')
+            const row = loadProjectMembershipStatement.get(normalizedProjectId, normalizedUserId)
+            return row === null ? null : toProjectMembership(row)
+        },
+
+        getProjectOrganizationId(projectId: string): string | null {
+            const row = loadProjectOrganizationStatement.get(
+                requireNonBlank(projectId, 'projectId')
             )
-            return row === null || row.state !== 'active' ? null : toProjectMembership(row)
+            return row?.organizationId ?? null
+        },
+
+        /** Better Auth Organization membership is the project authorization source. */
+        syncProjectMembershipFromOrganizationMember(input: {
+            readonly organizationId: string
+            readonly userId: string
+            readonly displayName: string
+            readonly role: string
+        }): AccessProjectMembership | null {
+            const organizationId = requireNonBlank(input.organizationId, 'organizationId')
+            const userId = requireNonBlank(input.userId, 'userId')
+            const displayName = requireNonBlank(input.displayName, 'displayName')
+            const projectRole = parseOrganizationProjectRole(input.role)
+            if (projectRole === null) return null
+
+            const project = loadProjectByOrganizationStatement.get(organizationId)
+            if (project === null) return null
+
+            const timestamp = now()
+            ensureOrganizationMemberInstanceMembershipStatement.run(
+                `instance-membership:${userId}`,
+                userId,
+                timestamp
+            )
+            if (loadHumanActorStatement.get(project.projectId, userId) === null) {
+                insertHumanActorStatement.run(
+                    createId(),
+                    project.projectId,
+                    userId,
+                    displayName,
+                    timestamp
+                )
+            } else {
+                updateHumanActorStatement.run(displayName, timestamp, project.projectId, userId)
+            }
+
+            const membership = loadProjectMembershipStatement.get(project.projectId, userId)
+            return membership === null ? null : toProjectMembership(membership)
+        },
+
+        /** Better Auth already removed the authoritative member row; no projection remains. */
+        removeProjectMembershipForOrganizationMember(input: {
+            readonly organizationId: string
+            readonly userId: string
+        }): void {
+            requireNonBlank(input.organizationId, 'organizationId')
+            requireNonBlank(input.userId, 'userId')
+        },
+
+        updateProjectMembershipForOrganizationMember(input: {
+            readonly organizationId: string
+            readonly userId: string
+            readonly displayName: string
+            readonly role: string
+        }): AccessProjectMembership | null {
+            return this.syncProjectMembershipFromOrganizationMember(input)
+        },
+
+        ensureProjectMembershipForOrganizationInvitation(input: {
+            readonly organizationId: string
+            readonly userId: string
+            readonly displayName: string
+            readonly role: string
+        }): AccessProjectMembership | null {
+            return this.syncProjectMembershipFromOrganizationMember(input)
         },
 
         canAccessProject(
@@ -786,12 +903,6 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             return membership !== null && hasProjectRole(membership.role, minimumRole)
         },
 
-        /**
-         * Create the durable owner membership for a project created by an
-         * enabled instance member. The project actor remains the operational
-         * identity used by the legacy manual store; this record is the new
-         * authorization identity and the operation is intentionally idempotent.
-         */
         ensureProjectOwnerMembership(input: {
             readonly projectId: string
             readonly userId: string
@@ -801,22 +912,39 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             if (projectExistsStatement.get(projectId) === null) return null
 
             const instanceMembership = loadInstanceMembershipStatement.get(userId)
-            if (instanceMembership === null || instanceMembership.state !== 'enabled') {
-                return null
-            }
+            if (instanceMembership === null || instanceMembership.state !== 'enabled') return null
+
+            const organization = loadProjectOrganizationStatement.get(projectId)
+            if (organization?.organizationId === null || organization === null) return null
 
             const timestamp = now()
-            upsertProjectMembershipStatement.run(
-                `project-membership:${projectId}:${userId}`,
-                projectId,
+            upsertBetterAuthMemberStatement.run(
+                `herald-project-member:${projectId}:${userId}`,
+                organization.organizationId,
                 userId,
                 'owner',
                 timestamp
             )
-            const membership = loadProjectMembershipStatement.get(projectId, userId)
-            if (membership === null) {
-                throw new Error('The project owner membership was not persisted')
+            if (loadHumanActorStatement.get(projectId, userId) === null) {
+                const user = client
+                    .query<{ readonly name: string }, [userId: string]>(
+                        'select name from user where id = ?1'
+                    )
+                    .get(userId)
+                if (user !== null) {
+                    insertHumanActorStatement.run(
+                        createId(),
+                        projectId,
+                        userId,
+                        user.name,
+                        timestamp
+                    )
+                }
             }
+
+            const membership = loadProjectMembershipStatement.get(projectId, userId)
+            if (membership === null)
+                throw new Error('The project owner membership was not persisted')
             return toProjectMembership(membership)
         },
 
@@ -842,26 +970,10 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
         revokeInvitation(invitationId: string): RevokeAccessInvitationResult {
             const id = requireNonBlank(invitationId, 'invitationId')
             const timestamp = now()
-            const existing = client
-                .query<InvitationRow, [id: string]>(`
-                    select id,
-                           target_email as targetEmail,
-                           instance_role as instanceRole,
-                           project_id as projectId,
-                           project_role as projectRole,
-                           state,
-                           created_by_user_id as createdByUserId,
-                           expires_at as expiresAt,
-                           accepted_at as acceptedAt,
-                           accepted_by_user_id as acceptedByUserId,
-                           revoked_at as revokedAt,
-                           created_at as createdAt,
-                           updated_at as updatedAt
-                    from access_invitations where id = ?1
-                `)
-                .get(id)
+            const existing = loadInvitationByIdStatement.get(id)
             if (existing === null) return { kind: 'not_found' }
             if (existing.state !== 'pending') return { kind: 'not_pending' }
+
             const result = revokeInvitationStatement.run(timestamp, timestamp, id)
             if (result.changes !== 1) return { kind: 'not_pending' }
             return {
@@ -882,38 +994,6 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             readonly displayName: string
         }): AcceptAccessInvitationResult {
             return acceptInvitationTransaction(input)
-        },
-
-        getMigrationReport(): AccessMigrationReport {
-            const state = this.getInstanceState()
-            const count = (query: string): number =>
-                client.query<{ readonly count: number }, []>(query).get()?.count ?? 0
-            return {
-                instanceState: state,
-                instanceMemberships: count('select count(*) as count from instance_memberships'),
-                activeInstanceAdmins: count(
-                    `select count(*) as count from instance_memberships where role = 'admin' and state = 'enabled'`
-                ),
-                projects: count('select count(*) as count from projects'),
-                projectMemberships: count(
-                    `select count(*) as count from project_memberships where state = 'active'`
-                ),
-                usersWithoutProjectMembership: count(`
-                    select count(*) as count
-                    from user
-                    where not exists (
-                        select 1 from project_memberships
-                        where project_memberships.user_id = user.id
-                          and project_memberships.state = 'active'
-                    )
-                `),
-                orphanedHumanActors: count(`
-                    select count(*) as count
-                    from actors
-                    left join user on user.id = actors.subject_id
-                    where actors.kind = 'human' and user.id is null
-                `),
-            }
         },
     }
 }

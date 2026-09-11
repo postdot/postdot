@@ -6,7 +6,6 @@ import {
     createAccessStore,
     createMediaAssetStore,
     createNotificationStore,
-    createProjectAccessTokenStore,
     setDatabaseCommitObserver,
     runMigrations,
 } from '@herald/db'
@@ -81,7 +80,6 @@ export type {
 async function startServer(config = createHeraldConfig()) {
     const database = createDatabase(config.database.fileName)
     runMigrations(database, config.database.migrationsDirectory)
-    const accessTokens = createProjectAccessTokenStore(database)
     const access = createAccessStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
@@ -179,7 +177,6 @@ async function startServer(config = createHeraldConfig()) {
         mediaPublicDelivery,
         logging: config.logging,
         onWorkScheduled: worker.replan,
-        accessTokens,
         access,
         notifications,
         projectChanges: realtime.hub,

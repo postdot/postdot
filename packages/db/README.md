@@ -13,6 +13,13 @@ bun run db:migrate
 Run `db:generate` after changing the schema, review the generated SQL, and use
 `db:migrate` to apply migrations through the Bun runtime.
 
+The development migration directory intentionally starts with one generated
+baseline for the current schema. The runner never resets a database or hides a
+history conflict. If a disposable local database still belongs to an earlier
+development model, stop Herald and move that file aside so a fresh database can be
+created; a database with data that must be preserved needs a separately approved
+production migration plan.
+
 The production API bundle also exposes SQLite recovery commands. A database-only
 backup remains available for low-level recovery:
 

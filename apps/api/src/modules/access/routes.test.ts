@@ -5,7 +5,6 @@ import {
     closeDatabase,
     createAccessStore,
     createDatabase,
-    createProjectAccessTokenStore,
     createTaxonomyStore,
     runMigrations,
 } from '@herald/db'
@@ -23,7 +22,6 @@ function createFixture() {
     runMigrations(database)
     const access = createAccessStore(database, { now: () => now })
     const auth = createAuth(database, { baseURL, secret, access })
-    const accessTokens = createProjectAccessTokenStore(database, { now: () => now })
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -37,13 +35,12 @@ function createFixture() {
     const app = createApp({
         auth,
         access,
-        accessTokens,
         database,
         publisher,
         manualStore: { now: () => now },
         taxonomy: createTaxonomyStore(database, { now: () => now }),
     })
-    return { access, accessTokens, app, auth, database }
+    return { access, app, auth, database }
 }
 
 async function signUp(app: ReturnType<typeof createApp>, email: string) {
@@ -219,8 +216,8 @@ describe('access HTTP routes', () => {
         }
     })
 
-    it('requires an instance admin and forbids project bearer tokens on instance routes', async () => {
-        const { access, accessTokens, app, database } = createFixture()
+    it('requires an instance admin and forbids project API keys on instance routes', async () => {
+        const { access, app, auth, database } = createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@herald.local')
@@ -256,27 +253,34 @@ describe('access HTTP routes', () => {
             })
             expect(project.status).toBe(201)
             const projectBody = (await project.json()) as { project: { id: string } }
-            const token = accessTokens.create({
-                projectId: projectBody.project.id,
-                subjectId: adminId,
-                name: 'instance-route-test',
+            const organization = database.$client
+                .query<{ readonly id: string }, [string]>(
+                    'select organization_id as id from projects where id = ?1'
+                )
+                .get(projectBody.project.id)
+            if (organization === null) throw new Error('The project organization was not created')
+            const token = await auth.api.createApiKey({
+                body: {
+                    name: 'instance-route-test',
+                    organizationId: organization.id,
+                    userId: adminId,
+                    metadata: { heraldProjectId: projectBody.project.id },
+                },
+                headers: new Headers({ cookie: adminCookie }),
             })
-            expect(token).not.toBeNull()
-            if (token === null) throw new Error('The project token was not created')
 
-            expect((await bearerRequest(app, '/api/access', token.token)).status).toBe(403)
+            expect((await bearerRequest(app, '/api/access', token.key)).status).toBe(403)
             expect(
-                (await bearerRequest(app, '/api/settings/provider-applications', token.token))
-                    .status
+                (await bearerRequest(app, '/api/settings/provider-applications', token.key)).status
             ).toBe(403)
-            expect((await bearerRequest(app, '/api/categories', token.token)).status).toBe(403)
+            expect((await bearerRequest(app, '/api/categories', token.key)).status).toBe(403)
         } finally {
             closeDatabase(database)
         }
     })
 
     it('lists and updates members only for admin sessions while preserving admin safety', async () => {
-        const { access, accessTokens, app, database } = createFixture()
+        const { access, app, auth, database } = createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@herald.local')
@@ -345,18 +349,26 @@ describe('access HTTP routes', () => {
             })
             expect(projectResponse.status).toBe(201)
             const project = (await projectResponse.json()) as { project: { id: string } }
-            const token = accessTokens.create({
-                projectId: project.project.id,
-                subjectId: adminId,
-                name: 'member-administration-test',
+            const organization = database.$client
+                .query<{ readonly id: string }, [string]>(
+                    'select organization_id as id from projects where id = ?1'
+                )
+                .get(project.project.id)
+            if (organization === null) throw new Error('The project organization was not created')
+            const token = await auth.api.createApiKey({
+                body: {
+                    name: 'member-administration-test',
+                    organizationId: organization.id,
+                    userId: adminId,
+                    metadata: { heraldProjectId: project.project.id },
+                },
+                headers: new Headers({ cookie: adminCookie }),
             })
-            expect(token).not.toBeNull()
-            if (token === null) throw new Error('The project token was not created')
 
-            expect((await bearerRequest(app, '/api/access/members', token.token)).status).toBe(403)
+            expect((await bearerRequest(app, '/api/access/members', token.key)).status).toBe(403)
             expect(
                 (
-                    await bearerJsonRequest(app, `/api/access/members/${memberId}`, token.token, {
+                    await bearerJsonRequest(app, `/api/access/members/${memberId}`, token.key, {
                         method: 'PATCH',
                         body: JSON.stringify({ role: 'admin' }),
                     })
@@ -376,6 +388,30 @@ describe('access HTTP routes', () => {
             const promotedBody = await promoted.json()
             expect(promotedBody).toMatchObject({
                 membership: { userId: memberId, role: 'admin', state: 'enabled' },
+            })
+            expect(
+                database.$client
+                    .query<{ readonly role: string | null }, [string]>(
+                        'select role from user where id = ?1'
+                    )
+                    .get(memberId)
+            ).toEqual({ role: 'admin' })
+
+            await auth.api.setRole({
+                body: { userId: memberId, role: 'user' },
+                headers: new Headers({ cookie: adminCookie }),
+            })
+            expect(access.getInstanceMembership(memberId)).toMatchObject({
+                role: 'member',
+                state: 'enabled',
+            })
+            await auth.api.setRole({
+                body: { userId: memberId, role: 'admin' },
+                headers: new Headers({ cookie: adminCookie }),
+            })
+            expect(access.getInstanceMembership(memberId)).toMatchObject({
+                role: 'admin',
+                state: 'enabled',
             })
 
             const repeated = await jsonRequest(
@@ -409,6 +445,13 @@ describe('access HTTP routes', () => {
                 body: JSON.stringify({ role: 'member' }),
             })
             expect(demoted.status).toBe(200)
+            expect(
+                database.$client
+                    .query<{ readonly role: string | null }, [string]>(
+                        'select role from user where id = ?1'
+                    )
+                    .get(memberId)
+            ).toEqual({ role: 'user' })
 
             const disabled = await jsonRequest(
                 app,
@@ -423,6 +466,13 @@ describe('access HTTP routes', () => {
             expect(await disabled.json()).toMatchObject({
                 membership: { userId: memberId, role: 'member', state: 'disabled' },
             })
+            expect(
+                database.$client
+                    .query<{ readonly banned: number | null }, [string]>(
+                        'select banned from user where id = ?1'
+                    )
+                    .get(memberId)
+            ).toEqual({ banned: 1 })
 
             const lastAdmin = await jsonRequest(
                 app,
@@ -495,7 +545,6 @@ describe('access HTTP routes', () => {
             expect(await acceptedResponse.json()).toMatchObject({
                 invitation: { id: created.invitation.id, state: 'accepted' },
                 instanceMembership: { userId: memberId, role: 'member', state: 'enabled' },
-                projectMembership: null,
             })
 
             const summaryResponse = await jsonRequest(app, '/api/access', memberCookie)
@@ -505,6 +554,48 @@ describe('access HTTP routes', () => {
                 isAdmin: false,
                 instance: { bootstrapBlocked: false },
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('allows a pending invitation to bootstrap a new account before acceptance', async () => {
+        const { access, app, database } = createFixture()
+
+        try {
+            const adminCookie = await signUp(app, 'admin@herald.local')
+            const targetEmail = 'new-invitee@herald.local'
+            const createResponse = await jsonRequest(app, '/api/access/invitations', adminCookie, {
+                method: 'POST',
+                body: JSON.stringify({ targetEmail }),
+            })
+            expect(createResponse.status).toBe(201)
+            const created = (await createResponse.json()) as { token: string }
+
+            const inviteeCookie = await signUp(app, targetEmail)
+            const inviteeId = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get(targetEmail)
+            expect(inviteeId).not.toBeNull()
+
+            const acceptResponse = await jsonRequest(
+                app,
+                '/api/access/invitations/accept',
+                inviteeCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ token: created.token }),
+                }
+            )
+            expect(acceptResponse.status).toBe(200)
+            expect(await acceptResponse.json()).toMatchObject({
+                instanceMembership: {
+                    userId: inviteeId?.id,
+                    role: 'member',
+                    state: 'enabled',
+                },
+            })
+            expect(access.hasPendingInvitationForEmail(targetEmail)).toBe(false)
         } finally {
             closeDatabase(database)
         }

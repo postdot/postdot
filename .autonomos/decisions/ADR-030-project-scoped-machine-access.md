@@ -3,8 +3,10 @@
 - Status: accepted
 - Scope: Initial project access, CLI/agent authentication, and actor attribution
 - Provenance: ISSUE-013, ACCESS-14, SPEC-001, SPEC-002, SPEC-003, and SPEC-005
-- Related decisions: [ADR-008](ADR-008-enforce-project-scoped-domain-state.md), [ADR-012](ADR-012-own-publisher-credentials-and-use-oauth4webapi.md)
-- Superseded by: none
+- Related decisions: [ADR-008](ADR-008-enforce-project-scoped-domain-state.md), [ADR-012](ADR-012-own-publisher-credentials-and-use-oauth4webapi.md), [ADR-063](ADR-063-adopt-better-auth-access-plugins.md), [ADR-064](ADR-064-clean-development-access-baseline.md)
+- Superseded by: [ADR-063](ADR-063-adopt-better-auth-access-plugins.md) for the
+  Better Auth key contract, and [ADR-064](ADR-064-clean-development-access-baseline.md)
+  for removal of the discarded Herald-owned token contract
 
 ## Context
 
@@ -14,19 +16,18 @@ CI, and external agents, but the current implementation accepts only a human
 session cookie and attributes every project operation through a human actor.
 
 The domain already distinguishes project-scoped actors of kind `api_token` from
-human, agent, and system actors. The initial product direction supports trusted
-humans and machines on a self-hosted instance, while it does not yet require
-organizations, invitations, tenant isolation, or fine-grained permissions.
+human, agent, and system actors. The initial product direction supported trusted
+humans and machines on a self-hosted instance. The later collaboration decision maps
+each Herald project to a Better Auth Organization so membership, invitations, and
+organization-owned API keys can share one project boundary.
 
 ## Decision
 
 ### Initial access policy
 
 - Better Auth remains the only application authentication mechanism for humans.
-- A project is initially accessible to its creating human actor. Memberships and
-  invitations are deferred until a concrete collaborative workflow requires them;
-  this is an explicit sequencing boundary, not an implicit global authorization
-  rule.
+- Access is granted by the Better Auth Organization member role. A project without
+  an organization bridge is not available through the authenticated project API.
 - An authenticated human with access to a project may create, list, and revoke
   that project's machine tokens.
 - Machine tokens are scoped to exactly one project. They may use the ordinary
@@ -40,13 +41,11 @@ organizations, invitations, tenant isolation, or fine-grained permissions.
 
 ### Token contract
 
-- A token is a high-entropy opaque bearer secret with a versioned, recognizable
-  prefix suitable for operator identification.
-- Herald stores only a SHA-256 digest, a non-secret display prefix, token metadata,
-  and revocation/expiry state. The plaintext secret is returned only in the create
-  response and is never recoverable afterward.
-- Expiry is optional at creation and revocation is durable. Invalid, expired, or
-  revoked tokens produce the same generic unauthorized response.
+- A new project key is a high-entropy opaque Better Auth API Key with the
+  `herald_pat_` prefix, organization reference, project metadata, and a 180-day
+  default expiry. The plugin owns hashing, expiry, cleanup, and durable deletion.
+- Invalid, expired, deleted, or revoked tokens produce the same generic unauthorized
+  response.
 - Clients send the token in `Authorization: Bearer <token>`. If an Authorization
   header is present, it is authoritative; a malformed or invalid bearer token does
   not fall back to a session cookie.
@@ -56,11 +55,13 @@ organizations, invitations, tenant isolation, or fine-grained permissions.
 - Each token has a project-scoped `api_token` actor. Operations authenticated by
   the token resolve through that actor, so audit and domain attribution identify
   the machine credential rather than impersonating the human who created it.
-- Token rows and actor rows remain Herald domain data. They do not use Better Auth
-  account rows and do not own publisher credentials.
-- Revocation prevents future authentication and preserves non-secret metadata and
-  audit history. Deleting a project cascades its tokens and token actors with the
-  rest of the project-owned state.
+- Better Auth owns new key records; Herald keeps a project-scoped `api_token` actor
+  bridge so operations still have durable machine attribution. Neither key system
+  owns publisher credentials.
+- Deleting a new key prevents future authentication and removes the key record; the
+  Herald actor remains available for historical attribution. Deleting a project
+  cascades its organization-owned API keys and actor-owned domain state, while the
+  project-to-organization foreign key prevents an orphan organization.
 
 ## Alternatives considered
 
@@ -74,7 +75,8 @@ product surface and acceptance direction.
 
 This would couple machine lifecycle and project authorization to human identity
 records, make attribution ambiguous, and risk reusing the wrong authentication
-boundary. Rejected because Better Auth authenticates people into Herald only.
+boundary. Rejected in favor of the dedicated Better Auth API Key plugin, which is
+organization-owned and independent from human sessions.
 
 ### Use instance-wide API keys
 
@@ -84,10 +86,9 @@ project-scoped token and actor.
 
 ### Add memberships, invitations, and scopes in the same slice
 
-These may become useful, but they would add durable policy and UI surface without
-evidence that the current trusted self-hosted operator model is insufficient.
-They remain explicit follow-up decisions rather than hidden assumptions in the
-token implementation.
+Memberships and invitations are now addressed by ADR-063. Fine-grained machine
+permissions remain a future policy decision; the current project-wide machine
+operation boundary is kept explicit rather than inferred from a token string.
 
 ## Consequences
 
@@ -107,7 +108,7 @@ token implementation.
 
 ## Verification
 
-ACCESS-14 must prove creation, one-time secret disclosure, hash-only persistence,
-project isolation, expiry, revocation, human-only token management, actor
-attribution, generic authentication failures, and unchanged human session access
-through API integration tests. The full repository quality gate remains required.
+ACCESS-14 and ACCESS-131/132 must prove one-time secret disclosure, project isolation,
+expiry, deletion/revocation, human-only key management, actor attribution, generic
+authentication failures, and unchanged human session access through API integration
+tests. The full repository quality gate remains required.

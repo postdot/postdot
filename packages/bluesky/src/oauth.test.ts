@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 
 import type { Session } from '@atproto/oauth-client'
 
+import { BLUESKY_REQUIRED_SCOPES } from './contract'
 import {
     createBlueskyOAuthClient,
     createBlueskyLoopbackClientMetadata,
@@ -36,8 +37,9 @@ describe('Bluesky OAuth runtime', () => {
 
         expect(metadata).toMatchObject({
             client_id:
-                'http://localhost?redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fapi%2Foauth%2Fbluesky%2Fcallback',
+                'http://localhost?scope=atproto+repo%3Aapp.bsky.feed.post%3Faction%3Dcreate+blob%3Aimage%2F*&redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fapi%2Foauth%2Fbluesky%2Fcallback',
             redirect_uris: ['http://127.0.0.1:3000/api/oauth/bluesky/callback'],
+            scope: BLUESKY_REQUIRED_SCOPES.join(' '),
             application_type: 'native',
             token_endpoint_auth_method: 'none',
             dpop_bound_access_tokens: true,

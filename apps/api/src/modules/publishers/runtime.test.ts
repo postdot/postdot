@@ -54,7 +54,7 @@ describe('publisher runtime Bluesky OAuth profiles', () => {
                 oauthMode: 'loopback',
             })
             expect(resolved?.clientMetadata.client_id).toBe(
-                'http://localhost?redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fapi%2Foauth%2Fbluesky%2Fcallback'
+                'http://localhost?scope=atproto+repo%3Aapp.bsky.feed.post%3Faction%3Dcreate+blob%3Aimage%2F*&redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fapi%2Foauth%2Fbluesky%2Fcallback'
             )
             expect(resolved?.clientMetadata.application_type).toBe('native')
         } finally {

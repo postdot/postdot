@@ -9,7 +9,6 @@ import {
     createDatabase,
     createEventJournalStore,
     createNotificationStore,
-    createProjectAccessTokenStore,
     runMigrations,
 } from '@herald/db'
 import { publications, publisherCredentials, user as authUser } from '@herald/db/schema'
@@ -92,6 +91,7 @@ function createFixture(
         readonly apiOrigin?: string
         readonly webOrigin?: string
         readonly runtime?: HealthRuntime
+        readonly allowAdditionalSignups?: boolean
     } = {}
 ) {
     const database = createDatabase(':memory:')
@@ -109,8 +109,12 @@ function createFixture(
         },
     })
     const access = createAccessStore(database, { now: () => now })
-    const auth = createAuth(database, { baseURL, secret, access })
-    const accessTokens = createProjectAccessTokenStore(database, { now: () => now })
+    const auth = createAuth(database, {
+        baseURL,
+        secret,
+        access,
+        allowAdditionalSignups: options.allowAdditionalSignups,
+    })
     const notifications = createNotificationStore(database, { now: () => now + 1_000 })
     const app = createApp({
         auth,
@@ -119,11 +123,10 @@ function createFixture(
         publisher,
         manualStore: { now: () => now },
         runtime: options.runtime,
-        accessTokens,
         notifications,
     })
 
-    return { access, accessTokens, app, database, notifications, publisher }
+    return { access, app, auth, database, notifications, publisher }
 }
 
 async function signUp(app: ReturnType<typeof createApp>, email = 'operator@herald.local') {
@@ -148,70 +151,11 @@ async function signUp(app: ReturnType<typeof createApp>, email = 'operator@heral
 }
 
 /**
- * Test-only fixture for a second already-provisioned user. The production
- * signup endpoint intentionally remains closed after bootstrap until
- * invitation-based account creation gets its own transaction seam. Temporarily
- * reopening the empty bootstrap marker lets Better Auth create a correctly
- * signed session cookie, then the helper restores the original owner.
+ * Test-only helper for a second user. The fixture must opt into the explicit
+ * additional-signup seam; production keeps public signup closed after bootstrap.
  */
-async function signUpFixtureAdditionalUser(
-    app: ReturnType<typeof createApp>,
-    database: ReturnType<typeof createDatabase>,
-    email: string
-) {
-    const owner = database.$client
-        .query<{ readonly userId: string }, []>(
-            `select claimed_by_user_id as userId from instance_state where id = 'default'`
-        )
-        .get()
-    if (owner === null) throw new Error('The bootstrap owner is missing')
-
-    database.$client
-        .query(
-            `update instance_state
-             set state = 'claimable', bootstrap_blocked = 0,
-                 claimed_by_user_id = null, claimed_at = null
-             where id = 'default'`
-        )
-        .run()
-
-    try {
-        const cookie = await signUp(app, email)
-        const member = database.$client
-            .query<{ readonly userId: string }, [email: string]>(
-                `select id as userId from user where email = ?1`
-            )
-            .get(email)
-        if (member === null) throw new Error('The fixture user was not created')
-
-        database.$client
-            .query(
-                `update instance_state
-                 set state = 'claimed', bootstrap_blocked = 0,
-                     claimed_by_user_id = ?1, claimed_at = ?2
-                 where id = 'default'`
-            )
-            .run(owner.userId, now)
-        database.$client
-            .query(
-                `update instance_memberships
-                 set role = 'member', updated_at = ?1
-                 where user_id = ?2`
-            )
-            .run(now, member.userId)
-
-        return cookie
-    } catch (error) {
-        database.$client
-            .query(
-                `update instance_state
-                 set state = 'claimed', bootstrap_blocked = 0,
-                     claimed_by_user_id = ?1, claimed_at = ?2
-                 where id = 'default'`
-            )
-            .run(owner.userId, now)
-        throw error
-    }
+async function signUpFixtureAdditionalUser(app: ReturnType<typeof createApp>, email: string) {
+    return signUp(app, email)
 }
 
 async function jsonRequest(
@@ -719,7 +663,7 @@ describe('Herald API', () => {
                     specification.paths['/api/projects/{projectId}/access-tokens']?.post
                         ?.responses ?? {}
                 )
-            ).toEqual(expect.arrayContaining(['400', '401', '403', '404', '422', '503']))
+            ).toEqual(expect.arrayContaining(['201', '400', '401', '403', '404', '422']))
             expect(Object.keys(specification.paths['/ready']?.get?.responses ?? {})).toEqual([
                 '200',
                 '503',
@@ -1335,7 +1279,7 @@ describe('Herald API', () => {
     })
 
     it('streams authenticated project updates with durable cursor replay and safe payloads', async () => {
-        const { app, database } = createFixture()
+        const { app, database } = createFixture({ allowAdditionalSignups: true })
 
         try {
             const cookie = await signUp(app, 'realtime-operator@herald.local')
@@ -1452,7 +1396,6 @@ describe('Herald API', () => {
 
             const otherCookie = await signUpFixtureAdditionalUser(
                 app,
-                database,
                 'other-realtime-operator@herald.local'
             )
             const otherProjectResponse = await jsonRequest(app, '/api/projects', otherCookie, {
@@ -1546,7 +1489,9 @@ describe('Herald API', () => {
     })
 
     it('authorizes project lifecycle operations with instance and project memberships', async () => {
-        const { access, accessTokens, app, database } = createFixture()
+        const { app, auth, database } = createFixture({
+            allowAdditionalSignups: true,
+        })
 
         try {
             const ownerCookie = await signUp(app, 'lifecycle-owner@herald.local')
@@ -1568,20 +1513,23 @@ describe('Herald API', () => {
             expect(
                 database.$client
                     .query<{ readonly role: string; readonly state: string }, [string, string]>(
-                        `select role, state from project_memberships
-                         where project_id = ?1 and user_id = ?2`
+                        `select member.role, 'active' as state
+                         from member
+                         inner join projects on projects.organization_id = member.organization_id
+                         where projects.id = ?1 and member.user_id = ?2`
                     )
                     .get(ownerProject.project.id, owner?.userId ?? '')
             ).toEqual({ role: 'owner', state: 'active' })
 
             const memberEmail = 'lifecycle-member@herald.local'
-            const memberCookie = await signUpFixtureAdditionalUser(app, database, memberEmail)
+            const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
             const member = database.$client
                 .query<{ readonly userId: string }, [string]>(
                     `select id as userId from user where email = ?1`
                 )
                 .get(memberEmail)
             expect(member).not.toBeNull()
+            if (member === null) throw new Error('The lifecycle member was not created')
 
             const memberProjectResponse = await jsonRequest(app, '/api/projects', memberCookie, {
                 method: 'POST',
@@ -1594,30 +1542,32 @@ describe('Herald API', () => {
             expect(
                 database.$client
                     .query<{ readonly role: string; readonly state: string }, [string, string]>(
-                        `select role, state from project_memberships
-                         where project_id = ?1 and user_id = ?2`
+                        `select member.role, 'active' as state
+                         from member
+                         inner join projects on projects.organization_id = member.organization_id
+                         where projects.id = ?1 and member.user_id = ?2`
                     )
                     .get(memberProject.project.id, member?.userId ?? '')
             ).toEqual({ role: 'owner', state: 'active' })
 
-            const invitation = access.createInvitation({
-                targetEmail: memberEmail,
-                createdByUserId: owner?.userId ?? '',
-                projectId: ownerProject.project.id,
-                projectRole: 'viewer',
-            })
-            expect('token' in invitation).toBe(true)
-            if (!('token' in invitation) || member === null) {
-                throw new Error('The project invitation was not created')
-            }
-            expect(
-                access.acceptInvitation({
-                    token: invitation.token,
-                    userId: member.userId,
+            const ownerOrganizationForInvitation = database.$client
+                .query<{ readonly id: string }, [string]>(
+                    `select organization_id as id from projects where id = ?1`
+                )
+                .get(ownerProject.project.id)
+            const invitation = await auth.api.createInvitation({
+                body: {
                     email: memberEmail,
-                    displayName: 'Herald Operator',
-                }).kind
-            ).toBe('accepted')
+                    organizationId: ownerOrganizationForInvitation?.id ?? '',
+                    role: 'viewer',
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+            expect(invitation.status).toBe('pending')
+            await auth.api.acceptInvitation({
+                body: { invitationId: invitation.id },
+                headers: new Headers({ cookie: memberCookie }),
+            })
 
             const viewerListResponse = await jsonRequest(
                 app,
@@ -1637,13 +1587,25 @@ describe('Herald API', () => {
             )
             expect(viewerUpdateResponse.status).toBe(403)
 
-            database.$client
-                .query(
-                    `update project_memberships
-                     set role = 'editor'
-                     where project_id = ?1 and user_id = ?2`
+            const ownerOrganization = database.$client
+                .query<{ readonly id: string }, [string]>(
+                    `select organization_id as id from projects where id = ?1`
                 )
-                .run(ownerProject.project.id, member.userId)
+                .get(ownerProject.project.id)
+            const organizationMember = database.$client
+                .query<{ readonly id: string }, [string, string]>(
+                    `select id from member where organization_id = ?1 and user_id = ?2`
+                )
+                .get(ownerOrganization?.id ?? '', member.userId)
+            expect(organizationMember).not.toBeNull()
+            await auth.api.updateMemberRole({
+                body: {
+                    memberId: organizationMember?.id ?? '',
+                    role: 'editor',
+                    organizationId: ownerOrganization?.id ?? '',
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
             const editorUpdateResponse = await jsonRequest(
                 app,
                 `/api/projects/${ownerProject.project.id}`,
@@ -1655,13 +1617,24 @@ describe('Herald API', () => {
             )
             expect(editorUpdateResponse.status).toBe(200)
 
-            database.$client
-                .query(
-                    `update project_memberships
-                     set state = 'removed'
-                     where project_id = ?1 and user_id = ?2`
-                )
-                .run(ownerProject.project.id, member.userId)
+            const editorTokenResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/access-tokens`,
+                memberCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Editor token must be rejected' }),
+                }
+            )
+            expect(editorTokenResponse.status).toBe(403)
+
+            await auth.api.removeMember({
+                body: {
+                    memberIdOrEmail: organizationMember?.id ?? '',
+                    organizationId: ownerOrganization?.id ?? '',
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
             const removedMemberResponse = await jsonRequest(
                 app,
                 `/api/projects/${ownerProject.project.id}/channels`,
@@ -1670,7 +1643,7 @@ describe('Herald API', () => {
             expect(removedMemberResponse.status).toBe(404)
 
             const outsiderEmail = 'lifecycle-outsider@herald.local'
-            const outsiderCookie = await signUpFixtureAdditionalUser(app, database, outsiderEmail)
+            const outsiderCookie = await signUpFixtureAdditionalUser(app, outsiderEmail)
             const outsiderUpdateResponse = await jsonRequest(
                 app,
                 `/api/projects/${ownerProject.project.id}`,
@@ -1718,7 +1691,8 @@ describe('Herald API', () => {
                 }
             )
             expect(bearerUpdateResponse.status).toBe(403)
-            expect(accessTokens.authenticate(tokenBody.token)).not.toBeNull()
+            const verifiedToken = await auth.api.verifyApiKey({ body: { key: tokenBody.token } })
+            expect(verifiedToken.valid).toBe(true)
         } finally {
             closeDatabase(database)
         }
@@ -1729,7 +1703,17 @@ describe('Herald API', () => {
 
         try {
             const cookie = await signUp(app, 'media-unavailable-operator@herald.local')
-            const response = await jsonRequest(app, '/api/projects/project-id/media', cookie)
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Media unavailable project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const response = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media`,
+                cookie
+            )
 
             expect(response.status).toBe(503)
             expect(await response.json()).toEqual({
@@ -2032,7 +2016,7 @@ describe('Herald API', () => {
     })
 
     it('creates and authenticates project tokens without impersonating their creator', async () => {
-        const { accessTokens, app, database } = createFixture()
+        const { app, auth, database } = createFixture()
 
         try {
             const cookie = await signUp(app, 'access-token-operator@herald.local')
@@ -2042,6 +2026,23 @@ describe('Herald API', () => {
             })
             const projectBody = (await projectResponse.json()) as { project: { id: string } }
             const projectId = projectBody.project.id
+            const projectOrganization = database.$client
+                .query<{ readonly organizationId: string | null }, [string]>(
+                    'select organization_id as organizationId from projects where id = ?1'
+                )
+                .get(projectId)
+            const operator = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get('access-token-operator@herald.local')
+            expect(projectOrganization?.organizationId).toBeString()
+            expect(
+                database.$client
+                    .query<{ readonly role: string }, [string, string]>(
+                        `select role from member
+                         where organization_id = ?1 and user_id = ?2`
+                    )
+                    .get(projectOrganization?.organizationId ?? '', operator?.id ?? '')
+            ).toEqual({ role: 'owner' })
 
             const createTokenResponse = await jsonRequest(
                 app,
@@ -2054,13 +2055,14 @@ describe('Herald API', () => {
             )
             expect(createTokenResponse.status).toBe(201)
             const createdBody = (await createTokenResponse.json()) as {
-                accessToken: { id: string; name: string; tokenPrefix: string }
+                accessToken: { id: string; name: string; tokenPrefix: string; expiresAt: number }
                 token: string
             }
             expect(createdBody.accessToken).toMatchObject({
                 name: 'Release agent',
-                tokenPrefix: expect.stringMatching(/^herald_pat_v1_[A-Za-z0-9_-]{12}$/),
+                tokenPrefix: 'herald_pat_',
             })
+            expect(createdBody.accessToken.expiresAt).toBeGreaterThan(now)
             expect(createdBody.token.length).toBeGreaterThan(40)
 
             const listedResponse = await jsonRequest(
@@ -2082,8 +2084,9 @@ describe('Herald API', () => {
             })
             expect(JSON.stringify(listedBody)).not.toContain(createdBody.token)
 
-            const authentication = accessTokens.authenticate(createdBody.token)
-            expect(authentication).not.toBeNull()
+            const authentication = {
+                actorId: `api-key:${createdBody.accessToken.id}`,
+            }
 
             const projectListResponse = await bearerRequest(app, '/api/projects', createdBody.token)
             expect(projectListResponse.status).toBe(200)
@@ -2143,6 +2146,7 @@ describe('Herald API', () => {
             const invalidBearerHeaders = new Headers({
                 authorization: 'Bearer invalid-token',
                 cookie,
+                'x-api-key': createdBody.token,
             })
             const invalidBearerResponse = await app.handle(
                 new Request(`${baseURL}/api/projects`, { headers: invalidBearerHeaders })
@@ -2161,10 +2165,76 @@ describe('Herald API', () => {
                     accessToken: { revokedAt: number | null }
                 }
             ).toEqual({ accessToken: expect.objectContaining({ revokedAt: now }) })
-            expect(accessTokens.authenticate(createdBody.token)).toBeNull()
+            const revokedToken = await auth.api.verifyApiKey({ body: { key: createdBody.token } })
+            expect(revokedToken.valid).toBe(false)
 
             const revokedResponse = await bearerRequest(app, '/api/projects', createdBody.token)
             expect(revokedResponse.status).toBe(401)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('projects Better Auth organization invitations into Herald project access', async () => {
+        const { access, app, auth, database } = createFixture()
+
+        try {
+            const ownerCookie = await signUp(app, 'organization-owner@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Invitation bridge project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const projectId = projectBody.project.id
+            const organization = database.$client
+                .query<{ readonly id: string }, [string]>(
+                    'select organization_id as id from projects where id = ?1'
+                )
+                .get(projectId)
+            expect(organization?.id).toBeString()
+
+            const invitation = await auth.api.createInvitation({
+                body: {
+                    email: 'organization-member@herald.local',
+                    role: 'editor',
+                    organizationId: organization?.id ?? '',
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+            const memberCookie = await signUp(app, 'organization-member@herald.local')
+            const accepted = await auth.api.acceptInvitation({
+                body: { invitationId: invitation.id },
+                headers: new Headers({ cookie: memberCookie }),
+            })
+
+            expect(accepted.member.role).toBe('editor')
+            const member = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get('organization-member@herald.local')
+            expect(member).not.toBeNull()
+            expect(access.canAccessProject(projectId, member?.id ?? '')).toBe(true)
+
+            const projectsResponse = await jsonRequest(app, '/api/projects', memberCookie)
+            expect(projectsResponse.status).toBe(200)
+            expect(await projectsResponse.json()).toEqual({
+                projects: [expect.objectContaining({ id: projectId })],
+            })
+
+            await auth.api.leaveOrganization({
+                body: { organizationId: organization?.id ?? '' },
+                headers: new Headers({ cookie: memberCookie }),
+            })
+            const projectsAfterLeave = await jsonRequest(app, '/api/projects', memberCookie)
+            expect(projectsAfterLeave.status).toBe(200)
+            expect(await projectsAfterLeave.json()).toEqual({ projects: [] })
+
+            const projectAfterLeave = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/channels`,
+                memberCookie
+            )
+            expect(projectAfterLeave.status).toBe(404)
         } finally {
             closeDatabase(database)
         }
@@ -2648,7 +2718,7 @@ describe('Herald API', () => {
             tokenEndpoint: new URL('/token', provider.url).toString(),
             pkce: 'disabled',
         }
-        const { accessTokens, app, database } = createFixture({
+        const { app, auth, database } = createFixture({
             linkedin: {
                 clientId: 'linkedin-client-id',
                 clientSecret: 'linkedin-client-secret',
@@ -2693,7 +2763,10 @@ describe('Herald API', () => {
             )
             expect(accessTokenResponse.status).toBe(201)
             const accessTokenBody = (await accessTokenResponse.json()) as { token: string }
-            expect(accessTokens.authenticate(accessTokenBody.token)).not.toBeNull()
+            const verifiedToken = await auth.api.verifyApiKey({
+                body: { key: accessTokenBody.token },
+            })
+            expect(verifiedToken.valid).toBe(true)
 
             const tokenConnectionStartResponse = await bearerRequest(
                 app,
@@ -2807,8 +2880,6 @@ describe('Herald API', () => {
                     claimed_by_user_id = null,
                     claimed_at = null
                 where id = 'default';
-                delete from access_invitations;
-                delete from project_memberships;
                 delete from instance_memberships;
             `)
             database.delete(authUser).run()
@@ -3232,8 +3303,6 @@ describe('Herald API', () => {
                     claimed_by_user_id = null,
                     claimed_at = null
                 where id = 'default';
-                delete from access_invitations;
-                delete from project_memberships;
                 delete from instance_memberships;
             `)
             database.delete(authUser).run()
@@ -3289,6 +3358,7 @@ describe('Herald API', () => {
             tokenEndpoint: new URL('/token', provider.url).toString(),
         }
         const { app, database } = createFixture({
+            allowAdditionalSignups: true,
             x: {
                 clientId: 'x-client-id',
                 clientSecret: 'x-client-secret',
@@ -3368,7 +3438,6 @@ describe('Herald API', () => {
 
             const secondCookie = await signUpFixtureAdditionalUser(
                 app,
-                database,
                 'x-second-operator@herald.local'
             )
             const mismatchedResponse = await callback(

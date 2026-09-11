@@ -1,6 +1,6 @@
 # Better Auth access architecture reassessment
 
-- Status: proposed architecture study; no implementation started
+- Status: implementation completed and validated on `codex/access-131-foundation`
 - Date: 2026-09-11
 - Scope: human administration, project memberships, invitations, and machine API keys
 - Trigger: the previous ACCESS-131/132 implementation used Herald-owned membership,
@@ -163,4 +163,78 @@ The architecture is ready for implementation when the prototype answers these po
 - Can local self-hosted operation work without SMTP while accurately communicating
   what email functionality is unavailable?
 
-No production schema or authentication code was changed by this study.
+## Implemented foundation
+
+The leading candidate was implemented without replacing Herald's domain model:
+
+- Better Auth now loads the Admin, Organization, and API Key plugins.
+- Each Herald project has one deterministic Better Auth organization, linked by
+  `projects.organization_id`.
+- Organization roles are `owner`, `editor`, and `viewer`, with Herald-specific
+  resource statements available for the future policy migration.
+- New project API keys are organization-owned, use the `herald_pat_` prefix,
+  carry the Herald project id in metadata, and expire by default after 180 days.
+  The existing project-token API remains the compatibility surface and falls back
+  to the legacy store only for projects without an organization bridge.
+- Better Auth organization invitations are projected into Herald's durable project
+  membership and human-actor records after acceptance. An invitation addressed to
+  a new email is the only post-bootstrap path that can create an account; public
+  signup remains closed otherwise. The existing instance invitation route also
+  writes the Better Auth project member when applicable.
+- Better Auth Admin's global user role and ban state are now the effective source
+  for instance authorization. Herald's instance membership table remains as the
+  compatibility/invariant projection, including last-admin and self-protection
+  checks. Existing legacy admins and disabled users are promoted during the
+  idempotent migration backfill.
+- API-key identities get a dedicated Herald actor (`api-key:<better-auth-key-id>`)
+  so publication and audit code does not confuse machine credentials with humans.
+- Provider OAuth credentials, publications, channels, audits, notifications, and
+  scheduler state remain Herald-owned; they are not forced into Better Auth.
+
+## Validation completed
+
+- Better Auth unit coverage validates bootstrap admin behavior, organization
+  invitations for a new account, API-key ownership, expiry, and closed public
+  signup.
+- Database migration coverage validates deterministic organization/member backfill,
+  legacy admin/ban projection, idempotence, and foreign-key safety.
+- Access HTTP coverage validates route writes plus direct Better Auth role changes
+  reflected by Herald, project bearer-token isolation, invitation acceptance, and
+  admin safety invariants.
+- API coverage validates organization-backed project creation, key creation/listing/
+  revocation/expiry, cross-project isolation, and organization invitation projection.
+- Changed auth, db, API, and web packages pass typecheck, lint, and formatting checks.
+
+## Deliberate remaining boundary
+
+Instance membership is intentionally still a small Herald extension: it represents
+who may administer the self-hosted installation even when a user belongs to no
+project. Better Auth Admin supplies the user lifecycle and global role/ban
+primitive; Better Auth Organization supplies project membership and invitations; and
+Better Auth API Key supplies organization-owned, expiring machine keys. Project route
+authorization now reads the Better Auth member table for bridged projects, while
+Herald's membership/actor rows remain a compatibility projection.
+
+The remaining work is deliberately operational rather than an unresolved plugin
+choice: reconcile deployed legacy data, publish a rollback plan, and retire the old
+membership/invitation/token path through ACCESS-133. ACCESS-134 can add the project
+member UI when collaboration is exposed in the dashboard. Recovery, mail delivery,
+and user deletion/anonymization remain separate decisions.
+
+## Final decision
+
+The repository adopts candidate A from this reassessment: Better Auth Admin plus one
+Organization per Herald project plus organization-owned API keys. The native plugin
+write endpoints that could bypass Herald invariants are server-only; guarded Herald
+routes are the public product contract. Permix is not added because Better Auth's
+typed organization access control covers the current role model without a second
+policy engine.
+
+## Final validation
+
+- `bun run test:unit`: all 16 workspace tasks passed.
+- `bun run test:e2e`: 14/14 disposable browser scenarios passed.
+- Focused auth, database access, migration, and API route suites passed, including
+  native Better Auth organization member add/role-change/remove/leave behavior.
+- `bun run format`, `bun run lint`, `bun run typecheck`, `bun run build`, and
+  `git diff --check` passed.

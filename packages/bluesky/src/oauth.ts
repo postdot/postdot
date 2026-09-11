@@ -14,6 +14,10 @@ import {
 } from '@atproto/oauth-client'
 import { buildAtprotoLoopbackClientMetadata } from '@atproto/oauth-types'
 
+import { BLUESKY_REQUIRED_SCOPES } from './contract'
+
+const BLUESKY_SCOPE = BLUESKY_REQUIRED_SCOPES.join(' ')
+
 export interface SerializedBlueskyStore {
     get(key: string): Promise<string | undefined>
     set(key: string, value: string): Promise<void>
@@ -39,7 +43,7 @@ export function createBlueskyClientMetadata(options: {
         client_name: options.clientName,
         client_uri: options.clientUri as BlueskyOAuthClientMetadata['client_uri'],
         redirect_uris: [options.redirectUri as BlueskyOAuthClientMetadata['redirect_uris'][number]],
-        scope: 'atproto',
+        scope: BLUESKY_SCOPE,
         grant_types: ['authorization_code', 'refresh_token'],
         response_types: ['code'],
         token_endpoint_auth_method: 'none',
@@ -56,7 +60,10 @@ export function createBlueskyClientMetadata(options: {
 export function createBlueskyLoopbackClientMetadata(options: {
     readonly redirectUri: string
 }): BlueskyOAuthClientMetadata {
-    return buildAtprotoLoopbackClientMetadata({ redirect_uris: [options.redirectUri] })
+    return buildAtprotoLoopbackClientMetadata({
+        redirect_uris: [options.redirectUri],
+        scope: BLUESKY_SCOPE,
+    })
 }
 
 export interface RestoredBlueskySession {

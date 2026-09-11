@@ -7,7 +7,7 @@ import type {
     MediaAssetStore,
     NotificationStore,
     ProviderAnalyticsStore,
-    ProjectAccessTokenStore,
+    ProjectApiKeyActorStore,
     TaxonomyStore,
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
@@ -42,9 +42,10 @@ export interface ProjectModuleOptions {
     readonly media?: MediaAssetStore
     readonly logger?: Logger
     readonly onWorkScheduled?: () => void
+    readonly now?: () => number
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
-    readonly accessTokens?: ProjectAccessTokenStore
+    readonly apiKeyActors: ProjectApiKeyActorStore
     readonly access: AccessStore
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
@@ -60,16 +61,39 @@ export interface ProjectModuleOptions {
 
 export function createProjectModule(options: ProjectModuleOptions) {
     const authenticated = createAuthenticatedElysia(options.auth, {
-        authenticateProjectAccessToken: options.accessTokens?.authenticate,
-        authorizeProjectSessionAccess: (projectId, userId) =>
-            // A project with no membership rows is a legacy fixture/data set;
-            // its existing actor-backed store remains the compatibility guard
-            // until the membership backfill has been applied. Once any durable
-            // membership exists, it becomes authoritative.
-            options.access.listProjectMemberships(projectId).length === 0 ||
-            options.access.canAccessProject(projectId, userId),
+        authenticateBetterAuthProjectApiKey: async token => {
+            if (!token.startsWith('herald_pat_')) return null
+
+            try {
+                const verified = await options.auth.api.verifyApiKey({ body: { key: token } })
+                if (!verified.valid || verified.key === null) return null
+
+                const metadata = verified.key.metadata
+                if (typeof metadata !== 'object' || metadata === null) return null
+                const projectId = (metadata as { heraldProjectId?: unknown }).heraldProjectId
+                if (typeof projectId !== 'string' || projectId.length === 0) return null
+
+                const organizationId = options.access.getProjectOrganizationId(projectId)
+                if (organizationId === null || organizationId !== verified.key.referenceId) {
+                    return null
+                }
+
+                return {
+                    id: verified.key.id,
+                    projectId,
+                    actorId: `api-key:${verified.key.id}`,
+                    subjectId: `api-key:${verified.key.id}`,
+                    displayName: `API key: ${verified.key.name ?? verified.key.id}`,
+                }
+            } catch {
+                return null
+            }
+        },
+        authorizeProjectSessionAccess: (projectId, userId) => {
+            return options.access.canAccessProject(projectId, userId)
+        },
     })
-    const accessRoutes = registerAccessRoutes(authenticated, options.access)
+    const accessRoutes = registerAccessRoutes(authenticated, options.access, options.auth)
     const providerApplicationRoutes = registerProviderApplicationRoutes(
         accessRoutes,
         options.publisher,
@@ -78,10 +102,17 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const projectRoutes = registerProjectRoutes(
         providerApplicationRoutes,
         options.manualStore,
-        options.access
+        options.access,
+        options.auth
     )
     const taxonomyRoutes = registerTaxonomyRoutes(projectRoutes, options.taxonomy, options.access)
-    const accessTokenRoutes = registerProjectAccessTokenRoutes(taxonomyRoutes, options.accessTokens)
+    const accessTokenRoutes = registerProjectAccessTokenRoutes(
+        taxonomyRoutes,
+        options.auth,
+        options.access,
+        options.apiKeyActors,
+        options.now
+    )
     const channelRoutes = registerChannelRoutes(accessTokenRoutes, options.manualStore)
     const channelProfileRoutes = registerChannelProfileRoutes(channelRoutes, options.manualStore)
     const publisherRoutes = registerPublisherRoutes(channelProfileRoutes, options.publisher, {
@@ -93,7 +124,9 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, {
         onWorkScheduled: options.onWorkScheduled,
     })
-    const publicationRoutes = registerPublicationRoutes(postRoutes, options.manualStore)
+    const publicationRoutes = registerPublicationRoutes(postRoutes, options.manualStore, {
+        onWorkScheduled: options.onWorkScheduled,
+    })
     const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media)
     const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
     const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)

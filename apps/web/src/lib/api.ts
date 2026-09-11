@@ -112,7 +112,7 @@ export interface AccessProjectMembership {
     readonly email: string
     readonly name: string
     readonly role: 'owner' | 'editor' | 'viewer'
-    readonly state: 'active' | 'removed'
+    readonly state: 'active'
     readonly createdAt: number
     readonly updatedAt: number
 }
@@ -121,8 +121,6 @@ export interface AccessInvitation {
     readonly id: string
     readonly targetEmail: string
     readonly instanceRole: 'member'
-    readonly projectId: string | null
-    readonly projectRole: 'owner' | 'editor' | 'viewer' | null
     readonly state: AccessInvitationState
     readonly createdByUserId: string
     readonly expiresAt: number
@@ -324,12 +322,10 @@ export const api = {
     async acceptAccessInvitation(token: string): Promise<{
         invitation: AccessInvitation
         instanceMembership: AccessInstanceMembership
-        projectMembership: AccessProjectMembership | null
     }> {
         return requestAuth<{
             invitation: AccessInvitation
             instanceMembership: AccessInstanceMembership
-            projectMembership: AccessProjectMembership | null
         }>('/api/access/invitations/accept', jsonBody({ token }))
     },
 
@@ -409,10 +405,12 @@ export const api = {
 
     async createProjectAccessToken(
         projectId: string,
-        name: string
+        name: string,
+        expiresAt?: number | null
     ): Promise<{ accessToken: ProjectAccessToken; token: string }> {
+        const body = expiresAt === undefined ? { name } : { name, expiresAt }
         return unwrap<{ accessToken: ProjectAccessToken; token: string }>(
-            await client.api.projects({ projectId })['access-tokens'].post({ name })
+            await client.api.projects({ projectId })['access-tokens'].post(body)
         )
     },
 

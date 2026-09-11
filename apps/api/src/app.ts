@@ -8,11 +8,12 @@ import {
     createNotificationStore,
     createProviderAnalyticsStore,
     createAccessStore,
+    createProjectApiKeyActorStore,
     createTaxonomyStore,
     type HeraldDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
-    type ProjectAccessTokenStore,
+    type ProjectApiKeyActorStore,
     type NotificationStore,
     type AnalyticsStore,
     type AccessStore,
@@ -47,7 +48,7 @@ export interface HeraldAppOptions {
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly runtime?: HealthRoutesOptions['runtime']
-    readonly accessTokens?: ProjectAccessTokenStore
+    readonly apiKeyActors?: ProjectApiKeyActorStore
     /** The shared Herald instance access store. */
     readonly access?: AccessStore
     readonly notifications?: NotificationStore
@@ -71,7 +72,7 @@ function createDomainApp({
     logging,
     onWorkScheduled,
     runtime,
-    accessTokens,
+    apiKeyActors,
     access,
     notifications,
     analytics,
@@ -86,6 +87,7 @@ function createDomainApp({
     devtoFetcher,
 }: HeraldAppOptions) {
     const accessStore = access ?? createAccessStore(database)
+    const apiKeyActorStore = apiKeyActors ?? createProjectApiKeyActorStore(database)
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
         media,
@@ -186,9 +188,10 @@ function createDomainApp({
                 media,
                 logger,
                 onWorkScheduled,
+                now: manualStoreOptions?.now,
                 discordFetcher,
                 devtoFetcher,
-                accessTokens,
+                apiKeyActors: apiKeyActorStore,
                 access: accessStore,
                 notifications: notificationStore,
                 analytics: analyticsStore,
@@ -222,7 +225,7 @@ export function createApp({
     logging,
     onWorkScheduled,
     runtime,
-    accessTokens,
+    apiKeyActors,
     access,
     notifications,
     analytics,
@@ -246,7 +249,7 @@ export function createApp({
         logging,
         onWorkScheduled,
         runtime,
-        accessTokens,
+        apiKeyActors,
         access,
         notifications,
         analytics,

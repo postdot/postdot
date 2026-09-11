@@ -53,6 +53,7 @@ describe('provider analytics routes', () => {
         const database = createDatabase(':memory:')
         let providerCalls = 0
         runMigrations(database)
+        const auth = createAuth(database, { baseURL, secret })
         const publisher = createPublisherRuntime(database, {
             apiOrigin: baseURL,
             webOrigin: 'http://localhost:5173',
@@ -64,7 +65,7 @@ describe('provider analytics routes', () => {
             },
         })
         const app = createApp({
-            auth: createAuth(database, { baseURL, secret }),
+            auth,
             database,
             publisher,
             manualStore: { now: () => now },
@@ -115,10 +116,19 @@ describe('provider analytics routes', () => {
             if (user === null || user === undefined) throw new Error('The auth user is missing')
 
             const manual = createManualStore(database, { now: () => now })
+            const organization = await auth.api.createOrganization({
+                body: {
+                    name: 'Provider analytics',
+                    slug: 'provider-analytics-test',
+                    userId: user.id,
+                    metadata: { heraldResource: 'project' },
+                },
+            })
             const project = manual.createProject({
                 name: 'Provider analytics',
                 subjectId: user.id,
                 displayName: 'Analytics operator',
+                organizationId: organization.id,
             })
             const channel = manual.createChannel({
                 projectId: project.project.id,

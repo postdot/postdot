@@ -37,7 +37,7 @@ import {
     uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 
-import { user } from './auth-schema'
+import { organization, user } from './auth-schema'
 
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
@@ -56,8 +56,6 @@ const taxonomyStates = ['active', 'archived'] as const
 const instanceStates = ['claimable', 'claimed'] as const
 const instanceMembershipStates = ['enabled', 'disabled'] as const
 const instanceRoles = ['admin', 'member'] as const
-const projectMembershipStates = ['active', 'removed'] as const
-const projectRoles = ['owner', 'editor', 'viewer'] as const
 const invitationStates = ['pending', 'accepted', 'revoked', 'expired'] as const
 
 const timestamps = () => ({
@@ -101,12 +99,18 @@ export const projects = sqliteTable(
         id: text('id').primaryKey(),
         name: text('name').notNull(),
         timeZone: text('time_zone').notNull().default('UTC'),
+        organizationId: text('organization_id').references(() => organization.id, {
+            onDelete: 'restrict',
+        }),
         primaryCategoryId: text('primary_category_id').references(() => projectCategories.id, {
             onDelete: 'restrict',
         }),
         ...timestamps(),
     },
-    table => [check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`)]
+    table => [
+        uniqueIndex('projects_organization_id_uidx').on(table.organizationId),
+        check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`),
+    ]
 )
 
 export const actors = sqliteTable(
@@ -183,33 +187,13 @@ export const instanceMemberships = sqliteTable(
     ]
 )
 
-export const projectMemberships = sqliteTable(
-    'project_memberships',
-    {
-        id: text('id').primaryKey(),
-        projectId: text('project_id')
-            .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
-        userId: text('user_id')
-            .notNull()
-            .references(() => user.id, { onDelete: 'restrict' }),
-        role: text('role', { enum: projectRoles }).notNull(),
-        state: text('state', { enum: projectMembershipStates }).default('active').notNull(),
-        ...timestamps(),
-    },
-    table => [
-        uniqueIndex('project_memberships_project_user_uidx').on(table.projectId, table.userId),
-        index('project_memberships_user_state_idx').on(table.userId, table.state),
-        check(
-            'project_memberships_role_valid',
-            sql`${table.role} in ('owner', 'editor', 'viewer')`
-        ),
-        check('project_memberships_state_valid', sql`${table.state} in ('active', 'removed')`),
-    ]
-)
-
-export const accessInvitations = sqliteTable(
-    'access_invitations',
+/**
+ * Instance invitations are Herald-owned because the instance itself is not a
+ * Better Auth organization. Project invitations use the Better Auth
+ * Organization plugin and therefore have no duplicate Herald table.
+ */
+export const instanceAccessInvitations = sqliteTable(
+    'instance_access_invitations',
     {
         id: text('id').primaryKey(),
         targetEmail: text('target_email').notNull(),
@@ -217,8 +201,6 @@ export const accessInvitations = sqliteTable(
         instanceRole: text('instance_role', { enum: ['member'] })
             .default('member')
             .notNull(),
-        projectId: text('project_id').references(() => projects.id, { onDelete: 'restrict' }),
-        projectRole: text('project_role', { enum: projectRoles }),
         state: text('state', { enum: invitationStates }).default('pending').notNull(),
         createdByUserId: text('created_by_user_id')
             .notNull()
@@ -232,25 +214,32 @@ export const accessInvitations = sqliteTable(
         ...timestamps(),
     },
     table => [
-        uniqueIndex('access_invitations_token_hash_uidx').on(table.tokenHash),
-        index('access_invitations_target_state_idx').on(table.targetEmail, table.state),
-        index('access_invitations_expiry_idx').on(table.state, table.expiresAt),
-        check('access_invitations_email_nonblank', sql`length(trim(${table.targetEmail})) > 0`),
-        check('access_invitations_token_hash_nonblank', sql`length(trim(${table.tokenHash})) > 0`),
-        check('access_invitations_instance_role_valid', sql`${table.instanceRole} = 'member'`),
+        uniqueIndex('instance_access_invitations_token_hash_uidx').on(table.tokenHash),
+        index('instance_access_invitations_target_state_idx').on(table.targetEmail, table.state),
+        index('instance_access_invitations_expiry_idx').on(table.state, table.expiresAt),
         check(
-            'access_invitations_project_scope_valid',
-            sql`(${table.projectId} is null and ${table.projectRole} is null)
-                or (${table.projectId} is not null and ${table.projectRole} is not null)`
+            'instance_access_invitations_email_nonblank',
+            sql`length(trim(${table.targetEmail})) > 0`
         ),
         check(
-            'access_invitations_state_valid',
+            'instance_access_invitations_token_hash_nonblank',
+            sql`length(trim(${table.tokenHash})) > 0`
+        ),
+        check(
+            'instance_access_invitations_instance_role_valid',
+            sql`${table.instanceRole} = 'member'`
+        ),
+        check(
+            'instance_access_invitations_state_valid',
             sql`(${table.state} = 'pending' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is null)
                 or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedByUserId} is not null and ${table.revokedAt} is null)
                 or (${table.state} = 'revoked' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is not null)
                 or (${table.state} = 'expired' and ${table.acceptedAt} is null and ${table.acceptedByUserId} is null and ${table.revokedAt} is null)`
         ),
-        check('access_invitations_expiry_valid', sql`${table.expiresAt} > ${table.createdAt}`),
+        check(
+            'instance_access_invitations_expiry_valid',
+            sql`${table.expiresAt} > ${table.createdAt}`
+        ),
     ]
 )
 
@@ -372,50 +361,6 @@ export const providerApplicationConfigurations = sqliteTable(
                     and length(${table.clientSecretCiphertext}) > 16
                     and ${table.clientSecretNonce} is not null
                     and length(${table.clientSecretNonce}) = 12)`
-        ),
-    ]
-)
-
-export const projectAccessTokens = sqliteTable(
-    'project_access_tokens',
-    {
-        id: text('id').primaryKey(),
-        projectId: text('project_id')
-            .notNull()
-            .references(() => projects.id, { onDelete: 'cascade' }),
-        actorId: text('actor_id').notNull(),
-        name: text('name').notNull(),
-        tokenPrefix: text('token_prefix').notNull(),
-        tokenHash: text('token_hash').notNull(),
-        expiresAt: integer('expires_at'),
-        revokedAt: integer('revoked_at'),
-        createdByActorId: text('created_by_actor_id').notNull(),
-        ...timestamps(),
-    },
-    table => [
-        uniqueIndex('project_access_tokens_project_id_id_uidx').on(table.projectId, table.id),
-        uniqueIndex('project_access_tokens_token_hash_uidx').on(table.tokenHash),
-        index('project_access_tokens_project_revoked_idx').on(table.projectId, table.revokedAt),
-        foreignKey({
-            name: 'project_access_tokens_project_actor_fk',
-            columns: [table.projectId, table.actorId],
-            foreignColumns: [actors.projectId, actors.id],
-        }).onDelete('cascade'),
-        foreignKey({
-            name: 'project_access_tokens_project_creator_fk',
-            columns: [table.projectId, table.createdByActorId],
-            foreignColumns: [actors.projectId, actors.id],
-        }).onDelete('restrict'),
-        check('project_access_tokens_name_nonblank', sql`length(trim(${table.name})) > 0`),
-        check('project_access_tokens_prefix_nonblank', sql`length(trim(${table.tokenPrefix})) > 0`),
-        check('project_access_tokens_hash_nonblank', sql`length(trim(${table.tokenHash})) > 0`),
-        check(
-            'project_access_tokens_expiry_valid',
-            sql`${table.expiresAt} is null or ${table.expiresAt} > ${table.createdAt}`
-        ),
-        check(
-            'project_access_tokens_revocation_valid',
-            sql`${table.revokedAt} is null or ${table.revokedAt} >= ${table.createdAt}`
         ),
     ]
 )
