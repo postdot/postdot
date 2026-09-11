@@ -8,11 +8,16 @@ import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 export const Route = createFileRoute('/login')({
+    validateSearch: (search: Record<string, unknown>) => ({
+        continue:
+            typeof search.continue === 'string' ? safeDashboardPath(search.continue) : undefined,
+    }),
     component: LoginPage,
 })
 
 function LoginPage() {
     const navigate = useNavigate()
+    const search = Route.useSearch()
     useLanguage()
     const [isSignUp, setIsSignUp] = useState(false)
     const [name, setName] = useState('')
@@ -32,7 +37,11 @@ function LoginPage() {
             } else {
                 await api.signIn(email, password)
             }
-            await navigate({ to: '/dashboard' })
+            if (search.continue !== undefined) {
+                window.location.assign(search.continue)
+            } else {
+                await navigate({ to: '/dashboard' })
+            }
         } catch (caughtError) {
             setError(formatApiError(caughtError))
         } finally {
@@ -119,4 +128,17 @@ function LoginPage() {
             </div>
         </section>
     )
+}
+
+function safeDashboardPath(value: string) {
+    if (value.includes('\\') || (value !== '/dashboard' && !value.startsWith('/dashboard/'))) {
+        return undefined
+    }
+
+    try {
+        const url = new URL(value, 'https://herald.invalid')
+        return url.origin === 'https://herald.invalid' ? value : undefined
+    } catch {
+        return undefined
+    }
 }

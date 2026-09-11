@@ -12,10 +12,29 @@ import {
 
 export type { HeraldAuthInvitationOptions, HeraldOrganizationInvitationEmail } from './plugins'
 
+export interface HeraldAuthVerificationEmail {
+    readonly user: {
+        readonly email: string
+        readonly name: string
+    }
+    readonly url: string
+    readonly token: string
+}
+
+export interface HeraldAuthEmailOptions {
+    /** Optional deployment-provided account verification mail delivery. */
+    readonly sendEmailVerification?: (input: HeraldAuthVerificationEmail) => Promise<void> | void
+    /** Optional deployment-provided password reset mail delivery. */
+    readonly sendPasswordResetEmail?: (input: HeraldAuthVerificationEmail) => Promise<void> | void
+    /** Send account verification mail after a successful email/password signup. */
+    readonly sendEmailVerificationOnSignUp?: boolean
+}
+
 export interface HeraldAuthRuntimeOptions
     extends
         Pick<BetterAuthOptions, 'baseURL' | 'secret' | 'trustedOrigins'>,
-        HeraldAuthInvitationOptions {
+        HeraldAuthInvitationOptions,
+        HeraldAuthEmailOptions {
     /** Shared Herald access state used by the Better Auth bootstrap hooks. */
     readonly access?: AccessStore
     /**
@@ -251,6 +270,9 @@ export function createAuth(
         organizationInvitationURL,
         requireEmailVerificationOnInvitation,
         sendOrganizationInvitationEmail,
+        sendEmailVerification,
+        sendEmailVerificationOnSignUp,
+        sendPasswordResetEmail,
         ...betterAuthOptions
     } = runtimeOptions
     const access = accessOption ?? createAccessStore(database)
@@ -294,7 +316,38 @@ export function createAuth(
         },
         emailAndPassword: {
             enabled: true,
+            ...(sendPasswordResetEmail === undefined
+                ? {}
+                : {
+                      sendResetPassword: async (data: {
+                          user: { email: string; name: string }
+                          url: string
+                          token: string
+                      }) => {
+                          await sendPasswordResetEmail(data)
+                      },
+                  }),
         },
+        ...(sendEmailVerification === undefined && sendEmailVerificationOnSignUp === undefined
+            ? {}
+            : {
+                  emailVerification: {
+                      ...(sendEmailVerification === undefined
+                          ? {}
+                          : {
+                                sendVerificationEmail: async (data: {
+                                    user: { email: string; name: string }
+                                    url: string
+                                    token: string
+                                }) => {
+                                    await sendEmailVerification(data)
+                                },
+                            }),
+                      ...(sendEmailVerificationOnSignUp === undefined
+                          ? {}
+                          : { sendOnSignUp: sendEmailVerificationOnSignUp }),
+                  },
+              }),
         plugins: createHeraldAuthPlugins(
             {
                 afterOrganizationMemberAdded: ({ organizationId, userId, role, displayName }) => {

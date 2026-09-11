@@ -14,6 +14,7 @@ import { createMastodonPublisher } from '@herald/mastodon'
 import { createApp } from './app'
 import { createHeraldConfig, decodeHexKey } from './config'
 import { runMaintenanceCommand } from './maintenance'
+import { createHeraldAuthEmailDelivery } from './modules/email/delivery'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
 import {
     createConfiguredMediaStore,
@@ -104,11 +105,22 @@ async function startServer(config = createHeraldConfig()) {
     })
     await media.reconcile()
     const mediaMaintenance = createMediaReconciliationRuntime(media)
+    const email = createHeraldAuthEmailDelivery({
+        smtp: config.email?.smtp,
+        webOrigin: config.web.origin,
+        getProjectIdForOrganization: organizationId =>
+            access.getProjectIdForOrganization(organizationId),
+        onDeliveryError: (kind, error) => {
+            const message = error instanceof Error ? error.message : 'unknown transport error'
+            console.error(`[herald-email] ${kind} delivery failed: ${message}`)
+        },
+    })
     const auth = createAuth(database, {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
         trustedOrigins: [config.web.origin],
         requireEmailVerificationOnInvitation: config.auth.requireEmailVerificationOnInvitation,
+        ...email,
         access,
         allowAdditionalSignups:
             Bun.env.NODE_ENV === 'test' && Bun.env.HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true',

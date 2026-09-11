@@ -11,6 +11,7 @@ import {
 import {
     createAuth,
     type HeraldAuthRuntimeOptions,
+    type HeraldAuthVerificationEmail,
     type HeraldOrganizationInvitationEmail,
 } from './index'
 
@@ -24,6 +25,9 @@ function createFixture(
         | 'organizationInvitationURL'
         | 'requireEmailVerificationOnInvitation'
         | 'sendOrganizationInvitationEmail'
+        | 'sendEmailVerification'
+        | 'sendEmailVerificationOnSignUp'
+        | 'sendPasswordResetEmail'
     > = {}
 ) {
     const database = createDatabase(':memory:')
@@ -39,6 +43,9 @@ function createFixture(
             organizationInvitationURL: options.organizationInvitationURL,
             requireEmailVerificationOnInvitation: options.requireEmailVerificationOnInvitation,
             sendOrganizationInvitationEmail: options.sendOrganizationInvitationEmail,
+            sendEmailVerification: options.sendEmailVerification,
+            sendEmailVerificationOnSignUp: options.sendEmailVerificationOnSignUp,
+            sendPasswordResetEmail: options.sendPasswordResetEmail,
         }),
         access,
         database,
@@ -388,6 +395,68 @@ describe('Herald authentication', () => {
                 invitationURL: `https://app.example.test/invitations/${invitation.id}?organizationId=${organization.id}`,
             })
             expect(deliveries[0]?.expiresAt).toEqual(invitation.expiresAt)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('forwards account verification and password reset delivery through deployment hooks', async () => {
+        const verificationDeliveries: HeraldAuthVerificationEmail[] = []
+        const resetDeliveries: HeraldAuthVerificationEmail[] = []
+        const { auth, database } = createFixture({
+            sendEmailVerificationOnSignUp: true,
+            sendEmailVerification: delivery => {
+                verificationDeliveries.push(delivery)
+            },
+            sendPasswordResetEmail: delivery => {
+                resetDeliveries.push(delivery)
+            },
+        })
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const signUpResponse = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'verification-recipient@herald.local',
+                        name: 'Verification Recipient',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(signUpResponse.status).toBe(200)
+            const signUp = (await signUpResponse.json()) as { user: { id: string } }
+            expect(verificationDeliveries).toHaveLength(1)
+            expect(verificationDeliveries[0]).toMatchObject({
+                user: {
+                    email: 'verification-recipient@herald.local',
+                    name: 'Verification Recipient',
+                },
+            })
+            expect(verificationDeliveries[0]?.url).toContain('/api/auth/verify-email?')
+
+            const resetResponse = await auth.handler(
+                new Request(`${baseURL}/api/auth/request-password-reset`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'verification-recipient@herald.local',
+                        redirectTo: 'https://app.example.test/reset-password',
+                    }),
+                })
+            )
+            expect(resetResponse.status).toBe(200)
+            expect(resetDeliveries).toHaveLength(1)
+            expect(resetDeliveries[0]).toMatchObject({
+                user: { email: 'verification-recipient@herald.local' },
+            })
+            expect(resetDeliveries[0]?.url).toContain('/api/auth/reset-password/')
+            expect(signUp.user.id).toBeTruthy()
         } finally {
             closeDatabase(database)
         }

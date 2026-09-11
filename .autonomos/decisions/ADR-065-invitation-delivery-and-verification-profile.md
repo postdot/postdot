@@ -45,6 +45,9 @@ each remains a separate follow-up decision.
 
 ## Follow-up
 
-ACCESS-137 must choose and implement the account-verification and invitation-mail
-transport, templates, failure/retry policy, and deployment documentation. Ownership
-transfer and multi-owner semantics are intentionally not coupled to that work.
+ACCESS-137 completed the concrete transport and template slice through
+[ADR-066](ADR-066-smtp-auth-email-delivery.md): SMTP is optional, local/manual-link
+operation remains valid, and Better Auth account verification and password-reset
+callbacks are wired alongside invitation delivery. Durable outbox/retry behavior,
+ownership transfer, and multi-owner semantics are intentionally not coupled to that
+work.

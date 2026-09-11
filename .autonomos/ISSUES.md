@@ -1721,18 +1721,19 @@ channels` with a foreign-key constraint error even though a fresh empty database
   deletion, and abuse/rate-limit boundaries. The decision must state which parts
   are required before exposing Herald beyond a trusted local operator and must
   preserve project-owned publisher credentials and machine-token attribution.
-- Scope boundary: The accepted access policy does not add email delivery,
-  organization billing, SSO, recovery, or user deletion/anonymization. It adopts
+- Scope boundary: The accepted access policy does not add organization billing,
+  SSO, or user deletion/anonymization. It adopts
   Better Auth Admin, Organization, and API Key plugins for the applicable access
   lifecycle; project-member administration is now delivered by ACCESS-134, while
   the UI deliberately remains a Herald surface over those Better Auth records.
   Invitation re-send rotation and the optional transport-neutral email hook are
-  delivered by ACCESS-136; choosing and wiring a concrete mail provider remains
-  separate.
+  delivered by ACCESS-136. ACCESS-137 adds an optional SMTP transport and templates
+  for invitations, signup verification, and password reset; the local/manual-link
+  profile remains usable without mail.
 - Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132, ACCESS-134, ACCESS-136,
   ACCESS-137
 - Related issues: ISSUE-013, ISSUE-059
-- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063
+- Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063, ADR-066
 - Resolution: ADR-061 establishes the local single-operator bootstrap and the
   shared self-hosted boundary: the first account claims an empty instance and
   becomes its administrator, later registration is closed by default, and instance
@@ -1742,7 +1743,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   seven days, and new project keys expire after 180 days by default. Herald retains
   instance membership and actor projections, while ACCESS-134 exposes the project
   member and invitation workflow through the dashboard. ACCESS-131 through
-  ACCESS-136 are complete. Concrete account recovery/mail delivery, user
+  ACCESS-137 are complete. A complete recovery UI/policy, user
   deletion/anonymization, ownership transfer policy, and post-retirement physical
   cleanup remain explicit follow-ups.
 

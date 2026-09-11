@@ -21,6 +21,21 @@ These requirements do not mean that every provider needs a public HTTPS
 endpoint. They only become mandatory when the provider's authorization model
 requires a public web client or callback.
 
+## Optional account email delivery
+
+Herald can deliver project invitations, signup verification, and password-reset
+messages through an operator-supplied SMTP relay. Configure
+`HERALD_EMAIL_SMTP_HOST` and `HERALD_EMAIL_FROM` in the API environment; port `587`
+is the default, `HERALD_EMAIL_SMTP_SECURE` selects TLS mode, and username/password
+are optional but must be supplied together. Keep credentials in the deployment
+secret store or ignored environment file.
+
+SMTP is not required for the local profile: without it, project invitations remain
+copyable one-use links. Enable
+`HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION=true` only alongside a working
+mail transport. SMTP submission is asynchronous and best-effort; delivery
+guarantees, retries, bounces, and provider webhooks are outside this boundary.
+
 ## Bluesky / AT Protocol
 
 Herald supports two OAuth deployment profiles:

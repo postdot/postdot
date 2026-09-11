@@ -18,6 +18,12 @@ describe('Herald configuration', () => {
                 BETTER_AUTH_URL: 'http://localhost:3100/some-path',
                 BETTER_AUTH_SECRET: secret,
                 HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: 'true',
+                HERALD_EMAIL_SMTP_HOST: 'smtp.example.test',
+                HERALD_EMAIL_SMTP_PORT: '2525',
+                HERALD_EMAIL_SMTP_SECURE: 'true',
+                HERALD_EMAIL_SMTP_USERNAME: 'smtp-user',
+                HERALD_EMAIL_SMTP_PASSWORD: 'smtp-password',
+                HERALD_EMAIL_FROM: 'Herald <no-reply@example.test>',
                 HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
                 HERALD_WEB_ORIGIN: 'http://localhost:5173/dashboard',
@@ -46,6 +52,16 @@ describe('Herald configuration', () => {
                 baseURL: 'http://localhost:3100',
                 secret,
                 requireEmailVerificationOnInvitation: true,
+            },
+            email: {
+                smtp: {
+                    host: 'smtp.example.test',
+                    port: 2525,
+                    secure: true,
+                    from: 'Herald <no-reply@example.test>',
+                    username: 'smtp-user',
+                    password: 'smtp-password',
+                },
             },
             security: {
                 mediaPublicUrlSecret,
@@ -83,6 +99,55 @@ describe('Herald configuration', () => {
             web: { origin: 'http://localhost:5173' },
             logging: { enabled: true, level: 'info', pretty: true },
         })
+    })
+
+    it('keeps email delivery optional and rejects incomplete SMTP configuration', () => {
+        expect(
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+            }).email
+        ).toBeUndefined()
+
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_EMAIL_FROM: 'Herald <no-reply@example.test>',
+            })
+        ).toThrow('HERALD_EMAIL_SMTP_HOST')
+
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_EMAIL_SMTP_HOST: 'smtp.example.test',
+                HERALD_EMAIL_SMTP_USERNAME: 'smtp-user',
+            })
+        ).toThrow('HERALD_EMAIL_FROM')
+
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_EMAIL_SMTP_HOST: 'smtp.example.test',
+                HERALD_EMAIL_FROM: 'Herald <no-reply@example.test>',
+                HERALD_EMAIL_SMTP_USERNAME: 'smtp-user',
+            })
+        ).toThrow('HERALD_EMAIL_SMTP_USERNAME and HERALD_EMAIL_SMTP_PASSWORD')
+
+        expect(() =>
+            createHeraldConfig({
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+                HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION: 'true',
+            })
+        ).toThrow('requires a configured email transport')
     })
 
     it('parses operator-owned private outbound destinations', () => {

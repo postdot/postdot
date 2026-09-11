@@ -64,6 +64,30 @@ loopback OAuth mode and the public HTTPS mode, are documented in
 Request logging is readable by default in development. Set `LOG_LEVEL=silent` to
 disable it, or set `NODE_ENV=production` to make the default log level silent.
 
+Email delivery is optional. Leave the SMTP variables unset for local/manual-link
+operation. To deliver project invitations, signup verification, and password-reset
+messages through a relay, add the following to the ignored `apps/api/.env` file and
+restart the API:
+
+```dotenv
+HERALD_EMAIL_SMTP_HOST=smtp.example.com
+HERALD_EMAIL_SMTP_PORT=587
+HERALD_EMAIL_SMTP_SECURE=false
+HERALD_EMAIL_SMTP_USERNAME=your-smtp-user
+HERALD_EMAIL_SMTP_PASSWORD=your-smtp-password
+HERALD_EMAIL_FROM=Herald <no-reply@example.com>
+```
+
+The username and password must be supplied together; an unauthenticated local
+relay may omit both. Set
+`HERALD_REQUIRE_EMAIL_VERIFICATION_ON_INVITATION=true` only when the configured
+relay is reachable and verified-account delivery is part of the deployment policy.
+Mail submission is best-effort, so operators should monitor the API’s
+`[herald-email]` errors and should not treat a successful invitation request as
+proof of inbox delivery. See
+[`ADR-066`](.autonomos/decisions/ADR-066-smtp-auth-email-delivery.md) for the
+transport and reliability boundary.
+
 The API applies the committed Drizzle migrations at startup. For a local,
 unreleased database whose migration history no longer matches the repository,
 stop the API and move that ignored database file aside before restarting. Herald

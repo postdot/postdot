@@ -21,15 +21,6 @@ test('an owner can invite, update, and remove project members', async ({ page })
     const memberEmail = `e2e-134-member-${suffix}@herald.local`
 
     try {
-        await memberPage.goto('/')
-        await expect(memberPage).toHaveURL(/\/login$/)
-        await memberPage.getByRole('button', { name: 'Need an account?' }).click()
-        await memberPage.getByLabel('Name').fill(`E2E-134 member ${suffix}`)
-        await memberPage.getByLabel('Email').fill(memberEmail)
-        await memberPage.getByLabel('Password').fill('e2e-134-member-password')
-        await memberPage.getByRole('button', { name: 'Create account', exact: true }).click()
-        await expect(memberPage).toHaveURL(/\/dashboard(?:\?.*)?$/)
-
         await page.getByLabel('Email', { exact: true }).fill(memberEmail)
         await page.getByRole('button', { name: 'Invite', exact: true }).click()
         await expect(page.getByText(`Invitation for ${memberEmail}`, { exact: true })).toBeVisible()
@@ -58,6 +49,12 @@ test('an owner can invite, update, and remove project members', async ({ page })
             throw new Error('The resent project invitation link was not rendered')
 
         await memberPage.goto(invitationLink)
+        await expect(memberPage).toHaveURL(/\/login\?continue=/)
+        await memberPage.getByRole('button', { name: 'Need an account?' }).click()
+        await memberPage.getByLabel('Name').fill(`E2E-134 member ${suffix}`)
+        await memberPage.getByLabel('Email').fill(memberEmail)
+        await memberPage.getByLabel('Password').fill('e2e-134-member-password')
+        await memberPage.getByRole('button', { name: 'Create account', exact: true }).click()
         await expect(
             memberPage.getByRole('heading', { name: 'Project invitation', exact: true })
         ).toBeVisible()

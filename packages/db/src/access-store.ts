@@ -829,6 +829,13 @@ export function createAccessStore(database: HeraldDatabase, options: AccessStore
             return row?.organizationId ?? null
         },
 
+        getProjectIdForOrganization(organizationId: string): string | null {
+            const row = loadProjectByOrganizationStatement.get(
+                requireNonBlank(organizationId, 'organizationId')
+            )
+            return row?.projectId ?? null
+        },
+
         /** Better Auth Organization membership is the project authorization source. */
         syncProjectMembershipFromOrganizationMember(input: {
             readonly organizationId: string

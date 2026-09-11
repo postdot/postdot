@@ -8,7 +8,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
     loader: async ({ params }) => {
         const session = await api.getSession()
         if (session === null) {
-            throw redirect({ to: '/login' })
+            throw redirect({ to: '/login', search: { continue: undefined } })
         }
 
         const [{ editor }, { tags: projectTags }, { tags: publicationTags }] = await Promise.all([

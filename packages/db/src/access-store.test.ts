@@ -181,6 +181,10 @@ describe('instance access store', () => {
                 projectId: created.project.id,
                 userId: 'organization-owner',
             })
+            expect(access.getProjectIdForOrganization('organization-project')).toBe(
+                created.project.id
+            )
+            expect(access.getProjectIdForOrganization('missing-organization')).toBeNull()
             database.$client
                 .query(
                     `insert into member (id, organization_id, user_id, role, created_at)
