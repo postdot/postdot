@@ -27,8 +27,11 @@ backup remains available for low-level recovery:
 bun apps/api/src/index.ts backup --database ./herald.sqlite --output ./backups/herald.sqlite
 ```
 
-Stop the application before restoring a database-only backup. The restore
-validates the backup, writes a temporary replacement, and renames it into place:
+Stop the application before restoring a database-only backup. The API owns a
+sidecar runtime lock next to the database while it is running, and restore
+acquires the same lock before validating or replacing anything. A restore fails
+closed while Herald is active, then validates the backup, writes a temporary
+replacement, and renames it into place:
 
 ```sh
 bun apps/api/src/index.ts restore --database ./herald.sqlite --input ./backups/herald.sqlite
@@ -48,6 +51,12 @@ Stop the application before restoring the complete bundle:
 ```sh
 bun apps/api/src/index.ts restore --media --database ./herald.sqlite --input ./backups/herald.bundle
 ```
+
+The lock is intentionally not reclaimed automatically after a forced process
+termination. If a restart or restore reports an existing lock, verify that no
+Herald process is using the database, then remove only the exact
+`<database>.runtime.lock` sidecar before retrying. Never remove the marker to
+override a live process.
 
 The complete bundle does not contain `HERALD_PUBLISHER_ENCRYPTION_KEY`. A complete
 application recovery therefore also requires the exact deployment key and its

@@ -297,9 +297,10 @@ docker run --rm \
   herald:local backup --media --output /backups/herald.bundle
 ```
 
-Stop the application before restoring. The command validates the database, manifest,
-and every media object before replacing the database; start the application again
-afterward:
+Stop the application before restoring. The API owns a sidecar runtime lock next to
+the database while it is running, and restore acquires the same lock before
+validating or replacing anything. A restore therefore fails closed while Herald
+is active; start the application again only after the restore completes:
 
 ```sh
 docker run --rm \
@@ -307,6 +308,12 @@ docker run --rm \
   --mount type=bind,source="$PWD/backups",target=/backups \
   herald:local restore --media --input /backups/herald.bundle
 ```
+
+The lock is intentionally not reclaimed automatically after a forced process
+termination. If a restart or restore reports an existing lock, first verify
+that no Herald process is using the database, then remove only the exact
+`<database>.runtime.lock` sidecar before retrying. Never remove the marker to
+override a live process.
 
 The commands without `--media` remain available for database-only recovery, but do
 not include stored media objects.

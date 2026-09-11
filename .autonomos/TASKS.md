@@ -193,3 +193,7 @@ surface and operational copy-density work.
 ## 🧪 Runtime isolation follow-up
 
 - [x] **[OPS-139]** Isolate concurrent E2E runtime data, media, ports, and teardown ownership `Priority: 🔴` `Complexity: M` — every Playwright invocation gets a unique disposable runtime root, OS-selected loopback ports, an invocation-specific output directory, and teardown scoped to that run; Playwright workers reuse the parent runtime instead of creating additional roots.
+
+## 🔒 Recovery quiescence follow-up
+
+- [x] **[OPS-140]** Enforce fail-closed runtime quiescence before database and media restore `Priority: 🔴` `Complexity: M` — the API runtime and restore paths now acquire one database-specific sidecar lock, graceful shutdown releases it, restore fails before validation or writes while Herald is active, and forced-stop markers require explicit operator verification.

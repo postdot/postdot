@@ -18,6 +18,8 @@ export type {
     MediaBackupRepresentation,
     MediaRestoreOptions,
 } from './backup'
+export { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
+export type { RuntimeQuiescenceLock, RuntimeQuiescenceOwner } from './runtime-quiescence'
 export { defaultMigrationsFolder, runMigrations } from './migrations'
 export { createWorkflowStore } from './workflow-store'
 export {

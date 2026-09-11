@@ -1,0 +1,117 @@
+import { randomUUID } from 'node:crypto'
+import {
+    closeSync,
+    existsSync,
+    fsyncSync,
+    mkdirSync,
+    openSync,
+    readFileSync,
+    unlinkSync,
+    writeFileSync,
+} from 'node:fs'
+import { hostname } from 'node:os'
+import { dirname, resolve } from 'node:path'
+
+const RUNTIME_LOCK_VERSION = 1
+const RUNTIME_LOCK_SUFFIX = '.runtime.lock'
+
+export type RuntimeQuiescenceOwner = 'server' | 'restore'
+
+export interface RuntimeQuiescenceLock {
+    readonly databaseFilename: string
+    readonly lockFilename: string
+    readonly owner: RuntimeQuiescenceOwner
+    release(): void
+}
+
+/**
+ * Acquires the process-level boundary shared by the API runtime and recovery
+ * commands. The marker is deliberately fail-closed: a leftover marker is not
+ * reclaimed based on a possibly reused PID. An operator must verify that no
+ * Herald process is using the database before removing such a marker.
+ */
+export function acquireRuntimeQuiescenceLock(
+    databaseFilename: string,
+    owner: RuntimeQuiescenceOwner
+): RuntimeQuiescenceLock {
+    if (databaseFilename === ':memory:') {
+        throw new Error('Runtime quiescence requires a filesystem-backed database')
+    }
+
+    const databasePath = resolve(databaseFilename)
+    const lockFilename = `${databasePath}${RUNTIME_LOCK_SUFFIX}`
+    mkdirSync(dirname(lockFilename), { recursive: true })
+
+    let descriptor: number
+    try {
+        descriptor = openSync(lockFilename, 'wx', 0o600)
+    } catch (error) {
+        if (errorCode(error) === 'EEXIST') {
+            throw new Error(
+                `Cannot acquire Herald runtime lock for ${databasePath}: ${lockFilename} is already held. Stop the active Herald runtime, or verify and remove this exact stale marker after a forced stop, before retrying.`
+            )
+        }
+        throw error
+    }
+
+    const token = randomUUID()
+    const record = {
+        version: RUNTIME_LOCK_VERSION,
+        owner,
+        pid: process.pid,
+        host: hostname(),
+        acquiredAt: new Date().toISOString(),
+        token,
+    }
+
+    try {
+        writeFileSync(descriptor, `${JSON.stringify(record)}\n`, 'utf8')
+        fsyncSync(descriptor)
+    } catch (error) {
+        closeSync(descriptor)
+        removeLockIfOwned(lockFilename, token)
+        throw error
+    }
+
+    let released = false
+    return {
+        databaseFilename: databasePath,
+        lockFilename,
+        owner,
+        release() {
+            if (released) return
+            released = true
+            closeSync(descriptor)
+            removeLockIfOwned(lockFilename, token)
+        },
+    }
+}
+
+function removeLockIfOwned(lockFilename: string, token: string): void {
+    if (!existsSync(lockFilename)) return
+
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(readFileSync(lockFilename, 'utf8'))
+    } catch {
+        return
+    }
+    if (!isRecord(parsed) || parsed.token !== token) return
+
+    try {
+        unlinkSync(lockFilename)
+    } catch (error) {
+        if (errorCode(error) !== 'ENOENT') {
+            console.error(`[herald-db] failed to release runtime lock ${lockFilename}`, error)
+        }
+    }
+}
+
+function errorCode(error: unknown): string | undefined {
+    if (typeof error !== 'object' || error === null || !('code' in error)) return undefined
+    return typeof error.code === 'string' ? error.code : undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+}

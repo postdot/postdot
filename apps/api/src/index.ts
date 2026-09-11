@@ -6,6 +6,7 @@ import {
     createAccessStore,
     createMediaAssetStore,
     createNotificationStore,
+    acquireRuntimeQuiescenceLock,
     setDatabaseCommitObserver,
     runMigrations,
 } from '@herald/db'
@@ -79,6 +80,19 @@ export type {
 } from './modules/projects/notification-models'
 
 async function startServer(config = createHeraldConfig()) {
+    const runtimeLock = acquireRuntimeQuiescenceLock(config.database.fileName, 'server')
+    try {
+        await startServerWithRuntimeLock(config, runtimeLock)
+    } catch (error) {
+        runtimeLock.release()
+        throw error
+    }
+}
+
+async function startServerWithRuntimeLock(
+    config: ReturnType<typeof createHeraldConfig>,
+    runtimeLock: ReturnType<typeof acquireRuntimeQuiescenceLock>
+) {
     const database = createDatabase(config.database.fileName)
     runMigrations(database, config.database.migrationsDirectory)
     const access = createAccessStore(database)
@@ -215,13 +229,20 @@ async function startServer(config = createHeraldConfig()) {
         if (shuttingDown) return
         shuttingDown = true
 
-        worker.stop()
-        mediaMaintenance.stop()
-        notificationProjection.stop()
-        realtime.stop()
-        clearDatabaseCommitObserver()
-        await app.stop()
-        closeDatabase(database)
+        try {
+            worker.stop()
+            mediaMaintenance.stop()
+            notificationProjection.stop()
+            realtime.stop()
+            clearDatabaseCommitObserver()
+            await app.stop()
+        } finally {
+            try {
+                closeDatabase(database)
+            } finally {
+                runtimeLock.release()
+            }
+        }
     }
 
     process.once('SIGINT', () => void shutdown())

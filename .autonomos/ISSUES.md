@@ -606,7 +606,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-026] Enforce runtime quiescence before backup restore
 
 - Type: problem
-- Status: open
+- Status: resolved
 - Evidence: The restore path can replace the database and media state while the
   API, scheduler, or maintenance runtime may still hold open resources. The
   operator documentation asks for a stop but the restore operation does not
@@ -616,7 +616,21 @@ exists` error. At the same time, the Vite development proxy always targets port
   diagnose.
 - Desired outcome: Restore has an explicit fail-closed quiescence boundary and
   a verified operator lifecycle for stopping, restoring, and restarting Herald.
-- Tasks: to be triaged
+- Tasks: OPS-140 (completed)
+- Related decision: [ADR-068](decisions/ADR-068-runtime-quiescence-sidecar-lock.md) (proposed)
+- Resolution: The API process acquires a database-specific `.runtime.lock`
+  sidecar before opening the database, and the database and media restore
+  primitives acquire the same lock before validating a backup or touching the
+  destination. Atomic exclusive creation prevents an active server and a
+  restore from proceeding together. Graceful shutdown releases the marker;
+  forced termination leaves it in place so a later startup or restore fails
+  closed until an operator verifies that no Herald process is using the database
+  and removes only that exact stale marker.
+- Verification: Runtime-lock unit tests cover exclusive ownership, stale-marker
+  refusal, release, and in-memory rejection. Backup tests cover restore refusal
+  while the server boundary is held and successful retry after release. The
+  full repository quality gate and local server readiness checks remain required
+  before integration.
 
 ## [ISSUE-027] Isolate built-in provider execution behind an explicit contract
 
