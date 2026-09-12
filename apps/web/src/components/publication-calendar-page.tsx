@@ -28,13 +28,16 @@ import {
     startOfCalendarMonth,
     toDateKey,
 } from '@/lib/publication-calendar'
+import type { PublicationCalendarView } from '@/lib/publication-calendar-experiment'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationCalendarPage({
     experimentalCalendar = false,
+    initialCalendarView,
     mode = 'calendar',
 }: {
     readonly experimentalCalendar?: boolean
+    readonly initialCalendarView?: PublicationCalendarView
     readonly mode?: 'calendar' | 'overview'
 } = {}) {
     const { locale } = useLanguage()
@@ -149,6 +152,7 @@ export function PublicationCalendarPage({
                         locale={locale}
                         monthCursor={monthCursor}
                         onMonthChange={setMonthCursor}
+                        initialView={initialCalendarView}
                         projectId={project.id}
                         publications={calendarPublications}
                         timeZone={project.timeZone}

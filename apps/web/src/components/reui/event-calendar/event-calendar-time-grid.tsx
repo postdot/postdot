@@ -88,6 +88,7 @@ function EventCalendarTimeGrid<TData = unknown>({
     const { visibleRange } = useEventCalendarNavigation()
     const occurrences = useEventCalendarOccurrences<TData>()
     const settings = useEventCalendarSettings<TData>()
+    const viewConfig = useEventCalendarViewConfig<TData>()
     const { effective } = useEventCalendarViewSettings()
 
     const days = useMemo(() => {
@@ -166,24 +167,55 @@ function EventCalendarTimeGrid<TData = unknown>({
             return
         }
 
-        const root = timeGridRef.current
-        if (root === null) return
+        if (typeof window === 'undefined') return
 
-        const target = root.querySelector<HTMLElement>(
-            `[data-slot="event-calendar-time-slot"][data-time="${formatTimeSlot(initialTimeAnchor)}"]`
-        )
-        if (target === null) return
+        let frameId: number | null = null
+        let attempts = 0
+        const applyAnchor = () => {
+            frameId = null
+            attempts += 1
 
-        const scroller = findVerticalScroller(root)
-        if (scroller !== null) {
+            const root = timeGridRef.current
+            if (root === null) {
+                if (attempts < 3) frameId = window.requestAnimationFrame(applyAnchor)
+                return
+            }
+
+            const target = root.querySelector<HTMLElement>(
+                `[data-slot="event-calendar-time-slot"][data-time="${formatTimeSlot(initialTimeAnchor)}"]`
+            )
+            const scroller = findVerticalScroller(root)
+            if (target === null || scroller === null) {
+                if (attempts < 3) frameId = window.requestAnimationFrame(applyAnchor)
+                return
+            }
+
             const targetRect = target.getBoundingClientRect()
             const scrollerRect = scroller.getBoundingClientRect()
-            const desiredScrollTop = scroller.scrollTop + targetRect.top - scrollerRect.top
+            const header =
+                scroller.dataset.scrollMode === 'contained'
+                    ? root.querySelector<HTMLElement>(
+                          '[data-slot="event-calendar-time-grid-header"]'
+                      )
+                    : null
+            const stickyHeaderHeight = header?.getBoundingClientRect().height ?? 0
+            const desiredScrollTop =
+                scroller.scrollTop + targetRect.top - scrollerRect.top - stickyHeaderHeight
             const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
             scroller.scrollTop = Math.min(maxScrollTop, Math.max(0, desiredScrollTop))
+            appliedTimeAnchor.current = timeAnchorKey
         }
 
-        appliedTimeAnchor.current = timeAnchorKey
+        // The time-grid rows can grow after their first paint when event content
+        // and persisted column widths settle. Measure after those layout passes,
+        // while still applying the anchor only once for this view/range.
+        frameId = window.requestAnimationFrame(() => {
+            frameId = window.requestAnimationFrame(applyAnchor)
+        })
+
+        return () => {
+            if (frameId !== null) window.cancelAnimationFrame(frameId)
+        }
     }, [firstVisibleTimedOccurrence, initialTimeAnchor, timeAnchorKey, view])
     const dateFormatter = useMemo(
         () =>
@@ -343,65 +375,79 @@ function EventCalendarTimeGrid<TData = unknown>({
                         '--ec-slot-min-height': MIN_SLOT_HEIGHT,
                     } as CSSProperties
                 }>
-                <div className={view === 'day' ? 'overflow-x-visible' : 'overflow-x-auto pb-1'}>
-                    <div className={view === 'week' ? 'min-w-[64rem]' : undefined}>
-                        <div
-                            className="grid gap-0.5"
-                            data-slot="event-calendar-time-grid-header"
-                            style={{ gridTemplateColumns }}>
-                            <div aria-hidden="true" className="rounded-md bg-surface-inset" />
-                            {days.map((day, columnIndex) => (
-                                <EventCalendarTimeGridDayHeader<TData>
-                                    columnCount={days.length}
-                                    columnIndex={columnIndex}
-                                    dateFormatter={dateFormatter}
-                                    day={day}
-                                    key={day.getTime()}
-                                    onColumnResizeKeyDown={keyColumnResize}
-                                    onColumnResizeStart={beginColumnResize}
-                                    columnWidth={columnWidths?.[columnIndex]}
-                                    view={view}
-                                />
-                            ))}
-                        </div>
-
-                        {hasAllDayEvents ? (
+                <div
+                    className={
+                        viewConfig.scrollMode === 'contained'
+                            ? 'max-h-[min(70vh,48rem)] overflow-auto overscroll-contain'
+                            : 'overflow-x-auto'
+                    }
+                    data-scroll-mode={viewConfig.scrollMode}
+                    data-slot="event-calendar-time-grid-scroll">
+                    <div className="overflow-visible pb-1">
+                        <div className={view === 'week' ? 'min-w-[64rem]' : undefined}>
                             <div
-                                className="mt-1 grid gap-0.5"
-                                data-slot="event-calendar-time-grid-all-day"
+                                className={[
+                                    'grid gap-0.5',
+                                    viewConfig.scrollMode === 'contained'
+                                        ? 'sticky top-0 z-30 bg-surface-inset'
+                                        : '',
+                                ].join(' ')}
+                                data-slot="event-calendar-time-grid-header"
                                 style={{ gridTemplateColumns }}>
-                                <div className="flex min-h-9 items-center justify-end px-2 text-[0.6875rem] text-muted-foreground">
-                                    {settings.i18n.labels.allDay}
-                                </div>
-                                {days.map(day => (
-                                    <EventCalendarTimeGridAllDayCell<TData>
+                                <div aria-hidden="true" className="rounded-md bg-surface-inset" />
+                                {days.map((day, columnIndex) => (
+                                    <EventCalendarTimeGridDayHeader<TData>
+                                        columnCount={days.length}
+                                        columnIndex={columnIndex}
+                                        dateFormatter={dateFormatter}
                                         day={day}
                                         key={day.getTime()}
+                                        onColumnResizeKeyDown={keyColumnResize}
+                                        onColumnResizeStart={beginColumnResize}
+                                        columnWidth={columnWidths?.[columnIndex]}
+                                        view={view}
                                     />
                                 ))}
                             </div>
-                        ) : null}
 
-                        <div
-                            className="mt-1 grid auto-rows-min gap-0.5"
-                            data-slot="event-calendar-time-grid-body"
-                            style={{ gridTemplateColumns }}>
-                            {timeSlots.map(slot => (
-                                <Fragment key={slot.startMinute}>
-                                    <EventCalendarTimeGutterSlot<TData>
-                                        day={days[0] ?? visibleRange.start}
-                                        slot={slot}
-                                    />
+                            {hasAllDayEvents ? (
+                                <div
+                                    className="mt-1 grid gap-0.5"
+                                    data-slot="event-calendar-time-grid-all-day"
+                                    style={{ gridTemplateColumns }}>
+                                    <div className="flex min-h-9 items-center justify-end px-2 text-[0.6875rem] text-muted-foreground">
+                                        {settings.i18n.labels.allDay}
+                                    </div>
                                     {days.map(day => (
-                                        <EventCalendarTimeGridSlot<TData>
+                                        <EventCalendarTimeGridAllDayCell<TData>
                                             day={day}
-                                            key={`${day.getTime()}-${slot.startMinute}`}
-                                            slot={slot}
-                                            view={view}
+                                            key={day.getTime()}
                                         />
                                     ))}
-                                </Fragment>
-                            ))}
+                                </div>
+                            ) : null}
+
+                            <div
+                                className="mt-1 grid auto-rows-min gap-0.5"
+                                data-slot="event-calendar-time-grid-body"
+                                style={{ gridTemplateColumns }}>
+                                {timeSlots.map(slot => (
+                                    <Fragment key={slot.startMinute}>
+                                        <EventCalendarTimeGutterSlot<TData>
+                                            day={days[0] ?? visibleRange.start}
+                                            slot={slot}
+                                        />
+                                        {days.map(day => (
+                                            <EventCalendarTimeGridSlot<TData>
+                                                day={day}
+                                                key={`${day.getTime()}-${slot.startMinute}`}
+                                                slot={slot}
+                                                view={view}
+                                            />
+                                        ))}
+                                    </Fragment>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -707,6 +753,11 @@ function formatTimeSlot(minutes: number) {
 }
 
 function findVerticalScroller(element: HTMLElement): HTMLElement | null {
+    const containedScroller = element.querySelector<HTMLElement>(
+        '[data-slot="event-calendar-time-grid-scroll"][data-scroll-mode="contained"]'
+    )
+    if (containedScroller !== null) return containedScroller
+
     for (
         let ancestor = element.parentElement;
         ancestor !== null;

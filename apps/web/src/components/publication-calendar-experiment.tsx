@@ -35,6 +35,8 @@ import { formatTime } from '@/lib/format'
 import { toDateKey, startOfCalendarMonth } from '@/lib/publication-calendar'
 import {
     type PublicationCalendarEventData,
+    isPublicationCalendarView,
+    type PublicationCalendarView,
     toPublicationCalendarEvents,
 } from '@/lib/publication-calendar-experiment'
 
@@ -52,6 +54,7 @@ export function PublicationCalendarExperiment({
     locale,
     monthCursor,
     onMonthChange,
+    initialView,
     projectId,
     publications,
     timeZone,
@@ -61,6 +64,7 @@ export function PublicationCalendarExperiment({
     readonly locale: string
     readonly monthCursor: Date
     readonly onMonthChange: (cursor: Date) => void
+    readonly initialView?: PublicationCalendarView
     readonly projectId: string
     readonly publications: readonly PublicationSummary[]
     readonly timeZone: string
@@ -73,10 +77,10 @@ export function PublicationCalendarExperiment({
     const dateFnsLocale = locale === 'fr' ? fr : enUS
     const i18n = useMemo(() => createCalendarI18n(locale, timeZone), [locale, timeZone])
     const isNarrow = useMediaQuery(MOBILE_CALENDAR_QUERY)
-    const [viewPreference, setViewPreference] = useState<'auto' | CalendarView>('auto')
     const [expandedDay, setExpandedDay] = useState<Date | null>(null)
     const [previewPublicationId, setPreviewPublicationId] = useState<string | null>(null)
     const expandedDayKey = expandedDay === null ? null : toDateKey(expandedDay, timeZone)
+    const viewPreference = initialView ?? 'auto'
     const view = viewPreference === 'auto' ? (isNarrow ? 'agenda' : 'month') : viewPreference
 
     const openPublication = useCallback(
@@ -120,12 +124,18 @@ export function PublicationCalendarExperiment({
     )
     const handleViewChange = useCallback(
         (nextView: CalendarView) => {
+            if (!isPublicationCalendarView(nextView)) return
             if (nextView === 'week' || nextView === 'day') {
                 onMonthChange(calendarCursorFor(expandedDay ?? new Date(), timeZone))
             }
-            setViewPreference(nextView)
+            void navigate({
+                params: { projectId },
+                replace: true,
+                search: previous => ({ ...previous, view: nextView }),
+                to: '/dashboard/projects/$projectId/overview',
+            })
         },
-        [expandedDay, onMonthChange, timeZone]
+        [expandedDay, navigate, onMonthChange, projectId, timeZone]
     )
     const handleSlotClick = useCallback(
         (slot: EventCalendarSlotInfo, event: MouseEvent) => {
@@ -191,7 +201,7 @@ export function PublicationCalendarExperiment({
                 onMoreClick={handleMoreClick}
                 onSlotClick={handleSlotClick}
                 onViewChange={handleViewChange}
-                scrollMode="page"
+                scrollMode={view === 'week' || view === 'day' ? 'contained' : 'page'}
                 showDayAddButton
                 showOutsideDays
                 slotDuration={60}

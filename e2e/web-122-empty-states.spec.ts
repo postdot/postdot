@@ -25,10 +25,12 @@ test('makes the calendar the first project view while keeping Queue focused', as
         emptyWeek.locator('[data-slot="event-calendar-time-slot"]').first()
     ).toHaveAttribute('data-time', '00:00')
     expect(
-        await page.locator('[data-dashboard-scroll]').evaluate(element => element.scrollTop)
+        await emptyWeek
+            .locator('[data-slot="event-calendar-time-grid-scroll"]')
+            .evaluate(element => element.scrollTop)
     ).toBe(0)
 
-    await page.goto(page.url().replace(/\/overview$/, '/queue'))
+    await page.goto(page.url().replace(/\/overview(?:\?.*)?$/, '/queue'))
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()
     await expect(
         page.getByText('Create a publication to add work here.', { exact: true })

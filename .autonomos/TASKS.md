@@ -265,3 +265,7 @@ the central project reads and projection/realtime reliability.
 ## 🧪 Adaptive calendar edge-case verification
 
 - [x] **[WEB-163]** Prove the adaptive Week/Day anchor across temporal edge cases `Priority: 🟠` `Complexity: S` — [ISSUE-087]; cover late-night data, non-UTC display timezones, and occurrences crossing the visible range boundary with deterministic unit evidence plus a populated browser check, without changing the existing timeline or viewport policy. Unit, browser, full gate, and integrated-browser evidence confirm the behavior.
+
+## 🧭 Calendar continuity and state persistence
+
+- [x] **[WEB-164]** Make the populated Week/Day anchor visibly effective and persist the selected calendar view `Priority: 🟠` `Complexity: M` — [ISSUE-088] [ISSUE-089]; give the time grid a real bounded scroll surface so data-aware positioning is observable without hiding hours, keep headers aligned with the scrolled columns, make `view` a validated overview query source of truth with responsive fallback when absent, and cover empty/populated anchor behavior plus reload persistence in unit and browser evidence. Full format, lint, typecheck/i18n, unit, browser, and package-build validation passed.

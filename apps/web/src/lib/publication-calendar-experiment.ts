@@ -1,9 +1,15 @@
 import type { CalendarEvent } from '@/components/reui/event-calendar/event-calendar-types'
 import type { PublicationSummary } from '@/lib/api'
 
+type PublicationCalendarView = 'month' | 'week' | 'day' | 'agenda'
+
 export interface PublicationCalendarEventData {
     readonly due: boolean
     readonly publication: PublicationSummary
+}
+
+function isPublicationCalendarView(value: unknown): value is PublicationCalendarView {
+    return value === 'month' || value === 'week' || value === 'day' || value === 'agenda'
 }
 
 /**
@@ -43,6 +49,9 @@ export function toPublicationCalendarEvents(
             return left.id.localeCompare(right.id)
         })
 }
+
+export type { PublicationCalendarView }
+export { isPublicationCalendarView }
 
 function publicationColor(publication: PublicationSummary, due: boolean) {
     if (publication.state === 'failed' || publication.state === 'ambiguous') {

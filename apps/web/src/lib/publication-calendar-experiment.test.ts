@@ -2,7 +2,10 @@ import { describe, expect, test } from 'bun:test'
 
 import type { PublicationSummary } from '@/lib/api'
 
-import { toPublicationCalendarEvents } from './publication-calendar-experiment'
+import {
+    isPublicationCalendarView,
+    toPublicationCalendarEvents,
+} from './publication-calendar-experiment'
 
 function publication(
     id: string,
@@ -20,6 +23,13 @@ function publication(
 }
 
 describe('publication calendar experiment adapter', () => {
+    test('accepts only the reading modes exposed by the project overview', () => {
+        expect(['month', 'week', 'day', 'agenda'].every(isPublicationCalendarView)).toBe(true)
+        expect(isPublicationCalendarView('days')).toBe(false)
+        expect(isPublicationCalendarView('resource')).toBe(false)
+        expect(isPublicationCalendarView(undefined)).toBe(false)
+    })
+
     test('excludes unscheduled publications and preserves point-in-time events', () => {
         const scheduledAt = Date.UTC(2026, 8, 12, 10, 30)
         const [event] = toPublicationCalendarEvents(

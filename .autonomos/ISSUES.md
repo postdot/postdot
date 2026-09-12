@@ -2335,3 +2335,68 @@ channels` with a foreign-key constraint error even though a fresh empty database
   schedules six publications at 23:30 and confirms the `23:00` time slot,
   automatic initial scrolling, and full Week/Day visibility without changing
   the production timeline or viewport policy.
+
+## [ISSUE-088] Make the adaptive Week/Day anchor visible in the first frame
+
+- Type: problem
+- Status: resolved
+- Evidence: The current browser implementation computes a useful anchor for
+  populated Week/Day ranges, but the integrated page scroll container reaches
+  its bottom boundary before the target row can be placed at the top. With
+  publications around `15:54`, the page still exposes the `00:00` row in the
+  first frame even though the pure helper returns a later contextual anchor.
+- Impact: The implementation appears unchanged to the operator and the useful
+  schedule remains visually buried below a long run of empty hours. A passing
+  scrollTop assertion is not sufficient evidence when the selected row is not
+  actually the first useful content in the viewport.
+- Desired outcome: Populated Week/Day views open inside a bounded calendar time
+  surface whose initial scroll can place the adaptive anchor before the first
+  timed publication. The day headers remain associated with the time columns,
+  all hours stay available through scrolling, and manual scrolling is not
+  repeatedly overridden. Empty and all-day-only ranges retain the `00:00`
+  baseline.
+- Scope boundary: This corrects the existing initial-position behavior and its
+  rendering contract. It does not invent working hours, remove time slots,
+  add row resizing, or change the publication density model.
+- Tasks: WEB-164
+- Related issues: ISSUE-083, ISSUE-086, ISSUE-087
+- Related decisions: ADR-057
+- Resolution: WEB-164 gives Week and Day a bounded internal time-grid scroll
+  surface, keeps the day-header row sticky and aligned with its columns, and
+  applies the data-aware anchor after the rows have settled through a bounded
+  requestAnimationFrame retry. All hours remain rendered and empty/all-day-only
+  ranges keep the `00:00` baseline. The populated integrated-browser scenario
+  now opens on useful afternoon data instead of the midnight frame.
+
+## [ISSUE-089] Persist the selected calendar reading mode across reloads
+
+- Type: problem
+- Status: resolved
+- Evidence: `PublicationCalendarExperiment` stores the selected Month/Week/Day/
+  Agenda view only in component state. Selecting Week or Day works until the
+  overview route is refreshed, after which the state returns to the responsive
+  default Month mode on desktop (or Agenda on narrow screens). The overview URL
+  currently carries the implementation toggle but no reading-mode selection.
+- Impact: A user's chosen way of reviewing the schedule is lost during a normal
+  refresh or when the overview is opened from a copied link. This makes the
+  calendar feel unstable and prevents a precise calendar view from being shared
+  or restored through browser navigation.
+- Desired outcome: The overview route accepts a validated `view` query value for
+  Month, Week, Day, or Agenda. An explicit value is the source of truth across
+  reloads, back/forward navigation, and shared links; when it is absent the
+  current responsive default remains active. Switching views preserves the
+  existing calendar implementation query and does not add a history entry for
+  every presentation-only change.
+- Scope boundary: This persists the reading mode only. It does not persist the
+  calendar cursor, expanded day, scroll position, or column widths, which have
+  separate contracts and storage decisions.
+- Tasks: WEB-164
+- Related issues: ISSUE-080, ISSUE-086, ISSUE-088
+- Related decisions: ADR-057
+- Resolution: WEB-164 makes `view=month|week|day|agenda` a validated overview
+  query parameter and the source of truth for the selected reading mode. View
+  switches use replacement navigation, preserve the calendar implementation
+  query, and keep the responsive fallback when `view` is absent. Browser
+  coverage confirms Week and Day survive a reload. The calendar cursor, scroll
+  position, expanded day, and column widths remain intentionally separate
+  contracts.

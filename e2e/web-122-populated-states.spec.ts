@@ -242,11 +242,17 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
             .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
             .first()
     ).toHaveAttribute('data-time', '23:00')
-    const weekScrollTop = await page
-        .locator('[data-dashboard-scroll]')
-        .evaluate(element => element.scrollTop)
+    const weekScrollSurface = weekView.locator('[data-slot="event-calendar-time-grid-scroll"]')
+    await expect(weekScrollSurface).toHaveAttribute('data-scroll-mode', 'contained')
+    const weekScrollTop = await weekScrollSurface.evaluate(element => element.scrollTop)
     expect(weekScrollTop).toBeGreaterThan(0)
+    const weekVisibleTimes = await visibleCalendarTimes(weekScrollSurface)
+    expect(weekVisibleTimes).not.toContain('00:00')
+    expect(weekVisibleTimes).toContain('23:00')
     await expect(weekView.locator('[data-slot="event-calendar-event"]').first()).toBeInViewport()
+    await page.reload()
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('view')).toBe('week')
     await expect(
         weekView.locator('[data-slot="event-calendar-time-grid-column-resize"]')
     ).toHaveCount(6)
@@ -332,13 +338,17 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await expect(dayView).toBeVisible()
     await expect(dayView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
     await expect(dayView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    expect(new URL(page.url()).searchParams.get('view')).toBe('day')
+    await page.reload()
+    await expect(calendar.locator('[data-calendar-view="day"]')).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('view')).toBe('day')
 
     await page.setViewportSize({ width: 390, height: 844 })
     await calendar.getByRole('button', { name: 'Week', exact: true }).click()
     const narrowWeek = calendar.locator('[data-calendar-view="week"]')
     await expect(narrowWeek).toBeVisible()
     const weekScroll = await narrowWeek
-        .locator('[data-slot="event-calendar-time-grid"] > div')
+        .locator('[data-slot="event-calendar-time-grid-scroll"] > div')
         .evaluate(element => ({
             clientWidth: element.clientWidth,
             scrollWidth: element.scrollWidth,
@@ -425,6 +435,28 @@ function publicationFixture(input: {
         targetRevisionId: `${input.id}-target`,
         updatedAt: input.scheduledAt ?? 1,
     }
+}
+
+async function visibleCalendarTimes(scrollSurface: ReturnType<Page['locator']>): Promise<string[]> {
+    return scrollSurface.evaluate(element => {
+        const container = element.getBoundingClientRect()
+        const header = element.querySelector<HTMLElement>(
+            '[data-slot="event-calendar-time-grid-header"]'
+        )
+        const contentTop = Math.max(
+            container.top,
+            header?.getBoundingClientRect().bottom ?? container.top
+        )
+        const visible = Array.from(
+            element.querySelectorAll<HTMLElement>('[data-slot="event-calendar-time-slot"]')
+        )
+            .filter(slot => {
+                const rect = slot.getBoundingClientRect()
+                return rect.bottom > contentTop && rect.top < container.bottom
+            })
+            .map(slot => slot.dataset.time ?? '')
+        return [...new Set(visible)]
+    })
 }
 
 function currentMonthNoon() {
