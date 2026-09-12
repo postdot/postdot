@@ -1,4 +1,5 @@
 import { Button } from '@herald/ui/components/button'
+import { Kbd } from '@herald/ui/components/kbd'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
@@ -323,25 +324,31 @@ function EventCalendarToolbar({
                 <Button
                     aria-label={settings.i18n.labels.previous}
                     aria-keyshortcuts="["
+                    className="gap-1.5"
                     onClick={prev}
-                    size="icon-sm"
+                    size="sm"
                     variant="ghost">
                     <AltArrowLeftIcon aria-hidden="true" />
+                    <Kbd aria-hidden="true">[</Kbd>
                 </Button>
                 <Button
                     aria-keyshortcuts="T"
                     aria-pressed={isToday}
+                    className="gap-1.5"
                     onClick={today}
                     size="sm"
                     variant="ghost">
                     {settings.i18n.labels.today}
+                    <Kbd aria-hidden="true">T</Kbd>
                 </Button>
                 <Button
                     aria-label={settings.i18n.labels.next}
                     aria-keyshortcuts="]"
+                    className="gap-1.5"
                     onClick={next}
-                    size="icon-sm"
+                    size="sm"
                     variant="ghost">
+                    <Kbd aria-hidden="true">]</Kbd>
                     <AltArrowRightIcon aria-hidden="true" />
                 </Button>
             </div>
@@ -359,11 +366,17 @@ function EventCalendarToolbar({
                         <Button
                             aria-pressed={availableView === view}
                             aria-keyshortcuts={CALENDAR_VIEW_SHORTCUTS[availableView]}
+                            className={
+                                availableView === view
+                                    ? 'bg-surface-raised font-[700] text-foreground shadow-none hover:bg-surface-raised'
+                                    : 'text-muted-foreground'
+                            }
                             key={availableView}
                             onClick={() => setView(availableView)}
                             size="sm"
-                            variant={availableView === view ? 'secondary' : 'ghost'}>
+                            variant="ghost">
                             {viewName(settings, availableView, dayCount)}
+                            <Kbd aria-hidden="true">{CALENDAR_VIEW_SHORTCUTS[availableView]}</Kbd>
                         </Button>
                     ))}
                 </div>

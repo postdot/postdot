@@ -61,6 +61,7 @@ export {
 } from './field'
 export { Input } from './input'
 export { HeraldLogo } from './herald-logo'
+export { Kbd, KbdGroup } from './kbd'
 export { Label } from './label'
 export { ScrollArea, ScrollBar } from './scroll-area'
 export { Separator } from './separator'

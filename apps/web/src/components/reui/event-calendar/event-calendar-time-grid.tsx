@@ -612,6 +612,13 @@ function EventCalendarTimeGridSlot<TData>({
     const timeLabel = settings.i18n.functions.formatEventTime(slotStart, slotEnd, false, {
         locale: settings.locale,
     })
+    const slotStartLabel = format(
+        toZoned(slotStart, settings.timeZone),
+        slot.startMinute % 60 === 0
+            ? settings.i18n.formats.timeGutter
+            : settings.i18n.formats.timeGutterMinute,
+        { locale: settings.locale }
+    )
     const timedSegments = segments.timed.filter(segment => {
         const segmentStart = segment.startMin ?? slot.startMinute
         return segmentStart >= slot.startMinute && segmentStart < slot.endMinute
@@ -638,6 +645,7 @@ function EventCalendarTimeGridSlot<TData>({
             event.target.closest('[data-slot="event-calendar-event"]')
         )
             return
+        if ((view === 'week' || view === 'day') && timedSegments.length > 0) return
         settings.onSlotClick?.(
             {
                 date: slotStart,
@@ -661,6 +669,21 @@ function EventCalendarTimeGridSlot<TData>({
         )
     }
 
+    const addButton = (
+        <EventCalendarTimeGridAddButton
+            addLabel={addLabel}
+            occupied={timedSegments.length > 0}
+            onClick={handleAddClick}
+        />
+    )
+    const publicationStack = (
+        <div className="pointer-events-none relative z-20 grid content-start gap-1">
+            {timedSegments.map(segment => (
+                <EventCalendarTimeGridEvent<TData> key={segment.occurrence.key} segment={segment} />
+            ))}
+        </div>
+    )
+
     return (
         <div
             className={[
@@ -676,24 +699,52 @@ function EventCalendarTimeGridSlot<TData>({
             data-slot="event-calendar-time-slot"
             data-time={format(toZoned(slotStart, settings.timeZone), 'HH:mm')}
             onClick={handleSlotClick}>
-            <button
-                aria-label={addLabel}
-                className="absolute end-1 top-1 z-10 flex size-6 -translate-y-0.5 items-center justify-center rounded-sm bg-primary text-primary-foreground opacity-0 shadow-control transition-opacity group-hover/time-slot:opacity-100 focus-visible:opacity-100"
-                data-slot="event-calendar-time-slot-add"
-                onClick={handleAddClick}
-                tabIndex={-1}
-                type="button">
-                <AddIcon aria-hidden="true" className="size-3.5" />
-            </button>
-            <div className="pointer-events-none relative z-20 grid content-start gap-1">
-                {timedSegments.map(segment => (
-                    <EventCalendarTimeGridEvent<TData>
-                        key={segment.occurrence.key}
-                        segment={segment}
-                    />
-                ))}
-            </div>
+            {timedSegments.length > 0 ? (
+                <div
+                    className="relative grid content-start gap-1 rounded-md bg-surface-inset p-1 shadow-field transition-[background-color,box-shadow] group-hover/time-slot:ring-1 group-hover/time-slot:ring-primary/45 focus-within:ring-1 focus-within:ring-primary/45"
+                    data-occupied="true"
+                    data-slot="event-calendar-time-slot-frame">
+                    <div className="flex min-h-6 items-center justify-between gap-2 px-1">
+                        <span
+                            aria-hidden="true"
+                            className="text-[0.6875rem] font-medium tabular-nums text-muted-foreground">
+                            {slotStartLabel}
+                        </span>
+                        {addButton}
+                    </div>
+                    {publicationStack}
+                </div>
+            ) : (
+                addButton
+            )}
         </div>
+    )
+}
+
+function EventCalendarTimeGridAddButton({
+    addLabel,
+    occupied,
+    onClick,
+}: {
+    readonly addLabel: string
+    readonly occupied: boolean
+    readonly onClick: (event: MouseEvent<HTMLButtonElement>) => void
+}) {
+    return (
+        <button
+            aria-label={addLabel}
+            className={[
+                'flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground shadow-control transition-opacity hover:bg-primary/80 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                occupied
+                    ? 'opacity-0 group-hover/time-slot:opacity-100'
+                    : 'absolute end-1 top-1 z-10 opacity-0 group-hover/time-slot:opacity-100',
+            ].join(' ')}
+            data-slot="event-calendar-time-slot-add"
+            onClick={onClick}
+            tabIndex={occupied ? 0 : -1}
+            type="button">
+            <AddIcon aria-hidden="true" className="size-3.5" />
+        </button>
     )
 }
 

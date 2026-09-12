@@ -281,3 +281,8 @@ the central project reads and projection/realtime reliability.
 ## ⌨️ Calendar keyboard navigation pilot
 
 - [x] **[WEB-167]** Add focused calendar reading shortcuts with TanStack React Hotkeys `Priority: 🔵` `Complexity: M` — [ISSUE-092]; implement `T`, `M/W/D/A`, and `[/]` period commands only while the calendar owns focus, ignore editable controls and contextual surfaces, reuse existing view/date callbacks, add keyboard metadata, and cover keyboard behavior without creating a global shortcut layer. Implemented with scoped target registration and browser coverage.
+
+## 🧭 Calendar affordance disclosure follow-up
+
+- [x] **[DESIGN-168]** Make the selected calendar view and local reading shortcuts visibly discoverable `Priority: 🟠` `Complexity: S` — [ISSUE-093]; use an explicit filled active surface, add shared `Kbd` primitives to the view/navigation controls, keep disclosure local and responsive, and preserve the existing shortcut scope and URL behavior. Implemented with light/dark integrated-browser review and targeted accessibility assertions.
+- [x] **[WEB-169]** Put the Week/Day create action in a content-aware slot header `Priority: 🟠` `Complexity: M` — [ISSUE-094]; keep occupied-slot actions above stacked publications, keep empty slots compact, preserve separate inspect/create intent, and cover dense, empty, keyboard-focus, and narrow-width states. Implemented with six-publication dense-stack browser coverage and full repository validation.

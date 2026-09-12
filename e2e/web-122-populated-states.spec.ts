@@ -258,6 +258,10 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await calendar.getByRole('button', { name: 'Week', exact: true }).click()
     const weekView = calendar.locator('[data-calendar-view="week"]')
     await expect(weekView).toBeVisible()
+    const selectedWeekButton = calendar.getByRole('button', { name: 'Week', exact: true })
+    await expect(selectedWeekButton).toHaveAttribute('aria-pressed', 'true')
+    await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveText('W')
+    await expect(selectedWeekButton).toHaveClass(/bg-surface-raised/)
     await expect(weekView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
     await expect(
@@ -330,6 +334,28 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
         .locator('[data-slot="event-calendar-time-slot"]')
         .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
         .first()
+    const denseSlotFrame = denseTimeSlot.locator('[data-slot="event-calendar-time-slot-frame"]')
+    await expect(denseSlotFrame).toBeVisible()
+    await expect(denseSlotFrame.locator('[data-slot="event-calendar-time-slot-add"]')).toHaveCount(
+        1
+    )
+    await expect(denseSlotFrame.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    const denseSlotAdd = denseSlotFrame.locator('[data-slot="event-calendar-time-slot-add"]')
+    const denseSlotAddBox = await denseSlotAdd.boundingBox()
+    const firstDenseEventBox = await denseSlotFrame
+        .locator('[data-slot="event-calendar-event"]')
+        .first()
+        .boundingBox()
+    expect(denseSlotAddBox?.y).toBeLessThan(firstDenseEventBox?.y ?? Number.POSITIVE_INFINITY)
+    await expect(
+        weekView.locator('[data-slot="event-calendar-time-slot"][data-empty]').first()
+    ).toHaveCount(1)
+    await expect(
+        weekView
+            .locator('[data-slot="event-calendar-time-slot"][data-empty]')
+            .first()
+            .locator('[data-slot="event-calendar-time-slot-frame"]')
+    ).toHaveCount(0)
     const emptyTimeSlotBox = await emptyTimeSlot.boundingBox()
     const denseTimeSlotBox = await denseTimeSlot.boundingBox()
     expect(denseTimeSlotBox?.height).toBeGreaterThan(emptyTimeSlotBox?.height ?? 0)

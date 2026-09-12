@@ -1311,7 +1311,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-052] Reduce explanatory repetition and operational information density
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: Several authenticated surfaces repeat combinations of overline,
   icon, title, description, helper text, and container treatment. The owner
   reports that the resulting pages are difficult to scan and require more
@@ -2491,3 +2491,63 @@ channels` with a foreign-key constraint error even though a fresh empty database
   editable controls, and are disabled while the in-context preview is open.
   Browser coverage verifies view/date changes and reload continuity; no global
   shortcut layer or extra explanatory copy was introduced.
+
+## [ISSUE-093] Make calendar view state and reading shortcuts discoverable
+
+- Type: problem
+- Status: resolved
+- Evidence: In the populated Week view, the selected `Semaine` control is
+  rendered with the same tonal family as its container and relies mainly on a
+  shadow to form its boundary. The controls carry `aria-keyshortcuts`, but no
+  visible keycap tells an operator that `M`, `W`, `D`, `A`, `T`, `[` or `]`
+  are available.
+- Impact: The active reading mode is easy to miss at a glance, and the
+  keyboard pilot currently behaves like an undocumented feature. Making every
+  application shortcut global or permanently explaining all of them would add
+  noise, but hiding shortcuts entirely wastes the affordance on the one
+  control group where they are directly useful.
+- Desired outcome: Give the selected view a clear filled surface with a
+  restrained state contrast that does not depend on a shadow alone. Show
+  compact semantic keycaps beside the calendar controls that own the most
+  useful shortcuts; keep the disclosure local to the calendar toolbar and
+  avoid a global shortcut legend for now.
+- Scope boundary: This does not add new shortcuts, a command palette, a
+  preferences screen, or a global keyboard-help overlay. The existing
+  keyboard behavior, URL contract, and pointer actions remain unchanged.
+- Tasks: DESIGN-168
+- Related issues: ISSUE-089, ISSUE-090, ISSUE-092
+- Related decisions: ADR-057, ADR-070
+- Resolution: DESIGN-168 adds a shared Base UI-compatible `Kbd` primitive,
+  gives the selected reading mode a filled `surface-raised` state without a
+  shadow-dependent boundary, and shows the existing calendar keys beside the
+  controls they operate. The disclosure remains local to the toolbar and the
+  existing scoped keyboard behavior is unchanged.
+
+## [ISSUE-094] Keep Week/Day creation actions above dense publication stacks
+
+- Type: problem
+- Status: resolved
+- Evidence: The Week/Day time-grid `+` control is absolutely positioned in
+  the top-right of a slot while publication events are rendered in a later,
+  higher `z-index` stack. When several publications share the same slot, the
+  `+` is consequently painted beneath the first publication instead of
+  occupying a predictable action area.
+- Impact: The create action is partially hidden exactly where the schedule is
+  densest, and the slot no longer communicates a stable relationship between
+  its time, its publications, and its actions.
+- Desired outcome: Occupied slots expose a compact in-slot frame with a
+  small time/action header and the publications below it. The `+` belongs to
+  that header, so it never overlays or hides a publication. Empty slots stay
+  compact and may reveal the same action on hover/focus without reserving a
+  permanent header solely for the button.
+- Scope boundary: This is a Week/Day presentation and creation-affordance
+  correction. It does not introduce drag/resize, change event ordering, or
+  turn a day background into a create action.
+- Tasks: WEB-169
+- Related issues: ISSUE-080, ISSUE-081, ISSUE-082, ISSUE-083, ISSUE-084
+- Related decisions: ADR-057
+- Resolution: WEB-169 renders occupied Week/Day slots as a content-driven
+  surface with a compact time/action header above the publication stack. The
+  add action no longer competes with event z-order, empty slots keep their
+  compact baseline, and occupied-slot background clicks no longer duplicate
+  the explicit create action. Focus and dense-stack browser assertions pass.
