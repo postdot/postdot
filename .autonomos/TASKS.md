@@ -256,3 +256,7 @@ the central project reads and projection/realtime reliability.
 ## 🧱 Calendar column density and event treatment
 
 - [x] **[WEB-160]** Make calendar columns readable, resizable, and visually consistent across views `Priority: 🟠` `Complexity: M` — [ISSUE-084]; keep Week/Day columns above a readable minimum with bounded pointer/keyboard resizing persisted per project/view, align Month's gutters and compact cell rhythm with the time grid, and replace accent-tinted/ringed publication cards with neutral surfaces plus one semantic status marker.
+
+## 🧾 Calendar label containment follow-up
+
+- [x] **[WEB-161]** Keep long channel labels contained in compact calendar rows `Priority: 🟠` `Complexity: S` — [ISSUE-085]; make Agenda channel labels shrink and truncate without horizontal overflow, preserve the complete value for accessible and intentional hover access, and cover a realistic long destination name in the browser scenario.

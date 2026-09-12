@@ -445,7 +445,9 @@ function PublicationCalendarAgenda({
                                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                                         {occurrence.event.title}
                                     </span>
-                                    <span className="shrink-0 text-xs text-muted-foreground">
+                                    <span
+                                        className="min-w-0 max-w-[35%] truncate text-xs text-muted-foreground"
+                                        title={publication.channelName}>
                                         {publication.channelName}
                                     </span>
                                     <span className="shrink-0 text-xs tabular-nums text-muted-foreground">

@@ -2257,3 +2257,20 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related issues: ISSUE-081, ISSUE-082, ISSUE-083
 - Related decisions: ADR-057
 - Resolution: Week and Day now use a 9.5rem minimum column track, an intentional 64rem Week viewport, and bounded 9.5rem–22.5rem per-column widths. Six accessible separators support pointer drag plus ArrowLeft/ArrowRight/Home/End and persist widths by project/view without affecting empty projects. The day header keeps its label truncated inside an overflow-safe child so the entire separator remains interactive. Month now uses 2px row/header/cell gutters, compact padding, borderless rounded cells, and a readable 60rem scroll floor. Publication events use a neutral surface with no inset ring or shadow and a single semantic state marker; state colors remain token-based rather than arbitrary.
+
+## [ISSUE-085] Keep long channel labels contained in compact calendar rows
+
+- Type: problem
+- Status: resolved
+- Evidence: The populated browser review showed that Agenda rows keep the channel-name flex item `shrink-0`. The current fixture name fits, but a realistic long destination label can force the row beyond its available width, especially because Agenda is the narrow-screen reading mode.
+- Impact: A destination label can compete with the publication title and time, create horizontal overflow, or make the mobile agenda harder to scan. This violates the responsive contract even though the underlying publication remains valid.
+- Desired outcome: Agenda rows preserve the publication title and scheduled time, contain long channel names within the available row width, and keep the complete channel value available through an intentional accessible or hover affordance.
+- Scope boundary: This is a label-containment correction, not a new calendar density control or a change to the Month/Week/Day information model.
+- Tasks: WEB-161
+- Related issues: ISSUE-084
+- Related decisions: ADR-057
+- Resolution: Agenda channel labels now have a bounded shrinkable slot with
+  ellipsis and a native title, while the publication button's accessible name
+  retains the complete value. The dense browser scenario covers a deliberately
+  long destination name at the narrow responsive width and verifies that the
+  agenda stays within its scroll container.

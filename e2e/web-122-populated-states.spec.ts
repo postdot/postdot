@@ -121,9 +121,10 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     const suffix = randomUUID().slice(0, 8)
     const projectId = await createAccountAndProject(page, suffix)
     const scheduledAt = currentMonthNoon()
+    const channelName = 'Calendar review destination channel with a deliberately long name'
     const publications = Array.from({ length: 6 }, (_, index) =>
         publicationFixture({
-            channelName: 'Calendar review channel',
+            channelName,
             deliveryMode: 'automatic',
             id: `e2e-122-reui-publication-${index + 1}-${suffix}`,
             postTitle: `E2E-122 ReUI publication ${index + 1} ${suffix}`,
@@ -171,6 +172,31 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(calendar.locator('[data-calendar-view="agenda"]')).toBeVisible()
     await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toHaveCount(0)
+    const narrowAgendaLayout = await calendar
+        .locator('[data-calendar-view="agenda"]')
+        .evaluate(element => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            rows: Array.from(element.querySelectorAll('button')).map(button => {
+                const channel = button.children[2]
+                const channelStyle = channel === undefined ? null : getComputedStyle(channel)
+                return {
+                    buttonClientWidth: button.clientWidth,
+                    buttonScrollWidth: button.scrollWidth,
+                    channelOverflow: channelStyle?.overflow,
+                    channelTextOverflow: channelStyle?.textOverflow,
+                }
+            }),
+        }))
+    expect(narrowAgendaLayout.scrollWidth).toBeLessThanOrEqual(narrowAgendaLayout.clientWidth)
+    expect(
+        narrowAgendaLayout.rows.every(
+            row =>
+                row.buttonScrollWidth <= row.buttonClientWidth &&
+                row.channelOverflow === 'hidden' &&
+                row.channelTextOverflow === 'ellipsis'
+        )
+    ).toBe(true)
 
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
