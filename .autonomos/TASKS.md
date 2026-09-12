@@ -252,3 +252,7 @@ the central project reads and projection/realtime reliability.
 ## 🗓️ Calendar viewport density
 
 - [x] **[WEB-159]** Reclaim empty Week/Day space without hiding hours `Priority: 🔴` `Complexity: S` — [ISSUE-083]; compact empty slots, remove the duplicate inner minimum, tighten the time gutter and grid gaps, keep occupied slots content-driven, and verify dense content reaches the first viewport without changing the complete 24-hour range.
+
+## 🧱 Calendar column density and event treatment
+
+- [x] **[WEB-160]** Make calendar columns readable, resizable, and visually consistent across views `Priority: 🟠` `Complexity: M` — [ISSUE-084]; keep Week/Day columns above a readable minimum with bounded pointer/keyboard resizing persisted per project/view, align Month's gutters and compact cell rhythm with the time grid, and replace accent-tinted/ringed publication cards with neutral surfaces plus one semantic status marker.

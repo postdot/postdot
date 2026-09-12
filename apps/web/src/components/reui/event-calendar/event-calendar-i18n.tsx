@@ -14,6 +14,7 @@ interface EventCalendarI18nConfig {
         previous: string
         next: string
         addEvent: string
+        resizeColumn: (day: string) => string
         allDay: string
         more: (count: number) => string
         noEvents: string
@@ -112,6 +113,7 @@ const DEFAULT_LABELS: EventCalendarI18nConfig['labels'] = {
     previous: 'Previous',
     next: 'Next',
     addEvent: 'Add event',
+    resizeColumn: day => `Resize ${day} column`,
     allDay: 'All day',
     more: count => `+${count} more`,
     noEvents: 'No events',

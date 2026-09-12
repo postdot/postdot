@@ -207,26 +207,26 @@ export function PublicationCalendarExperiment({
                 renderEvent={renderEvent}
                 classNames={{
                     dayAddButton: 'rounded-sm shadow-control',
-                    event: '!shadow-none rounded-md',
+                    event: '!inset-ring-0 !shadow-none !bg-surface-field dark:!bg-surface-field hover:!bg-muted dark:hover:!bg-muted rounded-sm',
                     monthBar: 'px-0.5',
                     monthBarOverlay: 'pt-8',
-                    monthBody: 'gap-1',
-                    monthCell: '!border-0 rounded-md bg-background shadow-field',
-                    monthCellContent: 'gap-1 px-1.5 pt-1.5 pb-1.5',
-                    monthCellFooter: 'px-1.5 pt-1.5',
-                    monthDayHeader: '!border-0 rounded-md bg-muted/70 px-3 py-2',
+                    monthBody: 'gap-0.5',
+                    monthCell: '!border-0 rounded-sm bg-background shadow-field',
+                    monthCellContent: 'gap-0.5 px-1 pt-1 pb-1',
+                    monthCellFooter: 'px-1 pt-1',
+                    monthDayHeader: '!border-0 rounded-sm bg-muted/70 px-2 py-1.5',
                     monthDayNumber: '!size-auto !rounded-none px-0.5 font-medium',
-                    monthHeader: '!border-0 gap-1',
-                    monthRow: '!border-0 gap-1',
+                    monthHeader: '!border-0 gap-0.5',
+                    monthRow: '!border-0 gap-0.5',
                     monthView: '!border-0',
                     moreIndicator: 'px-1.5 text-primary',
                 }}>
                 <EventCalendarToolbar />
                 <ExperimentalCalendarBody
                     expandedDay={expandedDay}
-                    isNarrow={isNarrow}
                     locale={locale}
                     onEventClick={openPublicationPreview}
+                    projectId={projectId}
                     timeZone={timeZone}
                 />
             </EventCalendar>
@@ -297,15 +297,15 @@ function EventCalendarToolbar() {
 
 function ExperimentalCalendarBody({
     expandedDay,
-    isNarrow,
     locale,
     onEventClick,
+    projectId,
     timeZone,
 }: {
     readonly expandedDay: Date | null
-    readonly isNarrow: boolean
     readonly locale: string
     readonly onEventClick: (publicationId: string) => void
+    readonly projectId: string
     readonly timeZone: string
 }) {
     const { view } = useEventCalendarView()
@@ -325,17 +325,15 @@ function ExperimentalCalendarBody({
     if (view === 'week' || view === 'day') {
         return (
             <div data-calendar-view={view}>
-                <EventCalendarTimeGrid />
+                <EventCalendarTimeGrid storageKey={projectId} />
             </div>
         )
     }
 
     const month = <EventCalendarMonthView expandedDay={expandedDay} maxEventsPerCell={5} />
-    if (!isNarrow) return <div data-calendar-view="month">{month}</div>
-
     return (
         <div className="overflow-x-auto pb-1" data-calendar-view="month">
-            <div className="min-w-[48rem]">{month}</div>
+            <div className="min-w-[60rem]">{month}</div>
         </div>
     )
 }
@@ -477,14 +475,28 @@ function PublicationEventContent({
     const publication = occurrence.event.data?.publication
     if (publication === undefined) return null
     const time = formatTime(publication.scheduledAt as number, timeZone, locale)
+    const statusMarker = (
+        <span
+            aria-hidden="true"
+            className="mt-1 size-1.5 shrink-0 rounded-full bg-(--publication-color)"
+            style={
+                {
+                    '--publication-color': occurrence.event.color ?? 'var(--color-primary)',
+                } as CSSProperties
+            }
+        />
+    )
 
     if (view === 'week' || view === 'day') {
         return (
             <span className="flex min-w-0 flex-col items-start gap-0.5 leading-tight">
-                <span className="min-w-0 max-w-full break-words whitespace-normal text-[0.6875rem] font-medium">
-                    {occurrence.event.title}
+                <span className="flex min-w-0 max-w-full items-start gap-1.5">
+                    {statusMarker}
+                    <span className="min-w-0 break-words whitespace-normal text-[0.6875rem] font-medium">
+                        {occurrence.event.title}
+                    </span>
                 </span>
-                <span className="min-w-0 max-w-full break-words whitespace-normal text-[0.625rem] text-muted-foreground">
+                <span className="min-w-0 max-w-full break-words whitespace-normal ps-3 text-[0.625rem] text-muted-foreground">
                     {time} · {publication.channelName}
                 </span>
             </span>
@@ -493,6 +505,7 @@ function PublicationEventContent({
 
     return (
         <>
+            {statusMarker}
             <span className="min-w-0 truncate font-medium">{occurrence.event.title}</span>
             <span className="hidden shrink-0 text-muted-foreground @[12rem]:inline">{time}</span>
             <span className="hidden min-w-0 truncate text-muted-foreground @[16rem]:inline">
@@ -542,6 +555,8 @@ function createCalendarI18n(locale: string, timeZone: string) {
             next: french ? 'Période suivante' : 'Next period',
             noEvents: french ? 'Aucune publication' : 'No publications',
             previous: french ? 'Période précédente' : 'Previous period',
+            resizeColumn: (day: string) =>
+                french ? `Redimensionner la colonne ${day}` : `Resize ${day} column`,
             resources: french ? 'Ressources' : 'Resources',
             selectView: french ? 'Choisir la vue' : 'Select view',
             timeFrom: (time: string) => (french ? `À partir de ${time}` : `From ${time}`),

@@ -2244,3 +2244,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related issues: ISSUE-081, ISSUE-082
 - Related decisions: ADR-057
 - Resolution: The Week/Day time grid now uses a 2rem empty-slot baseline, removes the duplicate inner minimum that made empty rows taller than intended, tightens its time gutter from 4.5rem to 3.5rem, and uses 2px grid gaps with compact slot padding. Occupied rows still expand to fit their stacked publication blocks. No hours are filtered out. The populated browser scenario asserts that a dense slot is taller than an empty slot while retaining all six simultaneous publications.
+
+## [ISSUE-084] Give calendar columns readable density and a restrained publication surface
+
+- Type: problem
+- Status: resolved
+- Evidence: The Week view kept seven equal tracks even when a publication needed more room, leaving dense days narrow and forcing the operator to read cramped cards. Its separators also had an incomplete hit area because the day header's text truncation clipped the resize control. The Month view used larger, inconsistent gutters and more generous cell padding than the corrected time grid. Publication blocks still inherited accent-tinted backgrounds and inset rings, which made them read as colorful post-its rather than neutral schedule content.
+- Impact: Calendar density was governed by the empty layout instead of the content. The operator could not reclaim width for a dense day, could miss the resize affordance with a pointer, and saw different visual rhythms between Month and Week. Strong card treatments also competed with the semantic status information.
+- Desired outcome: Week and Day keep a bounded readable minimum and horizontal scrolling when their columns do not fit, with optional per-column resizing through a full pointer hit area and keyboard controls. Widths are bounded and remembered per project and view. Month uses the same compact 2px rhythm and borderless cell treatment. Publication surfaces stay neutral; only the small status marker carries publication state color.
+- Scope boundary: This issue does not add arbitrary content-driven `fit-content` tracks, hide hours or publications, or implement independent row-height resizing. Time rows remain content-driven from ISSUE-083; a global density/zoom model remains a separate product decision.
+- Tasks: WEB-160
+- Related issues: ISSUE-081, ISSUE-082, ISSUE-083
+- Related decisions: ADR-057
+- Resolution: Week and Day now use a 9.5rem minimum column track, an intentional 64rem Week viewport, and bounded 9.5rem–22.5rem per-column widths. Six accessible separators support pointer drag plus ArrowLeft/ArrowRight/Home/End and persist widths by project/view without affecting empty projects. The day header keeps its label truncated inside an overflow-safe child so the entire separator remains interactive. Month now uses 2px row/header/cell gutters, compact padding, borderless rounded cells, and a readable 60rem scroll floor. Publication events use a neutral surface with no inset ring or shadow and a single semantic state marker; state colors remain token-based rather than arbitrary.

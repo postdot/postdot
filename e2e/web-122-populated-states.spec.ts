@@ -192,12 +192,65 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
 
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+    await expect(calendar.locator('[data-slot="event-calendar-month-header"]').first()).toHaveCSS(
+        'column-gap',
+        '2px'
+    )
+    await expect(calendar.locator('[data-slot="event-calendar-month-row"]').first()).toHaveCSS(
+        'column-gap',
+        '2px'
+    )
+    await expect(calendar.locator('[data-slot="event-calendar-month-cell"]').first()).toHaveCSS(
+        'border-right-width',
+        '0px'
+    )
 
     await calendar.getByRole('button', { name: 'Week', exact: true }).click()
     const weekView = calendar.locator('[data-calendar-view="week"]')
     await expect(weekView).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await expect(
+        weekView.locator('[data-slot="event-calendar-time-grid-column-resize"]')
+    ).toHaveCount(6)
+    const dayColumnWidths = await weekView
+        .locator('[data-slot="event-calendar-time-grid-day-header"]')
+        .evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+    expect(dayColumnWidths.every(width => width >= 152)).toBe(true)
+    const columnResizeHandle = weekView
+        .locator('[data-slot="event-calendar-time-grid-column-resize"]')
+        .first()
+    await columnResizeHandle.focus()
+    await columnResizeHandle.press('ArrowRight')
+    const keyboardResizedWidths = await weekView
+        .locator('[data-slot="event-calendar-time-grid-day-header"]')
+        .evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+    expect(keyboardResizedWidths[0]).toBeGreaterThan(dayColumnWidths[0] ?? 0)
+    await columnResizeHandle.press('Home')
+    const handleBox = await columnResizeHandle.boundingBox()
+    if (handleBox === null) throw new Error('Column resize handle has no layout box')
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(
+        handleBox.x + handleBox.width / 2 + 24,
+        handleBox.y + handleBox.height / 2
+    )
+    await page.mouse.up()
+    const pointerResizedWidths = await weekView
+        .locator('[data-slot="event-calendar-time-grid-day-header"]')
+        .evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+    expect(pointerResizedWidths[0]).toBeGreaterThan(dayColumnWidths[0] ?? 0)
+    const resizedFirstColumnWidth = pointerResizedWidths[0] ?? 0
+    await calendar.getByRole('button', { name: 'Month', exact: true }).click()
+    await expect(calendar.locator('[data-calendar-view="month"]')).toBeVisible()
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    const restoredColumnWidths = await weekView
+        .locator('[data-slot="event-calendar-time-grid-day-header"]')
+        .evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+    expect(restoredColumnWidths[0]).toBe(resizedFirstColumnWidth)
+    await columnResizeHandle.focus()
+    await columnResizeHandle.press('Home')
     for (const index of Array.from({ length: 6 }, (_, item) => item + 1)) {
         await expect(
             weekView.getByText(`E2E-122 ReUI publication ${index} ${suffix}`, { exact: true })

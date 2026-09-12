@@ -5,7 +5,18 @@
 
 import { AddIcon } from '@solar-icons/react/bold/add'
 import { addDays, addMinutes, format } from 'date-fns'
-import { Fragment, useMemo, type CSSProperties, type MouseEvent } from 'react'
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type CSSProperties,
+    type KeyboardEvent as ReactKeyboardEvent,
+    type MouseEvent,
+    type PointerEvent as ReactPointerEvent,
+} from 'react'
 
 import {
     EventCalendarViewContext,
@@ -31,6 +42,9 @@ import type {
 
 const MIN_SLOT_HEIGHT = '2rem'
 const TIME_GUTTER_WIDTH = '3.5rem'
+const DAY_COLUMN_MIN_WIDTH = 152
+const DAY_COLUMN_MAX_WIDTH = 360
+const DAY_COLUMN_RESIZE_STEP = 16
 
 interface EventCalendarTimeSlot {
     readonly endMinute: number
@@ -39,6 +53,16 @@ interface EventCalendarTimeSlot {
 
 interface EventCalendarTimeGridProps {
     readonly className?: string
+    /** Stable consumer key used to remember the user's day-column widths. */
+    readonly storageKey?: string
+}
+
+interface ColumnResizeState {
+    readonly columnIndex: number
+    readonly pointerId: number
+    readonly startX: number
+    readonly startWidths: number[]
+    currentWidths: number[]
 }
 
 /**
@@ -51,7 +75,10 @@ interface EventCalendarTimeGridProps {
  * hour gets its own stacked row inside that hour, so simultaneous publications
  * expand the hour instead of being squeezed into a set of fixed-width columns.
  */
-function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTimeGridProps) {
+function EventCalendarTimeGrid<TData = unknown>({
+    className,
+    storageKey,
+}: EventCalendarTimeGridProps) {
     const { view } = useEventCalendarView()
     const { visibleRange } = useEventCalendarNavigation()
     const occurrences = useEventCalendarOccurrences<TData>()
@@ -92,7 +119,6 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
             }),
         [endMinute, interval, startMinute]
     )
-    const gridTemplateColumns = `var(--ec-gutter-width) repeat(${Math.max(1, days.length)}, minmax(0, 1fr))`
     const dateFormatter = useMemo(
         () =>
             new Intl.DateTimeFormat(settings.locale?.code ?? 'en-US', {
@@ -106,8 +132,136 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
     const hasAllDayEvents = occurrences.some(
         occurrence => occurrence.allDay || spansMultipleDays(occurrence, settings.timeZone)
     )
+    const columnStorageKey =
+        storageKey === undefined
+            ? undefined
+            : `herald:event-calendar:day-widths:v1:${storageKey}:${view}`
+    const [columnWidths, setColumnWidths] = useState<number[] | null>(null)
+    const resizeState = useRef<ColumnResizeState | null>(null)
+    const resizeCleanup = useRef<(() => void) | null>(null)
+
+    useEffect(() => {
+        setColumnWidths(readColumnWidths(columnStorageKey, days.length))
+        resizeCleanup.current?.()
+        resizeState.current = null
+    }, [columnStorageKey, days.length])
+
+    useEffect(
+        () => () => {
+            resizeCleanup.current?.()
+        },
+        []
+    )
+
+    const renderedColumnWidths = useCallback((target: HTMLElement) => {
+        const header = target.closest<HTMLElement>('[data-slot="event-calendar-time-grid-header"]')
+        if (header === null) return []
+        return Array.from(
+            header.querySelectorAll<HTMLElement>(
+                '[data-slot="event-calendar-time-grid-day-header"]'
+            ),
+            cell => Math.round(cell.getBoundingClientRect().width)
+        )
+    }, [])
+
+    const widthsForInteraction = useCallback(
+        (target: HTMLElement) => {
+            const widths = columnWidths ?? renderedColumnWidths(target)
+            return widths.length === days.length ? widths : null
+        },
+        [columnWidths, days.length, renderedColumnWidths]
+    )
+
+    const persistColumnWidths = useCallback(
+        (widths: number[]) => {
+            setColumnWidths(widths)
+            if (columnStorageKey === undefined || typeof window === 'undefined') return
+            try {
+                window.localStorage.setItem(columnStorageKey, JSON.stringify(widths))
+            } catch {
+                // A blocked or full localStorage must not make resizing fail.
+            }
+        },
+        [columnStorageKey]
+    )
+
+    const beginColumnResize = useCallback(
+        (columnIndex: number, event: ReactPointerEvent<HTMLButtonElement>) => {
+            event.preventDefault()
+            event.stopPropagation()
+            const widths = widthsForInteraction(event.currentTarget)
+            if (widths === null || columnIndex >= widths.length - 1) return
+            resizeCleanup.current?.()
+            resizeState.current = {
+                columnIndex,
+                currentWidths: widths,
+                pointerId: event.pointerId,
+                startWidths: widths,
+                startX: event.clientX,
+            }
+            setColumnWidths(current => current ?? widths)
+
+            // The separator is only 8px wide; keep the gesture alive after the
+            // pointer leaves it without relying on a fragile pointer capture.
+            const onPointerMove = (moveEvent: globalThis.PointerEvent) => {
+                const state = resizeState.current
+                if (state === null || state.pointerId !== moveEvent.pointerId) return
+                const nextWidths = resizeColumn(
+                    state.startWidths,
+                    state.columnIndex,
+                    moveEvent.clientX - state.startX
+                )
+                state.currentWidths = nextWidths
+                setColumnWidths(nextWidths)
+            }
+            const onPointerEnd = (endEvent: globalThis.PointerEvent) => {
+                const state = resizeState.current
+                if (state === null || state.pointerId !== endEvent.pointerId) return
+                persistColumnWidths(state.currentWidths)
+                window.removeEventListener('pointermove', onPointerMove)
+                window.removeEventListener('pointerup', onPointerEnd)
+                window.removeEventListener('pointercancel', onPointerEnd)
+                resizeCleanup.current = null
+                resizeState.current = null
+            }
+            window.addEventListener('pointermove', onPointerMove)
+            window.addEventListener('pointerup', onPointerEnd)
+            window.addEventListener('pointercancel', onPointerEnd)
+            resizeCleanup.current = () => {
+                window.removeEventListener('pointermove', onPointerMove)
+                window.removeEventListener('pointerup', onPointerEnd)
+                window.removeEventListener('pointercancel', onPointerEnd)
+            }
+        },
+        [persistColumnWidths, widthsForInteraction]
+    )
+
+    const keyColumnResize = useCallback(
+        (columnIndex: number, event: ReactKeyboardEvent<HTMLButtonElement>) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+            event.preventDefault()
+            event.stopPropagation()
+            const widths = widthsForInteraction(event.currentTarget)
+            if (widths === null || columnIndex >= widths.length - 1) return
+            const delta =
+                event.key === 'Home'
+                    ? DAY_COLUMN_MIN_WIDTH - (widths[columnIndex] ?? DAY_COLUMN_MIN_WIDTH)
+                    : event.key === 'End'
+                      ? DAY_COLUMN_MAX_WIDTH - (widths[columnIndex] ?? DAY_COLUMN_MIN_WIDTH)
+                      : event.key === 'ArrowRight'
+                        ? DAY_COLUMN_RESIZE_STEP
+                        : -DAY_COLUMN_RESIZE_STEP
+            persistColumnWidths(resizeColumn(widths, columnIndex, delta))
+        },
+        [persistColumnWidths, widthsForInteraction]
+    )
 
     if (view !== 'week' && view !== 'day') return null
+
+    const gridTemplateColumns =
+        columnWidths?.length === days.length
+            ? `var(--ec-gutter-width) ${columnWidths.map(width => `${width}px`).join(' ')}`
+            : `var(--ec-gutter-width) repeat(${Math.max(1, days.length)}, minmax(var(--ec-day-column-min-width), 1fr))`
 
     return (
         <EventCalendarViewContext.Provider value={{ view }}>
@@ -118,21 +272,27 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
                 style={
                     {
                         '--ec-gutter-width': TIME_GUTTER_WIDTH,
+                        '--ec-day-column-min-width': '9.5rem',
                         '--ec-slot-min-height': MIN_SLOT_HEIGHT,
                     } as CSSProperties
                 }>
                 <div className={view === 'day' ? 'overflow-x-visible' : 'overflow-x-auto pb-1'}>
-                    <div className={view === 'week' ? 'min-w-[48rem]' : undefined}>
+                    <div className={view === 'week' ? 'min-w-[64rem]' : undefined}>
                         <div
                             className="grid gap-0.5"
                             data-slot="event-calendar-time-grid-header"
                             style={{ gridTemplateColumns }}>
                             <div aria-hidden="true" className="rounded-md bg-surface-inset" />
-                            {days.map(day => (
+                            {days.map((day, columnIndex) => (
                                 <EventCalendarTimeGridDayHeader<TData>
+                                    columnCount={days.length}
+                                    columnIndex={columnIndex}
                                     dateFormatter={dateFormatter}
                                     day={day}
                                     key={day.getTime()}
+                                    onColumnResizeKeyDown={keyColumnResize}
+                                    onColumnResizeStart={beginColumnResize}
+                                    columnWidth={columnWidths?.[columnIndex]}
                                     view={view}
                                 />
                             ))}
@@ -184,29 +344,65 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
 }
 
 function EventCalendarTimeGridDayHeader<TData>({
+    columnCount,
+    columnIndex,
     dateFormatter,
     day,
+    onColumnResizeKeyDown,
+    onColumnResizeStart,
+    columnWidth,
     view,
 }: {
+    readonly columnCount: number
+    readonly columnIndex: number
     readonly dateFormatter: Intl.DateTimeFormat
     readonly day: Date
+    readonly onColumnResizeKeyDown: (
+        columnIndex: number,
+        event: ReactKeyboardEvent<HTMLButtonElement>
+    ) => void
+    readonly onColumnResizeStart: (
+        columnIndex: number,
+        event: ReactPointerEvent<HTMLButtonElement>
+    ) => void
+    readonly columnWidth?: number
     readonly view: CalendarView
 }) {
+    const settings = useEventCalendarSettings<TData>()
     const viewConfig = useEventCalendarViewConfig<TData>()
     const { isToday, isOutside } = useEventCalendarDay<TData>(day)
+    const resizeLabel = settings.i18n.labels.resizeColumn(dateFormatter.format(day))
 
     return (
         <div
             aria-label={dateFormatter.format(day)}
             className={[
-                'min-w-0 truncate rounded-md bg-muted/70 px-3 py-2 text-center font-medium text-muted-foreground',
+                'relative min-w-0 rounded-md bg-muted/70 px-3 py-2 text-center font-medium text-muted-foreground',
                 isToday ? 'bg-primary/10 text-foreground' : '',
                 isOutside ? 'opacity-60' : '',
                 viewConfig.todayClassName ?? '',
             ].join(' ')}
             data-slot="event-calendar-time-grid-day-header"
             role="columnheader">
-            {viewConfig.renderDayHeader?.({ day, view, isToday }) ?? dateFormatter.format(day)}
+            <span className="block min-w-0 truncate">
+                {viewConfig.renderDayHeader?.({ day, view, isToday }) ?? dateFormatter.format(day)}
+            </span>
+            {columnIndex < columnCount - 1 && (
+                <button
+                    aria-label={resizeLabel}
+                    aria-orientation="vertical"
+                    aria-valuemax={DAY_COLUMN_MAX_WIDTH}
+                    aria-valuemin={DAY_COLUMN_MIN_WIDTH}
+                    aria-valuenow={columnWidth}
+                    className="absolute inset-y-1 -end-1 z-20 flex w-2 cursor-col-resize touch-none items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-foreground/10 hover:opacity-100 focus-visible:bg-foreground/10 focus-visible:opacity-100 focus-visible:outline-none"
+                    data-slot="event-calendar-time-grid-column-resize"
+                    onKeyDown={event => onColumnResizeKeyDown(columnIndex, event)}
+                    onPointerDown={event => onColumnResizeStart(columnIndex, event)}
+                    role="separator"
+                    type="button">
+                    <span aria-hidden="true" className="h-5 w-px bg-foreground/20" />
+                </button>
+            )}
         </div>
     )
 }
@@ -403,6 +599,38 @@ function EventCalendarTimeGridEvent<TData>({
 
 function getSlotDate(day: Date, minute: number, timeZone: string) {
     return addMinutes(toZoned(zonedStartOfDay(day, timeZone), timeZone), minute)
+}
+
+function readColumnWidths(storageKey: string | undefined, columnCount: number): number[] | null {
+    if (storageKey === undefined || typeof window === 'undefined') return null
+    try {
+        const parsed: unknown = JSON.parse(window.localStorage.getItem(storageKey) ?? 'null')
+        if (!Array.isArray(parsed) || parsed.length !== columnCount) return null
+        const widths = parsed.map(value => (typeof value === 'number' ? value : Number.NaN))
+        if (
+            widths.some(
+                width =>
+                    !Number.isFinite(width) ||
+                    width < DAY_COLUMN_MIN_WIDTH ||
+                    width > DAY_COLUMN_MAX_WIDTH
+            )
+        )
+            return null
+        return widths
+    } catch {
+        return null
+    }
+}
+
+function resizeColumn(widths: readonly number[], columnIndex: number, delta: number) {
+    const current = widths[columnIndex] ?? DAY_COLUMN_MIN_WIDTH
+    const nextWidth = Math.min(
+        DAY_COLUMN_MAX_WIDTH,
+        Math.max(DAY_COLUMN_MIN_WIDTH, current + delta)
+    )
+    const next = [...widths]
+    next[columnIndex] = Math.round(nextWidth)
+    return next
 }
 
 export { EventCalendarTimeGrid }
