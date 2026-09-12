@@ -72,9 +72,17 @@ export interface PublicationSummaryPageOptions {
     readonly to?: number | null
 }
 
+export interface PublicationSummaryCounts {
+    readonly total: number
+    readonly manual: number
+    readonly automatic: number
+    readonly scheduled: number
+}
+
 export interface PublicationSummaryPage {
     readonly publications: PublicationSummary[]
     readonly nextCursor: string | null
+    readonly summary: PublicationSummaryCounts
 }
 
 export interface PublicationReadStoreHandle {
@@ -259,6 +267,55 @@ export function createPublicationReadStore(
             publications.id
         limit ?9
     `)
+    const listPublicationSummaryCountsStatement = client.query<
+        PublicationSummaryCounts,
+        [projectId: string, tagIdsJson: string, from: number | null, to: number | null]
+    >(`
+        with selected_tag_ids as (
+            select value as tagId
+            from json_each(?2)
+        ),
+        matching_publications as (
+            select assignments.publication_id as publicationId
+            from publication_tags as assignments
+            inner join selected_tag_ids
+                on selected_tag_ids.tagId = assignments.tag_id
+            where assignments.project_id = ?1
+            group by assignments.publication_id
+            having count(distinct assignments.tag_id) = (select count(*) from selected_tag_ids)
+        ),
+        visible_publications as (
+            select publications.id,
+                   publications.delivery_mode,
+                   publications.scheduled_at
+            from publications
+            inner join posts
+                on posts.project_id = publications.project_id
+               and posts.id = publications.post_id
+            inner join channels
+                on channels.project_id = publications.project_id
+               and channels.id = publications.channel_id
+            inner join publication_working_drafts as working_drafts
+                on working_drafts.project_id = publications.project_id
+               and working_drafts.publication_id = publications.id
+            where publications.project_id = ?1
+              and (
+                  not exists (select 1 from selected_tag_ids)
+                  or exists (
+                      select 1
+                      from matching_publications
+                      where matching_publications.publicationId = publications.id
+                  )
+              )
+              and (?3 is null or publications.scheduled_at >= ?3)
+              and (?4 is null or publications.scheduled_at < ?4)
+        )
+        select count(*) as total,
+               coalesce(sum(case when delivery_mode = 'manual' then 1 else 0 end), 0) as manual,
+               coalesce(sum(case when delivery_mode = 'automatic' then 1 else 0 end), 0) as automatic,
+               coalesce(sum(case when scheduled_at is not null then 1 else 0 end), 0) as scheduled
+        from visible_publications
+    `)
 
     const loadWorkingDraft = (projectId: string, publicationId: string) =>
         loadWorkingDraftStatement.get(projectId, publicationId)
@@ -291,9 +348,10 @@ export function createPublicationReadStore(
 
         const cursor = parsePublicationCursor(pageOptions.cursor)
         const normalizedFilter = createPublicationTagFilter(pageOptions.filter?.tagIds ?? [])
+        const tagIdsJson = JSON.stringify(normalizedFilter.tagIds)
         const rows = listPublicationSummaryPageStatement.all(
             normalizedProjectId,
-            JSON.stringify(normalizedFilter.tagIds),
+            tagIdsJson,
             cursor?.scheduledAt === null ? 1 : cursor === null ? null : 0,
             cursor?.scheduledAt ?? null,
             cursor?.updatedAt ?? null,
@@ -302,6 +360,18 @@ export function createPublicationReadStore(
             to,
             limit + 1
         )
+        const summary = listPublicationSummaryCountsStatement.get(
+            normalizedProjectId,
+            tagIdsJson,
+            from,
+            to
+        )
+        if (summary === null) {
+            throw new DomainInvariantError(
+                'invalid_input',
+                `Publication summary counts are unavailable for project ${normalizedProjectId}`
+            )
+        }
         const hasMore = rows.length > limit
         const pageRows = rows.slice(0, limit)
         const lastRow = hasMore ? pageRows.at(-1) : undefined
@@ -316,6 +386,7 @@ export function createPublicationReadStore(
                           updatedAt: lastRow.updatedAt,
                           id: lastRow.id,
                       }),
+            summary,
         }
     }
 

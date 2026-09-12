@@ -20,6 +20,7 @@ import {
     type ProjectCategory,
     type ProjectTag,
     type PublisherConnection,
+    type PublicationSummaryPage,
     type PublicationSummary,
     formatApiError,
 } from '@/lib/api'
@@ -39,6 +40,7 @@ export interface ProjectData {
     readonly connections: PublisherConnection[]
     readonly publications: PublicationSummary[]
     readonly publicationsNextCursor: string | null
+    readonly publicationSummary: PublicationSummaryPage['summary']
     readonly projectTags: ProjectTag[]
 }
 
@@ -58,6 +60,7 @@ export async function loadProjectData(projectId: string): Promise<ProjectData> {
         connections: publisherResponse.connections,
         publications: publicationResponse.publications,
         publicationsNextCursor: publicationResponse.nextCursor,
+        publicationSummary: publicationResponse.summary,
         projectTags: tagResponse.tags,
     }
 }

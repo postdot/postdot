@@ -406,6 +406,131 @@ describe('publication worker', () => {
         }
     })
 
+    it('services due projects in a round-robin order', async () => {
+        let currentTime = now
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const manualStore = createManualStore(database, { now: () => currentTime })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => currentTime,
+            })
+            const publisherStore = createPublisherStore(database, {
+                credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
+                now: () => currentTime,
+            })
+
+            async function createLinkedInProject(name: string, externalAccountId: string) {
+                const project = manualStore.createProject({
+                    name,
+                    subjectId: 'user-1',
+                    displayName: 'Herald Operator',
+                })
+                const channel = manualStore.createChannel({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    name: `${name} channel`,
+                    profile: linkedinChannelProfile,
+                })
+                expect(channel).not.toBeNull()
+                if (channel === null) throw new Error(`The ${name} channel was not created`)
+
+                const credential = await credentialStore.createPublisherCredential({
+                    projectId: project.project.id,
+                    connectedByActorId: project.actor.id,
+                    providerId: 'linkedin',
+                    externalAccountId,
+                    scopes: ['openid', 'profile', 'w_member_social'],
+                    accessToken: `${externalAccountId}-access-token`,
+                })
+                expect(credential.kind).toBe('created')
+                if (credential.kind !== 'created')
+                    throw new Error(`The ${name} credential was not created`)
+                expect(
+                    publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'linkedin',
+                        credentialId: credential.credential.id,
+                    }).kind
+                ).toBe('created')
+
+                return { channel, project }
+            }
+
+            const busyProject = await createLinkedInProject('Busy project', 'busy-member')
+            currentTime = now + 1
+            const quietProject = await createLinkedInProject('Quiet project', 'quiet-member')
+            currentTime = now
+
+            function createPublication(projectId: string, channelId: string, text: string): void {
+                expect(
+                    manualStore.createPost({
+                        projectId,
+                        subjectId: 'user-1',
+                        sourceContent: {
+                            body: { text, format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [{ channelId, deliveryMode: 'automatic', scheduledAt: now }],
+                    })
+                ).not.toBeNull()
+            }
+
+            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-1')
+            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-2')
+            createPublication(busyProject.project.project.id, busyProject.channel.id, 'busy-3')
+            createPublication(quietProject.project.project.id, quietProject.channel.id, 'quiet-1')
+
+            const delivered: string[] = []
+            let externalId = 0
+            const publisher = createLinkedInTextPublisher({
+                baseUrl: 'https://linkedin.test',
+                fetcher: async (_input, init) => {
+                    const body = JSON.parse(String(init?.body)) as { commentary: string }
+                    delivered.push(body.commentary)
+                    externalId += 1
+                    return new Response(null, {
+                        status: 201,
+                        headers: { 'x-restli-id': `urn:li:post:fair-${externalId}` },
+                    })
+                },
+            })
+            const worker = createPublicationWorker({
+                database,
+                publisherStore,
+                publisherCredentialStore: credentialStore,
+                builtInProviderRegistry: createBuiltInProviderRegistry([
+                    createLinkedInProviderAdapter({ textPublisher: publisher }),
+                ]),
+                createClaimToken: (() => {
+                    let sequence = 0
+                    return () => `fair-claim-${++sequence}`
+                })(),
+                now: () => currentTime,
+            })
+
+            await worker.processDueEvents(now)
+
+            expect(delivered).toHaveLength(4)
+            expect(delivered[1]).toBe('quiet-1')
+            expect(delivered.filter(text => text.startsWith('busy-'))).toHaveLength(3)
+            expect(
+                database.$client
+                    .query<{ count: number }, []>(
+                        `select count(*) as count from publications where state = 'published'`
+                    )
+                    .get()?.count
+            ).toBe(4)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('uses a fresh processing time for each event in a long-running batch', async () => {
         let currentTime = now
         const database = createDatabase(':memory:')

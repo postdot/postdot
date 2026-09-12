@@ -1084,6 +1084,7 @@ export type {
     ProjectTag,
     Publication,
     PublicationSummary,
+    PublicationSummaryPage,
     Notification,
     NotificationInbox,
     NotificationPreference,

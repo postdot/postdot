@@ -225,3 +225,8 @@ the central project reads and projection/realtime reliability.
 ## 🛑 Runtime shutdown and restart proof
 
 - [x] **[OPS-150]** Make graceful shutdown drain in-flight work and prove durable restart recovery `Priority: 🔴` `Complexity: L` — [ISSUE-075]; stop new scheduling, await provider/projection/media operations before closing SQLite and releasing the runtime lock, then cover graceful SIGTERM-equivalent draining, restart reconstruction, and explicit forced-stop recovery semantics without adding a supervisor.
+
+## ⚖️ Operational fairness and complete Queue counts
+
+- [x] **[OPS-151]** Bound multi-project worker fairness and verify provider/media fault checkpoints `Priority: 🟠` `Complexity: L` — [ISSUE-076]; the worker now uses a bounded round-robin quantum while preserving serial lease-fenced effects, and representative provider/MediaStore failure paths are covered without requiring live cloud credentials.
+- [x] **[WEB-152]** Return complete Queue aggregates alongside paginated publication rows `Priority: 🔴` `Complexity: M` — [ISSUE-077]; the API now returns authorization-scoped, tag/range-aware aggregate counts so tabs and summary bars never mistake a partial page for the complete project history.

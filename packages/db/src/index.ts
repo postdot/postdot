@@ -251,6 +251,7 @@ export type {
     PublicationWorkingDraft,
     PublicationEditorState,
     PublicationSummary,
+    PublicationSummaryCounts,
     PublicationSummaryPage,
     PublicationSummaryPageOptions,
     PublicationTargetRevision,

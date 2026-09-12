@@ -2018,3 +2018,68 @@ channels` with a foreign-key constraint error even though a fresh empty database
   awaits those drains before closing SQLite or releasing the runtime lock.
   Restart, notification projection, workflow lease, backup/restore, and stale
   lock tests preserve durable recovery and explicit forced-stop handling.
+
+## [ISSUE-076] Prove fair multi-project execution and provider media boundaries
+
+- Type: risk
+- Status: resolved
+- Evidence: The publication worker currently iterates projects sequentially and
+  drains one project's due jobs in an unbounded inner loop before it visits the
+  next project. The provider conformance suite and MediaStore contract suite use
+  deterministic doubles, but no representative fixture proves that a busy
+  project cannot delay another project indefinitely, or that provider/media
+  fault paths preserve their durable checkpoints together.
+- Impact: A project with a large ready backlog can monopolize the single worker and
+  make another project's scheduled publication late even when both are due. A
+  green provider or S3-shaped test can also hide a missing error/checkpoint
+  contract if the failure path is not exercised explicitly.
+- Desired outcome: The single worker services projects with a bounded round-robin
+  quantum, preserves serial external effects and lease fencing, and has
+  representative provider/media fault tests that distinguish durable outcomes
+  from unknown external outcomes. Deployment-specific cloud behavior remains an
+  explicit verification boundary rather than an unearned claim.
+- Scope boundary: This issue does not add concurrent workers, a broker, a
+  distributed scheduler, live provider credentials, or a required cloud service.
+- Tasks: OPS-151
+- Related issues: ISSUE-028, ISSUE-067, ISSUE-075
+- Related decisions: ADR-005, ADR-019, ADR-038, ADR-064
+- Resolution: The publication worker now services each project with a bounded
+  round-robin quantum instead of draining one project's due backlog before
+  visiting the next. Serial provider effects, project-scoped actor leases, and
+  claim fencing remain unchanged. Existing provider fault coverage exercises
+  success, retryable, failed, and ambiguous outcomes; local and S3-shaped
+  MediaStore contract coverage exercises atomic replacement and failed writes
+  without leaving partial objects. These checks remain deterministic and do not
+  claim live cloud-provider behavior.
+
+## [ISSUE-077] Make Queue summary counts complete across paginated history
+
+- Type: problem
+- Status: resolved
+- Evidence: The publication list is intentionally bounded to 100 rows and
+  returns a continuation cursor, while `PublicationQueuePage` derives total,
+  manual, automatic, and scheduled counts from the rows currently held in the
+  browser. The foundation audit reproduced 101 stored publications with only
+  100 returned by the first page, so the visible counts are not the project's
+  complete Queue counts until the user loads another page.
+- Impact: Queue tabs, summary bars, accessible labels, and empty/filter context
+  can report partial numbers as if they were authoritative. A user can therefore
+  make an incorrect triage decision without any visible indication that the
+  counts are incomplete.
+- Desired outcome: The paginated publication contract returns explicit,
+  authorization-scoped aggregate counts for the Queue summary, with filter and
+  range semantics defined at the API boundary. Loading another page must append
+  rows only; it must not change already-known aggregate counts except after a
+  deliberate refresh or mutation.
+- Scope boundary: This issue does not remove pagination, expose unbounded
+  history, introduce a second read model, or make calendar range counts pretend
+  to be global Queue counts.
+- Tasks: WEB-152
+- Related issues: ISSUE-019, ISSUE-063, ISSUE-070
+- Related decisions: ADR-002, ADR-032, ADR-057
+- Resolution: Publication summary pages now return an explicit aggregate for
+  the same authorized project, tag filter, and half-open scheduled range as
+  the row query. The Queue stores that aggregate separately from its bounded
+  rows and uses it for summary bars, tabs, accessible counts, and unfiltered
+  section metadata. Loading another page only appends rows; a refresh or
+  mutation is responsible for replacing the known aggregate.

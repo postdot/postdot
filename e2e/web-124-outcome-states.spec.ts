@@ -50,7 +50,11 @@ test('keeps failed and ambiguous publications legible across queue and overview'
             await route.fulfill({
                 status: response.status(),
                 contentType: 'application/json',
-                body: JSON.stringify({ publications, nextCursor: null }),
+                body: JSON.stringify({
+                    publications,
+                    nextCursor: null,
+                    summary: { total: 2, manual: 0, automatic: 2, scheduled: 2 },
+                }),
             })
         }
     )

@@ -39,6 +39,7 @@ export function PublicationQueuePage({
         projectTags,
         publications,
         publicationsNextCursor,
+        publicationSummary,
     } = useProjectDashboard()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/queue' })
     const [filter, setFilter] = useState<QueueFilter>('all')
@@ -52,13 +53,20 @@ export function PublicationQueuePage({
         filterQueuePublications(publications, duePublicationIds, filter),
         tagIds
     )
-    const automaticCount = publications.filter(
-        publication => publication.deliveryMode === 'automatic'
-    ).length
-    const manualCount = publications.length - automaticCount
-    const scheduledCount = publications.filter(
-        publication => publication.scheduledAt !== null
-    ).length
+    const {
+        automatic: automaticCount,
+        manual: manualCount,
+        scheduled: scheduledCount,
+    } = publicationSummary
+    const totalCount = publicationSummary.total
+    const filteredCount =
+        filter === 'attention'
+            ? due.length
+            : filter === 'scheduled'
+              ? scheduledCount
+              : filter === 'manual'
+                ? manualCount
+                : totalCount
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
@@ -86,7 +94,7 @@ export function PublicationQueuePage({
             <PublicationSummaryBar
                 ariaLabel={m.queue_summary()}
                 items={[
-                    { id: 'total', label: m.queue_publications(), value: publications.length },
+                    { id: 'total', label: m.queue_publications(), value: totalCount },
                     { id: 'manual', label: m.queue_manual(), value: manualCount },
                     { id: 'automatic', label: m.overview_automatic(), value: automaticCount },
                     {
@@ -111,10 +119,10 @@ export function PublicationQueuePage({
                     <TabsTrigger
                         aria-label={m.queue_filter_aria({
                             label: m.queue_all(),
-                            count: publications.length,
+                            count: totalCount,
                         })}
                         value="all">
-                        {m.queue_all()} ({formatNumber(publications.length, locale)})
+                        {m.queue_all()} ({formatNumber(totalCount, locale)})
                     </TabsTrigger>
                     <TabsTrigger
                         aria-label={m.queue_filter_aria({
@@ -175,7 +183,11 @@ export function PublicationQueuePage({
                 <section
                     className={due.length > 0 ? 'order-last min-w-0 xl:order-first' : 'min-w-0'}>
                     <DashboardSectionHeading
-                        meta={m.common_publication_count({ count: visiblePublications.length })}
+                        meta={
+                            tagIds.length === 0
+                                ? m.common_publication_count({ count: filteredCount })
+                                : undefined
+                        }
                         title={m.queue_publications()}
                     />
                     <PublicationList

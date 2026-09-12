@@ -360,6 +360,12 @@ export const publicationSummarySchema = Type.Unsafe<PublicationSummary>(
 export const publicationSummaryPageSchema = Type.Object({
     publications: Type.Array(publicationSummarySchema),
     nextCursor: Type.Union([Type.String({ minLength: 1, maxLength: 1_024 }), Type.Null()]),
+    summary: Type.Object({
+        total: Type.Integer({ minimum: 0 }),
+        manual: Type.Integer({ minimum: 0 }),
+        automatic: Type.Integer({ minimum: 0 }),
+        scheduled: Type.Integer({ minimum: 0 }),
+    }),
 })
 
 export type ProjectResponse = Static<typeof projectSchema>

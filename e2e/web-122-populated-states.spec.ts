@@ -41,7 +41,11 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
-                body: JSON.stringify({ publications, nextCursor: null }),
+                body: JSON.stringify({
+                    publications,
+                    nextCursor: null,
+                    summary: { total: 8, manual: 4, automatic: 4, scheduled: 4 },
+                }),
             })
         }
     )

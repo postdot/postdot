@@ -51,6 +51,7 @@ export type {
     RestoreChannelInput,
 } from './manual-store/channel-lifecycle-store'
 export type {
+    PublicationSummaryCounts,
     PublicationSummaryPage,
     PublicationSummaryPageOptions,
 } from './manual-store/publication-read-store'

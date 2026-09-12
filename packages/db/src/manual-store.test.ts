@@ -384,10 +384,20 @@ describe('manual workflow store', () => {
                     ?.map(publication => publication.id)
             ).toEqual([firstPublication?.id ?? ''])
             expect(
+                store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                    filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
+                })?.summary
+            ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0 })
+            expect(
                 store.listPublicationSummaries(project.project.id, 'user-1', {
                     tagIds: [foreignTag?.id ?? ''],
                 })
             ).toEqual([])
+            expect(
+                store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                    filter: { tagIds: [foreignTag?.id ?? ''] },
+                })?.summary
+            ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0 })
         } finally {
             closeDatabase(database)
         }
@@ -409,6 +419,7 @@ describe('manual workflow store', () => {
                 projectId: project.project.id,
                 subjectId: 'user-1',
                 name: 'Pagination destination',
+                profile: automaticTestProfile,
             })
             if (channel === null) throw new Error('The pagination channel was not created')
 
@@ -421,7 +432,7 @@ describe('manual workflow store', () => {
                     publications: [
                         {
                             channelId: channel.id,
-                            targetContent: { body: `Scheduled ${index}`, media: [] },
+                            deliveryMode: index === 0 ? 'automatic' : 'manual',
                             scheduledAt: now + index * 60_000,
                         },
                     ],
@@ -435,7 +446,6 @@ describe('manual workflow store', () => {
                 publications: [
                     {
                         channelId: channel.id,
-                        targetContent: { body: 'Unscheduled tail', media: [] },
                     },
                 ],
             })
@@ -444,6 +454,12 @@ describe('manual workflow store', () => {
             })
             expect(firstPage?.publications).toHaveLength(100)
             expect(firstPage?.nextCursor).not.toBeNull()
+            expect(firstPage?.summary).toEqual({
+                total: 101,
+                manual: 100,
+                automatic: 1,
+                scheduled: 100,
+            })
 
             const secondPage = store.listPublicationSummaryPage(project.project.id, 'user-1', {
                 cursor: firstPage?.nextCursor,
@@ -453,6 +469,7 @@ describe('manual workflow store', () => {
                 unscheduled?.publications[0]?.id ?? '',
             ])
             expect(secondPage?.nextCursor).toBeNull()
+            expect(secondPage?.summary).toEqual(firstPage?.summary)
             expect(store.listPublicationSummaries(project.project.id, 'user-1')).toHaveLength(101)
 
             const range = store.listPublicationSummaryPage(project.project.id, 'user-1', {
@@ -464,6 +481,12 @@ describe('manual workflow store', () => {
                 'Scheduled 10',
             ])
             expect(range?.nextCursor).toBeNull()
+            expect(range?.summary).toEqual({
+                total: 1,
+                manual: 1,
+                automatic: 0,
+                scheduled: 1,
+            })
 
             expect(() =>
                 store.listPublicationSummaryPage(project.project.id, 'user-1', {
