@@ -203,6 +203,16 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
             weekView.getByText(`E2E-122 ReUI publication ${index} ${suffix}`, { exact: true })
         ).toBeVisible()
     }
+    const emptyTimeSlot = weekView
+        .locator('[data-slot="event-calendar-time-slot"][data-empty]')
+        .first()
+    const denseTimeSlot = weekView
+        .locator('[data-slot="event-calendar-time-slot"]')
+        .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
+        .first()
+    const emptyTimeSlotBox = await emptyTimeSlot.boundingBox()
+    const denseTimeSlotBox = await denseTimeSlot.boundingBox()
+    expect(denseTimeSlotBox?.height).toBeGreaterThan(emptyTimeSlotBox?.height ?? 0)
 
     const createSlot = weekView.locator('[data-slot="event-calendar-time-slot-add"]').first()
     await createSlot.click()

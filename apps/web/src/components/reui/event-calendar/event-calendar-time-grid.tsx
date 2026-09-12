@@ -29,8 +29,8 @@ import type {
     EventCalendarSegment,
 } from '@/components/reui/event-calendar/event-calendar-types'
 
-const MIN_SLOT_HEIGHT = '3rem'
-const TIME_GUTTER_WIDTH = '4.5rem'
+const MIN_SLOT_HEIGHT = '2rem'
+const TIME_GUTTER_WIDTH = '3.5rem'
 
 interface EventCalendarTimeSlot {
     readonly endMinute: number
@@ -124,7 +124,7 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
                 <div className={view === 'day' ? 'overflow-x-visible' : 'overflow-x-auto pb-1'}>
                     <div className={view === 'week' ? 'min-w-[48rem]' : undefined}>
                         <div
-                            className="grid gap-1"
+                            className="grid gap-0.5"
                             data-slot="event-calendar-time-grid-header"
                             style={{ gridTemplateColumns }}>
                             <div aria-hidden="true" className="rounded-md bg-surface-inset" />
@@ -140,7 +140,7 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
 
                         {hasAllDayEvents ? (
                             <div
-                                className="mt-1 grid gap-1"
+                                className="mt-1 grid gap-0.5"
                                 data-slot="event-calendar-time-grid-all-day"
                                 style={{ gridTemplateColumns }}>
                                 <div className="flex min-h-9 items-center justify-end px-2 text-[0.6875rem] text-muted-foreground">
@@ -156,7 +156,7 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
                         ) : null}
 
                         <div
-                            className="mt-1 grid auto-rows-min gap-1"
+                            className="mt-1 grid auto-rows-min gap-0.5"
                             data-slot="event-calendar-time-grid-body"
                             style={{ gridTemplateColumns }}>
                             {timeSlots.map(slot => (
@@ -270,7 +270,7 @@ function EventCalendarTimeGutterSlot<TData>({
     return (
         <div
             aria-hidden="true"
-            className="flex min-h-[var(--ec-slot-min-height)] items-start justify-end pe-2 pt-2 text-[0.6875rem] tabular-nums text-muted-foreground"
+            className="flex min-h-[var(--ec-slot-min-height)] items-start justify-end pe-1.5 pt-1.5 text-[0.6875rem] tabular-nums text-muted-foreground"
             data-slot="event-calendar-time-gutter-slot">
             {viewConfig.renderTimeGutterSlot?.({
                 hour: Math.floor(slot.startMinute / 60),
@@ -355,7 +355,7 @@ function EventCalendarTimeGridSlot<TData>({
     return (
         <div
             className={[
-                'group/time-slot relative min-h-[var(--ec-slot-min-height)] min-w-0 cursor-pointer rounded-md p-1.5 shadow-field transition-colors hover:bg-muted/70',
+                'group/time-slot relative min-h-[var(--ec-slot-min-height)] min-w-0 cursor-pointer rounded-sm p-1 shadow-field transition-colors hover:bg-muted/70',
                 (slot.startMinute / 60) % 2 === 1 ? 'bg-surface-field/35' : 'bg-background',
                 isOff ? offClassName : '',
                 isToday ? 'bg-primary/5' : '',
@@ -363,6 +363,7 @@ function EventCalendarTimeGridSlot<TData>({
                 viewConfig.dayClassName?.(day) ?? '',
             ].join(' ')}
             data-day={format(toZoned(day, settings.timeZone), 'yyyy-MM-dd')}
+            data-empty={timedSegments.length === 0 ? true : undefined}
             data-slot="event-calendar-time-slot"
             data-time={format(toZoned(slotStart, settings.timeZone), 'HH:mm')}
             onClick={handleSlotClick}>
@@ -375,7 +376,7 @@ function EventCalendarTimeGridSlot<TData>({
                 type="button">
                 <AddIcon aria-hidden="true" className="size-3.5" />
             </button>
-            <div className="pointer-events-none relative z-20 grid min-h-[var(--ec-slot-min-height)] content-start gap-1">
+            <div className="pointer-events-none relative z-20 grid content-start gap-1">
                 {timedSegments.map(segment => (
                     <EventCalendarTimeGridEvent<TData>
                         key={segment.occurrence.key}

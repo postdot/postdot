@@ -2231,3 +2231,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related issues: ISSUE-080, ISSUE-081
 - Related decisions: ADR-057
 - Resolution: Replaced absolute overlap columns in the local Week/Day time grid with flow-based, variable-height slot rows. All events starting in a slot are rendered as stacked publication blocks; event clicks still open the existing preview. Empty slots and their hover add controls now call the existing Composer and carry a validated `date` and `time` query context into the initial schedule. The dense browser scenario uses six publications at one timestamp and verifies all six are visible, slot creation reaches Composer at `00:00`, and preview remains available afterward.
+
+## [ISSUE-083] Reclaim empty vertical space without hiding calendar hours
+
+- Type: problem
+- Status: resolved
+- Evidence: After the Week/Day density correction, the integrated browser still started every day at `00:00` with a full-height row for each empty hour. On a deep but finite screen, the useful publications around `15:54` were pushed below the first viewport. The time gutter and repeated row gaps also consumed width and height that could have supported the publication content.
+- Impact: The complete 24-hour range remained technically available but the first view under-emphasized the schedule's actual data. Users had to scroll through a long run of empty, equally sized cells before reaching the work they came to inspect.
+- Desired outcome: Keep every hour and every creation slot available, but let empty slots use a compact minimum height, let occupied slots grow from their content, and reduce only the redundant gutter/padding/gap. Do not guess a user's working hours or silently remove overnight scheduling.
+- Scope boundary: This issue does not add persistent user-defined zoom, column resizing, row resizing, drag-to-create, or event movement. Those controls need a separate interaction and persistence decision.
+- Tasks: WEB-159
+- Related issues: ISSUE-081, ISSUE-082
+- Related decisions: ADR-057
+- Resolution: The Week/Day time grid now uses a 2rem empty-slot baseline, removes the duplicate inner minimum that made empty rows taller than intended, tightens its time gutter from 4.5rem to 3.5rem, and uses 2px grid gaps with compact slot padding. Occupied rows still expand to fit their stacked publication blocks. No hours are filtered out. The populated browser scenario asserts that a dense slot is taller than an empty slot while retaining all six simultaneous publications.
