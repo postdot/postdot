@@ -7,8 +7,8 @@ future upstream updates.
 
 Source: <https://reui.io/r/base-nova/event-calendar.json>
 
-The first experiment keeps only the shared state, month view, recurrence, drag
-engine, and event primitives needed by Herald. Week/day/resource views are not
-enabled yet. Herald-specific styling and publication behavior live outside this
-directory in `publication-calendar-experiment.tsx` and
-`publication-calendar-experiment.ts`.
+The local copy keeps the shared state, month view, read-only week/day time-grid,
+recurrence, drag engine, and event primitives needed by Herald. Resource views
+remain intentionally out of scope. Herald-specific styling and publication
+behavior live outside this directory in `publication-calendar-experiment.tsx`
+and `publication-calendar-experiment.ts`.

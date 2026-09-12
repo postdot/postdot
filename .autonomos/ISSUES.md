@@ -2205,3 +2205,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
   cells. The previous calendar remains available explicitly with
   `?calendar=legacy` while the new default is reviewed. Wide, tablet, and
   narrow behavior is covered by the populated ReUI browser scenario.
+
+## [ISSUE-081] Offer week and day reading modes for the project calendar
+
+- Type: proposal
+- Status: resolved
+- Evidence: The project overview calendar provided a month grid and a narrow-screen agenda, but no way to inspect a shorter temporal window. As publication density grows, a month cell necessarily compresses time and competing posts into a small area, while an agenda removes their position within the week.
+- Impact: Operators cannot switch from a month-level planning overview to a precise weekly or daily schedule without leaving the calendar or mentally reconstructing the time relationship between publications.
+- Desired outcome: The same calendar offers Month, Week, Day, and Agenda modes. Week and Day retain the existing event preview behavior, show scheduled publications at their time positions, navigate by their own period, and remain usable when seven columns do not fit on a narrow viewport.
+- Scope boundary: This issue does not add drag-to-create, event resizing, resource scheduling, or a second publication authoring flow. The existing page-level creation action remains the explicit creation entry point until those interactions receive a separate decision.
+- Tasks: WEB-157
+- Related issues: ISSUE-080
+- Related decisions: ADR-057
+- Resolution: The local ReUI calendar now exposes Month, Week, Day, and Agenda. A vendored read-only time grid reuses ReUI's date ranges, per-day segmentation, overlap packing, event rendering, time-zone formatting, and preview callback. Switching from Month to Week or Day anchors on the selected day when one exists, otherwise on today; navigating those views updates the same calendar cursor and its bounded monthly read. Week keeps a deliberate minimum width and horizontal scrolling on narrow screens, while Day uses the available width. Point-in-time publications receive the same minimum visual block height as the calendar's overlap packer so they remain visible. The populated ReUI browser scenario covers both new modes and direct preview without URL navigation.

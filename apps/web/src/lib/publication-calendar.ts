@@ -119,6 +119,22 @@ export function getCalendarMonthTimestampRange(
     return { from: start, to: end }
 }
 
+/**
+ * Bounded read window for the ReUI calendar's month, week, and agenda modes.
+ * The adjacent months cover the six-week month frame, a week crossing a month
+ * boundary, and the default thirty-day agenda without turning the calendar read
+ * into an unbounded project-history query.
+ */
+export function getCalendarViewportTimestampRange(
+    cursor: Date,
+    timeZone = 'UTC'
+): CalendarMonthTimestampRange {
+    const from = calendarBoundary(shiftCalendarMonth(cursor, -1), timeZone)
+    const to = calendarBoundary(shiftCalendarMonth(cursor, 2), timeZone)
+    if (to <= from) throw new Error('Calendar viewport range is invalid')
+    return { from, to }
+}
+
 export function toDateKey(date: Date, timeZone = 'UTC') {
     const parts = getZonedDateTimeParts(date.getTime(), timeZone)
     return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`

@@ -22,6 +22,7 @@ import { projectQueryKeys } from '@/lib/project-realtime'
 import {
     createCalendarMonth,
     getCalendarMonthTimestampRange,
+    getCalendarViewportTimestampRange,
     getUnscheduledPublications,
     shiftCalendarMonth,
     startOfCalendarMonth,
@@ -44,8 +45,11 @@ export function PublicationCalendarPage({
     const todayDate = toDateKey(new Date(), project.timeZone)
     const [mobileCreateDate, setMobileCreateDate] = useState(todayDate)
     const calendarRange = useMemo(
-        () => getCalendarMonthTimestampRange(monthCursor, project.timeZone),
-        [monthCursor, project.timeZone]
+        () =>
+            experimentalCalendar
+                ? getCalendarViewportTimestampRange(monthCursor, project.timeZone)
+                : getCalendarMonthTimestampRange(monthCursor, project.timeZone),
+        [experimentalCalendar, monthCursor, project.timeZone]
     )
     const calendarPublicationsQuery = useQuery({
         queryKey: [

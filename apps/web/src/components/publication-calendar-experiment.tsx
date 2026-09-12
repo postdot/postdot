@@ -23,6 +23,7 @@ import {
     type EventCalendarRenderEventProps,
 } from '@/components/reui/event-calendar/event-calendar'
 import { EventCalendarMonthView } from '@/components/reui/event-calendar/event-calendar-month-view'
+import { EventCalendarTimeGrid } from '@/components/reui/event-calendar/event-calendar-time-grid'
 import type {
     CalendarView,
     EventCalendarOccurrence,
@@ -35,7 +36,7 @@ import {
     toPublicationCalendarEvents,
 } from '@/lib/publication-calendar-experiment'
 
-const EXPERIMENTAL_VIEWS: CalendarView[] = ['month', 'agenda']
+const EXPERIMENTAL_VIEWS: CalendarView[] = ['month', 'week', 'day', 'agenda']
 const MOBILE_CALENDAR_QUERY = '(max-width: 47.999rem)'
 const EXPERIMENTAL_INTERACTIONS = {
     drag: false,
@@ -101,13 +102,23 @@ export function PublicationCalendarExperiment({
     const handleDateChange = useCallback(
         (date: Date) => {
             setExpandedDay(null)
-            onMonthChange(startOfCalendarMonth(date, timeZone))
+            onMonthChange(
+                view === 'month'
+                    ? startOfCalendarMonth(date, timeZone)
+                    : calendarCursorFor(date, timeZone)
+            )
         },
-        [onMonthChange, timeZone]
+        [onMonthChange, timeZone, view]
     )
-    const handleViewChange = useCallback((nextView: CalendarView) => {
-        setViewPreference(nextView)
-    }, [])
+    const handleViewChange = useCallback(
+        (nextView: CalendarView) => {
+            if (nextView === 'week' || nextView === 'day') {
+                onMonthChange(calendarCursorFor(expandedDay ?? new Date(), timeZone))
+            }
+            setViewPreference(nextView)
+        },
+        [expandedDay, onMonthChange, timeZone]
+    )
     const handleSlotClick = useCallback(
         (slot: { readonly date: Date }, event: MouseEvent) => {
             const target = event.currentTarget
@@ -135,8 +146,13 @@ export function PublicationCalendarExperiment({
         return false
     }, [])
     const renderEvent = useCallback(
-        ({ occurrence }: EventCalendarRenderEventProps<PublicationCalendarEventData>) => (
-            <PublicationEventContent occurrence={occurrence} locale={locale} timeZone={timeZone} />
+        ({ occurrence, view }: EventCalendarRenderEventProps<PublicationCalendarEventData>) => (
+            <PublicationEventContent
+                occurrence={occurrence}
+                locale={locale}
+                timeZone={timeZone}
+                view={view}
+            />
         ),
         [locale, timeZone]
     )
@@ -166,6 +182,7 @@ export function PublicationCalendarExperiment({
                 scrollMode="page"
                 showDayAddButton
                 showOutsideDays
+                slotDuration={60}
                 timeZone={timeZone}
                 view={view}
                 dayClassName={day =>
@@ -242,7 +259,7 @@ function EventCalendarToolbar() {
             </div>
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 sm:justify-end">
                 <h2
-                    className="min-w-0 truncate font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.04em]"
+                    className="min-w-0 flex-1 truncate font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em] sm:text-2xl"
                     id="calendar-experimental-title">
                     {title}
                 </h2>
@@ -289,6 +306,14 @@ function ExperimentalCalendarBody({
                     onEventClick={onEventClick}
                     timeZone={timeZone}
                 />
+            </div>
+        )
+    }
+
+    if (view === 'week' || view === 'day') {
+        return (
+            <div data-calendar-view={view}>
+                <EventCalendarTimeGrid />
             </div>
         )
     }
@@ -430,14 +455,29 @@ function PublicationEventContent({
     occurrence,
     locale,
     timeZone,
+    view,
 }: {
     readonly occurrence: EventCalendarOccurrence<PublicationCalendarEventData>
     readonly locale: string
     readonly timeZone: string
+    readonly view?: CalendarView
 }) {
     const publication = occurrence.event.data?.publication
     if (publication === undefined) return null
     const time = formatTime(publication.scheduledAt as number, timeZone, locale)
+
+    if (view === 'week' || view === 'day') {
+        return (
+            <span className="flex min-w-0 flex-col items-start gap-0.5 leading-tight">
+                <span className="min-w-0 max-w-full truncate text-[0.6875rem] font-medium">
+                    {occurrence.event.title}
+                </span>
+                <span className="min-w-0 max-w-full truncate text-[0.625rem] text-muted-foreground">
+                    {time} · {publication.channelName}
+                </span>
+            </span>
+        )
+    }
 
     return (
         <>
@@ -448,6 +488,11 @@ function PublicationEventContent({
             </span>
         </>
     )
+}
+
+function calendarCursorFor(date: Date, timeZone: string) {
+    const [year, month, day] = toDateKey(date, timeZone).split('-').map(Number)
+    return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1, 12))
 }
 
 function viewName(
@@ -477,9 +522,9 @@ function createCalendarI18n(locale: string, timeZone: string) {
             loading: french ? 'Chargement' : 'Loading',
             more: (count: number) => (french ? `+${count} autres` : `+${count} more`),
             moreCompact: (count: number) => `+${count}`,
-            next: french ? 'Mois suivant' : 'Next',
+            next: french ? 'Période suivante' : 'Next period',
             noEvents: french ? 'Aucune publication' : 'No publications',
-            previous: french ? 'Mois précédent' : 'Previous',
+            previous: french ? 'Période précédente' : 'Previous period',
             resources: french ? 'Ressources' : 'Resources',
             selectView: french ? 'Choisir la vue' : 'Select view',
             timeFrom: (time: string) => (french ? `À partir de ${time}` : `From ${time}`),
@@ -505,6 +550,13 @@ function createCalendarI18n(locale: string, timeZone: string) {
             resource: french ? 'Grille' : 'Time grid',
             week: french ? 'Semaine' : 'Week',
         },
+        formats: french
+            ? {
+                  eventTime: 'HH:mm',
+                  timeGutter: 'HH:mm',
+                  timeGutterMinute: 'HH:mm',
+              }
+            : undefined,
         functions: {
             formatEventTime: (start: Date) => formatTime(start.getTime(), timeZone, locale),
         },

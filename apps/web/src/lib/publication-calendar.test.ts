@@ -5,6 +5,7 @@ import type { PublicationSummary } from '@/lib/api'
 import {
     createCalendarMonth,
     getCalendarMonthTimestampRange,
+    getCalendarViewportTimestampRange,
     getUnscheduledPublications,
     groupScheduledPublications,
     startOfCalendarMonth,
@@ -100,6 +101,18 @@ describe('publication calendar', () => {
         ).toEqual({
             from: Date.UTC(2026, 8, 1, 4),
             to: Date.UTC(2026, 9, 1, 4),
+        })
+    })
+
+    test('keeps adjacent months available for bounded multi-view reads', () => {
+        expect(
+            getCalendarViewportTimestampRange(
+                new Date(Date.UTC(2026, 8, 1, 12)),
+                'America/New_York'
+            )
+        ).toEqual({
+            from: Date.UTC(2026, 7, 1, 4),
+            to: Date.UTC(2026, 10, 1, 4),
         })
     })
 })

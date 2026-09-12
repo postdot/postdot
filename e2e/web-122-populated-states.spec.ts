@@ -193,6 +193,44 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
 
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    const weekView = calendar.locator('[data-calendar-view="week"]')
+    await expect(weekView).toBeVisible()
+    await expect(weekView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
+    await expect(weekView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await weekView.getByRole('button', { name: /E2E-122 ReUI publication 1/ }).click()
+    await expect(
+        page.getByRole('heading', { name: `E2E-122 ReUI publication 1 ${suffix}`, exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
+
+    await calendar.getByRole('button', { name: 'Day', exact: true }).click()
+    const dayView = calendar.locator('[data-calendar-view="day"]')
+    await expect(dayView).toBeVisible()
+    await expect(dayView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
+    await expect(dayView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    const narrowWeek = calendar.locator('[data-calendar-view="week"]')
+    await expect(narrowWeek).toBeVisible()
+    const weekScroll = await narrowWeek
+        .locator('[data-slot="event-calendar-time-grid"] > div')
+        .evaluate(element => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+        }))
+    expect(weekScroll.scrollWidth).toBeGreaterThan(weekScroll.clientWidth)
+
+    await calendar.getByRole('button', { name: 'Day', exact: true }).click()
+    const narrowDay = calendar.locator('[data-calendar-view="day"]')
+    await expect(narrowDay).toBeVisible()
+    await expect(narrowDay.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await calendar.getByRole('button', { name: 'Month', exact: true }).click()
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+
     const denseCell = calendar
         .locator('[data-slot="event-calendar-month-cell"]')
         .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
