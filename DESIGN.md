@@ -94,9 +94,10 @@ future landing-page decisions remain explicit below.
   calendar, while delivery state and due-human work remain visible as state.
   In the experimental interaction model, an event opens an in-context
   publication preview, the day add control is the create entry point, and a
-  day background or overflow affordance expands the complete date context in
-  the calendar itself rather than silently creating, opening a drawer, or
-  nesting another inspection step. Month and agenda are distinct reading
+  day background or overflow affordance expands the selected cell and its week
+  row to reveal the complete date context in the calendar itself rather than
+  silently creating, opening a drawer, or nesting another inspection step.
+  Month and agenda are distinct reading
   modes: month scans distribution, while agenda reads ordered work. The exact
   responsive transition remains provisional until it is reviewed with dense
   realistic data.
@@ -306,9 +307,10 @@ building it; the current app contract must not silently decide those choices.
 - Owner review note: 2026-09-12 — the owner rejected redundant preview labels,
   duplicate dismissal affordances, and a second status marker. For the
   experimental calendar, day inspection must remain in the calendar flow: the
-  selected date expands an inline list of all scheduled publications, while
-  the add control remains the singular create entry point. Mobile density and
-  the final month/agenda transition remain open for the WEB-156 checkpoint.
+  selected cell grows with its week row and reveals all scheduled publications,
+  while the add control remains the singular create entry point. Mobile
+  density and the final month/agenda transition remain open for the WEB-156
+  checkpoint.
 - Accepted changes: 2026-09-01 — Cobalt accent, neutral surface-led
   foundation, purposeful lines, rare depth, and task-dependent density —
   accepted after H-10 owner review; 2026-09-02 — Graphite/Ash low-chroma

@@ -6,7 +6,6 @@ import { useNavigate } from '@tanstack/react-router'
 import { enUS, fr } from 'date-fns/locale'
 import { useCallback, useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
 
-import { PublicationCalendarDayDetails } from '@/components/publication-calendar-day-details'
 import { PublicationCalendarPreviewSheet } from '@/components/publication-calendar-preview-sheet'
 import {
     EventCalendar,
@@ -62,9 +61,9 @@ export function PublicationCalendarExperiment({
     )
     const dateFnsLocale = locale === 'fr' ? fr : enUS
     const i18n = useMemo(() => createCalendarI18n(locale, timeZone), [locale, timeZone])
-    const [selectedDay, setSelectedDay] = useState<Date | null>(null)
+    const [expandedDay, setExpandedDay] = useState<Date | null>(null)
     const [previewPublicationId, setPreviewPublicationId] = useState<string | null>(null)
-    const selectedDayKey = selectedDay === null ? null : toDateKey(selectedDay, timeZone)
+    const expandedDayKey = expandedDay === null ? null : toDateKey(expandedDay, timeZone)
 
     const openPublication = useCallback(
         (publicationId: string) => {
@@ -76,7 +75,7 @@ export function PublicationCalendarExperiment({
         [navigate, projectId]
     )
     const openPublicationPreview = useCallback((publicationId: string) => {
-        setSelectedDay(null)
+        setExpandedDay(null)
         setPreviewPublicationId(publicationId)
     }, [])
     const createOnDate = useCallback(
@@ -91,7 +90,7 @@ export function PublicationCalendarExperiment({
     )
     const handleDateChange = useCallback(
         (date: Date) => {
-            setSelectedDay(null)
+            setExpandedDay(null)
             onMonthChange(startOfCalendarMonth(date, timeZone))
         },
         [onMonthChange, timeZone]
@@ -103,7 +102,7 @@ export function PublicationCalendarExperiment({
                 createOnDate(slot.date)
                 return
             }
-            setSelectedDay(current =>
+            setExpandedDay(current =>
                 current !== null && toDateKey(current, timeZone) === toDateKey(slot.date, timeZone)
                     ? null
                     : slot.date
@@ -119,7 +118,7 @@ export function PublicationCalendarExperiment({
         [openPublicationPreview]
     )
     const handleMoreClick = useCallback((day: Date) => {
-        setSelectedDay(day)
+        setExpandedDay(day)
         return false
     }, [])
     const renderEvent = useCallback(
@@ -155,7 +154,7 @@ export function PublicationCalendarExperiment({
                 showOutsideDays
                 timeZone={timeZone}
                 dayClassName={day =>
-                    selectedDayKey !== null && toDateKey(day, timeZone) === selectedDayKey
+                    expandedDayKey !== null && toDateKey(day, timeZone) === expandedDayKey
                         ? 'bg-primary/8'
                         : undefined
                 }
@@ -180,10 +179,9 @@ export function PublicationCalendarExperiment({
                 }}>
                 <EventCalendarToolbar />
                 <ExperimentalCalendarBody
+                    expandedDay={expandedDay}
                     locale={locale}
                     onEventClick={openPublicationPreview}
-                    publications={publications}
-                    selectedDay={selectedDay}
                     timeZone={timeZone}
                 />
             </EventCalendar>
@@ -253,16 +251,14 @@ function EventCalendarToolbar() {
 }
 
 function ExperimentalCalendarBody({
+    expandedDay,
     locale,
     onEventClick,
-    publications,
-    selectedDay,
     timeZone,
 }: {
+    readonly expandedDay: Date | null
     readonly locale: string
     readonly onEventClick: (publicationId: string) => void
-    readonly publications: readonly PublicationSummary[]
-    readonly selectedDay: Date | null
     readonly timeZone: string
 }) {
     const { view } = useEventCalendarView()
@@ -277,18 +273,7 @@ function ExperimentalCalendarBody({
         )
     }
 
-    return (
-        <>
-            <EventCalendarMonthView maxEventsPerCell={3} />
-            <PublicationCalendarDayDetails
-                day={selectedDay}
-                locale={locale}
-                onOpenPublication={onEventClick}
-                publications={publications}
-                timeZone={timeZone}
-            />
-        </>
-    )
+    return <EventCalendarMonthView expandedDay={expandedDay} maxEventsPerCell={5} />
 }
 
 function PublicationCalendarAgenda({

@@ -2184,12 +2184,15 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Impact: The operator cannot reliably distinguish inspect from create, must
   perform extra clicks to see hidden work, and loses readable temporal context
   when the month grid is squeezed. This undermines the calendar's role as a
-  daily planning surface even when the underlying data is correct.
+  daily planning surface even when the underlying data is correct. The
+  experimental calendar now uses a five-publication cap with direct in-cell
+  expansion; the remaining issue is the responsive month/agenda composition.
 - Desired outcome: Existing events, day backgrounds, add controls, and
-  overflow have separate predictable intents. A date-level context exposes all
-  scheduled work directly in the calendar flow, while narrow screens use a
-  readable agenda/day composition and month view remains an intentional choice
-  rather than a compressed default.
+  overflow have separate predictable intents. The selected cell and its week
+  row expose all scheduled work directly in the calendar flow, with five
+  publications visible before overflow; narrow screens use a readable
+  agenda/day composition and month view remains an intentional choice rather
+  than a compressed default.
 - Tasks: WEB-155, WEB-156
 - Related issues: ISSUE-063, ISSUE-065, ISSUE-066
 - Related decisions: ADR-057, ADR-024

@@ -115,6 +115,86 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 8' })).toBeVisible()
 })
 
+test('expands a dense ReUI calendar day in place', async ({ page }) => {
+    test.setTimeout(30_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    const projectId = await createAccountAndProject(page, suffix)
+    const scheduledAt = currentMonthNoon()
+    const publications = Array.from({ length: 6 }, (_, index) =>
+        publicationFixture({
+            channelName: 'Calendar review channel',
+            deliveryMode: 'automatic',
+            id: `e2e-122-reui-publication-${index + 1}-${suffix}`,
+            postTitle: `E2E-122 ReUI publication ${index + 1} ${suffix}`,
+            projectId,
+            scheduledAt: scheduledAt + index * 3_600_000,
+            state: 'scheduled',
+        })
+    )
+
+    await page.route(
+        new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
+        async route => {
+            const requestUrl = new URL(route.request().url())
+            if (
+                route.request().method() !== 'GET' ||
+                requestUrl.pathname !== `/api/projects/${projectId}/publications`
+            ) {
+                await route.continue()
+                return
+            }
+
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    publications,
+                    nextCursor: null,
+                    summary: { total: 6, manual: 0, automatic: 6, scheduled: 6 },
+                }),
+            })
+        }
+    )
+    await page.route(`**/api/projects/${projectId}/publications/due`, async route => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ publications: [] }),
+        })
+    })
+
+    await page.goto(`/dashboard/projects/${projectId}/overview?calendar=reui`)
+    const calendar = page.locator('[data-calendar-experiment="reui"]')
+    await expect(calendar).toBeVisible()
+
+    const denseCell = calendar
+        .locator('[data-slot="event-calendar-month-cell"]')
+        .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
+        .first()
+    await expect(denseCell).toBeVisible()
+    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(5)
+    await expect(denseCell.getByText('+1 more', { exact: true })).toBeVisible()
+
+    const collapsedBox = await denseCell.boundingBox()
+    await denseCell.locator('[data-slot="event-calendar-month-day-number"]').click()
+    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
+    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await expect(denseCell.locator('[data-slot="event-calendar-more"]')).toHaveCount(0)
+    await expect(page.locator('[data-slot="publication-calendar-day-details"]')).toHaveCount(0)
+    const expandedBox = await denseCell.boundingBox()
+    expect(expandedBox?.height).toBeGreaterThan(collapsedBox?.height ?? 0)
+
+    await denseCell.locator('[data-slot="event-calendar-month-day-number"]').click()
+    await expect(denseCell).not.toHaveAttribute('data-expanded', 'true')
+    await expect(denseCell.getByText('+1 more', { exact: true })).toBeVisible()
+
+    await denseCell.getByText('+1 more', { exact: true }).click()
+    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
+    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await expect(calendar.locator('[data-slot="event-calendar-more-popover"]')).toHaveCount(0)
+})
+
 function publicationFixture(input: {
     readonly channelName: string
     readonly deliveryMode: 'automatic' | 'manual'

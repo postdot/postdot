@@ -51,10 +51,11 @@ hit areas and outcomes.
 - A calendar add control creates a publication for that date. The containing
   day cell must not silently perform the same create action when the add
   control is present.
-- Clicking a day background is an inspection action: expand the day's scheduled
-  publications in the calendar itself, or switch to an explicit day/agenda
-  view. Do not open a separate drawer just to repeat the current calendar
-  context, and do not make the day an accidental alias for creation.
+- Clicking a day background is an inspection action: expand the selected cell
+  and its week row to reveal the day's scheduled publications in the calendar
+  itself, or switch to an explicit day/agenda view. Do not open a separate
+  drawer just to repeat the current calendar context, and do not make the day
+  an accidental alias for creation.
 - Overflow is a density mechanism, not a second navigation maze. The first
   interaction with “+N” should reveal the complete date context; avoid making
   the operator open a list and then another redundant wrapper before they can
@@ -69,8 +70,10 @@ hit areas and outcomes.
   agenda/day composition at mobile widths; if month view remains available,
   preserve a readable minimum width with deliberate scrolling rather than
   shrinking labels and event content into noise.
-- Avoid a fixed event cap chosen only for visual neatness. If events overflow,
-  provide a direct date-level inspection path and keep the full set available.
+- Avoid a fixed event cap chosen only for visual neatness. A modest cap may
+  preserve month scanning (the current experimental cap is five); if events
+  overflow, the selected cell must grow in place and keep the full set
+  available without a below-calendar panel.
 - Treat calendar and agenda as different reading modes: month scans temporal
   distribution; agenda reads the ordered work for one or more days. The view
   switch and transitions must preserve the selected date and not discard
