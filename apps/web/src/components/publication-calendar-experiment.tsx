@@ -4,8 +4,9 @@ import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
 import { useNavigate } from '@tanstack/react-router'
 import { enUS, fr } from 'date-fns/locale'
-import { useCallback, useMemo, type CSSProperties } from 'react'
+import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 
+import { PublicationCalendarPreviewSheet } from '@/components/publication-calendar-preview-sheet'
 import {
     EventCalendar,
     useEventCalendarNavigation,
@@ -18,6 +19,7 @@ import { EventCalendarMonthView } from '@/components/reui/event-calendar/event-c
 import type {
     CalendarView,
     EventCalendarOccurrence,
+    EventCalendarSegment,
 } from '@/components/reui/event-calendar/event-calendar-types'
 import type { PublicationSummary } from '@/lib/api'
 import { formatTime } from '@/lib/format'
@@ -60,6 +62,7 @@ export function PublicationCalendarExperiment({
     )
     const dateFnsLocale = locale === 'fr' ? fr : enUS
     const i18n = useMemo(() => createCalendarI18n(locale, timeZone), [locale, timeZone])
+    const [previewPublicationId, setPreviewPublicationId] = useState<string | null>(null)
 
     const openPublication = useCallback(
         (publicationId: string) => {
@@ -70,6 +73,9 @@ export function PublicationCalendarExperiment({
         },
         [navigate, projectId]
     )
+    const openPublicationPreview = useCallback((publicationId: string) => {
+        setPreviewPublicationId(publicationId)
+    }, [])
     const createOnDate = useCallback(
         (date: Date) => {
             void navigate({
@@ -91,9 +97,30 @@ export function PublicationCalendarExperiment({
     const handleEventClick = useCallback(
         (occurrence: EventCalendarOccurrence<PublicationCalendarEventData>) => {
             const publication = occurrence.event.data?.publication
-            if (publication !== undefined) openPublication(publication.id)
+            if (publication !== undefined) openPublicationPreview(publication.id)
         },
-        [openPublication]
+        [openPublicationPreview]
+    )
+    const renderMoreContent = useCallback(
+        ({
+            close,
+            day,
+            segments,
+        }: {
+            readonly close: () => void
+            readonly day: Date
+            readonly segments: EventCalendarSegment<PublicationCalendarEventData>[]
+        }) => (
+            <PublicationCalendarMoreContent
+                close={close}
+                day={day}
+                locale={locale}
+                onEventClick={openPublicationPreview}
+                segments={segments}
+                timeZone={timeZone}
+            />
+        ),
+        [locale, openPublicationPreview, timeZone]
     )
     const renderEvent = useCallback(
         ({ occurrence }: EventCalendarRenderEventProps<PublicationCalendarEventData>) => (
@@ -122,6 +149,7 @@ export function PublicationCalendarExperiment({
                 onDateChange={handleDateChange}
                 onEventClick={handleEventClick}
                 onSlotClick={handleSlotClick}
+                renderMoreContent={renderMoreContent}
                 scrollMode="page"
                 showDayAddButton
                 showOutsideDays
@@ -148,10 +176,19 @@ export function PublicationCalendarExperiment({
                 <EventCalendarToolbar />
                 <ExperimentalCalendarBody
                     locale={locale}
-                    onEventClick={openPublication}
+                    onEventClick={openPublicationPreview}
                     timeZone={timeZone}
                 />
             </EventCalendar>
+            <PublicationCalendarPreviewSheet
+                locale={locale}
+                onOpenChange={setPreviewPublicationId}
+                onOpenPublication={openPublication}
+                projectId={projectId}
+                publicationId={previewPublicationId}
+                publications={publications}
+                timeZone={timeZone}
+            />
         </div>
     )
 }
@@ -333,6 +370,71 @@ function PublicationCalendarAgenda({
                 </section>
             ))}
         </div>
+    )
+}
+
+function PublicationCalendarMoreContent({
+    close,
+    day,
+    locale,
+    onEventClick,
+    segments,
+    timeZone,
+}: {
+    readonly close: () => void
+    readonly day: Date
+    readonly locale: string
+    readonly onEventClick: (publicationId: string) => void
+    readonly segments: EventCalendarSegment<PublicationCalendarEventData>[]
+    readonly timeZone: string
+}) {
+    const dateFormatter = new Intl.DateTimeFormat(locale, {
+        day: 'numeric',
+        month: 'long',
+        timeZone,
+        weekday: 'long',
+    })
+
+    return (
+        <>
+            <div className="px-1 py-1 text-xs font-medium capitalize text-muted-foreground">
+                {dateFormatter.format(day)}
+            </div>
+            <div className="flex max-h-64 flex-col gap-1 overflow-y-auto py-1 ps-1 pe-2">
+                {segments.map(segment => {
+                    const publication = segment.occurrence.event.data?.publication
+                    if (publication === undefined) return null
+                    const time = formatTime(publication.scheduledAt as number, timeZone, locale)
+                    return (
+                        <button
+                            aria-label={`${segment.occurrence.event.title} — ${publication.channelName} — ${time}`}
+                            className="group flex min-w-0 items-center gap-2 rounded-md bg-surface-field px-2.5 py-2 text-left shadow-field transition-[background-color] hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+                            key={segment.occurrence.key}
+                            onClick={() => {
+                                close()
+                                onEventClick(publication.id)
+                            }}
+                            type="button">
+                            <span
+                                aria-hidden="true"
+                                className="size-1.5 shrink-0 rounded-full bg-(--publication-color)"
+                                style={
+                                    {
+                                        '--publication-color': segment.occurrence.event.color,
+                                    } as CSSProperties
+                                }
+                            />
+                            <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                                {segment.occurrence.event.title}
+                            </span>
+                            <span className="shrink-0 text-[0.7rem] tabular-nums text-muted-foreground">
+                                {time}
+                            </span>
+                        </button>
+                    )
+                })}
+            </div>
+        </>
     )
 }
 
