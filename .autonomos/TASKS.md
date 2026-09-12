@@ -234,3 +234,9 @@ the central project reads and projection/realtime reliability.
 ## 🧭 Autonomos ledger reconciliation
 
 - [x] **[META-153]** Reconcile issue completion state with task evidence and isolate explicit follow-ups `Priority: 🟠` `Complexity: S` — [ISSUE-078]; completed accepted issues are resolved with concise evidence, while open worktree/MCP limitations and deliberately deferred UX, account-lifecycle, and analytics work remain visible as separate follow-ups.
+
+## 🧭 Calendar interaction and operational UX follow-up
+
+- [x] **[DESIGN-154]** Establish the Herald operational UX review skill and remove redundant contextual-surface affordances `Priority: 🔴` `Complexity: M` — [ISSUE-079]; reusable hierarchy, one-fact/one-marker, and one-dismissal rules are recorded in the project skill and applied to the calendar publication preview.
+- [x] **[WEB-155]** Separate calendar inspection from publication creation and make date overflow directly inspectable `Priority: 🔴` `Complexity: M` — [ISSUE-080]; day backgrounds and overflow expand an inline date context in the calendar, add controls create, event clicks preview, and the full publication path remains explicit without leaving the calendar unexpectedly.
+- [ ] **[WEB-156]** Recompose the experimental calendar for narrow widths and compare month versus agenda reading modes `Priority: 🟠` `Complexity: L` — [ISSUE-080]; validate wide, tablet, and mobile density with realistic multi-publication days before replacing the current calendar.

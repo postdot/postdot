@@ -1405,9 +1405,9 @@ interface EventCalendarViewConfig<TData = unknown> {
     todayClassName?: string
     /**
      * Show a hover "+" add affordance on month cells next to the day number.
-     * It fires the same onSlotClick as clicking the day. Calendar-level config
-     * (consistent affordance, wired to the create flow); use renderMonthCell
-     * when a fully custom cell is needed instead.
+     * It fires the same onSlotClick callback as clicking the day, with the
+     * button as the event target so consumers can keep create and inspect
+     * intents distinct. Use renderMonthCell when a fully custom cell is needed.
      */
     showDayAddButton: boolean
     /**

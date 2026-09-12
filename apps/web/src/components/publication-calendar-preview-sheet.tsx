@@ -61,21 +61,10 @@ export function PublicationCalendarPreviewSheet({
             <SheetContent
                 aria-describedby={undefined}
                 className="w-[min(32rem,calc(100vw-1rem))] gap-0 p-0 sm:max-w-lg"
+                closeLabel={locale === 'fr' ? 'Fermer' : 'Close'}
                 side="right">
-                <SheetHeader className="gap-3 bg-surface-inset px-5 py-5 sm:px-6">
-                    <div className="flex items-start gap-3 pr-8">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/12 text-primary shadow-field">
-                            <CalendarMinimalisticIcon aria-hidden="true" className="size-5" />
-                        </span>
-                        <div className="min-w-0">
-                            <p className="text-xs font-medium text-muted-foreground">
-                                {copy.eyebrow}
-                            </p>
-                            <SheetTitle className="mt-1 truncate text-lg leading-tight">
-                                {title}
-                            </SheetTitle>
-                        </div>
-                    </div>
+                <SheetHeader className="bg-surface-inset px-5 py-5 sm:px-6">
+                    <SheetTitle className="pr-8 truncate text-xl leading-tight">{title}</SheetTitle>
                 </SheetHeader>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
@@ -98,30 +87,21 @@ export function PublicationCalendarPreviewSheet({
                                         locale
                                     )}
                                 />
-                                <div className="flex min-w-0 items-center gap-2 text-sm">
-                                    <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-4">
-                                        <span
-                                            aria-hidden="true"
-                                            className="size-2 rounded-full bg-state-queued"
-                                        />
-                                    </span>
+                                <div className="flex min-w-0 items-center justify-between gap-2 text-sm">
                                     <span className="text-muted-foreground">{copy.status}</span>
                                     <PublicationStatus state={publication.state} />
                                 </div>
                             </div>
 
-                            <section className="mt-6">
-                                <p className="text-xs font-medium text-muted-foreground">
-                                    {copy.content}
-                                </p>
+                            <section aria-label={copy.content} className="mt-6">
                                 {previewQuery.isPending ? (
                                     <div
                                         aria-busy="true"
-                                        className="mt-2 rounded-md bg-surface-field p-4 text-sm text-muted-foreground shadow-field">
+                                        className="rounded-md bg-surface-field p-4 text-sm text-muted-foreground shadow-field">
                                         {copy.loading}
                                     </div>
                                 ) : previewQuery.isError ? (
-                                    <div className="mt-2 rounded-md bg-state-attention/10 p-4 text-sm text-muted-foreground shadow-field">
+                                    <div className="rounded-md bg-state-attention/10 p-4 text-sm text-muted-foreground shadow-field">
                                         {copy.loadError}
                                     </div>
                                 ) : (
@@ -132,10 +112,7 @@ export function PublicationCalendarPreviewSheet({
                     )}
                 </div>
 
-                <SheetFooter className="flex-row items-center justify-between gap-3 border-0 bg-surface-inset px-5 py-4 sm:px-6">
-                    <SheetClose render={<Button size="sm" variant="ghost" />}>
-                        {copy.close}
-                    </SheetClose>
+                <SheetFooter className="flex-row justify-end gap-3 border-0 bg-surface-inset px-5 py-4 sm:px-6">
                     {publication === null ? null : (
                         <SheetClose
                             render={
@@ -207,9 +184,7 @@ function PublicationContentPreview({
 
 interface PreviewCopy {
     readonly channel: string
-    readonly close: string
     readonly content: string
-    readonly eyebrow: string
     readonly loadError: string
     readonly loading: string
     readonly mediaOnly: string
@@ -225,9 +200,7 @@ function getPreviewCopy(locale: string): PreviewCopy {
     if (locale === 'fr') {
         return {
             channel: 'Canal',
-            close: 'Fermer',
             content: 'Contenu',
-            eyebrow: 'Aperçu de la publication',
             loadError: 'Le contenu n’a pas pu être chargé.',
             loading: 'Chargement…',
             mediaOnly: 'Publication avec média',
@@ -242,9 +215,7 @@ function getPreviewCopy(locale: string): PreviewCopy {
 
     return {
         channel: 'Channel',
-        close: 'Close',
         content: 'Content',
-        eyebrow: 'Publication preview',
         loadError: 'The content could not be loaded.',
         loading: 'Loading…',
         mediaOnly: 'Media publication',

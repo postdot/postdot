@@ -1467,12 +1467,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
   slice proves the first provider-specific path without creating a universal
   engagement score; cadence and broader provider coverage remain follow-ups.
 - Research sources:
-  - https://docs.postiz.com/public-api/analytics/platform
-  - https://docs.postiz.com/public-api/analytics/post
-  - https://mixpost.app/features
-  - https://docs.mixpost.app/guides/horizon/
-  - https://docs.openpost.social/development/analytics
-  - https://docs.openpo.st/usage/analytics
+    - https://docs.postiz.com/public-api/analytics/platform
+    - https://docs.postiz.com/public-api/analytics/post
+    - https://mixpost.app/features
+    - https://docs.mixpost.app/guides/horizon/
+    - https://docs.openpost.social/development/analytics
+    - https://docs.openpo.st/usage/analytics
 
 ## [ISSUE-057] Harden operational analytics reads for large project histories
 
@@ -2141,3 +2141,55 @@ channels` with a foreign-key constraint error even though a fresh empty database
   open ISSUE-021, ISSUE-029, and ISSUE-036 remain open; the MCP workstream is
   intentionally deferred by the owner and the app-managed worktree limitation
   remains a harness constraint.
+
+## [ISSUE-079] Remove redundant hierarchy and duplicate affordances from contextual surfaces
+
+- Type: problem
+- Status: resolved
+- Evidence: The experimental calendar publication preview adds a visible
+  “Publication preview” eyebrow even though it is opened directly from a
+  publication, adds a footer “Close” action alongside the primitive close
+  button and outside-click/Escape behavior, and renders a decorative status
+  dot next to a status component that already contains its own marker. These
+  choices were identified during owner review as unnecessary labeling and
+  duplicate controls rather than useful guidance.
+- Impact: The preview feels over-explained and less deliberate than the rest of
+  Herald. Repeated affordances compete with the actual publication content and
+  make the interface appear to need instruction for familiar interactions.
+- Desired outcome: Contextual surfaces lead with their invoked object, expose
+  only state and actions that add information, use one representation per
+  fact, and retain the primitive's established dismissal behavior without
+  duplicate controls.
+- Tasks: DESIGN-154
+- Related issues: ISSUE-063, ISSUE-065
+- Related decisions: ADR-057, ADR-024
+- Resolution: The calendar publication preview now leads with the invoked
+  publication instead of a redundant preview label, keeps only the primitive
+  close behavior, and lets `PublicationStatus` own its single status marker.
+  The rendered French browser check confirmed the accessible surface contains
+  one explicit full-page action and no duplicate visible dismissal or status
+  marker. Responsive calendar composition remains tracked separately by
+  WEB-156.
+
+## [ISSUE-080] Give calendar inspection and density a distinct interaction contract
+
+- Type: problem
+- Status: accepted
+- Evidence: In the experimental calendar, a day background and its add button
+  currently share the same slot callback and therefore the same create route.
+  A visible event opens a publication preview, while “+N more” first opens a
+  second list before the publication can be inspected. The fixed seven-column
+  month composition also has an explicit three-event cap whose usefulness
+  degrades as a day becomes dense or the viewport narrows.
+- Impact: The operator cannot reliably distinguish inspect from create, must
+  perform extra clicks to see hidden work, and loses readable temporal context
+  when the month grid is squeezed. This undermines the calendar's role as a
+  daily planning surface even when the underlying data is correct.
+- Desired outcome: Existing events, day backgrounds, add controls, and
+  overflow have separate predictable intents. A date-level context exposes all
+  scheduled work directly in the calendar flow, while narrow screens use a
+  readable agenda/day composition and month view remains an intentional choice
+  rather than a compressed default.
+- Tasks: WEB-155, WEB-156
+- Related issues: ISSUE-063, ISSUE-065, ISSUE-066
+- Related decisions: ADR-057, ADR-024

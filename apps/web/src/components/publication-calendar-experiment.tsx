@@ -4,8 +4,9 @@ import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
 import { useNavigate } from '@tanstack/react-router'
 import { enUS, fr } from 'date-fns/locale'
-import { useCallback, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
 
+import { PublicationCalendarDayDetails } from '@/components/publication-calendar-day-details'
 import { PublicationCalendarPreviewSheet } from '@/components/publication-calendar-preview-sheet'
 import {
     EventCalendar,
@@ -19,7 +20,6 @@ import { EventCalendarMonthView } from '@/components/reui/event-calendar/event-c
 import type {
     CalendarView,
     EventCalendarOccurrence,
-    EventCalendarSegment,
 } from '@/components/reui/event-calendar/event-calendar-types'
 import type { PublicationSummary } from '@/lib/api'
 import { formatTime } from '@/lib/format'
@@ -62,7 +62,9 @@ export function PublicationCalendarExperiment({
     )
     const dateFnsLocale = locale === 'fr' ? fr : enUS
     const i18n = useMemo(() => createCalendarI18n(locale, timeZone), [locale, timeZone])
+    const [selectedDay, setSelectedDay] = useState<Date | null>(null)
     const [previewPublicationId, setPreviewPublicationId] = useState<string | null>(null)
+    const selectedDayKey = selectedDay === null ? null : toDateKey(selectedDay, timeZone)
 
     const openPublication = useCallback(
         (publicationId: string) => {
@@ -74,6 +76,7 @@ export function PublicationCalendarExperiment({
         [navigate, projectId]
     )
     const openPublicationPreview = useCallback((publicationId: string) => {
+        setSelectedDay(null)
         setPreviewPublicationId(publicationId)
     }, [])
     const createOnDate = useCallback(
@@ -87,12 +90,26 @@ export function PublicationCalendarExperiment({
         [navigate, projectId, timeZone]
     )
     const handleDateChange = useCallback(
-        (date: Date) => onMonthChange(startOfCalendarMonth(date, timeZone)),
+        (date: Date) => {
+            setSelectedDay(null)
+            onMonthChange(startOfCalendarMonth(date, timeZone))
+        },
         [onMonthChange, timeZone]
     )
     const handleSlotClick = useCallback(
-        (slot: { readonly date: Date }) => createOnDate(slot.date),
-        [createOnDate]
+        (slot: { readonly date: Date }, event: MouseEvent) => {
+            const target = event.currentTarget
+            if (target instanceof HTMLElement && target.dataset.slot === 'event-calendar-day-add') {
+                createOnDate(slot.date)
+                return
+            }
+            setSelectedDay(current =>
+                current !== null && toDateKey(current, timeZone) === toDateKey(slot.date, timeZone)
+                    ? null
+                    : slot.date
+            )
+        },
+        [createOnDate, timeZone]
     )
     const handleEventClick = useCallback(
         (occurrence: EventCalendarOccurrence<PublicationCalendarEventData>) => {
@@ -101,27 +118,10 @@ export function PublicationCalendarExperiment({
         },
         [openPublicationPreview]
     )
-    const renderMoreContent = useCallback(
-        ({
-            close,
-            day,
-            segments,
-        }: {
-            readonly close: () => void
-            readonly day: Date
-            readonly segments: EventCalendarSegment<PublicationCalendarEventData>[]
-        }) => (
-            <PublicationCalendarMoreContent
-                close={close}
-                day={day}
-                locale={locale}
-                onEventClick={openPublicationPreview}
-                segments={segments}
-                timeZone={timeZone}
-            />
-        ),
-        [locale, openPublicationPreview, timeZone]
-    )
+    const handleMoreClick = useCallback((day: Date) => {
+        setSelectedDay(day)
+        return false
+    }, [])
     const renderEvent = useCallback(
         ({ occurrence }: EventCalendarRenderEventProps<PublicationCalendarEventData>) => (
             <PublicationEventContent occurrence={occurrence} locale={locale} timeZone={timeZone} />
@@ -148,12 +148,17 @@ export function PublicationCalendarExperiment({
                 locale={dateFnsLocale}
                 onDateChange={handleDateChange}
                 onEventClick={handleEventClick}
+                onMoreClick={handleMoreClick}
                 onSlotClick={handleSlotClick}
-                renderMoreContent={renderMoreContent}
                 scrollMode="page"
                 showDayAddButton
                 showOutsideDays
                 timeZone={timeZone}
+                dayClassName={day =>
+                    selectedDayKey !== null && toDateKey(day, timeZone) === selectedDayKey
+                        ? 'bg-primary/8'
+                        : undefined
+                }
                 views={EXPERIMENTAL_VIEWS}
                 weekStartsOn={1}
                 renderEvent={renderEvent}
@@ -177,6 +182,8 @@ export function PublicationCalendarExperiment({
                 <ExperimentalCalendarBody
                     locale={locale}
                     onEventClick={openPublicationPreview}
+                    publications={publications}
+                    selectedDay={selectedDay}
                     timeZone={timeZone}
                 />
             </EventCalendar>
@@ -248,10 +255,14 @@ function EventCalendarToolbar() {
 function ExperimentalCalendarBody({
     locale,
     onEventClick,
+    publications,
+    selectedDay,
     timeZone,
 }: {
     readonly locale: string
     readonly onEventClick: (publicationId: string) => void
+    readonly publications: readonly PublicationSummary[]
+    readonly selectedDay: Date | null
     readonly timeZone: string
 }) {
     const { view } = useEventCalendarView()
@@ -266,7 +277,18 @@ function ExperimentalCalendarBody({
         )
     }
 
-    return <EventCalendarMonthView maxEventsPerCell={3} />
+    return (
+        <>
+            <EventCalendarMonthView maxEventsPerCell={3} />
+            <PublicationCalendarDayDetails
+                day={selectedDay}
+                locale={locale}
+                onOpenPublication={onEventClick}
+                publications={publications}
+                timeZone={timeZone}
+            />
+        </>
+    )
 }
 
 function PublicationCalendarAgenda({
@@ -370,71 +392,6 @@ function PublicationCalendarAgenda({
                 </section>
             ))}
         </div>
-    )
-}
-
-function PublicationCalendarMoreContent({
-    close,
-    day,
-    locale,
-    onEventClick,
-    segments,
-    timeZone,
-}: {
-    readonly close: () => void
-    readonly day: Date
-    readonly locale: string
-    readonly onEventClick: (publicationId: string) => void
-    readonly segments: EventCalendarSegment<PublicationCalendarEventData>[]
-    readonly timeZone: string
-}) {
-    const dateFormatter = new Intl.DateTimeFormat(locale, {
-        day: 'numeric',
-        month: 'long',
-        timeZone,
-        weekday: 'long',
-    })
-
-    return (
-        <>
-            <div className="px-1 py-1 text-xs font-medium capitalize text-muted-foreground">
-                {dateFormatter.format(day)}
-            </div>
-            <div className="flex max-h-64 flex-col gap-1 overflow-y-auto py-1 ps-1 pe-2">
-                {segments.map(segment => {
-                    const publication = segment.occurrence.event.data?.publication
-                    if (publication === undefined) return null
-                    const time = formatTime(publication.scheduledAt as number, timeZone, locale)
-                    return (
-                        <button
-                            aria-label={`${segment.occurrence.event.title} — ${publication.channelName} — ${time}`}
-                            className="group flex min-w-0 items-center gap-2 rounded-md bg-surface-field px-2.5 py-2 text-left shadow-field transition-[background-color] hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
-                            key={segment.occurrence.key}
-                            onClick={() => {
-                                close()
-                                onEventClick(publication.id)
-                            }}
-                            type="button">
-                            <span
-                                aria-hidden="true"
-                                className="size-1.5 shrink-0 rounded-full bg-(--publication-color)"
-                                style={
-                                    {
-                                        '--publication-color': segment.occurrence.event.color,
-                                    } as CSSProperties
-                                }
-                            />
-                            <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                                {segment.occurrence.event.title}
-                            </span>
-                            <span className="shrink-0 text-[0.7rem] tabular-nums text-muted-foreground">
-                                {time}
-                            </span>
-                        </button>
-                    )
-                })}
-            </div>
-        </>
     )
 }
 

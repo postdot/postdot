@@ -1030,6 +1030,7 @@ function EventCalendarMoreIndicator({
     const settings = useEventCalendarSettings()
     const viewConfig = useEventCalendarViewConfig()
     const [open, setOpen] = useState(false)
+    const suppressNextOpenRef = useRef(false)
     const headerId = useId()
 
     // Grabbing a chip from this list starts a drag; close the popover so it does
@@ -1040,7 +1041,15 @@ function EventCalendarMoreIndicator({
     }, [isDragging])
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover
+            open={open}
+            onOpenChange={nextOpen => {
+                if (nextOpen && suppressNextOpenRef.current) {
+                    suppressNextOpenRef.current = false
+                    return
+                }
+                setOpen(nextOpen)
+            }}>
             <PopoverTrigger
                 data-slot="event-calendar-more"
                 data-drop-into={dropInto ? '' : undefined}
@@ -1075,6 +1084,13 @@ function EventCalendarMoreIndicator({
                         e
                     )
                     if (verdict === false) {
+                        // Base UI's trigger handler may request an open after this
+                        // consumer callback. Keep the public `false` contract
+                        // authoritative for that same activation.
+                        suppressNextOpenRef.current = true
+                        queueMicrotask(() => {
+                            suppressNextOpenRef.current = false
+                        })
                         e.preventDefault()
                         setOpen(false)
                     }
