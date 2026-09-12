@@ -612,13 +612,6 @@ function EventCalendarTimeGridSlot<TData>({
     const timeLabel = settings.i18n.functions.formatEventTime(slotStart, slotEnd, false, {
         locale: settings.locale,
     })
-    const slotStartLabel = format(
-        toZoned(slotStart, settings.timeZone),
-        slot.startMinute % 60 === 0
-            ? settings.i18n.formats.timeGutter
-            : settings.i18n.formats.timeGutterMinute,
-        { locale: settings.locale }
-    )
     const timedSegments = segments.timed.filter(segment => {
         const segmentStart = segment.startMin ?? slot.startMinute
         return segmentStart >= slot.startMinute && segmentStart < slot.endMinute
@@ -683,6 +676,14 @@ function EventCalendarTimeGridSlot<TData>({
             ))}
         </div>
     )
+    const interactionFrame = (
+        <div
+            className="pointer-events-none absolute -inset-1 z-30 rounded-md border border-primary/65 opacity-0 transition-opacity group-hover/time-slot:opacity-100 group-focus-within/time-slot:opacity-100"
+            data-occupied={timedSegments.length > 0 ? true : undefined}
+            data-slot="event-calendar-time-slot-frame">
+            <div className="pointer-events-auto absolute -top-5 end-1">{addButton}</div>
+        </div>
+    )
 
     return (
         <div
@@ -699,24 +700,8 @@ function EventCalendarTimeGridSlot<TData>({
             data-slot="event-calendar-time-slot"
             data-time={format(toZoned(slotStart, settings.timeZone), 'HH:mm')}
             onClick={handleSlotClick}>
-            {timedSegments.length > 0 ? (
-                <div
-                    className="relative grid content-start gap-1 rounded-md bg-surface-inset p-1 shadow-field transition-[background-color,box-shadow] group-hover/time-slot:ring-1 group-hover/time-slot:ring-primary/45 focus-within:ring-1 focus-within:ring-primary/45"
-                    data-occupied="true"
-                    data-slot="event-calendar-time-slot-frame">
-                    <div className="flex min-h-6 items-center justify-between gap-2 px-1">
-                        <span
-                            aria-hidden="true"
-                            className="text-[0.6875rem] font-medium tabular-nums text-muted-foreground">
-                            {slotStartLabel}
-                        </span>
-                        {addButton}
-                    </div>
-                    {publicationStack}
-                </div>
-            ) : (
-                addButton
-            )}
+            {interactionFrame}
+            {publicationStack}
         </div>
     )
 }
@@ -733,12 +718,7 @@ function EventCalendarTimeGridAddButton({
     return (
         <button
             aria-label={addLabel}
-            className={[
-                'flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground shadow-control transition-opacity hover:bg-primary/80 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-                occupied
-                    ? 'opacity-0 group-hover/time-slot:opacity-100'
-                    : 'absolute end-1 top-1 z-10 opacity-0 group-hover/time-slot:opacity-100',
-            ].join(' ')}
+            className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground shadow-control transition-[background-color,box-shadow] hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             data-slot="event-calendar-time-slot-add"
             onClick={onClick}
             tabIndex={occupied ? 0 : -1}

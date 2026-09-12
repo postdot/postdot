@@ -336,28 +336,50 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
         .first()
     const denseSlotFrame = denseTimeSlot.locator('[data-slot="event-calendar-time-slot-frame"]')
     await expect(denseSlotFrame).toBeVisible()
+    await expect(denseSlotFrame).toHaveCSS('opacity', '0')
+    await expect(denseTimeSlot.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    const denseTimeSlotBeforeHoverBox = await denseTimeSlot.boundingBox()
+    await denseTimeSlot.hover()
+    await expect(denseSlotFrame).toHaveCSS('opacity', '1')
     await expect(denseSlotFrame.locator('[data-slot="event-calendar-time-slot-add"]')).toHaveCount(
         1
     )
-    await expect(denseSlotFrame.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
     const denseSlotAdd = denseSlotFrame.locator('[data-slot="event-calendar-time-slot-add"]')
     const denseSlotAddBox = await denseSlotAdd.boundingBox()
-    const firstDenseEventBox = await denseSlotFrame
+    const firstDenseEventBox = await denseTimeSlot
         .locator('[data-slot="event-calendar-event"]')
         .first()
         .boundingBox()
     expect(denseSlotAddBox?.y).toBeLessThan(firstDenseEventBox?.y ?? Number.POSITIVE_INFINITY)
+    const denseSlotFrameBox = await denseSlotFrame.boundingBox()
+    const denseTimeSlotBox = await denseTimeSlot.boundingBox()
+    const denseSlotFrameRight = (denseSlotFrameBox?.x ?? 0) + (denseSlotFrameBox?.width ?? 0)
+    const denseSlotFrameBottom = (denseSlotFrameBox?.y ?? 0) + (denseSlotFrameBox?.height ?? 0)
+    expect(denseSlotFrameBox?.x).toBeLessThan(denseTimeSlotBox?.x ?? Number.POSITIVE_INFINITY)
+    expect(denseSlotFrameBox?.y).toBeLessThan(denseTimeSlotBox?.y ?? Number.POSITIVE_INFINITY)
+    expect(denseSlotFrameRight).toBeGreaterThan(
+        (denseTimeSlotBox?.x ?? 0) + (denseTimeSlotBox?.width ?? 0)
+    )
+    expect(denseSlotFrameBottom).toBeGreaterThan(
+        (denseTimeSlotBox?.y ?? 0) + (denseTimeSlotBox?.height ?? 0)
+    )
+    expect((denseSlotAddBox?.x ?? 0) + (denseSlotAddBox?.width ?? 0)).toBeLessThanOrEqual(
+        (denseTimeSlotBox?.x ?? 0) + (denseTimeSlotBox?.width ?? 0)
+    )
+    expect((denseSlotAddBox?.y ?? 0) + (denseSlotAddBox?.height ?? 0)).toBeLessThanOrEqual(
+        firstDenseEventBox?.y ?? Number.POSITIVE_INFINITY
+    )
+    expect(denseTimeSlotBox?.height).toBe(denseTimeSlotBeforeHoverBox?.height)
+    expect(denseTimeSlotBox?.width).toBe(denseTimeSlotBeforeHoverBox?.width)
     await expect(
         weekView.locator('[data-slot="event-calendar-time-slot"][data-empty]').first()
     ).toHaveCount(1)
-    await expect(
-        weekView
-            .locator('[data-slot="event-calendar-time-slot"][data-empty]')
-            .first()
-            .locator('[data-slot="event-calendar-time-slot-frame"]')
-    ).toHaveCount(0)
+    const emptyFrame = weekView
+        .locator('[data-slot="event-calendar-time-slot"][data-empty]')
+        .first()
+        .locator('[data-slot="event-calendar-time-slot-frame"]')
+    await expect(emptyFrame).toHaveCSS('opacity', '0')
     const emptyTimeSlotBox = await emptyTimeSlot.boundingBox()
-    const denseTimeSlotBox = await denseTimeSlot.boundingBox()
     expect(denseTimeSlotBox?.height).toBeGreaterThan(emptyTimeSlotBox?.height ?? 0)
 
     const createSlot = weekView.locator('[data-slot="event-calendar-time-slot-add"]').first()

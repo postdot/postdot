@@ -2551,3 +2551,36 @@ channels` with a foreign-key constraint error even though a fresh empty database
   add action no longer competes with event z-order, empty slots keep their
   compact baseline, and occupied-slot background clicks no longer duplicate
   the explicit create action. Focus and dense-stack browser assertions pass.
+
+## [ISSUE-095] Make the dense-slot action frame external and transient
+
+- Type: problem
+- Status: resolved
+- Evidence: The first implementation of ISSUE-094 places a new framed surface,
+  padding, and literal start-time label inside an occupied cell. The owner’s
+  intended interaction is an outer envelope that appears only while a cell is
+  hovered or focused, surrounds the existing cell/content from outside, and
+  provides room for actions without shrinking the publication area.
+- Impact: The inner frame adds an unnecessary layer of inset spacing, makes the
+  dense stack consume more room, and gives prominence to an incidental time
+  label instead of the actual interaction model. The result is visually and
+  spatially opposite to the requested dense calendar treatment.
+- Desired outcome: Keep the cell’s existing surface and publication stack
+  unchanged at rest. On hover or keyboard focus, show a non-flowing outer frame
+  around the cell and place the create action in that external interaction
+  envelope. The frame must not reserve layout space, add an always-visible
+  header, or require a special time label.
+- Scope boundary: This corrects the Week/Day occupied-slot affordance only. It
+  does not add drag/resize, change event inspection, or introduce a permanent
+  card/container around publication content.
+- Tasks: WEB-170
+- Related issues: ISSUE-080, ISSUE-081, ISSUE-082, ISSUE-083, ISSUE-094
+- Related decisions: ADR-071, ADR-072
+- Resolution: WEB-170 removes the occupied-only inner frame, padding, and
+  incidental time label. Every Week/Day slot now keeps its existing content
+  geometry and exposes a non-flowing outer interaction frame only on
+  hover/focus-within, with the create action in the external top band. The
+  frame and action remain fully visible at the edge of the horizontal grid,
+  while dense publications remain direct inspectable targets. Browser tests
+  verify the frame visibility transition, external bounds, unchanged slot
+  dimensions, action ordering, and six-publication rendering.
