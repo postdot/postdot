@@ -4,7 +4,14 @@ import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
 import { useNavigate } from '@tanstack/react-router'
 import { enUS, fr } from 'date-fns/locale'
-import { useCallback, useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
+import {
+    useCallback,
+    useMemo,
+    useState,
+    useSyncExternalStore,
+    type CSSProperties,
+    type MouseEvent,
+} from 'react'
 
 import { PublicationCalendarPreviewSheet } from '@/components/publication-calendar-preview-sheet'
 import {
@@ -29,6 +36,7 @@ import {
 } from '@/lib/publication-calendar-experiment'
 
 const EXPERIMENTAL_VIEWS: CalendarView[] = ['month', 'agenda']
+const MOBILE_CALENDAR_QUERY = '(max-width: 47.999rem)'
 const EXPERIMENTAL_INTERACTIONS = {
     drag: false,
     resize: false,
@@ -61,9 +69,12 @@ export function PublicationCalendarExperiment({
     )
     const dateFnsLocale = locale === 'fr' ? fr : enUS
     const i18n = useMemo(() => createCalendarI18n(locale, timeZone), [locale, timeZone])
+    const isNarrow = useMediaQuery(MOBILE_CALENDAR_QUERY)
+    const [viewPreference, setViewPreference] = useState<'auto' | CalendarView>('auto')
     const [expandedDay, setExpandedDay] = useState<Date | null>(null)
     const [previewPublicationId, setPreviewPublicationId] = useState<string | null>(null)
     const expandedDayKey = expandedDay === null ? null : toDateKey(expandedDay, timeZone)
+    const view = viewPreference === 'auto' ? (isNarrow ? 'agenda' : 'month') : viewPreference
 
     const openPublication = useCallback(
         (publicationId: string) => {
@@ -75,7 +86,6 @@ export function PublicationCalendarExperiment({
         [navigate, projectId]
     )
     const openPublicationPreview = useCallback((publicationId: string) => {
-        setExpandedDay(null)
         setPreviewPublicationId(publicationId)
     }, [])
     const createOnDate = useCallback(
@@ -95,6 +105,9 @@ export function PublicationCalendarExperiment({
         },
         [onMonthChange, timeZone]
     )
+    const handleViewChange = useCallback((nextView: CalendarView) => {
+        setViewPreference(nextView)
+    }, [])
     const handleSlotClick = useCallback(
         (slot: { readonly date: Date }, event: MouseEvent) => {
             const target = event.currentTarget
@@ -149,10 +162,12 @@ export function PublicationCalendarExperiment({
                 onEventClick={handleEventClick}
                 onMoreClick={handleMoreClick}
                 onSlotClick={handleSlotClick}
+                onViewChange={handleViewChange}
                 scrollMode="page"
                 showDayAddButton
                 showOutsideDays
                 timeZone={timeZone}
+                view={view}
                 dayClassName={day =>
                     expandedDayKey !== null && toDateKey(day, timeZone) === expandedDayKey
                         ? 'bg-primary/8'
@@ -180,6 +195,7 @@ export function PublicationCalendarExperiment({
                 <EventCalendarToolbar />
                 <ExperimentalCalendarBody
                     expandedDay={expandedDay}
+                    isNarrow={isNarrow}
                     locale={locale}
                     onEventClick={openPublicationPreview}
                     timeZone={timeZone}
@@ -252,11 +268,13 @@ function EventCalendarToolbar() {
 
 function ExperimentalCalendarBody({
     expandedDay,
+    isNarrow,
     locale,
     onEventClick,
     timeZone,
 }: {
     readonly expandedDay: Date | null
+    readonly isNarrow: boolean
     readonly locale: string
     readonly onEventClick: (publicationId: string) => void
     readonly timeZone: string
@@ -265,15 +283,43 @@ function ExperimentalCalendarBody({
 
     if (view === 'agenda') {
         return (
-            <PublicationCalendarAgenda
-                locale={locale}
-                onEventClick={onEventClick}
-                timeZone={timeZone}
-            />
+            <div data-calendar-view="agenda">
+                <PublicationCalendarAgenda
+                    locale={locale}
+                    onEventClick={onEventClick}
+                    timeZone={timeZone}
+                />
+            </div>
         )
     }
 
-    return <EventCalendarMonthView expandedDay={expandedDay} maxEventsPerCell={5} />
+    const month = <EventCalendarMonthView expandedDay={expandedDay} maxEventsPerCell={5} />
+    if (!isNarrow) return <div data-calendar-view="month">{month}</div>
+
+    return (
+        <div className="overflow-x-auto pb-1" data-calendar-view="month">
+            <div className="min-w-[48rem]">{month}</div>
+        </div>
+    )
+}
+
+function useMediaQuery(query: string) {
+    const subscribe = useCallback(
+        (onStoreChange: () => void) => {
+            if (typeof window === 'undefined') return () => undefined
+            const mediaQuery = window.matchMedia(query)
+            mediaQuery.addEventListener('change', onStoreChange)
+            return () => mediaQuery.removeEventListener('change', onStoreChange)
+        },
+        [query]
+    )
+    const getSnapshot = useCallback(
+        () => (typeof window === 'undefined' ? false : window.matchMedia(query).matches),
+        [query]
+    )
+    const getServerSnapshot = useCallback(() => false, [])
+
+    return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }
 
 function PublicationCalendarAgenda({

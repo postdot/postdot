@@ -168,6 +168,31 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     const calendar = page.locator('[data-calendar-experiment="reui"]')
     await expect(calendar).toBeVisible()
 
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(calendar.locator('[data-calendar-view="agenda"]')).toBeVisible()
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toHaveCount(0)
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(calendar.locator('[data-calendar-view="agenda"]')).toBeVisible()
+    await calendar.getByRole('button', { name: 'Month', exact: true }).click()
+    const narrowMonth = calendar.locator('[data-calendar-view="month"]')
+    await expect(narrowMonth).toBeVisible()
+    const monthScroll = await narrowMonth.evaluate(element => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+    }))
+    expect(monthScroll.scrollWidth).toBeGreaterThan(monthScroll.clientWidth)
+
+    await page.setViewportSize({ width: 768, height: 900 })
+    await expect(calendar.locator('[data-calendar-view="month"]')).toBeVisible()
+    await expect(calendar.locator('[data-calendar-view="agenda"]')).toHaveCount(0)
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+
     const denseCell = calendar
         .locator('[data-slot="event-calendar-month-cell"]')
         .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
@@ -193,6 +218,13 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await expect(denseCell).toHaveAttribute('data-expanded', 'true')
     await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
     await expect(calendar.locator('[data-slot="event-calendar-more-popover"]')).toHaveCount(0)
+
+    await denseCell.getByRole('button', { name: /E2E-122 ReUI publication 1/ }).click()
+    await expect(
+        page.getByRole('heading', { name: `E2E-122 ReUI publication 1 ${suffix}`, exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
 })
 
 function publicationFixture(input: {

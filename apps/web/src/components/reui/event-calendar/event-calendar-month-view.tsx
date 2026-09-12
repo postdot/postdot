@@ -995,12 +995,15 @@ function EventCalendarMonthCell({
                         'bg-primary/3 border-b-primary/40 relative border-b-2',
                         viewConfig.todayClassName
                     ),
-                viewConfig.dayClassName?.(day),
                 // No drop-target bg fill on move/resize - the dragged bar + not-allowed
                 // cursor carry the feedback; a cell-wide color wash is too distracting.
                 // data-drop-target stays as an opt-in styling hook.
                 inDraft && EVENT_CALENDAR_SLOT_DRAFT.surface,
                 viewConfig.classNames?.monthCell,
+                // A day-specific class is the most precise styling hook and must be
+                // allowed to override the shared month-cell surface (e.g. an expanded
+                // day highlight over bg-background).
+                viewConfig.dayClassName?.(day),
                 expanded && 'min-h-max overflow-visible'
             )}
             onPointerDown={e => {

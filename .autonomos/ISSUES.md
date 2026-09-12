@@ -2174,7 +2174,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-080] Give calendar inspection and density a distinct interaction contract
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: In the experimental calendar, a day background and its add button
   currently share the same slot callback and therefore the same create route.
   A visible event opens a publication preview, while “+N more” first opens a
@@ -2186,7 +2186,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   when the month grid is squeezed. This undermines the calendar's role as a
   daily planning surface even when the underlying data is correct. The
   experimental calendar now uses a five-publication cap with direct in-cell
-  expansion; the remaining issue is the responsive month/agenda composition.
+  expansion and a responsive month/agenda composition.
 - Desired outcome: Existing events, day backgrounds, add controls, and
   overflow have separate predictable intents. The selected cell and its week
   row expose all scheduled work directly in the calendar flow, with five
@@ -2196,3 +2196,10 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: WEB-155, WEB-156
 - Related issues: ISSUE-063, ISSUE-065, ISSUE-066
 - Related decisions: ADR-057, ADR-024
+- Resolution: WEB-155 and WEB-156 now keep inspect, create, and navigate intents
+  distinct; expand dense days in place; preserve the selected day while a
+  publication preview opens and closes; default to agenda below 48rem; keep
+  month view as the default at tablet and desktop widths; and make a manually
+  selected narrow month view scroll horizontally instead of compressing seven
+  columns into unreadable cells. Wide, tablet, and narrow behavior is covered
+  by the populated ReUI browser scenario.
