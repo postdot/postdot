@@ -260,3 +260,4 @@ the central project reads and projection/realtime reliability.
 ## 🧾 Calendar label containment follow-up
 
 - [x] **[WEB-161]** Keep long channel labels contained in compact calendar rows `Priority: 🟠` `Complexity: S` — [ISSUE-085]; make Agenda channel labels shrink and truncate without horizontal overflow, preserve the complete value for accessible and intentional hover access, and cover a realistic long destination name in the browser scenario.
+- [x] **[WEB-162]** Adapt the initial Week/Day time-grid anchor to visible publication data `Priority: 🟠` `Complexity: M` — [ISSUE-086]; position populated ranges near their earliest timed publication with a small context lead, keep empty ranges at `00:00`, preserve the complete timeline and manual scrolling, and cover both states with unit and browser evidence. The anchor is applied once per view/range and initial empty-to-timed transition, so ordinary renders and manual scrolling retain control.

@@ -101,6 +101,11 @@ future landing-page decisions remain explicit below.
   modes: month scans distribution, while agenda reads ordered work. The exact
   responsive transition remains provisional until it is reviewed with dense
   realistic data.
+  Week and Day use a data-aware initial vertical position: when timed work is
+  visible, the first frame opens near the earliest timed publication with a
+  small context lead; when no timed work is present, the existing `00:00`
+  baseline remains. This only chooses the initial position, never hides hours,
+  and must not repeatedly override manual scrolling.
 - Route job contract: Overview answers what deserves attention or what the
   operator should do next; Compose creates and reviews one source fan-out;
   Calendar scans time and provides a direct date-oriented entry into Compose;

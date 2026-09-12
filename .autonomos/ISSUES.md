@@ -1518,7 +1518,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-058] Add a replayable analytics projection beyond the interactive envelope
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: ANALYTICS-111 establishes a provisional query-time envelope of 5,000
   publications / 20,000 historical facts per interactive request. Larger
   histories can still be read, but repeated reads retain material process RSS
@@ -2274,3 +2274,36 @@ channels` with a foreign-key constraint error even though a fresh empty database
   retains the complete value. The dense browser scenario covers a deliberately
   long destination name at the narrow responsive width and verifies that the
   agenda stays within its scroll container.
+
+## [ISSUE-086] Adapt the initial time-grid anchor to visible publication data
+
+- Type: proposal
+- Status: accepted
+- Evidence: Week and Day retain the complete 24-hour timeline, but opening a
+  populated range still places the operator at `00:00`. In a realistic review
+  schedule, the first timed publications may begin much later in the day, so a
+  deep viewport spends its first screenful on empty rows. A fixed `07:00`
+  anchor would improve one schedule while imposing an arbitrary working-hours
+  convention on every Herald user.
+- Impact: The first frame under-emphasizes the schedule's actual work and
+  makes the useful content harder to discover, while a universal morning
+  default would be surprising for users with different routines or overnight
+  publication schedules.
+- Desired outcome: When the visible Week or Day range contains timed
+  publications, the initial viewport opens near the earliest available timed
+  data with enough preceding context to orient the operator. When it contains
+  no timed data, it starts at `00:00`. All hours and publications remain
+  available, and an operator's manual scroll position is not repeatedly
+  overridden.
+- Scope boundary: This issue does not hide hours, infer a user's working hours,
+  add a permanent zoom preference, or resize individual time rows. It covers
+  only the initial vertical position of the existing Week/Day time grid.
+- Tasks: WEB-162
+- Related issues: ISSUE-081, ISSUE-082, ISSUE-083, ISSUE-084
+- Related decisions: ADR-057
+- Resolution: WEB-162 now derives the initial Week/Day anchor from the
+  earliest timed occurrence in the visible range, keeps two configured slots
+  of context before it, and leaves empty/all-day-only ranges at their existing
+  top-of-page `00:00` baseline. The complete time range remains rendered, and
+  the anchor is applied once per view/range plus the initial empty-to-timed
+  transition so ordinary renders and manual scrolling are not overwritten.

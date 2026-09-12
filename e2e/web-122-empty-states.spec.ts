@@ -15,6 +15,19 @@ test('makes the calendar the first project view while keeping Queue focused', as
         page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
     ).toHaveCount(1)
 
+    await page.setViewportSize({ width: 1280, height: 900 })
+    const calendar = page.locator('[data-calendar-experiment="reui"]')
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    const emptyWeek = calendar.locator('[data-calendar-view="week"]')
+    await expect(emptyWeek).toBeVisible()
+    await expect(emptyWeek.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
+    await expect(
+        emptyWeek.locator('[data-slot="event-calendar-time-slot"]').first()
+    ).toHaveAttribute('data-time', '00:00')
+    expect(
+        await page.locator('[data-dashboard-scroll]').evaluate(element => element.scrollTop)
+    ).toBe(0)
+
     await page.goto(page.url().replace(/\/overview$/, '/queue'))
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()
     await expect(

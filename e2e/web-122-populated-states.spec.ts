@@ -236,6 +236,11 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await expect(weekView).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    const weekScrollTop = await page
+        .locator('[data-dashboard-scroll]')
+        .evaluate(element => element.scrollTop)
+    expect(weekScrollTop).toBeGreaterThan(0)
+    await expect(weekView.locator('[data-slot="event-calendar-event"]').first()).toBeInViewport()
     await expect(
         weekView.locator('[data-slot="event-calendar-time-grid-column-resize"]')
     ).toHaveCount(6)

@@ -9,6 +9,7 @@ import {
     Fragment,
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -39,6 +40,10 @@ import type {
     CalendarView,
     EventCalendarSegment,
 } from '@/components/reui/event-calendar/event-calendar-types'
+import {
+    getFirstVisibleTimedOccurrence,
+    getInitialTimeGridAnchor,
+} from '@/lib/event-calendar-time-anchor'
 
 const MIN_SLOT_HEIGHT = '2rem'
 const TIME_GUTTER_WIDTH = '3.5rem'
@@ -119,6 +124,67 @@ function EventCalendarTimeGrid<TData = unknown>({
             }),
         [endMinute, interval, startMinute]
     )
+    const timeGridRef = useRef<HTMLDivElement | null>(null)
+    const firstVisibleTimedOccurrence = useMemo(
+        () => getFirstVisibleTimedOccurrence(occurrences, visibleRange),
+        [occurrences, visibleRange.end, visibleRange.start]
+    )
+    const initialTimeAnchor = useMemo(
+        () =>
+            getInitialTimeGridAnchor({
+                endHour,
+                interval,
+                occurrences,
+                startHour,
+                timeZone: settings.timeZone,
+                visibleRange,
+            }),
+        [
+            endHour,
+            interval,
+            occurrences,
+            settings.timeZone,
+            startHour,
+            visibleRange.end,
+            visibleRange.start,
+        ]
+    )
+    const appliedTimeAnchor = useRef<string | null>(null)
+    const timeAnchorKey = [
+        view,
+        visibleRange.start.getTime(),
+        visibleRange.end.getTime(),
+        firstVisibleTimedOccurrence === undefined ? 'empty' : 'data',
+    ].join(':')
+
+    useLayoutEffect(() => {
+        if (view !== 'week' && view !== 'day') return
+        if (appliedTimeAnchor.current === timeAnchorKey) return
+
+        if (firstVisibleTimedOccurrence === undefined) {
+            appliedTimeAnchor.current = timeAnchorKey
+            return
+        }
+
+        const root = timeGridRef.current
+        if (root === null) return
+
+        const target = root.querySelector<HTMLElement>(
+            `[data-slot="event-calendar-time-slot"][data-time="${formatTimeSlot(initialTimeAnchor)}"]`
+        )
+        if (target === null) return
+
+        const scroller = findVerticalScroller(root)
+        if (scroller !== null) {
+            const targetRect = target.getBoundingClientRect()
+            const scrollerRect = scroller.getBoundingClientRect()
+            const desiredScrollTop = scroller.scrollTop + targetRect.top - scrollerRect.top
+            const maxScrollTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+            scroller.scrollTop = Math.min(maxScrollTop, Math.max(0, desiredScrollTop))
+        }
+
+        appliedTimeAnchor.current = timeAnchorKey
+    }, [firstVisibleTimedOccurrence, initialTimeAnchor, timeAnchorKey, view])
     const dateFormatter = useMemo(
         () =>
             new Intl.DateTimeFormat(settings.locale?.code ?? 'en-US', {
@@ -269,6 +335,7 @@ function EventCalendarTimeGrid<TData = unknown>({
                 className={className}
                 data-slot="event-calendar-time-grid"
                 data-view={view}
+                ref={timeGridRef}
                 style={
                     {
                         '--ec-gutter-width': TIME_GUTTER_WIDTH,
@@ -631,6 +698,27 @@ function resizeColumn(widths: readonly number[], columnIndex: number, delta: num
     const next = [...widths]
     next[columnIndex] = Math.round(nextWidth)
     return next
+}
+
+function formatTimeSlot(minutes: number) {
+    const hour = Math.floor(minutes / 60)
+    const minute = minutes % 60
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+}
+
+function findVerticalScroller(element: HTMLElement): HTMLElement | null {
+    for (
+        let ancestor = element.parentElement;
+        ancestor !== null;
+        ancestor = ancestor.parentElement
+    ) {
+        const style = window.getComputedStyle(ancestor)
+        if (!['auto', 'overlay', 'scroll'].includes(style.overflowY)) continue
+        if (ancestor.scrollHeight > ancestor.clientHeight) return ancestor
+    }
+
+    const scrollingElement = document.scrollingElement
+    return scrollingElement instanceof HTMLElement ? scrollingElement : null
 }
 
 export { EventCalendarTimeGrid }
