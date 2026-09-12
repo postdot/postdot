@@ -17,7 +17,13 @@ import { useLanguage } from '@/lib/i18n'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
 
-export function PublicationComposer({ calendarDate }: { readonly calendarDate?: string }) {
+export function PublicationComposer({
+    calendarDate,
+    calendarTime,
+}: {
+    readonly calendarDate?: string
+    readonly calendarTime?: string
+}) {
     useLanguage()
     const {
         activeChannels,
@@ -38,7 +44,7 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
         sourceMedia,
         onPublicationTagIdsChange,
     } = useProjectDashboard()
-    const appliedCalendarDate = useRef<string | undefined>(undefined)
+    const appliedCalendarSlot = useRef<string | undefined>(undefined)
     const [defaultDeliveryMode, setDefaultDeliveryMode] = useState<DeliveryMode>(
         () => publicationTargets[0]?.deliveryMode ?? 'manual'
     )
@@ -64,23 +70,29 @@ export function PublicationComposer({ calendarDate }: { readonly calendarDate?: 
     useEffect(() => {
         if (
             calendarDate === undefined ||
-            appliedCalendarDate.current === calendarDate ||
+            appliedCalendarSlot.current === `${calendarDate}:${calendarTime ?? ''}` ||
             publicationTargets.length === 0
         ) {
             return
         }
 
-        const scheduledAt = calendarDateTimeLocal(calendarDate)
+        const scheduledAt = calendarDateTimeLocal(calendarDate, calendarTime)
         if (scheduledAt === undefined) return
 
-        appliedCalendarDate.current = calendarDate
+        appliedCalendarSlot.current = `${calendarDate}:${calendarTime ?? ''}`
         setDefaultScheduledAt(scheduledAt)
         onPublicationTargetsChange(currentTargets =>
             currentTargets.map(target =>
                 customizedTargetIds.has(target.id) ? target : { ...target, scheduledAt }
             )
         )
-    }, [calendarDate, customizedTargetIds, onPublicationTargetsChange, publicationTargets.length])
+    }, [
+        calendarDate,
+        calendarTime,
+        customizedTargetIds,
+        onPublicationTargetsChange,
+        publicationTargets.length,
+    ])
 
     function handleDefaultDeliveryModeChange(deliveryMode: DeliveryMode) {
         setDefaultDeliveryMode(deliveryMode)

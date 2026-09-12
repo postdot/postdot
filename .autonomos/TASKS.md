@@ -244,3 +244,7 @@ the central project reads and projection/realtime reliability.
 ## 🗓️ Calendar temporal reading modes
 
 - [x] **[WEB-157]** Add readable week and day calendar views `Priority: 🟠` `Complexity: M` — [ISSUE-081]; expose ReUI's week/day modes with a local, read-only time grid, preserve direct publication preview behavior, anchor the new modes on the current or selected day, and keep the week intentionally horizontally scrollable when its seven columns no longer fit.
+
+## 🗓️ Calendar density and creation follow-up
+
+- [x] **[WEB-158]** Make Week and Day readable with dense publication slots `Priority: 🔴` `Complexity: M` — [ISSUE-082]; replace fixed horizontal overlap columns with content-driven vertical stacking, keep every simultaneous publication individually inspectable, add empty-slot and hover-plus creation through Composer with date/time context, and preserve the intentional Week/Day scope boundary around drag and resize.

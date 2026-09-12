@@ -27,8 +27,10 @@ import { EventCalendarTimeGrid } from '@/components/reui/event-calendar/event-ca
 import type {
     CalendarView,
     EventCalendarOccurrence,
+    EventCalendarSlotInfo,
 } from '@/components/reui/event-calendar/event-calendar-types'
 import type { PublicationSummary } from '@/lib/api'
+import { getZonedDateTimeParts } from '@/lib/date-time'
 import { formatTime } from '@/lib/format'
 import { toDateKey, startOfCalendarMonth } from '@/lib/publication-calendar'
 import {
@@ -90,10 +92,16 @@ export function PublicationCalendarExperiment({
         setPreviewPublicationId(publicationId)
     }, [])
     const createOnDate = useCallback(
-        (date: Date) => {
+        (date: Date, scheduledAt?: Date) => {
             void navigate({
                 params: { projectId },
-                search: { date: toDateKey(date, timeZone) },
+                search: {
+                    date: toDateKey(date, timeZone),
+                    time:
+                        scheduledAt === undefined
+                            ? undefined
+                            : calendarTimeFor(scheduledAt, timeZone),
+                },
                 to: '/dashboard/projects/$projectId/compose',
             })
         },
@@ -120,8 +128,12 @@ export function PublicationCalendarExperiment({
         [expandedDay, onMonthChange, timeZone]
     )
     const handleSlotClick = useCallback(
-        (slot: { readonly date: Date }, event: MouseEvent) => {
+        (slot: EventCalendarSlotInfo, event: MouseEvent) => {
             const target = event.currentTarget
+            if (slot.view === 'week' || slot.view === 'day') {
+                createOnDate(slot.date, slot.date)
+                return
+            }
             if (target instanceof HTMLElement && target.dataset.slot === 'event-calendar-day-add') {
                 createOnDate(slot.date)
                 return
@@ -469,10 +481,10 @@ function PublicationEventContent({
     if (view === 'week' || view === 'day') {
         return (
             <span className="flex min-w-0 flex-col items-start gap-0.5 leading-tight">
-                <span className="min-w-0 max-w-full truncate text-[0.6875rem] font-medium">
+                <span className="min-w-0 max-w-full break-words whitespace-normal text-[0.6875rem] font-medium">
                     {occurrence.event.title}
                 </span>
-                <span className="min-w-0 max-w-full truncate text-[0.625rem] text-muted-foreground">
+                <span className="min-w-0 max-w-full break-words whitespace-normal text-[0.625rem] text-muted-foreground">
                     {time} · {publication.channelName}
                 </span>
             </span>
@@ -493,6 +505,11 @@ function PublicationEventContent({
 function calendarCursorFor(date: Date, timeZone: string) {
     const [year, month, day] = toDateKey(date, timeZone).split('-').map(Number)
     return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1, 12))
+}
+
+function calendarTimeFor(date: Date, timeZone: string) {
+    const parts = getZonedDateTimeParts(date.getTime(), timeZone)
+    return `${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`
 }
 
 function viewName(

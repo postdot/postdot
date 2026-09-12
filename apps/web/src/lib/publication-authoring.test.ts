@@ -4,6 +4,7 @@ import {
     calendarDateTimeLocal,
     createPublicationTarget,
     parseCalendarDate,
+    parseCalendarTime,
 } from './publication-authoring'
 
 describe('publication authoring date context', () => {
@@ -21,8 +22,16 @@ describe('publication authoring date context', () => {
 
     test('uses the selected calendar date for the initial target schedule', () => {
         expect(calendarDateTimeLocal('2026-09-05')).toBe('2026-09-05T09:00')
+        expect(calendarDateTimeLocal('2026-09-05', '16:30')).toBe('2026-09-05T16:30')
         expect(
             createPublicationTarget('channel-1', 'America/New_York', '2026-09-05').scheduledAt
         ).toBe('2026-09-05T09:00')
+    })
+
+    test('accepts only canonical hour and minute values from calendar links', () => {
+        expect(parseCalendarTime('00:00')).toBe('00:00')
+        expect(parseCalendarTime('23:59')).toBe('23:59')
+        expect(parseCalendarTime('9:00')).toBeUndefined()
+        expect(parseCalendarTime('24:00')).toBeUndefined()
     })
 })

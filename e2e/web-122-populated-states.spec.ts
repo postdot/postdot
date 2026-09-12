@@ -128,7 +128,7 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
             id: `e2e-122-reui-publication-${index + 1}-${suffix}`,
             postTitle: `E2E-122 ReUI publication ${index + 1} ${suffix}`,
             projectId,
-            scheduledAt: scheduledAt + index * 3_600_000,
+            scheduledAt,
             state: 'scheduled',
         })
     )
@@ -198,7 +198,30 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await expect(weekView).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
-    await weekView.getByRole('button', { name: /E2E-122 ReUI publication 1/ }).click()
+    for (const index of Array.from({ length: 6 }, (_, item) => item + 1)) {
+        await expect(
+            weekView.getByText(`E2E-122 ReUI publication ${index} ${suffix}`, { exact: true })
+        ).toBeVisible()
+    }
+
+    const createSlot = weekView.locator('[data-slot="event-calendar-time-slot-add"]').first()
+    await createSlot.click()
+    const composeUrl = new URL(page.url())
+    expect(composeUrl.pathname).toBe(`/dashboard/projects/${projectId}/compose`)
+    expect(composeUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(composeUrl.searchParams.get('time')).toBe('00:00')
+    await expect(page.getByRole('heading', { name: 'Compose', exact: true })).toBeVisible()
+    await expect(page.locator('input[type="datetime-local"]').first()).toHaveValue(
+        `${composeUrl.searchParams.get('date')}T00:00`
+    )
+
+    await page.goto(`/dashboard/projects/${projectId}/overview?calendar=reui`)
+    await expect(calendar.locator('[data-calendar-view="month"]')).toBeVisible()
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    const weekViewAfterCreate = calendar.locator('[data-calendar-view="week"]')
+    await expect(weekViewAfterCreate.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await weekViewAfterCreate.getByRole('button', { name: /E2E-122 ReUI publication 1/ }).click()
     await expect(
         page.getByRole('heading', { name: `E2E-122 ReUI publication 1 ${suffix}`, exact: true })
     ).toBeVisible()

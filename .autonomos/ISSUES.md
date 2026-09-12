@@ -2218,3 +2218,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related issues: ISSUE-080
 - Related decisions: ADR-057
 - Resolution: The local ReUI calendar now exposes Month, Week, Day, and Agenda. A vendored read-only time grid reuses ReUI's date ranges, per-day segmentation, overlap packing, event rendering, time-zone formatting, and preview callback. Switching from Month to Week or Day anchors on the selected day when one exists, otherwise on today; navigating those views updates the same calendar cursor and its bounded monthly read. Week keeps a deliberate minimum width and horizontal scrolling on narrow screens, while Day uses the available width. Point-in-time publications receive the same minimum visual block height as the calendar's overlap packer so they remain visible. The populated ReUI browser scenario covers both new modes and direct preview without URL navigation.
+
+## [ISSUE-082] Make week and day publication density readable and actionable
+
+- Type: problem
+- Status: resolved
+- Evidence: Owner review of the first Week implementation showed that it inherited appointment-style horizontal overlap packing. Multiple publications sharing one time slot were compressed into fixed-width columns, making their titles and channel information difficult to read. The view also exposed no create action from an empty time slot, even though Week and Day are operational planning views.
+- Impact: A dense schedule could not be inspected reliably, and the absence of slot creation made the new views less useful than the Month view for composing work. The fixed-height time-grid assumption treated variable publication density as if it were bounded appointment data.
+- Desired outcome: Week and Day use content-driven rows. Publications starting in the same slot stack vertically and remain individually clickable for preview; the slot and its hover "+" create a publication through the existing Composer with the selected date and time. Week scrolls only when its seven columns need more width, while Day uses the available width.
+- Scope boundary: This correction does not introduce drag-to-create, event movement, resizing, or a second authoring flow. Those interactions remain separate product decisions.
+- Tasks: WEB-158
+- Related issues: ISSUE-080, ISSUE-081
+- Related decisions: ADR-057
+- Resolution: Replaced absolute overlap columns in the local Week/Day time grid with flow-based, variable-height slot rows. All events starting in a slot are rendered as stacked publication blocks; event clicks still open the existing preview. Empty slots and their hover add controls now call the existing Composer and carry a validated `date` and `time` query context into the initial schedule. The dense browser scenario uses six publications at one timestamp and verifies all six are visible, slot creation reaches Composer at `00:00`, and preview remains available afterward.

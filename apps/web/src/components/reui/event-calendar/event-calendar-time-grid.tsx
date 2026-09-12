@@ -3,9 +3,9 @@
 
 'use client'
 
-import { cn } from '@herald/ui/lib/utils'
-import { addDays, format } from 'date-fns'
-import { useMemo, type CSSProperties } from 'react'
+import { AddIcon } from '@solar-icons/react/bold/add'
+import { addDays, addMinutes, format } from 'date-fns'
+import { Fragment, useMemo, type CSSProperties, type MouseEvent } from 'react'
 
 import {
     EventCalendarViewContext,
@@ -29,19 +29,27 @@ import type {
     EventCalendarSegment,
 } from '@/components/reui/event-calendar/event-calendar-types'
 
-const HOUR_HEIGHT = '3rem'
+const MIN_SLOT_HEIGHT = '3rem'
 const TIME_GUTTER_WIDTH = '4.5rem'
+
+interface EventCalendarTimeSlot {
+    readonly endMinute: number
+    readonly startMinute: number
+}
 
 interface EventCalendarTimeGridProps {
     readonly className?: string
 }
 
 /**
- * The time grid intentionally stays read-only for now. Dragging and slot
- * creation are disabled for Herald's first week/day pass; an event remains a
- * direct preview target and the page-level action remains the single creation
- * entry point. Keeping the layout separate from the state engine leaves those
- * interactions available for a later, deliberate product decision.
+ * The time grid is a publication schedule rather than an appointment editor.
+ * Empty time slots are clickable and delegate to Herald's existing composer;
+ * event positioning and resizing stay read-only until they receive a separate
+ * product decision.
+ *
+ * Rows deliberately flow with their content. Every event that starts in an
+ * hour gets its own stacked row inside that hour, so simultaneous publications
+ * expand the hour instead of being squeezed into a set of fixed-width columns.
  */
 function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTimeGridProps) {
     const { view } = useEventCalendarView()
@@ -70,11 +78,19 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
 
     const startHour = Math.max(0, Math.min(23, settings.dayStartHour))
     const endHour = Math.max(startHour + 1, Math.min(24, settings.dayEndHour))
-    const interval = Math.max(1, Math.min(60, settings.slotDuration))
-    const totalMinutes = (endHour - startHour) * 60
-    const slotCount = Math.ceil(totalMinutes / interval)
-    const hasAllDayEvents = occurrences.some(
-        occurrence => occurrence.allDay || spansMultipleDays(occurrence, settings.timeZone)
+    const interval = Math.max(15, Math.min(60, settings.slotDuration))
+    const startMinute = startHour * 60
+    const endMinute = endHour * 60
+    const timeSlots = useMemo<EventCalendarTimeSlot[]>(
+        () =>
+            Array.from({ length: Math.ceil((endMinute - startMinute) / interval) }, (_, index) => {
+                const slotStart = startMinute + index * interval
+                return {
+                    startMinute: slotStart,
+                    endMinute: Math.min(endMinute, slotStart + interval),
+                }
+            }),
+        [endMinute, interval, startMinute]
     )
     const gridTemplateColumns = `var(--ec-gutter-width) repeat(${Math.max(1, days.length)}, minmax(0, 1fr))`
     const dateFormatter = useMemo(
@@ -87,23 +103,26 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
             }),
         [settings.locale?.code, settings.timeZone, view]
     )
+    const hasAllDayEvents = occurrences.some(
+        occurrence => occurrence.allDay || spansMultipleDays(occurrence, settings.timeZone)
+    )
 
     if (view !== 'week' && view !== 'day') return null
 
     return (
         <EventCalendarViewContext.Provider value={{ view }}>
             <div
-                className={cn('min-w-0', className)}
+                className={className}
                 data-slot="event-calendar-time-grid"
                 data-view={view}
                 style={
                     {
                         '--ec-gutter-width': TIME_GUTTER_WIDTH,
-                        '--ec-hour-height': HOUR_HEIGHT,
+                        '--ec-slot-min-height': MIN_SLOT_HEIGHT,
                     } as CSSProperties
                 }>
-                <div className={cn('overflow-x-auto pb-1', view === 'day' && 'overflow-x-visible')}>
-                    <div className={cn(view === 'week' && 'min-w-[52rem]')}>
+                <div className={view === 'day' ? 'overflow-x-visible' : 'overflow-x-auto pb-1'}>
+                    <div className={view === 'week' ? 'min-w-[48rem]' : undefined}>
                         <div
                             className="grid gap-1"
                             data-slot="event-calendar-time-grid-header"
@@ -137,27 +156,24 @@ function EventCalendarTimeGrid<TData = unknown>({ className }: EventCalendarTime
                         ) : null}
 
                         <div
-                            className="mt-1 grid gap-1"
+                            className="mt-1 grid auto-rows-min gap-1"
                             data-slot="event-calendar-time-grid-body"
                             style={{ gridTemplateColumns }}>
-                            <EventCalendarTimeGutter
-                                day={days[0] ?? visibleRange.start}
-                                endHour={endHour}
-                                interval={interval}
-                                slotCount={slotCount}
-                                startHour={startHour}
-                                totalMinutes={totalMinutes}
-                            />
-                            {days.map(day => (
-                                <EventCalendarTimeGridDay<TData>
-                                    day={day}
-                                    endHour={endHour}
-                                    interval={interval}
-                                    key={day.getTime()}
-                                    slotCount={slotCount}
-                                    startHour={startHour}
-                                    totalMinutes={totalMinutes}
-                                />
+                            {timeSlots.map(slot => (
+                                <Fragment key={slot.startMinute}>
+                                    <EventCalendarTimeGutterSlot<TData>
+                                        day={days[0] ?? visibleRange.start}
+                                        slot={slot}
+                                    />
+                                    {days.map(day => (
+                                        <EventCalendarTimeGridSlot<TData>
+                                            day={day}
+                                            key={`${day.getTime()}-${slot.startMinute}`}
+                                            slot={slot}
+                                            view={view}
+                                        />
+                                    ))}
+                                </Fragment>
                             ))}
                         </div>
                     </div>
@@ -182,12 +198,12 @@ function EventCalendarTimeGridDayHeader<TData>({
     return (
         <div
             aria-label={dateFormatter.format(day)}
-            className={cn(
+            className={[
                 'min-w-0 truncate rounded-md bg-muted/70 px-3 py-2 text-center font-medium text-muted-foreground',
-                isToday && 'bg-primary/10 text-foreground',
-                isOutside && 'opacity-60',
-                viewConfig.todayClassName
-            )}
+                isToday ? 'bg-primary/10 text-foreground' : '',
+                isOutside ? 'opacity-60' : '',
+                viewConfig.todayClassName ?? '',
+            ].join(' ')}
             data-slot="event-calendar-time-grid-day-header"
             role="columnheader">
             {viewConfig.renderDayHeader?.({ day, view, isToday }) ?? dateFormatter.format(day)}
@@ -215,13 +231,13 @@ function EventCalendarTimeGridAllDayCell<TData>({ day }: { readonly day: Date })
 
     return (
         <div
-            className={cn(
-                'min-w-0 min-h-9 rounded-md bg-background p-1 shadow-field',
-                isOff && offClassName,
-                isToday && 'bg-primary/5',
-                isOutside && 'opacity-60',
-                viewConfig.dayClassName?.(day)
-            )}
+            className={[
+                'min-h-9 min-w-0 rounded-md bg-background p-1 shadow-field',
+                isOff ? offClassName : '',
+                isToday ? 'bg-primary/5' : '',
+                isOutside ? 'opacity-60' : '',
+                viewConfig.dayClassName?.(day) ?? '',
+            ].join(' ')}
             data-slot="event-calendar-time-grid-all-day-cell">
             <div className="grid gap-1">
                 {segments.allDay.map(segment => (
@@ -236,88 +252,61 @@ function EventCalendarTimeGridAllDayCell<TData>({ day }: { readonly day: Date })
     )
 }
 
-function EventCalendarTimeGutter({
+function EventCalendarTimeGutterSlot<TData>({
     day,
-    endHour,
-    interval,
-    slotCount,
-    startHour,
-    totalMinutes,
+    slot,
 }: {
     readonly day: Date
-    readonly endHour: number
-    readonly interval: number
-    readonly slotCount: number
-    readonly startHour: number
-    readonly totalMinutes: number
+    readonly slot: EventCalendarTimeSlot
 }) {
-    const settings = useEventCalendarSettings()
-    const viewConfig = useEventCalendarViewConfig()
-    const dayStart = zonedStartOfDay(day, settings.timeZone)
+    const settings = useEventCalendarSettings<TData>()
+    const viewConfig = useEventCalendarViewConfig<TData>()
+    const slotStart = getSlotDate(day, slot.startMinute, settings.timeZone)
+    const labelFormat =
+        slot.startMinute % 60 === 0
+            ? settings.i18n.formats.timeGutter
+            : settings.i18n.formats.timeGutterMinute
 
     return (
         <div
             aria-hidden="true"
-            className="relative min-w-0 text-muted-foreground"
-            data-slot="event-calendar-time-gutter"
-            style={{
-                height: `calc(var(--ec-hour-height) * ${totalMinutes} / 60)`,
-            }}>
-            {Array.from({ length: slotCount }, (_, index) => {
-                const minute = startHour * 60 + index * interval
-                if (minute >= endHour * 60) return null
-                const time = new Date(dayStart.getTime() + minute * 60_000)
-                const labelFormat =
-                    minute % 60 === 0
-                        ? settings.i18n.formats.timeGutter
-                        : settings.i18n.formats.timeGutterMinute
-                return (
-                    <div
-                        className={cn(
-                            'absolute inset-x-0 flex -translate-y-1/2 justify-end pe-2 text-[0.6875rem] tabular-nums',
-                            index === 0 && 'translate-y-0'
-                        )}
-                        data-slot="event-calendar-time-gutter-slot"
-                        key={minute}
-                        style={{
-                            top: `calc(var(--ec-hour-height) * ${minute - startHour * 60} / 60)`,
-                        }}>
-                        {viewConfig.renderTimeGutterSlot?.({
-                            hour: Math.floor(minute / 60),
-                            minute: minute % 60,
-                            time,
-                        }) ??
-                            format(toZoned(time, settings.timeZone), labelFormat, {
-                                locale: settings.locale,
-                            })}
-                    </div>
-                )
-            })}
+            className="flex min-h-[var(--ec-slot-min-height)] items-start justify-end pe-2 pt-2 text-[0.6875rem] tabular-nums text-muted-foreground"
+            data-slot="event-calendar-time-gutter-slot">
+            {viewConfig.renderTimeGutterSlot?.({
+                hour: Math.floor(slot.startMinute / 60),
+                minute: slot.startMinute % 60,
+                time: slotStart,
+            }) ??
+                format(toZoned(slotStart, settings.timeZone), labelFormat, {
+                    locale: settings.locale,
+                })}
         </div>
     )
 }
 
-function EventCalendarTimeGridDay<TData>({
+function EventCalendarTimeGridSlot<TData>({
     day,
-    endHour,
-    interval,
-    slotCount,
-    startHour,
-    totalMinutes,
+    slot,
+    view,
 }: {
     readonly day: Date
-    readonly endHour: number
-    readonly interval: number
-    readonly slotCount: number
-    readonly startHour: number
-    readonly totalMinutes: number
+    readonly slot: EventCalendarTimeSlot
+    readonly view: 'week' | 'day'
 }) {
     const settings = useEventCalendarSettings<TData>()
     const viewConfig = useEventCalendarViewConfig<TData>()
     const { segments, isToday, isOutside } = useEventCalendarDay<TData>(day)
     const { effective } = useEventCalendarViewSettings()
-    const startMinute = startHour * 60
-    const endMinute = endHour * 60
+    const dayStart = zonedStartOfDay(day, settings.timeZone)
+    const slotStart = getSlotDate(day, slot.startMinute, settings.timeZone)
+    const slotEnd = getSlotDate(day, slot.endMinute, settings.timeZone)
+    const timeLabel = settings.i18n.functions.formatEventTime(slotStart, slotEnd, false, {
+        locale: settings.locale,
+    })
+    const timedSegments = segments.timed.filter(segment => {
+        const segmentStart = segment.startMin ?? slot.startMinute
+        return segmentStart >= slot.startMinute && segmentStart < slot.endMinute
+    })
     const isOff = resolveOffDay(
         day,
         settings.timeZone,
@@ -330,102 +319,89 @@ function EventCalendarTimeGridDay<TData>({
     )
     const offClassName =
         (typeof viewConfig.offDays === 'object' && viewConfig.offDays.className) || 'bg-muted/25'
+    const dayLabel = format(toZoned(dayStart, settings.timeZone), settings.i18n.formats.dayAria, {
+        locale: settings.locale,
+    })
+    const addLabel = `${settings.i18n.labels.addEvent} · ${dayLabel} · ${timeLabel}`
+    const handleSlotClick = (event: MouseEvent<HTMLDivElement>) => {
+        if (
+            event.target instanceof Element &&
+            event.target.closest('[data-slot="event-calendar-event"]')
+        )
+            return
+        settings.onSlotClick?.(
+            {
+                date: slotStart,
+                end: slotEnd,
+                allDay: false,
+                view,
+            },
+            event
+        )
+    }
+    const handleAddClick = (event: MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation()
+        settings.onSlotClick?.(
+            {
+                date: slotStart,
+                end: slotEnd,
+                allDay: false,
+                view,
+            },
+            event
+        )
+    }
 
     return (
         <div
-            aria-label={format(toZoned(day, settings.timeZone), settings.i18n.formats.dayAria, {
-                locale: settings.locale,
-            })}
-            className={cn(
-                'relative min-w-0 overflow-hidden rounded-md bg-background shadow-field',
-                isOff && offClassName,
-                isToday && 'bg-primary/5',
-                isOutside && 'opacity-60',
-                viewConfig.dayClassName?.(day)
-            )}
-            data-slot="event-calendar-time-grid-day"
-            style={{ height: `calc(var(--ec-hour-height) * ${totalMinutes} / 60)` }}>
-            {viewConfig.renderDayColumnBackground?.({
-                boundsEndMin: endMinute,
-                boundsStartMin: startMinute,
-                day,
-                totalMinutes,
-            })}
-            {Array.from({ length: slotCount }, (_, index) => {
-                const minute = startMinute + index * interval
-                if (minute >= endMinute) return null
-                const duration = Math.min(interval, endMinute - minute)
-                return (
-                    <div
-                        aria-hidden="true"
-                        className={cn(
-                            'pointer-events-none absolute inset-x-0',
-                            index % 2 === 0 ? 'bg-background' : 'bg-surface-field/35'
-                        )}
-                        key={minute}
-                        style={{
-                            height: `calc(var(--ec-hour-height) * ${duration} / 60)`,
-                            top: `calc(var(--ec-hour-height) * ${minute - startMinute} / 60)`,
-                        }}
+            className={[
+                'group/time-slot relative min-h-[var(--ec-slot-min-height)] min-w-0 cursor-pointer rounded-md p-1.5 shadow-field transition-colors hover:bg-muted/70',
+                (slot.startMinute / 60) % 2 === 1 ? 'bg-surface-field/35' : 'bg-background',
+                isOff ? offClassName : '',
+                isToday ? 'bg-primary/5' : '',
+                isOutside ? 'opacity-60' : '',
+                viewConfig.dayClassName?.(day) ?? '',
+            ].join(' ')}
+            data-day={format(toZoned(day, settings.timeZone), 'yyyy-MM-dd')}
+            data-slot="event-calendar-time-slot"
+            data-time={format(toZoned(slotStart, settings.timeZone), 'HH:mm')}
+            onClick={handleSlotClick}>
+            <button
+                aria-label={addLabel}
+                className="absolute end-1 top-1 z-10 flex size-6 -translate-y-0.5 items-center justify-center rounded-sm bg-primary text-primary-foreground opacity-0 shadow-control transition-opacity group-hover/time-slot:opacity-100 focus-visible:opacity-100"
+                data-slot="event-calendar-time-slot-add"
+                onClick={handleAddClick}
+                tabIndex={-1}
+                type="button">
+                <AddIcon aria-hidden="true" className="size-3.5" />
+            </button>
+            <div className="pointer-events-none relative z-20 grid min-h-[var(--ec-slot-min-height)] content-start gap-1">
+                {timedSegments.map(segment => (
+                    <EventCalendarTimeGridEvent<TData>
+                        key={segment.occurrence.key}
+                        segment={segment}
                     />
-                )
-            })}
-            <div className="absolute inset-0" data-slot="event-calendar-time-grid-events">
-                {segments.timed.map(segment => {
-                    const eventStart = Math.max(startMinute, segment.startMin ?? startMinute)
-                    const eventEnd = Math.min(
-                        endMinute,
-                        Math.max(eventStart + 30, segment.endMin ?? eventStart + interval)
-                    )
-                    if (eventEnd <= eventStart) return null
-
-                    return (
-                        <EventCalendarTimeGridEvent<TData>
-                            endMinute={endMinute}
-                            key={segment.occurrence.key}
-                            segment={segment}
-                            startMinute={startMinute}
-                        />
-                    )
-                })}
+                ))}
             </div>
         </div>
     )
 }
 
 function EventCalendarTimeGridEvent<TData>({
-    endMinute,
     segment,
-    startMinute,
 }: {
-    readonly endMinute: number
     readonly segment: EventCalendarSegment<TData>
-    readonly startMinute: number
 }) {
-    const viewConfig = useEventCalendarViewConfig<TData>()
-    const start = Math.max(startMinute, segment.startMin ?? startMinute)
-    const end = Math.min(endMinute, Math.max(start + 30, segment.endMin ?? start + 30))
-    const duration = Math.max(15, end - start)
-    const column = segment.column ?? 0
-    const columnCount = Math.max(1, segment.columnCount ?? 1)
-    const columnSpan = Math.max(1, Math.min(columnCount - column, segment.columnSpan ?? 1))
-
     return (
         <EventCalendarEvent
-            className={cn('absolute items-start p-1', viewConfig.classNames?.event)}
+            className="pointer-events-auto !min-h-10 !overflow-visible items-start rounded-md px-2 py-1.5"
             segment={segment}
-            style={
-                {
-                    '--ec-event-color': segment.occurrence.event.color ?? 'var(--color-primary)',
-                    height: `calc(var(--ec-hour-height) * ${duration} / 60 - 0.25rem)`,
-                    left: `calc(${column * 100}% / ${columnCount} + 0.125rem)`,
-                    top: `calc(var(--ec-hour-height) * ${start - startMinute} / 60 + 0.125rem)`,
-                    width: `calc(${columnSpan * 100}% / ${columnCount} - 0.25rem)`,
-                    zIndex: segment.occurrence.event.zIndex ?? 10 + column,
-                } as CSSProperties
-            }
         />
     )
+}
+
+function getSlotDate(day: Date, minute: number, timeZone: string) {
+    return addMinutes(toZoned(zonedStartOfDay(day, timeZone), timeZone), minute)
 }
 
 export { EventCalendarTimeGrid }
