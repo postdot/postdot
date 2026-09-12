@@ -3,5 +3,5 @@ import { Route } from '@/routes/dashboard/projects/$projectId/overview'
 
 export function DashboardOverview() {
     const { calendar } = Route.useSearch()
-    return <PublicationCalendarPage experimentalCalendar={calendar === 'reui'} mode="overview" />
+    return <PublicationCalendarPage experimentalCalendar={calendar !== 'legacy'} mode="overview" />
 }

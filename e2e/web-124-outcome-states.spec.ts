@@ -96,8 +96,14 @@ test('keeps failed and ambiguous publications legible across queue and overview'
     await page.getByRole('link', { name: 'Vue d’ensemble', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
-    await expect(page.getByRole('link').filter({ hasText: failedTitle })).toBeVisible()
-    await expect(page.getByRole('link').filter({ hasText: ambiguousTitle })).toBeVisible()
+    const overviewCalendar = page.locator('[data-calendar-experiment="reui"]')
+    await expect(overviewCalendar).toBeVisible()
+    await expect(
+        overviewCalendar.getByRole('button', { name: new RegExp(failedTitle) })
+    ).toBeVisible()
+    await expect(
+        overviewCalendar.getByRole('button', { name: new RegExp(ambiguousTitle) })
+    ).toBeVisible()
 })
 
 function publicationFixture(input: {

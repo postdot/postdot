@@ -66,7 +66,7 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
         })
     })
 
-    await page.goto(`/dashboard/projects/${projectId}/overview`)
+    await page.goto(`/dashboard/projects/${projectId}/overview?calendar=legacy`)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 
     const overviewSummary = page.getByLabel('Overview summary', { exact: true })

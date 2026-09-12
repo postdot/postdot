@@ -272,6 +272,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.goto('/dashboard')
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await page.goto(`${page.url()}?calendar=legacy`)
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview\?calendar=legacy$/)
     await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
     await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
     await expect(
@@ -291,7 +293,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
     await expect(page.getByLabel('Schedule').first()).toHaveValue(/T09:00$/)
     await page.goBack()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview\?calendar=legacy$/)
 
     await page.goto('/dashboard')
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
@@ -431,6 +433,8 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await page.goto(`${page.url()}?calendar=legacy`)
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview\?calendar=legacy$/)
     const calendarMonth = page.locator('[data-calendar-view="month"]')
     await expect(calendarMonth).toBeVisible()
     await expect(calendarMonth.getByRole('link').filter({ hasText: mixedTitle })).toHaveCount(2)

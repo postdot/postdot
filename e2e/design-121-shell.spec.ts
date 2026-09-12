@@ -144,6 +144,8 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/overview$/)
+    await page.goto(`${page.url()}?calendar=legacy`)
+    await expect(page).toHaveURL(/\/overview\?calendar=legacy$/)
 
     const monthCalendar = page.locator('[data-calendar-view="month"]')
     await expect(monthCalendar).toBeVisible()

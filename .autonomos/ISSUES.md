@@ -2175,7 +2175,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: problem
 - Status: resolved
-- Evidence: In the experimental calendar, a day background and its add button
+- Evidence: In the calendar, a day background and its add button
   currently share the same slot callback and therefore the same create route.
   A visible event opens a publication preview, while “+N more” first opens a
   second list before the publication can be inspected. The fixed seven-column
@@ -2198,8 +2198,10 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Related decisions: ADR-057, ADR-024
 - Resolution: WEB-155 and WEB-156 now keep inspect, create, and navigate intents
   distinct; expand dense days in place; preserve the selected day while a
-  publication preview opens and closes; default to agenda below 48rem; keep
-  month view as the default at tablet and desktop widths; and make a manually
-  selected narrow month view scroll horizontally instead of compressing seven
-  columns into unreadable cells. Wide, tablet, and narrow behavior is covered
-  by the populated ReUI browser scenario.
+  publication preview opens and closes; default the ReUI calendar in the
+  project overview to agenda below 48rem; keep month view as the default at
+  tablet and desktop widths; and make a manually selected narrow month view
+  scroll horizontally instead of compressing seven columns into unreadable
+  cells. The previous calendar remains available explicitly with
+  `?calendar=legacy` while the new default is reviewed. Wide, tablet, and
+  narrow behavior is covered by the populated ReUI browser scenario.

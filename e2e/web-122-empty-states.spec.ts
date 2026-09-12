@@ -9,12 +9,8 @@ test('makes the calendar the first project view while keeping Queue focused', as
     await createAccountAndProject(page, suffix)
 
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
+    await expect(page.locator('[data-calendar-experiment="reui"]')).toBeVisible()
     await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
-    await expect(
-        page.getByText('Schedule a destination to make it appear on the project calendar.', {
-            exact: true,
-        })
-    ).toBeVisible()
     await expect(
         page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
     ).toHaveCount(1)
