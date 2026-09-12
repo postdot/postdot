@@ -942,7 +942,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-040] Generalize built-in provider connection boundaries before adding Bluesky
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: Built-in execution already resolves versioned adapters through a registry,
   but publisher runtime construction, OAuth routes and callbacks, channel profile
   resolution, and database connection normalization still contain LinkedIn-specific
@@ -964,11 +964,17 @@ channels` with a foreign-key constraint error even though a fresh empty database
   deployment and coordination cost without evidence. None is selected.
 - Tasks: PROVIDER-74
 - Related decision: ADR-033
+- Resolution: PROVIDER-74 moved provider identity, connection, destination,
+  profile, credential, and execution concerns behind explicit provider-owned
+  ports while keeping orchestration, project scope, encrypted persistence, and
+  generic outcomes shared. The follow-up Bluesky slice exercised that boundary
+  without adding another provider-shaped central branch. Real-provider
+  authorization remains a separate controlled operator validation boundary.
 
 ## [ISSUE-041] Add Bluesky as the next built-in provider after the boundary extraction
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: Herald currently has one production-relevant built-in provider. Bluesky
   exercises a materially different account and API model from LinkedIn, including
   repository/PDS identity and provider-specific authorization and media handling.
@@ -984,11 +990,17 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: CHANNEL-75 (after PROVIDER-74)
 - Related issue: ISSUE-040
 - Related decision: ADR-036 (accepted)
+- Resolution: CHANNEL-75 delivered the provider-owned Bluesky profile,
+  portable AT Protocol OAuth bridge, encrypted restart-safe session state,
+  project-owned account destination, text and image publication path, provider
+  outcome mapping, and deterministic tests. The provider stays disabled until
+  its required deployment profile is configured; no real provider action is
+  implied by this resolution.
 
 ## [ISSUE-042] Treat the web application as a dedicated client architecture project
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The web application is the most visible Herald client, but its current
   navigation, composition, calendar, queue, channel, and media surfaces were built
   incrementally while backend foundations were being established. The owner explicitly
@@ -1006,6 +1018,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   IA and interaction design come first; visual tokens and component calibration support
   that structure. Public marketing pages remain out of scope unless separately accepted.
 - Tasks: WEB-76 (after the provider and Bluesky slices provide the next backend evidence)
+- Resolution: WEB-76 established the authenticated web-client ownership
+  boundaries, project context, route composition, responsive navigation
+  structure, and decomposition of the largest surfaces without moving domain
+  rules into the client. The remaining visual calibration and route-density
+  work is tracked separately by ISSUE-063 and ISSUE-065.
 
 ## [ISSUE-043] Expose the Bluesky connection flow through the supported web client
 
@@ -1215,7 +1232,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-049] Establish a user-facing localization foundation
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The web client currently renders English UI copy directly in
   application components. It has no locale preference, translation catalog,
   fallback policy, or shared message-formatting boundary; locale-sensitive
@@ -1233,11 +1250,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
   requiring clients to translate server-rendered prose. Publication-content
   language remains a separate domain concern.
 - Tasks: I18N-95, I18N-99, I18N-100
+- Resolution: I18N-95, I18N-99, and I18N-100 established the Paraglide
+  localization boundary, migrated authenticated web copy and locale-aware
+  formatting, enforced catalog coverage, and validated English/French switching
+  in the browser. Translation quality, public-route localization, and a future
+  persisted account preference remain separate follow-ups.
 
 ## [ISSUE-050] Keep notifications and project work views synchronized
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The notification inbox loads when its component mounts or opens, and
   project queue/publication data is initially loaded and refreshed after local
   mutations. The browser currently has no general push, polling, SSE, or
@@ -1255,11 +1277,17 @@ channels` with a foreign-key constraint error even though a fresh empty database
   publication outcomes.
 - Tasks: REALTIME-96, REALTIME-102, REALTIME-103, REALTIME-104, REALTIME-105, REALTIME-106
 - Related issues: ISSUE-045, ISSUE-046
+- Resolution: REALTIME-96 and REALTIME-102 through REALTIME-106 established
+  authenticated reconnectable SSE, post-commit project invalidation, durable
+  replay and recovery semantics, and production Query integration. NOTIFY-127
+  and NOTIFY-128 extended the inbox to a user-wide scope with one authenticated
+  invalidation stream. The signal remains process-local by design; a future
+  multi-process deployment would require a separate cross-process boundary.
 
 ## [ISSUE-051] Give the notification inbox a non-blocking interaction surface
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The current dashboard notification inbox is presented as a centered
   modal dialog with an overlay. The product direction is an operational workspace
   where notifications should be inspectable alongside the current task rather
@@ -1274,6 +1302,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   component and visual treatment remain subject to the dedicated UX task.
 - Tasks: DESIGN-97
 - Related issues: ISSUE-046, ISSUE-050
+- Resolution: DESIGN-97 and its follow-up implementation now expose the inbox
+  as a contextual, non-blocking popover that keeps the current work surface
+  visible while preserving loading, error, read/archive, preference, and
+  accessibility behavior. Notification grouping and transient toast feedback
+  remain outside this bounded correction.
 
 ## [ISSUE-052] Reduce explanatory repetition and operational information density
 
@@ -1300,7 +1333,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-053] Define project categories and publication tags
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: Herald needs a way to organize publications beyond their channel,
   schedule, and lifecycle state. Categories and tags have been identified as
   useful product concepts, but their ownership, semantics, and query behavior
@@ -1394,7 +1427,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-056] Define provider-owned engagement analytics without conflating operational metrics
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The current Herald analytics contract measures operational facts
   created by Herald: publication lifecycle, queue depth, attempts, retries,
   failures, ambiguity, recovery, and latency. The competitor review shows a
@@ -2083,3 +2116,28 @@ channels` with a foreign-key constraint error even though a fresh empty database
   rows and uses it for summary bars, tabs, accessible counts, and unfiltered
   section metadata. Loading another page only appends rows; a refresh or
   mutation is responsible for replacing the known aggregate.
+
+## [ISSUE-078] Keep issue completion state aligned with task evidence
+
+- Type: problem
+- Status: resolved
+- Evidence: The task ledger recorded completed work for several accepted
+  issues, while the issue register still presented those same issues as merely
+  accepted. Other accepted issues intentionally retained unimplemented or
+  explicitly deferred scope, so a bulk status change would have hidden real
+  follow-ups.
+- Impact: The owner could not reliably tell whether the next action was a bug
+  fix, an already-delivered decision, an operational validation, or a deferred
+  product choice. This makes backlog prioritization and handoff less precise.
+- Desired outcome: Issue status reflects the evidence available in completed
+  tasks and resolutions. Residual scope remains explicit, and open harness or
+  deliberately deferred work is not presented as complete.
+- Tasks: META-153
+- Resolution: The accepted issues whose scoped outcomes are implemented have
+  been reconciled to `resolved`, with concise closure evidence and bounded
+  follow-ups where applicable. ISSUE-052, ISSUE-058, ISSUE-062, ISSUE-063, and
+  ISSUE-065 remain accepted because their records explicitly retain product,
+  UX, account-lifecycle, or scale scope that is not fully implemented. The
+  open ISSUE-021, ISSUE-029, and ISSUE-036 remain open; the MCP workstream is
+  intentionally deferred by the owner and the app-managed worktree limitation
+  remains a harness constraint.
