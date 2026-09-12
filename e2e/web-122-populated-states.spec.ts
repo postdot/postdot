@@ -120,7 +120,7 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
 
     const suffix = randomUUID().slice(0, 8)
     const projectId = await createAccountAndProject(page, suffix)
-    const scheduledAt = currentMonthNoon()
+    const scheduledAt = currentMonthAt(23, 30)
     const channelName = 'Calendar review destination channel with a deliberately long name'
     const publications = Array.from({ length: 6 }, (_, index) =>
         publicationFixture({
@@ -236,6 +236,12 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await expect(weekView).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await expect(
+        weekView
+            .locator('[data-slot="event-calendar-time-slot"]')
+            .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
+            .first()
+    ).toHaveAttribute('data-time', '23:00')
     const weekScrollTop = await page
         .locator('[data-dashboard-scroll]')
         .evaluate(element => element.scrollTop)
@@ -422,8 +428,18 @@ function publicationFixture(input: {
 }
 
 function currentMonthNoon() {
+    return currentMonthAt(12)
+}
+
+function currentMonthAt(hour: number, minute = 0) {
     const now = new Date()
-    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), Math.min(now.getUTCDate(), 28), 12)
+    return Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        Math.min(now.getUTCDate(), 28),
+        hour,
+        minute
+    )
 }
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {

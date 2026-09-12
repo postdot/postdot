@@ -2307,3 +2307,31 @@ channels` with a foreign-key constraint error even though a fresh empty database
   top-of-page `00:00` baseline. The complete time range remains rendered, and
   the anchor is applied once per view/range plus the initial empty-to-timed
   transition so ordinary renders and manual scrolling are not overwritten.
+
+## [ISSUE-087] Prove adaptive time-grid anchoring across temporal edge cases
+
+- Type: problem
+- Status: resolved
+- Evidence: WEB-162 covers an empty range, a populated UTC range, and early
+  data clamped to the beginning of the day, but it does not yet prove the
+  behavior for late-night work, a non-UTC display timezone, or a timed
+  occurrence that starts before the visible range and continues into it.
+- Impact: A regression in range intersection or timezone conversion could open
+  Week or Day at the wrong local hour, make late work harder to find, or anchor
+  on an event that is not actually visible in the current range.
+- Desired outcome: Deterministic unit and browser evidence proves that the
+  existing anchor chooses the earliest visible local timed data, keeps its
+  context lead, handles day-boundary intersections and non-UTC zones, clamps
+  safely at the rendered limits, and leaves the empty baseline unchanged.
+- Scope boundary: This is a verification and precision follow-up to ISSUE-086.
+  It does not change the 24-hour timeline, introduce a working-hours default,
+  add persistent zoom, or alter event layout and scrolling policy.
+- Tasks: WEB-163
+- Related issues: ISSUE-086
+- Related decisions: ADR-057
+- Resolution: WEB-163 added deterministic coverage for early-morning and
+  late-night publications, non-UTC display-time conversion, and an occurrence
+  crossing the visible range boundary. The populated browser scenario now
+  schedules six publications at 23:30 and confirms the `23:00` time slot,
+  automatic initial scrolling, and full Week/Day visibility without changing
+  the production timeline or viewport policy.
