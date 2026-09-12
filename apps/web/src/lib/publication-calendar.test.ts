@@ -3,11 +3,14 @@ import { describe, expect, test } from 'bun:test'
 import type { PublicationSummary } from '@/lib/api'
 
 import {
+    calendarDateFromKey,
     createCalendarMonth,
     getCalendarMonthTimestampRange,
     getCalendarViewportTimestampRange,
     getUnscheduledPublications,
     groupScheduledPublications,
+    isCalendarDateKey,
+    parseCalendarDateKey,
     startOfCalendarMonth,
     shiftCalendarMonth,
     toDateKey,
@@ -23,6 +26,35 @@ function publication(id: string, scheduledAt: number | null, postTitle = id) {
 }
 
 describe('publication calendar', () => {
+    test('accepts canonical valid civil date keys only', () => {
+        expect(isCalendarDateKey('2026-09-12')).toBe(true)
+        expect(isCalendarDateKey('2024-02-29')).toBe(true)
+        expect(isCalendarDateKey('2026-02-29')).toBe(false)
+        expect(isCalendarDateKey('2026-9-12')).toBe(false)
+        expect(isCalendarDateKey('2026-09-12T12:00')).toBe(false)
+        expect(isCalendarDateKey(undefined)).toBe(false)
+    })
+
+    test('keeps civil date parsing independent from the host timezone', () => {
+        const cursor = parseCalendarDateKey('0001-01-02')
+        const expected = new Date(0)
+        expected.setUTCFullYear(1, 0, 2)
+        expected.setUTCHours(12, 0, 0, 0)
+        expect(cursor).toEqual(expected)
+        expect(cursor?.getUTCFullYear()).toBe(1)
+        expect(cursor?.getUTCMonth()).toBe(0)
+        expect(cursor?.getUTCDate()).toBe(2)
+        expect(parseCalendarDateKey('2026-02-29')).toBeUndefined()
+    })
+
+    test('materializes the focused date in the project timezone', () => {
+        const date = calendarDateFromKey('2026-09-12', 'Pacific/Kiritimati')
+
+        if (date === undefined) throw new Error('expected a valid calendar date')
+        expect(toDateKey(date, 'Pacific/Kiritimati')).toBe('2026-09-12')
+        expect(calendarDateFromKey('not-a-date', 'UTC')).toBeUndefined()
+    })
+
     test('builds a stable Monday-first six-week month grid', () => {
         const month = createCalendarMonth(
             new Date(Date.UTC(2026, 8, 1, 12)),

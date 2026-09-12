@@ -200,7 +200,31 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
 
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+    const outsideMonthCell = calendar
+        .locator('[data-slot="event-calendar-month-cell"][data-outside]')
+        .first()
+    await expect(outsideMonthCell).toBeVisible()
+    await expect
+        .poll(() => outsideMonthCell.evaluate(element => getComputedStyle(element).backgroundImage))
+        .toContain('repeating-linear-gradient')
 
+    await calendar.getByRole('button', { name: 'Month', exact: true }).focus()
+    await page.keyboard.press('W')
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    const keyboardWeekUrl = new URL(page.url())
+    expect(keyboardWeekUrl.searchParams.get('view')).toBe('week')
+    expect(keyboardWeekUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    const keyboardWeekDate = keyboardWeekUrl.searchParams.get('date')
+    await page.keyboard.press(']')
+    await expect.poll(() => new URL(page.url()).searchParams.get('date')).not.toBe(keyboardWeekDate)
+    const keyboardNextDate = new URL(page.url()).searchParams.get('date')
+    await page.reload()
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('view')).toBe('week')
+    expect(new URL(page.url()).searchParams.get('date')).toBe(keyboardNextDate)
+
+    await page.goto(`/dashboard/projects/${projectId}/overview?calendar=reui`)
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(calendar.locator('[data-calendar-view="agenda"]')).toBeVisible()
     await calendar.getByRole('button', { name: 'Month', exact: true }).click()

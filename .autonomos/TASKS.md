@@ -269,3 +269,15 @@ the central project reads and projection/realtime reliability.
 ## 🧭 Calendar continuity and state persistence
 
 - [x] **[WEB-164]** Make the populated Week/Day anchor visibly effective and persist the selected calendar view `Priority: 🟠` `Complexity: M` — [ISSUE-088] [ISSUE-089]; give the time grid a real bounded scroll surface so data-aware positioning is observable without hiding hours, keep headers aligned with the scrolled columns, make `view` a validated overview query source of truth with responsive fallback when absent, and cover empty/populated anchor behavior plus reload persistence in unit and browser evidence. Full format, lint, typecheck/i18n, unit, browser, and package-build validation passed.
+
+## 🧭 Calendar context continuity
+
+- [x] **[WEB-165]** Persist the focused calendar date and apply the route history policy `Priority: 🟠` `Complexity: M` — [ISSUE-090]; validate a canonical `date=YYYY-MM-DD`, make Month/Week/Day/Agenda derive their context from it, use `replace` for reading-state changes, preserve other overview search values, and cover reload, view switching, period navigation, and explicit task navigation. Implemented with timezone-safe civil-date parsing and browser coverage.
+
+## 🎨 Calendar month context
+
+- [x] **[DESIGN-166]** Distinguish outside-month cells with a restrained surface treatment `Priority: 🔵` `Complexity: S` — [ISSUE-091]; keep adjacent-month dates interactive while adding one theme-aware diagonal hatch that respects the surface grammar and does not introduce borders, shadows, or disabled semantics. Implemented and visually verified in light and dark themes.
+
+## ⌨️ Calendar keyboard navigation pilot
+
+- [x] **[WEB-167]** Add focused calendar reading shortcuts with TanStack React Hotkeys `Priority: 🔵` `Complexity: M` — [ISSUE-092]; implement `T`, `M/W/D/A`, and `[/]` period commands only while the calendar owns focus, ignore editable controls and contextual surfaces, reuse existing view/date callbacks, add keyboard metadata, and cover keyboard behavior without creating a global shortcut layer. Implemented with scoped target registration and browser coverage.

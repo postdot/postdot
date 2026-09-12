@@ -1,3 +1,5 @@
+import { TZDate } from '@date-fns/tz'
+
 import type { PublicationSummary } from '@/lib/api'
 import { getZonedDateTimeParts, parseDateTimeLocal } from '@/lib/date-time'
 
@@ -140,8 +142,65 @@ export function toDateKey(date: Date, timeZone = 'UTC') {
     return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
 }
 
+/**
+ * Validate the date-only format used by calendar URLs without letting the
+ * host runtime reinterpret the value as UTC or local time.
+ */
+export function isCalendarDateKey(value: unknown): value is string {
+    return readCalendarDateParts(value) !== null
+}
+
+/** Parse a calendar URL date as a civil UTC-noon cursor for calendar math. */
+export function parseCalendarDateKey(value: unknown): Date | undefined {
+    const parts = readCalendarDateParts(value)
+    return parts === null ? undefined : createCivilDate(parts.year, parts.month - 1, parts.day)
+}
+
+/**
+ * Materialize a calendar URL date at local noon in the project's timezone.
+ * The timezone-aware instance keeps the focused civil day stable even when a
+ * project's offset would move a UTC-noon Date across a date boundary.
+ */
+export function calendarDateFromKey(value: unknown, timeZone = 'UTC'): Date | undefined {
+    const parts = readCalendarDateParts(value)
+    return parts === null
+        ? undefined
+        : new TZDate(parts.year, parts.month - 1, parts.day, 12, timeZone)
+}
+
 function createCivilDate(year: number, month: number, day: number) {
-    return new Date(Date.UTC(year, month, day, 12))
+    const date = new Date(0)
+    date.setUTCFullYear(year, month, day)
+    date.setUTCHours(12, 0, 0, 0)
+    return date
+}
+
+function readCalendarDateParts(value: unknown) {
+    if (typeof value !== 'string') return null
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+    if (match === null) return null
+
+    const year = Number(match[1])
+    const month = Number(match[2])
+    const day = Number(match[3])
+    if (
+        year < 1 ||
+        year > 9999 ||
+        month < 1 ||
+        month > 12 ||
+        day < 1 ||
+        day > daysInMonth(year, month)
+    ) {
+        return null
+    }
+
+    return { day, month, year }
+}
+
+function daysInMonth(year: number, month: number) {
+    const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+    if (month === 2) return leapYear ? 29 : 28
+    return [4, 6, 9, 11].includes(month) ? 30 : 31
 }
 
 function toCivilDateKey(date: Date) {

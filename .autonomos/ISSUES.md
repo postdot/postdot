@@ -2400,3 +2400,94 @@ channels` with a foreign-key constraint error even though a fresh empty database
   coverage confirms Week and Day survive a reload. The calendar cursor, scroll
   position, expanded day, and column widths remain intentionally separate
   contracts.
+
+## [ISSUE-090] Preserve the focused calendar date across reading changes
+
+- Type: problem
+- Status: resolved
+- Evidence: The selected `view` is now URL-authoritative, but the calendar
+  cursor still lives in `PublicationCalendarPage` state. Refreshing an
+  overview, opening a copied link, or changing between Month, Week, Day, and
+  Agenda can therefore lose the date the operator was reviewing and fall back
+  to the current month or day.
+- Impact: Calendar navigation is not durable, and a user can lose temporal
+  context during an ordinary reload or view switch. Using browser history for
+  every period click would also make routine reading create a long, low-value
+  history trail.
+- Desired outcome: The overview accepts a canonical civil `date=YYYY-MM-DD`
+  query value interpreted in the project's timezone. Month derives its
+  containing month from that date; Week, Day, and Agenda retain the focused
+  date. View/date/period changes replace the current overview history entry,
+  while explicit navigation to another task keeps normal push semantics.
+- Scope boundary: This persists the focused date and defines its history
+  policy. It does not persist scroll position, expanded cells, column widths,
+  or a user working-hours preference.
+- Tasks: WEB-165
+- Related issues: ISSUE-089
+- Related decisions: ADR-057, ADR-070
+- Resolution: WEB-165 makes the focused civil date a validated `date=YYYY-MM-DD`
+  overview parameter interpreted in the project timezone. Month, Week, Day, and
+  Agenda derive their context from the same URL date, and reading changes use
+  replacement navigation while Compose and publication detail retain push
+  navigation. Unit, browser, and integrated-browser checks confirm date/view
+  continuity after navigation and reload.
+
+## [ISSUE-091] Distinguish adjacent-month days without disabling them
+
+- Type: problem
+- Status: resolved
+- Evidence: The experimental Month view renders leading and trailing days in
+  the same surface treatment as the active month. The date numbers are muted,
+  but the grid does not communicate the month boundary clearly enough during
+  scanning.
+- Impact: Publications shown in a six-week frame can appear to belong to the
+  wrong month, especially when a dense day or a selected date sits near a
+  boundary. A stronger fill or border would conflict with Herald's restrained
+  surface grammar and could imply that those dates are unavailable.
+- Desired outcome: Outside-month cells remain fully interactive and readable,
+  while a subtle theme-aware diagonal hatch distinguishes them from the
+  current month without adding a new border, shadow, or semantic disabled
+  state.
+- Scope boundary: This covers Month-view context only. It does not change
+  date selection, event grouping, responsive breakpoints, or the number of
+  rendered weeks.
+- Tasks: DESIGN-166
+- Related issues: ISSUE-084, ISSUE-090
+- Related decisions: ADR-057, ADR-070
+- Resolution: DESIGN-166 adds one restrained, foreground-derived diagonal hatch
+  to outside-month ReUI cells. The cells remain interactive and keep the
+  existing surface, border, shadow, and accessibility semantics. Light- and
+  dark-theme browser captures, plus the populated calendar scenario, verify the
+  distinction without introducing a disabled visual state.
+
+## [ISSUE-092] Add a bounded, calendar-scoped keyboard navigation pilot
+
+- Type: proposal
+- Status: resolved
+- Evidence: Calendar view and navigation controls already expose a stable
+  product vocabulary, and the project direction explicitly supports pointer,
+  keyboard, and narrow-screen use. The calendar primitive carries shortcut
+  configuration and localized view hints, but no actual reading-mode shortcut
+  handler is wired in the experimental surface.
+- Impact: Operators who review schedules frequently must repeatedly reach for
+  navigation controls, while adding global shortcuts prematurely could steal
+  keystrokes from forms, dialogs, and other routes.
+- Desired outcome: Introduce a small pilot using the TanStack React Hotkeys
+  package, scoped to a focused calendar surface and ignored while typing in
+  editable controls. `T` goes to today, `M`/`W`/`D`/`A` select Month/Week/Day/
+  Agenda, and `[`/`]` move to the previous/next period. The pilot must reuse
+  the existing callbacks, preserve the URL state contract, and expose
+  keyboard metadata without adding explanatory copy to the calendar by
+  default.
+- Scope boundary: No create/publish shortcut, user-customizable bindings,
+  global application shortcut layer, or shortcut-help panel is included in
+  this pilot. Those require evidence from real use.
+- Tasks: WEB-167
+- Related issues: ISSUE-089, ISSUE-090
+- Related decisions: ADR-057, ADR-070
+- Resolution: WEB-167 adds a TanStack React Hotkeys pilot scoped to the mounted
+  calendar surface. `T`, `M`/`W`/`D`/`A`, and `[`/`]` reuse the calendar's
+  existing Today, view, and period callbacks, update the same URL state, ignore
+  editable controls, and are disabled while the in-context preview is open.
+  Browser coverage verifies view/date changes and reload continuity; no global
+  shortcut layer or extra explanatory copy was introduced.

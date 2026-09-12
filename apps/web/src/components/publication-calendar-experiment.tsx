@@ -2,15 +2,19 @@ import { Button } from '@herald/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
+import type { RegisterableHotkey } from '@tanstack/hotkeys'
+import { useHotkeys } from '@tanstack/react-hotkeys'
 import { useNavigate } from '@tanstack/react-router'
 import { enUS, fr } from 'date-fns/locale'
 import {
     useCallback,
     useMemo,
+    useRef,
     useState,
     useSyncExternalStore,
     type CSSProperties,
     type MouseEvent,
+    type RefObject,
 } from 'react'
 
 import { PublicationCalendarPreviewSheet } from '@/components/publication-calendar-preview-sheet'
@@ -32,7 +36,7 @@ import type {
 import type { PublicationSummary } from '@/lib/api'
 import { getZonedDateTimeParts } from '@/lib/date-time'
 import { formatTime } from '@/lib/format'
-import { toDateKey, startOfCalendarMonth } from '@/lib/publication-calendar'
+import { toDateKey } from '@/lib/publication-calendar'
 import {
     type PublicationCalendarEventData,
     isPublicationCalendarView,
@@ -47,13 +51,20 @@ const EXPERIMENTAL_INTERACTIONS = {
     resize: false,
     selectSlot: false,
 } as const
+const CALENDAR_VIEW_SHORTCUTS = {
+    agenda: 'A',
+    day: 'D',
+    days: '5',
+    month: 'M',
+    resource: 'G',
+    week: 'W',
+} satisfies Record<CalendarView, RegisterableHotkey>
 
 export function PublicationCalendarExperiment({
     duePublicationIds,
     loading,
     locale,
-    monthCursor,
-    onMonthChange,
+    calendarDate,
     initialView,
     projectId,
     publications,
@@ -62,8 +73,7 @@ export function PublicationCalendarExperiment({
     readonly duePublicationIds: ReadonlySet<string>
     readonly loading: boolean
     readonly locale: string
-    readonly monthCursor: Date
-    readonly onMonthChange: (cursor: Date) => void
+    readonly calendarDate: Date
     readonly initialView?: PublicationCalendarView
     readonly projectId: string
     readonly publications: readonly PublicationSummary[]
@@ -79,6 +89,7 @@ export function PublicationCalendarExperiment({
     const isNarrow = useMediaQuery(MOBILE_CALENDAR_QUERY)
     const [expandedDay, setExpandedDay] = useState<Date | null>(null)
     const [previewPublicationId, setPreviewPublicationId] = useState<string | null>(null)
+    const calendarShellRef = useRef<HTMLDivElement>(null)
     const expandedDayKey = expandedDay === null ? null : toDateKey(expandedDay, timeZone)
     const viewPreference = initialView ?? 'auto'
     const view = viewPreference === 'auto' ? (isNarrow ? 'agenda' : 'month') : viewPreference
@@ -114,28 +125,30 @@ export function PublicationCalendarExperiment({
     const handleDateChange = useCallback(
         (date: Date) => {
             setExpandedDay(null)
-            onMonthChange(
-                view === 'month'
-                    ? startOfCalendarMonth(date, timeZone)
-                    : calendarCursorFor(date, timeZone)
-            )
+            void navigate({
+                params: { projectId },
+                replace: true,
+                search: previous => ({ ...previous, date: toDateKey(date, timeZone) }),
+                to: '/dashboard/projects/$projectId/overview',
+            })
         },
-        [onMonthChange, timeZone, view]
+        [navigate, projectId, timeZone]
     )
     const handleViewChange = useCallback(
         (nextView: CalendarView) => {
             if (!isPublicationCalendarView(nextView)) return
-            if (nextView === 'week' || nextView === 'day') {
-                onMonthChange(calendarCursorFor(expandedDay ?? new Date(), timeZone))
-            }
             void navigate({
                 params: { projectId },
                 replace: true,
-                search: previous => ({ ...previous, view: nextView }),
+                search: previous => ({
+                    ...previous,
+                    date: previous.date ?? toDateKey(calendarDate, timeZone),
+                    view: nextView,
+                }),
                 to: '/dashboard/projects/$projectId/overview',
             })
         },
-        [expandedDay, navigate, onMonthChange, projectId, timeZone]
+        [calendarDate, navigate, projectId, timeZone]
     )
     const handleSlotClick = useCallback(
         (slot: EventCalendarSlotInfo, event: MouseEvent) => {
@@ -180,10 +193,14 @@ export function PublicationCalendarExperiment({
     )
 
     return (
-        <div className="min-w-0" data-calendar-experiment="reui">
+        <div
+            className="min-w-0"
+            data-calendar-experiment="reui"
+            ref={calendarShellRef}
+            tabIndex={-1}>
             <EventCalendar<PublicationCalendarEventData>
                 className="rounded-lg bg-surface-inset p-1 shadow-surface"
-                date={monthCursor}
+                date={calendarDate}
                 defaultView="month"
                 defaultViewSettings={{
                     nowIndicator: false,
@@ -231,7 +248,10 @@ export function PublicationCalendarExperiment({
                     monthView: '!border-0',
                     moreIndicator: 'px-1.5 text-primary',
                 }}>
-                <EventCalendarToolbar />
+                <EventCalendarToolbar
+                    hotkeyTarget={calendarShellRef}
+                    shortcutsEnabled={previewPublicationId === null}
+                />
                 <ExperimentalCalendarBody
                     expandedDay={expandedDay}
                     locale={locale}
@@ -253,26 +273,72 @@ export function PublicationCalendarExperiment({
     )
 }
 
-function EventCalendarToolbar() {
+function EventCalendarToolbar({
+    hotkeyTarget,
+    shortcutsEnabled,
+}: {
+    readonly hotkeyTarget: RefObject<HTMLDivElement | null>
+    readonly shortcutsEnabled: boolean
+}) {
     const { title, prev, next, today, isToday } = useEventCalendarNavigation()
     const { view, availableViews, setView, dayCount } = useEventCalendarView()
     const settings = useEventCalendarSettings()
+
+    useHotkeys(
+        [
+            {
+                callback: () => today(),
+                hotkey: 'T',
+                options: { meta: { name: settings.i18n.labels.today } },
+            },
+            {
+                callback: prev,
+                hotkey: '[',
+                options: { meta: { name: settings.i18n.labels.previous } },
+            },
+            {
+                callback: next,
+                hotkey: ']',
+                options: { meta: { name: settings.i18n.labels.next } },
+            },
+            ...availableViews.map(availableView => ({
+                callback: () => setView(availableView),
+                hotkey: CALENDAR_VIEW_SHORTCUTS[availableView],
+                options: { meta: { name: viewName(settings, availableView, dayCount) } },
+            })),
+        ],
+        {
+            enabled: shortcutsEnabled,
+            ignoreInputs: true,
+            preventDefault: true,
+            requireReset: true,
+            stopPropagation: true,
+            target: hotkeyTarget,
+        }
+    )
 
     return (
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-1.5">
                 <Button
                     aria-label={settings.i18n.labels.previous}
+                    aria-keyshortcuts="["
                     onClick={prev}
                     size="icon-sm"
                     variant="ghost">
                     <AltArrowLeftIcon aria-hidden="true" />
                 </Button>
-                <Button aria-pressed={isToday} onClick={today} size="sm" variant="ghost">
+                <Button
+                    aria-keyshortcuts="T"
+                    aria-pressed={isToday}
+                    onClick={today}
+                    size="sm"
+                    variant="ghost">
                     {settings.i18n.labels.today}
                 </Button>
                 <Button
                     aria-label={settings.i18n.labels.next}
+                    aria-keyshortcuts="]"
                     onClick={next}
                     size="icon-sm"
                     variant="ghost">
@@ -292,6 +358,7 @@ function EventCalendarToolbar() {
                     {availableViews.map(availableView => (
                         <Button
                             aria-pressed={availableView === view}
+                            aria-keyshortcuts={CALENDAR_VIEW_SHORTCUTS[availableView]}
                             key={availableView}
                             onClick={() => setView(availableView)}
                             size="sm"
@@ -527,11 +594,6 @@ function PublicationEventContent({
     )
 }
 
-function calendarCursorFor(date: Date, timeZone: string) {
-    const [year, month, day] = toDateKey(date, timeZone).split('-').map(Number)
-    return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1, 12))
-}
-
 function calendarTimeFor(date: Date, timeZone: string) {
     const parts = getZonedDateTimeParts(date.getTime(), timeZone)
     return `${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`
@@ -577,12 +639,7 @@ function createCalendarI18n(locale: string, timeZone: string) {
             today: french ? 'Aujourd’hui' : 'Today',
             toggleDayEvents: (count: number) => `${count}`,
             viewShortcuts: {
-                agenda: 'A',
-                day: 'D',
-                days: '5',
-                month: 'M',
-                resource: 'G',
-                week: 'W',
+                ...CALENDAR_VIEW_SHORTCUTS,
             },
             week: (weekNumber: number) => `S${weekNumber}`,
         },

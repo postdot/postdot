@@ -21,9 +21,11 @@ import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import {
     createCalendarMonth,
+    calendarDateFromKey,
     getCalendarMonthTimestampRange,
     getCalendarViewportTimestampRange,
     getUnscheduledPublications,
+    parseCalendarDateKey,
     shiftCalendarMonth,
     startOfCalendarMonth,
     toDateKey,
@@ -33,26 +35,39 @@ import * as m from '@/paraglide/messages.js'
 
 export function PublicationCalendarPage({
     experimentalCalendar = false,
+    initialCalendarDateKey,
     initialCalendarView,
     mode = 'calendar',
 }: {
     readonly experimentalCalendar?: boolean
+    readonly initialCalendarDateKey?: string
     readonly initialCalendarView?: PublicationCalendarView
     readonly mode?: 'calendar' | 'overview'
 } = {}) {
     const { locale } = useLanguage()
     const { due, project, publications } = useProjectDashboard()
-    const [monthCursor, setMonthCursor] = useState(() =>
-        startOfCalendarMonth(new Date(), project.timeZone)
+    const [monthCursor, setMonthCursor] = useState(
+        () =>
+            parseCalendarDateKey(initialCalendarDateKey) ??
+            startOfCalendarMonth(new Date(), project.timeZone)
     )
     const todayDate = toDateKey(new Date(), project.timeZone)
+    const experimentalCalendarDateKey = initialCalendarDateKey ?? todayDate
+    const experimentalCalendarCursor = useMemo(
+        () => parseCalendarDateKey(experimentalCalendarDateKey) ?? new Date(),
+        [experimentalCalendarDateKey]
+    )
+    const experimentalCalendarDate = useMemo(
+        () => calendarDateFromKey(experimentalCalendarDateKey, project.timeZone) ?? new Date(),
+        [experimentalCalendarDateKey, project.timeZone]
+    )
     const [mobileCreateDate, setMobileCreateDate] = useState(todayDate)
     const calendarRange = useMemo(
         () =>
             experimentalCalendar
-                ? getCalendarViewportTimestampRange(monthCursor, project.timeZone)
+                ? getCalendarViewportTimestampRange(experimentalCalendarCursor, project.timeZone)
                 : getCalendarMonthTimestampRange(monthCursor, project.timeZone),
-        [experimentalCalendar, monthCursor, project.timeZone]
+        [experimentalCalendar, experimentalCalendarCursor, monthCursor, project.timeZone]
     )
     const calendarPublicationsQuery = useQuery({
         queryKey: [
@@ -150,8 +165,7 @@ export function PublicationCalendarPage({
                         duePublicationIds={dueIds}
                         loading={calendarPublicationsQuery.isFetching}
                         locale={locale}
-                        monthCursor={monthCursor}
-                        onMonthChange={setMonthCursor}
+                        calendarDate={experimentalCalendarDate}
                         initialView={initialCalendarView}
                         projectId={project.id}
                         publications={calendarPublications}
