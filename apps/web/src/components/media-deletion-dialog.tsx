@@ -76,8 +76,8 @@ export function MediaDeletionDialog({
             <DialogContent
                 data-media-delete-dialog="true"
                 showCloseButton={false}
-                className="max-w-md gap-0 overflow-hidden p-0">
-                <div className="flex items-center gap-3 border-b border-border/60 px-5 py-4">
+                className="min-w-0 max-w-md gap-0 overflow-hidden p-0 sm:max-w-lg">
+                <div className="flex min-w-0 items-center gap-3 border-b border-border/60 px-5 py-4">
                     <div
                         data-media-delete-preview="true"
                         className="size-16 shrink-0 overflow-hidden rounded-md bg-muted">
@@ -88,7 +88,7 @@ export function MediaDeletionDialog({
                             className="size-full rounded-md object-cover text-xs font-medium uppercase text-muted-foreground"
                         />
                     </div>
-                    <DialogHeader className="min-w-0 p-0">
+                    <DialogHeader className="min-w-0 flex-1 p-0">
                         <DialogTitle>{m.media_delete_title()}</DialogTitle>
                         <DialogDescription className="truncate">
                             {asset.asset.originalFilename}
@@ -96,7 +96,7 @@ export function MediaDeletionDialog({
                     </DialogHeader>
                 </div>
 
-                <div className="space-y-3 px-5 py-4">
+                <div className="min-w-0 space-y-3 px-5 py-4">
                     {usageLoading ? (
                         <p
                             data-media-delete-usage="checking"
@@ -128,7 +128,7 @@ export function MediaDeletionDialog({
                     ) : null}
                 </div>
 
-                <DialogFooter className="border-t border-border/60 bg-muted px-5 py-3">
+                <DialogFooter className="min-w-0 flex-wrap border-t border-border/60 bg-muted px-5 py-3">
                     <Button
                         type="button"
                         variant="ghost"
