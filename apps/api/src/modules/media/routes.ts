@@ -167,6 +167,43 @@ const deletionResponse = Type.Object({
     media: mediaReferenceSchema,
 })
 
+const mediaUsageLocationSchema = Type.Union([
+    Type.Literal('source'),
+    Type.Literal('draft'),
+    Type.Literal('target'),
+    Type.Literal('execution'),
+])
+
+const publicationStateSchema = Type.Union([
+    Type.Literal('draft'),
+    Type.Literal('scheduled'),
+    Type.Literal('ready'),
+    Type.Literal('publishing'),
+    Type.Literal('published'),
+    Type.Literal('failed'),
+    Type.Literal('ambiguous'),
+    Type.Literal('cancelled'),
+])
+
+const mediaUsageReferenceSchema = Type.Object({
+    kind: Type.Union([Type.Literal('post'), Type.Literal('publication')]),
+    id: Type.String({ minLength: 1 }),
+    postId: Type.String({ minLength: 1 }),
+    publicationId: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    title: Type.Union([Type.String(), Type.Null()]),
+    publicationState: Type.Union([publicationStateSchema, Type.Null()]),
+    scheduledAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+    channelName: Type.Union([Type.String(), Type.Null()]),
+    locations: Type.Array(mediaUsageLocationSchema, { minItems: 1 }),
+})
+
+const mediaUsageSchema = Type.Object({
+    assetId: Type.String({ minLength: 1 }),
+    active: Type.Array(mediaUsageReferenceSchema),
+    history: Type.Array(mediaUsageReferenceSchema),
+    auditEventCount: Type.Integer({ minimum: 0 }),
+})
+
 export type MediaAssetResponse = Static<typeof mediaAssetSchema>
 export type MediaRepresentationResponse = Static<typeof mediaRepresentationSchema>
 export type MediaIntentResponse = Static<typeof mediaIntentSchema>
@@ -176,6 +213,7 @@ export type MediaUploadResponse = Static<typeof uploadedResponse>
 export type MediaPendingResponse = Static<typeof pendingResponse>
 export type MediaFinalizeResponse = Static<typeof finalizedResponse>
 export type MediaDeletionResponse = Static<typeof deletionResponse>
+export type MediaAssetUsageResponse = Static<typeof mediaUsageSchema>
 
 export function registerMediaRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -397,6 +435,34 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
             }
         )
         .get(
+            '/api/projects/:projectId/media/:assetId/usage',
+            {
+                auth: true,
+                params: mediaAssetParams,
+                response: {
+                    200: mediaUsageSchema,
+                    401: errorResponse,
+                    404: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'getProjectMediaUsage',
+                    summary: 'Describe project media usage',
+                    tags: ['Media'],
+                },
+            },
+            ({ params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
+                const usage = media.getAssetUsage(params.projectId, params.assetId, user.id)
+                if (usage === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Media asset not found' },
+                    })
+                }
+                return toMediaUsageResponse(usage)
+            }
+        )
+        .get(
             '/api/projects/:projectId/media/:assetId/content',
             {
                 auth: true,
@@ -554,6 +620,22 @@ function mediaUnavailableError() {
 
 type MediaReservation = NonNullable<ReturnType<MediaAssetStore['reserveUpload']>>
 type MediaReference = NonNullable<ReturnType<MediaAssetStore['getAsset']>>
+type MediaAssetUsage = NonNullable<ReturnType<MediaAssetStore['getAssetUsage']>>
+
+function toMediaUsageResponse(usage: MediaAssetUsage): MediaAssetUsageResponse {
+    return {
+        assetId: usage.assetId,
+        active: usage.active.map(reference => ({
+            ...reference,
+            locations: [...reference.locations],
+        })),
+        history: usage.history.map(reference => ({
+            ...reference,
+            locations: [...reference.locations],
+        })),
+        auditEventCount: usage.auditEventCount,
+    }
+}
 
 function toReservationResponse(reservation: MediaReservation) {
     return {

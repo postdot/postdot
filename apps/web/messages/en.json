@@ -480,6 +480,30 @@
     "media_view_asset": "View {filename}",
     "media_viewer_description": "View the full media asset.",
     "media_viewer_hint": "Full-size preview",
+    "media_usage_checking": "Checking usage…",
+    "media_usage_unavailable": "Usage unavailable",
+    "media_usage_unused": "Not used",
+    "media_usage_source": "Present in source content",
+    "media_usage_active": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} active publication",
+                "countPlural=other": "{count} active publications"
+            }
+        }
+    ],
+    "media_usage_history": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} publication in history",
+                "countPlural=other": "{count} publications in history"
+            }
+        }
+    ],
     "media_edit_image": "Edit image",
     "media_editor_description": "Crop, zoom, or rotate this image. Saving creates a new media asset.",
     "media_editor_zoom": "Zoom",

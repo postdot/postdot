@@ -289,6 +289,19 @@ describe('media HTTP routes', () => {
                 asset: { id: reservationBody.asset.id, state: 'ready' },
             })
 
+            const usageResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/usage`,
+                cookie
+            )
+            expect(usageResponse.status).toBe(200)
+            expect(await usageResponse.json()).toEqual({
+                assetId: reservationBody.asset.id,
+                active: [],
+                history: [],
+                auditEventCount: 0,
+            })
+
             const deleteResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}`,
@@ -415,6 +428,7 @@ describe('media HTTP routes', () => {
                 expect.arrayContaining([
                     '/api/projects/{projectId}/media',
                     '/api/projects/{projectId}/media/{assetId}',
+                    '/api/projects/{projectId}/media/{assetId}/usage',
                     '/api/projects/{projectId}/media/{assetId}/content',
                     '/api/projects/{projectId}/media/uploads',
                     '/api/projects/{projectId}/media/uploads/{intentId}',

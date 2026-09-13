@@ -690,6 +690,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/media/uploads/{intentId}',
                 '/api/projects/{projectId}/media/uploads/{intentId}/finalize',
                 '/api/projects/{projectId}/media',
+                '/api/projects/{projectId}/media/{assetId}/usage',
                 '/api/projects/{projectId}/media/{assetId}/content',
                 '/api/projects/{projectId}/media/{assetId}',
                 '/api/notifications',

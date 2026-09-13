@@ -12,6 +12,7 @@ import type {
     ChannelProfileVersionResponse,
     DuePublicationResponse,
     MediaAssetResponse,
+    MediaAssetUsageResponse,
     MediaDeletionResponse,
     MediaFinalizeResponse,
     MediaIntentResponse,
@@ -82,6 +83,7 @@ export type Post = PostResponse
 export type Publication = PublicationResponse
 export type DuePublication = DuePublicationResponse
 export type MediaAsset = MediaAssetResponse
+export type MediaAssetUsage = MediaAssetUsageResponse
 export type MediaRepresentation = MediaRepresentationResponse
 export type MediaIntent = MediaIntentResponse
 export type MediaReference = MediaReferenceResponse

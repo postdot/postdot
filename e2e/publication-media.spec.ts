@@ -385,6 +385,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await selectedMediaPreview.click()
     const mediaViewer = page.getByRole('dialog').filter({ hasText: mediaFilename }).last()
     await expect(mediaViewer).toBeVisible()
+    await expect(mediaViewer.locator('[data-media-usage="ready"]')).toBeVisible()
     await expect(mediaViewer.getByRole('button', { name: 'Edit image', exact: true })).toBeVisible()
     await mediaViewer.getByRole('button', { name: 'Edit image', exact: true }).click()
 

@@ -12,6 +12,7 @@ import {
     type MediaFinalize,
     type MediaReference,
     type MediaReservation,
+    type MediaAssetUsage,
     type MediaUpload,
     type Notification,
     type NotificationInbox,
@@ -559,6 +560,12 @@ export const api = {
         )
     },
 
+    async getMediaUsage(projectId: string, assetId: string): Promise<MediaAssetUsage> {
+        return requestAuth<MediaAssetUsage>(
+            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/usage`
+        )
+    },
+
     async reserveMediaUpload(
         projectId: string,
         input: {
@@ -1083,6 +1090,7 @@ export type {
     ChannelProfileState,
     ChannelProfileVersion,
     DuePublication,
+    MediaAssetUsage,
     MediaFinalize,
     MediaReference,
     MediaReservation,

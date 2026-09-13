@@ -12,6 +12,7 @@ import {
     type MediaRepresentation,
     type MediaRepresentationState,
     type MediaUploadIntent,
+    type PublicationState,
 } from '@herald/core'
 import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@herald/media'
 
@@ -69,6 +70,27 @@ export interface ListMediaAssetsInput {
 export interface MediaAssetListPage {
     readonly items: readonly MediaAssetReference[]
     readonly nextCursor: string | null
+}
+
+export type MediaAssetUsageLocation = 'source' | 'draft' | 'target' | 'execution'
+
+export interface MediaAssetUsageReference {
+    readonly kind: 'post' | 'publication'
+    readonly id: string
+    readonly postId: string
+    readonly publicationId: string | null
+    readonly title: string | null
+    readonly publicationState: PublicationState | null
+    readonly scheduledAt: number | null
+    readonly channelName: string | null
+    readonly locations: readonly MediaAssetUsageLocation[]
+}
+
+export interface MediaAssetUsageSummary {
+    readonly assetId: string
+    readonly active: readonly MediaAssetUsageReference[]
+    readonly history: readonly MediaAssetUsageReference[]
+    readonly auditEventCount: number
 }
 
 export interface MediaAssetContent {
@@ -168,6 +190,18 @@ interface MediaRepresentationRow {
     readonly failureMessage: string | null
     readonly createdAt: number
     readonly updatedAt: number
+}
+
+interface MediaAssetUsageRow {
+    readonly kind: 'post' | 'publication'
+    readonly id: string
+    readonly postId: string
+    readonly publicationId: string | null
+    readonly title: string | null
+    readonly publicationState: PublicationState | null
+    readonly scheduledAt: number | null
+    readonly channelName: string | null
+    readonly location: MediaAssetUsageLocation
 }
 
 interface MediaUploadIntentRow {
@@ -423,6 +457,159 @@ export function createMediaAssetStore(
         where id = 1
           and expires_at > ?1
         limit 1
+    `)
+    const listSourceUsageStatement = client.query<MediaAssetUsageRow, [string, string]>(`
+        select distinct
+               'post' as kind,
+               posts.id as id,
+               posts.id as postId,
+               null as publicationId,
+               posts.title as title,
+               null as publicationState,
+               null as scheduledAt,
+               null as channelName,
+               'source' as location
+        from posts, json_tree(posts.source_content) as content
+        where posts.project_id = ?1
+          and content.type = 'text'
+          and content.value = ?2
+    `)
+    const listDraftUsageStatement = client.query<MediaAssetUsageRow, [string, string]>(`
+        select distinct
+               'publication' as kind,
+               publications.id as id,
+               publications.post_id as postId,
+               publications.id as publicationId,
+               posts.title as title,
+               publications.state as publicationState,
+               publications.scheduled_at as scheduledAt,
+               channels.name as channelName,
+               'draft' as location
+        from publication_working_drafts as drafts
+        inner join publications
+            on publications.project_id = drafts.project_id
+           and publications.id = drafts.publication_id
+        inner join posts
+            on posts.project_id = publications.project_id
+           and posts.id = publications.post_id
+        inner join channels
+            on channels.project_id = publications.project_id
+           and channels.id = publications.channel_id
+        , json_tree(drafts.content_json) as content
+        where drafts.project_id = ?1
+          and content.type = 'text'
+          and content.value = ?2
+    `)
+    const listTargetUsageStatement = client.query<MediaAssetUsageRow, [string, string]>(`
+        select distinct
+               'publication' as kind,
+               publications.id as id,
+               publications.post_id as postId,
+               publications.id as publicationId,
+               posts.title as title,
+               publications.state as publicationState,
+               publications.scheduled_at as scheduledAt,
+               channels.name as channelName,
+               'target' as location
+        from publication_revision_media as revision_media
+        inner join publication_target_revisions as target_revisions
+            on target_revisions.project_id = revision_media.project_id
+           and target_revisions.id = revision_media.target_revision_id
+        inner join publications
+            on publications.project_id = target_revisions.project_id
+           and publications.id = target_revisions.publication_id
+        inner join posts
+            on posts.project_id = publications.project_id
+           and posts.id = publications.post_id
+        inner join channels
+            on channels.project_id = publications.project_id
+           and channels.id = publications.channel_id
+        where revision_media.project_id = ?1
+          and revision_media.asset_id = ?2
+        union
+        select distinct
+               'publication' as kind,
+               publications.id as id,
+               publications.post_id as postId,
+               publications.id as publicationId,
+               posts.title as title,
+               publications.state as publicationState,
+               publications.scheduled_at as scheduledAt,
+               channels.name as channelName,
+               'target' as location
+        from publication_target_revisions as target_revisions
+        inner join publications
+            on publications.project_id = target_revisions.project_id
+           and publications.id = target_revisions.publication_id
+        inner join posts
+            on posts.project_id = publications.project_id
+           and posts.id = publications.post_id
+        inner join channels
+            on channels.project_id = publications.project_id
+           and channels.id = publications.channel_id
+        , json_tree(target_revisions.content_json) as content
+        where target_revisions.project_id = ?1
+          and content.type = 'text'
+          and content.value = ?2
+    `)
+    const listExecutionUsageStatement = client.query<MediaAssetUsageRow, [string, string]>(`
+        select distinct
+               'publication' as kind,
+               publications.id as id,
+               publications.post_id as postId,
+               publications.id as publicationId,
+               posts.title as title,
+               publications.state as publicationState,
+               publications.scheduled_at as scheduledAt,
+               channels.name as channelName,
+               'execution' as location
+        from publication_execution_revision_media as execution_media
+        inner join publication_execution_revisions as execution_revisions
+            on execution_revisions.project_id = execution_media.project_id
+           and execution_revisions.id = execution_media.execution_revision_id
+        inner join publications
+            on publications.project_id = execution_revisions.project_id
+           and publications.id = execution_revisions.publication_id
+        inner join posts
+            on posts.project_id = publications.project_id
+           and posts.id = publications.post_id
+        inner join channels
+            on channels.project_id = publications.project_id
+           and channels.id = publications.channel_id
+        where execution_media.project_id = ?1
+          and execution_media.asset_id = ?2
+        union
+        select distinct
+               'publication' as kind,
+               publications.id as id,
+               publications.post_id as postId,
+               publications.id as publicationId,
+               posts.title as title,
+               publications.state as publicationState,
+               publications.scheduled_at as scheduledAt,
+               channels.name as channelName,
+               'execution' as location
+        from publication_execution_revisions as execution_revisions
+        inner join publications
+            on publications.project_id = execution_revisions.project_id
+           and publications.id = execution_revisions.publication_id
+        inner join posts
+            on posts.project_id = publications.project_id
+           and posts.id = publications.post_id
+        inner join channels
+            on channels.project_id = publications.project_id
+           and channels.id = publications.channel_id
+        , json_tree(execution_revisions.content_json) as content
+        where execution_revisions.project_id = ?1
+          and content.type = 'text'
+          and content.value = ?2
+    `)
+    const countAuditUsageStatement = client.query<{ count: number }, [string, string]>(`
+        select count(*) as count
+        from audit_events
+        where project_id = ?1
+          and entity_type = 'media_asset'
+          and entity_id = ?2
     `)
 
     const insertAssetStatement = client.query<
@@ -1251,6 +1438,31 @@ export function createMediaAssetStore(
             return media === null || media.asset.archivedAt !== null ? null : media
         },
 
+        getAssetUsage(
+            projectId: string,
+            assetId: string,
+            subjectId: string
+        ): MediaAssetUsageSummary | null {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+            const normalizedAssetId = requireNonBlank(assetId, 'assetId')
+            if (!hasProjectAccess(normalizedProjectId, normalizedSubjectId)) return null
+
+            const media = readMedia(normalizedProjectId, normalizedAssetId)
+            if (media === null || media.asset.archivedAt !== null) return null
+
+            const usageRows = [
+                ...listSourceUsageStatement.all(normalizedProjectId, normalizedAssetId),
+                ...listDraftUsageStatement.all(normalizedProjectId, normalizedAssetId),
+                ...listTargetUsageStatement.all(normalizedProjectId, normalizedAssetId),
+                ...listExecutionUsageStatement.all(normalizedProjectId, normalizedAssetId),
+            ]
+            const auditEvents =
+                countAuditUsageStatement.get(normalizedProjectId, normalizedAssetId)?.count ?? 0
+
+            return buildMediaAssetUsage(normalizedAssetId, usageRows, auditEvents)
+        },
+
         async openAssetContent(
             projectId: string,
             assetId: string,
@@ -1655,6 +1867,87 @@ function toMediaUploadIntent(row: MediaUploadIntentRow): MediaUploadIntent {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
+}
+
+function buildMediaAssetUsage(
+    assetId: string,
+    rows: readonly MediaAssetUsageRow[],
+    auditEventCount: number
+): MediaAssetUsageSummary {
+    const active = new Map<string, MutableMediaAssetUsageReference>()
+    const history = new Map<string, MutableMediaAssetUsageReference>()
+
+    for (const row of rows) {
+        const bucket =
+            row.kind === 'post' || isActivePublicationState(row.publicationState) ? active : history
+        const key = `${row.kind}:${row.id}`
+        const existing = bucket.get(key)
+        if (existing === undefined) {
+            bucket.set(key, {
+                kind: row.kind,
+                id: row.id,
+                postId: row.postId,
+                publicationId: row.publicationId,
+                title: row.title,
+                publicationState: row.publicationState,
+                scheduledAt: row.scheduledAt,
+                channelName: row.channelName,
+                locations: new Set([row.location]),
+            })
+        } else {
+            existing.locations.add(row.location)
+        }
+    }
+
+    return {
+        assetId,
+        active: finalizeMediaAssetUsage(active),
+        history: finalizeMediaAssetUsage(history),
+        auditEventCount,
+    }
+}
+
+type MutableMediaAssetUsageReference = Omit<MediaAssetUsageReference, 'locations'> & {
+    readonly locations: Set<MediaAssetUsageLocation>
+}
+
+function finalizeMediaAssetUsage(
+    references: Map<string, MutableMediaAssetUsageReference>
+): readonly MediaAssetUsageReference[] {
+    return [...references.values()]
+        .map(reference => ({
+            ...reference,
+            locations: [...reference.locations].sort(
+                (left, right) =>
+                    mediaAssetUsageLocationOrder.indexOf(left) -
+                    mediaAssetUsageLocationOrder.indexOf(right)
+            ),
+        }))
+        .sort(compareMediaAssetUsageReferences)
+}
+
+const mediaAssetUsageLocationOrder: readonly MediaAssetUsageLocation[] = [
+    'source',
+    'draft',
+    'target',
+    'execution',
+]
+
+function compareMediaAssetUsageReferences(
+    left: MediaAssetUsageReference,
+    right: MediaAssetUsageReference
+): number {
+    const kindOrder = Number(left.kind !== 'post') - Number(right.kind !== 'post')
+    if (kindOrder !== 0) return kindOrder
+
+    const leftScheduledAt = left.scheduledAt ?? Number.MAX_SAFE_INTEGER
+    const rightScheduledAt = right.scheduledAt ?? Number.MAX_SAFE_INTEGER
+    if (leftScheduledAt !== rightScheduledAt) return leftScheduledAt - rightScheduledAt
+    return left.id.localeCompare(right.id)
+}
+
+function isActivePublicationState(state: PublicationState | null): boolean {
+    return state === 'draft' || state === 'scheduled' || state === 'ready' || state === 'publishing'
 }
 
 function hasMediaReference(

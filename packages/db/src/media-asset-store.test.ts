@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { createLocalMediaStore } from '@herald/media'
 
 import { closeDatabase, createDatabase } from './client'
+import { createManualStore } from './manual-store'
 import { createMediaAssetStore } from './media-asset-store'
 import { runMigrations } from './migrations'
 import { actors, posts, projects } from './schema'
@@ -283,6 +284,154 @@ describe('project media lifecycle', () => {
             expect(() =>
                 media.listAssetsPage({ projectId, subjectId, cursor: 'invalid-cursor' })
             ).toThrow()
+        })
+    })
+
+    it('summarizes source, active, and historical media usage', async () => {
+        await withFixture(async ({ database, media, projectId, subjectId }) => {
+            async function createReady(filename: string) {
+                const reservation = media.reserveUpload({
+                    projectId,
+                    subjectId,
+                    originalFilename: filename,
+                })
+                expect(reservation).not.toBeNull()
+                if (reservation === null) throw new Error('Reservation was not created')
+
+                const uploaded = await media.upload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                    source: streamOf(createPng()),
+                })
+                expect(uploaded.kind).toBe('uploaded')
+
+                const finalized = await media.finalizeUpload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                })
+                expect(finalized.kind).toBe('ready')
+                if (finalized.kind !== 'ready') throw new Error('Media was not finalized')
+                return finalized.reservation
+            }
+
+            const activeAsset = await createReady('active.png')
+            const historyAsset = await createReady('history.png')
+            const manual = createManualStore(database, { now: () => now, media })
+            const channel = manual.createChannel({
+                projectId,
+                subjectId,
+                name: 'Usage destination',
+            })
+            if (channel === null) throw new Error('The usage channel was not created')
+
+            const activePost = manual.createPost({
+                projectId,
+                subjectId,
+                title: 'Active launch',
+                sourceContent: {
+                    body: { text: 'Active source', format: 'plain_text' },
+                    media: [{ assetId: activeAsset.asset.id }],
+                },
+                publications: [
+                    {
+                        channelId: channel.id,
+                        scheduledAt: now + 60_000,
+                        targetContent: {
+                            body: 'Active target',
+                            media: [{ assetId: activeAsset.asset.id }],
+                        },
+                    },
+                ],
+            })
+            const activePublication = activePost?.publications[0]
+            if (activePost === null || activePublication === undefined) {
+                throw new Error('The active publication was not created')
+            }
+
+            const historyPost = manual.createPost({
+                projectId,
+                subjectId,
+                title: 'Historical launch',
+                sourceContent: {
+                    body: { text: 'Historical source', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [
+                    {
+                        channelId: channel.id,
+                        scheduledAt: now,
+                        targetContent: {
+                            body: 'Historical target',
+                            media: [{ assetId: historyAsset.asset.id }],
+                        },
+                    },
+                ],
+            })
+            const historyPublication = historyPost?.publications[0]
+            if (historyPost === null || historyPublication === undefined) {
+                throw new Error('The historical publication was not created')
+            }
+            expect(
+                manual.publishManualPublication({
+                    projectId,
+                    publicationId: historyPublication.id,
+                    subjectId,
+                    externalId: 'history-1',
+                })
+            ).toMatchObject({ state: 'published' })
+
+            const activeUsage = media.getAssetUsage(projectId, activeAsset.asset.id, subjectId)
+            expect(activeUsage).toMatchObject({
+                assetId: activeAsset.asset.id,
+                history: [],
+                auditEventCount: 0,
+                active: [
+                    {
+                        kind: 'post',
+                        id: activePost.post.id,
+                        postId: activePost.post.id,
+                        publicationId: null,
+                        title: 'Active launch',
+                        publicationState: null,
+                        scheduledAt: null,
+                        channelName: null,
+                        locations: ['source'],
+                    },
+                    {
+                        kind: 'publication',
+                        id: activePublication.id,
+                        postId: activePost.post.id,
+                        publicationId: activePublication.id,
+                        title: 'Active launch',
+                        publicationState: 'scheduled',
+                        scheduledAt: now + 60_000,
+                        channelName: 'Usage destination',
+                        locations: ['draft', 'target'],
+                    },
+                ],
+            })
+
+            const historyUsage = media.getAssetUsage(projectId, historyAsset.asset.id, subjectId)
+            expect(historyUsage).toMatchObject({
+                assetId: historyAsset.asset.id,
+                active: [],
+                history: [
+                    {
+                        kind: 'publication',
+                        id: historyPublication.id,
+                        postId: historyPost.post.id,
+                        publicationId: historyPublication.id,
+                        title: 'Historical launch',
+                        publicationState: 'published',
+                        scheduledAt: now,
+                        channelName: 'Usage destination',
+                        locations: ['draft', 'target'],
+                    },
+                ],
+                auditEventCount: 0,
+            })
         })
     })
 

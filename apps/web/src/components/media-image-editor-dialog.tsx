@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
-import { api, type MediaReference } from '@/lib/api'
+import { api, type MediaAssetUsage, type MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -37,6 +37,39 @@ export function MediaImageViewerDialog({
     onEdit,
 }: MediaImageViewerDialogProps) {
     useLanguage()
+    const [usage, setUsage] = useState<MediaAssetUsage | null>(null)
+    const [usageLoading, setUsageLoading] = useState(false)
+    const [usageError, setUsageError] = useState(false)
+
+    useEffect(() => {
+        if (!open || asset === null) {
+            setUsage(null)
+            setUsageLoading(false)
+            setUsageError(false)
+            return
+        }
+
+        let active = true
+        setUsage(null)
+        setUsageLoading(true)
+        setUsageError(false)
+        void api
+            .getMediaUsage(asset.asset.projectId, asset.asset.id)
+            .then(result => {
+                if (active) setUsage(result)
+            })
+            .catch(() => {
+                if (active) setUsageError(true)
+            })
+            .finally(() => {
+                if (active) setUsageLoading(false)
+            })
+
+        return () => {
+            active = false
+        }
+    }, [asset?.asset.id, asset?.asset.projectId, open])
+
     if (asset === null) return null
 
     const representation = readyRepresentation(asset)
@@ -74,9 +107,16 @@ export function MediaImageViewerDialog({
                     )}
                 </div>
                 <div className="flex items-center justify-between gap-3 border-t border-border/60 bg-muted px-5 py-3 sm:px-6">
-                    <span className="min-w-0 truncate text-xs text-muted-foreground">
-                        {image ? m.media_viewer_hint() : m.media_file_type()}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                        <span className="block truncate text-xs text-muted-foreground">
+                            {image ? m.media_viewer_hint() : m.media_file_type()}
+                        </span>
+                        <MediaUsageSummary
+                            usage={usage}
+                            loading={usageLoading}
+                            error={usageError}
+                        />
+                    </div>
                     {image ? (
                         <Button type="button" onClick={() => onEdit(asset)}>
                             <GalleryEditIcon aria-hidden="true" />
@@ -86,6 +126,59 @@ export function MediaImageViewerDialog({
                 </div>
             </DialogContent>
         </Dialog>
+    )
+}
+
+function MediaUsageSummary({
+    usage,
+    loading,
+    error,
+}: {
+    readonly usage: MediaAssetUsage | null
+    readonly loading: boolean
+    readonly error: boolean
+}) {
+    if (loading) {
+        return (
+            <span
+                data-media-usage="loading"
+                className="block truncate text-xs text-muted-foreground">
+                {m.media_usage_checking()}
+            </span>
+        )
+    }
+    if (error || usage === null) {
+        return (
+            <span
+                data-media-usage="unavailable"
+                className="block truncate text-xs text-state-attention">
+                {m.media_usage_unavailable()}
+            </span>
+        )
+    }
+
+    const activePublications = usage.active.filter(
+        reference => reference.kind === 'publication'
+    ).length
+    const sourcePost = usage.active.some(reference => reference.kind === 'post')
+    const historyPublications = usage.history.filter(
+        reference => reference.kind === 'publication'
+    ).length
+    const labels: string[] = []
+    if (activePublications > 0) {
+        labels.push(m.media_usage_active({ count: activePublications }))
+    } else if (sourcePost) {
+        labels.push(m.media_usage_source())
+    }
+    if (historyPublications > 0) {
+        labels.push(m.media_usage_history({ count: historyPublications }))
+    }
+    if (labels.length === 0) labels.push(m.media_usage_unused())
+
+    return (
+        <span data-media-usage="ready" className="block truncate text-xs text-muted-foreground">
+            {labels.join(' · ')}
+        </span>
     )
 }
 

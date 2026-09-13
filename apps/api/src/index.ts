@@ -40,6 +40,7 @@ export { createPublisherRuntime } from './modules/publishers/runtime'
 export type { PublisherRuntimeOptions } from './modules/publishers/runtime'
 export type {
     MediaAssetResponse,
+    MediaAssetUsageResponse,
     MediaDeletionResponse,
     MediaFinalizeResponse,
     MediaIntentResponse,
