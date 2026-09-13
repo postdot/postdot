@@ -1,7 +1,3 @@
-import { Button } from '@herald/ui/components/button'
-import { AddIcon } from '@solar-icons/react/bold/add'
-import { Link } from '@tanstack/react-router'
-
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -14,25 +10,7 @@ export function MediaLibraryPage() {
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                action={
-                    <Button
-                        nativeButton={false}
-                        render={
-                            <Link
-                                params={{ projectId: project.id }}
-                                search={{ date: undefined }}
-                                to="/dashboard/projects/$projectId/publications/new"
-                            />
-                        }
-                        variant="default">
-                        <AddIcon aria-hidden="true" />
-                        {m.nav_new_publication()}
-                    </Button>
-                }
-                title={m.media_title()}>
-                <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
-            </DashboardPageHeader>
+            <DashboardPageHeader title={m.media_title()} />
 
             <section className="max-w-4xl">
                 <MediaAttachmentPicker

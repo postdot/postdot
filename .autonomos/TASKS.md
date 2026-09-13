@@ -312,3 +312,7 @@ the central project reads and projection/realtime reliability.
 ## 🎞️ Media library and headless intake boundary
 
 - [x] **[MEDIA-180]** Make the Media route a first-class library and introduce a headless Uppy intake boundary `Priority: 🟠` `Complexity: M` — [ISSUE-102]; keep publication attachment selection separate from library management, route file input and drop handling through Uppy Core/React headless hooks, preserve Herald's reserve/upload/finalize verification lifecycle, and cover ready/pending/failed uploads plus the Media route in localized browser tests. Implemented with a testable Herald adapter, explicit manage mode without selection toggles, a direct New publication action, and no Uppy Dashboard or CSS adoption. The existing Herald-owned image editor remains intact; Uppy Image Editor, cancellation/progress/resumability, and generic media package extraction are separate follow-ups.
+
+## 🌐 External media sources
+
+- [ ] **[MEDIA-181]** Define the first safe set of external media sources for the Herald library `Priority: 🔵` `Complexity: L` — [ISSUE-103]; compare provider plugins and direct picker APIs, choose the self-hosted Companion/authentication boundary, decide which source OAuth credentials and network transfers belong to Herald, and specify failure/retry/privacy contracts before adding source controls. Do not install the all-in-one remote-sources preset or expose unconfigured provider buttons.

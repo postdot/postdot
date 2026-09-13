@@ -445,8 +445,16 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByRole('heading', { name: 'Media', exact: true })).toBeVisible()
     await expect(page.locator('[data-media-dropzone="true"]')).toBeVisible()
     await expect(page.locator('[data-media-selection-toggle="true"]')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Add media', exact: true })).toBeVisible()
-    await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
+    await expect(page.locator('[data-media-import-zone="true"]')).toBeVisible()
+    await expect(
+        page
+            .locator('[data-media-import-zone="true"]')
+            .getByRole('button', { name: 'Import from device', exact: true })
+    ).toBeVisible()
+    await expect(
+        page.locator('main').getByRole('button', { name: 'New publication', exact: true })
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'New publication', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
     await page.getByLabel('Title', { exact: true }).fill(mixedTitle)

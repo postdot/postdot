@@ -353,8 +353,10 @@ function MediaAttachmentPickerView({
                         ? 'border-t border-border/70 bg-muted/25 px-3 py-2'
                         : compact
                           ? 'pt-1'
-                          : 'rounded-lg bg-muted p-4 sm:p-5'
-                } ${dragActive ? 'bg-primary/5' : ''}`}>
+                          : manageOnly
+                            ? 'space-y-4'
+                            : 'rounded-lg bg-muted p-4 sm:p-5'
+                }`}>
                 {inline && !loading && selectedAssets.length > 0 ? (
                     <div className="mb-2 flex flex-wrap gap-2">
                         {selectedAssets.map(({ asset, selection }, index) => (
@@ -381,51 +383,81 @@ function MediaAttachmentPickerView({
                         ))}
                     </div>
                 ) : null}
-                <div
-                    className={
-                        inline
-                            ? 'flex items-center justify-between gap-3'
-                            : compact
-                              ? 'flex items-center justify-between gap-3'
-                              : 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center'
-                    }>
-                    {manageOnly ? null : !inline ? (
-                        <div>
-                            <div className="flex items-center gap-2 text-sm font-medium">
-                                <GalleryAddIcon aria-hidden="true" />
-                                {m.media_attachments_title()}
-                            </div>
-                            {!compact ? (
-                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                    {m.media_picker_description()}
+                {manageOnly ? (
+                    <div
+                        data-media-import-zone="true"
+                        className={`flex min-h-24 flex-col items-center justify-center gap-3 rounded-md bg-surface-inset px-4 py-5 text-center transition-colors sm:flex-row sm:justify-between sm:text-left ${
+                            dragActive ? 'bg-primary/10' : ''
+                        }`}>
+                        <div className="flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                <UploadIcon aria-hidden="true" />
+                            </span>
+                            <div>
+                                <p className="text-sm font-medium">{m.media_drop_files()}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    {m.media_drop_files_hint()}
                                 </p>
-                            ) : null}
+                            </div>
                         </div>
-                    ) : (
-                        <span className="text-xs text-muted-foreground">
-                            {value.length === 0
-                                ? m.media_attachments_title()
-                                : m.common_media_selected({ count: value.length })}
-                        </span>
-                    )}
-                    <Button
-                        type="button"
-                        variant={compact ? 'ghost' : 'secondary'}
-                        size={compact ? 'sm' : 'default'}
-                        disabled={interactionLocked}
-                        onClick={() =>
-                            compact ? setLibraryOpen(true) : fileButtonProps.onClick()
-                        }>
-                        {inline || compact ? (
-                            <GalleryAddIcon aria-hidden="true" />
-                        ) : (
+                        <Button
+                            type="button"
+                            variant="default"
+                            disabled={interactionLocked}
+                            onClick={() => fileButtonProps.onClick()}>
                             <UploadIcon aria-hidden="true" />
+                            {uploading === null
+                                ? m.media_upload_image()
+                                : m.media_uploading({ filename: uploading })}
+                        </Button>
+                    </div>
+                ) : (
+                    <div
+                        className={
+                            inline
+                                ? 'flex items-center justify-between gap-3'
+                                : compact
+                                  ? 'flex items-center justify-between gap-3'
+                                  : 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center'
+                        }>
+                        {!inline ? (
+                            <div>
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                    <GalleryAddIcon aria-hidden="true" />
+                                    {m.media_attachments_title()}
+                                </div>
+                                {!compact ? (
+                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                        {m.media_picker_description()}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : (
+                            <span className="text-xs text-muted-foreground">
+                                {value.length === 0
+                                    ? m.media_attachments_title()
+                                    : m.common_media_selected({ count: value.length })}
+                            </span>
                         )}
-                        {uploading === null
-                            ? m.media_upload()
-                            : m.media_uploading({ filename: uploading })}
-                    </Button>
-                </div>
+                        <Button
+                            type="button"
+                            variant={compact ? 'ghost' : 'secondary'}
+                            size={compact ? 'sm' : 'default'}
+                            disabled={interactionLocked}
+                            onClick={() =>
+                                compact ? setLibraryOpen(true) : fileButtonProps.onClick()
+                            }>
+                            {inline || compact ? (
+                                <GalleryAddIcon aria-hidden="true" />
+                            ) : (
+                                <UploadIcon aria-hidden="true" />
+                            )}
+                            {uploading === null
+                                ? m.media_upload()
+                                : m.media_uploading({ filename: uploading })}
+                        </Button>
+                    </div>
+                )}
 
                 <input
                     {...fileInputProps}
@@ -495,7 +527,7 @@ function MediaAttachmentPickerView({
                         </EmptyHeader>
                     </Empty>
                 ) : (
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className={`${manageOnly ? '' : 'mt-4 '}grid gap-3 sm:grid-cols-2`}>
                         {assets.map(asset => {
                             const selected = value.find(item => item.assetId === asset.asset.id)
                             return (

@@ -499,6 +499,8 @@
     "media_empty_here": "Ajoutez un média si nécessaire.",
     "media_empty_publication_new": "Aucun média ajouté",
     "media_upload_image": "Importer depuis l’appareil",
+    "media_drop_files": "Déposez vos fichiers ici",
+    "media_drop_files_hint": "ou choisissez-les depuis votre appareil",
     "media_remove": "Retirer {filename}",
     "media_move_left": "Déplacer {filename} vers la gauche",
     "media_move_right": "Déplacer {filename} vers la droite",

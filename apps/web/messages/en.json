@@ -502,6 +502,8 @@
     "media_empty_here": "Add media when you need it.",
     "media_empty_publication_new": "No media added",
     "media_upload_image": "Import from device",
+    "media_drop_files": "Drop files here",
+    "media_drop_files_hint": "or choose files from your device",
     "media_remove": "Remove {filename}",
     "media_move_left": "Move {filename} left",
     "media_move_right": "Move {filename} right",

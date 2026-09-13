@@ -2913,3 +2913,35 @@ channels` with a foreign-key constraint error even though a fresh empty database
   then separately assess real progress, cancellation, retry, and resumability
   against the current API lifecycle before changing the editor or extracting a
   shared media package.
+
+## [ISSUE-103] Define safe external media sources for the project library
+
+- Type: proposal
+- Status: open
+- Evidence: The first Uppy integration deliberately supports local device
+  selection and drag-and-drop only. Uppy documents remote sources such as
+  Google Drive, Dropbox, OneDrive, Unsplash, and URL import as separate
+  provider plugins; those integrations require Companion to authenticate with
+  the remote service and transfer the selected file. The current Herald API
+  has no Companion boundary or remote-source ownership model.
+- Impact: Adding source buttons without deciding which providers Herald
+  supports, where OAuth credentials live, and which service downloads the
+  bytes would create misleading UI and an unreviewed security/deployment
+  boundary. Installing the all-in-one remote-sources preset would also pull in
+  most provider plugins when the product may only need a small subset.
+- Desired outcome: Choose a deliberately small first set of external sources,
+  define their authentication, privacy, network-egress, byte-transfer,
+  failure, and self-hosting contracts, then expose them through a
+  Herald-owned source picker that feeds the same verified media lifecycle as
+  local files.
+- Scope boundary: This investigation does not add Uppy Dashboard, enable a
+  hosted Companion by default, store third-party OAuth tokens in the media
+  domain, or install every remote-source plugin. Local device/drop handling
+  remains available while the source contract is evaluated.
+- Tasks: MEDIA-181
+- Related issues: ISSUE-003, ISSUE-101, ISSUE-102
+- Acceptance: The supported-source list and deployment mode are explicit; each
+  selected provider has a reviewed OAuth and transfer boundary; unsupported or
+  unconfigured sources are absent from the UI; imported bytes enter the same
+  Herald reserve/upload/finalize/verification lifecycle; focused security,
+  failure, and browser coverage exists before any source is enabled.
