@@ -311,7 +311,7 @@ building it; the current app contract must not silently decide those choices.
   page exceptions.
 - Owner review note: 2026-09-12 — the owner rejected redundant preview labels,
   duplicate dismissal affordances, and a second status marker. For the
-  experimental calendar, day inspection must remain in the calendar flow: the
+  project calendar, day inspection must remain in the calendar flow: the
   selected cell grows with its week row and reveals all scheduled publications,
   while the add control remains the singular create entry point. Mobile
   density and the final month/agenda transition remain open for the WEB-156

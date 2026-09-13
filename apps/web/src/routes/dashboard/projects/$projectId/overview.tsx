@@ -5,10 +5,9 @@ import { isCalendarDateKey } from '@/lib/publication-calendar'
 import {
     isPublicationCalendarView,
     type PublicationCalendarView,
-} from '@/lib/publication-calendar-experiment'
+} from '@/lib/publication-calendar-events'
 
 export interface OverviewSearch {
-    calendar?: 'legacy' | 'reui'
     date?: string
     view?: PublicationCalendarView
 }
@@ -16,9 +15,6 @@ export interface OverviewSearch {
 export const Route = createFileRoute('/dashboard/projects/$projectId/overview')({
     validateSearch: (search: Record<string, unknown>): OverviewSearch => {
         const validated: OverviewSearch = {}
-        if (search.calendar === 'legacy' || search.calendar === 'reui') {
-            validated.calendar = search.calendar
-        }
         if (isCalendarDateKey(search.date)) {
             validated.date = search.date
         }

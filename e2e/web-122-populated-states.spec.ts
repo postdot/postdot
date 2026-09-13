@@ -66,20 +66,17 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
         })
     })
 
-    await page.goto(`/dashboard/projects/${projectId}/overview?calendar=legacy`)
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 
     const overviewSummary = page.getByLabel('Overview summary', { exact: true })
     await expect(overviewSummary).toContainText('4 scheduled')
     await expect(overviewSummary).toContainText('4 unscheduled')
     await expect(overviewSummary).toContainText('1 needs attention')
-    const overviewCalendar = page.locator('[data-calendar-view="month"]')
+    const overviewCalendar = page.locator('[data-calendar="reui"]')
     await expect(overviewCalendar).toBeVisible()
-    await expect(overviewCalendar.locator('a[href*="/publications/"]')).toHaveCount(3)
-    await expect(overviewCalendar.getByText('+1', { exact: true })).toBeVisible()
-    await expect(
-        overviewCalendar.getByText(`E2E-122 publication 7 ${suffix}`, { exact: true })
-    ).toHaveCount(0)
+    await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
+    await expect(overviewCalendar.locator('[data-slot="event-calendar-event"]')).toHaveCount(4)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
@@ -165,8 +162,8 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
         })
     })
 
-    await page.goto(`/dashboard/projects/${projectId}/overview?calendar=reui`)
-    const calendar = page.locator('[data-calendar-experiment="reui"]')
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
+    const calendar = page.locator('[data-calendar="reui"]')
     await expect(calendar).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -223,7 +220,7 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     expect(new URL(page.url()).searchParams.get('view')).toBe('week')
     expect(new URL(page.url()).searchParams.get('date')).toBe(keyboardNextDate)
 
-    await page.goto(`/dashboard/projects/${projectId}/overview?calendar=reui`)
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
     await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(calendar.locator('[data-calendar-view="agenda"]')).toBeVisible()
@@ -427,7 +424,7 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
         `${composeUrl.searchParams.get('date')}T00:00`
     )
 
-    await page.goto(`/dashboard/projects/${projectId}/overview?calendar=reui`)
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
     await expect(calendar.locator('[data-calendar-view="month"]')).toBeVisible()
     await calendar.getByRole('button', { name: 'Week', exact: true }).click()
     await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()

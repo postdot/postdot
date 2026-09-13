@@ -2635,3 +2635,38 @@ channels` with a foreign-key constraint error even though a fresh empty database
   and the time gutter/header intersection stay sticky during horizontal
   scrolling. The deterministic browser scenario, full E2E suite (17/17),
   full repository gate, and light/dark integrated review pass.
+
+## [ISSUE-097] Retire the reviewed calendar fallback
+
+- Type: maintenance
+- Status: resolved
+- Evidence: The ReUI calendar is now the reviewed default overview and owns
+  the current Month, Week, Day, Agenda, density, creation, inspection,
+  responsive, and URL-state contracts. The old month/agenda implementation is
+  still reachable through `?calendar=legacy`, and the route/tests retain a
+  second implementation that no longer represents the accepted product path.
+- Impact: A disposable review switch keeps dead UI code, stale test contracts,
+  and an unsupported alternate behavior in the application. It also makes the
+  overview's canonical route less explicit and leaves future calendar fixes
+  vulnerable to being applied to the wrong implementation.
+- Desired outcome: The ReUI calendar is the sole overview implementation. The
+  overview route ignores/removes the legacy selector, the dead legacy
+  components and copy are deleted, and tests prove the canonical route without
+  weakening the existing calendar behavior.
+- Scope boundary: This retires only the reviewed calendar fallback and its
+  obsolete implementation/test references. It does not redesign Calendar or
+  Composer, change the URL contract for `view`/`date`, or remove the separate
+  project calendar route unless code inspection proves it is an unused alias.
+- Tasks: WEB-172
+- Related issues: ISSUE-080, ISSUE-081, ISSUE-089, ISSUE-090, ISSUE-096
+- Related decisions: ADR-070, ADR-073
+- Acceptance: No application or test path relies on `calendar=legacy`; the
+  overview route exposes the canonical ReUI calendar with validated `view` and
+  `date` state; the legacy month/agenda implementation and now-unused copy are
+  removed; focused calendar tests and the full repository gate pass.
+- Resolution: WEB-172 makes the ReUI calendar the sole overview implementation.
+  The legacy selector, obsolete month/agenda component, unused project-calendar
+  alias, stale helpers/messages, and experimental naming were removed; route
+  generation and browser coverage now exercise the canonical `view`/`date`
+  contract. Focused unit and browser tests, the full repository gate, and the
+  production build pass. Historical Autonomos records remain unchanged.

@@ -9,14 +9,14 @@ test('makes the calendar the first project view while keeping Queue focused', as
     await createAccountAndProject(page, suffix)
 
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
-    await expect(page.locator('[data-calendar-experiment="reui"]')).toBeVisible()
+    await expect(page.locator('[data-calendar="reui"]')).toBeVisible()
     await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
     await expect(
         page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
     ).toHaveCount(1)
 
     await page.setViewportSize({ width: 1280, height: 900 })
-    const calendar = page.locator('[data-calendar-experiment="reui"]')
+    const calendar = page.locator('[data-calendar="reui"]')
     await calendar.getByRole('button', { name: 'Week', exact: true }).click()
     const emptyWeek = calendar.locator('[data-calendar-view="week"]')
     await expect(emptyWeek).toBeVisible()

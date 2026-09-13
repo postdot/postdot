@@ -43,11 +43,11 @@ import {
     isPublicationCalendarView,
     type PublicationCalendarView,
     toPublicationCalendarEvents,
-} from '@/lib/publication-calendar-experiment'
+} from '@/lib/publication-calendar-events'
 
-const EXPERIMENTAL_VIEWS: CalendarView[] = ['month', 'week', 'day', 'agenda']
+const CALENDAR_VIEWS: CalendarView[] = ['month', 'week', 'day', 'agenda']
 const MOBILE_CALENDAR_QUERY = '(max-width: 47.999rem)'
-const EXPERIMENTAL_INTERACTIONS = {
+const CALENDAR_INTERACTIONS = {
     drag: false,
     resize: false,
     selectSlot: false,
@@ -61,7 +61,7 @@ const CALENDAR_VIEW_SHORTCUTS = {
     week: 'W',
 } satisfies Record<CalendarView, RegisterableHotkey>
 
-export function PublicationCalendarExperiment({
+export function PublicationCalendar({
     duePublicationIds,
     loading,
     locale,
@@ -194,11 +194,7 @@ export function PublicationCalendarExperiment({
     )
 
     return (
-        <div
-            className="min-w-0"
-            data-calendar-experiment="reui"
-            ref={calendarShellRef}
-            tabIndex={-1}>
+        <div className="min-w-0" data-calendar="reui" ref={calendarShellRef} tabIndex={-1}>
             <EventCalendar<PublicationCalendarEventData>
                 className="rounded-lg bg-surface-inset p-1 shadow-surface"
                 date={calendarDate}
@@ -211,7 +207,7 @@ export function PublicationCalendarExperiment({
                 events={events}
                 fixedWeeks
                 i18n={i18n}
-                interactions={EXPERIMENTAL_INTERACTIONS}
+                interactions={CALENDAR_INTERACTIONS}
                 loading={loading}
                 locale={dateFnsLocale}
                 onDateChange={handleDateChange}
@@ -230,7 +226,7 @@ export function PublicationCalendarExperiment({
                         ? 'bg-primary/8'
                         : undefined
                 }
-                views={EXPERIMENTAL_VIEWS}
+                views={CALENDAR_VIEWS}
                 weekStartsOn={1}
                 renderEvent={renderEvent}
                 classNames={{
@@ -253,7 +249,7 @@ export function PublicationCalendarExperiment({
                     hotkeyTarget={calendarShellRef}
                     shortcutsEnabled={previewPublicationId === null}
                 />
-                <ExperimentalCalendarBody
+                <CalendarBody
                     expandedDay={expandedDay}
                     locale={locale}
                     onEventClick={openPublicationPreview}
@@ -349,7 +345,7 @@ function EventCalendarToolbar({
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 sm:justify-end">
                 <h2
                     className="min-w-0 flex-1 truncate font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em] sm:text-2xl"
-                    id="calendar-experimental-title">
+                    id="calendar-title">
                     {title}
                 </h2>
                 <div
@@ -379,7 +375,7 @@ function EventCalendarToolbar({
     )
 }
 
-function ExperimentalCalendarBody({
+function CalendarBody({
     expandedDay,
     locale,
     onEventClick,

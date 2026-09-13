@@ -5,7 +5,7 @@ import type { PublicationSummary } from '@/lib/api'
 import {
     isPublicationCalendarView,
     toPublicationCalendarEvents,
-} from './publication-calendar-experiment'
+} from './publication-calendar-events'
 
 function publication(
     id: string,
@@ -22,7 +22,7 @@ function publication(
     } as unknown as PublicationSummary
 }
 
-describe('publication calendar experiment adapter', () => {
+describe('publication calendar adapter', () => {
     test('accepts only the reading modes exposed by the project overview', () => {
         expect(['month', 'week', 'day', 'agenda'].every(isPublicationCalendarView)).toBe(true)
         expect(isPublicationCalendarView('days')).toBe(false)
