@@ -123,6 +123,7 @@ function MediaAttachmentPickerView({
     const compact = variant === 'publication-new' || variant === 'publication-new-inline'
     const inline = variant === 'publication-new-inline'
     const manageOnly = selectionMode === 'manage'
+    const populatedLibrary = manageOnly && !loading && assets.length > 0
     const interactionLocked = disabled || savingEdited || uploading !== null
     const currentValueRef = useRef(value)
     const onChangeRef = useRef(onChange)
@@ -386,41 +387,55 @@ function MediaAttachmentPickerView({
                 {manageOnly ? (
                     <div
                         data-media-import-zone="true"
-                        className={`group flex min-h-44 flex-col items-center justify-center gap-2 rounded-md border border-dashed px-6 py-7 text-center transition-colors ${
+                        className={`group flex rounded-md border border-dashed px-4 text-center transition-colors ${
+                            populatedLibrary
+                                ? 'min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2'
+                                : 'min-h-32 flex-col items-center justify-center gap-2 px-6 py-6'
+                        } ${
                             dragActive
                                 ? 'border-primary bg-primary/5'
                                 : 'border-border/80 bg-transparent hover:border-primary/60'
                         }`}>
-                        <span
-                            className={`flex size-10 items-center justify-center rounded-md border transition-colors ${
-                                dragActive
-                                    ? 'border-primary text-primary'
-                                    : 'border-border text-muted-foreground group-hover:border-primary/60 group-hover:text-primary'
-                            }`}>
-                            <UploadIcon aria-hidden="true" />
-                        </span>
-                        <div className="space-y-1">
-                            <p className="text-sm font-medium">
-                                {dragActive ? m.media_drop_files_active() : m.media_drop_files()}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                                {m.media_drop_files_hint()}{' '}
-                                <Button
-                                    type="button"
-                                    variant="link"
-                                    size="sm"
-                                    disabled={interactionLocked}
-                                    className="h-auto p-0 align-baseline text-sm font-medium"
-                                    onClick={() => fileButtonProps.onClick()}>
-                                    {uploading === null
-                                        ? m.media_browse_files()
-                                        : m.media_uploading({ filename: uploading })}
-                                </Button>
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {m.media_supported_types()}
-                            </p>
+                        <div
+                            className={`flex min-w-0 items-center ${populatedLibrary ? 'gap-2' : 'flex-col gap-2'}`}>
+                            <UploadIcon
+                                aria-hidden="true"
+                                className={`shrink-0 ${
+                                    dragActive
+                                        ? 'text-primary'
+                                        : 'text-muted-foreground group-hover:text-primary'
+                                } ${populatedLibrary ? 'size-5' : 'size-7'}`}
+                            />
+                            <div
+                                className={
+                                    populatedLibrary
+                                        ? 'flex min-w-0 flex-wrap items-center gap-x-2'
+                                        : 'space-y-1'
+                                }>
+                                <p className="text-sm font-medium">
+                                    {dragActive
+                                        ? m.media_drop_files_active()
+                                        : m.media_drop_files()}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                    {m.media_drop_files_hint()}{' '}
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        size="sm"
+                                        disabled={interactionLocked}
+                                        className="h-auto p-0 align-baseline text-sm font-medium"
+                                        onClick={() => fileButtonProps.onClick()}>
+                                        {uploading === null
+                                            ? m.media_browse_files()
+                                            : m.media_uploading({ filename: uploading })}
+                                    </Button>
+                                </p>
+                            </div>
                         </div>
+                        <p className="shrink-0 text-xs text-muted-foreground">
+                            {m.media_supported_types()}
+                        </p>
                     </div>
                 ) : (
                     <div
@@ -538,7 +553,12 @@ function MediaAttachmentPickerView({
                         </EmptyHeader>
                     </Empty>
                 ) : (
-                    <div className={`${manageOnly ? '' : 'mt-4 '}grid gap-3 sm:grid-cols-2`}>
+                    <div
+                        className={`${manageOnly ? '' : 'mt-4 '}grid gap-3 ${
+                            manageOnly
+                                ? 'grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))]'
+                                : 'sm:grid-cols-2'
+                        }`}>
                         {assets.map(asset => {
                             const selected = value.find(item => item.assetId === asset.asset.id)
                             return (

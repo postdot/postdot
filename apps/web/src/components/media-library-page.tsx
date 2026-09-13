@@ -12,7 +12,7 @@ export function MediaLibraryPage() {
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader title={m.media_title()} />
 
-            <section className="max-w-4xl">
+            <section className="w-full">
                 <MediaAttachmentPicker
                     emptyDescription={m.media_empty_description()}
                     projectId={project.id}

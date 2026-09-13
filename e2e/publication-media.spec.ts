@@ -453,7 +453,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page
             .locator('[data-media-import-zone="true"]')
-            .getByRole('button', { name: 'choose files from your device', exact: true })
+            .getByRole('button', { name: 'Browse', exact: true })
     ).toBeVisible()
     const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
     await page.locator('[data-media-import-zone="true"]').evaluate(
