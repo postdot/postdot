@@ -466,7 +466,6 @@
     "publisher_path_auth": "secret in path",
     "provider_connect_http": "Connect HTTP",
     "provider_connect_endpoint": "Connect endpoint",
-    "media_back_to_new_publication": "Back to New publication",
     "media_title": "Media",
     "media_attachments_title": "Media",
     "media_verified_title": "Verified media",

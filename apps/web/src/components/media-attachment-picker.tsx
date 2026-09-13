@@ -20,18 +20,17 @@ import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
-import {
-    lazy,
-    Suspense,
-    useEffect,
-    useRef,
-    useState,
-    type ChangeEvent,
-    type DragEvent,
-} from 'react'
+import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
+import { lazy, useMemo, Suspense, useEffect, useRef, useState, type DragEvent } from 'react'
 
 import { MediaAssetCard, MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { api, formatApiError, type MediaReference } from '@/lib/api'
+import {
+    createHeraldMediaUploadController,
+    uploadHeraldMediaFile,
+    type HeraldMediaUploadController,
+    type HeraldMediaUppyFile,
+} from '@/lib/herald-media-upload'
 import { useLanguage } from '@/lib/i18n'
 import { MediaVerificationError } from '@/lib/media-errors'
 import type { MediaSelection } from '@/lib/target-media'
@@ -56,9 +55,30 @@ interface MediaAttachmentPickerProps {
     readonly disabled?: boolean
     readonly emptyDescription?: string
     readonly variant?: 'library' | 'publication-new' | 'publication-new-inline'
+    readonly selectionMode?: 'attach' | 'manage'
 }
 
-export function MediaAttachmentPicker({
+export function MediaAttachmentPicker(props: MediaAttachmentPickerProps) {
+    return <MediaAttachmentPickerInstance key={props.projectId} {...props} />
+}
+
+function MediaAttachmentPickerInstance(props: MediaAttachmentPickerProps) {
+    const [controller] = useState(() => createHeraldMediaUploadController(props.projectId, api))
+
+    useEffect(() => {
+        return () => {
+            void controller.uppy.destroy()
+        }
+    }, [controller])
+
+    return (
+        <UppyContextProvider uppy={controller.uppy}>
+            <MediaAttachmentPickerView {...props} controller={controller} />
+        </UppyContextProvider>
+    )
+}
+
+function MediaAttachmentPickerView({
     projectId,
     value,
     onChange,
@@ -66,21 +86,51 @@ export function MediaAttachmentPicker({
     disabled = false,
     emptyDescription,
     variant = 'library',
-}: MediaAttachmentPickerProps) {
+    selectionMode = 'attach',
+    controller,
+}: MediaAttachmentPickerProps & { readonly controller: HeraldMediaUploadController }) {
     useLanguage()
-    const inputRef = useRef<HTMLInputElement>(null)
     const [assets, setAssets] = useState<MediaReference[]>([])
     const [loading, setLoading] = useState(true)
-    const [uploading, setUploading] = useState<string | null>(null)
+    const [savingEdited, setSavingEdited] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [libraryOpen, setLibraryOpen] = useState(false)
     const [viewerAsset, setViewerAsset] = useState<MediaReference | null>(null)
     const [editorAsset, setEditorAsset] = useState<MediaReference | null>(null)
     const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
     const [dragOverAssetId, setDragOverAssetId] = useState<string | null>(null)
-    const interactionDisabled = disabled || uploading !== null
+    const [dragActive, setDragActive] = useState(false)
+    const uppyFiles = useUppyState(
+        controller.uppy,
+        state => Object.values(state.files) as HeraldMediaUppyFile[]
+    )
+    const fileInputOptions = useMemo(() => ({ multiple: true }), [])
+    const fileInput = useFileInput(fileInputOptions)
+    const dropzoneOptions = useMemo(
+        () => ({
+            noClick: true,
+            onDragEnter: () => setDragActive(true),
+            onDragLeave: () => setDragActive(false),
+            onDrop: () => setDragActive(false),
+        }),
+        []
+    )
+    const dropzone = useDropzone(dropzoneOptions)
+    const uploadingFile = uppyFiles.find(
+        file => file.progress.uploadStarted !== null && !file.progress.complete && !file.error
+    )
+    const uploading = uploadingFile?.name ?? null
     const compact = variant === 'publication-new' || variant === 'publication-new-inline'
     const inline = variant === 'publication-new-inline'
+    const manageOnly = selectionMode === 'manage'
+    const interactionLocked = disabled || savingEdited || uploading !== null
+    const currentValueRef = useRef(value)
+    const onChangeRef = useRef(onChange)
+
+    useEffect(() => {
+        currentValueRef.current = value
+        onChangeRef.current = onChange
+    }, [onChange, value])
 
     useEffect(() => {
         onAssetsChange?.(assets)
@@ -108,54 +158,53 @@ export function MediaAttachmentPicker({
         }
     }, [projectId])
 
-    async function handleFilesSelected(event: ChangeEvent<HTMLInputElement>) {
-        const input = event.currentTarget
-        const files = Array.from(input.files ?? [])
-        input.value = ''
-        if (files.length === 0) return
-
-        setError(null)
-        const uploaded: MediaReference[] = []
-        const selected = [...value]
-        const failures: string[] = []
-
-        for (const file of files) {
-            setUploading(file.name)
-            try {
-                const reservation = await api.reserveMediaUpload(projectId, {
-                    originalFilename: file.name,
-                    expectedSize: file.size,
-                    contentType: file.type || undefined,
-                })
-                await api.uploadMedia(projectId, reservation.intent.id, file)
-                const media = await completeMediaUpload(projectId, reservation.intent.id)
-                uploaded.push(media)
-                if (!selected.some(item => item.assetId === media.asset.id)) {
-                    const defaultAccessibilityText = media.asset.defaultAccessibilityText
-                    selected.push(
-                        defaultAccessibilityText === null
-                            ? { assetId: media.asset.id }
-                            : {
-                                  assetId: media.asset.id,
-                                  accessibilityText: defaultAccessibilityText,
-                              }
-                    )
-                }
-            } catch (caughtError) {
-                failures.push(`${file.name}: ${errorMessage(caughtError)}`)
+    useEffect(() => {
+        const handleFilesAdded = (files: HeraldMediaUppyFile[]) => {
+            if (disabled || savingEdited) {
+                controller.uppy.removeFiles(files.map(file => file.id))
+                return
             }
+
+            setError(null)
+            void controller.uppy
+                .upload()
+                .then(result => {
+                    if (result === undefined) return
+
+                    const uploaded = (result.successful ?? [])
+                        .map(file => controller.mediaByFileId.get(file.id))
+                        .filter((asset): asset is MediaReference => asset !== undefined)
+                    if (uploaded.length > 0) {
+                        setAssets(current => upsertAssets(current, uploaded))
+                        const selected = [...currentValueRef.current]
+                        for (const asset of uploaded) {
+                            if (!selected.some(item => item.assetId === asset.asset.id)) {
+                                selected.push(mediaSelectionFor(asset))
+                            }
+                        }
+                        onChangeRef.current(selected)
+                    }
+
+                    const failures = (result.failed ?? []).map(file => {
+                        const cause =
+                            controller.errorsByFileId.get(file.id) ??
+                            new Error(file.error ?? 'media_upload_failed')
+                        return `${file.name}: ${errorMessage(cause)}`
+                    })
+                    if (failures.length > 0) setError(failures.join(' '))
+                })
+                .catch(caughtError => setError(errorMessage(caughtError)))
+                .finally(() => controller.uppy.removeFiles(files.map(file => file.id)))
         }
 
-        setUploading(null)
-        if (uploaded.length > 0) {
-            setAssets(current => upsertAssets(current, uploaded))
-            onChange(selected)
+        controller.uppy.on('files-added', handleFilesAdded)
+        return () => {
+            controller.uppy.off('files-added', handleFilesAdded)
         }
-        if (failures.length > 0) setError(failures.join(' '))
-    }
+    }, [controller, disabled, savingEdited])
 
     function toggleAsset(asset: MediaReference) {
-        if (interactionDisabled || asset.asset.state !== 'ready') return
+        if (interactionLocked || asset.asset.state !== 'ready') return
         const selected = value.find(item => item.assetId === asset.asset.id)
         if (selected !== undefined) {
             onChange(value.filter(item => item.assetId !== asset.asset.id))
@@ -211,15 +260,14 @@ export function MediaAttachmentPicker({
 
     async function saveEditedAsset(sourceAssetId: string, file: File) {
         setError(null)
-        setUploading(file.name)
+        setSavingEdited(true)
         try {
-            const reservation = await api.reserveMediaUpload(projectId, {
-                originalFilename: file.name,
+            const editedAsset = await uploadHeraldMediaFile(api, projectId, {
+                data: file,
+                filename: file.name,
                 expectedSize: file.size,
                 contentType: file.type || undefined,
             })
-            await api.uploadMedia(projectId, reservation.intent.id, file)
-            const editedAsset = await completeMediaUpload(projectId, reservation.intent.id)
             setAssets(current => upsertAssets(current, [editedAsset]))
 
             const sourceSelection = value.find(item => item.assetId === sourceAssetId)
@@ -246,12 +294,12 @@ export function MediaAttachmentPicker({
             setError(errorMessage(caughtError))
             throw caughtError
         } finally {
-            setUploading(null)
+            setSavingEdited(false)
         }
     }
 
     function startReorder(event: DragEvent<HTMLDivElement>, assetId: string) {
-        if (interactionDisabled) return
+        if (interactionLocked) return
         event.dataTransfer.effectAllowed = 'move'
         event.dataTransfer.setData('text/plain', assetId)
         setDraggingAssetId(assetId)
@@ -290,18 +338,23 @@ export function MediaAttachmentPicker({
         selection,
         asset: assets.find(candidate => candidate.asset.id === selection.assetId),
     }))
+    const dropzoneRootProps = interactionLocked ? {} : dropzone.getRootProps()
+    const fileInputProps = fileInput.getInputProps()
+    const fileButtonProps = fileInput.getButtonProps()
 
     return (
         <>
             <div
+                {...dropzoneRootProps}
                 data-media-picker="true"
-                className={
+                data-media-dropzone="true"
+                className={`${
                     inline
                         ? 'border-t border-border/70 bg-muted/25 px-3 py-2'
                         : compact
                           ? 'pt-1'
                           : 'rounded-lg bg-muted p-4 sm:p-5'
-                }>
+                } ${dragActive ? 'bg-primary/5' : ''}`}>
                 {inline && !loading && selectedAssets.length > 0 ? (
                     <div className="mb-2 flex flex-wrap gap-2">
                         {selectedAssets.map(({ asset, selection }, index) => (
@@ -336,7 +389,7 @@ export function MediaAttachmentPicker({
                               ? 'flex items-center justify-between gap-3'
                               : 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center'
                     }>
-                    {!inline ? (
+                    {manageOnly ? null : !inline ? (
                         <div>
                             <div className="flex items-center gap-2 text-sm font-medium">
                                 <GalleryAddIcon aria-hidden="true" />
@@ -359,9 +412,9 @@ export function MediaAttachmentPicker({
                         type="button"
                         variant={compact ? 'ghost' : 'secondary'}
                         size={compact ? 'sm' : 'default'}
-                        disabled={interactionDisabled}
+                        disabled={interactionLocked}
                         onClick={() =>
-                            compact ? setLibraryOpen(true) : inputRef.current?.click()
+                            compact ? setLibraryOpen(true) : fileButtonProps.onClick()
                         }>
                         {inline || compact ? (
                             <GalleryAddIcon aria-hidden="true" />
@@ -375,14 +428,11 @@ export function MediaAttachmentPicker({
                 </div>
 
                 <input
-                    ref={inputRef}
+                    {...fileInputProps}
                     className="sr-only"
-                    type="file"
-                    multiple
-                    disabled={interactionDisabled}
+                    disabled={interactionLocked}
                     tabIndex={-1}
                     aria-hidden="true"
-                    onChange={event => void handleFilesSelected(event)}
                 />
 
                 {error !== null ? (
@@ -452,9 +502,10 @@ export function MediaAttachmentPicker({
                                 <MediaAssetCard
                                     key={asset.asset.id}
                                     asset={asset}
-                                    interactionDisabled={interactionDisabled}
+                                    interactionDisabled={interactionLocked}
                                     projectId={projectId}
                                     selected={selected}
+                                    selectable={!manageOnly}
                                     onAccessibilityTextChange={updateAccessibilityText}
                                     onToggle={toggleAsset}
                                     onPreview={openViewer}
@@ -489,8 +540,8 @@ export function MediaAttachmentPicker({
                                     type="button"
                                     variant="secondary"
                                     size="sm"
-                                    disabled={interactionDisabled}
-                                    onClick={() => inputRef.current?.click()}>
+                                    disabled={interactionLocked}
+                                    onClick={() => fileButtonProps.onClick()}>
                                     <UploadIcon aria-hidden="true" />
                                     {uploading === null
                                         ? m.media_upload_image()
@@ -522,8 +573,8 @@ export function MediaAttachmentPicker({
                                 <Button
                                     type="button"
                                     variant="secondary"
-                                    disabled={interactionDisabled}
-                                    onClick={() => inputRef.current?.click()}>
+                                    disabled={interactionLocked}
+                                    onClick={() => fileButtonProps.onClick()}>
                                     <UploadIcon aria-hidden="true" />
                                     {m.media_upload_image()}
                                 </Button>
@@ -534,11 +585,12 @@ export function MediaAttachmentPicker({
                                     <MediaAssetCard
                                         key={asset.asset.id}
                                         asset={asset}
-                                        interactionDisabled={interactionDisabled}
+                                        interactionDisabled={interactionLocked}
                                         projectId={projectId}
                                         selected={value.find(
                                             item => item.assetId === asset.asset.id
                                         )}
+                                        selectable={!manageOnly}
                                         onAccessibilityTextChange={updateAccessibilityText}
                                         onToggle={toggleAsset}
                                         onPreview={openViewer}
@@ -570,9 +622,9 @@ export function MediaAttachmentPicker({
                 <MediaImageEditorDialog
                     asset={editorAsset}
                     open={editorAsset !== null}
-                    saving={uploading !== null}
+                    saving={savingEdited}
                     onOpenChange={open => {
-                        if (!open && uploading === null) setEditorAsset(null)
+                        if (!open && !savingEdited) setEditorAsset(null)
                     }}
                     onSave={file =>
                         editorAsset === null
@@ -689,33 +741,19 @@ function CompactMediaPreview({
     )
 }
 
-async function completeMediaUpload(projectId: string, intentId: string): Promise<MediaReference> {
-    const finalized = await api.finalizeMediaUpload(projectId, intentId)
-    if (finalized.status === 'ready') return finalized.media
-    if (finalized.status === 'failed') {
-        throw new MediaVerificationError(finalized.media)
-    }
-
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-        await delay(250)
-        const media = await api.getMedia(projectId, finalized.media.asset.id)
-        if (media.asset.state === 'ready') return media
-        if (media.asset.state === 'failed') {
-            throw new MediaVerificationError(media)
-        }
-    }
-
-    throw new Error('media_verification_pending')
-}
-
 function upsertAssets(current: readonly MediaReference[], additions: readonly MediaReference[]) {
     const byId = new Map(current.map(asset => [asset.asset.id, asset]))
     for (const asset of additions) byId.set(asset.asset.id, asset)
     return [...byId.values()].sort((left, right) => right.asset.createdAt - left.asset.createdAt)
 }
 
-function delay(milliseconds: number) {
-    return new Promise<void>(resolve => window.setTimeout(resolve, milliseconds))
+function mediaSelectionFor(asset: MediaReference): MediaSelection {
+    return asset.asset.defaultAccessibilityText === null
+        ? { assetId: asset.asset.id }
+        : {
+              assetId: asset.asset.id,
+              accessibilityText: asset.asset.defaultAccessibilityText,
+          }
 }
 
 function errorMessage(error: unknown) {

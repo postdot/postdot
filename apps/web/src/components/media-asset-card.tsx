@@ -13,6 +13,7 @@ interface MediaAssetCardProps {
     readonly interactionDisabled: boolean
     readonly projectId: string
     readonly selected: MediaSelection | undefined
+    readonly selectable?: boolean
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview: (asset: MediaReference) => void
@@ -23,6 +24,7 @@ export function MediaAssetCard({
     interactionDisabled,
     projectId,
     selected,
+    selectable = true,
     onAccessibilityTextChange,
     onToggle,
     onPreview,
@@ -33,7 +35,7 @@ export function MediaAssetCard({
     return (
         <article
             className={`rounded-md bg-surface-field p-3 shadow-field ${
-                selected === undefined ? '' : 'ring-2 ring-primary/35'
+                selectable && selected !== undefined ? 'ring-2 ring-primary/35' : ''
             }`}>
             <div className="flex min-w-0 items-center gap-3">
                 <button
@@ -50,32 +52,41 @@ export function MediaAssetCard({
                         className="size-20 rounded-md object-cover"
                     />
                 </button>
-                <button
-                    type="button"
-                    aria-pressed={selected !== undefined}
-                    data-media-selection-toggle="true"
-                    disabled={interactionDisabled || asset.asset.state !== 'ready'}
-                    onClick={() => onToggle(asset)}
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50">
-                    <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
-                            {asset.asset.originalFilename}
-                        </span>
-                        <span className="mt-1 block text-xs text-muted-foreground">
-                            {mediaSummary(asset, representation, locale)}
-                        </span>
-                    </span>
-                    {selected === undefined ? (
-                        <span className="text-xs text-muted-foreground">{m.media_attach()}</span>
-                    ) : (
-                        <CheckReadIcon
-                            aria-label={m.media_attached()}
-                            className="shrink-0 text-primary"
+                {selectable ? (
+                    <button
+                        type="button"
+                        aria-pressed={selected !== undefined}
+                        data-media-selection-toggle="true"
+                        disabled={interactionDisabled || asset.asset.state !== 'ready'}
+                        onClick={() => onToggle(asset)}
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50">
+                        <AssetDetails
+                            asset={asset}
+                            locale={locale}
+                            representation={representation}
                         />
-                    )}
-                </button>
+                        {selected === undefined ? (
+                            <span className="text-xs text-muted-foreground">
+                                {m.media_attach()}
+                            </span>
+                        ) : (
+                            <CheckReadIcon
+                                aria-label={m.media_attached()}
+                                className="shrink-0 text-primary"
+                            />
+                        )}
+                    </button>
+                ) : (
+                    <div className="min-w-0 flex-1">
+                        <AssetDetails
+                            asset={asset}
+                            locale={locale}
+                            representation={representation}
+                        />
+                    </div>
+                )}
             </div>
-            {selected !== undefined ? (
+            {selectable && selected !== undefined ? (
                 <Field className="mt-3 gap-1">
                     <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>
                         {m.media_accessibility_text()}
@@ -93,6 +104,27 @@ export function MediaAssetCard({
                 </Field>
             ) : null}
         </article>
+    )
+}
+
+function AssetDetails({
+    asset,
+    locale,
+    representation,
+}: {
+    readonly asset: MediaReference
+    readonly locale: string
+    readonly representation: ReturnType<typeof readyRepresentation>
+}) {
+    return (
+        <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">
+                {asset.asset.originalFilename}
+            </span>
+            <span className="mt-1 block text-xs text-muted-foreground">
+                {mediaSummary(asset, representation, locale)}
+            </span>
+        </span>
     )
 }
 

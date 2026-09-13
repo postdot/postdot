@@ -1,6 +1,5 @@
 import { Button } from '@herald/ui/components/button'
-import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
-import { GalleryIcon } from '@solar-icons/react/bold/gallery'
+import { AddIcon } from '@solar-icons/react/bold/add'
 import { Link } from '@tanstack/react-router'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
@@ -11,7 +10,7 @@ import * as m from '@/paraglide/messages.js'
 
 export function MediaLibraryPage() {
     useLanguage()
-    const { onSourceMediaChange, project, sourceMedia } = useProjectDashboard()
+    const { project } = useProjectDashboard()
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
@@ -26,9 +25,9 @@ export function MediaLibraryPage() {
                                 to="/dashboard/projects/$projectId/publications/new"
                             />
                         }
-                        variant="ghost">
-                        <ArrowLeftIcon aria-hidden="true" />
-                        {m.media_back_to_new_publication()}
+                        variant="default">
+                        <AddIcon aria-hidden="true" />
+                        {m.nav_new_publication()}
                     </Button>
                 }
                 title={m.media_title()}>
@@ -36,21 +35,16 @@ export function MediaLibraryPage() {
             </DashboardPageHeader>
 
             <section className="max-w-4xl">
-                <div className="mb-3 flex justify-end">
-                    <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
-                        <GalleryIcon aria-hidden="true" className="size-4" />
-                        {sourceMedia.length === 0
-                            ? m.media_none_selected()
-                            : m.common_media_selected({ count: sourceMedia.length })}
-                    </span>
-                </div>
                 <MediaAttachmentPicker
                     emptyDescription={m.media_empty_description()}
                     projectId={project.id}
-                    value={sourceMedia}
-                    onChange={onSourceMediaChange}
+                    selectionMode="manage"
+                    value={[]}
+                    onChange={ignoreMediaSelection}
                 />
             </section>
         </main>
     )
 }
+
+function ignoreMediaSelection() {}

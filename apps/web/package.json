@@ -33,6 +33,8 @@
         "@tanstack/react-hotkeys": "^0.10.0",
         "@tanstack/react-query": "^5.102.8",
         "@tanstack/react-router": "1.170.32",
+        "@uppy/core": "6.0.1",
+        "@uppy/react": "6.0.0",
         "@wrksz/themes": "^2.0.0-beta.2",
         "date-fns": "4.4.0",
         "react": "19.2.8",

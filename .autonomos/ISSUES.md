@@ -2870,3 +2870,46 @@ channels` with a foreign-key constraint error even though a fresh empty database
   kB (13.81 kB gzip) lazy chunk and keeps the picker at 24.31 kB (8.45 kB
   gzip). Provider-specific transforms, touch-first sortable interaction, and
   generalized media packaging remain explicit follow-up scope.
+
+## [ISSUE-102] Make the Media route a first-class library and introduce a headless Uppy intake boundary
+
+- Type: proposal
+- Status: resolved
+- Evidence: The Media route reused the publication editor's project-scoped
+  selection state, so it presented a library as if it were an attachment
+  picker and carried selection affordances without a publication consumer.
+  The picker also owned the browser file input and upload orchestration
+  directly, despite the need to evaluate Uppy for reusable intake behavior
+  without adopting its opinionated Dashboard surface.
+- Impact: Treating the library and attachment workflow as the same interaction
+  makes the standalone Media page ambiguous and makes a future upload/editor
+  evolution harder to isolate. Adopting a vendor UI wholesale would instead
+  make Herald inherit foreign surfaces and styling.
+- Desired outcome: The Media route manages reusable project-scoped verified
+  assets with preview and editing actions, while publication contexts retain
+  attachment selection. Uppy Core and React headless hooks should orchestrate
+  file intake, and a Herald adapter should preserve the existing
+  `reserve → raw upload → finalize/verify` contract and its error semantics.
+- Scope boundary: This slice does not adopt Uppy Dashboard or vendor CSS,
+  change the media API, migrate the current Herald-owned image editor, add
+  cancellation/resumability, or introduce a generic `@herald/media-ui`
+  package before a second API-independent consumer exists.
+- Tasks: MEDIA-180
+- Related issues: ISSUE-003, ISSUE-101, ISSUE-099, ISSUE-100
+- Resolution: MEDIA-180 adds a testable Herald upload adapter around Uppy Core,
+  uses `@uppy/react`'s headless file-input, dropzone, context, and state hooks,
+  and keeps Herald responsible for reservation, raw transfer, verification
+  polling, and typed diagnostics. The Media route now runs in explicit manage
+  mode: it has no publication-selection toggles, retains preview/edit/upload
+  actions, and offers a direct New publication entry point. Publication
+  attachment contexts keep their existing selection behavior.
+- Verification: The focused Uppy orchestration tests cover ready, pending, and
+  failed verification; the publication/media browser scenario covers import,
+  editing, reorder, the manage-only Media route, and return to authoring. The
+  full repository gate passes with localization coverage, 17 Playwright
+  scenarios, and the production build. Uppy remains headless and the existing
+  editor remains unchanged pending a dedicated editor proof.
+- Follow-up: Evaluate Uppy Image Editor as an isolated Herald dialog adapter,
+  then separately assess real progress, cancellation, retry, and resumability
+  against the current API lifecycle before changing the editor or extracting a
+  shared media package.

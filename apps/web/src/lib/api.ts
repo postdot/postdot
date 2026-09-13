@@ -562,7 +562,7 @@ export const api = {
         )
     },
 
-    async uploadMedia(projectId: string, intentId: string, file: File): Promise<MediaUpload> {
+    async uploadMedia(projectId: string, intentId: string, file: Blob): Promise<MediaUpload> {
         return requestAuth<MediaUpload>(
             `/api/projects/${encodeURIComponent(projectId)}/media/uploads/${encodeURIComponent(intentId)}`,
             {

@@ -440,6 +440,15 @@ test('persists mixed and media-only publications through the dashboard', async (
         })
     ).toHaveCount(0)
 
+    await page.getByRole('link', { name: 'Media', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/media$/)
+    await expect(page.getByRole('heading', { name: 'Media', exact: true })).toBeVisible()
+    await expect(page.locator('[data-media-dropzone="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-selection-toggle="true"]')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Add media', exact: true })).toBeVisible()
+    await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
+
     await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
     const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().inputValue()
