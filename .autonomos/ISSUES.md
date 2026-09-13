@@ -2820,3 +2820,53 @@ channels` with a foreign-key constraint error even though a fresh empty database
   preview. Web unit tests cover the pure preview model; localization coverage
   remains 100%; the full repository gate passes with 17 Playwright scenarios;
   the authenticated integrated browser was inspected in light and dark themes.
+
+## [ISSUE-101] Establish a Herald-owned media authoring and editing boundary
+
+- Type: proposal
+- Status: resolved
+- Evidence: The current web picker combines library reads, upload orchestration,
+  selection, accessibility text, ordering, and compact previews in one
+  application component. It has no reusable image viewer or editor, and its
+  current order controls are a fallback rather than the intended dense media
+  workflow. Uppy offers a mature upload core and a prebuilt image editor, but
+  its Dashboard is an opinionated surface that does not belong in Herald's
+  visual system; the editor is documented primarily around that Dashboard.
+  The project therefore needs an evidence-backed choice for the editor and the
+  composition boundary, not a skin applied to a vendor dashboard.
+- Impact: Choosing an upload/editor stack without separating orchestration from
+  presentation could either force Herald to inherit a foreign UI or recreate
+  fragile upload, preview, crop, reorder, and recovery behavior inside the
+  publication form. Editing an existing asset in place could also destroy a
+  reusable original or make provider-specific variants impossible to introduce
+  later.
+- Desired outcome: Prove a reusable, Herald-owned media workflow that supports
+  the existing reserve/upload/finalize lifecycle, library selection, full-size
+  preview, non-destructive image editing, dense ordered attachments, keyboard
+  and pointer access, and light/dark responsive presentation. Compare a
+  headless upload orchestrator with a React-oriented standalone editor, record
+  the bundle and accessibility trade-offs, and define whether edited output is
+  a new asset or a durable representation before integrating it into
+  publication authoring.
+- Scope boundary: This is a media-system and editor investigation. It does not
+  adopt Uppy Dashboard, change provider contracts, invent per-destination crop
+  semantics, or replace the publication editor before the prototype has
+  demonstrated a stable contract. Existing assets must remain immutable during
+  the experiment.
+- Tasks: MEDIA-179
+- Related issues: ISSUE-003, ISSUE-007, ISSUE-099, ISSUE-100
+- Resolution: MEDIA-179 establishes the first Herald-owned boundary. The web
+  picker keeps API upload orchestration and uses a lazy Herald viewer/editor
+  with `react-easy-crop` for crop, zoom, and rotation. Saving creates a new
+  verified asset and replaces a selected source only after verification; native
+  drag ordering has focus-visible/mobile arrow fallbacks. Uppy Dashboard is
+  explicitly not adopted, and Uppy core/headless remains a future option only
+  if upload orchestration needs exceed the current API lifecycle. The proven
+  composition remains in `apps/web` until a second consumer justifies a
+  generic `@herald/media-ui` package.
+- Verification: The focused publication-media browser scenario and the full
+  repository gate pass; the authenticated integrated browser was reviewed in
+  light and dark themes. The production build splits the editor into a 41.48
+  kB (13.81 kB gzip) lazy chunk and keeps the picker at 24.31 kB (8.45 kB
+  gzip). Provider-specific transforms, touch-first sortable interaction, and
+  generalized media packaging remain explicit follow-up scope.

@@ -15,6 +15,7 @@ interface MediaAssetCardProps {
     readonly selected: MediaSelection | undefined
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
     readonly onToggle: (asset: MediaReference) => void
+    readonly onPreview: (asset: MediaReference) => void
 }
 
 export function MediaAssetCard({
@@ -24,6 +25,7 @@ export function MediaAssetCard({
     selected,
     onAccessibilityTextChange,
     onToggle,
+    onPreview,
 }: MediaAssetCardProps) {
     const { locale } = useLanguage()
     const representation = readyRepresentation(asset)
@@ -33,30 +35,46 @@ export function MediaAssetCard({
             className={`rounded-md bg-surface-field p-3 shadow-field ${
                 selected === undefined ? '' : 'ring-2 ring-primary/35'
             }`}>
-            <button
-                type="button"
-                aria-pressed={selected !== undefined}
-                disabled={interactionDisabled || asset.asset.state !== 'ready'}
-                onClick={() => onToggle(asset)}
-                className="flex w-full items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50">
-                <MediaPreview projectId={projectId} asset={asset} representation={representation} />
-                <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
-                        {asset.asset.originalFilename}
-                    </span>
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                        {mediaSummary(asset, representation, locale)}
-                    </span>
-                </span>
-                {selected === undefined ? (
-                    <span className="text-xs text-muted-foreground">{m.media_attach()}</span>
-                ) : (
-                    <CheckReadIcon
-                        aria-label={m.media_attached()}
-                        className="shrink-0 text-primary"
+            <div className="flex min-w-0 items-center gap-3">
+                <button
+                    type="button"
+                    disabled={interactionDisabled || representation === undefined}
+                    aria-label={m.media_view_asset({ filename: asset.asset.originalFilename })}
+                    data-media-preview="true"
+                    onClick={() => onPreview(asset)}
+                    className="shrink-0 cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50">
+                    <MediaPreview
+                        projectId={projectId}
+                        asset={asset}
+                        representation={representation}
+                        className="size-20 rounded-md object-cover"
                     />
-                )}
-            </button>
+                </button>
+                <button
+                    type="button"
+                    aria-pressed={selected !== undefined}
+                    data-media-selection-toggle="true"
+                    disabled={interactionDisabled || asset.asset.state !== 'ready'}
+                    onClick={() => onToggle(asset)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50">
+                    <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                            {asset.asset.originalFilename}
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                            {mediaSummary(asset, representation, locale)}
+                        </span>
+                    </span>
+                    {selected === undefined ? (
+                        <span className="text-xs text-muted-foreground">{m.media_attach()}</span>
+                    ) : (
+                        <CheckReadIcon
+                            aria-label={m.media_attached()}
+                            className="shrink-0 text-primary"
+                        />
+                    )}
+                </button>
+            </div>
             {selected !== undefined ? (
                 <Field className="mt-3 gap-1">
                     <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>

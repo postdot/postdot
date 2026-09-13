@@ -9,6 +9,8 @@ if (e2eApiPort === undefined) {
 const e2eApiOrigin = `http://127.0.0.1:${e2eApiPort}`
 
 const mediaFilename = 'herald-e2e-pixel.png'
+const editedMediaFilename = 'herald-e2e-pixel-edited.png'
+const secondMediaFilename = 'herald-e2e-second-pixel.png'
 const mediaBytes = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
     'base64'
@@ -379,6 +381,65 @@ test('persists mixed and media-only publications through the dashboard', async (
         )
     ).toBeVisible()
 
+    const selectedMediaPreview = newPublicationEditor.locator('[data-media-preview="true"]').first()
+    await selectedMediaPreview.click()
+    const mediaViewer = page.getByRole('dialog').filter({ hasText: mediaFilename }).last()
+    await expect(mediaViewer).toBeVisible()
+    await expect(mediaViewer.getByRole('button', { name: 'Edit image', exact: true })).toBeVisible()
+    await mediaViewer.getByRole('button', { name: 'Edit image', exact: true }).click()
+
+    const mediaEditor = page.getByRole('dialog').filter({ hasText: mediaFilename }).last()
+    await expect(mediaEditor).toBeVisible()
+    await expect(
+        mediaEditor.getByRole('button', { name: 'Original', exact: true })
+    ).toHaveAttribute('aria-pressed', 'true')
+    await mediaEditor.getByRole('button', { name: 'Square', exact: true }).click()
+    await expect(mediaEditor.getByRole('button', { name: 'Square', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await mediaEditor.getByRole('button', { name: 'Rotate right', exact: true }).click()
+    await expect(mediaEditor.getByText('90°', { exact: true })).toBeVisible()
+    await mediaEditor.getByRole('button', { name: 'Save as new media', exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
+    ).toBeVisible()
+    await expect(mediaEditor).toHaveCount(0)
+
+    await page.locator('input[type="file"]').setInputFiles({
+        name: secondMediaFilename,
+        mimeType: 'image/png',
+        buffer: mediaBytes,
+    })
+    const selectedMediaOrder = () =>
+        newPublicationEditor
+            .locator('[data-media-reorderable="true"] [data-media-preview="true"]')
+            .evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')))
+    await expect(newPublicationEditor.locator('[data-media-reorderable="true"]')).toHaveCount(2)
+    await expect
+        .poll(selectedMediaOrder)
+        .toEqual([`View ${editedMediaFilename}`, `View ${secondMediaFilename}`])
+    const firstReorderable = newPublicationEditor.locator('[data-media-reorderable="true"]').first()
+    const secondReorderable = newPublicationEditor.locator('[data-media-reorderable="true"]').nth(1)
+    await firstReorderable.dragTo(secondReorderable)
+    await expect
+        .poll(selectedMediaOrder)
+        .toEqual([`View ${secondMediaFilename}`, `View ${editedMediaFilename}`])
+    await newPublicationEditor
+        .getByRole('button', { name: `Move ${secondMediaFilename} right`, exact: true })
+        .click()
+    await expect
+        .poll(selectedMediaOrder)
+        .toEqual([`View ${editedMediaFilename}`, `View ${secondMediaFilename}`])
+    await newPublicationEditor
+        .getByRole('button', { name: `Remove ${secondMediaFilename}`, exact: true })
+        .click()
+    await expect(
+        newPublicationEditor.getByRole('button', {
+            name: new RegExp(`Remove ${secondMediaFilename}`),
+        })
+    ).toHaveCount(0)
+
     await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
     const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().inputValue()
@@ -429,12 +490,15 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('option', { name: channelName, exact: true }).click()
     await page.getByLabel('Title', { exact: true }).fill(mediaOnlyTitle)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
-    const libraryMediaToggle = page.getByRole('button', { name: new RegExp(mediaFilename) })
+    const libraryMediaToggle = page
+        .locator('[data-media-library="true"] article')
+        .filter({ hasText: editedMediaFilename })
+        .locator('[data-media-selection-toggle="true"]')
     await libraryMediaToggle.click()
     await expect(libraryMediaToggle).toHaveAttribute('aria-pressed', 'true')
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(
-        page.getByRole('button', { name: new RegExp(`Remove ${mediaFilename}`) })
+        page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Schedule', exact: true }).click()
 
@@ -488,7 +552,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.locator('#source-body')).toHaveValue(sourceText)
     await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
     await expect(
-        page.locator('article').filter({ hasText: mediaFilename }).first().getByRole('button')
+        page
+            .locator('article')
+            .filter({ hasText: editedMediaFilename })
+            .first()
+            .locator('[data-media-selection-toggle="true"]')
     ).toHaveAttribute('aria-pressed', 'true')
 
     const promotedSchedule = localDateTimeInHours(4)
@@ -520,7 +588,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByRole('heading', { name: mediaOnlyTitle })).toBeVisible()
     await expect(page.locator('#source-body')).toHaveValue('')
     await expect(
-        page.locator('article').filter({ hasText: mediaFilename }).first().getByRole('button')
+        page
+            .locator('article')
+            .filter({ hasText: editedMediaFilename })
+            .first()
+            .locator('[data-media-selection-toggle="true"]')
     ).toHaveAttribute('aria-pressed', 'true')
 
     const mediaOnlyTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())

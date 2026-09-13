@@ -36,7 +36,8 @@
         "@wrksz/themes": "^2.0.0-beta.2",
         "date-fns": "4.4.0",
         "react": "19.2.8",
-        "react-dom": "19.2.8"
+        "react-dom": "19.2.8",
+        "react-easy-crop": "6.2.3"
     },
     "devDependencies": {
         "@inlang/paraglide-js": "2.25.0",

@@ -20,7 +20,15 @@ import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import {
+    lazy,
+    Suspense,
+    useEffect,
+    useRef,
+    useState,
+    type ChangeEvent,
+    type DragEvent,
+} from 'react'
 
 import { MediaAssetCard, MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { api, formatApiError, type MediaReference } from '@/lib/api'
@@ -28,6 +36,15 @@ import { useLanguage } from '@/lib/i18n'
 import { MediaVerificationError } from '@/lib/media-errors'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
+
+const MediaImageEditorDialog = lazy(async () => {
+    const module = await import('@/components/media-image-editor-dialog')
+    return { default: module.MediaImageEditorDialog }
+})
+const MediaImageViewerDialog = lazy(async () => {
+    const module = await import('@/components/media-image-editor-dialog')
+    return { default: module.MediaImageViewerDialog }
+})
 
 export type { MediaSelection } from '@/lib/target-media'
 
@@ -57,6 +74,10 @@ export function MediaAttachmentPicker({
     const [uploading, setUploading] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [libraryOpen, setLibraryOpen] = useState(false)
+    const [viewerAsset, setViewerAsset] = useState<MediaReference | null>(null)
+    const [editorAsset, setEditorAsset] = useState<MediaReference | null>(null)
+    const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
+    const [dragOverAssetId, setDragOverAssetId] = useState<string | null>(null)
     const interactionDisabled = disabled || uploading !== null
     const compact = variant === 'publication-new' || variant === 'publication-new-inline'
     const inline = variant === 'publication-new-inline'
@@ -179,6 +200,92 @@ export function MediaAttachmentPicker({
         onChange(value.filter(item => item.assetId !== assetId))
     }
 
+    function openViewer(asset: MediaReference) {
+        setViewerAsset(asset)
+    }
+
+    function openEditor(asset: MediaReference) {
+        setViewerAsset(null)
+        setEditorAsset(asset)
+    }
+
+    async function saveEditedAsset(sourceAssetId: string, file: File) {
+        setError(null)
+        setUploading(file.name)
+        try {
+            const reservation = await api.reserveMediaUpload(projectId, {
+                originalFilename: file.name,
+                expectedSize: file.size,
+                contentType: file.type || undefined,
+            })
+            await api.uploadMedia(projectId, reservation.intent.id, file)
+            const editedAsset = await completeMediaUpload(projectId, reservation.intent.id)
+            setAssets(current => upsertAssets(current, [editedAsset]))
+
+            const sourceSelection = value.find(item => item.assetId === sourceAssetId)
+            if (sourceSelection !== undefined) {
+                const defaultAccessibilityText = editedAsset.asset.defaultAccessibilityText
+                onChange(
+                    value.map(item => {
+                        if (item.assetId !== sourceAssetId) return item
+                        if (item.accessibilityText !== undefined) {
+                            return { ...item, assetId: editedAsset.asset.id }
+                        }
+                        return defaultAccessibilityText === null
+                            ? { assetId: editedAsset.asset.id }
+                            : {
+                                  assetId: editedAsset.asset.id,
+                                  accessibilityText: defaultAccessibilityText,
+                              }
+                    })
+                )
+            }
+            setEditorAsset(null)
+            setViewerAsset(null)
+        } catch (caughtError) {
+            setError(errorMessage(caughtError))
+            throw caughtError
+        } finally {
+            setUploading(null)
+        }
+    }
+
+    function startReorder(event: DragEvent<HTMLDivElement>, assetId: string) {
+        if (interactionDisabled) return
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/plain', assetId)
+        setDraggingAssetId(assetId)
+    }
+
+    function overReorder(event: DragEvent<HTMLDivElement>, assetId: string) {
+        const sourceAssetId = draggingAssetId ?? event.dataTransfer.getData('text/plain')
+        if (sourceAssetId === '' || sourceAssetId === assetId) return
+        event.preventDefault()
+        event.dataTransfer.dropEffect = 'move'
+        setDragOverAssetId(assetId)
+    }
+
+    function dropReorder(event: DragEvent<HTMLDivElement>, targetAssetId: string) {
+        event.preventDefault()
+        const sourceAssetId = draggingAssetId ?? event.dataTransfer.getData('text/plain')
+        if (sourceAssetId !== '') moveSelectionTo(sourceAssetId, targetAssetId)
+        setDraggingAssetId(null)
+        setDragOverAssetId(null)
+    }
+
+    function moveSelectionTo(sourceAssetId: string, targetAssetId: string) {
+        if (sourceAssetId === targetAssetId) return
+        const sourceIndex = value.findIndex(item => item.assetId === sourceAssetId)
+        const targetIndex = value.findIndex(item => item.assetId === targetAssetId)
+        if (sourceIndex < 0 || targetIndex < 0) return
+
+        const next = [...value]
+        const [selection] = next.splice(sourceIndex, 1)
+        if (selection === undefined) return
+        next.splice(targetIndex, 0, selection)
+        onChange(next)
+    }
+
     const selectedAssets = value.map(selection => ({
         selection,
         asset: assets.find(candidate => candidate.asset.id === selection.assetId),
@@ -207,6 +314,16 @@ export function MediaAttachmentPicker({
                                 total={value.length}
                                 onMove={moveSelection}
                                 onRemove={removeSelection}
+                                onPreview={openViewer}
+                                onDragStart={startReorder}
+                                onDragOver={overReorder}
+                                onDrop={dropReorder}
+                                onDragEnd={() => {
+                                    setDraggingAssetId(null)
+                                    setDragOverAssetId(null)
+                                }}
+                                dragging={draggingAssetId === selection.assetId}
+                                dragOver={dragOverAssetId === selection.assetId}
                             />
                         ))}
                     </div>
@@ -301,6 +418,16 @@ export function MediaAttachmentPicker({
                                     total={value.length}
                                     onMove={moveSelection}
                                     onRemove={removeSelection}
+                                    onPreview={openViewer}
+                                    onDragStart={startReorder}
+                                    onDragOver={overReorder}
+                                    onDrop={dropReorder}
+                                    onDragEnd={() => {
+                                        setDraggingAssetId(null)
+                                        setDragOverAssetId(null)
+                                    }}
+                                    dragging={draggingAssetId === selection.assetId}
+                                    dragOver={dragOverAssetId === selection.assetId}
                                 />
                             ))}
                         </div>
@@ -330,6 +457,7 @@ export function MediaAttachmentPicker({
                                     selected={selected}
                                     onAccessibilityTextChange={updateAccessibilityText}
                                     onToggle={toggleAsset}
+                                    onPreview={openViewer}
                                 />
                             )
                         })}
@@ -413,6 +541,7 @@ export function MediaAttachmentPicker({
                                         )}
                                         onAccessibilityTextChange={updateAccessibilityText}
                                         onToggle={toggleAsset}
+                                        onPreview={openViewer}
                                     />
                                 ))}
                             </div>
@@ -429,6 +558,29 @@ export function MediaAttachmentPicker({
                     </DialogContent>
                 </Dialog>
             ) : null}
+            <Suspense fallback={null}>
+                <MediaImageViewerDialog
+                    asset={viewerAsset}
+                    open={viewerAsset !== null}
+                    onOpenChange={open => {
+                        if (!open) setViewerAsset(null)
+                    }}
+                    onEdit={openEditor}
+                />
+                <MediaImageEditorDialog
+                    asset={editorAsset}
+                    open={editorAsset !== null}
+                    saving={uploading !== null}
+                    onOpenChange={open => {
+                        if (!open && uploading === null) setEditorAsset(null)
+                    }}
+                    onSave={file =>
+                        editorAsset === null
+                            ? Promise.resolve()
+                            : saveEditedAsset(editorAsset.asset.id, file)
+                    }
+                />
+            </Suspense>
         </>
     )
 }
@@ -441,6 +593,13 @@ function CompactMediaPreview({
     total,
     onMove,
     onRemove,
+    onPreview,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+    dragging,
+    dragOver,
 }: {
     readonly asset: MediaReference | undefined
     readonly index: number
@@ -449,19 +608,47 @@ function CompactMediaPreview({
     readonly total: number
     readonly onMove: (index: number, offset: -1 | 1) => void
     readonly onRemove: (assetId: string) => void
+    readonly onPreview: (asset: MediaReference) => void
+    readonly onDragStart: (event: DragEvent<HTMLDivElement>, assetId: string) => void
+    readonly onDragOver: (event: DragEvent<HTMLDivElement>, assetId: string) => void
+    readonly onDrop: (event: DragEvent<HTMLDivElement>, assetId: string) => void
+    readonly onDragEnd: () => void
+    readonly dragging: boolean
+    readonly dragOver: boolean
 }) {
     const filename = asset?.asset.originalFilename ?? m.media_file_type()
     const representation = asset === undefined ? undefined : readyRepresentation(asset)
 
     return (
-        <div className="group relative size-20 overflow-hidden rounded-md bg-surface-field shadow-field ring-1 ring-border/70">
+        <div
+            draggable={asset !== undefined && total > 1}
+            data-media-dragging={dragging || undefined}
+            data-media-drop-target={dragOver || undefined}
+            data-media-reorderable={asset !== undefined && total > 1 ? 'true' : undefined}
+            title={total > 1 ? m.media_reorder_hint() : undefined}
+            className={`group relative size-20 overflow-hidden rounded-md bg-surface-field ${
+                dragging ? 'opacity-45' : ''
+            } ${dragOver ? 'ring-2 ring-primary' : ''}`}
+            onDragStart={event => {
+                if (asset !== undefined) onDragStart(event, selection.assetId)
+            }}
+            onDragOver={event => onDragOver(event, selection.assetId)}
+            onDrop={event => onDrop(event, selection.assetId)}
+            onDragEnd={onDragEnd}>
             {asset !== undefined && representation !== undefined ? (
-                <MediaPreview
-                    projectId={projectId}
-                    asset={asset}
-                    representation={representation}
-                    className="size-20 rounded-md object-cover"
-                />
+                <button
+                    type="button"
+                    data-media-preview="true"
+                    className="block size-20 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                    aria-label={m.media_view_asset({ filename })}
+                    onClick={() => onPreview(asset)}>
+                    <MediaPreview
+                        projectId={projectId}
+                        asset={asset}
+                        representation={representation}
+                        className="size-20 rounded-md object-cover"
+                    />
+                </button>
             ) : (
                 <span className="flex size-20 items-center justify-center text-xs text-muted-foreground">
                     {m.media_file_type()}
@@ -493,7 +680,7 @@ function CompactMediaPreview({
                 type="button"
                 variant="destructive"
                 size="icon-xs"
-                className="absolute top-1 right-1 bg-state-failed text-white shadow-sm hover:bg-state-failed/85"
+                className="absolute top-1 right-1 border-2 border-background bg-state-failed text-white shadow-control hover:bg-state-failed/85"
                 aria-label={m.media_remove({ filename })}
                 onClick={() => onRemove(selection.assetId)}>
                 <CloseIcon aria-hidden="true" />
@@ -542,6 +729,9 @@ function errorMessage(error: unknown) {
     }
     if (error instanceof Error && error.message === 'media_verification_pending') {
         return m.media_verification_pending()
+    }
+    if (error instanceof Error && error.message.startsWith('media_editor_')) {
+        return m.media_editor_failed()
     }
     return formatApiError(error)
 }
