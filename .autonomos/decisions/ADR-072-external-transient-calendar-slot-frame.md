@@ -1,9 +1,10 @@
 # ADR-072 — Use an External Transient Frame for Dense Calendar Slots
 
-- Status: accepted
+- Status: superseded
 - Scope: ReUI Week/Day time-grid occupied-slot interaction affordance
 - Provenance: ISSUE-095, owner feedback on 2026-09-13
 - Supersedes: ADR-071 item 3 only, for the geometry of the occupied-slot frame
+- Superseded by: ADR-073
 
 ## Context
 

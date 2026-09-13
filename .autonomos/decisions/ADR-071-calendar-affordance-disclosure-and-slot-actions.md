@@ -4,6 +4,8 @@
 - Scope: authenticated ReUI calendar toolbar and Week/Day time-grid slots
 - Owner: project direction
 - Provenance: ISSUE-093, ISSUE-094; owner feedback on 2026-09-13
+- Superseded by: ADR-073 for item 2; item 3 was superseded by ADR-072 and is
+  now governed by ADR-073
 
 ## Context
 

@@ -261,6 +261,13 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     const selectedWeekButton = calendar.getByRole('button', { name: 'Week', exact: true })
     await expect(selectedWeekButton).toHaveAttribute('aria-pressed', 'true')
     await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveText('W')
+    await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveCSS('height', '16px')
+    await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveClass(/bg-surface-field/)
+    const kbdBackground = await selectedWeekButton
+        .locator('[data-slot="kbd"]')
+        .evaluate(element => getComputedStyle(element).backgroundColor)
+    expect(kbdBackground).not.toBe('rgba(0, 0, 0, 0)')
+    await expect(calendar.locator('[data-slot="kbd"]')).toHaveText(['M', 'W', 'D', 'A'])
     await expect(selectedWeekButton).toHaveClass(/bg-surface-raised/)
     await expect(weekView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
     await expect(weekView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
@@ -277,7 +284,17 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     const weekVisibleTimes = await visibleCalendarTimes(weekScrollSurface)
     expect(weekVisibleTimes).not.toContain('00:00')
     expect(weekVisibleTimes).toContain('23:00')
-    await expect(weekView.locator('[data-slot="event-calendar-event"]').first()).toBeInViewport()
+    const firstWeekEventBox = await weekView
+        .locator('[data-slot="event-calendar-event"]')
+        .first()
+        .boundingBox()
+    const weekScrollBox = await weekScrollSurface.boundingBox()
+    expect(
+        (firstWeekEventBox?.y ?? Number.POSITIVE_INFINITY) + (firstWeekEventBox?.height ?? 0)
+    ).toBeGreaterThan(weekScrollBox?.y ?? 0)
+    expect(firstWeekEventBox?.y).toBeLessThan(
+        (weekScrollBox?.y ?? 0) + (weekScrollBox?.height ?? 0)
+    )
     await page.reload()
     await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
     expect(new URL(page.url()).searchParams.get('view')).toBe('week')
@@ -334,56 +351,73 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
         .locator('[data-slot="event-calendar-time-slot"]')
         .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
         .first()
-    const denseSlotFrame = denseTimeSlot.locator('[data-slot="event-calendar-time-slot-frame"]')
-    await expect(denseSlotFrame).toBeVisible()
-    await expect(denseSlotFrame).toHaveCSS('opacity', '0')
+    const denseSlotAdd = denseTimeSlot.locator('[data-slot="event-calendar-time-slot-add"]')
+    await expect(denseTimeSlot.locator('[data-slot="event-calendar-time-slot-frame"]')).toHaveCount(
+        0
+    )
+    await expect(denseSlotAdd).toHaveCSS('opacity', '0')
+    await expect(denseSlotAdd).toHaveCSS('pointer-events', 'none')
     await expect(denseTimeSlot.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
     const denseTimeSlotBeforeHoverBox = await denseTimeSlot.boundingBox()
     await denseTimeSlot.hover()
-    await expect(denseSlotFrame).toHaveCSS('opacity', '1')
-    await expect(denseSlotFrame.locator('[data-slot="event-calendar-time-slot-add"]')).toHaveCount(
-        1
-    )
-    const denseSlotAdd = denseSlotFrame.locator('[data-slot="event-calendar-time-slot-add"]')
+    await expect(denseSlotAdd).toHaveCSS('opacity', '1')
+    await expect(denseSlotAdd).toHaveCSS('pointer-events', 'auto')
     const denseSlotAddBox = await denseSlotAdd.boundingBox()
     const firstDenseEventBox = await denseTimeSlot
         .locator('[data-slot="event-calendar-event"]')
         .first()
         .boundingBox()
-    expect(denseSlotAddBox?.y).toBeLessThan(firstDenseEventBox?.y ?? Number.POSITIVE_INFINITY)
-    const denseSlotFrameBox = await denseSlotFrame.boundingBox()
     const denseTimeSlotBox = await denseTimeSlot.boundingBox()
-    const denseSlotFrameRight = (denseSlotFrameBox?.x ?? 0) + (denseSlotFrameBox?.width ?? 0)
-    const denseSlotFrameBottom = (denseSlotFrameBox?.y ?? 0) + (denseSlotFrameBox?.height ?? 0)
-    expect(denseSlotFrameBox?.x).toBeLessThan(denseTimeSlotBox?.x ?? Number.POSITIVE_INFINITY)
-    expect(denseSlotFrameBox?.y).toBeLessThan(denseTimeSlotBox?.y ?? Number.POSITIVE_INFINITY)
-    expect(denseSlotFrameRight).toBeGreaterThan(
-        (denseTimeSlotBox?.x ?? 0) + (denseTimeSlotBox?.width ?? 0)
-    )
-    expect(denseSlotFrameBottom).toBeGreaterThan(
-        (denseTimeSlotBox?.y ?? 0) + (denseTimeSlotBox?.height ?? 0)
-    )
+    expect(denseSlotAddBox?.x).toBeGreaterThanOrEqual(denseTimeSlotBox?.x ?? 0)
     expect((denseSlotAddBox?.x ?? 0) + (denseSlotAddBox?.width ?? 0)).toBeLessThanOrEqual(
         (denseTimeSlotBox?.x ?? 0) + (denseTimeSlotBox?.width ?? 0)
     )
+    expect(denseSlotAddBox?.y).toBeGreaterThanOrEqual(denseTimeSlotBox?.y ?? 0)
     expect((denseSlotAddBox?.y ?? 0) + (denseSlotAddBox?.height ?? 0)).toBeLessThanOrEqual(
+        (denseTimeSlotBox?.y ?? 0) + (denseTimeSlotBox?.height ?? 0)
+    )
+    expect(denseSlotAddBox?.y).toBeLessThanOrEqual(
         firstDenseEventBox?.y ?? Number.POSITIVE_INFINITY
     )
+    const denseSlotStackZIndex = await denseTimeSlot
+        .locator('[data-slot="event-calendar-event"]')
+        .first()
+        .evaluate(element => getComputedStyle(element.parentElement ?? element).zIndex)
+    const denseSlotAddZIndex = await denseSlotAdd.evaluate(
+        element => getComputedStyle(element).zIndex
+    )
+    expect(Number(denseSlotAddZIndex)).toBeGreaterThan(Number(denseSlotStackZIndex))
     expect(denseTimeSlotBox?.height).toBe(denseTimeSlotBeforeHoverBox?.height)
     expect(denseTimeSlotBox?.width).toBe(denseTimeSlotBeforeHoverBox?.width)
     await expect(
         weekView.locator('[data-slot="event-calendar-time-slot"][data-empty]').first()
     ).toHaveCount(1)
-    const emptyFrame = weekView
-        .locator('[data-slot="event-calendar-time-slot"][data-empty]')
-        .first()
-        .locator('[data-slot="event-calendar-time-slot-frame"]')
-    await expect(emptyFrame).toHaveCSS('opacity', '0')
+    const emptySlotAdd = emptyTimeSlot.locator('[data-slot="event-calendar-time-slot-add"]')
+    await expect(emptyTimeSlot.locator('[data-slot="event-calendar-time-slot-frame"]')).toHaveCount(
+        0
+    )
+    await expect(emptySlotAdd).toHaveCSS('opacity', '0')
+    await emptyTimeSlot.hover()
+    await expect(emptySlotAdd).toHaveCSS('opacity', '1')
     const emptyTimeSlotBox = await emptyTimeSlot.boundingBox()
     expect(denseTimeSlotBox?.height).toBeGreaterThan(emptyTimeSlotBox?.height ?? 0)
 
-    const createSlot = weekView.locator('[data-slot="event-calendar-time-slot-add"]').first()
-    await createSlot.click()
+    await weekScrollSurface.evaluate(element => {
+        element.scrollLeft = element.scrollWidth - element.clientWidth
+    })
+    await expect
+        .poll(() => weekScrollSurface.evaluate(element => element.scrollLeft))
+        .toBeGreaterThan(0)
+    const scrollSurfaceBox = await weekScrollSurface.boundingBox()
+    const timeGutter = weekView.locator('[data-slot="event-calendar-time-gutter-slot"]').first()
+    await expect(timeGutter).toHaveCSS('position', 'sticky')
+    const timeGutterBox = await timeGutter.boundingBox()
+    expect(Math.abs((timeGutterBox?.x ?? 0) - (scrollSurfaceBox?.x ?? 0))).toBeLessThanOrEqual(1)
+    await weekScrollSurface.evaluate(element => {
+        element.scrollLeft = 0
+    })
+
+    await emptySlotAdd.click()
     const composeUrl = new URL(page.url())
     expect(composeUrl.pathname).toBe(`/dashboard/projects/${projectId}/compose`)
     expect(composeUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)

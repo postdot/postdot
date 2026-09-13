@@ -324,31 +324,25 @@ function EventCalendarToolbar({
                 <Button
                     aria-label={settings.i18n.labels.previous}
                     aria-keyshortcuts="["
-                    className="gap-1.5"
                     onClick={prev}
                     size="sm"
                     variant="ghost">
                     <AltArrowLeftIcon aria-hidden="true" />
-                    <Kbd aria-hidden="true">[</Kbd>
                 </Button>
                 <Button
                     aria-keyshortcuts="T"
                     aria-pressed={isToday}
-                    className="gap-1.5"
                     onClick={today}
                     size="sm"
                     variant="ghost">
                     {settings.i18n.labels.today}
-                    <Kbd aria-hidden="true">T</Kbd>
                 </Button>
                 <Button
                     aria-label={settings.i18n.labels.next}
                     aria-keyshortcuts="]"
-                    className="gap-1.5"
                     onClick={next}
                     size="sm"
                     variant="ghost">
-                    <Kbd aria-hidden="true">]</Kbd>
                     <AltArrowRightIcon aria-hidden="true" />
                 </Button>
             </div>

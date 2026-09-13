@@ -2584,3 +2584,54 @@ channels` with a foreign-key constraint error even though a fresh empty database
   while dense publications remain direct inspectable targets. Browser tests
   verify the frame visibility transition, external bounds, unchanged slot
   dimensions, action ordering, and six-publication rendering.
+
+## [ISSUE-096] Keep Week/Day actions in-cell and reduce calendar chrome
+
+- Type: problem
+- Status: resolved
+- Evidence: Owner review of the WEB-170 result rejects the external action
+  band and frame. The `+` should appear in the existing cell on hover/focus,
+  layered above the publication stack, without adding an outer border, a new
+  padding tier, or a flow-affecting header. The visible `[`, `T`, and `]`
+  keycaps also make the toolbar noisy, while the shared `Kbd` treatment is
+  oversized and relies too much on a shadow against a similar surface. The
+  horizontally scrollable Week/Day grid additionally lets the time gutter
+  leave the viewport, so the operator loses the hour context while reading a
+  later day column.
+- Impact: The current implementation spends scarce calendar space on an
+  affordance the operator did not ask for, makes the reading toolbar compete
+  with its own navigation controls, and makes horizontal schedule scanning
+  harder because hour labels disappear.
+- Desired outcome: Keep the publication stack as the content owner of the
+  cell, reveal one compact in-cell create button only on hover/focus, paint it
+  above the stack with a higher interaction z-order, and preserve identical
+  slot geometry before and after disclosure. Retain visible keycaps only in
+  the local view switcher, where they explain the reading-mode shortcuts;
+  remove the navigation keycaps for now while keeping accessible shortcut
+  metadata and behavior. Give `Kbd` a compact, clearly contrasting field
+  treatment whose distinction does not depend on a shadow. Make the time
+  gutter sticky at the inline start for the Week/Day horizontal scroll, with
+  the header intersection layered above day content.
+- Scope boundary: This is a correction to the Week/Day affordance, toolbar
+  disclosure, and scroll orientation. It does not introduce a global
+  shortcut-help overlay, new keyboard commands, drag/resize behavior, or a
+  second calendar layout.
+- Tasks: WEB-171
+- Related issues: ISSUE-080, ISSUE-081, ISSUE-082, ISSUE-083, ISSUE-084,
+  ISSUE-093, ISSUE-094, ISSUE-095
+- Related decisions: ADR-071, ADR-072, ADR-073
+- Acceptance: Browser coverage proves the in-cell action is hidden at rest,
+  visible on hover/focus, above dense publications, inside the slot, and
+  geometry-neutral; empty slots remain compact and create still routes with
+  date/time context. The view toolbar contains only the local view keycaps,
+  `Kbd` is compact and contrastive in light/dark themes, and a horizontal
+  scroll keeps the time gutter at the scroll surface's inline start. Full
+  format, lint, typecheck, unit, browser, build, and integrated visual checks
+  pass.
+- Resolution: WEB-171 removes the external frame and renders the `+` as a
+  transient, in-cell overlay above the publication stack without layout
+  shift. Navigation keycaps are removed while the view switcher keeps its
+  compact `M`/`W`/`D`/`A` disclosure, `Kbd` uses a contrasting field surface,
+  and the time gutter/header intersection stay sticky during horizontal
+  scrolling. The deterministic browser scenario, full E2E suite (17/17),
+  full repository gate, and light/dark integrated review pass.

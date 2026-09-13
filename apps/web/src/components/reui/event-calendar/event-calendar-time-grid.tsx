@@ -394,7 +394,11 @@ function EventCalendarTimeGrid<TData = unknown>({
                                 ].join(' ')}
                                 data-slot="event-calendar-time-grid-header"
                                 style={{ gridTemplateColumns }}>
-                                <div aria-hidden="true" className="rounded-md bg-surface-inset" />
+                                <div
+                                    aria-hidden="true"
+                                    className="sticky start-0 z-40 rounded-md bg-surface-inset"
+                                    data-slot="event-calendar-time-grid-gutter-header"
+                                />
                                 {days.map((day, columnIndex) => (
                                     <EventCalendarTimeGridDayHeader<TData>
                                         columnCount={days.length}
@@ -415,7 +419,7 @@ function EventCalendarTimeGrid<TData = unknown>({
                                     className="mt-1 grid gap-0.5"
                                     data-slot="event-calendar-time-grid-all-day"
                                     style={{ gridTemplateColumns }}>
-                                    <div className="flex min-h-9 items-center justify-end px-2 text-[0.6875rem] text-muted-foreground">
+                                    <div className="sticky start-0 z-30 flex min-h-9 items-center justify-end bg-surface-inset px-2 text-[0.6875rem] text-muted-foreground">
                                         {settings.i18n.labels.allDay}
                                     </div>
                                     {days.map(day => (
@@ -579,7 +583,7 @@ function EventCalendarTimeGutterSlot<TData>({
     return (
         <div
             aria-hidden="true"
-            className="flex min-h-[var(--ec-slot-min-height)] items-start justify-end pe-1.5 pt-1.5 text-[0.6875rem] tabular-nums text-muted-foreground"
+            className="sticky start-0 z-30 flex min-h-[var(--ec-slot-min-height)] items-start justify-end bg-surface-inset pe-1.5 pt-1.5 text-[0.6875rem] tabular-nums text-muted-foreground"
             data-slot="event-calendar-time-gutter-slot">
             {viewConfig.renderTimeGutterSlot?.({
                 hour: Math.floor(slot.startMinute / 60),
@@ -676,15 +680,6 @@ function EventCalendarTimeGridSlot<TData>({
             ))}
         </div>
     )
-    const interactionFrame = (
-        <div
-            className="pointer-events-none absolute -inset-1 z-30 rounded-md border border-primary/65 opacity-0 transition-opacity group-hover/time-slot:opacity-100 group-focus-within/time-slot:opacity-100"
-            data-occupied={timedSegments.length > 0 ? true : undefined}
-            data-slot="event-calendar-time-slot-frame">
-            <div className="pointer-events-auto absolute -top-5 end-1">{addButton}</div>
-        </div>
-    )
-
     return (
         <div
             className={[
@@ -700,8 +695,8 @@ function EventCalendarTimeGridSlot<TData>({
             data-slot="event-calendar-time-slot"
             data-time={format(toZoned(slotStart, settings.timeZone), 'HH:mm')}
             onClick={handleSlotClick}>
-            {interactionFrame}
             {publicationStack}
+            {addButton}
         </div>
     )
 }
@@ -718,7 +713,7 @@ function EventCalendarTimeGridAddButton({
     return (
         <button
             aria-label={addLabel}
-            className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground shadow-control transition-[background-color,box-shadow] hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            className="pointer-events-none absolute end-1 top-1 z-30 flex size-6 shrink-0 items-center justify-center rounded-sm bg-primary text-primary-foreground opacity-0 shadow-control transition-[background-color,box-shadow,opacity] group-hover/time-slot:pointer-events-auto group-hover/time-slot:opacity-100 group-focus-within/time-slot:pointer-events-auto group-focus-within/time-slot:opacity-100 hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             data-slot="event-calendar-time-slot-add"
             onClick={onClick}
             tabIndex={occupied ? 0 : -1}
