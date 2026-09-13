@@ -10,6 +10,12 @@ const mediaProjectParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
 })
 
+const mediaListQuery = Type.Object({
+    cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })),
+    limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    search: Type.Optional(Type.String({ maxLength: 255 })),
+})
+
 const mediaAssetParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
     assetId: Type.String({ minLength: 1 }),
@@ -121,6 +127,11 @@ const mediaIntentSchema = Type.Object({
 const mediaReferenceSchema = Type.Object({
     asset: mediaAssetSchema,
     representations: Type.Array(mediaRepresentationSchema),
+})
+
+const mediaListPageSchema = Type.Object({
+    media: Type.Array(mediaReferenceSchema),
+    nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
 })
 
 const mediaReservationSchema = Type.Object({
@@ -351,8 +362,10 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
             {
                 auth: true,
                 params: mediaProjectParams,
+                query: mediaListQuery,
                 response: {
-                    200: Type.Object({ media: Type.Array(mediaReferenceSchema) }),
+                    200: mediaListPageSchema,
+                    400: errorResponse,
                     401: errorResponse,
                     404: errorResponse,
                     503: errorResponse,
@@ -363,15 +376,24 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     tags: ['Media'],
                 },
             },
-            ({ params, status, user }) => {
+            ({ params, query, status, user }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
-                const mediaAssets = media.listAssets(params.projectId, user.id)
-                if (mediaAssets === null) {
+                const page = media.listAssetsPage({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                    cursor: query.cursor,
+                    limit: query.limit,
+                    search: query.search,
+                })
+                if (page === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                return { media: mediaAssets.map(toMediaReferenceResponse) }
+                return {
+                    media: page.items.map(toMediaReferenceResponse),
+                    nextCursor: page.nextCursor,
+                }
             }
         )
         .get(

@@ -263,6 +263,7 @@ export type {
     FinalizeMediaUploadInput,
     FinalizeMediaUploadResult,
     MediaAssetContent,
+    MediaAssetListPage,
     MediaAssetReference,
     MediaAssetStore,
     MediaAssetStoreOptions,
@@ -272,6 +273,7 @@ export type {
     ReconcileMediaResult,
     RequestMediaDeletionResult,
     ReserveMediaUploadInput,
+    ListMediaAssetsInput,
     UploadMediaInput,
 } from './media-asset-store'
 export type {

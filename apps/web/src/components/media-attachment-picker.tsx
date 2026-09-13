@@ -15,10 +15,12 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@herald/ui/components/empty'
+import { Input } from '@herald/ui/components/input'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
+import { MagnifierIcon } from '@solar-icons/react/bold/magnifier'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
 import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
 import { lazy, useMemo, Suspense, useEffect, useRef, useState, type DragEvent } from 'react'
@@ -46,6 +48,8 @@ const MediaImageViewerDialog = lazy(async () => {
 })
 
 export type { MediaSelection } from '@/lib/target-media'
+
+const MEDIA_PAGE_SIZE = 24
 
 interface MediaAttachmentPickerProps {
     readonly projectId: string
@@ -92,9 +96,13 @@ function MediaAttachmentPickerView({
     useLanguage()
     const [assets, setAssets] = useState<MediaReference[]>([])
     const [loading, setLoading] = useState(true)
+    const [loadingMore, setLoadingMore] = useState(false)
     const [savingEdited, setSavingEdited] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [searchQuery, setSearchQuery] = useState('')
     const [libraryOpen, setLibraryOpen] = useState(false)
+    const [listRefreshKey, setListRefreshKey] = useState(0)
+    const [nextCursor, setNextCursor] = useState<string | null>(null)
     const [viewerAsset, setViewerAsset] = useState<MediaReference | null>(null)
     const [editorAsset, setEditorAsset] = useState<MediaReference | null>(null)
     const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
@@ -123,10 +131,19 @@ function MediaAttachmentPickerView({
     const compact = variant === 'publication-new' || variant === 'publication-new-inline'
     const inline = variant === 'publication-new-inline'
     const manageOnly = selectionMode === 'manage'
-    const populatedLibrary = manageOnly && !loading && assets.length > 0
+    const normalizedSearchQuery = manageOnly ? searchQuery.trim() : ''
+    const populatedLibrary =
+        manageOnly && !loading && (assets.length > 0 || normalizedSearchQuery !== '')
     const interactionLocked = disabled || savingEdited || uploading !== null
     const currentValueRef = useRef(value)
     const onChangeRef = useRef(onChange)
+    const listRequestId = useRef(0)
+    const assetsRef = useRef<MediaReference[]>([])
+    const selectionHydrationRequestId = useRef(0)
+    const [hydratingSelection, setHydratingSelection] = useState(false)
+    const selectedAssetIds = [...new Set(value.map(selection => selection.assetId))]
+        .sort()
+        .join('\u0000')
 
     useEffect(() => {
         currentValueRef.current = value
@@ -134,30 +151,85 @@ function MediaAttachmentPickerView({
     }, [onChange, value])
 
     useEffect(() => {
+        assetsRef.current = assets
+    }, [assets])
+
+    useEffect(() => {
         onAssetsChange?.(assets)
     }, [assets, onAssetsChange])
 
     useEffect(() => {
         let active = true
-        setLoading(true)
-        setError(null)
+        const requestId = ++listRequestId.current
+        const delay = normalizedSearchQuery === '' ? 0 : 180
+        const timer = window.setTimeout(() => {
+            setLoading(true)
+            setLoadingMore(false)
+            setError(null)
+            setAssets([])
+            setNextCursor(null)
 
-        void api
-            .listMedia(projectId)
-            .then(response => {
-                if (active) setAssets(response.media)
-            })
-            .catch(caughtError => {
-                if (active) setError(errorMessage(caughtError))
-            })
-            .finally(() => {
-                if (active) setLoading(false)
-            })
+            void api
+                .listMedia(projectId, {
+                    limit: MEDIA_PAGE_SIZE,
+                    search: normalizedSearchQuery || undefined,
+                })
+                .then(response => {
+                    if (active && requestId === listRequestId.current) {
+                        setAssets(response.media)
+                        setNextCursor(response.nextCursor)
+                    }
+                })
+                .catch(caughtError => {
+                    if (active && requestId === listRequestId.current) {
+                        setError(errorMessage(caughtError))
+                    }
+                })
+                .finally(() => {
+                    if (active && requestId === listRequestId.current) setLoading(false)
+                })
+        }, delay)
+
+        return () => {
+            active = false
+            window.clearTimeout(timer)
+        }
+    }, [listRefreshKey, normalizedSearchQuery, projectId])
+
+    useEffect(() => {
+        if (manageOnly || selectedAssetIds === '') {
+            setHydratingSelection(false)
+            return
+        }
+
+        const missingAssetIds = selectedAssetIds
+            .split('\u0000')
+            .filter(assetId => !assetsRef.current.some(asset => asset.asset.id === assetId))
+        if (missingAssetIds.length === 0) {
+            setHydratingSelection(false)
+            return
+        }
+
+        let active = true
+        const requestId = ++selectionHydrationRequestId.current
+        setHydratingSelection(true)
+        void Promise.all(
+            missingAssetIds.map(assetId => api.getMedia(projectId, assetId).catch(() => null))
+        ).then(loadedAssets => {
+            if (!active || requestId !== selectionHydrationRequestId.current) return
+            const availableAssets = loadedAssets.filter(
+                (asset): asset is MediaReference => asset !== null
+            )
+            if (availableAssets.length > 0) {
+                setAssets(current => upsertAssets(current, availableAssets))
+            }
+            setHydratingSelection(false)
+        })
 
         return () => {
             active = false
         }
-    }, [projectId])
+    }, [manageOnly, projectId, selectedAssetIds])
 
     useEffect(() => {
         const handleFilesAdded = (files: HeraldMediaUppyFile[]) => {
@@ -176,7 +248,16 @@ function MediaAttachmentPickerView({
                         .map(file => controller.mediaByFileId.get(file.id))
                         .filter((asset): asset is MediaReference => asset !== undefined)
                     if (uploaded.length > 0) {
-                        setAssets(current => upsertAssets(current, uploaded))
+                        const visibleUploaded = uploaded.filter(asset =>
+                            matchesMediaSearch(asset, normalizedSearchQuery)
+                        )
+                        if (manageOnly) {
+                            setListRefreshKey(current => current + 1)
+                        } else {
+                            setAssets(current =>
+                                upsertAssets(current, visibleUploaded).slice(0, MEDIA_PAGE_SIZE)
+                            )
+                        }
                         const selected = [...currentValueRef.current]
                         for (const asset of uploaded) {
                             if (!selected.some(item => item.assetId === asset.asset.id)) {
@@ -202,7 +283,7 @@ function MediaAttachmentPickerView({
         return () => {
             controller.uppy.off('files-added', handleFilesAdded)
         }
-    }, [controller, disabled, savingEdited])
+    }, [controller, disabled, manageOnly, normalizedSearchQuery, savingEdited])
 
     function toggleAsset(asset: MediaReference) {
         if (interactionLocked || asset.asset.state !== 'ready') return
@@ -269,7 +350,11 @@ function MediaAttachmentPickerView({
                 expectedSize: file.size,
                 contentType: file.type || undefined,
             })
-            setAssets(current => upsertAssets(current, [editedAsset]))
+            if (manageOnly) {
+                setListRefreshKey(current => current + 1)
+            } else if (matchesMediaSearch(editedAsset, normalizedSearchQuery)) {
+                setAssets(current => upsertAssets(current, [editedAsset]).slice(0, MEDIA_PAGE_SIZE))
+            }
 
             const sourceSelection = value.find(item => item.assetId === sourceAssetId)
             if (sourceSelection !== undefined) {
@@ -335,20 +420,43 @@ function MediaAttachmentPickerView({
         onChange(next)
     }
 
+    async function loadMoreAssets() {
+        if (nextCursor === null || loading || loadingMore) return
+
+        const requestId = listRequestId.current
+        setLoadingMore(true)
+        setError(null)
+        try {
+            const response = await api.listMedia(projectId, {
+                cursor: nextCursor,
+                limit: MEDIA_PAGE_SIZE,
+                search: normalizedSearchQuery || undefined,
+            })
+            if (requestId !== listRequestId.current) return
+            setAssets(current => upsertAssets(current, response.media))
+            setNextCursor(response.nextCursor)
+        } catch (caughtError) {
+            if (requestId === listRequestId.current) setError(errorMessage(caughtError))
+        } finally {
+            if (requestId === listRequestId.current) setLoadingMore(false)
+        }
+    }
+
     const selectedAssets = value.map(selection => ({
         selection,
         asset: assets.find(candidate => candidate.asset.id === selection.assetId),
     }))
     const dropzoneRootProps = interactionLocked ? {} : dropzone.getRootProps()
+    const containerDropzoneProps = manageOnly ? {} : dropzoneRootProps
     const fileInputProps = fileInput.getInputProps()
     const fileButtonProps = fileInput.getButtonProps()
 
     return (
         <>
             <div
-                {...dropzoneRootProps}
+                {...containerDropzoneProps}
                 data-media-picker="true"
-                data-media-dropzone="true"
+                data-media-dropzone={!manageOnly ? 'true' : undefined}
                 className={`${
                     inline
                         ? 'border-t border-border/70 bg-muted/25 px-3 py-2'
@@ -358,6 +466,39 @@ function MediaAttachmentPickerView({
                             ? 'space-y-4'
                             : 'rounded-lg bg-muted p-4 sm:p-5'
                 }`}>
+                {manageOnly ? (
+                    <div
+                        role="search"
+                        aria-label={m.media_search_label()}
+                        data-media-library-toolbar="true"
+                        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="relative min-w-0 sm:w-80">
+                            <label className="sr-only" htmlFor={`media-search-${projectId}`}>
+                                {m.media_search_label()}
+                            </label>
+                            <MagnifierIcon
+                                aria-hidden="true"
+                                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                            />
+                            <Input
+                                id={`media-search-${projectId}`}
+                                type="search"
+                                data-media-search="true"
+                                value={searchQuery}
+                                onChange={event => setSearchQuery(event.target.value)}
+                                placeholder={m.media_search_placeholder()}
+                                className="h-8 pl-9 text-sm"
+                            />
+                        </div>
+                        {assets.length > 0 ? (
+                            <p
+                                aria-live="polite"
+                                className="text-xs text-muted-foreground sm:shrink-0">
+                                {m.media_visible_count({ count: assets.length })}
+                            </p>
+                        ) : null}
+                    </div>
+                ) : null}
                 {inline && !loading && selectedAssets.length > 0 ? (
                     <div className="mb-2 flex flex-wrap gap-2">
                         {selectedAssets.map(({ asset, selection }, index) => (
@@ -386,7 +527,9 @@ function MediaAttachmentPickerView({
                 ) : null}
                 {manageOnly ? (
                     <div
+                        {...dropzoneRootProps}
                         data-media-import-zone="true"
+                        data-media-dropzone="true"
                         className={`group flex rounded-md border border-dashed px-4 text-center transition-colors ${
                             populatedLibrary
                                 ? 'min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2'
@@ -541,17 +684,21 @@ function MediaAttachmentPickerView({
                         </div>
                     )
                 ) : assets.length === 0 ? (
-                    <Empty className="mt-4 min-h-28 bg-surface-field px-4 py-5">
-                        <EmptyHeader>
-                            <EmptyMedia variant="icon">
-                                <GalleryAddIcon aria-hidden="true" />
-                            </EmptyMedia>
-                            <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
-                            <EmptyDescription>
-                                {emptyDescription ?? m.media_empty_here()}
-                            </EmptyDescription>
-                        </EmptyHeader>
-                    </Empty>
+                    normalizedSearchQuery !== '' ? (
+                        <p className="mt-4 text-sm text-muted-foreground">{m.media_no_results()}</p>
+                    ) : (
+                        <Empty className="mt-4 min-h-28 bg-surface-field px-4 py-5">
+                            <EmptyHeader>
+                                <EmptyMedia variant="icon">
+                                    <GalleryAddIcon aria-hidden="true" />
+                                </EmptyMedia>
+                                <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
+                                <EmptyDescription>
+                                    {emptyDescription ?? m.media_empty_here()}
+                                </EmptyDescription>
+                            </EmptyHeader>
+                        </Empty>
+                    )
                 ) : (
                     <div
                         className={`${manageOnly ? '' : 'mt-4 '}grid gap-3 ${
@@ -578,7 +725,22 @@ function MediaAttachmentPickerView({
                     </div>
                 )}
 
-                {value.some(item => !assets.some(asset => asset.asset.id === item.assetId)) ? (
+                {!compact && !loading && assets.length > 0 && nextCursor !== null ? (
+                    <div className="mt-4 flex justify-center">
+                        <Button
+                            type="button"
+                            className="shadow-none"
+                            variant="outline"
+                            disabled={interactionLocked || loadingMore}
+                            data-media-load-more="true"
+                            onClick={() => void loadMoreAssets()}>
+                            {loadingMore ? m.media_loading_more() : m.media_load_more()}
+                        </Button>
+                    </div>
+                ) : null}
+
+                {!hydratingSelection &&
+                value.some(item => !assets.some(asset => asset.asset.id === item.assetId)) ? (
                     <div className="mt-3 flex items-start gap-2 rounded-md bg-state-attention/10 px-3 py-2 text-xs text-state-attention">
                         <CloseIcon aria-hidden="true" className="mt-0.5 shrink-0" />
                         <p>{m.media_missing_assets()}</p>
@@ -643,23 +805,40 @@ function MediaAttachmentPickerView({
                                 </Button>
                             </Empty>
                         ) : (
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                {assets.map(asset => (
-                                    <MediaAssetCard
-                                        key={asset.asset.id}
-                                        asset={asset}
-                                        interactionDisabled={interactionLocked}
-                                        projectId={projectId}
-                                        selected={value.find(
-                                            item => item.assetId === asset.asset.id
-                                        )}
-                                        selectable={!manageOnly}
-                                        onAccessibilityTextChange={updateAccessibilityText}
-                                        onToggle={toggleAsset}
-                                        onPreview={openViewer}
-                                    />
-                                ))}
-                            </div>
+                            <>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    {assets.map(asset => (
+                                        <MediaAssetCard
+                                            key={asset.asset.id}
+                                            asset={asset}
+                                            interactionDisabled={interactionLocked}
+                                            projectId={projectId}
+                                            selected={value.find(
+                                                item => item.assetId === asset.asset.id
+                                            )}
+                                            selectable={!manageOnly}
+                                            onAccessibilityTextChange={updateAccessibilityText}
+                                            onToggle={toggleAsset}
+                                            onPreview={openViewer}
+                                        />
+                                    ))}
+                                </div>
+                                {nextCursor !== null ? (
+                                    <div className="mt-4 flex justify-center">
+                                        <Button
+                                            type="button"
+                                            className="shadow-none"
+                                            variant="outline"
+                                            disabled={interactionLocked || loadingMore}
+                                            data-media-load-more="true"
+                                            onClick={() => void loadMoreAssets()}>
+                                            {loadingMore
+                                                ? m.media_loading_more()
+                                                : m.media_load_more()}
+                                        </Button>
+                                    </div>
+                                ) : null}
+                            </>
                         )}
 
                         <DialogFooter>
@@ -807,7 +986,18 @@ function CompactMediaPreview({
 function upsertAssets(current: readonly MediaReference[], additions: readonly MediaReference[]) {
     const byId = new Map(current.map(asset => [asset.asset.id, asset]))
     for (const asset of additions) byId.set(asset.asset.id, asset)
-    return [...byId.values()].sort((left, right) => right.asset.createdAt - left.asset.createdAt)
+    return [...byId.values()].sort(
+        (left, right) =>
+            right.asset.createdAt - left.asset.createdAt ||
+            right.asset.id.localeCompare(left.asset.id)
+    )
+}
+
+function matchesMediaSearch(asset: MediaReference, search: string): boolean {
+    return (
+        search === '' ||
+        asset.asset.originalFilename.toLocaleLowerCase().includes(search.toLocaleLowerCase())
+    )
 }
 
 function mediaSelectionFor(asset: MediaReference): MediaSelection {

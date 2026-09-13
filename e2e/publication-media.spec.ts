@@ -471,6 +471,18 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
+    const mediaSearch = page.getByRole('searchbox', { name: 'Search media', exact: true })
+    await expect(mediaSearch).toBeVisible()
+    await mediaSearch.fill(droppedMediaFilename)
+    await expect(
+        page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
+    ).toBeVisible()
+    await mediaSearch.fill(`missing-${suffix}`)
+    await expect(page.getByText('No media matches this search.', { exact: true })).toBeVisible()
+    await mediaSearch.fill('')
+    await expect(
+        page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
+    ).toBeVisible()
     await expect(
         page.locator('main').getByRole('button', { name: 'New publication', exact: true })
     ).toHaveCount(0)

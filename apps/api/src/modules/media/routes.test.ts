@@ -265,12 +265,18 @@ describe('media HTTP routes', () => {
 
             const listResponse = await jsonRequest(
                 app,
-                `/api/projects/${projectBody.project.id}/media`,
+                `/api/projects/${projectBody.project.id}/media?limit=1&search=cover`,
                 cookie
             )
             expect(listResponse.status).toBe(200)
             expect(await listResponse.json()).toMatchObject({
-                media: [{ asset: { id: reservationBody.asset.id, state: 'ready' } }],
+                media: [
+                    {
+                        asset: { id: reservationBody.asset.id, state: 'ready' },
+                        representations: expect.any(Array),
+                    },
+                ],
+                nextCursor: null,
             })
 
             const getResponse = await jsonRequest(

@@ -212,6 +212,80 @@ describe('project media lifecycle', () => {
         })
     })
 
+    it('lists media with a stable cursor and literal filename search', async () => {
+        await withFixture(async ({ media, projectId, subjectId }) => {
+            async function createReady(filename: string) {
+                const reservation = media.reserveUpload({
+                    projectId,
+                    subjectId,
+                    originalFilename: filename,
+                })
+                expect(reservation).not.toBeNull()
+                if (reservation === null) throw new Error('Reservation was not created')
+
+                const uploaded = await media.upload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                    source: streamOf(createPng()),
+                })
+                expect(uploaded.kind).toBe('uploaded')
+
+                const finalized = await media.finalizeUpload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                })
+                expect(finalized.kind).toBe('ready')
+                if (finalized.kind !== 'ready') throw new Error('Media was not finalized')
+                return finalized.reservation
+            }
+
+            await createReady('alpha.png')
+            await createReady('Beta cover.png')
+            await createReady('gamma.png')
+
+            const firstPage = media.listAssetsPage({ projectId, subjectId, limit: 2 })
+            expect(firstPage).not.toBeNull()
+            expect(firstPage?.items.map(item => item.asset.originalFilename)).toEqual([
+                'gamma.png',
+                'Beta cover.png',
+            ])
+            expect(firstPage?.nextCursor).not.toBeNull()
+
+            const secondPage = media.listAssetsPage({
+                projectId,
+                subjectId,
+                cursor: firstPage?.nextCursor,
+                limit: 2,
+            })
+            expect(secondPage?.items.map(item => item.asset.originalFilename)).toEqual([
+                'alpha.png',
+            ])
+            expect(secondPage?.nextCursor).toBeNull()
+
+            const searched = media.listAssetsPage({
+                projectId,
+                subjectId,
+                search: 'BETA',
+            })
+            expect(searched?.items.map(item => item.asset.originalFilename)).toEqual([
+                'Beta cover.png',
+            ])
+
+            const wildcardSearch = media.listAssetsPage({
+                projectId,
+                subjectId,
+                search: '%',
+            })
+            expect(wildcardSearch?.items).toEqual([])
+
+            expect(() =>
+                media.listAssetsPage({ projectId, subjectId, cursor: 'invalid-cursor' })
+            ).toThrow()
+        })
+    })
+
     it('keeps project access and deletion references fail-closed', async () => {
         await withFixture(async ({ database, media, projectId, subjectId, actorId }) => {
             const bytes = createPng()
