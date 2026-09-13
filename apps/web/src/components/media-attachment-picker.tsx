@@ -82,8 +82,6 @@ interface MediaAttachmentPickerProps {
         readonly disabled: boolean
         readonly onImport: () => void
         readonly uploading: string | null
-        readonly bulkSelectionMode: boolean
-        readonly onToggleBulkSelectionMode: () => void
     }) => ReactNode
     readonly disabled?: boolean
     readonly emptyDescription?: string
@@ -142,7 +140,6 @@ function MediaAttachmentPickerView({
     const [deletionAsset, setDeletionAsset] = useState<MediaReference | null>(null)
     const [deletionPending, setDeletionPending] = useState(false)
     const [deletionError, setDeletionError] = useState<string | null>(null)
-    const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
     const [bulkSelectedAssetIds, setBulkSelectedAssetIds] = useState<Set<string>>(() => new Set())
     const [bulkDeletionAssets, setBulkDeletionAssets] = useState<MediaReference[]>([])
     const [bulkDeletionPending, setBulkDeletionPending] = useState(false)
@@ -205,11 +202,10 @@ function MediaAttachmentPickerView({
 
     useEffect(() => {
         if (!manageOnly) {
-            setBulkSelectionMode(false)
             setBulkSelectedAssetIds(new Set())
             return
         }
-        if (!bulkSelectionMode || loading) return
+        if (loading) return
 
         const visibleReadyAssetIds = new Set(
             assets.filter(asset => asset.asset.state === 'ready').map(asset => asset.asset.id)
@@ -219,7 +215,7 @@ function MediaAttachmentPickerView({
             if (next.size === current.size) return current
             return next
         })
-    }, [assets, bulkSelectionMode, loading, manageOnly])
+    }, [assets, loading, manageOnly])
 
     useEffect(() => {
         let active = true
@@ -367,17 +363,8 @@ function MediaAttachmentPickerView({
         ])
     }
 
-    function toggleBulkSelectionMode() {
-        if (bulkSelectionMode) {
-            setBulkSelectionMode(false)
-            setBulkSelectedAssetIds(new Set())
-            return
-        }
-        setBulkSelectionMode(true)
-    }
-
     function toggleBulkAsset(asset: MediaReference) {
-        if (interactionLocked || !bulkSelectionMode || asset.asset.state !== 'ready') return
+        if (interactionLocked || asset.asset.state !== 'ready') return
 
         setBulkSelectedAssetIds(current => {
             const next = new Set(current)
@@ -391,7 +378,7 @@ function MediaAttachmentPickerView({
     }
 
     function toggleVisibleBulkSelection() {
-        if (interactionLocked || !bulkSelectionMode) return
+        if (interactionLocked) return
         const visibleReadyAssets = assets.filter(asset => asset.asset.state === 'ready')
         const allVisibleSelected =
             visibleReadyAssets.length > 0 &&
@@ -653,8 +640,6 @@ function MediaAttachmentPickerView({
         disabled: interactionLocked,
         onImport: () => fileButtonProps.onClick(),
         uploading,
-        bulkSelectionMode,
-        onToggleBulkSelectionMode: toggleBulkSelectionMode,
     })
 
     return (
@@ -718,7 +703,7 @@ function MediaAttachmentPickerView({
                         </div>
                     </div>
                 ) : null}
-                {manageOnly && bulkSelectionMode ? (
+                {manageOnly && bulkSelectedAssets.length > 0 ? (
                     <div className="sticky top-0 z-20 mt-3">
                         <BulkActionBar
                             actions={
@@ -744,13 +729,9 @@ function MediaAttachmentPickerView({
                                     : undefined
                             }
                             selectedCount={bulkSelectedAssets.length}
-                            selectionSummary={
-                                bulkSelectedAssets.length === 0
-                                    ? m.media_bulk_selecting()
-                                    : m.media_bulk_selected({
-                                          count: bulkSelectedAssets.length,
-                                      })
-                            }
+                            selectionSummary={m.media_bulk_selected({
+                                count: bulkSelectedAssets.length,
+                            })}
                             toggleAllLabel={
                                 visibleReadyAssets.length > 0
                                     ? allVisibleBulkSelected
@@ -925,7 +906,7 @@ function MediaAttachmentPickerView({
                                     projectId={projectId}
                                     selected={selected}
                                     selectable={!manageOnly}
-                                    actionSelectionMode={manageOnly && bulkSelectionMode}
+                                    actionSelectionEnabled={manageOnly}
                                     actionSelected={bulkSelectedAssetIds.has(asset.asset.id)}
                                     onAccessibilityTextChange={updateAccessibilityText}
                                     onActionSelectionToggle={toggleBulkAsset}
@@ -1058,7 +1039,7 @@ function MediaAttachmentPickerView({
                                                 item => item.assetId === asset.asset.id
                                             )}
                                             selectable={!manageOnly}
-                                            actionSelectionMode={manageOnly && bulkSelectionMode}
+                                            actionSelectionEnabled={manageOnly}
                                             actionSelected={bulkSelectedAssetIds.has(
                                                 asset.asset.id
                                             )}

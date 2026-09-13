@@ -1,5 +1,4 @@
 import { Button } from '@herald/ui/components/button'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
@@ -18,41 +17,20 @@ export function MediaLibraryPage() {
                 <MediaAttachmentPicker
                     emptyDescription={m.media_empty_description()}
                     projectId={project.id}
-                    renderHeader={({
-                        disabled,
-                        onImport,
-                        uploading,
-                        bulkSelectionMode,
-                        onToggleBulkSelectionMode,
-                    }) => (
+                    renderHeader={({ disabled, onImport, uploading }) => (
                         <DashboardPageHeader
                             title={m.media_title()}
                             action={
-                                <div className="flex flex-wrap items-center justify-end gap-2">
-                                    <Button
-                                        type="button"
-                                        variant={bulkSelectionMode ? 'secondary' : 'outline'}
-                                        aria-pressed={bulkSelectionMode}
-                                        data-media-bulk-selection-mode="true"
-                                        disabled={disabled}
-                                        className="shadow-none"
-                                        onClick={onToggleBulkSelectionMode}>
-                                        <CheckReadIcon aria-hidden="true" />
-                                        {bulkSelectionMode
-                                            ? m.media_bulk_done()
-                                            : m.media_bulk_select()}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        disabled={disabled}
-                                        className="shadow-none"
-                                        onClick={onImport}>
-                                        <UploadIcon aria-hidden="true" />
-                                        {uploading === null
-                                            ? m.media_import()
-                                            : m.media_uploading({ filename: uploading })}
-                                    </Button>
-                                </div>
+                                <Button
+                                    type="button"
+                                    disabled={disabled}
+                                    className="shadow-none"
+                                    onClick={onImport}>
+                                    <UploadIcon aria-hidden="true" />
+                                    {uploading === null
+                                        ? m.media_import()
+                                        : m.media_uploading({ filename: uploading })}
+                                </Button>
                             }
                         />
                     )}

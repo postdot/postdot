@@ -469,14 +469,16 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
-    await page.getByRole('button', { name: 'Select', exact: true }).click()
-    await expect(page.locator('[data-media-bulk-selection-mode="true"]')).toHaveAttribute(
-        'aria-pressed',
-        'true'
-    )
     const mediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
-    await expect(mediaBulkActionBar).toBeVisible()
+    const droppedMediaCard = page
+        .locator('[data-media-bulk-selection-card="true"]')
+        .filter({ hasText: droppedMediaFilename })
+    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await expect(droppedMediaCard).toHaveAttribute('data-media-action-selected', 'true')
+    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await expect(droppedMediaCard).not.toHaveAttribute('data-media-action-selected')
     await page.getByRole('button', { name: `Select ${mediaFilename}`, exact: true }).click()
+    await expect(mediaBulkActionBar).toBeVisible()
     await page.getByRole('button', { name: `Select ${secondMediaFilename}`, exact: true }).click()
     await expect(mediaBulkActionBar).toContainText('2 selected')
     await mediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
@@ -756,7 +758,6 @@ test('persists mixed and media-only publications through the dashboard', async (
         'compact'
     )
     await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
-    await page.getByRole('button', { name: 'Select', exact: true }).click()
     await page.getByRole('button', { name: `Select ${editedMediaFilename}`, exact: true }).click()
     const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
     await usedMediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
@@ -769,7 +770,6 @@ test('persists mixed and media-only publications through the dashboard', async (
     ).toBeDisabled()
     await usedMediaBulkDeletionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(usedMediaBulkDeletionDialog).toHaveCount(0)
-    await page.locator('[data-media-bulk-selection-mode="true"]').click()
 
     const firstProjectId = projectIdFromUrl(page.url())
     const secondProjectName = `E2E-51 Second project ${suffix}`

@@ -17,7 +17,7 @@ interface MediaAssetCardProps {
     readonly projectId: string
     readonly selected: MediaSelection | undefined
     readonly selectable?: boolean
-    readonly actionSelectionMode?: boolean
+    readonly actionSelectionEnabled?: boolean
     readonly actionSelected?: boolean
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
     readonly onActionSelectionToggle?: (asset: MediaReference) => void
@@ -35,7 +35,7 @@ export function MediaAssetCard({
     projectId,
     selected,
     selectable = true,
-    actionSelectionMode = false,
+    actionSelectionEnabled = false,
     actionSelected = false,
     onAccessibilityTextChange,
     onActionSelectionToggle,
@@ -47,6 +47,7 @@ export function MediaAssetCard({
     const representation = readyRepresentation(asset)
     const isGrid = layout === 'grid'
     const isCompact = layout === 'compact'
+    const attachmentSelected = selectable && selected !== undefined
     const previewClassName = isGrid
         ? 'flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground object-cover'
         : isCompact
@@ -56,11 +57,32 @@ export function MediaAssetCard({
     return (
         <article
             data-media-card-layout={layout}
+            data-media-bulk-selection-card={actionSelectionEnabled ? 'true' : undefined}
             data-media-action-selected={actionSelected || undefined}
-            className={`group relative rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field ${
-                (selectable && selected !== undefined) || actionSelected
-                    ? 'ring-2 ring-foreground/25'
-                    : ''
+            onClick={event => {
+                if (
+                    !actionSelectionEnabled ||
+                    interactionDisabled ||
+                    asset.asset.state !== 'ready'
+                ) {
+                    return
+                }
+                if (
+                    event.target instanceof Element &&
+                    event.target.closest('button, input, textarea, a, select') !== null
+                ) {
+                    return
+                }
+                onActionSelectionToggle?.(asset)
+            }}
+            className={`group relative rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field transition-[background-color,box-shadow] ${
+                actionSelected
+                    ? 'cursor-pointer bg-primary/5 ring-1 ring-primary/75'
+                    : attachmentSelected
+                      ? 'ring-2 ring-foreground/25'
+                      : actionSelectionEnabled && asset.asset.state === 'ready'
+                        ? 'cursor-pointer'
+                        : ''
             }`}>
             <div
                 className={
@@ -80,7 +102,7 @@ export function MediaAssetCard({
                         className={previewClassName}
                     />
                 </button>
-                {actionSelectionMode ? (
+                {actionSelectionEnabled ? (
                     <button
                         type="button"
                         aria-label={
@@ -106,15 +128,6 @@ export function MediaAssetCard({
                             locale={locale}
                             representation={representation}
                         />
-                        <span
-                            aria-hidden="true"
-                            className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-[background-color,color,opacity] ${
-                                actionSelected
-                                    ? 'bg-foreground text-background'
-                                    : 'text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
-                            }`}>
-                            <CheckReadIcon />
-                        </span>
                     </button>
                 ) : selectable ? (
                     <button
