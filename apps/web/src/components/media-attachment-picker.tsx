@@ -37,7 +37,7 @@ interface MediaAttachmentPickerProps {
     readonly onChange: (value: MediaSelection[]) => void
     readonly disabled?: boolean
     readonly emptyDescription?: string
-    readonly variant?: 'library' | 'composer' | 'composer-inline'
+    readonly variant?: 'library' | 'publication-new' | 'publication-new-inline'
 }
 
 export function MediaAttachmentPicker({
@@ -56,8 +56,8 @@ export function MediaAttachmentPicker({
     const [error, setError] = useState<string | null>(null)
     const [libraryOpen, setLibraryOpen] = useState(false)
     const interactionDisabled = disabled || uploading !== null
-    const compact = variant === 'composer' || variant === 'composer-inline'
-    const inline = variant === 'composer-inline'
+    const compact = variant === 'publication-new' || variant === 'publication-new-inline'
+    const inline = variant === 'publication-new-inline'
 
     useEffect(() => {
         let active = true
@@ -281,7 +281,7 @@ export function MediaAttachmentPicker({
                 ) : compact ? (
                     inline ? null : selectedAssets.length === 0 ? (
                         <p className="mt-2 text-xs text-muted-foreground">
-                            {m.media_empty_compose()}
+                            {m.media_empty_publication_new()}
                         </p>
                     ) : (
                         <div className="mt-3 flex flex-wrap gap-2">

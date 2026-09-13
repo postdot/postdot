@@ -113,7 +113,8 @@ async function createAccountAndProject(page: Page, suffix: string) {
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
 
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     const projectName = `E2E-132 access project ${suffix}`
     await page.locator('#new-project').fill(projectName)
     await page

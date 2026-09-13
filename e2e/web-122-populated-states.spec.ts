@@ -87,7 +87,7 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('tab', { name: 'Needs attention (1)', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Scheduled (4)', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Manual (4)', exact: true })).toBeVisible()
-    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(8)
+    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(9)
 
     const queueAttentionBox = await page
         .getByRole('heading', { name: 'Needs attention', exact: true })
@@ -102,12 +102,12 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'Scheduled (4)', exact: true }).click()
-    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(4)
+    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(5)
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 1' })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 4' })).toBeVisible()
 
     await page.getByRole('tab', { name: 'Manual (4)', exact: true }).click()
-    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(4)
+    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(5)
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 8' })).toBeVisible()
 })
@@ -415,13 +415,13 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     })
 
     await emptySlotAdd.click()
-    const composeUrl = new URL(page.url())
-    expect(composeUrl.pathname).toBe(`/dashboard/projects/${projectId}/compose`)
-    expect(composeUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(composeUrl.searchParams.get('time')).toBe('00:00')
-    await expect(page.getByRole('heading', { name: 'Compose', exact: true })).toBeVisible()
+    const newPublicationUrl = new URL(page.url())
+    expect(newPublicationUrl.pathname).toBe(`/dashboard/projects/${projectId}/publications/new`)
+    expect(newPublicationUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(newPublicationUrl.searchParams.get('time')).toBe('00:00')
+    await expect(page.getByRole('heading', { name: 'New publication', exact: true })).toBeVisible()
     await expect(page.locator('input[type="datetime-local"]').first()).toHaveValue(
-        `${composeUrl.searchParams.get('date')}T00:00`
+        `${newPublicationUrl.searchParams.get('date')}T00:00`
     )
 
     await page.goto(`/dashboard/projects/${projectId}/overview`)
@@ -587,7 +587,8 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
 
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     await page.locator('#new-project').fill(`E2E-122 populated project ${suffix}`)
     await page
         .locator('form')

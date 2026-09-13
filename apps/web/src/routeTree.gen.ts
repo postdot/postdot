@@ -17,12 +17,12 @@ import { Route as DashboardSettingsAccessRouteImport } from './routes/dashboard/
 import { Route as DashboardSettingsProviderApplicationsRouteImport } from './routes/dashboard/settings/provider-applications'
 import { Route as DashboardProjectsProjectIdAccessRouteImport } from './routes/dashboard/projects/$projectId/access'
 import { Route as DashboardProjectsProjectIdChannelsRouteImport } from './routes/dashboard/projects/$projectId/channels'
-import { Route as DashboardProjectsProjectIdComposeRouteImport } from './routes/dashboard/projects/$projectId/compose'
 import { Route as DashboardProjectsProjectIdMediaRouteImport } from './routes/dashboard/projects/$projectId/media'
 import { Route as DashboardProjectsProjectIdOverviewRouteImport } from './routes/dashboard/projects/$projectId/overview'
 import { Route as DashboardProjectsProjectIdQueueRouteImport } from './routes/dashboard/projects/$projectId/queue'
 import { Route as DashboardProjectsProjectIdRealtimePrototypeRouteImport } from './routes/dashboard/projects/$projectId/realtime-prototype'
 import { Route as DashboardProjectsProjectIdPublicationsPublicationIdRouteImport } from './routes/dashboard/projects/$projectId/publications/$publicationId'
+import { Route as DashboardProjectsProjectIdPublicationsNewRouteImport } from './routes/dashboard/projects/$projectId/publications/new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -68,12 +68,6 @@ const DashboardProjectsProjectIdChannelsRoute =
     path: '/channels',
     getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
-const DashboardProjectsProjectIdComposeRoute =
-  DashboardProjectsProjectIdComposeRouteImport.update({
-    id: '/compose',
-    path: '/compose',
-    getParentRoute: () => DashboardProjectsProjectIdRoute,
-  } as any)
 const DashboardProjectsProjectIdMediaRoute =
   DashboardProjectsProjectIdMediaRouteImport.update({
     id: '/media',
@@ -104,6 +98,12 @@ const DashboardProjectsProjectIdPublicationsPublicationIdRoute =
     path: '/publications/$publicationId',
     getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
+const DashboardProjectsProjectIdPublicationsNewRoute =
+  DashboardProjectsProjectIdPublicationsNewRouteImport.update({
+    id: '/publications/new',
+    path: '/publications/new',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -114,12 +114,12 @@ export interface FileRoutesByFullPath {
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
-  '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/realtime-prototype': typeof DashboardProjectsProjectIdRealtimePrototypeRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
+  '/dashboard/projects/$projectId/publications/new': typeof DashboardProjectsProjectIdPublicationsNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -130,12 +130,12 @@ export interface FileRoutesByTo {
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
-  '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/realtime-prototype': typeof DashboardProjectsProjectIdRealtimePrototypeRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
+  '/dashboard/projects/$projectId/publications/new': typeof DashboardProjectsProjectIdPublicationsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -147,12 +147,12 @@ export interface FileRoutesById {
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
-  '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/realtime-prototype': typeof DashboardProjectsProjectIdRealtimePrototypeRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
+  '/dashboard/projects/$projectId/publications/new': typeof DashboardProjectsProjectIdPublicationsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -165,12 +165,12 @@ export interface FileRouteTypes {
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/channels'
-    | '/dashboard/projects/$projectId/compose'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/realtime-prototype'
     | '/dashboard/projects/$projectId/publications/$publicationId'
+    | '/dashboard/projects/$projectId/publications/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -181,12 +181,12 @@ export interface FileRouteTypes {
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/channels'
-    | '/dashboard/projects/$projectId/compose'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/realtime-prototype'
     | '/dashboard/projects/$projectId/publications/$publicationId'
+    | '/dashboard/projects/$projectId/publications/new'
   id:
     | '__root__'
     | '/'
@@ -197,12 +197,12 @@ export interface FileRouteTypes {
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/channels'
-    | '/dashboard/projects/$projectId/compose'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/realtime-prototype'
     | '/dashboard/projects/$projectId/publications/$publicationId'
+    | '/dashboard/projects/$projectId/publications/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -269,13 +269,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProjectsProjectIdChannelsRouteImport
       parentRoute: typeof DashboardProjectsProjectIdRoute
     }
-    '/dashboard/projects/$projectId/compose': {
-      id: '/dashboard/projects/$projectId/compose'
-      path: '/compose'
-      fullPath: '/dashboard/projects/$projectId/compose'
-      preLoaderRoute: typeof DashboardProjectsProjectIdComposeRouteImport
-      parentRoute: typeof DashboardProjectsProjectIdRoute
-    }
     '/dashboard/projects/$projectId/media': {
       id: '/dashboard/projects/$projectId/media'
       path: '/media'
@@ -311,18 +304,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProjectsProjectIdPublicationsPublicationIdRouteImport
       parentRoute: typeof DashboardProjectsProjectIdRoute
     }
+    '/dashboard/projects/$projectId/publications/new': {
+      id: '/dashboard/projects/$projectId/publications/new'
+      path: '/publications/new'
+      fullPath: '/dashboard/projects/$projectId/publications/new'
+      preLoaderRoute: typeof DashboardProjectsProjectIdPublicationsNewRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
   }
 }
 
 interface DashboardProjectsProjectIdRouteChildren {
   DashboardProjectsProjectIdAccessRoute: typeof DashboardProjectsProjectIdAccessRoute
   DashboardProjectsProjectIdChannelsRoute: typeof DashboardProjectsProjectIdChannelsRoute
-  DashboardProjectsProjectIdComposeRoute: typeof DashboardProjectsProjectIdComposeRoute
   DashboardProjectsProjectIdMediaRoute: typeof DashboardProjectsProjectIdMediaRoute
   DashboardProjectsProjectIdOverviewRoute: typeof DashboardProjectsProjectIdOverviewRoute
   DashboardProjectsProjectIdQueueRoute: typeof DashboardProjectsProjectIdQueueRoute
   DashboardProjectsProjectIdRealtimePrototypeRoute: typeof DashboardProjectsProjectIdRealtimePrototypeRoute
   DashboardProjectsProjectIdPublicationsPublicationIdRoute: typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
+  DashboardProjectsProjectIdPublicationsNewRoute: typeof DashboardProjectsProjectIdPublicationsNewRoute
 }
 
 const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteChildren =
@@ -331,8 +331,6 @@ const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteCh
       DashboardProjectsProjectIdAccessRoute,
     DashboardProjectsProjectIdChannelsRoute:
       DashboardProjectsProjectIdChannelsRoute,
-    DashboardProjectsProjectIdComposeRoute:
-      DashboardProjectsProjectIdComposeRoute,
     DashboardProjectsProjectIdMediaRoute: DashboardProjectsProjectIdMediaRoute,
     DashboardProjectsProjectIdOverviewRoute:
       DashboardProjectsProjectIdOverviewRoute,
@@ -341,6 +339,8 @@ const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteCh
       DashboardProjectsProjectIdRealtimePrototypeRoute,
     DashboardProjectsProjectIdPublicationsPublicationIdRoute:
       DashboardProjectsProjectIdPublicationsPublicationIdRoute,
+    DashboardProjectsProjectIdPublicationsNewRoute:
+      DashboardProjectsProjectIdPublicationsNewRoute,
   }
 
 const DashboardProjectsProjectIdRouteWithChildren =

@@ -16,7 +16,7 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
-    await page.getByRole('link', { name: 'Compose', exact: true }).click()
+    await page.getByRole('button', { name: 'New publication', exact: true }).click()
     await page.getByRole('combobox', { name: 'Channel' }).click()
     await page.getByRole('option', { name: channelName, exact: true }).click()
     await page.getByLabel('Title', { exact: true }).fill(publicationTitle)
@@ -132,7 +132,8 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
 
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     await page.locator('#new-project').fill(`E2E-124 recovery project ${suffix}`)
     await page
         .locator('form')

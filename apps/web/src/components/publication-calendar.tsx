@@ -118,7 +118,7 @@ export function PublicationCalendar({
                             ? undefined
                             : calendarTimeFor(scheduledAt, timeZone),
                 },
-                to: '/dashboard/projects/$projectId/compose',
+                to: '/dashboard/projects/$projectId/publications/new',
             })
         },
         [navigate, projectId, timeZone]

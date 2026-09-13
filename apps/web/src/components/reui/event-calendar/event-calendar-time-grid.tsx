@@ -72,7 +72,7 @@ interface ColumnResizeState {
 
 /**
  * The time grid is a publication schedule rather than an appointment editor.
- * Empty time slots are clickable and delegate to Herald's existing composer;
+ * Empty time slots are clickable and delegate to Herald's new-publication flow;
  * event positioning and resizing stay read-only until they receive a separate
  * product decision.
  *

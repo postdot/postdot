@@ -103,19 +103,21 @@ export function PublicationTargetList({
         <div className="space-y-4">
             <section className="rounded-md bg-muted/55 p-3 shadow-field sm:p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <h3 className="text-sm font-medium">{m.compose_defaults_for_channels()}</h3>
+                    <h3 className="text-sm font-medium">
+                        {m.publication_new_defaults_for_channels()}
+                    </h3>
                     <span className="text-xs text-muted-foreground">
-                        {m.compose_project_time({ timeZone })}
+                        {m.publication_new_project_time({ timeZone })}
                     </span>
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <TargetField
                         htmlFor="publication-default-delivery"
-                        label={m.compose_default_delivery()}>
+                        label={m.publication_new_default_delivery()}>
                         <Select
                             items={{
-                                manual: m.compose_manual_publication(),
-                                automatic: m.compose_automatic_publication(),
+                                manual: m.publication_new_manual_publication(),
+                                automatic: m.publication_new_automatic_publication(),
                             }}
                             value={defaultDeliveryMode}
                             onValueChange={value =>
@@ -127,17 +129,17 @@ export function PublicationTargetList({
                             </SelectTrigger>
                             <SelectContent align="start">
                                 <SelectItem value="manual">
-                                    {m.compose_manual_publication()}
+                                    {m.publication_new_manual_publication()}
                                 </SelectItem>
                                 <SelectItem value="automatic">
-                                    {m.compose_automatic_publication()}
+                                    {m.publication_new_automatic_publication()}
                                 </SelectItem>
                             </SelectContent>
                         </Select>
                     </TargetField>
                     <TargetField
                         htmlFor="publication-default-schedule"
-                        label={m.compose_default_schedule()}>
+                        label={m.publication_new_default_schedule()}>
                         <Input
                             id="publication-default-schedule"
                             required
@@ -177,7 +179,7 @@ export function PublicationTargetList({
                                 {channel ? <ChannelAvatar channel={channel} size="sm" /> : null}
                                 <span className="max-w-40 truncate">
                                     {channel?.name ??
-                                        m.compose_destination({ index: String(index + 1) })}
+                                        m.publication_new_destination({ index: String(index + 1) })}
                                 </span>
                                 {status ? (
                                     <span
@@ -196,12 +198,12 @@ export function PublicationTargetList({
                     disabled={disabled || availableChannel === undefined}
                     title={
                         availableChannel === undefined
-                            ? m.compose_all_channels_selected()
+                            ? m.publication_new_all_channels_selected()
                             : undefined
                     }
                     onClick={addTarget}>
                     <AddIcon aria-hidden="true" />
-                    {m.compose_add_destination()}
+                    {m.publication_new_add_destination()}
                 </Button>
             </div>
 
@@ -269,7 +271,7 @@ function PublicationTargetCard({
                     {channel ? <ChannelAvatar channel={channel} size="md" /> : null}
                     <div className="min-w-0">
                         <p className="text-xs font-medium text-muted-foreground">
-                            {m.compose_destination({ index: String(index + 1) })}
+                            {m.publication_new_destination({ index: String(index + 1) })}
                         </p>
                         {channel ? (
                             <p className="mt-1 truncate text-sm font-medium">{channel.name}</p>
@@ -284,7 +286,7 @@ function PublicationTargetCard({
                                         className="text-primary underline-offset-4 hover:underline"
                                         params={{ projectId }}
                                         to="/dashboard/projects/$projectId/channels">
-                                        {m.compose_manage_connection()}
+                                        {m.publication_new_manage_connection()}
                                     </Link>
                                 ) : null}
                             </div>
@@ -296,7 +298,9 @@ function PublicationTargetCard({
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        aria-label={m.compose_remove_destination({ index: String(index + 1) })}
+                        aria-label={m.publication_new_remove_destination({
+                            index: String(index + 1),
+                        })}
                         disabled={disabled}
                         onClick={onRemove}>
                         <CloseIcon aria-hidden="true" />
@@ -304,7 +308,7 @@ function PublicationTargetCard({
                 ) : null}
             </div>
 
-            <TargetField htmlFor={`${fieldPrefix}-channel`} label={m.compose_channel()}>
+            <TargetField htmlFor={`${fieldPrefix}-channel`} label={m.publication_new_channel()}>
                 <Select
                     required
                     items={Object.fromEntries(
@@ -314,7 +318,7 @@ function PublicationTargetCard({
                     onValueChange={value => onChange({ channelId: value ?? '' })}
                     disabled={disabled}>
                     <SelectTrigger id={`${fieldPrefix}-channel`}>
-                        <SelectValue placeholder={m.compose_choose_channel()} />
+                        <SelectValue placeholder={m.publication_new_choose_channel()} />
                     </SelectTrigger>
                     <SelectContent align="start">
                         {channels.map(candidate => {
@@ -328,7 +332,7 @@ function PublicationTargetCard({
                                     disabled={alreadySelected}
                                     title={
                                         alreadySelected
-                                            ? m.compose_channel_already_selected()
+                                            ? m.publication_new_channel_already_selected()
                                             : undefined
                                     }>
                                     {candidate.name}
@@ -342,7 +346,7 @@ function PublicationTargetCard({
             <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm font-medium text-muted-foreground">
-                        {m.compose_channel_copy()}
+                        {m.publication_new_channel_copy()}
                     </span>
                     {overrideOpen ? (
                         <Button
@@ -354,7 +358,7 @@ function PublicationTargetCard({
                                 onChange({ content: '' })
                                 setOverrideOpen(false)
                             }}>
-                            {m.compose_use_source()}
+                            {m.publication_new_use_source()}
                         </Button>
                     ) : (
                         <Button
@@ -363,33 +367,35 @@ function PublicationTargetCard({
                             size="xs"
                             disabled={disabled}
                             onClick={() => setOverrideOpen(true)}>
-                            {m.compose_customize_channel()}
+                            {m.publication_new_customize_channel()}
                         </Button>
                     )}
                 </div>
                 {overrideOpen ? (
                     <TargetField
                         htmlFor={`${fieldPrefix}-content`}
-                        label={m.compose_channel_copy()}>
+                        label={m.publication_new_channel_copy()}>
                         <Textarea
                             id={`${fieldPrefix}-content`}
                             value={target.content}
                             disabled={disabled}
                             onChange={event => onChange({ content: event.target.value })}
-                            placeholder={m.compose_optional_override()}
+                            placeholder={m.publication_new_optional_override()}
                             rows={4}
                             className="min-h-28 leading-6"
                         />
                     </TargetField>
                 ) : (
-                    <p className="text-xs text-muted-foreground">{m.compose_source_fallback()}</p>
+                    <p className="text-xs text-muted-foreground">
+                        {m.publication_new_source_fallback()}
+                    </p>
                 )}
             </div>
 
             {usesDefaults ? (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/55 px-3 py-2.5 shadow-field">
                     <span className="text-xs text-muted-foreground">
-                        {m.compose_uses_defaults()}
+                        {m.publication_new_uses_defaults()}
                     </span>
                     <Button
                         type="button"
@@ -397,7 +403,7 @@ function PublicationTargetCard({
                         size="xs"
                         disabled={disabled}
                         onClick={() => onToggleCustomization(true)}>
-                        {m.compose_customize_delivery()}
+                        {m.publication_new_customize_delivery()}
                     </Button>
                 </div>
             ) : (
@@ -409,17 +415,17 @@ function PublicationTargetCard({
                             size="xs"
                             disabled={disabled}
                             onClick={() => onToggleCustomization(false)}>
-                            {m.compose_use_defaults()}
+                            {m.publication_new_use_defaults()}
                         </Button>
                     </div>
                     <div className="grid gap-4 xl:grid-cols-2">
                         <TargetField
                             htmlFor={`${fieldPrefix}-delivery`}
-                            label={m.compose_delivery_mode()}>
+                            label={m.publication_new_delivery_mode()}>
                             <Select
                                 items={{
-                                    manual: m.compose_manual_publication(),
-                                    automatic: m.compose_automatic_publication(),
+                                    manual: m.publication_new_manual_publication(),
+                                    automatic: m.publication_new_automatic_publication(),
                                 }}
                                 value={target.deliveryMode}
                                 onValueChange={value =>
@@ -431,17 +437,17 @@ function PublicationTargetCard({
                                 </SelectTrigger>
                                 <SelectContent align="start">
                                     <SelectItem value="manual">
-                                        {m.compose_manual_publication()}
+                                        {m.publication_new_manual_publication()}
                                     </SelectItem>
                                     <SelectItem value="automatic">
-                                        {m.compose_automatic_publication()}
+                                        {m.publication_new_automatic_publication()}
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
                         </TargetField>
                         <TargetField
                             htmlFor={`${fieldPrefix}-schedule`}
-                            label={m.compose_scheduled_for()}>
+                            label={m.publication_new_scheduled_for()}>
                             <Input
                                 id={`${fieldPrefix}-schedule`}
                                 required
@@ -484,7 +490,7 @@ function resolveConnectionStatus(
         return {
             className: 'text-muted-foreground',
             dotClassName: 'bg-muted-foreground',
-            label: m.compose_manual_publication(),
+            label: m.publication_new_manual_publication(),
             requiresConnection: false,
         }
     }

@@ -1,3 +1,4 @@
+import { Button } from '@herald/ui/components/button'
 import { HeraldLogo } from '@herald/ui/components/herald-logo'
 import {
     Sidebar,
@@ -20,7 +21,6 @@ import { KeyMinimalisticIcon } from '@solar-icons/react/bold/key-minimalistic'
 import { LinkIcon } from '@solar-icons/react/bold/link'
 import { ListIcon } from '@solar-icons/react/bold/list'
 import { Logout2Icon } from '@solar-icons/react/bold/logout-2'
-import { PenIcon } from '@solar-icons/react/bold/pen'
 import { SettingsIcon } from '@solar-icons/react/bold/settings'
 import { Widget2Icon } from '@solar-icons/react/bold/widget-2'
 import { Link } from '@tanstack/react-router'
@@ -34,7 +34,7 @@ import * as m from '@/paraglide/messages.js'
 
 export type DashboardSection =
     | 'overview'
-    | 'compose'
+    | 'new-publication'
     | 'queue'
     | 'channels'
     | 'media'
@@ -133,6 +133,27 @@ export function DashboardSidebar({
                 </div>
             </SidebarHeader>
 
+            {!isInstanceSettings && selectedProjectId !== null ? (
+                <div className="px-3 pb-1 group-data-[collapsible=icon]:px-2">
+                    <Button
+                        nativeButton={false}
+                        render={workspaceLink(
+                            'new-publication',
+                            selectedProjectId,
+                            m.nav_new_publication(),
+                            activeSection === 'new-publication'
+                        )}
+                        size="lg"
+                        className="w-full justify-start gap-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+                        title={m.nav_new_publication()}>
+                        <AddIcon aria-hidden="true" />
+                        <span className="group-data-[collapsible=icon]:hidden">
+                            {m.nav_new_publication()}
+                        </span>
+                    </Button>
+                </div>
+            ) : null}
+
             <SidebarContent>
                 {isInstanceSettings ? (
                     <>
@@ -195,13 +216,6 @@ export function DashboardSidebar({
                                             icon={<Widget2Icon aria-hidden="true" />}
                                             label={m.nav_overview()}
                                             projectId={selectedProjectId}
-                                        />
-                                        <WorkspaceMenuItem
-                                            destination="compose"
-                                            icon={<PenIcon aria-hidden="true" />}
-                                            label={m.nav_compose()}
-                                            projectId={selectedProjectId}
-                                            active={activeSection === 'compose'}
                                         />
                                         <WorkspaceMenuItem
                                             active={activeSection === 'queue' || isPublicationRoute}
@@ -382,7 +396,7 @@ export function DashboardSidebar({
 export function workspaceSection(pathname: string): DashboardSection {
     if (pathname.includes('/settings/access')) return 'settings-access'
     if (pathname.includes('/settings')) return 'settings'
-    if (pathname.includes('/compose')) return 'compose'
+    if (pathname.includes('/publications/new')) return 'new-publication'
     if (pathname.includes('/queue')) return 'queue'
     if (pathname.includes('/channels')) return 'channels'
     if (pathname.includes('/media')) return 'media'
@@ -391,7 +405,7 @@ export function workspaceSection(pathname: string): DashboardSection {
 }
 
 export function workspaceSectionLabel(section: DashboardSection) {
-    if (section === 'compose') return m.nav_compose()
+    if (section === 'new-publication') return m.nav_new_publication()
     if (section === 'queue') return m.nav_queue()
     if (section === 'channels') return m.nav_channels()
     if (section === 'media') return m.nav_media()
@@ -473,6 +487,17 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/projects/$projectId/overview"
+                params={{ projectId }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'new-publication') {
+        return (
+            <Link
+                to="/dashboard/projects/$projectId/publications/new"
                 params={{ projectId }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}

@@ -176,10 +176,12 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
             exact: true,
         })
         .click()
-    await expect(page.getByRole('link', { name: 'Composer', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('button', { name: 'Nouvelle publication', exact: true })
+    ).toBeVisible()
 
-    await page.getByRole('link', { name: 'Composer', exact: true }).click()
-    await expect(page).toHaveURL(/\/compose$/)
+    await page.getByRole('button', { name: 'Nouvelle publication', exact: true }).click()
+    await expect(page).toHaveURL(/\/publications\/new$/)
     await expectNoHorizontalOverflow(page)
 })
 
@@ -204,7 +206,8 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
 
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     await page.locator('#new-project').fill(`E2E-121 project ${suffix}`)
     await page
         .locator('form')

@@ -2,13 +2,15 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-test('keeps narrow compose and queue usable with long channel names', async ({ page }) => {
+test('keeps narrow new-publication flow and queue usable with long channel names', async ({
+    page,
+}) => {
     test.setTimeout(45_000)
 
     const suffix = randomUUID().slice(0, 8)
     const firstChannelName = `E2E-121 long destination alpha ${suffix} for a publishing workspace`
     const secondChannelName = `E2E-121 long destination beta ${suffix} for a publishing workspace`
-    const publicationTitle = `E2E-121 narrow compose ${suffix}`
+    const publicationTitle = `E2E-121 narrow new publication ${suffix}`
 
     await createAccountAndProject(page, suffix)
 
@@ -16,8 +18,8 @@ test('keeps narrow compose and queue usable with long channel names', async ({ p
     await createChannel(page, firstChannelName)
     await createChannel(page, secondChannelName)
 
-    await page.getByRole('link', { name: 'Compose', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose$/)
+    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoHorizontalOverflow(page)
@@ -39,7 +41,7 @@ test('keeps narrow compose and queue usable with long channel names', async ({ p
     await expectNoHorizontalOverflow(page)
 
     await page.getByLabel('Title', { exact: true }).fill(publicationTitle)
-    await page.getByLabel('Content', { exact: true }).fill('E2E-121 narrow compose content')
+    await page.getByLabel('Content', { exact: true }).fill('E2E-121 narrow new publication content')
     await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
 
     await page.getByRole('button', { name: 'Toggle workspace navigation', exact: true }).click()
@@ -70,7 +72,8 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
 
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     await page.locator('#new-project').fill(`E2E-121 project ${suffix}`)
     await page
         .locator('form')

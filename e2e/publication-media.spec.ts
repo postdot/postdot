@@ -143,7 +143,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(workNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
+    expect(workNavigationLayout).toEqual({ linkCount: 2, topOffsetCount: 2 })
     expect(projectNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })
@@ -200,7 +200,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     })
     expect(shellLayout.scrollTop).toBeGreaterThan(shellLayout.headerTop ?? 0)
 
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     const desktopProjectForm = page.locator('form').filter({ has: page.locator('#new-project') })
     await page.locator('#new-project').fill(projectName)
     await desktopProjectForm.getByRole('button', { name: 'Add project', exact: true }).click()
@@ -276,16 +277,17 @@ test('persists mixed and media-only publications through the dashboard', async (
     const overviewCalendar = page.locator('[data-calendar="reui"]')
     await expect(overviewCalendar).toBeVisible()
     await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
-    const emptyCalendarNewPublication = page.getByRole('button', {
-        name: 'New publication',
-        exact: true,
-    })
+    const emptyCalendarNewPublication = page.locator(
+        'a[data-slot="button"][href*="/publications/new?date="]'
+    )
     await expect(emptyCalendarNewPublication).toHaveAttribute(
         'href',
-        /\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/
+        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
     )
     await emptyCalendarNewPublication.click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
+    await expect(page).toHaveURL(
+        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
+    )
     await expect(page.getByLabel('Schedule').first()).toHaveValue(/T09:00$/)
     await page.goBack()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
@@ -302,16 +304,19 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByRole('combobox', { name: 'Profile', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
 
-    await page.getByRole('link', { name: 'Compose', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose$/)
+    await page
+        .locator('[data-slot="sidebar"]')
+        .getByRole('button', { name: 'New publication', exact: true })
+        .click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
-    const composerEditor = page.locator('[data-composer-editor="true"]')
-    await expect(composerEditor).toBeVisible()
-    await expect(composerEditor.locator('[data-media-picker="true"]')).toHaveCount(1)
+    const newPublicationEditor = page.locator('[data-new-publication-editor="true"]')
+    await expect(newPublicationEditor).toBeVisible()
+    await expect(newPublicationEditor.locator('[data-media-picker="true"]')).toHaveCount(1)
     expect(
-        await composerEditor
+        await newPublicationEditor
             .locator('[data-media-picker="true"]')
-            .evaluate(media => media.parentElement?.getAttribute('data-composer-editor'))
+            .evaluate(media => media.parentElement?.getAttribute('data-new-publication-editor'))
     ).toBe('true')
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
@@ -351,7 +356,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             }
         })
     expect(channelSidebarLayout).toEqual({ overlap: 0 })
-    await page.getByRole('link', { name: 'Compose', exact: true }).click()
+    await page.getByRole('button', { name: 'New publication', exact: true }).click()
     const publicationChannel = page.getByRole('combobox', { name: 'Channel' })
     await publicationChannel.click()
     await page.getByRole('option', { name: channelName, exact: true }).click()
@@ -366,7 +371,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.getByRole('button', { name: new RegExp(`Remove ${mediaFilename}`) })
     ).toBeVisible()
     await expect(
-        page.locator('[data-composer-editor="true"] [data-media-picker="true"] img')
+        page.locator('[data-new-publication-editor="true"] [data-media-picker="true"] img')
     ).toBeVisible()
 
     await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
@@ -388,14 +393,14 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByLabel('Schedule', { exact: true }).fill(scheduledDateTime)
 
     await page.setViewportSize({ width: 390, height: 844 })
-    const populatedComposerOverflow = await page
+    const populatedNewPublicationOverflow = await page
         .locator('[data-dashboard-scroll]')
         .evaluate(scrollRegion => ({
             clientWidth: (scrollRegion as unknown as { clientWidth: number }).clientWidth,
             scrollWidth: (scrollRegion as unknown as { scrollWidth: number }).scrollWidth,
         }))
-    expect(populatedComposerOverflow.scrollWidth).toBeLessThanOrEqual(
-        populatedComposerOverflow.clientWidth
+    expect(populatedNewPublicationOverflow.scrollWidth).toBeLessThanOrEqual(
+        populatedNewPublicationOverflow.clientWidth
     )
     await expect(page.getByRole('tab', { name: new RegExp(channelName) })).toBeVisible()
     await expect(page.getByRole('tab', { name: new RegExp(secondChannelName) })).toBeVisible()
@@ -407,7 +412,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mixedPublications = page.getByRole('link').filter({ hasText: mixedTitle })
     await expect(mixedPublications).toHaveCount(2)
 
-    await page.getByRole('link', { name: 'Compose', exact: true }).click()
+    await page
+        .locator('[data-slot="sidebar"]')
+        .getByRole('button', { name: 'New publication', exact: true })
+        .click()
     const mediaOnlyPublicationChannel = page.getByRole('combobox', { name: 'Channel' }).first()
     await mediaOnlyPublicationChannel.click()
     await page.getByRole('option', { name: channelName, exact: true }).click()
@@ -437,7 +445,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     const emptyCalendarDay = calendarMonth.locator('[data-slot="event-calendar-day-add"]').first()
     await expect(emptyCalendarDay).toBeVisible()
     await emptyCalendarDay.click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
+    await expect(page).toHaveURL(
+        /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
+    )
     await expect(page.getByLabel('Default schedule', { exact: true })).toHaveValue(/T09:00$/)
     await page.goBack()
     await expect(calendarMonth).toBeVisible()
@@ -512,7 +522,8 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     const firstProjectId = projectIdFromUrl(page.url())
     const secondProjectName = `E2E-51 Second project ${suffix}`
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     await page.locator('#new-project').fill(secondProjectName)
     await page
         .locator('form')

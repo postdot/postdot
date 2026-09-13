@@ -2674,7 +2674,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-098] Clarify publication authoring entry points and user vocabulary
 
 - Type: design
-- Status: open
+- Status: resolved
 - Evidence: The authenticated project shell exposes `Composer` as a persistent
   peer in Work navigation, while Overview, Calendar, Queue, and empty states
   expose creation actions such as `New publication` or `Create a publication`.
@@ -2701,9 +2701,31 @@ channels` with a foreign-key constraint error even though a fresh empty database
   domain/API, remove the multi-destination model, redesign the calendar, or
   implement a visual preview/editor rewrite until the authoring contract is
   accepted. The final visible label is intentionally not predetermined.
-- Tasks: DESIGN-173
+- Tasks: DESIGN-173, WEB-174
 - Related issues: ISSUE-063, ISSUE-080, ISSUE-081
 - Related decisions: ADR-057
+- Decision: The dedicated creation route remains the reusable authoring surface,
+  but it is not a peer destination in the Work navigation. The canonical route
+  is `/dashboard/projects/$projectId/publications/new`; `/compose` is removed
+  rather than retained as a compatibility alias because this private development
+  application has no migration obligation. The sidebar exposes one primary
+  `New publication` action when a project is active, while project creation is
+  available from the project selector instead of occupying a persistent slot.
+  The product vocabulary uses `publication` consistently; the exact hierarchy
+  of the authoring form (`Source`, channel adaptations, delivery, and schedule)
+  remains a bounded follow-up and is not re-litigated by this routing slice.
+- Resolution: WEB-174 implements the accepted entry-point contract. The route and
+  authoring module now use `/publications/new`, all in-scope links, copy, route
+  artifacts, and browser contracts were updated, and the former `/compose` route
+  and Composer navigation peer were removed. The project selector is labeled
+  `Project` / `Projet`, contains the inline project-creation action, and the
+  active-project sidebar exposes one prominent `New publication` /
+  `Nouvelle publication` action. The authoring form hierarchy remains deferred
+  to a separate UX slice.
+- Verification: The authenticated browser inspection confirms the French sidebar
+  hierarchy and selector behavior. `bun run check` passes format, lint, typecheck,
+  unit tests, 17 Playwright scenarios, and the production build; i18n coverage is
+  100% for English and French.
 - Acceptance: A concise authoring IA brief maps every current entry point to one
   user job, states whether the dedicated route remains a navigation destination
   or only an action target, proposes vocabulary alternatives with rationale, and

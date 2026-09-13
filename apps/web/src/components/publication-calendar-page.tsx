@@ -71,7 +71,7 @@ export function PublicationCalendarPage({
                             <Link
                                 params={{ projectId: project.id }}
                                 search={{ date: todayDate }}
-                                to="/dashboard/projects/$projectId/compose"
+                                to="/dashboard/projects/$projectId/publications/new"
                             />
                         }>
                         <CalendarMinimalisticIcon aria-hidden="true" />

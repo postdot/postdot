@@ -17,7 +17,7 @@ import { useLanguage } from '@/lib/i18n'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
 
-export function PublicationComposer({
+export function NewPublicationPage({
     calendarDate,
     calendarTime,
 }: {
@@ -149,10 +149,10 @@ export function PublicationComposer({
                         }
                         variant="ghost">
                         <ArrowLeftIcon aria-hidden="true" />
-                        {m.compose_back_overview()}
+                        {m.publication_new_back_overview()}
                     </Button>
                 }
-                title={m.compose_title()}>
+                title={m.publication_new_title()}>
                 <p className="mt-2 text-sm text-muted-foreground">
                     {project.name} · {project.timeZone}
                 </p>
@@ -162,7 +162,7 @@ export function PublicationComposer({
                 <Alert
                     variant="destructive"
                     className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
-                    <AlertTitle>{m.compose_action_failed()}</AlertTitle>
+                    <AlertTitle>{m.publication_new_action_failed()}</AlertTitle>
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
             ) : null}
@@ -171,26 +171,26 @@ export function PublicationComposer({
                 <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.06fr)_minmax(20rem,0.94fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
                     <section className="min-w-0">
                         <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                            {m.compose_source()}
+                            {m.publication_new_source()}
                         </h2>
 
                         <div className="mt-4 rounded-lg bg-muted/70 p-4 shadow-surface sm:p-5">
                             <div className="space-y-4">
                                 <DashboardFormField
                                     htmlFor="new-post-title"
-                                    label={m.compose_post_title()}>
+                                    label={m.publication_new_post_title()}>
                                     <Input
                                         id="new-post-title"
                                         value={postTitle}
                                         onChange={event => onPostTitleChange(event.target.value)}
-                                        placeholder={m.compose_optional_source_title()}
+                                        placeholder={m.publication_new_optional_source_title()}
                                     />
                                 </DashboardFormField>
                                 <DashboardFormField
                                     htmlFor="new-post-content"
-                                    label={m.compose_source_content()}>
+                                    label={m.publication_new_source_content()}>
                                     <div
-                                        data-composer-editor="true"
+                                        data-new-publication-editor="true"
                                         className="overflow-hidden rounded-md bg-background shadow-field ring-1 ring-border/70">
                                         <Textarea
                                             id="new-post-content"
@@ -198,12 +198,12 @@ export function PublicationComposer({
                                             onChange={event =>
                                                 onPostContentChange(event.target.value)
                                             }
-                                            placeholder={m.compose_source_placeholder()}
+                                            placeholder={m.publication_new_source_placeholder()}
                                             rows={10}
                                             className="min-h-52 resize-y rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0"
                                         />
                                         <MediaAttachmentPicker
-                                            variant="composer-inline"
+                                            variant="publication-new-inline"
                                             projectId={project.id}
                                             value={sourceMedia}
                                             onChange={onSourceMediaChange}
@@ -230,10 +230,12 @@ export function PublicationComposer({
                     <section className="min-w-0">
                         <div className="flex items-baseline justify-between gap-4">
                             <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                {m.compose_destinations()}
+                                {m.publication_new_destinations()}
                             </h2>
                             <span className="shrink-0 text-xs text-muted-foreground">
-                                {m.compose_target_count({ count: publicationTargets.length })}
+                                {m.publication_new_target_count({
+                                    count: publicationTargets.length,
+                                })}
                             </span>
                         </div>
                         <div className="mt-4">
@@ -261,15 +263,19 @@ export function PublicationComposer({
                         <CalendarAddIcon aria-hidden="true" />
                         {publicationTargets.length === 1
                             ? publicationTargets[0]?.deliveryMode === 'automatic'
-                                ? m.compose_schedule_automatic()
-                                : m.compose_schedule_manual()
-                            : m.compose_schedule_count({ count: publicationTargets.length })}
+                                ? m.publication_new_schedule_automatic()
+                                : m.publication_new_schedule_manual()
+                            : m.publication_new_schedule_count({
+                                  count: publicationTargets.length,
+                              })}
                     </Button>
                 </div>
             </form>
 
             {activeChannels.length === 0 ? (
-                <p className="mt-3 text-sm text-muted-foreground">{m.compose_add_channel()}</p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                    {m.publication_new_add_channel()}
+                </p>
             ) : null}
         </main>
     )

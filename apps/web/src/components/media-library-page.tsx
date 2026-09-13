@@ -23,12 +23,12 @@ export function MediaLibraryPage() {
                             <Link
                                 params={{ projectId: project.id }}
                                 search={{ date: undefined }}
-                                to="/dashboard/projects/$projectId/compose"
+                                to="/dashboard/projects/$projectId/publications/new"
                             />
                         }
                         variant="ghost">
                         <ArrowLeftIcon aria-hidden="true" />
-                        {m.media_back_to_compose()}
+                        {m.media_back_to_new_publication()}
                     </Button>
                 }
                 title={m.media_title()}>
