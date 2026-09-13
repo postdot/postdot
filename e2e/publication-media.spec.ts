@@ -446,10 +446,14 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.locator('[data-media-dropzone="true"]')).toBeVisible()
     await expect(page.locator('[data-media-selection-toggle="true"]')).toHaveCount(0)
     await expect(page.locator('[data-media-import-zone="true"]')).toBeVisible()
+    await expect(page.locator('[data-media-import-zone="true"]')).toHaveCSS(
+        'border-style',
+        'dashed'
+    )
     await expect(
         page
             .locator('[data-media-import-zone="true"]')
-            .getByRole('button', { name: 'Import from device', exact: true })
+            .getByRole('button', { name: 'choose files from your device', exact: true })
     ).toBeVisible()
     const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
     await page.locator('[data-media-import-zone="true"]').evaluate(

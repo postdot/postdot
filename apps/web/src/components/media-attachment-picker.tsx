@@ -386,30 +386,41 @@ function MediaAttachmentPickerView({
                 {manageOnly ? (
                     <div
                         data-media-import-zone="true"
-                        className={`flex min-h-24 flex-col items-center justify-center gap-3 rounded-md bg-surface-inset px-4 py-5 text-center transition-colors sm:flex-row sm:justify-between sm:text-left ${
-                            dragActive ? 'bg-primary/10' : ''
+                        className={`group flex min-h-44 flex-col items-center justify-center gap-2 rounded-md border border-dashed px-6 py-7 text-center transition-colors ${
+                            dragActive
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border/80 bg-transparent hover:border-primary/60'
                         }`}>
-                        <div className="flex items-center gap-3">
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                                <UploadIcon aria-hidden="true" />
-                            </span>
-                            <div>
-                                <p className="text-sm font-medium">{m.media_drop_files()}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {m.media_drop_files_hint()}
-                                </p>
-                            </div>
-                        </div>
-                        <Button
-                            type="button"
-                            variant="default"
-                            disabled={interactionLocked}
-                            onClick={() => fileButtonProps.onClick()}>
+                        <span
+                            className={`flex size-10 items-center justify-center rounded-md border transition-colors ${
+                                dragActive
+                                    ? 'border-primary text-primary'
+                                    : 'border-border text-muted-foreground group-hover:border-primary/60 group-hover:text-primary'
+                            }`}>
                             <UploadIcon aria-hidden="true" />
-                            {uploading === null
-                                ? m.media_upload_image()
-                                : m.media_uploading({ filename: uploading })}
-                        </Button>
+                        </span>
+                        <div className="space-y-1">
+                            <p className="text-sm font-medium">
+                                {dragActive ? m.media_drop_files_active() : m.media_drop_files()}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {m.media_drop_files_hint()}{' '}
+                                <Button
+                                    type="button"
+                                    variant="link"
+                                    size="sm"
+                                    disabled={interactionLocked}
+                                    className="h-auto p-0 align-baseline text-sm font-medium"
+                                    onClick={() => fileButtonProps.onClick()}>
+                                    {uploading === null
+                                        ? m.media_browse_files()
+                                        : m.media_uploading({ filename: uploading })}
+                                </Button>
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {m.media_supported_types()}
+                            </p>
+                        </div>
                     </div>
                 ) : (
                     <div
