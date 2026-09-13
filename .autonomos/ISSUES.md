@@ -2670,3 +2670,42 @@ channels` with a foreign-key constraint error even though a fresh empty database
   generation and browser coverage now exercise the canonical `view`/`date`
   contract. Focused unit and browser tests, the full repository gate, and the
   production build pass. Historical Autonomos records remain unchanged.
+
+## [ISSUE-098] Clarify publication authoring entry points and user vocabulary
+
+- Type: design
+- Status: open
+- Evidence: The authenticated project shell exposes `Composer` as a persistent
+  peer in Work navigation, while Overview, Calendar, Queue, and empty states
+  expose creation actions such as `New publication` or `Create a publication`.
+  The destination route is a real multi-channel authoring flow, but it presents
+  the internal relationship as `Source`, `Destinations`, `targets`, channel
+  overrides, delivery modes, and schedules before the operator has chosen a
+  mental model for that work.
+- Impact: Users may not know whether Composer is a separate kind of work, a
+  duplicate entry point, or simply the place to make a publication. The
+  distinction between shared content, channel-specific copy, delivery, and
+  scheduling is useful to the product but currently leaks implementation/domain
+  vocabulary into the first reading of the task. Renaming one label in isolation
+  could leave the sidebar, page title, back links, empty states, and existing
+  publication editor inconsistent.
+- Desired outcome: Define the primary authoring job, the role of the dedicated
+  creation route, and the entry-point hierarchy before implementation. Choose
+  user vocabulary for a new publication, shared content, channel-specific
+  adaptations, delivery, and scheduling; retain source/target semantics in the
+  domain and expose them only where they help a decision. The result must make
+  the existing multi-destination capability understandable without adding
+  explanatory prose or removing useful shortcuts.
+- Scope boundary: This is an IA, interaction, and content-design investigation
+  for authenticated publication authoring. It does not change the publication
+  domain/API, remove the multi-destination model, redesign the calendar, or
+  implement a visual preview/editor rewrite until the authoring contract is
+  accepted. The final visible label is intentionally not predetermined.
+- Tasks: DESIGN-173
+- Related issues: ISSUE-063, ISSUE-080, ISSUE-081
+- Related decisions: ADR-057
+- Acceptance: A concise authoring IA brief maps every current entry point to one
+  user job, states whether the dedicated route remains a navigation destination
+  or only an action target, proposes vocabulary alternatives with rationale, and
+  records the chosen direction and deferred questions. No code rename is made
+  solely to test a label before that contract is accepted.
