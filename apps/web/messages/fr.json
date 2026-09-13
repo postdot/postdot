@@ -501,6 +501,22 @@
             }
         }
     ],
+    "media_usage_audit": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} entrée dans l’historique du projet",
+                "countPlural=other": "{count} entrées dans l’historique du projet"
+            }
+        }
+    ],
+    "media_delete_title": "Supprimer ce média ?",
+    "media_delete_unused_description": "Il sera retiré de la bibliothèque, puis supprimé après le délai de sécurité.",
+    "media_delete_used_description": "Ce média est encore utilisé. Retirez ses références avant de le supprimer.",
+    "media_delete_unavailable_description": "Impossible de vérifier son utilisation pour le moment.",
+    "media_delete_confirm": "Supprimer",
+    "media_delete_pending": "Suppression…",
     "media_edit_image": "Modifier l’image",
     "media_editor_description": "Recadrez, zoomez ou faites pivoter cette image. L’enregistrement crée un nouveau média.",
     "media_editor_zoom": "Zoom",
@@ -989,6 +1005,7 @@
     "api_access_tokens_unavailable": "Les jetons d’accès du projet sont temporairement indisponibles.",
     "api_media_unavailable": "Le média n’est plus disponible.",
     "api_media_storage_unavailable": "Le stockage média est temporairement indisponible.",
+    "api_media_in_use": "Ce média est encore utilisé par le projet.",
     "api_upload_expired": "Le téléversement média a expiré. Recommencez-le.",
     "api_size_mismatch": "La taille du fichier téléversé ne correspond pas à la réservation.",
     "api_provider_failure": "Le provider n’a pas pu terminer la requête.",

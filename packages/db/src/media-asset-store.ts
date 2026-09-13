@@ -131,6 +131,7 @@ export type FinalizeMediaUploadResult =
 export type RequestMediaDeletionResult =
     | { readonly kind: 'requested'; readonly media: MediaAssetReference }
     | { readonly kind: 'already_requested'; readonly media: MediaAssetReference }
+    | { readonly kind: 'blocked'; readonly reason: 'referenced' }
     | { readonly kind: 'not_found' }
 
 export type PurgeMediaAssetResult =
@@ -1602,6 +1603,9 @@ export function createMediaAssetStore(
                 return { kind: 'already_requested', media }
             }
             if (media.asset.state === 'deleted') return { kind: 'not_found' }
+            if (hasMediaReference(client, normalizedProjectId, normalizedAssetId)) {
+                return { kind: 'blocked', reason: 'referenced' }
+            }
             assertMediaAssetTransition(media.asset.state, 'deletion_requested')
             for (const representation of media.representations) {
                 assertMediaRepresentationTransition(representation.state, 'deletion_requested')

@@ -39,7 +39,8 @@ import {
 } from 'react'
 
 import { MediaAssetCard, MediaPreview, readyRepresentation } from '@/components/media-asset-card'
-import { api, formatApiError, type MediaReference } from '@/lib/api'
+import { MediaDeletionDialog } from '@/components/media-deletion-dialog'
+import { api, formatApiError, type MediaAssetUsage, type MediaReference } from '@/lib/api'
 import {
     createHeraldMediaUploadController,
     uploadHeraldMediaFile,
@@ -133,6 +134,10 @@ function MediaAttachmentPickerView({
     const [nextCursor, setNextCursor] = useState<string | null>(null)
     const [viewerAsset, setViewerAsset] = useState<MediaReference | null>(null)
     const [editorAsset, setEditorAsset] = useState<MediaReference | null>(null)
+    const [deletionAsset, setDeletionAsset] = useState<MediaReference | null>(null)
+    const [deletionUsage, setDeletionUsage] = useState<MediaAssetUsage | null>(null)
+    const [deletionPending, setDeletionPending] = useState(false)
+    const [deletionError, setDeletionError] = useState<string | null>(null)
     const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
     const [dragOverAssetId, setDragOverAssetId] = useState<string | null>(null)
     const [dragActive, setDragActive] = useState(false)
@@ -160,7 +165,7 @@ function MediaAttachmentPickerView({
     const inline = variant === 'publication-new-inline'
     const manageOnly = selectionMode === 'manage'
     const normalizedSearchQuery = manageOnly ? searchQuery.trim() : ''
-    const interactionLocked = disabled || savingEdited || uploading !== null
+    const interactionLocked = disabled || savingEdited || uploading !== null || deletionPending
     const currentValueRef = useRef(value)
     const onChangeRef = useRef(onChange)
     const listRequestId = useRef(0)
@@ -365,6 +370,39 @@ function MediaAttachmentPickerView({
 
     function openViewer(asset: MediaReference) {
         setViewerAsset(asset)
+    }
+
+    function openDeletion(asset: MediaReference, usage: MediaAssetUsage) {
+        if (!manageOnly) return
+        setViewerAsset(null)
+        setDeletionAsset(asset)
+        setDeletionUsage(usage)
+        setDeletionError(null)
+    }
+
+    async function confirmDeletion() {
+        if (deletionAsset === null) return
+
+        const asset = deletionAsset
+        setDeletionPending(true)
+        setDeletionError(null)
+        try {
+            await api.deleteMedia(projectId, asset.asset.id)
+            setAssets(current => current.filter(candidate => candidate.asset.id !== asset.asset.id))
+            const nextValue = currentValueRef.current.filter(
+                selection => selection.assetId !== asset.asset.id
+            )
+            if (nextValue.length !== currentValueRef.current.length) {
+                currentValueRef.current = nextValue
+                onChangeRef.current(nextValue)
+            }
+            setDeletionAsset(null)
+            setDeletionUsage(null)
+        } catch (caughtError) {
+            setDeletionError(errorMessage(caughtError))
+        } finally {
+            setDeletionPending(false)
+        }
     }
 
     function openEditor(asset: MediaReference) {
@@ -878,11 +916,13 @@ function MediaAttachmentPickerView({
             <Suspense fallback={null}>
                 <MediaImageViewerDialog
                     asset={viewerAsset}
+                    allowDelete={manageOnly}
                     open={viewerAsset !== null}
                     onOpenChange={open => {
                         if (!open) setViewerAsset(null)
                     }}
                     onEdit={openEditor}
+                    onRequestDelete={openDeletion}
                 />
                 <MediaImageEditorDialog
                     asset={editorAsset}
@@ -898,6 +938,21 @@ function MediaAttachmentPickerView({
                     }
                 />
             </Suspense>
+            <MediaDeletionDialog
+                asset={deletionAsset}
+                error={deletionError}
+                onConfirm={() => void confirmDeletion()}
+                onOpenChange={open => {
+                    if (!open && !deletionPending) {
+                        setDeletionAsset(null)
+                        setDeletionUsage(null)
+                        setDeletionError(null)
+                    }
+                }}
+                open={deletionAsset !== null}
+                pending={deletionPending}
+                usage={deletionUsage}
+            />
         </>
     )
 }

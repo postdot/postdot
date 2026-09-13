@@ -9,6 +9,7 @@ import {
     type ChannelProfileState,
     type ChannelProfileVersion,
     type DuePublication,
+    type MediaDeletion,
     type MediaFinalize,
     type MediaReference,
     type MediaReservation,
@@ -566,6 +567,13 @@ export const api = {
         )
     },
 
+    async deleteMedia(projectId: string, assetId: string): Promise<MediaDeletion> {
+        return requestAuth<MediaDeletion>(
+            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}`,
+            { method: 'DELETE' }
+        )
+    },
+
     async reserveMediaUpload(
         projectId: string,
         input: {
@@ -1090,6 +1098,7 @@ export type {
     ChannelProfileState,
     ChannelProfileVersion,
     DuePublication,
+    MediaDeletion,
     MediaAssetUsage,
     MediaFinalize,
     MediaReference,
@@ -1179,6 +1188,8 @@ function apiErrorMessage(code: string): string {
             return m.api_access_tokens_unavailable()
         case 'media_unavailable':
             return m.api_media_unavailable()
+        case 'media_in_use':
+            return m.api_media_in_use()
         case 'media_storage_unavailable':
         case 'media_storage_failure':
             return m.api_media_storage_unavailable()

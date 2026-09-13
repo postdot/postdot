@@ -573,6 +573,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
+                    409: errorResponse,
                     503: errorResponse,
                 },
                 detail: {
@@ -598,6 +599,14 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 if (result.kind === 'not_found') {
                     return status(404, {
                         error: { code: 'not_found', message: 'Media asset not found' },
+                    })
+                }
+                if (result.kind === 'blocked') {
+                    return status(409, {
+                        error: {
+                            code: 'media_in_use',
+                            message: 'Media asset is still referenced by project content',
+                        },
                     })
                 }
                 const response = {

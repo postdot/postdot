@@ -523,6 +523,25 @@ test('persists mixed and media-only publications through the dashboard', async (
         'data-media-library-view',
         'list'
     )
+    await page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true }).click()
+    const libraryMediaViewer = page
+        .getByRole('dialog')
+        .filter({ hasText: droppedMediaFilename })
+        .last()
+    await expect(libraryMediaViewer).toBeVisible()
+    await expect(libraryMediaViewer.locator('[data-media-usage="ready"]')).toBeVisible()
+    await libraryMediaViewer.getByRole('button', { name: 'Delete', exact: true }).click()
+    const mediaDeletionDialog = page.locator('[data-media-delete-dialog="true"]')
+    await expect(mediaDeletionDialog).toBeVisible()
+    await expect(mediaDeletionDialog.locator('[data-media-delete-usage="true"]')).toContainText(
+        'Not used'
+    )
+    await mediaDeletionDialog.getByRole('button', { name: 'Delete', exact: true }).click()
+    await expect(mediaDeletionDialog).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
+    ).toHaveCount(0)
+
     await expect(
         page.locator('main').getByRole('button', { name: 'New publication', exact: true })
     ).toHaveCount(0)

@@ -11,6 +11,7 @@ import { CameraRotateIcon } from '@solar-icons/react/bold/camera-rotate'
 import { CropMinimalisticIcon } from '@solar-icons/react/bold/crop-minimalistic'
 import { GalleryEditIcon } from '@solar-icons/react/bold/gallery-edit'
 import { RefreshCircleIcon } from '@solar-icons/react/bold/refresh-circle'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 import { useEffect, useMemo, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 
@@ -25,16 +26,20 @@ type EditorAspect = 'source' | 'square' | 'portrait' | 'landscape'
 
 interface MediaImageViewerDialogProps {
     readonly asset: MediaReference | null
+    readonly allowDelete?: boolean
     readonly open: boolean
     readonly onOpenChange: (open: boolean) => void
     readonly onEdit: (asset: MediaReference) => void
+    readonly onRequestDelete?: (asset: MediaReference, usage: MediaAssetUsage) => void
 }
 
 export function MediaImageViewerDialog({
     asset,
+    allowDelete = false,
     open,
     onOpenChange,
     onEdit,
+    onRequestDelete,
 }: MediaImageViewerDialogProps) {
     useLanguage()
     const [usage, setUsage] = useState<MediaAssetUsage | null>(null)
@@ -117,12 +122,27 @@ export function MediaImageViewerDialog({
                             error={usageError}
                         />
                     </div>
-                    {image ? (
-                        <Button type="button" onClick={() => onEdit(asset)}>
-                            <GalleryEditIcon aria-hidden="true" />
-                            {m.media_edit_image()}
-                        </Button>
-                    ) : null}
+                    <div className="flex shrink-0 items-center gap-1">
+                        {allowDelete ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={usage === null || usageLoading || usageError}
+                                className="text-state-failed hover:bg-state-failed/10 hover:text-state-failed"
+                                onClick={() => {
+                                    if (usage !== null) onRequestDelete?.(asset, usage)
+                                }}>
+                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                {m.media_delete_confirm()}
+                            </Button>
+                        ) : null}
+                        {image ? (
+                            <Button type="button" onClick={() => onEdit(asset)}>
+                                <GalleryEditIcon aria-hidden="true" />
+                                {m.media_edit_image()}
+                            </Button>
+                        ) : null}
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>

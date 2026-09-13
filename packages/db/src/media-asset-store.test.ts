@@ -459,6 +459,23 @@ describe('project media lifecycle', () => {
             expect(
                 media.getAsset(projectId, reservation?.asset.id ?? '', 'another-subject')
             ).toBeNull()
+            database
+                .insert(posts)
+                .values({
+                    id: 'post-media-request-reference',
+                    projectId,
+                    sourceContent: {
+                        body: { text: 'Referenced before deletion', format: 'plain_text' },
+                        media: [{ assetId: reservation?.asset.id ?? '' }],
+                    },
+                    createdByActorId: actorId,
+                })
+                .run()
+            expect(
+                media.requestDeletion(projectId, reservation?.asset.id ?? '', subjectId)
+            ).toEqual({ kind: 'blocked', reason: 'referenced' })
+            database.$client.run('delete from posts where id = ?', ['post-media-request-reference'])
+
             const requested = media.requestDeletion(
                 projectId,
                 reservation?.asset.id ?? '',

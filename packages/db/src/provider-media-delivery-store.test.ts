@@ -341,11 +341,8 @@ describe('provider media delivery store', () => {
             ).toBe('failed')
 
             expect(
-                media.requestDeletion(project.project.id, reservation.asset.id, 'subject-1').kind
-            ).toBe('requested')
-            await expect(
-                media.purgeAsset(project.project.id, reservation.asset.id, 'subject-1', now, 0)
-            ).resolves.toEqual({ kind: 'blocked', reason: 'referenced' })
+                media.requestDeletion(project.project.id, reservation.asset.id, 'subject-1')
+            ).toEqual({ kind: 'blocked', reason: 'referenced' })
         } finally {
             closeDatabase(database)
             await rm(directory, { recursive: true, force: true })

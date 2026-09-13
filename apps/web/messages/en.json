@@ -504,6 +504,22 @@
             }
         }
     ],
+    "media_usage_audit": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} entry in project history",
+                "countPlural=other": "{count} entries in project history"
+            }
+        }
+    ],
+    "media_delete_title": "Delete this media?",
+    "media_delete_unused_description": "It will leave the library and be purged after the safety period.",
+    "media_delete_used_description": "This media is still used. Remove its references before deleting it.",
+    "media_delete_unavailable_description": "Its usage cannot be checked right now.",
+    "media_delete_confirm": "Delete",
+    "media_delete_pending": "Deleting…",
     "media_edit_image": "Edit image",
     "media_editor_description": "Crop, zoom, or rotate this image. Saving creates a new media asset.",
     "media_editor_zoom": "Zoom",
@@ -992,6 +1008,7 @@
     "api_access_tokens_unavailable": "Project access tokens are temporarily unavailable.",
     "api_media_unavailable": "The media asset is no longer available.",
     "api_media_storage_unavailable": "Media storage is temporarily unavailable.",
+    "api_media_in_use": "This media asset is still used by the project.",
     "api_upload_expired": "The media upload expired. Start it again.",
     "api_size_mismatch": "The uploaded file size did not match the reservation.",
     "api_provider_failure": "The provider could not complete the request.",
