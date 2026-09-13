@@ -128,7 +128,7 @@ export function MediaDeletionDialog({
                     ) : null}
                 </div>
 
-                <DialogFooter className="min-w-0 flex-wrap border-t border-border/60 bg-muted px-5 py-3">
+                <DialogFooter className="mx-0 mb-0 min-w-0 flex-wrap border-t border-border/60 bg-muted px-5 py-3">
                     <Button
                         type="button"
                         variant="ghost"
