@@ -23,7 +23,16 @@ import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
 import { MagnifierIcon } from '@solar-icons/react/bold/magnifier'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
 import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
-import { lazy, useMemo, Suspense, useEffect, useRef, useState, type DragEvent } from 'react'
+import {
+    lazy,
+    Suspense,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type DragEvent,
+    type ReactNode,
+} from 'react'
 
 import { MediaAssetCard, MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { api, formatApiError, type MediaReference } from '@/lib/api'
@@ -56,6 +65,11 @@ interface MediaAttachmentPickerProps {
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
     readonly onAssetsChange?: (assets: MediaReference[]) => void
+    readonly renderHeader?: (actions: {
+        readonly disabled: boolean
+        readonly onImport: () => void
+        readonly uploading: string | null
+    }) => ReactNode
     readonly disabled?: boolean
     readonly emptyDescription?: string
     readonly variant?: 'library' | 'publication-new' | 'publication-new-inline'
@@ -87,6 +101,7 @@ function MediaAttachmentPickerView({
     value,
     onChange,
     onAssetsChange,
+    renderHeader,
     disabled = false,
     emptyDescription,
     variant = 'library',
@@ -100,6 +115,7 @@ function MediaAttachmentPickerView({
     const [savingEdited, setSavingEdited] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
+    const [searchPending, setSearchPending] = useState(false)
     const [libraryOpen, setLibraryOpen] = useState(false)
     const [listRefreshKey, setListRefreshKey] = useState(0)
     const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -132,8 +148,6 @@ function MediaAttachmentPickerView({
     const inline = variant === 'publication-new-inline'
     const manageOnly = selectionMode === 'manage'
     const normalizedSearchQuery = manageOnly ? searchQuery.trim() : ''
-    const populatedLibrary =
-        manageOnly && !loading && (assets.length > 0 || normalizedSearchQuery !== '')
     const interactionLocked = disabled || savingEdited || uploading !== null
     const currentValueRef = useRef(value)
     const onChangeRef = useRef(onChange)
@@ -166,7 +180,6 @@ function MediaAttachmentPickerView({
             setLoading(true)
             setLoadingMore(false)
             setError(null)
-            setAssets([])
             setNextCursor(null)
 
             void api
@@ -186,7 +199,10 @@ function MediaAttachmentPickerView({
                     }
                 })
                 .finally(() => {
-                    if (active && requestId === listRequestId.current) setLoading(false)
+                    if (active && requestId === listRequestId.current) {
+                        setLoading(false)
+                        setSearchPending(false)
+                    }
                 })
         }, delay)
 
@@ -421,7 +437,7 @@ function MediaAttachmentPickerView({
     }
 
     async function loadMoreAssets() {
-        if (nextCursor === null || loading || loadingMore) return
+        if (nextCursor === null || loading || loadingMore || searchPending) return
 
         const requestId = listRequestId.current
         setLoadingMore(true)
@@ -447,23 +463,30 @@ function MediaAttachmentPickerView({
         asset: assets.find(candidate => candidate.asset.id === selection.assetId),
     }))
     const dropzoneRootProps = interactionLocked ? {} : dropzone.getRootProps()
-    const containerDropzoneProps = manageOnly ? {} : dropzoneRootProps
+    const containerDropzoneProps = dropzoneRootProps
     const fileInputProps = fileInput.getInputProps()
     const fileButtonProps = fileInput.getButtonProps()
+    const header = renderHeader?.({
+        disabled: interactionLocked,
+        onImport: () => fileButtonProps.onClick(),
+        uploading,
+    })
 
     return (
         <>
+            {header}
             <div
                 {...containerDropzoneProps}
                 data-media-picker="true"
-                data-media-dropzone={!manageOnly ? 'true' : undefined}
+                data-media-dropzone={!interactionLocked ? 'true' : undefined}
+                data-media-import-zone={manageOnly && !interactionLocked ? 'true' : undefined}
                 className={`${
                     inline
                         ? 'border-t border-border/70 bg-muted/25 px-3 py-2'
                         : compact
                           ? 'pt-1'
                           : manageOnly
-                            ? 'space-y-4'
+                            ? 'flex min-h-[calc(100vh-12rem)] flex-col gap-4'
                             : 'rounded-lg bg-muted p-4 sm:p-5'
                 }`}>
                 {manageOnly ? (
@@ -485,12 +508,21 @@ function MediaAttachmentPickerView({
                                 type="search"
                                 data-media-search="true"
                                 value={searchQuery}
-                                onChange={event => setSearchQuery(event.target.value)}
+                                onChange={event => {
+                                    setSearchPending(true)
+                                    setSearchQuery(event.target.value)
+                                }}
                                 placeholder={m.media_search_placeholder()}
                                 className="h-8 pl-9 text-sm"
                             />
                         </div>
-                        {assets.length > 0 ? (
+                        {searchPending ? (
+                            <p
+                                aria-live="polite"
+                                className="text-xs text-muted-foreground sm:shrink-0">
+                                {m.media_searching()}
+                            </p>
+                        ) : assets.length > 0 ? (
                             <p
                                 aria-live="polite"
                                 className="text-xs text-muted-foreground sm:shrink-0">
@@ -525,62 +557,7 @@ function MediaAttachmentPickerView({
                         ))}
                     </div>
                 ) : null}
-                {manageOnly ? (
-                    <div
-                        {...dropzoneRootProps}
-                        data-media-import-zone="true"
-                        data-media-dropzone="true"
-                        className={`group flex rounded-md border border-dashed px-4 text-center transition-colors ${
-                            populatedLibrary
-                                ? 'min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2'
-                                : 'min-h-32 flex-col items-center justify-center gap-2 px-6 py-6'
-                        } ${
-                            dragActive
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border/80 bg-transparent hover:border-primary/60'
-                        }`}>
-                        <div
-                            className={`flex min-w-0 items-center ${populatedLibrary ? 'gap-2' : 'flex-col gap-2'}`}>
-                            <UploadIcon
-                                aria-hidden="true"
-                                className={`shrink-0 ${
-                                    dragActive
-                                        ? 'text-primary'
-                                        : 'text-muted-foreground group-hover:text-primary'
-                                } ${populatedLibrary ? 'size-5' : 'size-7'}`}
-                            />
-                            <div
-                                className={
-                                    populatedLibrary
-                                        ? 'flex min-w-0 flex-wrap items-center gap-x-2'
-                                        : 'space-y-1'
-                                }>
-                                <p className="text-sm font-medium">
-                                    {dragActive
-                                        ? m.media_drop_files_active()
-                                        : m.media_drop_files()}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    {m.media_drop_files_hint()}{' '}
-                                    <Button
-                                        type="button"
-                                        variant="link"
-                                        size="sm"
-                                        disabled={interactionLocked}
-                                        className="h-auto p-0 align-baseline text-sm font-medium"
-                                        onClick={() => fileButtonProps.onClick()}>
-                                        {uploading === null
-                                            ? m.media_browse_files()
-                                            : m.media_uploading({ filename: uploading })}
-                                    </Button>
-                                </p>
-                            </div>
-                        </div>
-                        <p className="shrink-0 text-xs text-muted-foreground">
-                            {m.media_supported_types()}
-                        </p>
-                    </div>
-                ) : (
+                {!manageOnly ? (
                     <div
                         className={
                             inline
@@ -626,7 +603,7 @@ function MediaAttachmentPickerView({
                                 : m.media_uploading({ filename: uploading })}
                         </Button>
                     </div>
-                )}
+                ) : null}
 
                 <input
                     {...fileInputProps}
@@ -643,7 +620,7 @@ function MediaAttachmentPickerView({
                     </Alert>
                 ) : null}
 
-                {loading ? (
+                {loading && assets.length === 0 ? (
                     <p
                         className={
                             inline
@@ -686,7 +663,7 @@ function MediaAttachmentPickerView({
                 ) : assets.length === 0 ? (
                     normalizedSearchQuery !== '' ? (
                         <p className="mt-4 text-sm text-muted-foreground">{m.media_no_results()}</p>
-                    ) : (
+                    ) : manageOnly ? null : (
                         <Empty className="mt-4 min-h-28 bg-surface-field px-4 py-5">
                             <EmptyHeader>
                                 <EmptyMedia variant="icon">
@@ -744,6 +721,34 @@ function MediaAttachmentPickerView({
                     <div className="mt-3 flex items-start gap-2 rounded-md bg-state-attention/10 px-3 py-2 text-xs text-state-attention">
                         <CloseIcon aria-hidden="true" className="mt-0.5 shrink-0" />
                         <p>{m.media_missing_assets()}</p>
+                    </div>
+                ) : null}
+
+                {manageOnly ? (
+                    <div
+                        data-media-drop-hint="true"
+                        className={
+                            dragActive
+                                ? 'mt-auto flex flex-col items-center gap-2 pt-16 pb-4 text-center text-sm text-primary transition-colors'
+                                : 'mt-auto flex flex-col items-center gap-2 pt-16 pb-4 text-center text-sm text-muted-foreground transition-colors'
+                        }>
+                        <GalleryAddIcon aria-hidden="true" className="size-8" />
+                        <p>
+                            {dragActive ? m.media_drop_files_active() : m.media_drop_files()}{' '}
+                            {m.media_drop_files_hint()}{' '}
+                            <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                disabled={interactionLocked}
+                                className="h-auto p-0 align-baseline text-sm font-medium"
+                                onClick={() => fileButtonProps.onClick()}>
+                                {uploading === null
+                                    ? m.media_browse_files()
+                                    : m.media_uploading({ filename: uploading })}
+                            </Button>
+                        </p>
+                        <p className="text-xs text-muted-foreground">{m.media_supported_types()}</p>
                     </div>
                 ) : null}
             </div>

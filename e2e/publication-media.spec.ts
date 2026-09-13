@@ -446,10 +446,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.locator('[data-media-dropzone="true"]')).toBeVisible()
     await expect(page.locator('[data-media-selection-toggle="true"]')).toHaveCount(0)
     await expect(page.locator('[data-media-import-zone="true"]')).toBeVisible()
-    await expect(page.locator('[data-media-import-zone="true"]')).toHaveCSS(
-        'border-style',
-        'dashed'
-    )
+    await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible()
+    await expect(page.locator('[data-media-drop-hint="true"]')).toBeVisible()
     await expect(
         page
             .locator('[data-media-import-zone="true"]')
@@ -473,10 +471,36 @@ test('persists mixed and media-only publications through the dashboard', async (
     ).toBeVisible()
     const mediaSearch = page.getByRole('searchbox', { name: 'Search media', exact: true })
     await expect(mediaSearch).toBeVisible()
+
+    let releaseSearchResponse: (() => void) | undefined
+    let searchRequestStarted = () => {}
+    let searchResponseCompleted = () => {}
+    const searchRequest = new Promise<void>(resolve => {
+        searchRequestStarted = resolve
+    })
+    const searchResponse = new Promise<void>(resolve => {
+        searchResponseCompleted = resolve
+    })
+    await page.route('**/api/projects/*/media*', async route => {
+        const requestUrl = new URL(route.request().url())
+        const isDelayedSearch = requestUrl.searchParams.get('search') === droppedMediaFilename
+        if (isDelayedSearch) {
+            searchRequestStarted()
+            await new Promise<void>(resolve => {
+                releaseSearchResponse = resolve
+            })
+        }
+        await route.continue()
+        if (isDelayedSearch) searchResponseCompleted()
+    })
     await mediaSearch.fill(droppedMediaFilename)
+    await searchRequest
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
+    releaseSearchResponse?.()
+    await searchResponse
+    await page.unroute('**/api/projects/*/media*')
     await mediaSearch.fill(`missing-${suffix}`)
     await expect(page.getByText('No media matches this search.', { exact: true })).toBeVisible()
     await mediaSearch.fill('')
