@@ -62,6 +62,7 @@ export function PublicationTargetList({
     )
     const activeTarget = targets.find(target => target.id === activeTargetId) ?? targets[0]
     const availableChannel = channels.find(channel => !selectedChannelIds.has(channel.id))
+    const hasSelectedChannel = targets.some(target => target.channelId !== '')
 
     useEffect(() => {
         if (targets.some(target => target.id === activeTargetId)) return
@@ -101,113 +102,158 @@ export function PublicationTargetList({
 
     return (
         <div className="space-y-4">
-            <section className="rounded-md bg-muted/55 p-3 shadow-field sm:p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <h3 className="text-sm font-medium">
-                        {m.publication_new_defaults_for_channels()}
-                    </h3>
-                    <span className="text-xs text-muted-foreground">
-                        {m.publication_new_project_time({ timeZone })}
-                    </span>
+            {channels.length === 0 ? (
+                <div className="space-y-3 rounded-md bg-muted/60 p-4">
+                    <p className="text-sm text-muted-foreground">
+                        {m.publication_new_add_channel()}
+                    </p>
+                    <Link
+                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                        params={{ projectId }}
+                        to="/dashboard/projects/$projectId/channels">
+                        {m.publication_new_manage_channels()}
+                    </Link>
+                    <div className="max-w-sm pt-1">
+                        <TargetField
+                            htmlFor="publication-default-schedule"
+                            label={m.publication_new_default_schedule()}>
+                            <Input
+                                id="publication-default-schedule"
+                                type="datetime-local"
+                                value={defaultScheduledAt}
+                                disabled
+                            />
+                        </TargetField>
+                    </div>
                 </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <TargetField
-                        htmlFor="publication-default-delivery"
-                        label={m.publication_new_default_delivery()}>
-                        <Select
-                            items={{
-                                manual: m.publication_new_manual_publication(),
-                                automatic: m.publication_new_automatic_publication(),
-                            }}
-                            value={defaultDeliveryMode}
-                            onValueChange={value =>
-                                onDefaultDeliveryModeChange(value as DeliveryMode)
-                            }
-                            disabled={disabled}>
-                            <SelectTrigger id="publication-default-delivery">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                                <SelectItem value="manual">
-                                    {m.publication_new_manual_publication()}
-                                </SelectItem>
-                                <SelectItem value="automatic">
-                                    {m.publication_new_automatic_publication()}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </TargetField>
-                    <TargetField
-                        htmlFor="publication-default-schedule"
-                        label={m.publication_new_default_schedule()}>
-                        <Input
-                            id="publication-default-schedule"
-                            required
-                            type="datetime-local"
-                            value={defaultScheduledAt}
-                            disabled={disabled}
-                            onChange={event => onDefaultScheduledAtChange(event.target.value)}
-                        />
-                    </TargetField>
-                </div>
-            </section>
+            ) : null}
 
-            <div className="flex min-w-0 items-center gap-2" role="tablist">
-                <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto pb-1">
-                    {targets.map((target, index) => {
-                        const channel = channels.find(
-                            candidate => candidate.id === target.channelId
-                        )
-                        const status = resolveConnectionStatus(
-                            channel,
-                            connections.find(candidate => candidate.channelId === target.channelId),
-                            target.deliveryMode
-                        )
-                        const active = activeTarget?.id === target.id
-                        return (
-                            <button
-                                key={target.id}
-                                type="button"
-                                role="tab"
-                                aria-selected={active}
-                                onClick={() => setActiveTargetId(target.id)}
-                                className={`flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${
-                                    active
-                                        ? 'bg-background text-foreground shadow-field'
-                                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                                }`}>
-                                {channel ? <ChannelAvatar channel={channel} size="sm" /> : null}
-                                <span className="max-w-40 truncate">
-                                    {channel?.name ??
-                                        m.publication_new_destination({ index: String(index + 1) })}
-                                </span>
-                                {status ? (
-                                    <span
-                                        aria-label={status.label}
-                                        className={`size-1.5 shrink-0 rounded-full ${status.dotClassName}`}
-                                    />
-                                ) : null}
-                            </button>
-                        )
-                    })}
+            {channels.length > 0 ? (
+                <div
+                    data-publication-channel-selection="true"
+                    className="flex min-w-0 items-center gap-2">
+                    <div className="min-w-0 flex-1 overflow-x-auto rounded-md bg-muted/60 p-1">
+                        <div
+                            className="flex min-w-max gap-0.5"
+                            role="tablist"
+                            aria-label={m.publication_new_destinations()}>
+                            {targets.map((target, index) => {
+                                const channel = channels.find(
+                                    candidate => candidate.id === target.channelId
+                                )
+                                const status = resolveConnectionStatus(
+                                    channel,
+                                    connections.find(
+                                        candidate => candidate.channelId === target.channelId
+                                    ),
+                                    target.deliveryMode
+                                )
+                                const active = activeTarget?.id === target.id
+                                return (
+                                    <button
+                                        key={target.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={active}
+                                        onClick={() => setActiveTargetId(target.id)}
+                                        className={`flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                                            active
+                                                ? 'bg-surface-raised text-foreground'
+                                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                        }`}>
+                                        {channel ? (
+                                            <ChannelAvatar channel={channel} size="sm" />
+                                        ) : null}
+                                        <span className="max-w-40 truncate">
+                                            {channel?.name ??
+                                                m.publication_new_destination({
+                                                    index: String(index + 1),
+                                                })}
+                                        </span>
+                                        {status ? (
+                                            <span
+                                                aria-label={status.label}
+                                                className={`size-1.5 shrink-0 rounded-full ${status.dotClassName}`}
+                                            />
+                                        ) : null}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={disabled || availableChannel === undefined}
+                        title={
+                            availableChannel === undefined
+                                ? m.publication_new_all_channels_selected()
+                                : undefined
+                        }
+                        onClick={addTarget}>
+                        <AddIcon aria-hidden="true" />
+                        {m.publication_new_add_destination()}
+                    </Button>
                 </div>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={disabled || availableChannel === undefined}
-                    title={
-                        availableChannel === undefined
-                            ? m.publication_new_all_channels_selected()
-                            : undefined
-                    }
-                    onClick={addTarget}>
-                    <AddIcon aria-hidden="true" />
-                    {m.publication_new_add_destination()}
-                </Button>
-            </div>
+            ) : null}
 
-            {activeTarget ? (
+            {hasSelectedChannel ? (
+                <section
+                    data-publication-shared-settings="true"
+                    className="rounded-md bg-muted/55 p-3 sm:p-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <h3 className="text-sm font-medium">
+                            {m.publication_new_defaults_for_channels()}
+                        </h3>
+                        <span className="text-xs text-muted-foreground">
+                            {m.publication_new_project_time({ timeZone })}
+                        </span>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <TargetField
+                            htmlFor="publication-default-delivery"
+                            label={m.publication_new_default_delivery()}>
+                            <Select
+                                items={{
+                                    manual: m.publication_new_manual_publication(),
+                                    automatic: m.publication_new_automatic_publication(),
+                                }}
+                                value={defaultDeliveryMode}
+                                onValueChange={value =>
+                                    onDefaultDeliveryModeChange(value as DeliveryMode)
+                                }
+                                disabled={disabled}>
+                                <SelectTrigger id="publication-default-delivery">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                    <SelectItem value="manual">
+                                        {m.publication_new_manual_publication()}
+                                    </SelectItem>
+                                    <SelectItem value="automatic">
+                                        {m.publication_new_automatic_publication()}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </TargetField>
+                        <TargetField
+                            htmlFor="publication-default-schedule"
+                            label={m.publication_new_default_schedule()}>
+                            <Input
+                                id="publication-default-schedule"
+                                required
+                                type="datetime-local"
+                                value={defaultScheduledAt}
+                                disabled={disabled}
+                                onChange={event => onDefaultScheduledAtChange(event.target.value)}
+                            />
+                        </TargetField>
+                    </div>
+                </section>
+            ) : null}
+
+            {channels.length > 0 && activeTarget ? (
                 <PublicationTargetCard
                     key={activeTarget.id}
                     channels={channels}
@@ -265,17 +311,14 @@ function PublicationTargetCard({
     const connectionStatus = resolveConnectionStatus(channel, connection, target.deliveryMode)
 
     return (
-        <div className="space-y-4 rounded-md bg-background/70 p-4 shadow-field sm:p-5">
+        <div className="space-y-4 rounded-md bg-muted/45 p-4 sm:p-5">
             <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                     {channel ? <ChannelAvatar channel={channel} size="md" /> : null}
                     <div className="min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground">
-                            {m.publication_new_destination({ index: String(index + 1) })}
+                        <p className="truncate text-sm font-medium">
+                            {channel?.name ?? m.publication_new_choose_channel()}
                         </p>
-                        {channel ? (
-                            <p className="mt-1 truncate text-sm font-medium">{channel.name}</p>
-                        ) : null}
                         {connectionStatus ? (
                             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                                 <span className={connectionStatus.className}>
@@ -393,7 +436,7 @@ function PublicationTargetCard({
             </div>
 
             {usesDefaults ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/55 px-3 py-2.5 shadow-field">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/70 px-3 py-2.5">
                     <span className="text-xs text-muted-foreground">
                         {m.publication_new_uses_defaults()}
                     </span>

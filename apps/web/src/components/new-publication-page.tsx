@@ -168,13 +168,13 @@ export function NewPublicationPage({
             ) : null}
 
             <form onSubmit={onCreatePost}>
-                <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.06fr)_minmax(20rem,0.94fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(22rem,0.9fr)]">
-                    <section className="min-w-0">
+                <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.28fr)_minmax(19rem,0.72fr)] xl:grid-cols-[minmax(0,1.34fr)_minmax(22rem,0.66fr)]">
+                    <section data-new-publication-content="true" className="min-w-0">
                         <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
                             {m.publication_new_source()}
                         </h2>
 
-                        <div className="mt-4 rounded-lg bg-muted/70 p-4 shadow-surface sm:p-5">
+                        <div className="mt-4 rounded-lg bg-muted/70 p-4 sm:p-5">
                             <div className="space-y-4">
                                 <DashboardFormField
                                     htmlFor="new-post-title"
@@ -191,7 +191,7 @@ export function NewPublicationPage({
                                     label={m.publication_new_source_content()}>
                                     <div
                                         data-new-publication-editor="true"
-                                        className="overflow-hidden rounded-md bg-background shadow-field ring-1 ring-border/70">
+                                        className="overflow-hidden rounded-md bg-surface-field">
                                         <Textarea
                                             id="new-post-content"
                                             value={postContent}
@@ -227,7 +227,7 @@ export function NewPublicationPage({
                         </div>
                     </section>
 
-                    <section className="min-w-0">
+                    <section data-new-publication-publish-to="true" className="min-w-0">
                         <div className="flex items-baseline justify-between gap-4">
                             <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
                                 {m.publication_new_destinations()}
@@ -258,7 +258,7 @@ export function NewPublicationPage({
                     </section>
                 </div>
 
-                <div className="mt-7 flex justify-end rounded-lg bg-muted p-4 sm:p-5">
+                <div className="mt-7 flex justify-end rounded-lg bg-muted/70 p-4 sm:p-5">
                     <Button type="submit" disabled={pending || activeChannels.length === 0}>
                         <CalendarAddIcon aria-hidden="true" />
                         {publicationTargets.length === 1
@@ -271,12 +271,6 @@ export function NewPublicationPage({
                     </Button>
                 </div>
             </form>
-
-            {activeChannels.length === 0 ? (
-                <p className="mt-3 text-sm text-muted-foreground">
-                    {m.publication_new_add_channel()}
-                </p>
-            ) : null}
         </main>
     )
 }

@@ -2731,3 +2731,47 @@ channels` with a foreign-key constraint error even though a fresh empty database
   or only an action target, proposes vocabulary alternatives with rationale, and
   records the chosen direction and deferred questions. No code rename is made
   solely to test a label before that contract is accepted.
+
+## [ISSUE-099] Reframe new-publication authoring around the operator’s job
+
+- Type: design
+- Status: resolved
+- Evidence: The canonical new-publication route still opens with two visually
+  equal sections named `Source` and `Destinations`. The first reading therefore
+  exposes the internal fan-out model before answering the operator’s two
+  sequential questions: what should be published, and where should it go?
+  The target editor also presents channel selection, shared delivery defaults,
+  and channel-specific overrides as one undifferentiated settings surface.
+- Impact: The page can be technically correct while making a normal publication
+  feel like a technical composition workflow. Repeated source/destination
+  vocabulary and peer panels dilute the primary writing task, while default
+  settings and optional channel adaptations compete for the same attention.
+- Desired outcome: Make the publication itself the primary object of the page.
+  Use user-facing `Content` and `Publish to` language, give the content editor
+  the dominant visual weight, let channel selection precede delivery settings,
+  and keep per-channel adaptation and delivery overrides available without
+  making them the default reading path. Preserve the existing multi-channel
+  API and draft behavior.
+- Scope boundary: This slice changes the new-publication information hierarchy,
+  labels, and progressive disclosure only. It does not add a social-network
+  preview, rich-text editing, new scheduling semantics, or a redesigned
+  publication detail editor.
+- Tasks: DESIGN-175, WEB-176
+- Related issues: ISSUE-098, ISSUE-063
+- Related decisions: ADR-057
+- Acceptance: An operator can identify the content editor and the channels to
+  publish to from the first frame, understands that shared delivery settings
+  apply to all selected channels, and can still select, remove, customize, and
+  schedule multiple channels. The page has no user-facing Source/Destinations
+  headings, no duplicate “destination” framing in the active channel card, and
+  remains usable at narrow widths with localized English and French copy.
+- Resolution: DESIGN-175 and WEB-176 implement the accepted authoring contract.
+  The page now leads with `Content` / `Contenu`, uses `Publish to` /
+  `Publier sur`, gives the editor the dominant column, puts channel selection
+  before shared delivery settings, and keeps channel-specific changes in the
+  active channel card. User-facing Source/Destinations and duplicate destination
+  framing were removed without changing the multi-channel API or draft behavior.
+- Verification: Focused browser coverage and the full repository gate pass for
+  the localized route, including the narrow multi-channel and media scenarios;
+  English and French i18n coverage remains 100%. The authenticated integrated
+  browser was inspected on the local `/publications/new` route.

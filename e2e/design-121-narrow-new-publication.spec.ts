@@ -25,14 +25,39 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expectNoHorizontalOverflow(page)
 
     const firstTab = page.getByRole('tab', { name: new RegExp(firstChannelName) })
-    const addDestination = page.getByRole('button', { name: 'Add destination', exact: true })
+    const addChannel = page.getByRole('button', { name: 'Add channel', exact: true })
     await expect(firstTab).toBeVisible()
-    await expect(addDestination).toBeVisible()
+    await expect(addChannel).toBeVisible()
+
+    await expect(page.getByRole('heading', { name: 'Content', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Publish to', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Source', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Destinations', exact: true })).toHaveCount(0)
+    await expect(
+        page.locator(
+            '[data-new-publication-publish-to="true"] [data-publication-channel-selection]'
+        )
+    ).toBeVisible()
+    await expect(
+        page.locator('[data-new-publication-publish-to="true"] [data-publication-shared-settings]')
+    ).toBeVisible()
+    const publishToOrder = await page
+        .locator('[data-new-publication-publish-to="true"]')
+        .evaluate(element =>
+            Array.from(
+                element.querySelectorAll(
+                    '[data-publication-channel-selection], [data-publication-shared-settings]'
+                )
+            ).map(item =>
+                item.hasAttribute('data-publication-channel-selection') ? 'channels' : 'settings'
+            )
+        )
+    expect(publishToOrder).toEqual(['channels', 'settings'])
 
     await firstTab.focus()
     await expect(firstTab).toBeFocused()
     await page.keyboard.press('Tab')
-    await expect(addDestination).toBeFocused()
+    await expect(addChannel).toBeFocused()
     await page.keyboard.press('Enter')
 
     const secondTab = page.getByRole('tab', { name: new RegExp(secondChannelName) })

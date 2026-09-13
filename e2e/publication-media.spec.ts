@@ -376,21 +376,24 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
-    const defaultSchedule = await page.getByLabel('Default schedule', { exact: true }).inputValue()
+    const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().inputValue()
     await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
     await page.getByLabel('Channel content', { exact: true }).fill(targetText)
-    await page.getByRole('button', { name: 'Add destination', exact: true }).click()
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     await expect(page.getByRole('tab', { name: new RegExp(secondChannelName) })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add destination', exact: true })).toBeDisabled()
-    await expect(page.getByText('Uses the defaults', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toBeDisabled()
+    await expect(page.getByText('Uses shared settings', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Customize delivery', exact: true }).click()
-    await expect(page.getByLabel('Schedule', { exact: true })).toHaveValue(defaultSchedule)
+    await expect(page.getByLabel('Channel schedule', { exact: true })).toHaveValue(defaultSchedule)
     await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
     await page.getByLabel('Channel content', { exact: true }).fill(secondTargetText)
-    const secondPublicationDelivery = page.getByRole('combobox', { name: 'Delivery', exact: true })
+    const secondPublicationDelivery = page.getByRole('combobox', {
+        name: 'Channel delivery',
+        exact: true,
+    })
     await secondPublicationDelivery.click()
     await page.getByRole('option', { name: 'Automatic publication', exact: true }).click()
-    await page.getByLabel('Schedule', { exact: true }).fill(scheduledDateTime)
+    await page.getByLabel('Channel schedule', { exact: true }).fill(scheduledDateTime)
 
     await page.setViewportSize({ width: 390, height: 844 })
     const populatedNewPublicationOverflow = await page
@@ -448,7 +451,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(
         /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
     )
-    await expect(page.getByLabel('Default schedule', { exact: true })).toHaveValue(/T09:00$/)
+    await expect(page.getByLabel('Schedule', { exact: true }).first()).toHaveValue(/T09:00$/)
     await page.goBack()
     await expect(calendarMonth).toBeVisible()
     await page.getByRole('button', { name: 'Next period', exact: true }).click()

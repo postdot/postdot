@@ -113,7 +113,9 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
 })
 
 test('expands a dense ReUI calendar day in place', async ({ page }) => {
-    test.setTimeout(30_000)
+    // This scenario intentionally exercises the full responsive calendar matrix;
+    // allow parallel E2E workers enough time without weakening any assertion.
+    test.setTimeout(60_000)
 
     const suffix = randomUUID().slice(0, 8)
     const projectId = await createAccountAndProject(page, suffix)
