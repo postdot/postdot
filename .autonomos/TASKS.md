@@ -316,3 +316,7 @@ the central project reads and projection/realtime reliability.
 ## 🌐 External media sources
 
 - [ ] **[MEDIA-181]** Define the first safe set of external media sources for the Herald library `Priority: 🔵` `Complexity: L` — [ISSUE-103]; compare provider plugins and direct picker APIs, choose the self-hosted Companion/authentication boundary, decide which source OAuth credentials and network transfers belong to Herald, and specify failure/retry/privacy contracts before adding source controls. Do not install the all-in-one remote-sources preset or expose unconfigured provider buttons.
+
+## 🎞️ Media library contract
+
+- [ ] **[MEDIA-182]** Define the scalable project media library contract `Priority: 🟠` `Complexity: M` — [ISSUE-104]; decide the default grid/list and density behavior, minimum metadata and contextual actions, supported upload constraints and diagnostics, bounded search/filter/sort pagination, usage/reference categories, and the safe deletion state machine before changing the library UI or adding remote sources. Keep Uppy headless, keep publication attachment selection separate from management, and defer virtualization until bounded reads and rendering measurements demonstrate a need.

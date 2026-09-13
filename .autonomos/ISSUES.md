@@ -2945,3 +2945,40 @@ channels` with a foreign-key constraint error even though a fresh empty database
   unconfigured sources are absent from the UI; imported bytes enter the same
   Herald reserve/upload/finalize/verification lifecycle; focused security,
   failure, and browser coverage exists before any source is enabled.
+
+## [ISSUE-104] Define the scalable project media library contract
+
+- Type: proposal
+- Status: open
+- Evidence: The Media route now has a real local intake zone backed by the
+  headless Uppy boundary, but its library presentation is still a first-pass
+  two-column card grid with fixed previews and an ad hoc metadata subset. The
+  current media list is unbounded, the server currently verifies PNG, JPEG, and
+  WebP assets with a default 100 MB object limit, and the UI does not expose the
+  available deferred-deletion operation or whether an asset is referenced by a
+  draft, scheduled publication, execution, or audit record.
+- Impact: Adding remote sources, more file types, bulk actions, or a visible
+  delete control before defining these semantics would make the library
+  misleading and could either hide assets at scale or encourage destructive
+  actions whose consequences are not understandable. A browser-visible drop
+  instruction is only truthful when the drop target is an actual intake boundary;
+  that boundary is now covered by a real browser `drop` test, while the
+  integrated ChatGPT browser may still lack an OS-file drag source.
+- Desired outcome: An accepted product, API, and operational contract for the
+  project media library covering the default browse mode and density options,
+  the minimum useful metadata and actions, supported file constraints and
+  diagnostics, bounded search/filter/sort reads, usage/reference semantics, and
+  a safe deletion state machine. The contract must keep local intake, future
+  external sources, publication attachment selection, and media management
+  distinct while allowing them to share verified assets.
+- Scope boundary: This issue does not adopt Uppy Dashboard or vendor CSS, add
+  remote-provider controls (tracked by ISSUE-103), replace the current image
+  editor, add blind deletion, or introduce virtualization before a bounded API
+  and measured rendering need exist.
+- Tasks: MEDIA-182
+- Related issues: ISSUE-003, ISSUE-101, ISSUE-102, ISSUE-103
+- Acceptance: The repository records the accepted browse/metadata/action model,
+  a cursor-based or otherwise bounded media-read contract, explicit usage
+  categories and deletion outcomes, upload constraints, and test/measurement
+  targets. The contract identifies which decisions are product defaults and
+  which remain intentionally deferred before implementation work begins.
