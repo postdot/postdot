@@ -451,6 +451,22 @@ test('persists mixed and media-only publications through the dashboard', async (
             .locator('[data-media-import-zone="true"]')
             .getByRole('button', { name: 'Import from device', exact: true })
     ).toBeVisible()
+    const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
+    await page.locator('[data-media-import-zone="true"]').evaluate(
+        (element, file) => {
+            const dataTransfer = new DataTransfer()
+            dataTransfer.items.add(
+                new File([Uint8Array.from(file.bytes)], file.name, { type: file.mimeType })
+            )
+            element.dispatchEvent(
+                new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer })
+            )
+        },
+        { name: droppedMediaFilename, mimeType: 'image/png', bytes: [...mediaBytes] }
+    )
+    await expect(
+        page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
+    ).toBeVisible()
     await expect(
         page.locator('main').getByRole('button', { name: 'New publication', exact: true })
     ).toHaveCount(0)
