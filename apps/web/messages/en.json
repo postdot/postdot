@@ -479,10 +479,8 @@
     "media_uploading": "Adding {filename}…",
     "media_view_asset": "View {filename}",
     "media_viewer_description": "View the full media asset.",
-    "media_viewer_hint": "Full-size preview",
     "media_usage_checking": "Checking usage…",
     "media_usage_unavailable": "Usage unavailable",
-    "media_usage_unused": "Not used",
     "media_usage_source": "Present in source content",
     "media_usage_active": [
         {
@@ -514,11 +512,11 @@
             }
         }
     ],
-    "media_delete_title": "Delete this media?",
-    "media_delete_unused_description": "It will leave the library and be purged after the safety period.",
+    "media_delete_title": "Delete this file?",
     "media_delete_used_description": "This media is still used. Remove its references before deleting it.",
     "media_delete_unavailable_description": "Its usage cannot be checked right now.",
     "media_delete_confirm": "Delete",
+    "media_delete_asset": "Delete {filename}",
     "media_delete_pending": "Deleting…",
     "media_edit_image": "Edit image",
     "media_editor_description": "Crop, zoom, or rotate this image. Saving creates a new media asset.",

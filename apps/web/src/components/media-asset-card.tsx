@@ -1,6 +1,8 @@
+import { Button } from '@herald/ui/components/button'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 
 import { api, type MediaReference } from '@/lib/api'
 import { formatBytes, formatNumber } from '@/lib/format'
@@ -16,6 +18,7 @@ interface MediaAssetCardProps {
     readonly selected: MediaSelection | undefined
     readonly selectable?: boolean
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
+    readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview: (asset: MediaReference) => void
 }
@@ -30,6 +33,7 @@ export function MediaAssetCard({
     selected,
     selectable = true,
     onAccessibilityTextChange,
+    onRequestDelete,
     onToggle,
     onPreview,
 }: MediaAssetCardProps) {
@@ -46,7 +50,7 @@ export function MediaAssetCard({
     return (
         <article
             data-media-card-layout={layout}
-            className={`rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field ${
+            className={`group relative rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field ${
                 selectable && selected !== undefined ? 'ring-2 ring-primary/35' : ''
             }`}>
             <div
@@ -101,6 +105,24 @@ export function MediaAssetCard({
                     </div>
                 )}
             </div>
+            {onRequestDelete !== undefined ? (
+                <div className="absolute top-1 right-1 z-10 pointer-events-auto opacity-100 transition-opacity sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={interactionDisabled}
+                        data-media-delete-trigger="true"
+                        aria-label={m.media_delete_asset({
+                            filename: asset.asset.originalFilename,
+                        })}
+                        title={m.media_delete_asset({ filename: asset.asset.originalFilename })}
+                        className="pointer-events-auto text-state-failed hover:bg-state-failed/10 hover:text-state-failed"
+                        onClick={() => onRequestDelete(asset)}>
+                        <TrashBinMinimalisticIcon aria-hidden="true" />
+                    </Button>
+                </div>
+            ) : null}
             {selectable && selected !== undefined ? (
                 <Field className="mt-3 gap-1">
                     <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>

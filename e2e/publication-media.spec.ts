@@ -385,7 +385,6 @@ test('persists mixed and media-only publications through the dashboard', async (
     await selectedMediaPreview.click()
     const mediaViewer = page.getByRole('dialog').filter({ hasText: mediaFilename }).last()
     await expect(mediaViewer).toBeVisible()
-    await expect(mediaViewer.locator('[data-media-usage="ready"]')).toBeVisible()
     await expect(mediaViewer.getByRole('button', { name: 'Edit image', exact: true })).toBeVisible()
     await mediaViewer.getByRole('button', { name: 'Edit image', exact: true }).click()
 
@@ -523,20 +522,17 @@ test('persists mixed and media-only publications through the dashboard', async (
         'data-media-library-view',
         'list'
     )
-    await page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true }).click()
-    const libraryMediaViewer = page
-        .getByRole('dialog')
-        .filter({ hasText: droppedMediaFilename })
-        .last()
-    await expect(libraryMediaViewer).toBeVisible()
-    await expect(libraryMediaViewer.locator('[data-media-usage="ready"]')).toBeVisible()
-    await libraryMediaViewer.getByRole('button', { name: 'Delete', exact: true }).click()
+    await page.getByRole('button', { name: `Delete ${droppedMediaFilename}`, exact: true }).click()
     const mediaDeletionDialog = page.locator('[data-media-delete-dialog="true"]')
     await expect(mediaDeletionDialog).toBeVisible()
-    await expect(mediaDeletionDialog.locator('[data-media-delete-usage="true"]')).toContainText(
-        'Not used'
-    )
-    await mediaDeletionDialog.getByRole('button', { name: 'Delete', exact: true }).click()
+    await expect(mediaDeletionDialog.locator('[data-media-delete-preview="true"]')).toBeVisible()
+    await expect(mediaDeletionDialog).not.toContainText('Not used')
+    const mediaDeleteConfirm = mediaDeletionDialog.getByRole('button', {
+        name: 'Delete',
+        exact: true,
+    })
+    await expect(mediaDeleteConfirm).toBeEnabled()
+    await mediaDeleteConfirm.click()
     await expect(mediaDeletionDialog).toHaveCount(0)
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })

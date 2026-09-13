@@ -40,7 +40,7 @@ import {
 
 import { MediaAssetCard, MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { MediaDeletionDialog } from '@/components/media-deletion-dialog'
-import { api, formatApiError, type MediaAssetUsage, type MediaReference } from '@/lib/api'
+import { api, formatApiError, type MediaReference } from '@/lib/api'
 import {
     createHeraldMediaUploadController,
     uploadHeraldMediaFile,
@@ -135,7 +135,6 @@ function MediaAttachmentPickerView({
     const [viewerAsset, setViewerAsset] = useState<MediaReference | null>(null)
     const [editorAsset, setEditorAsset] = useState<MediaReference | null>(null)
     const [deletionAsset, setDeletionAsset] = useState<MediaReference | null>(null)
-    const [deletionUsage, setDeletionUsage] = useState<MediaAssetUsage | null>(null)
     const [deletionPending, setDeletionPending] = useState(false)
     const [deletionError, setDeletionError] = useState<string | null>(null)
     const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
@@ -372,11 +371,10 @@ function MediaAttachmentPickerView({
         setViewerAsset(asset)
     }
 
-    function openDeletion(asset: MediaReference, usage: MediaAssetUsage) {
+    function openDeletion(asset: MediaReference) {
         if (!manageOnly) return
         setViewerAsset(null)
         setDeletionAsset(asset)
-        setDeletionUsage(usage)
         setDeletionError(null)
     }
 
@@ -397,7 +395,6 @@ function MediaAttachmentPickerView({
                 onChangeRef.current(nextValue)
             }
             setDeletionAsset(null)
-            setDeletionUsage(null)
         } catch (caughtError) {
             setDeletionError(errorMessage(caughtError))
         } finally {
@@ -750,6 +747,7 @@ function MediaAttachmentPickerView({
                                     selected={selected}
                                     selectable={!manageOnly}
                                     onAccessibilityTextChange={updateAccessibilityText}
+                                    onRequestDelete={manageOnly ? openDeletion : undefined}
                                     onToggle={toggleAsset}
                                     onPreview={openViewer}
                                 />
@@ -879,6 +877,7 @@ function MediaAttachmentPickerView({
                                             )}
                                             selectable={!manageOnly}
                                             onAccessibilityTextChange={updateAccessibilityText}
+                                            onRequestDelete={manageOnly ? openDeletion : undefined}
                                             onToggle={toggleAsset}
                                             onPreview={openViewer}
                                         />
@@ -945,13 +944,11 @@ function MediaAttachmentPickerView({
                 onOpenChange={open => {
                     if (!open && !deletionPending) {
                         setDeletionAsset(null)
-                        setDeletionUsage(null)
                         setDeletionError(null)
                     }
                 }}
                 open={deletionAsset !== null}
                 pending={deletionPending}
-                usage={deletionUsage}
             />
         </>
     )
