@@ -515,6 +515,108 @@
     "media_delete_confirm": "Supprimer",
     "media_delete_asset": "Supprimer {filename}",
     "media_delete_pending": "Suppression…",
+    "media_bulk_select": "Sélectionner",
+    "media_bulk_done": "Terminer",
+    "media_bulk_selecting": "Sélectionnez des médias pour agir",
+    "media_bulk_actions": "Actions groupées",
+    "media_bulk_clear_selection": "Effacer la sélection",
+    "media_bulk_clear_visible": "Effacer les affichés",
+    "media_bulk_delete_action": "Supprimer",
+    "media_bulk_select_asset": "Sélectionner {filename}",
+    "media_bulk_deselect_asset": "Désélectionner {filename}",
+    "media_bulk_selected": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} sélectionné",
+                "countPlural=other": "{count} sélectionnés"
+            }
+        }
+    ],
+    "media_bulk_select_visible": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Sélectionner le fichier affiché",
+                "countPlural=other": "Sélectionner les {count} fichiers affichés"
+            }
+        }
+    ],
+    "media_bulk_delete_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Supprimer ce fichier ?",
+                "countPlural=other": "Supprimer ces {count} fichiers ?"
+            }
+        }
+    ],
+    "media_bulk_delete_preview_label": "Médias sélectionnés",
+    "media_bulk_delete_description": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Ce fichier sera retiré de la bibliothèque média.",
+                "countPlural=other": "Ces {count} fichiers seront retirés de la bibliothèque média."
+            }
+        }
+    ],
+    "media_bulk_usage_checking": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Vérification de l’utilisation de ce fichier…",
+                "countPlural=other": "Vérification de l’utilisation de ces {count} fichiers…"
+            }
+        }
+    ],
+    "media_bulk_delete_unavailable": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Impossible de vérifier l’utilisation d’un fichier.",
+                "countPlural=other": "Impossible de vérifier l’utilisation de {count} fichiers."
+            }
+        }
+    ],
+    "media_bulk_delete_blocked": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Un fichier sélectionné est encore utilisé.",
+                "countPlural=other": "{count} fichiers sélectionnés sont encore utilisés."
+            }
+        }
+    ],
+    "media_bulk_delete_more_blocked": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Un autre fichier est bloqué.",
+                "countPlural=other": "{count} autres fichiers sont bloqués."
+            }
+        }
+    ],
+    "media_bulk_delete_remove_blocked": "Retirez les fichiers utilisés de la sélection pour continuer.",
+    "media_bulk_delete_pending": "Suppression…",
+    "media_bulk_delete_partial_error": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Un fichier n’a pas pu être supprimé. Son utilisation a peut-être changé.",
+                "countPlural=other": "{count} fichiers n’ont pas pu être supprimés. Leur utilisation a peut-être changé."
+            }
+        }
+    ],
     "media_edit_image": "Modifier l’image",
     "media_editor_description": "Recadrez, zoomez ou faites pivoter cette image. L’enregistrement crée un nouveau média.",
     "media_editor_zoom": "Zoom",

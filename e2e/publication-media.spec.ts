@@ -469,6 +469,37 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
+    await expect(page.locator('[data-media-bulk-selection-mode="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    const mediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
+    await expect(mediaBulkActionBar).toBeVisible()
+    await page.getByRole('button', { name: `Select ${mediaFilename}`, exact: true }).click()
+    await page.getByRole('button', { name: `Select ${secondMediaFilename}`, exact: true }).click()
+    await expect(mediaBulkActionBar).toContainText('2 selected')
+    await mediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
+    const mediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
+    await expect(mediaBulkDeletionDialog).toBeVisible()
+    await expect(
+        mediaBulkDeletionDialog.locator(
+            '[data-media-bulk-delete-body="true"] [data-media-bulk-delete-preview="true"]'
+        )
+    ).toHaveCount(2)
+    const mediaBulkDeleteConfirm = mediaBulkDeletionDialog.getByRole('button', {
+        name: 'Delete',
+        exact: true,
+    })
+    await expect(mediaBulkDeleteConfirm).toBeEnabled()
+    await mediaBulkDeleteConfirm.click()
+    await expect(mediaBulkDeletionDialog).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: `View ${mediaFilename}`, exact: true })
+    ).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: `View ${secondMediaFilename}`, exact: true })
+    ).toHaveCount(0)
     const mediaSearch = page.getByRole('searchbox', { name: 'Search media', exact: true })
     await expect(mediaSearch).toBeVisible()
 
@@ -725,6 +756,20 @@ test('persists mixed and media-only publications through the dashboard', async (
         'compact'
     )
     await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
+    await page.getByRole('button', { name: `Select ${editedMediaFilename}`, exact: true }).click()
+    const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
+    await usedMediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
+    const usedMediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
+    await expect(
+        usedMediaBulkDeletionDialog.locator('[data-media-bulk-delete-usage="blocked"]')
+    ).toBeVisible()
+    await expect(
+        usedMediaBulkDeletionDialog.getByRole('button', { name: 'Delete', exact: true })
+    ).toBeDisabled()
+    await usedMediaBulkDeletionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(usedMediaBulkDeletionDialog).toHaveCount(0)
+    await page.locator('[data-media-bulk-selection-mode="true"]').click()
 
     const firstProjectId = projectIdFromUrl(page.url())
     const secondProjectName = `E2E-51 Second project ${suffix}`

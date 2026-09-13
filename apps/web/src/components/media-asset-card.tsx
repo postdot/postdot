@@ -17,7 +17,10 @@ interface MediaAssetCardProps {
     readonly projectId: string
     readonly selected: MediaSelection | undefined
     readonly selectable?: boolean
+    readonly actionSelectionMode?: boolean
+    readonly actionSelected?: boolean
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
+    readonly onActionSelectionToggle?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview: (asset: MediaReference) => void
@@ -32,7 +35,10 @@ export function MediaAssetCard({
     projectId,
     selected,
     selectable = true,
+    actionSelectionMode = false,
+    actionSelected = false,
     onAccessibilityTextChange,
+    onActionSelectionToggle,
     onRequestDelete,
     onToggle,
     onPreview,
@@ -50,8 +56,11 @@ export function MediaAssetCard({
     return (
         <article
             data-media-card-layout={layout}
+            data-media-action-selected={actionSelected || undefined}
             className={`group relative rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field ${
-                selectable && selected !== undefined ? 'ring-2 ring-primary/35' : ''
+                (selectable && selected !== undefined) || actionSelected
+                    ? 'ring-2 ring-foreground/25'
+                    : ''
             }`}>
             <div
                 className={
@@ -71,7 +80,43 @@ export function MediaAssetCard({
                         className={previewClassName}
                     />
                 </button>
-                {selectable ? (
+                {actionSelectionMode ? (
+                    <button
+                        type="button"
+                        aria-label={
+                            actionSelected
+                                ? m.media_bulk_deselect_asset({
+                                      filename: asset.asset.originalFilename,
+                                  })
+                                : m.media_bulk_select_asset({
+                                      filename: asset.asset.originalFilename,
+                                  })
+                        }
+                        aria-pressed={actionSelected}
+                        data-media-bulk-selection-toggle="true"
+                        disabled={
+                            interactionDisabled ||
+                            asset.asset.state !== 'ready' ||
+                            onActionSelectionToggle === undefined
+                        }
+                        onClick={() => onActionSelectionToggle?.(asset)}
+                        className={`flex min-w-0 flex-1 cursor-pointer gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
+                        <AssetDetails
+                            asset={asset}
+                            locale={locale}
+                            representation={representation}
+                        />
+                        <span
+                            aria-hidden="true"
+                            className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-[background-color,color,opacity] ${
+                                actionSelected
+                                    ? 'bg-foreground text-background'
+                                    : 'text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'
+                            }`}>
+                            <CheckReadIcon />
+                        </span>
+                    </button>
+                ) : selectable ? (
                     <button
                         type="button"
                         aria-pressed={selected !== undefined}

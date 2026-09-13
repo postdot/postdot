@@ -24,6 +24,7 @@ import { GalleryIcon } from '@solar-icons/react/bold/gallery'
 import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
 import { ListIcon } from '@solar-icons/react/bold/list'
 import { MagnifierIcon } from '@solar-icons/react/bold/magnifier'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
 import { Widget2Icon } from '@solar-icons/react/bold/widget-2'
 import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
@@ -38,7 +39,9 @@ import {
     type ReactNode,
 } from 'react'
 
+import { BulkActionBar } from '@/components/bulk-action-bar'
 import { MediaAssetCard, MediaPreview, readyRepresentation } from '@/components/media-asset-card'
+import { MediaBulkDeletionDialog } from '@/components/media-bulk-deletion-dialog'
 import { MediaDeletionDialog } from '@/components/media-deletion-dialog'
 import { api, formatApiError, type MediaReference } from '@/lib/api'
 import {
@@ -79,6 +82,8 @@ interface MediaAttachmentPickerProps {
         readonly disabled: boolean
         readonly onImport: () => void
         readonly uploading: string | null
+        readonly bulkSelectionMode: boolean
+        readonly onToggleBulkSelectionMode: () => void
     }) => ReactNode
     readonly disabled?: boolean
     readonly emptyDescription?: string
@@ -137,6 +142,11 @@ function MediaAttachmentPickerView({
     const [deletionAsset, setDeletionAsset] = useState<MediaReference | null>(null)
     const [deletionPending, setDeletionPending] = useState(false)
     const [deletionError, setDeletionError] = useState<string | null>(null)
+    const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
+    const [bulkSelectedAssetIds, setBulkSelectedAssetIds] = useState<Set<string>>(() => new Set())
+    const [bulkDeletionAssets, setBulkDeletionAssets] = useState<MediaReference[]>([])
+    const [bulkDeletionPending, setBulkDeletionPending] = useState(false)
+    const [bulkDeletionError, setBulkDeletionError] = useState<string | null>(null)
     const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
     const [dragOverAssetId, setDragOverAssetId] = useState<string | null>(null)
     const [dragActive, setDragActive] = useState(false)
@@ -164,7 +174,8 @@ function MediaAttachmentPickerView({
     const inline = variant === 'publication-new-inline'
     const manageOnly = selectionMode === 'manage'
     const normalizedSearchQuery = manageOnly ? searchQuery.trim() : ''
-    const interactionLocked = disabled || savingEdited || uploading !== null || deletionPending
+    const interactionLocked =
+        disabled || savingEdited || uploading !== null || deletionPending || bulkDeletionPending
     const currentValueRef = useRef(value)
     const onChangeRef = useRef(onChange)
     const listRequestId = useRef(0)
@@ -191,6 +202,24 @@ function MediaAttachmentPickerView({
     useEffect(() => {
         if (manageOnly) writeMediaLibraryViewMode(mediaViewMode)
     }, [manageOnly, mediaViewMode])
+
+    useEffect(() => {
+        if (!manageOnly) {
+            setBulkSelectionMode(false)
+            setBulkSelectedAssetIds(new Set())
+            return
+        }
+        if (!bulkSelectionMode || loading) return
+
+        const visibleReadyAssetIds = new Set(
+            assets.filter(asset => asset.asset.state === 'ready').map(asset => asset.asset.id)
+        )
+        setBulkSelectedAssetIds(current => {
+            const next = new Set([...current].filter(assetId => visibleReadyAssetIds.has(assetId)))
+            if (next.size === current.size) return current
+            return next
+        })
+    }, [assets, bulkSelectionMode, loading, manageOnly])
 
     useEffect(() => {
         let active = true
@@ -338,6 +367,53 @@ function MediaAttachmentPickerView({
         ])
     }
 
+    function toggleBulkSelectionMode() {
+        if (bulkSelectionMode) {
+            setBulkSelectionMode(false)
+            setBulkSelectedAssetIds(new Set())
+            return
+        }
+        setBulkSelectionMode(true)
+    }
+
+    function toggleBulkAsset(asset: MediaReference) {
+        if (interactionLocked || !bulkSelectionMode || asset.asset.state !== 'ready') return
+
+        setBulkSelectedAssetIds(current => {
+            const next = new Set(current)
+            if (next.has(asset.asset.id)) {
+                next.delete(asset.asset.id)
+            } else {
+                next.add(asset.asset.id)
+            }
+            return next
+        })
+    }
+
+    function toggleVisibleBulkSelection() {
+        if (interactionLocked || !bulkSelectionMode) return
+        const visibleReadyAssets = assets.filter(asset => asset.asset.state === 'ready')
+        const allVisibleSelected =
+            visibleReadyAssets.length > 0 &&
+            visibleReadyAssets.every(asset => bulkSelectedAssetIds.has(asset.asset.id))
+
+        setBulkSelectedAssetIds(current => {
+            const next = new Set(current)
+            for (const asset of visibleReadyAssets) {
+                if (allVisibleSelected) {
+                    next.delete(asset.asset.id)
+                } else {
+                    next.add(asset.asset.id)
+                }
+            }
+            return next
+        })
+    }
+
+    function clearBulkSelection() {
+        setBulkSelectedAssetIds(new Set())
+    }
+
     function updateAccessibilityText(assetId: string, text: string) {
         onChange(
             value.map(item => {
@@ -387,6 +463,12 @@ function MediaAttachmentPickerView({
         try {
             await api.deleteMedia(projectId, asset.asset.id)
             setAssets(current => current.filter(candidate => candidate.asset.id !== asset.asset.id))
+            setBulkSelectedAssetIds(current => {
+                if (!current.has(asset.asset.id)) return current
+                const next = new Set(current)
+                next.delete(asset.asset.id)
+                return next
+            })
             const nextValue = currentValueRef.current.filter(
                 selection => selection.assetId !== asset.asset.id
             )
@@ -400,6 +482,51 @@ function MediaAttachmentPickerView({
         } finally {
             setDeletionPending(false)
         }
+    }
+
+    function openBulkDeletion() {
+        if (!manageOnly || bulkSelectedAssets.length === 0) return
+        setBulkDeletionError(null)
+        setBulkDeletionAssets(bulkSelectedAssets)
+    }
+
+    async function confirmBulkDeletion() {
+        if (bulkDeletionAssets.length === 0) return
+
+        const assetsToDelete = bulkDeletionAssets
+        setBulkDeletionPending(true)
+        setBulkDeletionError(null)
+        const results = await Promise.allSettled(
+            assetsToDelete.map(asset => api.deleteMedia(projectId, asset.asset.id))
+        )
+        const deletedAssetIds = new Set<string>()
+        const failedAssets: MediaReference[] = []
+        for (const [index, result] of results.entries()) {
+            const asset = assetsToDelete[index]
+            if (asset === undefined) continue
+            if (result.status === 'fulfilled') {
+                deletedAssetIds.add(asset.asset.id)
+            } else {
+                failedAssets.push(asset)
+            }
+        }
+
+        if (deletedAssetIds.size > 0) {
+            setAssets(current => current.filter(asset => !deletedAssetIds.has(asset.asset.id)))
+            setBulkSelectedAssetIds(current => {
+                const next = new Set(current)
+                for (const assetId of deletedAssetIds) next.delete(assetId)
+                return next
+            })
+        }
+
+        if (failedAssets.length === 0) {
+            setBulkDeletionAssets([])
+        } else {
+            setBulkDeletionAssets(failedAssets)
+            setBulkDeletionError(m.media_bulk_delete_partial_error({ count: failedAssets.length }))
+        }
+        setBulkDeletionPending(false)
     }
 
     function openEditor(asset: MediaReference) {
@@ -513,6 +640,11 @@ function MediaAttachmentPickerView({
         selection,
         asset: assets.find(candidate => candidate.asset.id === selection.assetId),
     }))
+    const bulkSelectedAssets = assets.filter(asset => bulkSelectedAssetIds.has(asset.asset.id))
+    const visibleReadyAssets = assets.filter(asset => asset.asset.state === 'ready')
+    const allVisibleBulkSelected =
+        visibleReadyAssets.length > 0 &&
+        visibleReadyAssets.every(asset => bulkSelectedAssetIds.has(asset.asset.id))
     const dropzoneRootProps = interactionLocked ? {} : dropzone.getRootProps()
     const containerDropzoneProps = dropzoneRootProps
     const fileInputProps = fileInput.getInputProps()
@@ -521,6 +653,8 @@ function MediaAttachmentPickerView({
         disabled: interactionLocked,
         onImport: () => fileButtonProps.onClick(),
         uploading,
+        bulkSelectionMode,
+        onToggleBulkSelectionMode: toggleBulkSelectionMode,
     })
 
     return (
@@ -582,6 +716,51 @@ function MediaAttachmentPickerView({
                                 onChange={setMediaViewMode}
                             />
                         </div>
+                    </div>
+                ) : null}
+                {manageOnly && bulkSelectionMode ? (
+                    <div className="sticky top-0 z-20 mt-3">
+                        <BulkActionBar
+                            actions={
+                                bulkSelectedAssets.length > 0
+                                    ? [
+                                          {
+                                              id: 'delete',
+                                              label: m.media_bulk_delete_action(),
+                                              icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
+                                              variant: 'destructive',
+                                              onSelect: openBulkDeletion,
+                                          },
+                                      ]
+                                    : undefined
+                            }
+                            allSelected={allVisibleBulkSelected}
+                            ariaLabel={m.media_bulk_actions()}
+                            clearLabel={m.media_bulk_clear_selection()}
+                            onClear={clearBulkSelection}
+                            onToggleAll={
+                                visibleReadyAssets.length > 0
+                                    ? toggleVisibleBulkSelection
+                                    : undefined
+                            }
+                            selectedCount={bulkSelectedAssets.length}
+                            selectionSummary={
+                                bulkSelectedAssets.length === 0
+                                    ? m.media_bulk_selecting()
+                                    : m.media_bulk_selected({
+                                          count: bulkSelectedAssets.length,
+                                      })
+                            }
+                            toggleAllLabel={
+                                visibleReadyAssets.length > 0
+                                    ? allVisibleBulkSelected
+                                        ? m.media_bulk_clear_visible()
+                                        : m.media_bulk_select_visible({
+                                              count: visibleReadyAssets.length,
+                                          })
+                                    : undefined
+                            }
+                        />
                     </div>
                 ) : null}
                 {inline && !loading && selectedAssets.length > 0 ? (
@@ -746,7 +925,10 @@ function MediaAttachmentPickerView({
                                     projectId={projectId}
                                     selected={selected}
                                     selectable={!manageOnly}
+                                    actionSelectionMode={manageOnly && bulkSelectionMode}
+                                    actionSelected={bulkSelectedAssetIds.has(asset.asset.id)}
                                     onAccessibilityTextChange={updateAccessibilityText}
+                                    onActionSelectionToggle={toggleBulkAsset}
                                     onRequestDelete={manageOnly ? openDeletion : undefined}
                                     onToggle={toggleAsset}
                                     onPreview={openViewer}
@@ -876,7 +1058,12 @@ function MediaAttachmentPickerView({
                                                 item => item.assetId === asset.asset.id
                                             )}
                                             selectable={!manageOnly}
+                                            actionSelectionMode={manageOnly && bulkSelectionMode}
+                                            actionSelected={bulkSelectedAssetIds.has(
+                                                asset.asset.id
+                                            )}
                                             onAccessibilityTextChange={updateAccessibilityText}
+                                            onActionSelectionToggle={toggleBulkAsset}
                                             onRequestDelete={manageOnly ? openDeletion : undefined}
                                             onToggle={toggleAsset}
                                             onPreview={openViewer}
@@ -949,6 +1136,19 @@ function MediaAttachmentPickerView({
                 }}
                 open={deletionAsset !== null}
                 pending={deletionPending}
+            />
+            <MediaBulkDeletionDialog
+                assets={bulkDeletionAssets}
+                error={bulkDeletionError}
+                onConfirm={() => void confirmBulkDeletion()}
+                onOpenChange={open => {
+                    if (!open && !bulkDeletionPending) {
+                        setBulkDeletionAssets([])
+                        setBulkDeletionError(null)
+                    }
+                }}
+                open={bulkDeletionAssets.length > 0}
+                pending={bulkDeletionPending}
             />
         </>
     )

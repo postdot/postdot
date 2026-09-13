@@ -518,6 +518,108 @@
     "media_delete_confirm": "Delete",
     "media_delete_asset": "Delete {filename}",
     "media_delete_pending": "Deleting…",
+    "media_bulk_select": "Select",
+    "media_bulk_done": "Done",
+    "media_bulk_selecting": "Select media to act on it",
+    "media_bulk_actions": "Bulk actions",
+    "media_bulk_clear_selection": "Clear selection",
+    "media_bulk_clear_visible": "Clear shown",
+    "media_bulk_delete_action": "Delete",
+    "media_bulk_select_asset": "Select {filename}",
+    "media_bulk_deselect_asset": "Deselect {filename}",
+    "media_bulk_selected": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} selected",
+                "countPlural=other": "{count} selected"
+            }
+        }
+    ],
+    "media_bulk_select_visible": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Select the shown file",
+                "countPlural=other": "Select the {count} shown files"
+            }
+        }
+    ],
+    "media_bulk_delete_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Delete this file?",
+                "countPlural=other": "Delete these {count} files?"
+            }
+        }
+    ],
+    "media_bulk_delete_preview_label": "Selected media",
+    "media_bulk_delete_description": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "This file will be removed from the media library.",
+                "countPlural=other": "These {count} files will be removed from the media library."
+            }
+        }
+    ],
+    "media_bulk_usage_checking": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Checking where this file is used…",
+                "countPlural=other": "Checking where these {count} files are used…"
+            }
+        }
+    ],
+    "media_bulk_delete_unavailable": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Usage for one file could not be checked.",
+                "countPlural=other": "Usage for {count} files could not be checked."
+            }
+        }
+    ],
+    "media_bulk_delete_blocked": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "One selected file is still used.",
+                "countPlural=other": "{count} selected files are still used."
+            }
+        }
+    ],
+    "media_bulk_delete_more_blocked": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "One more file is blocked.",
+                "countPlural=other": "{count} more files are blocked."
+            }
+        }
+    ],
+    "media_bulk_delete_remove_blocked": "Remove the used files from the selection to continue.",
+    "media_bulk_delete_pending": "Deleting…",
+    "media_bulk_delete_partial_error": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "One file could not be deleted. Its usage may have changed.",
+                "countPlural=other": "{count} files could not be deleted. Their usage may have changed."
+            }
+        }
+    ],
     "media_edit_image": "Edit image",
     "media_editor_description": "Crop, zoom, or rotate this image. Saving creates a new media asset.",
     "media_editor_zoom": "Zoom",

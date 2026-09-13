@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { api, type MediaAssetUsage, type MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { mediaCanBeDeleted } from '@/lib/media-deletion-policy'
 import * as m from '@/paraglide/messages.js'
 
 export function MediaDeletionDialog({
@@ -148,15 +149,6 @@ export function MediaDeletionDialog({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    )
-}
-
-export function mediaCanBeDeleted(usage: MediaAssetUsage | null): boolean {
-    return (
-        usage !== null &&
-        usage.active.length === 0 &&
-        usage.history.length === 0 &&
-        usage.auditEventCount === 0
     )
 }
 
