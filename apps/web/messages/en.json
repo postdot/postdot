@@ -519,9 +519,9 @@
     "media_delete_asset": "Delete {filename}",
     "media_delete_pending": "Deleting…",
     "media_bulk_actions": "Bulk actions",
-    "media_bulk_clear_selection": "Clear selection",
-    "media_bulk_clear_visible": "Clear shown",
-    "media_bulk_delete_action": "Delete",
+    "media_bulk_clear_selection": "Deselect",
+    "media_bulk_clear_visible": "Deselect all",
+    "media_bulk_delete_action": "Delete ({count})",
     "media_bulk_select_asset": "Select {filename}",
     "media_bulk_deselect_asset": "Deselect {filename}",
     "media_bulk_selected": [
@@ -534,16 +534,7 @@
             }
         }
     ],
-    "media_bulk_select_visible": [
-        {
-            "declarations": ["input count", "local countPlural = count: plural"],
-            "selectors": ["countPlural"],
-            "match": {
-                "countPlural=one": "Select the shown file",
-                "countPlural=other": "Select the {count} shown files"
-            }
-        }
-    ],
+    "media_bulk_select_visible": "Select all",
     "media_bulk_delete_title": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],

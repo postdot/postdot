@@ -479,9 +479,18 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(droppedMediaCard).not.toHaveAttribute('data-media-action-selected')
     await page.getByRole('button', { name: `Select ${mediaFilename}`, exact: true }).click()
     await expect(mediaBulkActionBar).toBeVisible()
+    await expect(
+        mediaBulkActionBar.getByRole('button', { name: 'Select all', exact: true })
+    ).toBeVisible()
+    await expect(
+        mediaBulkActionBar.getByRole('button', { name: 'Deselect', exact: true })
+    ).toBeVisible()
+    await expect(
+        mediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true })
+    ).toBeVisible()
     await page.getByRole('button', { name: `Select ${secondMediaFilename}`, exact: true }).click()
     await expect(mediaBulkActionBar).toContainText('2 selected')
-    await mediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
+    await mediaBulkActionBar.getByRole('button', { name: 'Delete (2)', exact: true }).click()
     const mediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
     await expect(mediaBulkDeletionDialog).toBeVisible()
     await expect(
@@ -760,7 +769,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
     await page.getByRole('button', { name: `Select ${editedMediaFilename}`, exact: true }).click()
     const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
-    await usedMediaBulkActionBar.getByRole('button', { name: 'Delete', exact: true }).click()
+    await usedMediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true }).click()
     const usedMediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
     await expect(
         usedMediaBulkDeletionDialog.locator('[data-media-bulk-delete-usage="blocked"]')

@@ -711,7 +711,9 @@ function MediaAttachmentPickerView({
                                     ? [
                                           {
                                               id: 'delete',
-                                              label: m.media_bulk_delete_action(),
+                                              label: m.media_bulk_delete_action({
+                                                  count: bulkSelectedAssets.length,
+                                              }),
                                               icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
                                               variant: 'destructive',
                                               onSelect: openBulkDeletion,
@@ -736,9 +738,7 @@ function MediaAttachmentPickerView({
                                 visibleReadyAssets.length > 0
                                     ? allVisibleBulkSelected
                                         ? m.media_bulk_clear_visible()
-                                        : m.media_bulk_select_visible({
-                                              count: visibleReadyAssets.length,
-                                          })
+                                        : m.media_bulk_select_visible()
                                     : undefined
                             }
                         />

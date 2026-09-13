@@ -516,9 +516,9 @@
     "media_delete_asset": "Supprimer {filename}",
     "media_delete_pending": "Suppression…",
     "media_bulk_actions": "Actions groupées",
-    "media_bulk_clear_selection": "Effacer la sélection",
-    "media_bulk_clear_visible": "Effacer les affichés",
-    "media_bulk_delete_action": "Supprimer",
+    "media_bulk_clear_selection": "Désélectionner",
+    "media_bulk_clear_visible": "Désélectionner tout",
+    "media_bulk_delete_action": "Supprimer ({count})",
     "media_bulk_select_asset": "Sélectionner {filename}",
     "media_bulk_deselect_asset": "Désélectionner {filename}",
     "media_bulk_selected": [
@@ -531,16 +531,7 @@
             }
         }
     ],
-    "media_bulk_select_visible": [
-        {
-            "declarations": ["input count", "local countPlural = count: plural"],
-            "selectors": ["countPlural"],
-            "match": {
-                "countPlural=one": "Sélectionner le fichier affiché",
-                "countPlural=other": "Sélectionner les {count} fichiers affichés"
-            }
-        }
-    ],
+    "media_bulk_select_visible": "Sélectionner tout",
     "media_bulk_delete_title": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
