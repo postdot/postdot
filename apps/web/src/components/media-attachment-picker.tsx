@@ -35,6 +35,7 @@ interface MediaAttachmentPickerProps {
     readonly projectId: string
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
+    readonly onAssetsChange?: (assets: MediaReference[]) => void
     readonly disabled?: boolean
     readonly emptyDescription?: string
     readonly variant?: 'library' | 'publication-new' | 'publication-new-inline'
@@ -44,6 +45,7 @@ export function MediaAttachmentPicker({
     projectId,
     value,
     onChange,
+    onAssetsChange,
     disabled = false,
     emptyDescription,
     variant = 'library',
@@ -58,6 +60,10 @@ export function MediaAttachmentPicker({
     const interactionDisabled = disabled || uploading !== null
     const compact = variant === 'publication-new' || variant === 'publication-new-inline'
     const inline = variant === 'publication-new-inline'
+
+    useEffect(() => {
+        onAssetsChange?.(assets)
+    }, [assets, onAssetsChange])
 
     useEffect(() => {
         let active = true

@@ -373,6 +373,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.locator('[data-new-publication-editor="true"] [data-media-picker="true"] img')
     ).toBeVisible()
+    await expect(
+        page.locator(
+            '[data-publication-draft-preview="true"] [data-publication-preview-media="true"] img'
+        )
+    ).toBeVisible()
 
     await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
     await page.getByLabel('Content', { exact: true }).fill(sourceText)

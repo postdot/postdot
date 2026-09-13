@@ -10,8 +10,10 @@ import { useEffect, useRef, useState } from 'react'
 import { DashboardFormField } from '@/components/dashboard-form-field'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
+import { PublicationDraftPreview } from '@/components/publication-draft-preview'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import { PublicationTargetList } from '@/components/publication-target-list'
+import type { MediaReference } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
@@ -52,7 +54,20 @@ export function NewPublicationPage({
         () => publicationTargets[0]?.scheduledAt ?? ''
     )
     const [customizedTargetIds, setCustomizedTargetIds] = useState<Set<string>>(() => new Set())
+    const [activePreviewTargetId, setActivePreviewTargetId] = useState(
+        () => publicationTargets[0]?.id ?? ''
+    )
+    const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
     const previousTargetIds = useRef(new Set(publicationTargets.map(target => target.id)))
+    const activePreviewTarget =
+        publicationTargets.find(target => target.id === activePreviewTargetId) ??
+        publicationTargets[0]
+    const activePreviewChannel = activeChannels.find(
+        channel => channel.id === activePreviewTarget?.channelId
+    )
+    const previewMedia = sourceMedia
+        .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
+        .filter((asset): asset is MediaReference => asset !== undefined)
 
     useEffect(() => {
         const nextTargetIds = new Set(publicationTargets.map(target => target.id))
@@ -207,6 +222,7 @@ export function NewPublicationPage({
                                             projectId={project.id}
                                             value={sourceMedia}
                                             onChange={onSourceMediaChange}
+                                            onAssetsChange={setAvailableMedia}
                                             disabled={pending}
                                         />
                                     </div>
@@ -249,10 +265,18 @@ export function NewPublicationPage({
                                 onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
                                 onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
                                 onChange={onPublicationTargetsChange}
+                                onActiveTargetChange={setActivePreviewTargetId}
                                 onTargetCustomizationChange={handleTargetCustomizationChange}
                                 projectId={project.id}
                                 targets={publicationTargets}
                                 timeZone={project.timeZone}
+                            />
+                            <PublicationDraftPreview
+                                channel={activePreviewChannel}
+                                media={previewMedia}
+                                postContent={postContent}
+                                postTitle={postTitle}
+                                targetContent={activePreviewTarget?.content}
                             />
                         </div>
                     </section>

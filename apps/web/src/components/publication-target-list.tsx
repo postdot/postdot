@@ -34,6 +34,7 @@ interface PublicationTargetListProps {
     readonly onDefaultDeliveryModeChange: (deliveryMode: DeliveryMode) => void
     readonly onDefaultScheduledAtChange: (scheduledAt: string) => void
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
+    readonly onActiveTargetChange?: (targetId: string) => void
     readonly onTargetCustomizationChange: (targetId: string, customized: boolean) => void
     readonly projectId: string
     readonly targets: readonly PublicationTargetDraft[]
@@ -50,6 +51,7 @@ export function PublicationTargetList({
     onDefaultDeliveryModeChange,
     onDefaultScheduledAtChange,
     onChange,
+    onActiveTargetChange,
     onTargetCustomizationChange,
     projectId,
     targets,
@@ -68,6 +70,10 @@ export function PublicationTargetList({
         if (targets.some(target => target.id === activeTargetId)) return
         setActiveTargetId(targets[0]?.id ?? '')
     }, [activeTargetId, targets])
+
+    useEffect(() => {
+        onActiveTargetChange?.(activeTargetId)
+    }, [activeTargetId, onActiveTargetChange])
 
     function updateTarget(id: string, patch: Partial<PublicationTargetDraft>) {
         if (

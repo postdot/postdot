@@ -14,6 +14,12 @@ test('keeps narrow new-publication flow and queue usable with long channel names
 
     await createAccountAndProject(page, suffix)
 
+    await page.locator('a[href$="/publications/new"]').click()
+    await expect(page.locator('[data-publication-draft-preview="true"]')).toHaveCount(0)
+    await expect(
+        page.getByText('Add a channel before scheduling a publication.', { exact: true })
+    ).toBeVisible()
+
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await createChannel(page, firstChannelName)
     await createChannel(page, secondChannelName)
@@ -65,8 +71,35 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expect(secondTab).toHaveAttribute('aria-selected', 'true')
     await expectNoHorizontalOverflow(page)
 
+    const preview = page.locator('[data-publication-draft-preview="true"]')
+    await expect(preview).toBeVisible()
+
     await page.getByLabel('Title', { exact: true }).fill(publicationTitle)
-    await page.getByLabel('Content', { exact: true }).fill('E2E-121 narrow new publication content')
+    const sharedContent = 'E2E-121 narrow new publication content'
+    await page.getByLabel('Content', { exact: true }).fill(sharedContent)
+    await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
+        sharedContent
+    )
+    await expect(preview).toContainText(secondChannelName)
+
+    await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
+    const targetOverride = page.getByRole('textbox', {
+        name: 'Channel content',
+        exact: true,
+    })
+    const overrideContent = 'E2E-121 second-channel adaptation'
+    await targetOverride.fill(overrideContent)
+    await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
+        overrideContent
+    )
+
+    await firstTab.click()
+    await expect(firstTab).toHaveAttribute('aria-selected', 'true')
+    await expect(preview).toContainText(firstChannelName)
+    await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
+        sharedContent
+    )
+
     await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
 
     await page.getByRole('button', { name: 'Toggle workspace navigation', exact: true }).click()

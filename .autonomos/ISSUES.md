@@ -2775,3 +2775,48 @@ channels` with a foreign-key constraint error even though a fresh empty database
   the localized route, including the narrow multi-channel and media scenarios;
   English and French i18n coverage remains 100%. The authenticated integrated
   browser was inspected on the local `/publications/new` route.
+
+## [ISSUE-100] Give publication authoring a contextual output preview
+
+- Type: design
+- Status: resolved
+- Evidence: The new-publication route now makes shared content, selected
+  channels, and channel-specific overrides legible, but the operator still has
+  to mentally translate that draft into the output of the active channel. The
+  page exposes no immediate indication of how a title, adaptation, or selected
+  media will be presented for the channel currently being configured.
+- Impact: Multi-channel authoring remains an abstract configuration task. An
+  operator can select a different channel or write an override without getting
+  quick feedback that the content being reviewed has changed, which preserves
+  the uncertainty the new hierarchy was intended to reduce.
+- Desired outcome: Add one contextual, live preview for the selected channel.
+  It should identify the active channel, show the effective channel content
+  (override when present, otherwise shared content), show the publication title
+  where the known profile uses one, and render selected media when available.
+  The preview must remain content-led, use the existing surface grammar, and
+  stay honest as an approximation rather than pretending to reproduce every
+  provider’s final renderer.
+- Scope boundary: This slice does not add a server-rendered preview endpoint,
+  provider-perfect rendering, rich-text editing, character/media compliance
+  validation, new scheduling behavior, persistence, or a second authoring
+  flow. Custom and manual channels use the generic content/media treatment.
+- Tasks: DESIGN-177, WEB-178
+- Related issues: ISSUE-098, ISSUE-099
+- Related decisions: ADR-057
+- Acceptance: The preview follows the active channel tab without navigation;
+  shared content, a channel override, title changes, and selected media update
+  immediately; the known DEV.to title/body distinction is represented while
+  other profiles remain generic and truthful; an empty draft does not display
+  fake content; no-channel and narrow layouts remain actionable and localized;
+  no API or publication-domain contract changes are required.
+- Resolution: DESIGN-177 and WEB-178 add a contextual draft preview below the
+  selected-channel controls. The preview identifies the active channel, uses
+  the effective channel content, shows DEV.to titles where that profile owns a
+  title field, and renders selected media through the existing media primitive.
+  It stays local to the page and makes no API or publication-domain changes.
+- Verification: The focused new-publication browser scenario covers no-channel,
+  shared content, channel override precedence, active-channel switching, and
+  narrow layout. The media scenario confirms selected media is visible in the
+  preview. Web unit tests cover the pure preview model; localization coverage
+  remains 100%; the full repository gate passes with 17 Playwright scenarios;
+  the authenticated integrated browser was inspected in light and dark themes.

@@ -829,6 +829,8 @@
     "publication_new_duplicate_channel": "Chaque canal ne peut être sélectionné qu’une seule fois par publication.",
     "publication_new_destinations": "Publier sur",
     "publication_new_destinations_description": "Choisissez les canaux et vérifiez la livraison de chacun.",
+    "publication_new_preview": "Aperçu",
+    "publication_new_preview_empty": "Écrivez quelque chose ou ajoutez un média pour voir le résultat ici.",
     "publication_new_target_count": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
