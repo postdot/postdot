@@ -525,7 +525,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('button', { name: `Delete ${droppedMediaFilename}`, exact: true }).click()
     const mediaDeletionDialog = page.locator('[data-media-delete-dialog="true"]')
     await expect(mediaDeletionDialog).toBeVisible()
-    await expect(mediaDeletionDialog.locator('[data-media-delete-preview="true"]')).toBeVisible()
+    await expect(
+        mediaDeletionDialog.locator(
+            '[data-media-delete-body="true"] [data-media-delete-preview="true"]'
+        )
+    ).toBeVisible()
     await expect(mediaDeletionDialog).not.toContainText('Not used')
     const mediaDeleteConfirm = mediaDeletionDialog.getByRole('button', {
         name: 'Delete',

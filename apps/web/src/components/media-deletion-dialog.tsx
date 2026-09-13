@@ -77,26 +77,24 @@ export function MediaDeletionDialog({
                 data-media-delete-dialog="true"
                 showCloseButton={false}
                 className="min-w-0 max-w-md gap-0 overflow-hidden p-0 sm:max-w-lg">
-                <div className="flex min-w-0 items-center gap-3 border-b border-border/60 px-5 py-4">
+                <DialogHeader className="min-w-0 border-b border-border/60 px-5 py-4">
+                    <DialogTitle>{m.media_delete_title()}</DialogTitle>
+                </DialogHeader>
+
+                <div data-media-delete-body="true" className="min-w-0 space-y-3 px-5 py-4">
                     <div
                         data-media-delete-preview="true"
-                        className="size-16 shrink-0 overflow-hidden rounded-md bg-muted">
+                        className="flex h-48 w-full items-center justify-center overflow-hidden rounded-md bg-muted">
                         <MediaPreview
                             projectId={asset.asset.projectId}
                             asset={asset}
                             representation={representation}
-                            className="size-full rounded-md object-cover text-xs font-medium uppercase text-muted-foreground"
+                            className="size-full rounded-md object-contain text-xs font-medium uppercase text-muted-foreground"
                         />
                     </div>
-                    <DialogHeader className="min-w-0 flex-1 p-0">
-                        <DialogTitle>{m.media_delete_title()}</DialogTitle>
-                        <DialogDescription className="truncate">
-                            {asset.asset.originalFilename}
-                        </DialogDescription>
-                    </DialogHeader>
-                </div>
-
-                <div className="min-w-0 space-y-3 px-5 py-4">
+                    <DialogDescription className="truncate">
+                        {asset.asset.originalFilename}
+                    </DialogDescription>
                     {usageLoading ? (
                         <p
                             data-media-delete-usage="checking"
