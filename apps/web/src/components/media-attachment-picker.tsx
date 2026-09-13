@@ -19,9 +19,12 @@ import { Input } from '@herald/ui/components/input'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/bold/close'
+import { GalleryIcon } from '@solar-icons/react/bold/gallery'
 import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
+import { ListIcon } from '@solar-icons/react/bold/list'
 import { MagnifierIcon } from '@solar-icons/react/bold/magnifier'
 import { UploadIcon } from '@solar-icons/react/bold/upload'
+import { Widget2Icon } from '@solar-icons/react/bold/widget-2'
 import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
 import {
     lazy,
@@ -44,6 +47,11 @@ import {
 } from '@/lib/herald-media-upload'
 import { useLanguage } from '@/lib/i18n'
 import { MediaVerificationError } from '@/lib/media-errors'
+import {
+    readMediaLibraryViewMode,
+    type MediaLibraryViewMode,
+    writeMediaLibraryViewMode,
+} from '@/lib/media-library-view'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -116,6 +124,9 @@ function MediaAttachmentPickerView({
     const [error, setError] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
     const [searchPending, setSearchPending] = useState(false)
+    const [mediaViewMode, setMediaViewMode] = useState<MediaLibraryViewMode>(() =>
+        readMediaLibraryViewMode()
+    )
     const [libraryOpen, setLibraryOpen] = useState(false)
     const [listRefreshKey, setListRefreshKey] = useState(0)
     const [nextCursor, setNextCursor] = useState<string | null>(null)
@@ -171,6 +182,10 @@ function MediaAttachmentPickerView({
     useEffect(() => {
         onAssetsChange?.(assets)
     }, [assets, onAssetsChange])
+
+    useEffect(() => {
+        if (manageOnly) writeMediaLibraryViewMode(mediaViewMode)
+    }, [manageOnly, mediaViewMode])
 
     useEffect(() => {
         let active = true
@@ -516,19 +531,21 @@ function MediaAttachmentPickerView({
                                 className="h-8 pl-9 text-sm"
                             />
                         </div>
-                        {searchPending ? (
-                            <p
-                                aria-live="polite"
-                                className="text-xs text-muted-foreground sm:shrink-0">
-                                {m.media_searching()}
-                            </p>
-                        ) : assets.length > 0 ? (
-                            <p
-                                aria-live="polite"
-                                className="text-xs text-muted-foreground sm:shrink-0">
-                                {m.media_visible_count({ count: assets.length })}
-                            </p>
-                        ) : null}
+                        <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0">
+                            {searchPending ? (
+                                <p aria-live="polite" className="text-xs text-muted-foreground">
+                                    {m.media_searching()}
+                                </p>
+                            ) : assets.length > 0 ? (
+                                <p aria-live="polite" className="text-xs text-muted-foreground">
+                                    {m.media_visible_count({ count: assets.length })}
+                                </p>
+                            ) : null}
+                            <MediaLibraryViewControls
+                                value={mediaViewMode}
+                                onChange={setMediaViewMode}
+                            />
+                        </div>
                     </div>
                 ) : null}
                 {inline && !loading && selectedAssets.length > 0 ? (
@@ -678,10 +695,9 @@ function MediaAttachmentPickerView({
                     )
                 ) : (
                     <div
+                        data-media-library-view={manageOnly ? mediaViewMode : undefined}
                         className={`${manageOnly ? '' : 'mt-4 '}grid gap-3 ${
-                            manageOnly
-                                ? 'grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))]'
-                                : 'sm:grid-cols-2'
+                            manageOnly ? mediaLibraryGridClass(mediaViewMode) : 'sm:grid-cols-2'
                         }`}>
                         {assets.map(asset => {
                             const selected = value.find(item => item.assetId === asset.asset.id)
@@ -690,6 +706,7 @@ function MediaAttachmentPickerView({
                                     key={asset.asset.id}
                                     asset={asset}
                                     interactionDisabled={interactionLocked}
+                                    layout={manageOnly ? mediaViewMode : 'list'}
                                     projectId={projectId}
                                     selected={selected}
                                     selectable={!manageOnly}
@@ -986,6 +1003,73 @@ function CompactMediaPreview({
             </Button>
         </div>
     )
+}
+
+function MediaLibraryViewControls({
+    value,
+    onChange,
+}: {
+    readonly value: MediaLibraryViewMode
+    readonly onChange: (value: MediaLibraryViewMode) => void
+}) {
+    return (
+        <div
+            role="group"
+            aria-label={m.media_view_modes()}
+            data-media-view-controls="true"
+            className="flex items-center gap-0.5">
+            <Button
+                type="button"
+                size="icon-sm"
+                variant={value === 'grid' ? 'default' : 'ghost'}
+                className={value === 'grid' ? 'shadow-none' : 'text-muted-foreground shadow-none'}
+                aria-label={m.media_view_grid()}
+                aria-pressed={value === 'grid'}
+                data-media-view-mode="grid"
+                title={m.media_view_grid()}
+                onClick={() => onChange('grid')}>
+                <GalleryIcon aria-hidden="true" />
+            </Button>
+            <Button
+                type="button"
+                size="icon-sm"
+                variant={value === 'compact' ? 'default' : 'ghost'}
+                className={
+                    value === 'compact' ? 'shadow-none' : 'text-muted-foreground shadow-none'
+                }
+                aria-label={m.media_view_compact()}
+                aria-pressed={value === 'compact'}
+                data-media-view-mode="compact"
+                title={m.media_view_compact()}
+                onClick={() => onChange('compact')}>
+                <Widget2Icon aria-hidden="true" />
+            </Button>
+            <Button
+                type="button"
+                size="icon-sm"
+                variant={value === 'list' ? 'default' : 'ghost'}
+                className={value === 'list' ? 'shadow-none' : 'text-muted-foreground shadow-none'}
+                aria-label={m.media_view_list()}
+                aria-pressed={value === 'list'}
+                data-media-view-mode="list"
+                title={m.media_view_list()}
+                onClick={() => onChange('list')}>
+                <ListIcon aria-hidden="true" />
+            </Button>
+        </div>
+    )
+}
+
+function mediaLibraryGridClass(viewMode: MediaLibraryViewMode) {
+    switch (viewMode) {
+        case 'compact':
+            return 'grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))]'
+        case 'list':
+            return 'grid-cols-1'
+        case 'grid':
+        default:
+            return 'grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))]'
+    }
 }
 
 function upsertAssets(current: readonly MediaReference[], additions: readonly MediaReference[]) {

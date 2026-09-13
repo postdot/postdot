@@ -507,6 +507,21 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
+    const mediaView = page.locator('[data-media-library-view]')
+    await expect(page.locator('[data-media-view-controls="true"]')).toBeVisible()
+    await expect(mediaView).toHaveAttribute('data-media-library-view', 'grid')
+    await expect(page.getByRole('button', { name: 'Gallery view', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await page.getByRole('button', { name: 'Compact view', exact: true }).click()
+    await expect(mediaView).toHaveAttribute('data-media-library-view', 'compact')
+    await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
+    await page.getByRole('button', { name: 'List view', exact: true }).click()
+    await expect(page.locator('[data-media-library-view]')).toHaveAttribute(
+        'data-media-library-view',
+        'list'
+    )
     await expect(
         page.locator('main').getByRole('button', { name: 'New publication', exact: true })
     ).toHaveCount(0)
@@ -672,6 +687,24 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(mediaOnlyTarget.body).toBeUndefined()
     expect(mediaOnlyTarget.media).toHaveLength(1)
     expect(mediaOnlyTarget.media[0]?.assetId).toBe(assetId)
+
+    await page.getByRole('link', { name: 'Media', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/media$/)
+    await expect(page.locator('[data-media-library-view]')).toHaveAttribute(
+        'data-media-library-view',
+        'list'
+    )
+    await page.getByRole('button', { name: 'Compact view', exact: true }).click()
+    await expect(page.locator('[data-media-library-view]')).toHaveAttribute(
+        'data-media-library-view',
+        'compact'
+    )
+    await page.reload()
+    await expect(page.locator('[data-media-library-view]')).toHaveAttribute(
+        'data-media-library-view',
+        'compact'
+    )
+    await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
 
     const firstProjectId = projectIdFromUrl(page.url())
     const secondProjectName = `E2E-51 Second project ${suffix}`

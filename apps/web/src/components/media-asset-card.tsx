@@ -11,6 +11,7 @@ import * as m from '@/paraglide/messages.js'
 interface MediaAssetCardProps {
     readonly asset: MediaReference
     readonly interactionDisabled: boolean
+    readonly layout?: MediaAssetCardLayout
     readonly projectId: string
     readonly selected: MediaSelection | undefined
     readonly selectable?: boolean
@@ -19,9 +20,12 @@ interface MediaAssetCardProps {
     readonly onPreview: (asset: MediaReference) => void
 }
 
+export type MediaAssetCardLayout = 'grid' | 'compact' | 'list'
+
 export function MediaAssetCard({
     asset,
     interactionDisabled,
+    layout = 'list',
     projectId,
     selected,
     selectable = true,
@@ -31,25 +35,36 @@ export function MediaAssetCard({
 }: MediaAssetCardProps) {
     const { locale } = useLanguage()
     const representation = readyRepresentation(asset)
+    const isGrid = layout === 'grid'
+    const isCompact = layout === 'compact'
+    const previewClassName = isGrid
+        ? 'flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground object-cover'
+        : isCompact
+          ? 'flex size-12 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground object-cover'
+          : 'flex size-20 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground object-cover'
 
     return (
         <article
-            className={`rounded-md bg-surface-field p-3 shadow-field ${
+            data-media-card-layout={layout}
+            className={`rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field ${
                 selectable && selected !== undefined ? 'ring-2 ring-primary/35' : ''
             }`}>
-            <div className="flex min-w-0 items-center gap-3">
+            <div
+                className={
+                    isGrid ? 'flex min-w-0 flex-col gap-2' : 'flex min-w-0 items-center gap-3'
+                }>
                 <button
                     type="button"
                     disabled={interactionDisabled || representation === undefined}
                     aria-label={m.media_view_asset({ filename: asset.asset.originalFilename })}
                     data-media-preview="true"
                     onClick={() => onPreview(asset)}
-                    className="shrink-0 cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50">
+                    className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50`}>
                     <MediaPreview
                         projectId={projectId}
                         asset={asset}
                         representation={representation}
-                        className="size-20 rounded-md object-cover"
+                        className={previewClassName}
                     />
                 </button>
                 {selectable ? (
@@ -59,7 +74,7 @@ export function MediaAssetCard({
                         data-media-selection-toggle="true"
                         disabled={interactionDisabled || asset.asset.state !== 'ready'}
                         onClick={() => onToggle(asset)}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50">
+                        className={`flex min-w-0 flex-1 gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
                         <AssetDetails
                             asset={asset}
                             locale={locale}
