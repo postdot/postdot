@@ -509,7 +509,7 @@
     "media_browse_files": "Browse",
     "media_supported_types": "PNG · JPEG · WebP",
     "media_search_label": "Search media",
-    "media_search_placeholder": "Search by filename",
+    "media_search_placeholder": "Filename",
     "media_searching": "Searching…",
     "media_visible_count": "{count} shown",
     "media_view_modes": "Media view",

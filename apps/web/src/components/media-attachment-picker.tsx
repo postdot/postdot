@@ -1,5 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
+import { ButtonGroup } from '@herald/ui/components/button-group'
 import {
     Dialog,
     DialogContent,
@@ -528,7 +529,7 @@ function MediaAttachmentPickerView({
                                     setSearchQuery(event.target.value)
                                 }}
                                 placeholder={m.media_search_placeholder()}
-                                className="h-8 pl-9 text-sm"
+                                className="h-8 border-input/70 bg-background/35 pl-9 text-sm shadow-none"
                             />
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-2 sm:shrink-0">
@@ -1013,16 +1014,19 @@ function MediaLibraryViewControls({
     readonly onChange: (value: MediaLibraryViewMode) => void
 }) {
     return (
-        <div
-            role="group"
+        <ButtonGroup
             aria-label={m.media_view_modes()}
             data-media-view-controls="true"
-            className="flex items-center gap-0.5">
+            className="shrink-0">
             <Button
                 type="button"
                 size="icon-sm"
-                variant={value === 'grid' ? 'default' : 'ghost'}
-                className={value === 'grid' ? 'shadow-none' : 'text-muted-foreground shadow-none'}
+                variant="ghost"
+                className={
+                    value === 'grid'
+                        ? 'bg-foreground text-background shadow-none hover:bg-foreground/90 hover:text-background'
+                        : 'text-muted-foreground shadow-none'
+                }
                 aria-label={m.media_view_grid()}
                 aria-pressed={value === 'grid'}
                 data-media-view-mode="grid"
@@ -1033,9 +1037,11 @@ function MediaLibraryViewControls({
             <Button
                 type="button"
                 size="icon-sm"
-                variant={value === 'compact' ? 'default' : 'ghost'}
+                variant="ghost"
                 className={
-                    value === 'compact' ? 'shadow-none' : 'text-muted-foreground shadow-none'
+                    value === 'compact'
+                        ? 'bg-foreground text-background shadow-none hover:bg-foreground/90 hover:text-background'
+                        : 'text-muted-foreground shadow-none'
                 }
                 aria-label={m.media_view_compact()}
                 aria-pressed={value === 'compact'}
@@ -1047,8 +1053,12 @@ function MediaLibraryViewControls({
             <Button
                 type="button"
                 size="icon-sm"
-                variant={value === 'list' ? 'default' : 'ghost'}
-                className={value === 'list' ? 'shadow-none' : 'text-muted-foreground shadow-none'}
+                variant="ghost"
+                className={
+                    value === 'list'
+                        ? 'bg-foreground text-background shadow-none hover:bg-foreground/90 hover:text-background'
+                        : 'text-muted-foreground shadow-none'
+                }
                 aria-label={m.media_view_list()}
                 aria-pressed={value === 'list'}
                 data-media-view-mode="list"
@@ -1056,7 +1066,7 @@ function MediaLibraryViewControls({
                 onClick={() => onChange('list')}>
                 <ListIcon aria-hidden="true" />
             </Button>
-        </div>
+        </ButtonGroup>
     )
 }
 

@@ -506,7 +506,7 @@
     "media_browse_files": "Parcourir",
     "media_supported_types": "PNG · JPEG · WebP",
     "media_search_label": "Rechercher un média",
-    "media_search_placeholder": "Rechercher par nom",
+    "media_search_placeholder": "Nom du fichier",
     "media_searching": "Recherche…",
     "media_visible_count": "{count} affiché(s)",
     "media_view_modes": "Affichage des médias",
