@@ -1022,11 +1022,7 @@ function MediaLibraryViewControls({
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                className={
-                    value === 'grid'
-                        ? 'bg-foreground text-background shadow-none hover:bg-foreground/90 hover:text-background'
-                        : 'text-muted-foreground shadow-none'
-                }
+                className={mediaLibraryViewButtonClass(value === 'grid')}
                 aria-label={m.media_view_grid()}
                 aria-pressed={value === 'grid'}
                 data-media-view-mode="grid"
@@ -1038,11 +1034,7 @@ function MediaLibraryViewControls({
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                className={
-                    value === 'compact'
-                        ? 'bg-foreground text-background shadow-none hover:bg-foreground/90 hover:text-background'
-                        : 'text-muted-foreground shadow-none'
-                }
+                className={mediaLibraryViewButtonClass(value === 'compact')}
                 aria-label={m.media_view_compact()}
                 aria-pressed={value === 'compact'}
                 data-media-view-mode="compact"
@@ -1054,11 +1046,7 @@ function MediaLibraryViewControls({
                 type="button"
                 size="icon-sm"
                 variant="ghost"
-                className={
-                    value === 'list'
-                        ? 'bg-foreground text-background shadow-none hover:bg-foreground/90 hover:text-background'
-                        : 'text-muted-foreground shadow-none'
-                }
+                className={mediaLibraryViewButtonClass(value === 'list')}
                 aria-label={m.media_view_list()}
                 aria-pressed={value === 'list'}
                 data-media-view-mode="list"
@@ -1068,6 +1056,12 @@ function MediaLibraryViewControls({
             </Button>
         </ButtonGroup>
     )
+}
+
+function mediaLibraryViewButtonClass(active: boolean) {
+    return active
+        ? 'bg-muted text-foreground shadow-none hover:bg-muted/80'
+        : 'text-muted-foreground shadow-none'
 }
 
 function mediaLibraryGridClass(viewMode: MediaLibraryViewMode) {
