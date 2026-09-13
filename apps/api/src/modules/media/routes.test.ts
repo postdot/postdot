@@ -301,13 +301,20 @@ describe('media HTTP routes', () => {
                 media: { asset: { state: 'deletion_requested' } },
             })
 
-            const deletedContentResponse = await jsonRequest(
+            const deferredContentResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/content`,
                 cookie
             )
-            expect(deletedContentResponse.status).toBe(404)
-            expect((await app.handle(new Request(publicUrl))).status).toBe(404)
+            expect(deferredContentResponse.status).toBe(200)
+            expect(Array.from(new Uint8Array(await deferredContentResponse.arrayBuffer()))).toEqual(
+                Array.from(bytes)
+            )
+            const deferredPublicResponse = await app.handle(new Request(publicUrl))
+            expect(deferredPublicResponse.status).toBe(200)
+            expect(Array.from(new Uint8Array(await deferredPublicResponse.arrayBuffer()))).toEqual(
+                Array.from(bytes)
+            )
 
             const deletedMetadataResponse = await jsonRequest(
                 app,

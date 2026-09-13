@@ -903,7 +903,9 @@ export function createMediaAssetStore(
         representationId: string
     ): Promise<MediaAssetContent | null> {
         const representation = media.representations.find(
-            candidate => candidate.id === representationId && candidate.state === 'ready'
+            candidate =>
+                candidate.id === representationId &&
+                ['ready', 'deletion_requested'].includes(candidate.state)
         )
         if (
             representation === undefined ||
@@ -1259,12 +1261,19 @@ export function createMediaAssetStore(
                 return null
             }
             const media = readMedia(normalizedProjectId, requireNonBlank(assetId, 'assetId'))
-            if (media === null || media.asset.state !== 'ready') return null
+            if (media === null || !['ready', 'deletion_requested'].includes(media.asset.state)) {
+                return null
+            }
 
             const representation =
                 media.representations.find(
-                    candidate => candidate.kind === 'original' && candidate.state === 'ready'
-                ) ?? media.representations.find(candidate => candidate.state === 'ready')
+                    candidate =>
+                        candidate.kind === 'original' &&
+                        ['ready', 'deletion_requested'].includes(candidate.state)
+                ) ??
+                media.representations.find(candidate =>
+                    ['ready', 'deletion_requested'].includes(candidate.state)
+                )
             return representation === undefined
                 ? null
                 : openRepresentationContent(media, representation.id)
@@ -1284,7 +1293,8 @@ export function createMediaAssetStore(
             }
             const representation = media.representations.find(
                 candidate =>
-                    candidate.id === normalizedRepresentationId && candidate.state === 'ready'
+                    candidate.id === normalizedRepresentationId &&
+                    ['ready', 'deletion_requested'].includes(candidate.state)
             )
             return representation === undefined
                 ? null
@@ -1300,11 +1310,14 @@ export function createMediaAssetStore(
             const normalizedAssetId = requireNonBlank(assetId, 'assetId')
             const normalizedRepresentationId = requireNonBlank(representationId, 'representationId')
             const media = readMedia(normalizedProjectId, normalizedAssetId)
-            if (media === null || media.asset.state !== 'ready') return null
+            if (media === null || !['ready', 'deletion_requested'].includes(media.asset.state)) {
+                return null
+            }
 
             const representation = media.representations.find(
                 candidate =>
-                    candidate.id === normalizedRepresentationId && candidate.state === 'ready'
+                    candidate.id === normalizedRepresentationId &&
+                    ['ready', 'deletion_requested'].includes(candidate.state)
             )
             return representation === undefined
                 ? null
