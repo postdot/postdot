@@ -276,11 +276,13 @@ export function MediaPreview({
     asset,
     representation,
     className,
+    draggable,
 }: {
     readonly projectId: string
     readonly asset: MediaReference
     readonly representation: ReturnType<typeof readyRepresentation>
     readonly className?: string
+    readonly draggable?: boolean
 }) {
     if (representation?.family === 'image') {
         return (
@@ -288,6 +290,7 @@ export function MediaPreview({
                 src={api.mediaContentUrl(projectId, asset.asset.id)}
                 alt=""
                 loading="lazy"
+                draggable={draggable}
                 className={className ?? 'size-12 rounded-md object-cover shadow-field'}
             />
         )

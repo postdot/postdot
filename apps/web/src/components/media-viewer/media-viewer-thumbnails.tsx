@@ -211,11 +211,13 @@ function DockThumbnail({
             style={{ height: size, width: size }}
             className={`relative m-0 cursor-pointer overflow-hidden rounded-md bg-surface-raised p-0 shadow-field transition-[filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'brightness-[1.12] saturate-100' : 'brightness-90 saturate-[0.9] hover:brightness-[1.10] hover:saturate-100'}`}
             onClick={() => onAssetChange(asset)}>
+            <span aria-hidden="true" className="absolute inset-0 z-10 size-full" />
             <MediaPreview
                 projectId={asset.asset.projectId}
                 asset={asset}
                 representation={representation}
-                className="size-full rounded-md object-cover"
+                draggable={false}
+                className="pointer-events-none size-full select-none rounded-md object-cover"
             />
         </motion.button>
     )
