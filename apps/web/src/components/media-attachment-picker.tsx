@@ -20,6 +20,7 @@ import { Input } from '@herald/ui/components/input'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/bold/close'
+import { FolderOpenIcon } from '@solar-icons/react/bold/folder-open'
 import { GalleryIcon } from '@solar-icons/react/bold/gallery'
 import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
 import { ListIcon } from '@solar-icons/react/bold/list'
@@ -136,6 +137,7 @@ function MediaAttachmentPickerView({
     const [listRefreshKey, setListRefreshKey] = useState(0)
     const [nextCursor, setNextCursor] = useState<string | null>(null)
     const [viewerAsset, setViewerAsset] = useState<MediaReference | null>(null)
+    const [viewerAssets, setViewerAssets] = useState<MediaReference[]>([])
     const [editorAsset, setEditorAsset] = useState<MediaReference | null>(null)
     const [deletionAsset, setDeletionAsset] = useState<MediaReference | null>(null)
     const [deletionPending, setDeletionPending] = useState(false)
@@ -144,6 +146,7 @@ function MediaAttachmentPickerView({
     const [bulkDeletionAssets, setBulkDeletionAssets] = useState<MediaReference[]>([])
     const [bulkDeletionPending, setBulkDeletionPending] = useState(false)
     const [bulkDeletionError, setBulkDeletionError] = useState<string | null>(null)
+    const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
     const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
     const [dragOverAssetId, setDragOverAssetId] = useState<string | null>(null)
     const [dragActive, setDragActive] = useState(false)
@@ -202,6 +205,7 @@ function MediaAttachmentPickerView({
 
     useEffect(() => {
         if (!manageOnly) {
+            setBulkSelectionMode(false)
             setBulkSelectedAssetIds(new Set())
             return
         }
@@ -401,6 +405,12 @@ function MediaAttachmentPickerView({
         setBulkSelectedAssetIds(new Set())
     }
 
+    function toggleBulkSelectionMode() {
+        if (interactionLocked) return
+        if (bulkSelectionMode) setBulkSelectedAssetIds(new Set())
+        setBulkSelectionMode(current => !current)
+    }
+
     function updateAccessibilityText(assetId: string, text: string) {
         onChange(
             value.map(item => {
@@ -431,12 +441,29 @@ function MediaAttachmentPickerView({
     }
 
     function openViewer(asset: MediaReference) {
+        const collection =
+            bulkSelectionMode && bulkSelectedAssetIds.has(asset.asset.id)
+                ? bulkSelectedAssets
+                : assets
+        setViewerAssets(collection.length > 0 ? collection : [asset])
         setViewerAsset(asset)
+    }
+
+    function openSelectedViewer() {
+        const firstAsset = bulkSelectedAssets[0]
+        if (firstAsset === undefined) return
+        setViewerAssets(bulkSelectedAssets)
+        setViewerAsset(firstAsset)
+    }
+
+    function closeViewer() {
+        setViewerAsset(null)
+        setViewerAssets([])
     }
 
     function openDeletion(asset: MediaReference) {
         if (!manageOnly) return
-        setViewerAsset(null)
+        closeViewer()
         setDeletionAsset(asset)
         setDeletionError(null)
     }
@@ -517,7 +544,7 @@ function MediaAttachmentPickerView({
     }
 
     function openEditor(asset: MediaReference) {
-        setViewerAsset(null)
+        closeViewer()
         setEditorAsset(asset)
     }
 
@@ -696,6 +723,21 @@ function MediaAttachmentPickerView({
                                     {m.media_visible_count({ count: assets.length })}
                                 </p>
                             ) : null}
+                            {manageOnly ? (
+                                <Button
+                                    type="button"
+                                    variant={bulkSelectionMode ? 'secondary' : 'outline'}
+                                    size="sm"
+                                    className="shadow-none"
+                                    aria-pressed={bulkSelectionMode}
+                                    data-media-selection-mode-toggle="true"
+                                    disabled={interactionLocked}
+                                    onClick={toggleBulkSelectionMode}>
+                                    {bulkSelectionMode
+                                        ? m.media_bulk_exit_selection_mode()
+                                        : m.media_bulk_select_mode()}
+                                </Button>
+                            ) : null}
                             <MediaLibraryViewControls
                                 value={mediaViewMode}
                                 onChange={setMediaViewMode}
@@ -703,24 +745,29 @@ function MediaAttachmentPickerView({
                         </div>
                     </div>
                 ) : null}
-                {manageOnly && bulkSelectedAssets.length > 0 ? (
+                {manageOnly && bulkSelectionMode ? (
                     <div className="sticky top-0 z-20 mt-3">
                         <BulkActionBar
-                            actions={
-                                bulkSelectedAssets.length > 0
-                                    ? [
-                                          {
-                                              id: 'delete',
-                                              label: m.media_bulk_delete_action({
-                                                  count: bulkSelectedAssets.length,
-                                              }),
-                                              icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
-                                              variant: 'destructive',
-                                              onSelect: openBulkDeletion,
-                                          },
-                                      ]
-                                    : undefined
-                            }
+                            actions={[
+                                {
+                                    id: 'open',
+                                    label: m.media_bulk_open_action({
+                                        count: bulkSelectedAssets.length,
+                                    }),
+                                    icon: <FolderOpenIcon aria-hidden="true" />,
+                                    variant: 'secondary',
+                                    onSelect: openSelectedViewer,
+                                },
+                                {
+                                    id: 'delete',
+                                    label: m.media_bulk_delete_action({
+                                        count: bulkSelectedAssets.length,
+                                    }),
+                                    icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
+                                    variant: 'destructive',
+                                    onSelect: openBulkDeletion,
+                                },
+                            ]}
                             allSelected={allVisibleBulkSelected}
                             ariaLabel={m.media_bulk_actions()}
                             clearLabel={m.media_bulk_clear_selection()}
@@ -906,10 +953,11 @@ function MediaAttachmentPickerView({
                                     projectId={projectId}
                                     selected={selected}
                                     selectable={!manageOnly}
-                                    actionSelectionEnabled={manageOnly}
+                                    actionSelectionEnabled={manageOnly && bulkSelectionMode}
                                     actionSelected={bulkSelectedAssetIds.has(asset.asset.id)}
                                     onAccessibilityTextChange={updateAccessibilityText}
                                     onActionSelectionToggle={toggleBulkAsset}
+                                    onOpen={manageOnly ? openViewer : undefined}
                                     onRequestDelete={manageOnly ? openDeletion : undefined}
                                     onToggle={toggleAsset}
                                     onPreview={openViewer}
@@ -1039,12 +1087,13 @@ function MediaAttachmentPickerView({
                                                 item => item.assetId === asset.asset.id
                                             )}
                                             selectable={!manageOnly}
-                                            actionSelectionEnabled={manageOnly}
+                                            actionSelectionEnabled={manageOnly && bulkSelectionMode}
                                             actionSelected={bulkSelectedAssetIds.has(
                                                 asset.asset.id
                                             )}
                                             onAccessibilityTextChange={updateAccessibilityText}
                                             onActionSelectionToggle={toggleBulkAsset}
+                                            onOpen={manageOnly ? openViewer : undefined}
                                             onRequestDelete={manageOnly ? openDeletion : undefined}
                                             onToggle={toggleAsset}
                                             onPreview={openViewer}
@@ -1082,12 +1131,14 @@ function MediaAttachmentPickerView({
             ) : null}
             <Suspense fallback={null}>
                 <MediaImageViewerDialog
+                    assets={viewerAssets}
                     asset={viewerAsset}
                     allowDelete={manageOnly}
                     open={viewerAsset !== null}
                     onOpenChange={open => {
-                        if (!open) setViewerAsset(null)
+                        if (!open) closeViewer()
                     }}
+                    onAssetChange={setViewerAsset}
                     onEdit={openEditor}
                     onRequestDelete={openDeletion}
                 />

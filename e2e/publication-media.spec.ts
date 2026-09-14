@@ -469,10 +469,22 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
+    const mediaLibraryViewer = page.locator('[data-media-viewer="true"]')
     const mediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
     const droppedMediaCard = page
         .locator('[data-media-bulk-selection-card="true"]')
         .filter({ hasText: droppedMediaFilename })
+    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await expect(mediaLibraryViewer).toBeVisible()
+    await expect(
+        mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
+    ).toBeEnabled()
+    await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(mediaLibraryViewer).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
+    await expect(mediaBulkActionBar).toBeVisible()
+    await expect(mediaBulkActionBar).toContainText('0 selected')
     await droppedMediaCard.click({ position: { x: 2, y: 2 } })
     await expect(droppedMediaCard).toHaveAttribute('data-media-action-selected', 'true')
     await droppedMediaCard.click({ position: { x: 2, y: 2 } })
@@ -488,8 +500,21 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         mediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true })
     ).toBeVisible()
+    await expect(
+        mediaBulkActionBar.getByRole('button', { name: 'Open (1)', exact: true })
+    ).toBeVisible()
     await page.getByRole('button', { name: `Select ${secondMediaFilename}`, exact: true }).click()
     await expect(mediaBulkActionBar).toContainText('2 selected')
+    await mediaBulkActionBar.getByRole('button', { name: 'Open (2)', exact: true }).click()
+    await expect(mediaLibraryViewer).toBeVisible()
+    await expect(mediaLibraryViewer.locator('[data-media-viewer-thumbnail="true"]')).toHaveCount(2)
+    await expect(
+        mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
+    ).toBeEnabled()
+    await mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true }).click()
+    await expect(mediaLibraryViewer.getByText('2 of 2', { exact: true })).toHaveCount(2)
+    await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(mediaLibraryViewer).toHaveCount(0)
     await mediaBulkActionBar.getByRole('button', { name: 'Delete (2)', exact: true }).click()
     const mediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
     await expect(mediaBulkDeletionDialog).toBeVisible()
@@ -511,6 +536,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: `View ${secondMediaFilename}`, exact: true })
     ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Exit selection', exact: true }).click()
+    await expect(mediaBulkActionBar).toHaveCount(0)
     const mediaSearch = page.getByRole('searchbox', { name: 'Search media', exact: true })
     await expect(mediaSearch).toBeVisible()
 
@@ -767,6 +794,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         'compact'
     )
     await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
     await page.getByRole('button', { name: `Select ${editedMediaFilename}`, exact: true }).click()
     const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
     await usedMediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true }).click()
