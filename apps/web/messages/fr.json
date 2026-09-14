@@ -476,6 +476,8 @@
     "media_uploading": "Ajout de {filename}…",
     "media_view_asset": "Afficher {filename}",
     "media_open_asset": "Ouvrir {filename}",
+    "media_asset_actions": "Actions pour {filename}",
+    "media_open_action": "Ouvrir",
     "media_viewer_description": "Afficher le média en taille réelle.",
     "media_viewer_position": "{current} sur {total}",
     "media_viewer_previous": "Média précédent",

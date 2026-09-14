@@ -9,7 +9,6 @@ export function useMediaViewerKeyboard(
         if (!enabled) return
 
         function handleKeyDown(event: KeyboardEvent) {
-            if (event.defaultPrevented) return
             if (event.key === 'ArrowLeft') {
                 event.preventDefault()
                 onPrevious()

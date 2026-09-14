@@ -1,4 +1,5 @@
 import { Button } from '@herald/ui/components/button'
+import { ButtonGroup } from '@herald/ui/components/button-group'
 import {
     Dialog,
     DialogContent,
@@ -6,6 +7,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
+import { Kbd } from '@herald/ui/components/kbd'
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@herald/ui/components/tooltip'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { GalleryEditIcon } from '@solar-icons/react/bold/gallery-edit'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
@@ -206,175 +214,218 @@ export function MediaViewer({
                 showCloseButton={false}
                 data-media-viewer="true"
                 className="flex h-[calc(100vh-1rem)] max-h-[calc(100vh-1rem)] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[min(82vh,52rem)] sm:max-h-[min(82vh,52rem)] sm:w-full sm:max-w-6xl">
-                <FullScreen
-                    handle={fullScreenHandle}
-                    className={`flex min-h-0 w-full flex-1 flex-col ${fullScreenHandle.active ? 'bg-background' : 'bg-surface-canvas'}`}>
-                    <DialogHeader className="flex shrink-0 flex-row items-center gap-3 border-b border-border/60 bg-surface-inset px-4 py-3 sm:px-5">
-                        <div className="min-w-0 flex-1">
-                            <div className="flex min-w-0 items-baseline gap-3 pr-2">
-                                <DialogTitle className="min-w-0 truncate">
-                                    {currentAsset.asset.originalFilename}
-                                </DialogTitle>
+                <TooltipProvider delay={450}>
+                    <FullScreen
+                        handle={fullScreenHandle}
+                        className={`flex min-h-0 w-full flex-1 flex-col ${fullScreenHandle.active ? 'bg-background' : 'bg-surface-canvas'}`}>
+                        <DialogHeader className="flex shrink-0 flex-row items-center gap-3 border-b border-border/60 bg-surface-inset px-4 py-3 sm:px-5">
+                            <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 items-baseline gap-3 pr-2">
+                                    <DialogTitle className="min-w-0 truncate">
+                                        {currentAsset.asset.originalFilename}
+                                    </DialogTitle>
+                                    {hasNavigation ? (
+                                        <span className="shrink-0 text-xs text-muted-foreground">
+                                            {position}
+                                        </span>
+                                    ) : null}
+                                </div>
+                                <DialogDescription className="sr-only">
+                                    {m.media_viewer_description()}
+                                </DialogDescription>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                                <ButtonGroup className="rounded-md bg-surface-raised/95 p-0.5">
+                                    {image ? (
+                                        <MediaViewerZoomControls
+                                            scalePercent={zoomStatus.scalePercent}
+                                            onReset={() => void zoomControlsRef.current?.reset()}
+                                            onZoomIn={() => void zoomControlsRef.current?.zoomIn()}
+                                            onZoomOut={() =>
+                                                void zoomControlsRef.current?.zoomOut()
+                                            }
+                                        />
+                                    ) : null}
+                                    <Tooltip>
+                                        <TooltipTrigger
+                                            render={
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    size="icon-sm"
+                                                    aria-label={
+                                                        fullScreenHandle.active
+                                                            ? m.media_viewer_exit_fullscreen()
+                                                            : m.media_viewer_fullscreen()
+                                                    }
+                                                    data-media-viewer-fullscreen="true"
+                                                    className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-field"
+                                                    onClick={handleFullscreenToggle}>
+                                                    {fullScreenHandle.active ? (
+                                                        <QuitFullScreenIcon aria-hidden="true" />
+                                                    ) : (
+                                                        <FullScreenIcon aria-hidden="true" />
+                                                    )}
+                                                </Button>
+                                            }
+                                        />
+                                        <TooltipContent>
+                                            {fullScreenHandle.active
+                                                ? m.media_viewer_exit_fullscreen()
+                                                : m.media_viewer_fullscreen()}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </ButtonGroup>
+                                <Tooltip>
+                                    <TooltipTrigger
+                                        render={
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                size="icon-sm"
+                                                aria-label={m.common_close()}
+                                                data-media-viewer-close="true"
+                                                className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
+                                                onClick={() => handleOpenChange(false)}>
+                                                <CloseIcon aria-hidden="true" />
+                                            </Button>
+                                        }
+                                    />
+                                    <TooltipContent>
+                                        <span>{m.common_close()}</span>
+                                        <Kbd aria-hidden="true">Esc</Kbd>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                        </DialogHeader>
+
+                        <main className="flex min-h-0 flex-1 flex-col">
+                            <div className="group/media-stage relative min-h-0 flex-1 overflow-hidden bg-background">
+                                <AnimatePresence initial={false} custom={direction} mode="sync">
+                                    <motion.div
+                                        key={currentAsset.asset.id}
+                                        custom={direction}
+                                        variants={imageVariants}
+                                        initial={reduceMotion ? false : 'enter'}
+                                        animate="center"
+                                        exit="exit"
+                                        transition={imageTransition}
+                                        drag={hasNavigation && !isZoomed ? 'x' : false}
+                                        dragConstraints={{ left: 0, right: 0 }}
+                                        dragElastic={1}
+                                        onDragEnd={handleDragEnd}
+                                        className="absolute inset-0 z-10 flex touch-pan-y items-center justify-center">
+                                        {image ? (
+                                            <MediaViewerZoomableImage
+                                                ref={zoomControlsRef}
+                                                src={api.mediaContentUrl(
+                                                    currentAsset.asset.projectId,
+                                                    currentAsset.asset.id
+                                                )}
+                                                alt={
+                                                    currentAsset.asset.defaultAccessibilityText ??
+                                                    currentAsset.asset.originalFilename
+                                                }
+                                                reduceMotion={reduceMotion}
+                                                onZoomStatusChange={handleZoomStatusChange}
+                                            />
+                                        ) : (
+                                            <MediaPreview
+                                                projectId={currentAsset.asset.projectId}
+                                                asset={currentAsset}
+                                                representation={representation}
+                                                className="flex size-48 items-center justify-center rounded-md bg-surface-field text-sm font-medium uppercase text-muted-foreground"
+                                            />
+                                        )}
+                                    </motion.div>
+                                </AnimatePresence>
+
                                 {hasNavigation ? (
-                                    <span className="shrink-0 text-xs text-muted-foreground">
-                                        {position}
-                                    </span>
+                                    <>
+                                        <div className="pointer-events-none absolute inset-y-0 left-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100">
+                                            <Tooltip>
+                                                <TooltipTrigger
+                                                    render={
+                                                        <Button
+                                                            type="button"
+                                                            variant="secondary"
+                                                            size="icon-lg"
+                                                            aria-label={m.media_viewer_previous()}
+                                                            aria-keyshortcuts="ArrowLeft"
+                                                            data-media-viewer-previous="true"
+                                                            className="pointer-events-auto bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
+                                                            onClick={() => move(-1)}>
+                                                            <AltArrowLeftIcon aria-hidden="true" />
+                                                        </Button>
+                                                    }
+                                                />
+                                                <TooltipContent>
+                                                    <span>{m.media_viewer_previous()}</span>
+                                                    <Kbd aria-hidden="true">←</Kbd>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                        <div className="pointer-events-none absolute inset-y-0 right-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100">
+                                            <Tooltip>
+                                                <TooltipTrigger
+                                                    render={
+                                                        <Button
+                                                            type="button"
+                                                            variant="secondary"
+                                                            size="icon-lg"
+                                                            aria-label={m.media_viewer_next()}
+                                                            aria-keyshortcuts="ArrowRight"
+                                                            data-media-viewer-next="true"
+                                                            className="pointer-events-auto bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
+                                                            onClick={() => move(1)}>
+                                                            <AltArrowRightIcon aria-hidden="true" />
+                                                        </Button>
+                                                    }
+                                                />
+                                                <TooltipContent>
+                                                    <span>{m.media_viewer_next()}</span>
+                                                    <Kbd aria-hidden="true">→</Kbd>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </div>
+                                    </>
                                 ) : null}
                             </div>
-                            <DialogDescription className="sr-only">
-                                {m.media_viewer_description()}
-                            </DialogDescription>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                            {image ? (
-                                <MediaViewerZoomControls
-                                    scalePercent={zoomStatus.scalePercent}
-                                    onReset={() => void zoomControlsRef.current?.reset()}
-                                    onZoomIn={() => void zoomControlsRef.current?.zoomIn()}
-                                    onZoomOut={() => void zoomControlsRef.current?.zoomOut()}
+                            {hasNavigation ? (
+                                <MediaViewerThumbnails
+                                    assets={gallery}
+                                    activeIndex={assetIndex}
+                                    onAssetChange={selectAsset}
                                 />
                             ) : null}
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="icon-sm"
-                                aria-label={
-                                    fullScreenHandle.active
-                                        ? m.media_viewer_exit_fullscreen()
-                                        : m.media_viewer_fullscreen()
-                                }
-                                data-media-viewer-fullscreen="true"
-                                title={
-                                    fullScreenHandle.active
-                                        ? m.media_viewer_exit_fullscreen()
-                                        : m.media_viewer_fullscreen()
-                                }
-                                className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
-                                onClick={handleFullscreenToggle}>
-                                {fullScreenHandle.active ? (
-                                    <QuitFullScreenIcon aria-hidden="true" />
-                                ) : (
-                                    <FullScreenIcon aria-hidden="true" />
-                                )}
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="icon-sm"
-                                aria-label={m.common_close()}
-                                data-media-viewer-close="true"
-                                title={m.common_close()}
-                                className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
-                                onClick={() => handleOpenChange(false)}>
-                                <CloseIcon aria-hidden="true" />
-                            </Button>
-                        </div>
-                    </DialogHeader>
+                        </main>
 
-                    <main className="flex min-h-0 flex-1 flex-col">
-                        <div className="group/media-stage relative min-h-0 flex-1 overflow-hidden bg-background">
-                            <AnimatePresence initial={false} custom={direction} mode="sync">
-                                <motion.div
-                                    key={currentAsset.asset.id}
-                                    custom={direction}
-                                    variants={imageVariants}
-                                    initial={reduceMotion ? false : 'enter'}
-                                    animate="center"
-                                    exit="exit"
-                                    transition={imageTransition}
-                                    drag={hasNavigation && !isZoomed ? 'x' : false}
-                                    dragConstraints={{ left: 0, right: 0 }}
-                                    dragElastic={1}
-                                    onDragEnd={handleDragEnd}
-                                    className="absolute inset-0 z-10 flex touch-pan-y items-center justify-center">
-                                    {image ? (
-                                        <MediaViewerZoomableImage
-                                            ref={zoomControlsRef}
-                                            src={api.mediaContentUrl(
-                                                currentAsset.asset.projectId,
-                                                currentAsset.asset.id
-                                            )}
-                                            alt={
-                                                currentAsset.asset.defaultAccessibilityText ??
-                                                currentAsset.asset.originalFilename
-                                            }
-                                            reduceMotion={reduceMotion}
-                                            onZoomStatusChange={handleZoomStatusChange}
-                                        />
-                                    ) : (
-                                        <MediaPreview
-                                            projectId={currentAsset.asset.projectId}
-                                            asset={currentAsset}
-                                            representation={representation}
-                                            className="flex size-48 items-center justify-center rounded-md bg-surface-field text-sm font-medium uppercase text-muted-foreground"
-                                        />
-                                    )}
-                                </motion.div>
-                            </AnimatePresence>
-
-                            {hasNavigation ? (
-                                <>
-                                    <div className="pointer-events-none absolute inset-y-0 left-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100">
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            size="icon-lg"
-                                            aria-label={m.media_viewer_previous()}
-                                            data-media-viewer-previous="true"
-                                            className="pointer-events-auto bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
-                                            onClick={() => move(-1)}>
-                                            <AltArrowLeftIcon aria-hidden="true" />
-                                        </Button>
-                                    </div>
-                                    <div className="pointer-events-none absolute inset-y-0 right-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100">
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            size="icon-lg"
-                                            aria-label={m.media_viewer_next()}
-                                            data-media-viewer-next="true"
-                                            className="pointer-events-auto bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
-                                            onClick={() => move(1)}>
-                                            <AltArrowRightIcon aria-hidden="true" />
-                                        </Button>
-                                    </div>
-                                </>
-                            ) : null}
-                        </div>
-                        {hasNavigation ? (
-                            <MediaViewerThumbnails
-                                assets={gallery}
-                                activeIndex={assetIndex}
-                                onAssetChange={selectAsset}
-                            />
+                        {allowDelete || image ? (
+                            <footer className="flex shrink-0 justify-end gap-1 border-t border-border/60 bg-muted px-4 py-3 sm:px-5">
+                                {allowDelete ? (
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        data-media-viewer-delete="true"
+                                        onClick={handleDelete}>
+                                        <TrashBinMinimalisticIcon aria-hidden="true" />
+                                        {m.media_delete_confirm()}
+                                    </Button>
+                                ) : null}
+                                {image ? (
+                                    <Button
+                                        type="button"
+                                        variant="default"
+                                        data-media-viewer-edit="true"
+                                        onClick={handleEdit}>
+                                        <GalleryEditIcon aria-hidden="true" />
+                                        {m.media_edit_image()}
+                                    </Button>
+                                ) : null}
+                            </footer>
                         ) : null}
-                    </main>
-
-                    {allowDelete || image ? (
-                        <footer className="flex shrink-0 justify-end gap-1 border-t border-border/60 bg-muted px-4 py-3 sm:px-5">
-                            {allowDelete ? (
-                                <Button
-                                    type="button"
-                                    variant="destructive"
-                                    data-media-viewer-delete="true"
-                                    onClick={handleDelete}>
-                                    <TrashBinMinimalisticIcon aria-hidden="true" />
-                                    {m.media_delete_confirm()}
-                                </Button>
-                            ) : null}
-                            {image ? (
-                                <Button
-                                    type="button"
-                                    variant="default"
-                                    data-media-viewer-edit="true"
-                                    onClick={handleEdit}>
-                                    <GalleryEditIcon aria-hidden="true" />
-                                    {m.media_edit_image()}
-                                </Button>
-                            ) : null}
-                        </footer>
-                    ) : null}
-                </FullScreen>
+                    </FullScreen>
+                </TooltipProvider>
             </DialogContent>
         </Dialog>
     )

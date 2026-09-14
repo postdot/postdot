@@ -479,6 +479,8 @@
     "media_uploading": "Adding {filename}…",
     "media_view_asset": "View {filename}",
     "media_open_asset": "Open {filename}",
+    "media_asset_actions": "Actions for {filename}",
+    "media_open_action": "Open",
     "media_viewer_description": "View the full media asset.",
     "media_viewer_position": "{current} of {total}",
     "media_viewer_previous": "Previous media",

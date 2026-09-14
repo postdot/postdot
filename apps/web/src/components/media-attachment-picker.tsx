@@ -957,6 +957,7 @@ function MediaAttachmentPickerView({
                                     actionSelected={bulkSelectedAssetIds.has(asset.asset.id)}
                                     onAccessibilityTextChange={updateAccessibilityText}
                                     onActionSelectionToggle={toggleBulkAsset}
+                                    onEdit={manageOnly ? openEditor : undefined}
                                     onOpen={manageOnly ? openViewer : undefined}
                                     onRequestDelete={manageOnly ? openDeletion : undefined}
                                     onToggle={toggleAsset}
@@ -1093,6 +1094,7 @@ function MediaAttachmentPickerView({
                                             )}
                                             onAccessibilityTextChange={updateAccessibilityText}
                                             onActionSelectionToggle={toggleBulkAsset}
+                                            onEdit={manageOnly ? openEditor : undefined}
                                             onOpen={manageOnly ? openViewer : undefined}
                                             onRequestDelete={manageOnly ? openDeletion : undefined}
                                             onToggle={toggleAsset}
@@ -1130,18 +1132,20 @@ function MediaAttachmentPickerView({
                 </Dialog>
             ) : null}
             <Suspense fallback={null}>
-                <MediaViewer
-                    assets={viewerAssets}
-                    asset={viewerAsset}
-                    allowDelete={manageOnly}
-                    open={viewerAsset !== null}
-                    onOpenChange={open => {
-                        if (!open) closeViewer()
-                    }}
-                    onAssetChange={setViewerAsset}
-                    onEdit={openEditor}
-                    onRequestDelete={openDeletion}
-                />
+                {viewerAsset !== null ? (
+                    <MediaViewer
+                        assets={viewerAssets}
+                        asset={viewerAsset}
+                        allowDelete={manageOnly}
+                        open
+                        onOpenChange={open => {
+                            if (!open) closeViewer()
+                        }}
+                        onAssetChange={setViewerAsset}
+                        onEdit={openEditor}
+                        onRequestDelete={openDeletion}
+                    />
+                ) : null}
                 <MediaImageEditorDialog
                     asset={editorAsset}
                     open={editorAsset !== null}

@@ -1,7 +1,17 @@
 import { Button } from '@herald/ui/components/button'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@herald/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { FolderOpenIcon } from '@solar-icons/react/bold/folder-open'
+import { GalleryEditIcon } from '@solar-icons/react/bold/gallery-edit'
+import { MenuDotsIcon } from '@solar-icons/react/bold/menu-dots'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 
 import { api, type MediaReference } from '@/lib/api'
@@ -21,6 +31,7 @@ interface MediaAssetCardProps {
     readonly actionSelected?: boolean
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
     readonly onActionSelectionToggle?: (asset: MediaReference) => void
+    readonly onEdit?: (asset: MediaReference) => void
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
@@ -40,6 +51,7 @@ export function MediaAssetCard({
     actionSelected = false,
     onAccessibilityTextChange,
     onActionSelectionToggle,
+    onEdit,
     onOpen,
     onRequestDelete,
     onToggle,
@@ -67,7 +79,9 @@ export function MediaAssetCard({
                 if (interactionDisabled || asset.asset.state !== 'ready') return
                 if (
                     event.target instanceof Element &&
-                    event.target.closest('button, input, textarea, a, select') !== null
+                    event.target.closest(
+                        'button, input, textarea, a, select, [data-media-asset-action]'
+                    ) !== null
                 ) {
                     return
                 }
@@ -179,22 +193,71 @@ export function MediaAssetCard({
                     </div>
                 )}
             </div>
-            {onRequestDelete !== undefined ? (
-                <div className="absolute top-1 right-1 z-10 flex gap-1 pointer-events-auto opacity-100 transition-opacity sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={interactionDisabled}
-                        data-media-delete-trigger="true"
-                        aria-label={m.media_delete_asset({
-                            filename: asset.asset.originalFilename,
-                        })}
-                        title={m.media_delete_asset({ filename: asset.asset.originalFilename })}
-                        className="pointer-events-auto text-state-failed hover:bg-state-failed/10 hover:text-state-failed"
-                        onClick={() => onRequestDelete(asset)}>
-                        <TrashBinMinimalisticIcon aria-hidden="true" />
-                    </Button>
+            {onOpen !== undefined || onEdit !== undefined || onRequestDelete !== undefined ? (
+                <div className="pointer-events-auto absolute top-1 right-1 z-10">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger
+                            render={
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="icon-sm"
+                                    disabled={interactionDisabled}
+                                    data-media-asset-actions="true"
+                                    aria-label={m.media_asset_actions({
+                                        filename: asset.asset.originalFilename,
+                                    })}
+                                    className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised">
+                                    <MenuDotsIcon aria-hidden="true" />
+                                </Button>
+                            }
+                        />
+                        <DropdownMenuContent align="end" className="min-w-44">
+                            {onOpen !== undefined ? (
+                                <DropdownMenuItem
+                                    data-media-asset-action="open"
+                                    disabled={
+                                        interactionDisabled ||
+                                        asset.asset.state !== 'ready' ||
+                                        representation === undefined
+                                    }
+                                    onClick={() => onOpen(asset)}>
+                                    <FolderOpenIcon aria-hidden="true" />
+                                    {m.media_open_action()}
+                                </DropdownMenuItem>
+                            ) : null}
+                            {onEdit !== undefined ? (
+                                <DropdownMenuItem
+                                    data-media-asset-action="edit"
+                                    disabled={
+                                        interactionDisabled ||
+                                        asset.asset.state !== 'ready' ||
+                                        representation?.family !== 'image'
+                                    }
+                                    onClick={() => onEdit(asset)}>
+                                    <GalleryEditIcon aria-hidden="true" />
+                                    {m.media_edit_image()}
+                                </DropdownMenuItem>
+                            ) : null}
+                            {onRequestDelete !== undefined ? (
+                                <>
+                                    {onOpen !== undefined || onEdit !== undefined ? (
+                                        <DropdownMenuSeparator />
+                                    ) : null}
+                                    <DropdownMenuItem
+                                        data-media-asset-action="delete"
+                                        variant="destructive"
+                                        disabled={
+                                            interactionDisabled || asset.asset.state !== 'ready'
+                                        }
+                                        onClick={() => onRequestDelete(asset)}>
+                                        <TrashBinMinimalisticIcon aria-hidden="true" />
+                                        {m.media_delete_confirm()}
+                                    </DropdownMenuItem>
+                                </>
+                            ) : null}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             ) : null}
             {selectable && selected !== undefined ? (

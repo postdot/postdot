@@ -510,6 +510,17 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(mediaLibraryViewer.getByText('115%', { exact: true })).toBeVisible()
     await mediaViewerZoomReset.click()
     await expect(mediaViewerZoomReset).toBeDisabled()
+    const initialViewerFilename = await mediaLibraryViewer
+        .locator('[data-slot="dialog-title"]')
+        .textContent()
+    await page.keyboard.press('ArrowRight')
+    await expect(mediaLibraryViewer.locator('[data-slot="dialog-title"]')).not.toHaveText(
+        initialViewerFilename ?? ''
+    )
+    await page.keyboard.press('ArrowLeft')
+    await expect(mediaLibraryViewer.locator('[data-slot="dialog-title"]')).toHaveText(
+        initialViewerFilename ?? ''
+    )
     const viewerThumbnailViewport = mediaLibraryViewer.locator('[data-media-viewer-thumbnails]')
     const viewerThumbnailTrack = mediaLibraryViewer.locator(
         '[data-media-viewer-thumbnail-track="true"]'
@@ -651,7 +662,10 @@ test('persists mixed and media-only publications through the dashboard', async (
         'data-media-library-view',
         'list'
     )
-    await page.getByRole('button', { name: `Delete ${droppedMediaFilename}`, exact: true }).click()
+    await droppedMediaCard
+        .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
+        .click()
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
     const mediaDeletionDialog = page.locator('[data-media-delete-dialog="true"]')
     await expect(mediaDeletionDialog).toBeVisible()
     await expect(
@@ -660,10 +674,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         )
     ).toBeVisible()
     await expect(mediaDeletionDialog).not.toContainText('Not used')
-    const mediaDeleteConfirm = mediaDeletionDialog.getByRole('button', {
-        name: 'Delete',
-        exact: true,
-    })
+    const mediaDeleteConfirm = mediaDeletionDialog.locator('[data-media-delete-confirm="true"]')
     await expect(mediaDeleteConfirm).toBeEnabled()
     await mediaDeleteConfirm.click()
     await expect(mediaDeletionDialog).toHaveCount(0)

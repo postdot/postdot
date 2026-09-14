@@ -1,5 +1,6 @@
 import { Button } from '@herald/ui/components/button'
-import { ButtonGroup, ButtonGroupText } from '@herald/ui/components/button-group'
+import { ButtonGroupText } from '@herald/ui/components/button-group'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
 import { MagnifierZoomInIcon } from '@solar-icons/react/linear/magnifier-zoom-in'
 import { MagnifierZoomOutIcon } from '@solar-icons/react/linear/magnifier-zoom-out'
 import { AnimatePresence, motion } from 'motion/react'
@@ -189,50 +190,68 @@ export function MediaViewerZoomControls({
     const isAtMaximum = scalePercent >= maxScale * 100
 
     return (
-        <ButtonGroup className="rounded-md bg-surface-raised/95 p-0.5">
-            <Button
-                type="button"
-                variant="secondary"
-                size="icon-sm"
-                disabled={isAtMinimum}
-                data-media-viewer-zoom-out="true"
-                aria-label={m.media_viewer_zoom_out()}
-                title={m.media_viewer_zoom_out()}
-                className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-field"
-                onClick={onZoomOut}>
-                <MagnifierZoomOutIcon aria-hidden="true" />
-            </Button>
+        <>
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon-sm"
+                            disabled={isAtMinimum}
+                            data-media-viewer-zoom-out="true"
+                            aria-label={m.media_viewer_zoom_out()}
+                            className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-field"
+                            onClick={onZoomOut}>
+                            <MagnifierZoomOutIcon aria-hidden="true" />
+                        </Button>
+                    }
+                />
+                <TooltipContent>{m.media_viewer_zoom_out()}</TooltipContent>
+            </Tooltip>
             <ButtonGroupText
                 aria-live="polite"
                 aria-atomic="true"
                 className="min-w-12 justify-center border-0 bg-surface-raised px-2 text-xs tabular-nums text-foreground shadow-none">
                 {scalePercent}%
             </ButtonGroupText>
-            <Button
-                type="button"
-                variant="secondary"
-                size="icon-sm"
-                disabled={isAtMaximum}
-                data-media-viewer-zoom-in="true"
-                aria-label={m.media_viewer_zoom_in()}
-                title={m.media_viewer_zoom_in()}
-                className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-field"
-                onClick={onZoomIn}>
-                <MagnifierZoomInIcon aria-hidden="true" />
-            </Button>
-            <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={isAtMinimum}
-                data-media-viewer-zoom-reset="true"
-                aria-label={m.media_viewer_zoom_reset()}
-                title={m.media_viewer_zoom_reset()}
-                className="bg-surface-overlay px-2 text-xs text-foreground shadow-field hover:bg-surface-field"
-                onClick={onReset}>
-                <span aria-hidden="true">{m.media_viewer_zoom_reset_short()}</span>
-            </Button>
-        </ButtonGroup>
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon-sm"
+                            disabled={isAtMaximum}
+                            data-media-viewer-zoom-in="true"
+                            aria-label={m.media_viewer_zoom_in()}
+                            className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-field"
+                            onClick={onZoomIn}>
+                            <MagnifierZoomInIcon aria-hidden="true" />
+                        </Button>
+                    }
+                />
+                <TooltipContent>{m.media_viewer_zoom_in()}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={isAtMinimum}
+                            data-media-viewer-zoom-reset="true"
+                            aria-label={m.media_viewer_zoom_reset()}
+                            className="bg-surface-overlay px-2 text-xs text-foreground shadow-field hover:bg-surface-field"
+                            onClick={onReset}>
+                            <span aria-hidden="true">{m.media_viewer_zoom_reset_short()}</span>
+                        </Button>
+                    }
+                />
+                <TooltipContent>{m.media_viewer_zoom_reset()}</TooltipContent>
+            </Tooltip>
+        </>
     )
 }
 
