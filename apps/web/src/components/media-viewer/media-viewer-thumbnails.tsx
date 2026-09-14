@@ -199,9 +199,11 @@ export function MediaViewerThumbnails({
                               : 'default',
                         x: trackX,
                     }}
-                    className="mx-auto flex h-20 w-max shrink-0 items-end gap-2">
+                    className="relative mx-auto flex h-20 w-max shrink-0 items-end gap-3">
                     {assets.map((asset, index) => (
-                        <div key={asset.asset.id} className="relative size-20 shrink-0">
+                        <div
+                            key={asset.asset.id}
+                            className="relative flex size-20 shrink-0 items-end justify-center">
                             <DockThumbnail
                                 asset={asset}
                                 active={index === activeIndex}
@@ -247,43 +249,53 @@ function DockThumbnail({
         damping: 18,
         mass: 0.12,
     })
+    const indicatorSize = useTransform(size, value => value + 8)
+    const indicatorLeft = useTransform(size, value => (maxThumbSize - (value + 8)) / 2)
     const representation = readyRepresentation(asset)
 
     return (
-        <motion.button
-            ref={node => {
-                thumbRef.current = node
-                if (activeRef !== undefined) activeRef.current = node
-            }}
-            type="button"
-            aria-label={m.media_open_asset({ filename: asset.asset.originalFilename })}
-            aria-current={active ? 'true' : undefined}
-            data-media-viewer-thumbnail="true"
-            style={{ height: size, width: size }}
-            whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-            className={`relative origin-bottom overflow-hidden rounded-md bg-surface-raised p-0 shadow-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'z-10' : 'opacity-75 hover:opacity-100'}`}
-            onClick={event => {
-                if (suppressClickRef.current) {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    suppressClickRef.current = false
-                    return
-                }
-                onAssetChange(asset)
-            }}>
-            <MediaPreview
-                projectId={asset.asset.projectId}
-                asset={asset}
-                representation={representation}
-                className="size-full rounded-md object-cover"
-            />
+        <>
             {active ? (
                 <motion.span
                     layoutId="media-viewer-active-thumbnail"
-                    className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-primary"
+                    style={{
+                        bottom: 0,
+                        height: indicatorSize,
+                        left: indicatorLeft,
+                        width: indicatorSize,
+                    }}
+                    className="pointer-events-none absolute z-0 rounded-lg border border-primary/60 bg-primary/10"
                     transition={{ type: 'spring', stiffness: 360, damping: 32 }}
                 />
             ) : null}
-        </motion.button>
+            <motion.button
+                ref={node => {
+                    thumbRef.current = node
+                    if (activeRef !== undefined) activeRef.current = node
+                }}
+                type="button"
+                aria-label={m.media_open_asset({ filename: asset.asset.originalFilename })}
+                aria-current={active ? 'true' : undefined}
+                data-media-viewer-thumbnail="true"
+                style={{ height: size, width: size }}
+                whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+                className={`relative origin-bottom overflow-hidden rounded-md bg-surface-raised p-0 shadow-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'z-20' : 'z-10 opacity-75 hover:z-20 hover:opacity-100'}`}
+                onClick={event => {
+                    if (suppressClickRef.current) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        suppressClickRef.current = false
+                        return
+                    }
+                    onAssetChange(asset)
+                }}>
+                <MediaPreview
+                    projectId={asset.asset.projectId}
+                    asset={asset}
+                    representation={representation}
+                    className="size-full rounded-md object-cover"
+                />
+            </motion.button>
+        </>
     )
 }

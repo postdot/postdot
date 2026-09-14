@@ -286,7 +286,7 @@ export function MediaViewer({
                                     dragConstraints={{ left: 0, right: 0 }}
                                     dragElastic={1}
                                     onDragEnd={handleDragEnd}
-                                    className="absolute inset-0 z-10 flex touch-pan-y items-center justify-center py-2 sm:py-4">
+                                    className="absolute inset-0 z-10 flex touch-pan-y items-center justify-center">
                                     {image ? (
                                         <MediaViewerZoomableImage
                                             ref={zoomControlsRef}

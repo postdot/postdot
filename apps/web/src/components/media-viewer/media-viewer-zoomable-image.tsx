@@ -189,7 +189,7 @@ export function MediaViewerZoomControls({
     const isAtMaximum = scalePercent >= maxScale * 100
 
     return (
-        <ButtonGroup className="rounded-md bg-surface-raised/95 p-0.5 shadow-overlay">
+        <ButtonGroup className="rounded-md bg-surface-raised/95 p-0.5">
             <Button
                 type="button"
                 variant="secondary"
