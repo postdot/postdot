@@ -143,7 +143,7 @@ export function MediaViewerThumbnails({
             role="group"
             aria-label={m.media_viewer_thumbnails()}
             data-media-viewer-thumbnails="true"
-            className="h-20 w-full shrink-0 bg-background/20 backdrop-blur-md"
+            className="relative z-30 h-20 w-full shrink-0 bg-background/20 backdrop-blur-md"
             onMouseMove={event => mouseX.set(event.pageX)}
             onMouseLeave={() => mouseX.set(Number.POSITIVE_INFINITY)}>
             <motion.div
@@ -209,7 +209,7 @@ function DockThumbnail({
             aria-current={active ? 'true' : undefined}
             data-media-viewer-thumbnail="true"
             style={{ height: size, width: size }}
-            className={`relative m-0 cursor-pointer overflow-hidden rounded-md border border-border/50 bg-surface-raised p-0 shadow-field transition-[filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'brightness-[1.12] saturate-100' : 'brightness-90 saturate-[0.9] hover:brightness-[1.10] hover:saturate-100'}`}
+            className={`relative m-0 cursor-pointer overflow-hidden rounded-md bg-surface-raised p-0 shadow-field transition-[filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'brightness-[1.12] saturate-100' : 'brightness-90 saturate-[0.9] hover:brightness-[1.10] hover:saturate-100'}`}
             onClick={() => onAssetChange(asset)}>
             <MediaPreview
                 projectId={asset.asset.projectId}
