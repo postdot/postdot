@@ -48,6 +48,7 @@ export type {
     MediaReferenceResponse,
     MediaRepresentationResponse,
     MediaReservationResponse,
+    MediaUploadPolicyResponse,
     MediaUploadResponse,
 } from './modules/media/routes'
 export type {

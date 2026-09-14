@@ -14,6 +14,7 @@ import {
     type MediaReference,
     type MediaReservation,
     type MediaAssetUsage,
+    type MediaUploadPolicy,
     type MediaUpload,
     type Notification,
     type NotificationInbox,
@@ -552,6 +553,12 @@ export const api = {
     async listMedia(projectId: string, options: MediaListOptions = {}): Promise<MediaListPage> {
         return unwrap<MediaListPage>(
             await client.api.projects({ projectId }).media.get({ query: options })
+        )
+    },
+
+    async getMediaUploadPolicy(projectId: string): Promise<MediaUploadPolicy> {
+        return unwrap<MediaUploadPolicy>(
+            await client.api.projects({ projectId }).media['upload-policy'].get()
         )
     },
 

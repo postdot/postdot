@@ -20,6 +20,7 @@ import type {
     MediaReferenceResponse,
     MediaRepresentationResponse,
     MediaReservationResponse,
+    MediaUploadPolicyResponse,
     MediaUploadResponse,
     NotificationInboxResponse,
     NotificationPreferenceResponse,
@@ -88,6 +89,7 @@ export type MediaRepresentation = MediaRepresentationResponse
 export type MediaIntent = MediaIntentResponse
 export type MediaReference = MediaReferenceResponse
 export type MediaReservation = MediaReservationResponse
+export type MediaUploadPolicy = MediaUploadPolicyResponse
 export type MediaUpload = MediaUploadResponse
 export type MediaPending = MediaPendingResponse
 export type MediaFinalize = MediaFinalizeResponse

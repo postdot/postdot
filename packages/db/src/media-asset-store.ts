@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import {
     assertMediaAssetTransition,
     assertMediaRepresentationTransition,
+    defaultMediaUploadContentTypes,
     defaultMediaInspectionLimits,
     DomainInvariantError,
     MediaInspectionRegistry,
@@ -11,6 +12,7 @@ import {
     type MediaInspectionLimits,
     type MediaRepresentation,
     type MediaRepresentationState,
+    type MediaUploadPolicy,
     type MediaUploadIntent,
     type PublicationState,
 } from '@herald/core'
@@ -1323,6 +1325,17 @@ export function createMediaAssetStore(
     }
 
     return {
+        getUploadPolicy(projectId: string, subjectId: string): MediaUploadPolicy | null {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+            if (!hasProjectAccess(normalizedProjectId, normalizedSubjectId)) return null
+
+            return {
+                allowedContentTypes: [...defaultMediaUploadContentTypes],
+                maxFileSize: mediaStore.maxObjectBytes,
+            }
+        },
+
         reserveUpload(input: ReserveMediaUploadInput): MediaUploadReservation | null {
             const projectId = requireNonBlank(input.projectId, 'projectId')
             const subjectId = requireNonBlank(input.subjectId, 'subjectId')

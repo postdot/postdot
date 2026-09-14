@@ -45,6 +45,7 @@ import { MediaAssetCard, MediaPreview, readyRepresentation } from '@/components/
 import { MediaBulkDeletionDialog } from '@/components/media-bulk-deletion-dialog'
 import { MediaDeletionDialog } from '@/components/media-deletion-dialog'
 import { api, formatApiError, type MediaReference } from '@/lib/api'
+import { formatBytes } from '@/lib/format'
 import {
     createHeraldMediaUploadController,
     uploadHeraldMediaFile,
@@ -122,7 +123,7 @@ function MediaAttachmentPickerView({
     selectionMode = 'attach',
     controller,
 }: MediaAttachmentPickerProps & { readonly controller: HeraldMediaUploadController }) {
-    useLanguage()
+    const { locale } = useLanguage()
     const [assets, setAssets] = useState<MediaReference[]>([])
     const [loading, setLoading] = useState(true)
     const [loadingMore, setLoadingMore] = useState(false)
@@ -185,6 +186,7 @@ function MediaAttachmentPickerView({
     const selectedAssetIds = [...new Set(value.map(selection => selection.assetId))]
         .sort()
         .join('\u0000')
+    const pendingRestrictionErrorRef = useRef<string[] | null>(null)
 
     useEffect(() => {
         currentValueRef.current = value
@@ -202,6 +204,43 @@ function MediaAttachmentPickerView({
     useEffect(() => {
         if (manageOnly) writeMediaLibraryViewMode(mediaViewMode)
     }, [manageOnly, mediaViewMode])
+
+    useEffect(() => {
+        let active = true
+        void api
+            .getMediaUploadPolicy(projectId)
+            .then(policy => {
+                if (active) controller.setUploadPolicy(policy)
+            })
+            .catch(() => {
+                // Keep the conservative local policy when capabilities cannot be read.
+                // The server remains authoritative during reserve and finalization.
+            })
+
+        return () => {
+            active = false
+        }
+    }, [controller, projectId])
+
+    useEffect(() => {
+        const handleRestrictionFailed = (file: HeraldMediaUppyFile | undefined) => {
+            const message = mediaRestrictionMessage(file, controller.policy, locale)
+            const nextMessages = [...(pendingRestrictionErrorRef.current ?? []), message]
+            pendingRestrictionErrorRef.current = nextMessages
+            setError(nextMessages.join(' '))
+
+            window.setTimeout(() => {
+                if (pendingRestrictionErrorRef.current === nextMessages) {
+                    pendingRestrictionErrorRef.current = null
+                }
+            }, 0)
+        }
+
+        controller.uppy.on('restriction-failed', handleRestrictionFailed)
+        return () => {
+            controller.uppy.off('restriction-failed', handleRestrictionFailed)
+        }
+    }, [controller, locale])
 
     useEffect(() => {
         if (!manageOnly) {
@@ -303,7 +342,8 @@ function MediaAttachmentPickerView({
                 return
             }
 
-            setError(null)
+            const restrictionMessages = pendingRestrictionErrorRef.current ?? []
+            pendingRestrictionErrorRef.current = null
             void controller.uppy
                 .upload()
                 .then(result => {
@@ -338,7 +378,8 @@ function MediaAttachmentPickerView({
                             new Error(file.error ?? 'media_upload_failed')
                         return `${file.name}: ${errorMessage(cause)}`
                     })
-                    if (failures.length > 0) setError(failures.join(' '))
+                    const uploadErrors = [...restrictionMessages, ...failures]
+                    setError(uploadErrors.length > 0 ? uploadErrors.join(' ') : null)
                 })
                 .catch(caughtError => setError(errorMessage(caughtError)))
                 .finally(() => controller.uppy.removeFiles(files.map(file => file.id)))
@@ -1388,6 +1429,38 @@ function mediaSelectionFor(asset: MediaReference): MediaSelection {
               assetId: asset.asset.id,
               accessibilityText: asset.asset.defaultAccessibilityText,
           }
+}
+
+function mediaRestrictionMessage(
+    file: HeraldMediaUppyFile | undefined,
+    policy: HeraldMediaUploadController['policy'],
+    locale: string
+) {
+    if (
+        file !== undefined &&
+        file.size !== null &&
+        policy.maxFileSize !== null &&
+        file.size > policy.maxFileSize
+    ) {
+        return m.media_upload_rejected_size({
+            filename: file.name,
+            size: formatBytes(policy.maxFileSize, locale),
+        })
+    }
+
+    if (file !== undefined) {
+        return m.media_upload_rejected_type({
+            filename: file.name,
+            types: policy.allowedContentTypes.map(mediaContentTypeLabel).join(' · '),
+        })
+    }
+
+    return m.media_upload_rejected()
+}
+
+function mediaContentTypeLabel(contentType: string) {
+    const subtype = contentType.split('/', 2)[1]
+    return subtype === undefined ? contentType : subtype.toUpperCase()
 }
 
 function errorMessage(error: unknown) {

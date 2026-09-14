@@ -134,6 +134,11 @@ const mediaListPageSchema = Type.Object({
     nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
 })
 
+const mediaUploadPolicySchema = Type.Object({
+    allowedContentTypes: Type.Array(Type.String({ minLength: 1 })),
+    maxFileSize: Type.Integer({ minimum: 1 }),
+})
+
 const mediaReservationSchema = Type.Object({
     asset: mediaAssetSchema,
     representation: mediaRepresentationSchema,
@@ -214,6 +219,7 @@ export type MediaPendingResponse = Static<typeof pendingResponse>
 export type MediaFinalizeResponse = Static<typeof finalizedResponse>
 export type MediaDeletionResponse = Static<typeof deletionResponse>
 export type MediaAssetUsageResponse = Static<typeof mediaUsageSchema>
+export type MediaUploadPolicyResponse = Static<typeof mediaUploadPolicySchema>
 
 export function registerMediaRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -393,6 +399,37 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     })
                 }
                 return { status: result.kind, media: mediaResponse }
+            }
+        )
+        .get(
+            '/api/projects/:projectId/media/upload-policy',
+            {
+                auth: true,
+                params: mediaProjectParams,
+                response: {
+                    200: mediaUploadPolicySchema,
+                    401: errorResponse,
+                    404: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'getProjectMediaUploadPolicy',
+                    summary: 'Describe the project media upload policy',
+                    tags: ['Media'],
+                },
+            },
+            ({ params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
+                const policy = media.getUploadPolicy(params.projectId, user.id)
+                if (policy === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                return {
+                    allowedContentTypes: [...policy.allowedContentTypes],
+                    maxFileSize: policy.maxFileSize,
+                }
             }
         )
         .get(

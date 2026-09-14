@@ -23,6 +23,7 @@
         "@dicebear/core": "10.7.0",
         "@dicebear/styles": "10.6.0",
         "@herald/client": "workspace:*",
+        "@herald/core": "workspace:*",
         "@herald/ui": "workspace:*",
         "@iconify-icons/logos": "2.0.1",
         "@iconify/react": "6.0.2",

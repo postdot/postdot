@@ -126,6 +126,17 @@ describe('media HTTP routes', () => {
             expect(projectResponse.status).toBe(201)
             const projectBody = (await projectResponse.json()) as { project: { id: string } }
 
+            const uploadPolicyResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/upload-policy`,
+                cookie
+            )
+            expect(uploadPolicyResponse.status).toBe(200)
+            expect(await uploadPolicyResponse.json()).toEqual({
+                allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
+                maxFileSize: 2_000_000,
+            })
+
             const bytes = createPng()
             const reserveResponse = await jsonRequest(
                 app,
