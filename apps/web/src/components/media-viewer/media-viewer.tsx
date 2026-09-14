@@ -14,7 +14,7 @@ import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
 import { FullScreenIcon } from '@solar-icons/react/linear/full-screen'
 import { QuitFullScreenIcon } from '@solar-icons/react/linear/quit-full-screen'
 import { AnimatePresence, motion, type PanInfo, useReducedMotion, wrap } from 'motion/react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FullScreen, useFullScreenHandle } from 'react-full-screen'
 
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
@@ -23,10 +23,25 @@ import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 import { MediaViewerThumbnails } from './media-viewer-thumbnails'
-import { MediaViewerZoomableImage } from './media-viewer-zoomable-image'
+import {
+    MediaViewerZoomControls,
+    MediaViewerZoomableImage,
+    type MediaViewerZoomControlsHandle,
+    type MediaViewerZoomStatus,
+} from './media-viewer-zoomable-image'
 import { useMediaViewerKeyboard } from './use-media-viewer-keyboard'
 
 const swipeConfidenceThreshold = 10_000
+
+const defaultZoomStatus: MediaViewerZoomStatus = {
+    panEdges: {
+        bottom: false,
+        left: false,
+        right: false,
+        top: false,
+    },
+    scalePercent: 100,
+}
 
 const imageVariants = {
     enter: (direction: number) => ({
@@ -72,7 +87,8 @@ export function MediaViewer({
     const fullScreenHandle = useFullScreenHandle()
     const reduceMotion = useReducedMotion()
     const [direction, setDirection] = useState<1 | -1>(1)
-    const [isZoomed, setIsZoomed] = useState(false)
+    const zoomControlsRef = useRef<MediaViewerZoomControlsHandle>(null)
+    const [zoomStatus, setZoomStatus] = useState<MediaViewerZoomStatus>(defaultZoomStatus)
     const gallery = useMemo(() => {
         if (asset === null) return []
         const next = assets.length > 0 ? [...assets] : [asset]
@@ -92,11 +108,22 @@ export function MediaViewer({
     }, [fullScreenHandle, open])
 
     useEffect(() => {
-        setIsZoomed(false)
+        setZoomStatus(defaultZoomStatus)
     }, [currentAsset?.asset.id])
 
-    const handleZoomedChange = useCallback((zoomed: boolean) => {
-        setIsZoomed(current => (current === zoomed ? current : zoomed))
+    const handleZoomStatusChange = useCallback((status: MediaViewerZoomStatus) => {
+        setZoomStatus(current => {
+            if (
+                current.scalePercent === status.scalePercent &&
+                current.panEdges.bottom === status.panEdges.bottom &&
+                current.panEdges.left === status.panEdges.left &&
+                current.panEdges.right === status.panEdges.right &&
+                current.panEdges.top === status.panEdges.top
+            ) {
+                return current
+            }
+            return status
+        })
     }, [])
 
     const move = useCallback(
@@ -145,6 +172,7 @@ export function MediaViewer({
         current: assetIndex + 1,
         total: gallery.length,
     })
+    const isZoomed = zoomStatus.scalePercent > 100
 
     function handleOpenChange(nextOpen: boolean) {
         if (!nextOpen && fullScreenHandle.active) void fullScreenHandle.exit()
@@ -198,6 +226,14 @@ export function MediaViewer({
                             </DialogDescription>
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
+                            {image ? (
+                                <MediaViewerZoomControls
+                                    scalePercent={zoomStatus.scalePercent}
+                                    onReset={() => void zoomControlsRef.current?.reset()}
+                                    onZoomIn={() => void zoomControlsRef.current?.zoomIn()}
+                                    onZoomOut={() => void zoomControlsRef.current?.zoomOut()}
+                                />
+                            ) : null}
                             <Button
                                 type="button"
                                 variant="secondary"
@@ -236,7 +272,7 @@ export function MediaViewer({
                     </DialogHeader>
 
                     <main className="flex min-h-0 flex-1 flex-col">
-                        <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
+                        <div className="group/media-stage relative min-h-0 flex-1 overflow-hidden bg-background">
                             <AnimatePresence initial={false} custom={direction} mode="sync">
                                 <motion.div
                                     key={currentAsset.asset.id}
@@ -253,6 +289,7 @@ export function MediaViewer({
                                     className="absolute inset-0 z-10 flex touch-pan-y items-center justify-center py-2 sm:py-4">
                                     {image ? (
                                         <MediaViewerZoomableImage
+                                            ref={zoomControlsRef}
                                             src={api.mediaContentUrl(
                                                 currentAsset.asset.projectId,
                                                 currentAsset.asset.id
@@ -262,7 +299,7 @@ export function MediaViewer({
                                                 currentAsset.asset.originalFilename
                                             }
                                             reduceMotion={reduceMotion}
-                                            onZoomedChange={handleZoomedChange}
+                                            onZoomStatusChange={handleZoomStatusChange}
                                         />
                                     ) : (
                                         <MediaPreview
@@ -277,7 +314,7 @@ export function MediaViewer({
 
                             {hasNavigation ? (
                                 <>
-                                    <div className="pointer-events-none absolute inset-y-0 left-3 z-20 flex items-center">
+                                    <div className="pointer-events-none absolute inset-y-0 left-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100">
                                         <Button
                                             type="button"
                                             variant="secondary"
@@ -289,7 +326,7 @@ export function MediaViewer({
                                             <AltArrowLeftIcon aria-hidden="true" />
                                         </Button>
                                     </div>
-                                    <div className="pointer-events-none absolute inset-y-0 right-3 z-20 flex items-center">
+                                    <div className="pointer-events-none absolute inset-y-0 right-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100">
                                         <Button
                                             type="button"
                                             variant="secondary"

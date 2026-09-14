@@ -174,13 +174,13 @@ export function MediaViewerThumbnails({
     }
 
     return (
-        <div className="shrink-0 bg-surface-inset/95 px-3 pt-2 pb-3 backdrop-blur-md sm:px-5">
+        <div className="h-[6.25rem] shrink-0 bg-surface-inset/95 px-3 pt-2 pb-3 backdrop-blur-md sm:px-5">
             <div
                 ref={viewportRef}
                 role="group"
                 aria-label={m.media_viewer_thumbnails()}
                 data-media-viewer-thumbnails="true"
-                className="touch-pan-y overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="h-20 touch-pan-y overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={finishPointerDrag}
@@ -199,18 +199,19 @@ export function MediaViewerThumbnails({
                               : 'default',
                         x: trackX,
                     }}
-                    className="mx-auto flex w-max shrink-0 items-end gap-2 py-1">
+                    className="mx-auto flex h-20 w-max shrink-0 items-end gap-2">
                     {assets.map((asset, index) => (
-                        <DockThumbnail
-                            key={asset.asset.id}
-                            asset={asset}
-                            active={index === activeIndex}
-                            activeRef={index === activeIndex ? activeThumbRef : undefined}
-                            mouseX={mouseX}
-                            reduceMotion={reduceMotion}
-                            suppressClickRef={suppressClickRef}
-                            onAssetChange={onAssetChange}
-                        />
+                        <div key={asset.asset.id} className="relative size-20 shrink-0">
+                            <DockThumbnail
+                                asset={asset}
+                                active={index === activeIndex}
+                                activeRef={index === activeIndex ? activeThumbRef : undefined}
+                                mouseX={mouseX}
+                                reduceMotion={reduceMotion}
+                                suppressClickRef={suppressClickRef}
+                                onAssetChange={onAssetChange}
+                            />
+                        </div>
                     ))}
                 </motion.div>
             </div>
@@ -260,7 +261,7 @@ function DockThumbnail({
             data-media-viewer-thumbnail="true"
             style={{ height: size, width: size }}
             whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-            className={`relative shrink-0 overflow-hidden rounded-md bg-surface-raised p-0 shadow-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'z-10' : 'opacity-75 hover:opacity-100'}`}
+            className={`relative origin-bottom overflow-hidden rounded-md bg-surface-raised p-0 shadow-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'z-10' : 'opacity-75 hover:opacity-100'}`}
             onClick={event => {
                 if (suppressClickRef.current) {
                     event.preventDefault()

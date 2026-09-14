@@ -499,6 +499,17 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(mediaLibraryViewer.getByText('150%', { exact: true })).toBeVisible()
     await mediaViewerZoomReset.click()
     await expect(mediaViewerZoomReset).toBeDisabled()
+    const viewerImage = mediaLibraryViewer.locator('main img').first()
+    const viewerImageBounds = await viewerImage.boundingBox()
+    expect(viewerImageBounds).not.toBeNull()
+    await page.mouse.move(
+        (viewerImageBounds?.x ?? 0) + (viewerImageBounds?.width ?? 0) / 2,
+        (viewerImageBounds?.y ?? 0) + (viewerImageBounds?.height ?? 0) / 2
+    )
+    await page.mouse.wheel(0, -100)
+    await expect(mediaLibraryViewer.getByText('115%', { exact: true })).toBeVisible()
+    await mediaViewerZoomReset.click()
+    await expect(mediaViewerZoomReset).toBeDisabled()
     const viewerThumbnailViewport = mediaLibraryViewer.locator('[data-media-viewer-thumbnails]')
     const viewerThumbnailTrack = mediaLibraryViewer.locator(
         '[data-media-viewer-thumbnail-track="true"]'
