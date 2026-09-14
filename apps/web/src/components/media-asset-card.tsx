@@ -133,32 +133,42 @@ export function MediaAssetCard({
                     </button>
                 )}
                 {actionSelectionEnabled ? (
-                    <button
-                        type="button"
-                        aria-label={
-                            actionSelected
-                                ? m.media_bulk_deselect_asset({
-                                      filename: asset.asset.originalFilename,
-                                  })
-                                : m.media_bulk_select_asset({
-                                      filename: asset.asset.originalFilename,
-                                  })
-                        }
-                        aria-pressed={actionSelected}
-                        data-media-bulk-selection-toggle="true"
-                        disabled={
-                            interactionDisabled ||
-                            asset.asset.state !== 'ready' ||
-                            onActionSelectionToggle === undefined
-                        }
-                        onClick={() => onActionSelectionToggle?.(asset)}
-                        className={`flex min-w-0 flex-1 cursor-pointer gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
-                        <AssetDetails
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                        <button
+                            type="button"
+                            aria-label={
+                                actionSelected
+                                    ? m.media_bulk_deselect_asset({
+                                          filename: asset.asset.originalFilename,
+                                      })
+                                    : m.media_bulk_select_asset({
+                                          filename: asset.asset.originalFilename,
+                                      })
+                            }
+                            aria-pressed={actionSelected}
+                            data-media-bulk-selection-toggle="true"
+                            disabled={
+                                interactionDisabled ||
+                                asset.asset.state !== 'ready' ||
+                                onActionSelectionToggle === undefined
+                            }
+                            onClick={() => onActionSelectionToggle?.(asset)}
+                            className={`flex min-w-0 flex-1 cursor-pointer gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
+                            <AssetDetails
+                                asset={asset}
+                                locale={locale}
+                                representation={representation}
+                            />
+                        </button>
+                        <MediaAssetActions
                             asset={asset}
-                            locale={locale}
+                            interactionDisabled={interactionDisabled}
+                            onEdit={onEdit}
+                            onOpen={onOpen}
+                            onRequestDelete={onRequestDelete}
                             representation={representation}
                         />
-                    </button>
+                    </div>
                 ) : selectable ? (
                     <button
                         type="button"
@@ -184,82 +194,25 @@ export function MediaAssetCard({
                         )}
                     </button>
                 ) : (
-                    <div className="min-w-0 flex-1">
-                        <AssetDetails
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                            <AssetDetails
+                                asset={asset}
+                                locale={locale}
+                                representation={representation}
+                            />
+                        </div>
+                        <MediaAssetActions
                             asset={asset}
-                            locale={locale}
+                            interactionDisabled={interactionDisabled}
+                            onEdit={onEdit}
+                            onOpen={onOpen}
+                            onRequestDelete={onRequestDelete}
                             representation={representation}
                         />
                     </div>
                 )}
             </div>
-            {onOpen !== undefined || onEdit !== undefined || onRequestDelete !== undefined ? (
-                <div className="pointer-events-auto absolute top-1 right-1 z-10">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger
-                            render={
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="icon-sm"
-                                    disabled={interactionDisabled}
-                                    data-media-asset-actions="true"
-                                    aria-label={m.media_asset_actions({
-                                        filename: asset.asset.originalFilename,
-                                    })}
-                                    className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised">
-                                    <MenuDotsIcon aria-hidden="true" />
-                                </Button>
-                            }
-                        />
-                        <DropdownMenuContent align="end" className="min-w-44">
-                            {onOpen !== undefined ? (
-                                <DropdownMenuItem
-                                    data-media-asset-action="open"
-                                    disabled={
-                                        interactionDisabled ||
-                                        asset.asset.state !== 'ready' ||
-                                        representation === undefined
-                                    }
-                                    onClick={() => onOpen(asset)}>
-                                    <FolderOpenIcon aria-hidden="true" />
-                                    {m.media_open_action()}
-                                </DropdownMenuItem>
-                            ) : null}
-                            {onEdit !== undefined ? (
-                                <DropdownMenuItem
-                                    data-media-asset-action="edit"
-                                    disabled={
-                                        interactionDisabled ||
-                                        asset.asset.state !== 'ready' ||
-                                        representation?.family !== 'image'
-                                    }
-                                    onClick={() => onEdit(asset)}>
-                                    <GalleryEditIcon aria-hidden="true" />
-                                    {m.media_edit_image()}
-                                </DropdownMenuItem>
-                            ) : null}
-                            {onRequestDelete !== undefined ? (
-                                <>
-                                    {onOpen !== undefined || onEdit !== undefined ? (
-                                        <DropdownMenuSeparator />
-                                    ) : null}
-                                    <DropdownMenuItem
-                                        data-media-asset-action="delete"
-                                        variant="destructive"
-                                        disabled={
-                                            interactionDisabled || asset.asset.state !== 'ready'
-                                        }
-                                        onClick={() => onRequestDelete(asset)}>
-                                        <TrashBinMinimalisticIcon aria-hidden="true" />
-                                        {m.media_delete_confirm()}
-                                    </DropdownMenuItem>
-                                </>
-                            ) : null}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-            ) : null}
             {selectable && selected !== undefined ? (
                 <Field className="mt-3 gap-1">
                     <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>
@@ -278,6 +231,90 @@ export function MediaAssetCard({
                 </Field>
             ) : null}
         </article>
+    )
+}
+
+function MediaAssetActions({
+    asset,
+    interactionDisabled,
+    onEdit,
+    onOpen,
+    onRequestDelete,
+    representation,
+}: {
+    readonly asset: MediaReference
+    readonly interactionDisabled: boolean
+    readonly onEdit?: (asset: MediaReference) => void
+    readonly onOpen?: (asset: MediaReference) => void
+    readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly representation: ReturnType<typeof readyRepresentation>
+}) {
+    if (onOpen === undefined && onEdit === undefined && onRequestDelete === undefined) return null
+
+    return (
+        <div className="shrink-0">
+            <DropdownMenu>
+                <DropdownMenuTrigger
+                    render={
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={interactionDisabled}
+                            data-media-asset-actions="true"
+                            aria-label={m.media_asset_actions({
+                                filename: asset.asset.originalFilename,
+                            })}
+                            className="text-muted-foreground hover:bg-surface-raised hover:text-foreground">
+                            <MenuDotsIcon aria-hidden="true" />
+                        </Button>
+                    }
+                />
+                <DropdownMenuContent align="end" className="min-w-44">
+                    {onOpen !== undefined ? (
+                        <DropdownMenuItem
+                            data-media-asset-action="open"
+                            disabled={
+                                interactionDisabled ||
+                                asset.asset.state !== 'ready' ||
+                                representation === undefined
+                            }
+                            onClick={() => onOpen(asset)}>
+                            <FolderOpenIcon aria-hidden="true" />
+                            {m.media_open_action()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {onEdit !== undefined ? (
+                        <DropdownMenuItem
+                            data-media-asset-action="edit"
+                            disabled={
+                                interactionDisabled ||
+                                asset.asset.state !== 'ready' ||
+                                representation?.family !== 'image'
+                            }
+                            onClick={() => onEdit(asset)}>
+                            <GalleryEditIcon aria-hidden="true" />
+                            {m.media_edit_image()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {onRequestDelete !== undefined ? (
+                        <>
+                            {onOpen !== undefined || onEdit !== undefined ? (
+                                <DropdownMenuSeparator />
+                            ) : null}
+                            <DropdownMenuItem
+                                data-media-asset-action="delete"
+                                variant="destructive"
+                                disabled={interactionDisabled || asset.asset.state !== 'ready'}
+                                onClick={() => onRequestDelete(asset)}>
+                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                {m.media_delete_confirm()}
+                            </DropdownMenuItem>
+                        </>
+                    ) : null}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
     )
 }
 
