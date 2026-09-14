@@ -484,6 +484,8 @@
     "media_viewer_previous": "Previous media",
     "media_viewer_next": "Next media",
     "media_viewer_thumbnails": "Media thumbnails",
+    "media_viewer_fullscreen": "Enter fullscreen",
+    "media_viewer_exit_fullscreen": "Exit fullscreen",
     "media_usage_checking": "Checking usage…",
     "media_usage_unavailable": "Usage unavailable",
     "media_usage_source": "Present in source content",

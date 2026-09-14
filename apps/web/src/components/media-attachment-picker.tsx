@@ -65,9 +65,9 @@ const MediaImageEditorDialog = lazy(async () => {
     const module = await import('@/components/media-image-editor-dialog')
     return { default: module.MediaImageEditorDialog }
 })
-const MediaImageViewerDialog = lazy(async () => {
-    const module = await import('@/components/media-image-editor-dialog')
-    return { default: module.MediaImageViewerDialog }
+const MediaViewer = lazy(async () => {
+    const module = await import('@/components/media-viewer')
+    return { default: module.MediaViewer }
 })
 
 export type { MediaSelection } from '@/lib/target-media'
@@ -1130,7 +1130,7 @@ function MediaAttachmentPickerView({
                 </Dialog>
             ) : null}
             <Suspense fallback={null}>
-                <MediaImageViewerDialog
+                <MediaViewer
                     assets={viewerAssets}
                     asset={viewerAsset}
                     allowDelete={manageOnly}

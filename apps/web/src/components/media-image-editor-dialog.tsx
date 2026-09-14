@@ -7,17 +7,14 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
-import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CameraRotateIcon } from '@solar-icons/react/bold/camera-rotate'
 import { CropMinimalisticIcon } from '@solar-icons/react/bold/crop-minimalistic'
 import { GalleryEditIcon } from '@solar-icons/react/bold/gallery-edit'
 import { RefreshCircleIcon } from '@solar-icons/react/bold/refresh-circle'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 import { useEffect, useMemo, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 
-import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
+import { readyRepresentation } from '@/components/media-asset-card'
 import { api, type MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -25,191 +22,6 @@ import * as m from '@/paraglide/messages.js'
 import 'react-easy-crop/react-easy-crop.css'
 
 type EditorAspect = 'source' | 'square' | 'portrait' | 'landscape'
-
-interface MediaImageViewerDialogProps {
-    readonly assets?: readonly MediaReference[]
-    readonly asset: MediaReference | null
-    readonly allowDelete?: boolean
-    readonly open: boolean
-    readonly onAssetChange: (asset: MediaReference) => void
-    readonly onOpenChange: (open: boolean) => void
-    readonly onEdit: (asset: MediaReference) => void
-    readonly onRequestDelete?: (asset: MediaReference) => void
-}
-
-export function MediaImageViewerDialog({
-    assets = [],
-    asset,
-    allowDelete = false,
-    open,
-    onAssetChange,
-    onOpenChange,
-    onEdit,
-    onRequestDelete,
-}: MediaImageViewerDialogProps) {
-    useLanguage()
-
-    const gallery = useMemo(() => {
-        if (asset === null) return []
-        const next = assets.length > 0 ? [...assets] : [asset]
-        if (!next.some(candidate => candidate.asset.id === asset.asset.id)) next.unshift(asset)
-        return next
-    }, [asset, assets])
-    const assetIndex = Math.max(
-        0,
-        gallery.findIndex(candidate => candidate.asset.id === asset?.asset.id)
-    )
-    const currentAsset = gallery[assetIndex] ?? asset
-
-    if (currentAsset === null) return null
-
-    const representation = readyRepresentation(currentAsset)
-    const image = representation?.family === 'image'
-    const hasNavigation = gallery.length > 1
-    const hasPrevious = assetIndex > 0
-    const hasNext = assetIndex < gallery.length - 1
-
-    function move(offset: -1 | 1) {
-        const nextAsset = gallery[assetIndex + offset]
-        if (nextAsset !== undefined) onAssetChange(nextAsset)
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent
-                showCloseButton
-                data-media-viewer="true"
-                className="max-h-[calc(100vh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-6xl">
-                <DialogHeader className="border-b border-border/60 px-4 py-3 sm:px-6 sm:py-4">
-                    <div className="flex min-w-0 items-baseline gap-3 pr-8">
-                        <DialogTitle className="min-w-0 truncate">
-                            {currentAsset.asset.originalFilename}
-                        </DialogTitle>
-                        {hasNavigation ? (
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                                {m.media_viewer_position({
-                                    current: assetIndex + 1,
-                                    total: gallery.length,
-                                })}
-                            </span>
-                        ) : null}
-                    </div>
-                    <DialogDescription className="sr-only">
-                        {m.media_viewer_description()}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid min-h-0 gap-3 bg-surface-canvas p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4 sm:p-5">
-                    <div className="min-w-0">
-                        <div className="flex min-h-64 items-center justify-center overflow-hidden rounded-md bg-background">
-                            {image ? (
-                                <img
-                                    src={api.mediaContentUrl(
-                                        currentAsset.asset.projectId,
-                                        currentAsset.asset.id
-                                    )}
-                                    alt={
-                                        currentAsset.asset.defaultAccessibilityText ??
-                                        currentAsset.asset.originalFilename
-                                    }
-                                    className="max-h-[min(62vh,42rem)] max-w-full object-contain"
-                                />
-                            ) : (
-                                <MediaPreview
-                                    projectId={currentAsset.asset.projectId}
-                                    asset={currentAsset}
-                                    representation={representation}
-                                    className="flex size-48 items-center justify-center bg-surface-field text-sm font-medium uppercase text-muted-foreground"
-                                />
-                            )}
-                        </div>
-                        {hasNavigation ? (
-                            <div className="mt-3 flex items-center justify-between gap-3">
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="icon-lg"
-                                    disabled={!hasPrevious}
-                                    aria-label={m.media_viewer_previous()}
-                                    data-media-viewer-previous="true"
-                                    className="shadow-control"
-                                    onClick={() => move(-1)}>
-                                    <AltArrowLeftIcon aria-hidden="true" />
-                                </Button>
-                                <span className="text-xs text-muted-foreground">
-                                    {m.media_viewer_position({
-                                        current: assetIndex + 1,
-                                        total: gallery.length,
-                                    })}
-                                </span>
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="icon-lg"
-                                    disabled={!hasNext}
-                                    aria-label={m.media_viewer_next()}
-                                    data-media-viewer-next="true"
-                                    className="shadow-control"
-                                    onClick={() => move(1)}>
-                                    <AltArrowRightIcon aria-hidden="true" />
-                                </Button>
-                            </div>
-                        ) : null}
-                    </div>
-                    {hasNavigation ? (
-                        <div
-                            aria-label={m.media_viewer_thumbnails()}
-                            data-media-viewer-thumbnails="true"
-                            className="flex max-h-24 min-w-0 gap-2 overflow-x-auto sm:max-h-[min(62vh,42rem)] sm:w-20 sm:flex-col sm:overflow-x-hidden sm:overflow-y-auto">
-                            {gallery.map(candidate => {
-                                const candidateRepresentation = readyRepresentation(candidate)
-                                const isCurrent = candidate.asset.id === currentAsset.asset.id
-                                return (
-                                    <button
-                                        key={candidate.asset.id}
-                                        type="button"
-                                        aria-label={m.media_open_asset({
-                                            filename: candidate.asset.originalFilename,
-                                        })}
-                                        aria-current={isCurrent ? 'true' : undefined}
-                                        data-media-viewer-thumbnail="true"
-                                        className={`size-16 shrink-0 overflow-hidden rounded-md bg-surface-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:size-20 ${isCurrent ? 'ring-2 ring-primary' : 'opacity-70 hover:opacity-100'}`}
-                                        onClick={() => onAssetChange(candidate)}>
-                                        <MediaPreview
-                                            projectId={candidate.asset.projectId}
-                                            asset={candidate}
-                                            representation={candidateRepresentation}
-                                            className="size-full rounded-md object-cover"
-                                        />
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    ) : null}
-                </div>
-                <div className="flex justify-end border-t border-border/60 bg-muted px-4 py-3 sm:px-6">
-                    <div className="flex shrink-0 justify-end gap-1">
-                        {allowDelete ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="text-state-failed hover:bg-state-failed/10 hover:text-state-failed"
-                                onClick={() => onRequestDelete?.(currentAsset)}>
-                                <TrashBinMinimalisticIcon aria-hidden="true" />
-                                {m.media_delete_confirm()}
-                            </Button>
-                        ) : null}
-                        {image ? (
-                            <Button type="button" onClick={() => onEdit(currentAsset)}>
-                                <GalleryEditIcon aria-hidden="true" />
-                                {m.media_edit_image()}
-                            </Button>
-                        ) : null}
-                    </div>
-                </div>
-            </DialogContent>
-        </Dialog>
-    )
-}
 
 interface MediaImageEditorDialogProps {
     readonly asset: MediaReference | null

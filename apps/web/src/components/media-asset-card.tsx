@@ -2,7 +2,6 @@ import { Button } from '@herald/ui/components/button'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
-import { FolderOpenIcon } from '@solar-icons/react/bold/folder-open'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 
 import { api, type MediaReference } from '@/lib/api'
@@ -180,46 +179,22 @@ export function MediaAssetCard({
                     </div>
                 )}
             </div>
-            {onOpen !== undefined || onRequestDelete !== undefined ? (
+            {onRequestDelete !== undefined ? (
                 <div className="absolute top-1 right-1 z-10 flex gap-1 pointer-events-auto opacity-100 transition-opacity sm:pointer-events-none sm:opacity-0 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
-                    {onOpen !== undefined ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            disabled={
-                                interactionDisabled ||
-                                asset.asset.state !== 'ready' ||
-                                representation === undefined
-                            }
-                            data-media-open-trigger="true"
-                            aria-label={m.media_open_asset({
-                                filename: asset.asset.originalFilename,
-                            })}
-                            title={m.media_open_asset({
-                                filename: asset.asset.originalFilename,
-                            })}
-                            className="pointer-events-auto text-muted-foreground hover:bg-muted hover:text-foreground"
-                            onClick={() => onOpen(asset)}>
-                            <FolderOpenIcon aria-hidden="true" />
-                        </Button>
-                    ) : null}
-                    {onRequestDelete !== undefined ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            disabled={interactionDisabled}
-                            data-media-delete-trigger="true"
-                            aria-label={m.media_delete_asset({
-                                filename: asset.asset.originalFilename,
-                            })}
-                            title={m.media_delete_asset({ filename: asset.asset.originalFilename })}
-                            className="pointer-events-auto text-state-failed hover:bg-state-failed/10 hover:text-state-failed"
-                            onClick={() => onRequestDelete(asset)}>
-                            <TrashBinMinimalisticIcon aria-hidden="true" />
-                        </Button>
-                    ) : null}
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={interactionDisabled}
+                        data-media-delete-trigger="true"
+                        aria-label={m.media_delete_asset({
+                            filename: asset.asset.originalFilename,
+                        })}
+                        title={m.media_delete_asset({ filename: asset.asset.originalFilename })}
+                        className="pointer-events-auto text-state-failed hover:bg-state-failed/10 hover:text-state-failed"
+                        onClick={() => onRequestDelete(asset)}>
+                        <TrashBinMinimalisticIcon aria-hidden="true" />
+                    </Button>
                 </div>
             ) : null}
             {selectable && selected !== undefined ? (

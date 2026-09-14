@@ -474,8 +474,12 @@ test('persists mixed and media-only publications through the dashboard', async (
     const droppedMediaCard = page
         .locator('[data-media-bulk-selection-card="true"]')
         .filter({ hasText: droppedMediaFilename })
+    await expect(droppedMediaCard.locator('[data-media-open-trigger="true"]')).toHaveCount(0)
     await droppedMediaCard.click({ position: { x: 2, y: 2 } })
     await expect(mediaLibraryViewer).toBeVisible()
+    await expect(
+        mediaLibraryViewer.getByRole('button', { name: 'Enter fullscreen', exact: true })
+    ).toBeVisible()
     await expect(
         mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
     ).toBeEnabled()
@@ -512,7 +516,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
     ).toBeEnabled()
     await mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true }).click()
-    await expect(mediaLibraryViewer.getByText('2 of 2', { exact: true })).toHaveCount(2)
+    await expect(mediaLibraryViewer.getByText('2 of 2', { exact: true })).toHaveCount(1)
     await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(mediaLibraryViewer).toHaveCount(0)
     await mediaBulkActionBar.getByRole('button', { name: 'Delete (2)', exact: true }).click()

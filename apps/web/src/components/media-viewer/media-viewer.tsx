@@ -1,0 +1,333 @@
+import { Button } from '@herald/ui/components/button'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@herald/ui/components/dialog'
+import { CloseIcon } from '@solar-icons/react/bold/close'
+import { GalleryEditIcon } from '@solar-icons/react/bold/gallery-edit'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
+import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
+import { FullScreenIcon } from '@solar-icons/react/linear/full-screen'
+import { QuitFullScreenIcon } from '@solar-icons/react/linear/quit-full-screen'
+import { AnimatePresence, motion, type PanInfo, useReducedMotion, wrap } from 'motion/react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { FullScreen, useFullScreenHandle } from 'react-full-screen'
+
+import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
+import { api, type MediaReference } from '@/lib/api'
+import { useLanguage } from '@/lib/i18n'
+import * as m from '@/paraglide/messages.js'
+
+import { MediaViewerThumbnails } from './media-viewer-thumbnails'
+import { useMediaViewerKeyboard } from './use-media-viewer-keyboard'
+
+const swipeConfidenceThreshold = 10_000
+
+const imageVariants = {
+    enter: (direction: number) => ({
+        x: direction > 0 ? '100%' : '-100%',
+        opacity: 0,
+        scale: 0.96,
+    }),
+    center: {
+        x: 0,
+        opacity: 1,
+        scale: 1,
+    },
+    exit: (direction: number) => ({
+        x: direction > 0 ? '-100%' : '100%',
+        opacity: 0,
+        scale: 0.96,
+    }),
+}
+
+export interface MediaViewerProps {
+    readonly assets?: readonly MediaReference[]
+    readonly asset: MediaReference | null
+    readonly allowDelete?: boolean
+    readonly open: boolean
+    readonly onAssetChange: (asset: MediaReference) => void
+    readonly onOpenChange: (open: boolean) => void
+    readonly onEdit: (asset: MediaReference) => void
+    readonly onRequestDelete?: (asset: MediaReference) => void
+}
+
+export function MediaViewer({
+    assets = [],
+    asset,
+    allowDelete = false,
+    open,
+    onAssetChange,
+    onOpenChange,
+    onEdit,
+    onRequestDelete,
+}: MediaViewerProps) {
+    useLanguage()
+
+    const fullScreenHandle = useFullScreenHandle()
+    const reduceMotion = useReducedMotion()
+    const [direction, setDirection] = useState<1 | -1>(1)
+    const gallery = useMemo(() => {
+        if (asset === null) return []
+        const next = assets.length > 0 ? [...assets] : [asset]
+        if (!next.some(candidate => candidate.asset.id === asset.asset.id)) next.unshift(asset)
+        return next
+    }, [asset, assets])
+    const assetIndex = Math.max(
+        0,
+        gallery.findIndex(candidate => candidate.asset.id === asset?.asset.id)
+    )
+    const currentAsset = gallery[assetIndex] ?? asset
+    const hasNavigation = gallery.length > 1
+
+    useEffect(() => {
+        if (!open && fullScreenHandle.active) void fullScreenHandle.exit()
+        if (!open) setDirection(1)
+    }, [fullScreenHandle, open])
+
+    const move = useCallback(
+        (offset: -1 | 1) => {
+            if (!hasNavigation) return
+            const nextIndex = wrap(0, gallery.length, assetIndex + offset)
+            const nextAsset = gallery[nextIndex]
+            if (nextAsset === undefined) return
+            setDirection(offset)
+            onAssetChange(nextAsset)
+        },
+        [assetIndex, gallery, hasNavigation, onAssetChange]
+    )
+
+    const selectAsset = useCallback(
+        (nextAsset: MediaReference) => {
+            const nextIndex = gallery.findIndex(
+                candidate => candidate.asset.id === nextAsset.asset.id
+            )
+            if (nextIndex < 0 || nextIndex === assetIndex) return
+            setDirection(nextIndex > assetIndex ? 1 : -1)
+            onAssetChange(nextAsset)
+        },
+        [assetIndex, gallery, onAssetChange]
+    )
+
+    useMediaViewerKeyboard(
+        open && hasNavigation,
+        () => move(-1),
+        () => move(1)
+    )
+
+    if (currentAsset === null) return null
+
+    const viewerAsset = currentAsset
+    const representation = readyRepresentation(viewerAsset)
+    const image = representation?.family === 'image'
+    const imageTransition = reduceMotion
+        ? { duration: 0 }
+        : {
+              x: { type: 'spring' as const, stiffness: 260, damping: 30 },
+              opacity: { duration: 0.2 },
+              scale: { duration: 0.25 },
+          }
+    const position = m.media_viewer_position({
+        current: assetIndex + 1,
+        total: gallery.length,
+    })
+
+    function handleOpenChange(nextOpen: boolean) {
+        if (!nextOpen && fullScreenHandle.active) void fullScreenHandle.exit()
+        onOpenChange(nextOpen)
+    }
+
+    function handleFullscreenToggle() {
+        void (fullScreenHandle.active ? fullScreenHandle.exit() : fullScreenHandle.enter())
+    }
+
+    function handleEdit() {
+        if (fullScreenHandle.active) void fullScreenHandle.exit()
+        onEdit(viewerAsset)
+    }
+
+    function handleDelete() {
+        if (fullScreenHandle.active) void fullScreenHandle.exit()
+        onRequestDelete?.(viewerAsset)
+    }
+
+    function handleDragEnd(_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) {
+        if (!hasNavigation) return
+        const swipe = Math.abs(info.offset.x) * Math.abs(info.velocity.x)
+        if (swipe < swipeConfidenceThreshold) return
+        move(info.offset.x < 0 ? 1 : -1)
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent
+                showCloseButton={false}
+                data-media-viewer="true"
+                className="flex h-[calc(100vh-1rem)] max-h-[calc(100vh-1rem)] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[min(82vh,52rem)] sm:max-h-[min(82vh,52rem)] sm:w-full sm:max-w-6xl">
+                <FullScreen
+                    handle={fullScreenHandle}
+                    className={`flex min-h-0 w-full flex-1 flex-col ${fullScreenHandle.active ? 'bg-background' : 'bg-surface-canvas'}`}>
+                    <DialogHeader className="flex shrink-0 flex-row items-center gap-3 border-b border-border/60 bg-surface-inset px-4 py-3 sm:px-5">
+                        <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 items-baseline gap-3 pr-2">
+                                <DialogTitle className="min-w-0 truncate">
+                                    {currentAsset.asset.originalFilename}
+                                </DialogTitle>
+                                {hasNavigation ? (
+                                    <span className="shrink-0 text-xs text-muted-foreground">
+                                        {position}
+                                    </span>
+                                ) : null}
+                            </div>
+                            <DialogDescription className="sr-only">
+                                {m.media_viewer_description()}
+                            </DialogDescription>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="icon-sm"
+                                aria-label={
+                                    fullScreenHandle.active
+                                        ? m.media_viewer_exit_fullscreen()
+                                        : m.media_viewer_fullscreen()
+                                }
+                                data-media-viewer-fullscreen="true"
+                                title={
+                                    fullScreenHandle.active
+                                        ? m.media_viewer_exit_fullscreen()
+                                        : m.media_viewer_fullscreen()
+                                }
+                                onClick={handleFullscreenToggle}>
+                                {fullScreenHandle.active ? (
+                                    <QuitFullScreenIcon aria-hidden="true" />
+                                ) : (
+                                    <FullScreenIcon aria-hidden="true" />
+                                )}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="icon-sm"
+                                aria-label={m.common_close()}
+                                data-media-viewer-close="true"
+                                title={m.common_close()}
+                                onClick={() => handleOpenChange(false)}>
+                                <CloseIcon aria-hidden="true" />
+                            </Button>
+                        </div>
+                    </DialogHeader>
+
+                    <main className="flex min-h-0 flex-1 flex-col">
+                        <div className="relative min-h-0 flex-1 overflow-hidden bg-background">
+                            <AnimatePresence initial={false} custom={direction} mode="sync">
+                                <motion.div
+                                    key={currentAsset.asset.id}
+                                    custom={direction}
+                                    variants={imageVariants}
+                                    initial={reduceMotion ? false : 'enter'}
+                                    animate="center"
+                                    exit="exit"
+                                    transition={imageTransition}
+                                    drag={hasNavigation ? 'x' : false}
+                                    dragConstraints={{ left: 0, right: 0 }}
+                                    dragElastic={1}
+                                    onDragEnd={handleDragEnd}
+                                    className="absolute inset-0 z-10 flex touch-pan-y items-center justify-center px-10 py-4 sm:px-16 sm:py-6">
+                                    {image ? (
+                                        <img
+                                            src={api.mediaContentUrl(
+                                                currentAsset.asset.projectId,
+                                                currentAsset.asset.id
+                                            )}
+                                            alt={
+                                                currentAsset.asset.defaultAccessibilityText ??
+                                                currentAsset.asset.originalFilename
+                                            }
+                                            draggable={false}
+                                            loading="eager"
+                                            className="size-full max-h-full max-w-full object-contain"
+                                        />
+                                    ) : (
+                                        <MediaPreview
+                                            projectId={currentAsset.asset.projectId}
+                                            asset={currentAsset}
+                                            representation={representation}
+                                            className="flex size-48 items-center justify-center rounded-md bg-surface-field text-sm font-medium uppercase text-muted-foreground"
+                                        />
+                                    )}
+                                </motion.div>
+                            </AnimatePresence>
+
+                            {hasNavigation ? (
+                                <>
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 z-20 flex w-16 items-center justify-center sm:w-20">
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="icon-lg"
+                                            aria-label={m.media_viewer_previous()}
+                                            data-media-viewer-previous="true"
+                                            className="pointer-events-auto bg-surface-overlay shadow-control hover:bg-surface-raised"
+                                            onClick={() => move(-1)}>
+                                            <AltArrowLeftIcon aria-hidden="true" />
+                                        </Button>
+                                    </div>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex w-16 items-center justify-center sm:w-20">
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="icon-lg"
+                                            aria-label={m.media_viewer_next()}
+                                            data-media-viewer-next="true"
+                                            className="pointer-events-auto bg-surface-overlay shadow-control hover:bg-surface-raised"
+                                            onClick={() => move(1)}>
+                                            <AltArrowRightIcon aria-hidden="true" />
+                                        </Button>
+                                    </div>
+                                </>
+                            ) : null}
+                        </div>
+                        {hasNavigation ? (
+                            <MediaViewerThumbnails
+                                assets={gallery}
+                                activeIndex={assetIndex}
+                                onAssetChange={selectAsset}
+                            />
+                        ) : null}
+                    </main>
+
+                    {allowDelete || image ? (
+                        <footer className="flex shrink-0 justify-end gap-1 border-t border-border/60 bg-muted px-4 py-3 sm:px-5">
+                            {allowDelete ? (
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    data-media-viewer-delete="true"
+                                    onClick={handleDelete}>
+                                    <TrashBinMinimalisticIcon aria-hidden="true" />
+                                    {m.media_delete_confirm()}
+                                </Button>
+                            ) : null}
+                            {image ? (
+                                <Button
+                                    type="button"
+                                    variant="default"
+                                    data-media-viewer-edit="true"
+                                    onClick={handleEdit}>
+                                    <GalleryEditIcon aria-hidden="true" />
+                                    {m.media_edit_image()}
+                                </Button>
+                            ) : null}
+                        </footer>
+                    ) : null}
+                </FullScreen>
+            </DialogContent>
+        </Dialog>
+    )
+}
