@@ -23,6 +23,7 @@ import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 import { MediaViewerThumbnails } from './media-viewer-thumbnails'
+import { MediaViewerZoomableImage } from './media-viewer-zoomable-image'
 import { useMediaViewerKeyboard } from './use-media-viewer-keyboard'
 
 const swipeConfidenceThreshold = 10_000
@@ -71,6 +72,7 @@ export function MediaViewer({
     const fullScreenHandle = useFullScreenHandle()
     const reduceMotion = useReducedMotion()
     const [direction, setDirection] = useState<1 | -1>(1)
+    const [isZoomed, setIsZoomed] = useState(false)
     const gallery = useMemo(() => {
         if (asset === null) return []
         const next = assets.length > 0 ? [...assets] : [asset]
@@ -88,6 +90,14 @@ export function MediaViewer({
         if (!open && fullScreenHandle.active) void fullScreenHandle.exit()
         if (!open) setDirection(1)
     }, [fullScreenHandle, open])
+
+    useEffect(() => {
+        setIsZoomed(false)
+    }, [currentAsset?.asset.id])
+
+    const handleZoomedChange = useCallback((zoomed: boolean) => {
+        setIsZoomed(current => (current === zoomed ? current : zoomed))
+    }, [])
 
     const move = useCallback(
         (offset: -1 | 1) => {
@@ -203,6 +213,7 @@ export function MediaViewer({
                                         ? m.media_viewer_exit_fullscreen()
                                         : m.media_viewer_fullscreen()
                                 }
+                                className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
                                 onClick={handleFullscreenToggle}>
                                 {fullScreenHandle.active ? (
                                     <QuitFullScreenIcon aria-hidden="true" />
@@ -217,6 +228,7 @@ export function MediaViewer({
                                 aria-label={m.common_close()}
                                 data-media-viewer-close="true"
                                 title={m.common_close()}
+                                className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
                                 onClick={() => handleOpenChange(false)}>
                                 <CloseIcon aria-hidden="true" />
                             </Button>
@@ -234,13 +246,13 @@ export function MediaViewer({
                                     animate="center"
                                     exit="exit"
                                     transition={imageTransition}
-                                    drag={hasNavigation ? 'x' : false}
+                                    drag={hasNavigation && !isZoomed ? 'x' : false}
                                     dragConstraints={{ left: 0, right: 0 }}
                                     dragElastic={1}
                                     onDragEnd={handleDragEnd}
-                                    className="absolute inset-0 z-10 flex touch-pan-y items-center justify-center px-10 py-4 sm:px-16 sm:py-6">
+                                    className="absolute inset-0 z-10 flex touch-pan-y items-center justify-center py-2 sm:py-4">
                                     {image ? (
-                                        <img
+                                        <MediaViewerZoomableImage
                                             src={api.mediaContentUrl(
                                                 currentAsset.asset.projectId,
                                                 currentAsset.asset.id
@@ -249,9 +261,8 @@ export function MediaViewer({
                                                 currentAsset.asset.defaultAccessibilityText ??
                                                 currentAsset.asset.originalFilename
                                             }
-                                            draggable={false}
-                                            loading="eager"
-                                            className="size-full max-h-full max-w-full object-contain"
+                                            reduceMotion={reduceMotion}
+                                            onZoomedChange={handleZoomedChange}
                                         />
                                     ) : (
                                         <MediaPreview
@@ -266,26 +277,26 @@ export function MediaViewer({
 
                             {hasNavigation ? (
                                 <>
-                                    <div className="pointer-events-none absolute inset-y-0 left-0 z-20 flex w-16 items-center justify-center sm:w-20">
+                                    <div className="pointer-events-none absolute inset-y-0 left-3 z-20 flex items-center">
                                         <Button
                                             type="button"
                                             variant="secondary"
                                             size="icon-lg"
                                             aria-label={m.media_viewer_previous()}
                                             data-media-viewer-previous="true"
-                                            className="pointer-events-auto bg-surface-overlay shadow-control hover:bg-surface-raised"
+                                            className="pointer-events-auto bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
                                             onClick={() => move(-1)}>
                                             <AltArrowLeftIcon aria-hidden="true" />
                                         </Button>
                                     </div>
-                                    <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex w-16 items-center justify-center sm:w-20">
+                                    <div className="pointer-events-none absolute inset-y-0 right-3 z-20 flex items-center">
                                         <Button
                                             type="button"
                                             variant="secondary"
                                             size="icon-lg"
                                             aria-label={m.media_viewer_next()}
                                             data-media-viewer-next="true"
-                                            className="pointer-events-auto bg-surface-overlay shadow-control hover:bg-surface-raised"
+                                            className="pointer-events-auto bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
                                             onClick={() => move(1)}>
                                             <AltArrowRightIcon aria-hidden="true" />
                                         </Button>

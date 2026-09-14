@@ -480,6 +480,51 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         mediaLibraryViewer.getByRole('button', { name: 'Enter fullscreen', exact: true })
     ).toBeVisible()
+    const mediaViewerZoomOut = mediaLibraryViewer.getByRole('button', {
+        name: 'Zoom out',
+        exact: true,
+    })
+    const mediaViewerZoomIn = mediaLibraryViewer.getByRole('button', {
+        name: 'Zoom in',
+        exact: true,
+    })
+    const mediaViewerZoomReset = mediaLibraryViewer.getByRole('button', {
+        name: 'Reset zoom',
+        exact: true,
+    })
+    await expect(mediaViewerZoomOut).toBeDisabled()
+    await expect(mediaViewerZoomIn).toBeEnabled()
+    await mediaViewerZoomIn.click()
+    await expect(mediaViewerZoomReset).toBeEnabled()
+    await expect(mediaLibraryViewer.getByText('150%', { exact: true })).toBeVisible()
+    await mediaViewerZoomReset.click()
+    await expect(mediaViewerZoomReset).toBeDisabled()
+    const viewerThumbnailViewport = mediaLibraryViewer.locator('[data-media-viewer-thumbnails]')
+    const viewerThumbnailTrack = mediaLibraryViewer.locator(
+        '[data-media-viewer-thumbnail-track="true"]'
+    )
+    await page.setViewportSize({ width: 200, height: 480 })
+    await expect(viewerThumbnailViewport).toBeVisible()
+    const viewerThumbnailBounds = await viewerThumbnailViewport.boundingBox()
+    expect(viewerThumbnailBounds).not.toBeNull()
+    const thumbnailTransformBefore = await viewerThumbnailTrack.evaluate(
+        element => getComputedStyle(element).transform
+    )
+    await page.mouse.move(
+        (viewerThumbnailBounds?.x ?? 0) + (viewerThumbnailBounds?.width ?? 0) / 2,
+        (viewerThumbnailBounds?.y ?? 0) + (viewerThumbnailBounds?.height ?? 0) / 2
+    )
+    await page.mouse.down()
+    await page.mouse.move(
+        (viewerThumbnailBounds?.x ?? 0) + (viewerThumbnailBounds?.width ?? 0) / 2 - 50,
+        (viewerThumbnailBounds?.y ?? 0) + (viewerThumbnailBounds?.height ?? 0) / 2,
+        { steps: 2 }
+    )
+    await page.mouse.up()
+    await expect
+        .poll(() => viewerThumbnailTrack.evaluate(element => getComputedStyle(element).transform))
+        .not.toBe(thumbnailTransformBefore)
+    await page.setViewportSize({ width: 1280, height: 720 })
     await expect(
         mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
     ).toBeEnabled()

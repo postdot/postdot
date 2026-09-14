@@ -1,4 +1,11 @@
-import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react'
+import {
+    animate,
+    motion,
+    useMotionValue,
+    useReducedMotion,
+    useSpring,
+    useTransform,
+} from 'motion/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
@@ -12,6 +19,23 @@ interface MediaViewerThumbnailsProps {
     readonly onAssetChange: (asset: MediaReference) => void
 }
 
+interface DragConstraints {
+    readonly left: number
+    readonly right: number
+}
+
+interface ThumbnailDrag {
+    readonly pointerId: number
+    readonly startTrackX: number
+    readonly startX: number
+    moved: boolean
+}
+
+const minThumbSize = 56
+const maxThumbSize = 80
+const dockRadius = 112
+const dragThreshold = 4
+
 export function MediaViewerThumbnails({
     assets,
     activeIndex,
@@ -23,8 +47,16 @@ export function MediaViewerThumbnails({
     const viewportRef = useRef<HTMLDivElement>(null)
     const trackRef = useRef<HTMLDivElement>(null)
     const activeThumbRef = useRef<HTMLButtonElement>(null)
+    const dragRef = useRef<ThumbnailDrag | null>(null)
+    const isDraggingRef = useRef(false)
+    const suppressClickRef = useRef(false)
     const trackX = useMotionValue(0)
-    const [dragConstraints, setDragConstraints] = useState({ left: 0, right: 0 })
+    const mouseX = useMotionValue(Number.POSITIVE_INFINITY)
+    const [dragConstraints, setDragConstraints] = useState<DragConstraints>({
+        left: 0,
+        right: 0,
+    })
+    const [isDragging, setIsDragging] = useState(false)
 
     const updateDragConstraints = useCallback(() => {
         const viewport = viewportRef.current
@@ -32,11 +64,15 @@ export function MediaViewerThumbnails({
         if (viewport === null || track === null) return
 
         const overflow = Math.max(0, track.scrollWidth - viewport.clientWidth)
-        setDragConstraints(current => {
-            const next = { left: -overflow, right: 0 }
-            return current.left === next.left && current.right === next.right ? current : next
-        })
-    }, [])
+        const next = { left: -overflow, right: 0 }
+        setDragConstraints(current =>
+            current.left === next.left && current.right === next.right ? current : next
+        )
+
+        const currentX = trackX.get()
+        const clampedX = Math.max(next.left, Math.min(next.right, currentX))
+        if (clampedX !== currentX) trackX.set(clampedX)
+    }, [trackX])
 
     useEffect(() => {
         updateDragConstraints()
@@ -49,27 +85,93 @@ export function MediaViewerThumbnails({
     }, [assets.length, updateDragConstraints])
 
     useEffect(() => {
-        const viewport = viewportRef.current
-        const activeThumb = activeThumbRef.current
-        if (viewport === null || activeThumb === null) return
+        let animation: ReturnType<typeof animate> | undefined
+        const frame = window.requestAnimationFrame(() => {
+            if (isDraggingRef.current) return
+            const viewport = viewportRef.current
+            const activeThumb = activeThumbRef.current
+            if (viewport === null || activeThumb === null) return
 
-        const viewportBounds = viewport.getBoundingClientRect()
-        const thumbBounds = activeThumb.getBoundingClientRect()
-        const offset =
-            viewportBounds.left +
-            viewportBounds.width / 2 -
-            (thumbBounds.left + thumbBounds.width / 2)
-        const nextX = Math.min(
-            dragConstraints.right,
-            Math.max(dragConstraints.left, trackX.get() + offset)
-        )
-        const controls = animate(trackX, nextX, {
-            type: 'spring',
-            stiffness: 300,
-            damping: 30,
+            const viewportBounds = viewport.getBoundingClientRect()
+            const thumbBounds = activeThumb.getBoundingClientRect()
+            const offset =
+                viewportBounds.left +
+                viewportBounds.width / 2 -
+                (thumbBounds.left + thumbBounds.width / 2)
+            const currentX = trackX.get()
+            const nextX = Math.max(
+                dragConstraints.left,
+                Math.min(dragConstraints.right, currentX + offset)
+            )
+
+            if (reduceMotion) {
+                trackX.set(nextX)
+            } else {
+                animation = animate(trackX, nextX, {
+                    type: 'spring',
+                    stiffness: 360,
+                    damping: 32,
+                })
+            }
         })
-        return () => controls.stop()
-    }, [activeIndex, dragConstraints, trackX])
+
+        return () => {
+            window.cancelAnimationFrame(frame)
+            animation?.stop()
+        }
+    }, [activeIndex, dragConstraints, reduceMotion, trackX])
+
+    function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+        if (event.pointerType === 'mouse' && event.button !== 0) return
+        if (dragConstraints.left === dragConstraints.right) return
+
+        dragRef.current = {
+            pointerId: event.pointerId,
+            startTrackX: trackX.get(),
+            startX: event.clientX,
+            moved: false,
+        }
+        isDraggingRef.current = true
+        setIsDragging(true)
+        event.currentTarget.setPointerCapture(event.pointerId)
+    }
+
+    function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+        mouseX.set(event.clientX)
+        const drag = dragRef.current
+        if (drag === null || drag.pointerId !== event.pointerId) return
+
+        const delta = event.clientX - drag.startX
+        if (!drag.moved && Math.abs(delta) < dragThreshold) return
+        drag.moved = true
+        suppressClickRef.current = true
+        event.preventDefault()
+
+        const nextX = Math.max(
+            dragConstraints.left,
+            Math.min(dragConstraints.right, drag.startTrackX + delta)
+        )
+        trackX.set(nextX)
+    }
+
+    function finishPointerDrag(event: React.PointerEvent<HTMLDivElement>) {
+        const drag = dragRef.current
+        if (drag === null || drag.pointerId !== event.pointerId) return
+
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+        }
+        dragRef.current = null
+        isDraggingRef.current = false
+        setIsDragging(false)
+        mouseX.set(event.clientX)
+
+        if (drag.moved) {
+            window.setTimeout(() => {
+                suppressClickRef.current = false
+            }, 0)
+        }
+    }
 
     return (
         <div className="shrink-0 bg-surface-inset/95 px-3 pt-2 pb-3 backdrop-blur-md sm:px-5">
@@ -78,43 +180,109 @@ export function MediaViewerThumbnails({
                 role="group"
                 aria-label={m.media_viewer_thumbnails()}
                 data-media-viewer-thumbnails="true"
-                className="overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                className="touch-pan-y overflow-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={finishPointerDrag}
+                onPointerCancel={finishPointerDrag}
+                onPointerLeave={() => {
+                    if (!isDraggingRef.current) mouseX.set(Number.POSITIVE_INFINITY)
+                }}>
                 <motion.div
                     ref={trackRef}
-                    drag="x"
-                    dragConstraints={dragConstraints}
-                    dragElastic={0.12}
-                    style={{ x: trackX }}
-                    whileTap={{ cursor: 'grabbing' }}
-                    className="mx-auto flex w-max items-end gap-2 py-1 cursor-grab">
-                    {assets.map((asset, index) => {
-                        const isActive = index === activeIndex
-                        return (
-                            <motion.button
-                                key={asset.asset.id}
-                                ref={isActive ? activeThumbRef : undefined}
-                                type="button"
-                                aria-label={m.media_open_asset({
-                                    filename: asset.asset.originalFilename,
-                                })}
-                                aria-current={isActive ? 'true' : undefined}
-                                data-media-viewer-thumbnail="true"
-                                whileHover={reduceMotion ? undefined : { scale: 1.06, zIndex: 2 }}
-                                whileTap={reduceMotion ? undefined : { scale: 0.96 }}
-                                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                                className={`size-14 shrink-0 overflow-hidden rounded-md bg-surface-field p-0 shadow-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:size-16 ${isActive ? 'ring-2 ring-primary' : 'opacity-70 hover:opacity-100'}`}
-                                onClick={() => onAssetChange(asset)}>
-                                <MediaPreview
-                                    projectId={asset.asset.projectId}
-                                    asset={asset}
-                                    representation={readyRepresentation(asset)}
-                                    className="size-full rounded-md object-cover"
-                                />
-                            </motion.button>
-                        )
-                    })}
+                    data-media-viewer-thumbnail-track="true"
+                    style={{
+                        cursor: isDragging
+                            ? 'grabbing'
+                            : dragConstraints.left < 0
+                              ? 'grab'
+                              : 'default',
+                        x: trackX,
+                    }}
+                    className="mx-auto flex w-max shrink-0 items-end gap-2 py-1">
+                    {assets.map((asset, index) => (
+                        <DockThumbnail
+                            key={asset.asset.id}
+                            asset={asset}
+                            active={index === activeIndex}
+                            activeRef={index === activeIndex ? activeThumbRef : undefined}
+                            mouseX={mouseX}
+                            reduceMotion={reduceMotion}
+                            suppressClickRef={suppressClickRef}
+                            onAssetChange={onAssetChange}
+                        />
+                    ))}
                 </motion.div>
             </div>
         </div>
+    )
+}
+
+function DockThumbnail({
+    asset,
+    active,
+    activeRef,
+    mouseX,
+    reduceMotion,
+    suppressClickRef,
+    onAssetChange,
+}: {
+    readonly asset: MediaReference
+    readonly active: boolean
+    readonly activeRef?: React.RefObject<HTMLButtonElement | null>
+    readonly mouseX: ReturnType<typeof useMotionValue<number>>
+    readonly reduceMotion: boolean | null
+    readonly suppressClickRef: React.RefObject<boolean>
+    readonly onAssetChange: (asset: MediaReference) => void
+}) {
+    const thumbRef = useRef<HTMLButtonElement>(null)
+    const distance = useTransform(mouseX, value => {
+        const bounds = thumbRef.current?.getBoundingClientRect()
+        if (bounds === undefined || !Number.isFinite(value)) return dockRadius
+        return Math.abs(value - (bounds.left + bounds.width / 2))
+    })
+    const size = useSpring(useTransform(distance, [0, dockRadius], [maxThumbSize, minThumbSize]), {
+        stiffness: 220,
+        damping: 18,
+        mass: 0.12,
+    })
+    const representation = readyRepresentation(asset)
+
+    return (
+        <motion.button
+            ref={node => {
+                thumbRef.current = node
+                if (activeRef !== undefined) activeRef.current = node
+            }}
+            type="button"
+            aria-label={m.media_open_asset({ filename: asset.asset.originalFilename })}
+            aria-current={active ? 'true' : undefined}
+            data-media-viewer-thumbnail="true"
+            style={{ height: size, width: size }}
+            whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+            className={`relative shrink-0 overflow-hidden rounded-md bg-surface-raised p-0 shadow-field focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'z-10' : 'opacity-75 hover:opacity-100'}`}
+            onClick={event => {
+                if (suppressClickRef.current) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    suppressClickRef.current = false
+                    return
+                }
+                onAssetChange(asset)
+            }}>
+            <MediaPreview
+                projectId={asset.asset.projectId}
+                asset={asset}
+                representation={representation}
+                className="size-full rounded-md object-cover"
+            />
+            {active ? (
+                <motion.span
+                    layoutId="media-viewer-active-thumbnail"
+                    className="pointer-events-none absolute inset-0 rounded-md ring-1 ring-primary"
+                    transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+                />
+            ) : null}
+        </motion.button>
     )
 }
