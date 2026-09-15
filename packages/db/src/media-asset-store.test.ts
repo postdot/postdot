@@ -252,6 +252,7 @@ describe('project media lifecycle', () => {
                 'gamma.png',
                 'Beta cover.png',
             ])
+            expect(firstPage?.total).toBe(3)
             expect(firstPage?.nextCursor).not.toBeNull()
 
             const secondPage = media.listAssetsPage({
@@ -285,6 +286,189 @@ describe('project media lifecycle', () => {
                 media.listAssetsPage({ projectId, subjectId, cursor: 'invalid-cursor' })
             ).toThrow()
         })
+    })
+
+    it('paginates a large media catalog without skipping or duplicating assets', async () => {
+        await withFixture(async ({ database, media, projectId, actorId, subjectId }) => {
+            const timestamp = now
+            const checksum = 'a'.repeat(64)
+
+            database.$client.run('begin')
+            try {
+                for (let index = 0; index < 1_000; index += 1) {
+                    const assetId = `large-asset-${String(index).padStart(4, '0')}`
+                    const createdAt = timestamp - index
+                    database.$client.run(
+                        `insert into media_assets (
+                            id, project_id, original_filename, default_accessibility_text,
+                            state, created_by_actor_id, created_at, updated_at
+                        ) values (?, ?, ?, null, 'ready', ?, ?, ?)`,
+                        [assetId, projectId, `${assetId}.png`, actorId, createdAt, createdAt]
+                    )
+                    database.$client.run(
+                        `insert into media_representations (
+                            id, project_id, asset_id, kind, state, store_id, object_key,
+                            declared_content_type, detected_content_type, detected_format,
+                            family, byte_size, sha256, width, height, is_animated,
+                            created_at, updated_at
+                        ) values (?, ?, ?, 'original', 'ready', ?, ?, 'image/png', 'image/png',
+                                  'png', 'image', 128, ?, 16, 16, 0, ?, ?)`,
+                        [
+                            `large-representation-${String(index).padStart(4, '0')}`,
+                            projectId,
+                            assetId,
+                            'local-default',
+                            `large/${assetId}.png`,
+                            checksum,
+                            createdAt,
+                            createdAt,
+                        ]
+                    )
+                }
+                database.$client.run('commit')
+            } catch (error) {
+                database.$client.run('rollback')
+                throw error
+            }
+
+            const seenAssetIds = new Set<string>()
+            let cursor: string | undefined
+            let pageCount = 0
+            while (pageCount < 100) {
+                const page = media.listAssetsPage({
+                    projectId,
+                    subjectId,
+                    cursor,
+                    limit: 24,
+                })
+                expect(page).not.toBeNull()
+                if (page === null) throw new Error('Media page was not returned')
+                expect(page.total).toBe(1_000)
+                pageCount += 1
+                for (const item of page.items) {
+                    expect(seenAssetIds.has(item.asset.id)).toBe(false)
+                    seenAssetIds.add(item.asset.id)
+                }
+                if (page.nextCursor === null) break
+                cursor = page.nextCursor
+            }
+
+            expect(pageCount).toBe(42)
+            expect(seenAssetIds.size).toBe(1_000)
+        })
+    })
+
+    it('applies media filters and sort orders before paginating', async () => {
+        let currentTime = now
+        await withFixture(
+            async ({ media, projectId, subjectId }) => {
+                async function createReady(filename: string, bytes = createPng()) {
+                    const reservation = media.reserveUpload({
+                        projectId,
+                        subjectId,
+                        originalFilename: filename,
+                    })
+                    expect(reservation).not.toBeNull()
+                    if (reservation === null) throw new Error('Reservation was not created')
+
+                    const uploaded = await media.upload({
+                        projectId,
+                        subjectId,
+                        intentId: reservation.intent.id,
+                        source: streamOf(bytes),
+                    })
+                    expect(uploaded.kind).toBe('uploaded')
+
+                    const finalized = await media.finalizeUpload({
+                        projectId,
+                        subjectId,
+                        intentId: reservation.intent.id,
+                    })
+                    expect(finalized.kind).toBe('ready')
+                    if (finalized.kind !== 'ready') throw new Error('Media was not finalized')
+                }
+
+                await createReady('zulu.png')
+                currentTime -= 8 * 24 * 60 * 60 * 1_000
+                await createReady('alpha.png', new Uint8Array([...createPng(), 1, 2, 3]))
+                currentTime -= 32 * 24 * 60 * 60 * 1_000
+                await createReady('middle.png')
+                currentTime = now
+
+                const byName = media.listAssetsPage({
+                    projectId,
+                    subjectId,
+                    limit: 2,
+                    sort: 'name_asc',
+                })
+                expect(byName?.items.map(item => item.asset.originalFilename)).toEqual([
+                    'alpha.png',
+                    'middle.png',
+                ])
+                expect(byName?.total).toBe(3)
+                expect(byName?.nextCursor).not.toBeNull()
+                const byNameSecondPage = media.listAssetsPage({
+                    projectId,
+                    subjectId,
+                    cursor: byName?.nextCursor,
+                    sort: 'name_asc',
+                    limit: 2,
+                })
+                expect(byNameSecondPage?.items.map(item => item.asset.originalFilename)).toEqual([
+                    'zulu.png',
+                ])
+
+                const largest = media.listAssetsPage({
+                    projectId,
+                    subjectId,
+                    sort: 'largest',
+                })
+                expect(largest?.items.map(item => item.asset.originalFilename)).toEqual([
+                    'alpha.png',
+                    'middle.png',
+                    'zulu.png',
+                ])
+
+                const recent = media.listAssetsPage({
+                    projectId,
+                    subjectId,
+                    date: 'last_7_days',
+                })
+                expect(recent?.items.map(item => item.asset.originalFilename)).toEqual(['zulu.png'])
+                expect(recent?.total).toBe(1)
+                const month = media.listAssetsPage({
+                    projectId,
+                    subjectId,
+                    date: 'last_30_days',
+                })
+                expect(month?.items.map(item => item.asset.originalFilename)).toEqual([
+                    'zulu.png',
+                    'alpha.png',
+                ])
+                const images = media.listAssetsPage({
+                    projectId,
+                    subjectId,
+                    family: 'image',
+                })
+                expect(images?.items).toHaveLength(3)
+                const documents = media.listAssetsPage({
+                    projectId,
+                    subjectId,
+                    family: 'document',
+                })
+                expect(documents?.items).toEqual([])
+
+                expect(() =>
+                    media.listAssetsPage({
+                        projectId,
+                        subjectId,
+                        cursor: byName?.nextCursor,
+                        sort: 'oldest',
+                    })
+                ).toThrow()
+            },
+            { now: () => currentTime }
+        )
     })
 
     it('summarizes source, active, and historical media usage', async () => {

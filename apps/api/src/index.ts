@@ -1,5 +1,9 @@
 import { createAuth } from '@herald/auth'
-import { createCustomHttpTransport, createNetworkControlledFetcher } from '@herald/custom-http'
+import {
+    createCustomHttpTransport,
+    createNetworkControlledBinaryFetcher,
+    createNetworkControlledFetcher,
+} from '@herald/custom-http'
 import {
     closeDatabase,
     createDatabase,
@@ -21,6 +25,7 @@ import {
     createConfiguredMediaStore,
     createMediaReconciliationRuntime,
 } from './modules/media/runtime'
+import { createMediaUrlImporter } from './modules/media/url-import'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
@@ -41,7 +46,10 @@ export type { PublisherRuntimeOptions } from './modules/publishers/runtime'
 export type {
     MediaAssetResponse,
     MediaAssetUsageResponse,
+    MediaImportSourceResponse,
+    MediaImportSourcesResponse,
     MediaDeletionResponse,
+    MediaDeletionBatchResponse,
     MediaFinalizeResponse,
     MediaIntentResponse,
     MediaPendingResponse,
@@ -50,6 +58,7 @@ export type {
     MediaReservationResponse,
     MediaUploadPolicyResponse,
     MediaUploadResponse,
+    MediaUrlImportResponse,
 } from './modules/media/routes'
 export type {
     AuditEventResponse,
@@ -147,6 +156,14 @@ async function startServerWithRuntimeLock(
     const mastodonFetcher = createNetworkControlledFetcher({
         privateDestinations: config.network.privateDestinations,
     })
+    const mediaUrlFetcher = createNetworkControlledBinaryFetcher({
+        privateDestinations: config.network.privateDestinations,
+        maxResponseBytes: config.media.maxObjectBytes + 1,
+    })
+    const mediaUrlImporter = createMediaUrlImporter({
+        media,
+        fetcher: mediaUrlFetcher,
+    })
     const publisher = createPublisherRuntime(database, {
         apiOrigin: config.auth.baseURL,
         webOrigin: config.web.origin,
@@ -206,6 +223,7 @@ async function startServerWithRuntimeLock(
         database,
         publisher,
         media,
+        mediaUrlImporter,
         mediaPublicDelivery,
         logging: config.logging,
         onWorkScheduled: worker.replan,

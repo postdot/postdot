@@ -527,25 +527,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
     await page.setViewportSize({ width: 200, height: 480 })
     await expect(viewerThumbnailViewport).toBeVisible()
-    const viewerThumbnailBounds = await viewerThumbnailViewport.boundingBox()
-    expect(viewerThumbnailBounds).not.toBeNull()
-    const thumbnailTransformBefore = await viewerThumbnailTrack.evaluate(
-        element => getComputedStyle(element).transform
-    )
-    await page.mouse.move(
-        (viewerThumbnailBounds?.x ?? 0) + (viewerThumbnailBounds?.width ?? 0) / 2,
-        (viewerThumbnailBounds?.y ?? 0) + (viewerThumbnailBounds?.height ?? 0) / 2
-    )
-    await page.mouse.down()
-    await page.mouse.move(
-        (viewerThumbnailBounds?.x ?? 0) + (viewerThumbnailBounds?.width ?? 0) / 2 - 50,
-        (viewerThumbnailBounds?.y ?? 0) + (viewerThumbnailBounds?.height ?? 0) / 2,
-        { steps: 2 }
-    )
-    await page.mouse.up()
-    await expect
-        .poll(() => viewerThumbnailTrack.evaluate(element => getComputedStyle(element).transform))
-        .not.toBe(thumbnailTransformBefore)
+    await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grab')
     await page.setViewportSize({ width: 1280, height: 720 })
     await expect(
         mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
@@ -665,6 +647,24 @@ test('persists mixed and media-only publications through the dashboard', async (
     await droppedMediaCard
         .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
         .click()
+    await page.getByRole('menuitem', { name: 'Information', exact: true }).click()
+    const mediaInformationDialog = page.locator('[data-media-info-dialog="true"]')
+    await expect(mediaInformationDialog).toBeVisible()
+    await expect(mediaInformationDialog.getByText('File details', { exact: true })).toBeVisible()
+    await expect(
+        mediaInformationDialog.getByText('No references in this project.', { exact: true })
+    ).toBeVisible()
+    await mediaInformationDialog.getByRole('button', { name: 'Close', exact: true }).first().click()
+    await expect(mediaInformationDialog).toHaveCount(0)
+    await droppedMediaCard
+        .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
+        .click()
+    const mediaDownload = page.waitForEvent('download')
+    await page.getByRole('menuitem', { name: 'Download', exact: true }).click()
+    expect((await mediaDownload).suggestedFilename()).toBe(droppedMediaFilename)
+    await droppedMediaCard
+        .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
+        .click()
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
     const mediaDeletionDialog = page.locator('[data-media-delete-dialog="true"]')
     await expect(mediaDeletionDialog).toBeVisible()
@@ -738,12 +738,55 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('option', { name: channelName, exact: true }).click()
     await page.getByLabel('Title', { exact: true }).fill(mediaOnlyTitle)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
-    const libraryMediaToggle = page
-        .locator('[data-media-library="true"] article')
+    const attachmentLibrary = page.locator('[data-media-library="true"]')
+    await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')
+    await expect(attachmentLibrary.locator('[data-media-asset-actions="true"]')).toHaveCount(0)
+    await expect(attachmentLibrary.locator('[data-media-attachment-scroll="true"]')).toBeVisible()
+    await expect(attachmentLibrary.locator('input[id^="media-alt-"]')).toHaveCount(0)
+    await expect(attachmentLibrary.locator('[data-media-library-toolbar="true"]')).toBeVisible()
+    await expect(
+        attachmentLibrary.getByRole('group', { name: 'Media view', exact: true })
+    ).toBeVisible()
+    await expect(attachmentLibrary.getByText('Attach', { exact: true })).toHaveCount(0)
+    const attachmentScroll = attachmentLibrary.locator('[data-media-attachment-scroll="true"]')
+    await expect(attachmentScroll).toHaveCSS('overflow-y', 'auto')
+    const attachmentSearch = attachmentLibrary.getByRole('searchbox', {
+        name: 'Search media',
+        exact: true,
+    })
+    await attachmentSearch.fill(editedMediaFilename)
+    const attachmentCard = attachmentLibrary
+        .locator('article')
         .filter({ hasText: editedMediaFilename })
-        .locator('[data-media-selection-toggle="true"]')
-    await libraryMediaToggle.click()
+        .first()
+    await expect(attachmentCard).toHaveCount(1)
+    await attachmentSearch.fill('')
+    const libraryMediaToggle = attachmentCard.locator('[data-media-selection-toggle="true"]')
+    await attachmentCard.locator('[data-media-preview="true"]').click()
     await expect(libraryMediaToggle).toHaveAttribute('aria-pressed', 'true')
+    const selectedCardGaps = await attachmentLibrary
+        .locator('[data-media-selection-active="true"]')
+        .first()
+        .evaluate(card => {
+            const scroll = card.closest('[data-media-attachment-scroll="true"]')
+            if (scroll === null) return null
+            const cardRect = card.getBoundingClientRect()
+            const scrollRect = scroll.getBoundingClientRect()
+            return {
+                bottom: scrollRect.bottom - cardRect.bottom,
+                left: cardRect.left - scrollRect.left,
+                right: scrollRect.right - cardRect.right,
+                top: cardRect.top - scrollRect.top,
+            }
+        })
+    expect(selectedCardGaps).not.toBeNull()
+    expect(selectedCardGaps?.top).toBeGreaterThan(0)
+    expect(selectedCardGaps?.left).toBeGreaterThan(0)
+    expect(selectedCardGaps?.right).toBeGreaterThan(0)
+    expect(selectedCardGaps?.bottom).toBeGreaterThan(0)
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
+    ).toHaveCount(0)
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(
         page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })

@@ -68,6 +68,8 @@ export interface CustomHttpResponse {
     readonly status: number
     readonly headers: Readonly<Record<string, string>>
     readonly body: string
+    /** The original bytes when the requester can preserve them. */
+    readonly bodyBytes?: Uint8Array
     readonly bodyTruncated: boolean
 }
 
@@ -94,6 +96,18 @@ export type CustomHttpFetcher = (
     input: string | URL | Request,
     init?: RequestInit
 ) => Promise<Response>
+
+export interface NetworkControlledBinaryResponse {
+    readonly status: number
+    readonly headers: Readonly<Record<string, string>>
+    readonly body: Uint8Array
+    readonly bodyTruncated: boolean
+}
+
+export type NetworkControlledBinaryFetcher = (
+    input: string | URL | Request,
+    init?: RequestInit
+) => Promise<NetworkControlledBinaryResponse>
 
 export interface ResolvedNetworkAddress {
     readonly address: string

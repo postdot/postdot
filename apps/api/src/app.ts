@@ -28,6 +28,7 @@ import type { HeraldLoggingConfig } from './config'
 import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/routes'
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
+import type { MediaUrlImporter } from './modules/media/url-import'
 import { createProjectModule } from './modules/projects'
 import type { ProjectRealtimeHub, UserRealtimeHub } from './modules/projects/realtime-runtime'
 import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-routes'
@@ -41,6 +42,7 @@ export interface HeraldAppOptions {
     readonly database: HeraldDatabase
     readonly publisher: PublisherRuntime
     readonly media?: MediaAssetStore
+    readonly mediaUrlImporter?: MediaUrlImporter
     readonly mediaPublicDelivery?: MediaPublicDelivery
     readonly manualStore?: ManualStoreOptions
     readonly logging?: HeraldLoggingConfig
@@ -67,6 +69,7 @@ function createDomainApp({
     database,
     publisher,
     media,
+    mediaUrlImporter,
     mediaPublicDelivery,
     manualStore: manualStoreOptions,
     logging,
@@ -186,6 +189,7 @@ function createDomainApp({
                 manualStore,
                 publisher,
                 media,
+                mediaUrlImporter,
                 logger,
                 onWorkScheduled,
                 now: manualStoreOptions?.now,
@@ -220,6 +224,7 @@ export function createApp({
     database,
     publisher,
     media,
+    mediaUrlImporter,
     mediaPublicDelivery,
     manualStore: manualStoreOptions,
     logging,
@@ -244,6 +249,7 @@ export function createApp({
         database,
         publisher,
         media,
+        mediaUrlImporter,
         mediaPublicDelivery,
         manualStore: manualStoreOptions,
         logging,

@@ -37,7 +37,7 @@ import {
     type MediaViewerZoomControlsHandle,
     type MediaViewerZoomStatus,
 } from './media-viewer-zoomable-image'
-import { useMediaViewerKeyboard } from './use-media-viewer-keyboard'
+import { MEDIA_VIEWER_SHORTCUTS, useMediaViewerKeyboard } from './use-media-viewer-keyboard'
 
 const swipeConfidenceThreshold = 10_000
 
@@ -76,7 +76,7 @@ export interface MediaViewerProps {
     readonly open: boolean
     readonly onAssetChange: (asset: MediaReference) => void
     readonly onOpenChange: (open: boolean) => void
-    readonly onEdit: (asset: MediaReference) => void
+    readonly onEdit?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
 }
 
@@ -158,17 +158,24 @@ export function MediaViewer({
         [assetIndex, gallery, onAssetChange]
     )
 
-    useMediaViewerKeyboard(
-        open && hasNavigation,
-        () => move(-1),
-        () => move(1)
-    )
+    const currentRepresentation =
+        currentAsset === null ? undefined : readyRepresentation(currentAsset)
+    const isImageAsset = currentRepresentation?.family === 'image'
+
+    useMediaViewerKeyboard(open, {
+        onFullscreenToggle: handleFullscreenToggle,
+        onNext: hasNavigation ? () => move(1) : undefined,
+        onPrevious: hasNavigation ? () => move(-1) : undefined,
+        onZoomIn: isImageAsset ? () => void zoomControlsRef.current?.zoomIn() : undefined,
+        onZoomOut: isImageAsset ? () => void zoomControlsRef.current?.zoomOut() : undefined,
+        onZoomReset: isImageAsset ? () => void zoomControlsRef.current?.reset() : undefined,
+    })
 
     if (currentAsset === null) return null
 
     const viewerAsset = currentAsset
-    const representation = readyRepresentation(viewerAsset)
-    const image = representation?.family === 'image'
+    const representation = currentRepresentation
+    const image = isImageAsset
     const imageTransition = reduceMotion
         ? { duration: 0 }
         : {
@@ -193,7 +200,7 @@ export function MediaViewer({
 
     function handleEdit() {
         if (fullScreenHandle.active) void fullScreenHandle.exit()
-        onEdit(viewerAsset)
+        onEdit?.(viewerAsset)
     }
 
     function handleDelete() {
@@ -258,6 +265,9 @@ export function MediaViewer({
                                                             ? m.media_viewer_exit_fullscreen()
                                                             : m.media_viewer_fullscreen()
                                                     }
+                                                    aria-keyshortcuts={
+                                                        MEDIA_VIEWER_SHORTCUTS.fullscreen
+                                                    }
                                                     data-media-viewer-fullscreen="true"
                                                     className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-field"
                                                     onClick={handleFullscreenToggle}>
@@ -270,9 +280,14 @@ export function MediaViewer({
                                             }
                                         />
                                         <TooltipContent>
-                                            {fullScreenHandle.active
-                                                ? m.media_viewer_exit_fullscreen()
-                                                : m.media_viewer_fullscreen()}
+                                            <span>
+                                                {fullScreenHandle.active
+                                                    ? m.media_viewer_exit_fullscreen()
+                                                    : m.media_viewer_fullscreen()}
+                                            </span>
+                                            <Kbd aria-hidden="true">
+                                                {MEDIA_VIEWER_SHORTCUTS.fullscreen}
+                                            </Kbd>
                                         </TooltipContent>
                                     </Tooltip>
                                 </ButtonGroup>
@@ -284,6 +299,7 @@ export function MediaViewer({
                                                 variant="secondary"
                                                 size="icon-sm"
                                                 aria-label={m.common_close()}
+                                                aria-keyshortcuts="Escape"
                                                 data-media-viewer-close="true"
                                                 className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
                                                 onClick={() => handleOpenChange(false)}>
@@ -351,7 +367,9 @@ export function MediaViewer({
                                                             variant="secondary"
                                                             size="icon-lg"
                                                             aria-label={m.media_viewer_previous()}
-                                                            aria-keyshortcuts="ArrowLeft"
+                                                            aria-keyshortcuts={
+                                                                MEDIA_VIEWER_SHORTCUTS.previous
+                                                            }
                                                             data-media-viewer-previous="true"
                                                             className="pointer-events-auto bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
                                                             onClick={() => move(-1)}>
@@ -361,7 +379,12 @@ export function MediaViewer({
                                                 />
                                                 <TooltipContent>
                                                     <span>{m.media_viewer_previous()}</span>
-                                                    <Kbd aria-hidden="true">←</Kbd>
+                                                    <Kbd aria-hidden="true" className="p-0">
+                                                        <AltArrowLeftIcon
+                                                            aria-hidden="true"
+                                                            className="size-3"
+                                                        />
+                                                    </Kbd>
                                                 </TooltipContent>
                                             </Tooltip>
                                         </div>
@@ -374,7 +397,9 @@ export function MediaViewer({
                                                             variant="secondary"
                                                             size="icon-lg"
                                                             aria-label={m.media_viewer_next()}
-                                                            aria-keyshortcuts="ArrowRight"
+                                                            aria-keyshortcuts={
+                                                                MEDIA_VIEWER_SHORTCUTS.next
+                                                            }
                                                             data-media-viewer-next="true"
                                                             className="pointer-events-auto bg-surface-overlay text-foreground shadow-field hover:bg-surface-raised"
                                                             onClick={() => move(1)}>
@@ -384,7 +409,12 @@ export function MediaViewer({
                                                 />
                                                 <TooltipContent>
                                                     <span>{m.media_viewer_next()}</span>
-                                                    <Kbd aria-hidden="true">→</Kbd>
+                                                    <Kbd aria-hidden="true" className="p-0">
+                                                        <AltArrowRightIcon
+                                                            aria-hidden="true"
+                                                            className="size-3"
+                                                        />
+                                                    </Kbd>
                                                 </TooltipContent>
                                             </Tooltip>
                                         </div>
@@ -400,7 +430,7 @@ export function MediaViewer({
                             ) : null}
                         </main>
 
-                        {allowDelete || image ? (
+                        {allowDelete || (image && onEdit !== undefined) ? (
                             <footer className="flex shrink-0 justify-end gap-1 border-t border-border/60 bg-muted px-4 py-3 sm:px-5">
                                 {allowDelete ? (
                                     <Button
@@ -412,7 +442,7 @@ export function MediaViewer({
                                         {m.media_delete_confirm()}
                                     </Button>
                                 ) : null}
-                                {image ? (
+                                {image && onEdit !== undefined ? (
                                     <Button
                                         type="button"
                                         variant="default"

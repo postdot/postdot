@@ -10,12 +10,15 @@ import {
     type ChannelProfileVersion,
     type DuePublication,
     type MediaDeletion,
+    type MediaDeletionBatch,
     type MediaFinalize,
     type MediaReference,
     type MediaReservation,
     type MediaAssetUsage,
+    type MediaImportSources,
     type MediaUploadPolicy,
     type MediaUpload,
+    type MediaUrlImport,
     type Notification,
     type NotificationInbox,
     type NotificationPreference,
@@ -31,6 +34,8 @@ import {
 } from '@herald/client'
 
 import * as m from '@/paraglide/messages.js'
+
+export type { MediaImportSource } from '@herald/client'
 
 const client = createHeraldClient(window.location.origin)
 
@@ -50,11 +55,19 @@ export interface MediaListOptions {
     readonly cursor?: string
     readonly limit?: number
     readonly search?: string
+    readonly sort?: MediaListSort
+    readonly family?: MediaListFamilyFilter
+    readonly date?: MediaListDateFilter
 }
+
+export type MediaListSort = 'newest' | 'oldest' | 'name_asc' | 'name_desc' | 'largest' | 'smallest'
+export type MediaListFamilyFilter = 'all' | 'image' | 'video' | 'audio' | 'document'
+export type MediaListDateFilter = 'all' | 'last_24_hours' | 'last_7_days' | 'last_30_days'
 
 export interface MediaListPage {
     readonly media: MediaReference[]
     readonly nextCursor: string | null
+    readonly total: number
 }
 
 export type LinkedInConnectionDestination =
@@ -562,6 +575,12 @@ export const api = {
         )
     },
 
+    async getMediaImportSources(projectId: string): Promise<MediaImportSources> {
+        return unwrap<MediaImportSources>(
+            await client.api.projects({ projectId }).media.sources.get()
+        )
+    },
+
     async getMedia(projectId: string, assetId: string): Promise<MediaReference> {
         return unwrap<MediaReference>(
             await client.api.projects({ projectId }).media({ assetId }).get()
@@ -581,6 +600,16 @@ export const api = {
         )
     },
 
+    async deleteMediaBatch(
+        projectId: string,
+        assetIds: readonly string[]
+    ): Promise<MediaDeletionBatch> {
+        return requestAuth<MediaDeletionBatch>(
+            `/api/projects/${encodeURIComponent(projectId)}/media/deletion-requests`,
+            jsonBody({ assetIds })
+        )
+    },
+
     async reserveMediaUpload(
         projectId: string,
         input: {
@@ -592,6 +621,13 @@ export const api = {
     ): Promise<MediaReservation> {
         return unwrap<MediaReservation>(
             await client.api.projects({ projectId }).media.uploads.post(input)
+        )
+    },
+
+    async importMediaFromUrl(projectId: string, url: string): Promise<MediaUrlImport> {
+        return requestAuth<MediaUrlImport>(
+            `/api/projects/${encodeURIComponent(projectId)}/media/imports/url`,
+            jsonBody({ url })
         )
     },
 
@@ -1197,6 +1233,24 @@ function apiErrorMessage(code: string): string {
             return m.api_media_unavailable()
         case 'media_in_use':
             return m.api_media_in_use()
+        case 'media_url_invalid':
+            return m.api_media_url_invalid()
+        case 'media_url_unavailable':
+            return m.api_media_url_unavailable()
+        case 'media_url_redirect':
+            return m.api_media_url_redirect()
+        case 'media_url_http_error':
+            return m.api_media_url_http_error()
+        case 'media_url_missing_type':
+            return m.api_media_url_missing_type()
+        case 'media_url_unsupported_type':
+            return m.api_media_url_unsupported_type()
+        case 'media_url_too_large':
+            return m.api_media_url_too_large()
+        case 'media_url_empty':
+            return m.api_media_url_empty()
+        case 'media_url_upload_failed':
+            return m.api_media_url_upload_failed()
         case 'media_storage_unavailable':
         case 'media_storage_failure':
             return m.api_media_storage_unavailable()

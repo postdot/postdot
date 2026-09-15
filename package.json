@@ -9,6 +9,7 @@
     "type": "module",
     "scripts": {
         "build": "turbo build",
+        "build-storybook": "bun run --cwd packages/ui build-storybook",
         "dev": "turbo dev",
         "lint": "turbo lint && oxlint --deny-warnings scripts e2e *.config.*",
         "lint:fix": "turbo lint:fix && oxlint --fix scripts e2e *.config.*",
@@ -26,6 +27,7 @@
         "clean": "turbo clean && rimraf node_modules",
         "check": "bun run format && bun run lint && bun run typecheck && bun run test && bun run build",
         "prepare": "husky",
+        "storybook": "bun run --cwd packages/ui storybook",
         "autonomos": "autonomos",
         "herald": "bun run scripts/herald.ts"
     },

@@ -9,3 +9,4 @@ export {
 export { createCustomHttpTransport } from './transport'
 export type { CustomHttpTransport } from './transport'
 export { createNetworkControlledFetcher } from './fetcher'
+export { createNetworkControlledBinaryFetcher } from './fetcher'

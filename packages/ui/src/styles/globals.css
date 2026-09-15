@@ -7,14 +7,27 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-    --surface-canvas: oklch(0.965 0.004 95);
-    --background: var(--surface-canvas);
+    /*
+     * Surface contract:
+     * background is the global page/chrome surface; canvas is the main work
+     * area; inset/field are recessed and input surfaces; control is reserved
+     * for neutral actions; raised/overlay are container surfaces.
+     *
+     * These roles stay separate on purpose. A neutral action must not inherit
+     * the same fill as a layout surface, otherwise the control disappears in
+     * one of the themes. Keep this scale coherent when adding new components.
+     */
+    --surface-background: oklch(0.95 0.004 95);
+    --surface-canvas: oklch(0.925 0.005 95);
+    --background: var(--surface-background);
     --foreground: oklch(0.22 0.004 95);
-    --surface-raised: oklch(0.995 0.002 95);
-    --surface-overlay: oklch(1 0.002 95);
-    --surface-inset: oklch(0.925 0.005 95);
-    --surface-field: oklch(0.982 0.002 95);
-    --surface-sidebar: oklch(0.945 0.004 95);
+    --surface-raised: oklch(0.985 0.002 95);
+    --surface-overlay: oklch(0.995 0.002 95);
+    --surface-inset: oklch(0.9 0.006 95);
+    --surface-field: oklch(0.965 0.003 95);
+    --surface-control: oklch(0.975 0.003 95);
+    --surface-control-hover: oklch(0.965 0.003 95);
+    --surface-sidebar: oklch(0.935 0.004 95);
     --surface-sidebar-hover: oklch(0.9 0.006 95);
     --surface-shadow:
         0 2px 4px 0 rgb(24 24 27 / 0.04), 0 1px 2px 0 rgb(24 24 27 / 0.05),
@@ -28,7 +41,8 @@
     --popover-foreground: var(--foreground);
     --primary: oklch(0.55 0.16 265);
     --primary-foreground: oklch(0.98 0.004 265);
-    --secondary: var(--surface-inset);
+    --secondary: var(--surface-control);
+    --secondary-hover: var(--surface-control-hover);
     --secondary-foreground: oklch(0.25 0.005 95);
     --muted: var(--surface-inset);
     --muted-foreground: oklch(0.49 0.006 95);
@@ -62,11 +76,14 @@
 @theme inline {
     --font-heading: var(--font-display);
     --font-sans: var(--font-body);
+    --color-surface-background: var(--surface-background);
     --color-surface-canvas: var(--surface-canvas);
     --color-surface-raised: var(--surface-raised);
     --color-surface-overlay: var(--surface-overlay);
     --color-surface-inset: var(--surface-inset);
     --color-surface-field: var(--surface-field);
+    --color-surface-control: var(--surface-control);
+    --color-surface-control-hover: var(--surface-control-hover);
     --color-surface-sidebar: var(--surface-sidebar);
     --shadow-surface: var(--surface-shadow);
     --shadow-overlay: var(--overlay-shadow);
@@ -100,6 +117,7 @@
     --color-muted: var(--muted);
     --color-secondary-foreground: var(--secondary-foreground);
     --color-secondary: var(--secondary);
+    --color-secondary-hover: var(--secondary-hover);
     --color-primary-foreground: var(--primary-foreground);
     --color-primary: var(--primary);
     --color-popover-foreground: var(--popover-foreground);
@@ -126,13 +144,17 @@
 }
 
 .dark {
+    /* Keep the global background and work canvas distinct in dark mode too. */
+    --surface-background: oklch(0.105 0.002 95);
     --surface-canvas: oklch(0.135 0.002 95);
-    --background: var(--surface-canvas);
+    --background: var(--surface-background);
     --foreground: oklch(0.94 0.003 95);
     --surface-raised: oklch(0.18 0.003 95);
     --surface-overlay: oklch(0.235 0.004 95);
     --surface-inset: oklch(0.205 0.003 95);
-    --surface-field: oklch(0.155 0.002 95);
+    --surface-field: oklch(0.17 0.003 95);
+    --surface-control: oklch(0.225 0.004 95);
+    --surface-control-hover: oklch(0.245 0.004 95);
     --surface-sidebar: oklch(0.15 0.003 95);
     --surface-sidebar-hover: oklch(0.22 0.004 95);
     --surface-shadow:
@@ -149,7 +171,8 @@
     --popover-foreground: var(--foreground);
     --primary: oklch(0.72 0.13 265);
     --primary-foreground: oklch(0.135 0.002 95);
-    --secondary: var(--surface-inset);
+    --secondary: var(--surface-control);
+    --secondary-hover: var(--surface-control-hover);
     --secondary-foreground: oklch(0.93 0.003 95);
     --muted: var(--surface-inset);
     --muted-foreground: oklch(0.68 0.004 95);

@@ -1,5 +1,6 @@
 import { Button } from '@herald/ui/components/button'
 import { ButtonGroupText } from '@herald/ui/components/button-group'
+import { Kbd } from '@herald/ui/components/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
 import { MagnifierZoomInIcon } from '@solar-icons/react/linear/magnifier-zoom-in'
 import { MagnifierZoomOutIcon } from '@solar-icons/react/linear/magnifier-zoom-out'
@@ -12,6 +13,8 @@ import {
 } from 'react-zoom-pan-pinch'
 
 import * as m from '@/paraglide/messages.js'
+
+import { MEDIA_VIEWER_SHORTCUTS } from './use-media-viewer-keyboard'
 
 const minScale = 1
 const maxScale = 3
@@ -201,13 +204,17 @@ export function MediaViewerZoomControls({
                             disabled={isAtMinimum}
                             data-media-viewer-zoom-out="true"
                             aria-label={m.media_viewer_zoom_out()}
+                            aria-keyshortcuts={MEDIA_VIEWER_SHORTCUTS.zoomOut}
                             className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-field"
                             onClick={onZoomOut}>
                             <MagnifierZoomOutIcon aria-hidden="true" />
                         </Button>
                     }
                 />
-                <TooltipContent>{m.media_viewer_zoom_out()}</TooltipContent>
+                <TooltipContent>
+                    <span>{m.media_viewer_zoom_out()}</span>
+                    <Kbd aria-hidden="true">{MEDIA_VIEWER_SHORTCUTS.zoomOut}</Kbd>
+                </TooltipContent>
             </Tooltip>
             <ButtonGroupText
                 aria-live="polite"
@@ -225,13 +232,17 @@ export function MediaViewerZoomControls({
                             disabled={isAtMaximum}
                             data-media-viewer-zoom-in="true"
                             aria-label={m.media_viewer_zoom_in()}
+                            aria-keyshortcuts={MEDIA_VIEWER_SHORTCUTS.zoomInAria}
                             className="bg-surface-overlay text-foreground shadow-field hover:bg-surface-field"
                             onClick={onZoomIn}>
                             <MagnifierZoomInIcon aria-hidden="true" />
                         </Button>
                     }
                 />
-                <TooltipContent>{m.media_viewer_zoom_in()}</TooltipContent>
+                <TooltipContent>
+                    <span>{m.media_viewer_zoom_in()}</span>
+                    <Kbd aria-hidden="true">{MEDIA_VIEWER_SHORTCUTS.zoomIn}</Kbd>
+                </TooltipContent>
             </Tooltip>
             <Tooltip>
                 <TooltipTrigger
@@ -243,13 +254,17 @@ export function MediaViewerZoomControls({
                             disabled={isAtMinimum}
                             data-media-viewer-zoom-reset="true"
                             aria-label={m.media_viewer_zoom_reset()}
+                            aria-keyshortcuts={MEDIA_VIEWER_SHORTCUTS.zoomReset}
                             className="bg-surface-overlay px-2 text-xs text-foreground shadow-field hover:bg-surface-field"
                             onClick={onReset}>
                             <span aria-hidden="true">{m.media_viewer_zoom_reset_short()}</span>
                         </Button>
                     }
                 />
-                <TooltipContent>{m.media_viewer_zoom_reset()}</TooltipContent>
+                <TooltipContent>
+                    <span>{m.media_viewer_zoom_reset()}</span>
+                    <Kbd aria-hidden="true">{MEDIA_VIEWER_SHORTCUTS.zoomReset}</Kbd>
+                </TooltipContent>
             </Tooltip>
         </>
     )

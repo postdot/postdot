@@ -1,3 +1,4 @@
+import { mediaImportSourceDefinitions } from '@herald/core'
 import type { AccessStore, MediaAssetStore } from '@herald/db'
 import type { OpenAPIV3 } from 'openapi-types'
 import { Type, type Static } from 'typebox'
@@ -5,6 +6,7 @@ import { Type, type Static } from 'typebox'
 import type { AuthenticatedElysia } from '../../plugins/auth'
 import { canAccessProjectRole, forbiddenProjectMutation } from '../projects/authorization'
 import { errorResponse } from '../projects/models'
+import { MediaUrlImportError, type MediaUrlImporter } from './url-import'
 
 const mediaProjectParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
@@ -14,6 +16,33 @@ const mediaListQuery = Type.Object({
     cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
     search: Type.Optional(Type.String({ maxLength: 255 })),
+    sort: Type.Optional(
+        Type.Union([
+            Type.Literal('newest'),
+            Type.Literal('oldest'),
+            Type.Literal('name_asc'),
+            Type.Literal('name_desc'),
+            Type.Literal('largest'),
+            Type.Literal('smallest'),
+        ])
+    ),
+    family: Type.Optional(
+        Type.Union([
+            Type.Literal('all'),
+            Type.Literal('image'),
+            Type.Literal('video'),
+            Type.Literal('audio'),
+            Type.Literal('document'),
+        ])
+    ),
+    date: Type.Optional(
+        Type.Union([
+            Type.Literal('all'),
+            Type.Literal('last_24_hours'),
+            Type.Literal('last_7_days'),
+            Type.Literal('last_30_days'),
+        ])
+    ),
 })
 
 const mediaAssetParams = Type.Object({
@@ -132,11 +161,26 @@ const mediaReferenceSchema = Type.Object({
 const mediaListPageSchema = Type.Object({
     media: Type.Array(mediaReferenceSchema),
     nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
+    total: Type.Integer({ minimum: 0 }),
 })
 
 const mediaUploadPolicySchema = Type.Object({
     allowedContentTypes: Type.Array(Type.String({ minLength: 1 })),
     maxFileSize: Type.Integer({ minimum: 1 }),
+})
+
+const mediaImportSourceSchema = Type.Object({
+    id: Type.Union([Type.Literal('device'), Type.Literal('webcam'), Type.Literal('url')]),
+    transfer: Type.Union([Type.Literal('browser'), Type.Literal('server')]),
+    requiresAuthentication: Type.Boolean(),
+})
+
+const mediaImportSourcesSchema = Type.Object({
+    sources: Type.Array(mediaImportSourceSchema, { minItems: 1 }),
+})
+
+const mediaUrlImportBody = Type.Object({
+    url: Type.String({ minLength: 1, maxLength: 2_048 }),
 })
 
 const mediaReservationSchema = Type.Object({
@@ -167,9 +211,32 @@ const finalizedResponse = Type.Object({
     media: mediaReferenceSchema,
 })
 
+const mediaUrlImportResponse = Type.Union([finalizedResponse, pendingResponse])
+
 const deletionResponse = Type.Object({
     status: Type.Literal('deletion_requested'),
     media: mediaReferenceSchema,
+})
+
+const mediaDeletionBatchBody = Type.Object({
+    assetIds: Type.Array(Type.String({ minLength: 1, maxLength: 255 }), {
+        minItems: 1,
+        maxItems: 1_000,
+    }),
+})
+
+const mediaDeletionBatchItemSchema = Type.Object({
+    assetId: Type.String({ minLength: 1 }),
+    status: Type.Union([
+        Type.Literal('deletion_requested'),
+        Type.Literal('already_requested'),
+        Type.Literal('blocked'),
+        Type.Literal('not_found'),
+    ]),
+})
+
+const mediaDeletionBatchResponse = Type.Object({
+    deletions: Type.Array(mediaDeletionBatchItemSchema, { minItems: 1 }),
 })
 
 const mediaUsageLocationSchema = Type.Union([
@@ -218,13 +285,22 @@ export type MediaUploadResponse = Static<typeof uploadedResponse>
 export type MediaPendingResponse = Static<typeof pendingResponse>
 export type MediaFinalizeResponse = Static<typeof finalizedResponse>
 export type MediaDeletionResponse = Static<typeof deletionResponse>
+export type MediaDeletionBatchResponse = Static<typeof mediaDeletionBatchResponse>
 export type MediaAssetUsageResponse = Static<typeof mediaUsageSchema>
 export type MediaUploadPolicyResponse = Static<typeof mediaUploadPolicySchema>
+export type MediaImportSourceResponse = Static<typeof mediaImportSourceSchema>
+export type MediaImportSourcesResponse = Static<typeof mediaImportSourcesSchema>
+export type MediaUrlImportResponse = Static<typeof mediaUrlImportResponse>
+
+export interface MediaRouteOptions {
+    readonly urlImporter?: MediaUrlImporter
+}
 
 export function registerMediaRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     media: MediaAssetStore | undefined,
-    access: AccessStore
+    access: AccessStore,
+    options: MediaRouteOptions = {}
 ) {
     return app
         .post(
@@ -401,6 +477,87 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 return { status: result.kind, media: mediaResponse }
             }
         )
+        .post(
+            '/api/projects/:projectId/media/imports/url',
+            {
+                auth: true,
+                params: mediaProjectParams,
+                body: mediaUrlImportBody,
+                response: {
+                    201: finalizedResponse,
+                    202: pendingResponse,
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    413: errorResponse,
+                    415: errorResponse,
+                    422: errorResponse,
+                    502: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'importMediaFromUrl',
+                    summary: 'Import a project media asset from a URL',
+                    tags: ['Media'],
+                },
+            },
+            async ({ authMethod, body, params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
+                if (options.urlImporter === undefined) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Media URL import is not enabled' },
+                    })
+                }
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                try {
+                    const result = await options.urlImporter.importUrl({
+                        projectId: params.projectId,
+                        subjectId: user.id,
+                        url: body.url,
+                    })
+                    if (result.kind === 'pending') {
+                        return status(202, {
+                            status: 'pending',
+                            media: toReservationResponse(result.reservation),
+                        })
+                    }
+                    if (result.kind === 'failed') {
+                        return status(422, {
+                            error: {
+                                code:
+                                    result.reservation.asset.failureCode ??
+                                    'media_verification_failed',
+                                message:
+                                    result.reservation.asset.failureMessage ??
+                                    'The imported media could not be verified',
+                            },
+                        })
+                    }
+                    return status(201, {
+                        status: 'ready',
+                        media: toMediaReferenceResponse(result.reservation),
+                    })
+                } catch (error) {
+                    if (!(error instanceof MediaUrlImportError)) throw error
+                    return status(error.status, {
+                        error: { code: error.code, message: error.message },
+                    })
+                }
+            }
+        )
         .get(
             '/api/projects/:projectId/media/upload-policy',
             {
@@ -433,6 +590,38 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
             }
         )
         .get(
+            '/api/projects/:projectId/media/sources',
+            {
+                auth: true,
+                params: mediaProjectParams,
+                response: {
+                    200: mediaImportSourcesSchema,
+                    401: errorResponse,
+                    404: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'getProjectMediaImportSources',
+                    summary: 'List configured project media import sources',
+                    tags: ['Media'],
+                },
+            },
+            ({ params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
+                if (media.getUploadPolicy(params.projectId, user.id) === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                const sources = Object.values(mediaImportSourceDefinitions).filter(
+                    source => source.id !== 'url' || options.urlImporter !== undefined
+                )
+                return {
+                    sources: sources.map(source => ({ ...source })),
+                }
+            }
+        )
+        .get(
             '/api/projects/:projectId/media',
             {
                 auth: true,
@@ -459,6 +648,9 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     cursor: query.cursor,
                     limit: query.limit,
                     search: query.search,
+                    sort: query.sort,
+                    family: query.family,
+                    date: query.date,
                 })
                 if (page === null) {
                     return status(404, {
@@ -468,6 +660,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 return {
                     media: page.items.map(toMediaReferenceResponse),
                     nextCursor: page.nextCursor,
+                    total: page.total,
                 }
             }
         )
@@ -597,6 +790,49 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     })
                 }
                 return toMediaReferenceResponse(mediaAsset)
+            }
+        )
+        .post(
+            '/api/projects/:projectId/media/deletion-requests',
+            {
+                auth: true,
+                params: mediaProjectParams,
+                body: mediaDeletionBatchBody,
+                response: {
+                    200: mediaDeletionBatchResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'requestMediaDeletions',
+                    summary: 'Archive project media assets for deletion',
+                    tags: ['Media'],
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const deletions: MediaDeletionBatchResponse['deletions'] = []
+                for (const assetId of new Set(body.assetIds)) {
+                    const result = media.requestDeletion(params.projectId, assetId, user.id)
+                    deletions.push({
+                        assetId,
+                        status: result.kind === 'requested' ? 'deletion_requested' : result.kind,
+                    })
+                }
+                return { deletions }
             }
         )
         .delete(

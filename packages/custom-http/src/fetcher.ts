@@ -1,6 +1,7 @@
 import {
     customHttpLimits,
     type CustomHttpFetcher,
+    type NetworkControlledBinaryFetcher,
     type CustomHttpRequestBody,
     type NetworkControlledFetcherOptions,
 } from './contract'
@@ -15,6 +16,38 @@ import { createNodeHttpRequester } from './node-requester'
 export function createNetworkControlledFetcher(
     options: NetworkControlledFetcherOptions = {}
 ): CustomHttpFetcher {
+    const request = createControlledRequest(options)
+
+    return async (input, init) => {
+        const response = await request(input, init)
+        if (response.bodyTruncated) {
+            throw new Error('The outbound provider response exceeded the configured limit')
+        }
+
+        return new Response(response.body, {
+            status: normalizeResponseStatus(response.status),
+            headers: response.headers,
+        })
+    }
+}
+
+export function createNetworkControlledBinaryFetcher(
+    options: NetworkControlledFetcherOptions = {}
+): NetworkControlledBinaryFetcher {
+    const request = createControlledRequest(options)
+
+    return async (input, init) => {
+        const response = await request(input, init)
+        return {
+            status: normalizeResponseStatus(response.status),
+            headers: response.headers,
+            body: response.bodyBytes ?? new TextEncoder().encode(response.body),
+            bodyTruncated: response.bodyTruncated,
+        }
+    }
+}
+
+function createControlledRequest(options: NetworkControlledFetcherOptions) {
     const authorizer = createCustomHttpEndpointAuthorizer({
         privateDestinations: options.privateDestinations,
         resolveHostname: options.resolveHostname,
@@ -29,7 +62,7 @@ export function createNetworkControlledFetcher(
         'maximum response bytes'
     )
 
-    return async (input, init) => {
+    return async (input: string | URL | Request, init?: RequestInit) => {
         const request =
             typeof input === 'string' || input instanceof URL
                 ? new Request(input.toString(), init)
@@ -52,14 +85,7 @@ export function createNetworkControlledFetcher(
             request.signal
         )
 
-        if (response.bodyTruncated) {
-            throw new Error('The outbound provider response exceeded the configured limit')
-        }
-
-        return new Response(response.body, {
-            status: normalizeResponseStatus(response.status),
-            headers: response.headers,
-        })
+        return response
     }
 }
 

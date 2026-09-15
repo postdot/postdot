@@ -7,8 +7,10 @@ import {
     defaultMediaInspectionLimits,
     DomainInvariantError,
     MediaInspectionRegistry,
+    mediaFamilies,
     type MediaAsset,
     type MediaAssetState,
+    type MediaFamily,
     type MediaInspectionLimits,
     type MediaRepresentation,
     type MediaRepresentationState,
@@ -25,6 +27,26 @@ const DEFAULT_DELETION_GRACE_PERIOD_MS = 24 * 60 * 60 * 1_000
 const DEFAULT_MEDIA_LIST_LIMIT = 24
 const MAX_MEDIA_LIST_LIMIT = 100
 const MAX_MEDIA_SEARCH_LENGTH = 255
+
+export const mediaAssetListSorts = [
+    'newest',
+    'oldest',
+    'name_asc',
+    'name_desc',
+    'largest',
+    'smallest',
+] as const
+export type MediaAssetListSort = (typeof mediaAssetListSorts)[number]
+
+export const mediaAssetDateFilters = [
+    'all',
+    'last_24_hours',
+    'last_7_days',
+    'last_30_days',
+] as const
+export type MediaAssetDateFilter = (typeof mediaAssetDateFilters)[number]
+
+export type MediaAssetFamilyFilter = 'all' | MediaFamily
 
 export interface MediaAssetStoreOptions {
     readonly now?: () => number
@@ -67,11 +89,15 @@ export interface ListMediaAssetsInput {
     readonly cursor?: string | null
     readonly limit?: number
     readonly search?: string | null
+    readonly sort?: MediaAssetListSort | null
+    readonly family?: MediaAssetFamilyFilter | null
+    readonly date?: MediaAssetDateFilter | null
 }
 
 export interface MediaAssetListPage {
     readonly items: readonly MediaAssetReference[]
     readonly nextCursor: string | null
+    readonly total: number
 }
 
 export type MediaAssetUsageLocation = 'source' | 'draft' | 'target' | 'execution'
@@ -233,6 +259,96 @@ interface MissingRepresentationRow extends MediaRepresentationRow {
     readonly assetState: MediaAssetState
 }
 
+type MediaListStatementParams = [
+    projectId: string,
+    search: string | null,
+    family: string | null,
+    createdAfter: number | null,
+    cursorKey: string | number | null,
+    cursorId: string | null,
+    limit: number,
+]
+
+type MediaListCountStatementParams = [
+    projectId: string,
+    search: string | null,
+    family: string | null,
+    createdAfter: number | null,
+]
+
+function mediaListStatementSql(sort: MediaAssetListSort): string {
+    const cursorCondition = {
+        newest: `
+          and (
+              ?5 is null
+              or media_assets.created_at < ?5
+              or (media_assets.created_at = ?5 and media_assets.id < ?6)
+          )`,
+        oldest: `
+          and (
+              ?5 is null
+              or media_assets.created_at > ?5
+              or (media_assets.created_at = ?5 and media_assets.id > ?6)
+          )`,
+        name_asc: `
+          and (
+              ?5 is null
+              or lower(media_assets.original_filename) > ?5
+              or (lower(media_assets.original_filename) = ?5 and media_assets.id > ?6)
+          )`,
+        name_desc: `
+          and (
+              ?5 is null
+              or lower(media_assets.original_filename) < ?5
+              or (lower(media_assets.original_filename) = ?5 and media_assets.id < ?6)
+          )`,
+        largest: `
+          and (
+              ?5 is null
+              or coalesce(original_representation.byte_size, -1) < ?5
+              or (
+                  coalesce(original_representation.byte_size, -1) = ?5
+                  and media_assets.id < ?6
+              )
+          )`,
+        smallest: `
+          and (
+              ?5 is null
+              or coalesce(original_representation.byte_size, -1) > ?5
+              or (
+                  coalesce(original_representation.byte_size, -1) = ?5
+                  and media_assets.id > ?6
+              )
+          )`,
+    }[sort]
+    const orderBy = {
+        newest: 'media_assets.created_at desc, media_assets.id desc',
+        oldest: 'media_assets.created_at asc, media_assets.id asc',
+        name_asc: 'lower(media_assets.original_filename) asc, media_assets.id asc',
+        name_desc: 'lower(media_assets.original_filename) desc, media_assets.id desc',
+        largest: 'coalesce(original_representation.byte_size, -1) desc, media_assets.id desc',
+        smallest: 'coalesce(original_representation.byte_size, -1) asc, media_assets.id asc',
+    }[sort]
+
+    return `
+        select ${mediaListAssetColumns}
+        from media_assets
+        left join media_representations as original_representation
+            on original_representation.project_id = media_assets.project_id
+           and original_representation.asset_id = media_assets.id
+           and original_representation.kind = 'original'
+        where media_assets.project_id = ?1
+          and media_assets.state <> 'deleted'
+          and media_assets.archived_at is null
+          and (?2 is null or media_assets.original_filename like ?2 escape '\\')
+          and (?3 is null or original_representation.family = ?3)
+          and (?4 is null or media_assets.created_at >= ?4)
+          ${cursorCondition}
+        order by ${orderBy}
+        limit ?7
+    `
+}
+
 const assetColumns = `
     id,
     project_id as projectId,
@@ -247,6 +363,22 @@ const assetColumns = `
     created_by_actor_id as createdByActorId,
     created_at as createdAt,
     updated_at as updatedAt
+`
+
+const mediaListAssetColumns = `
+    media_assets.id,
+    media_assets.project_id as projectId,
+    media_assets.original_filename as originalFilename,
+    media_assets.default_accessibility_text as defaultAccessibilityText,
+    media_assets.state,
+    media_assets.archived_at as archivedAt,
+    media_assets.deletion_requested_at as deletionRequestedAt,
+    media_assets.deleted_at as deletedAt,
+    media_assets.failure_code as failureCode,
+    media_assets.failure_message as failureMessage,
+    media_assets.created_by_actor_id as createdByActorId,
+    media_assets.created_at as createdAt,
+    media_assets.updated_at as updatedAt
 `
 
 const representationColumns = `
@@ -322,34 +454,47 @@ export function createMediaAssetStore(
         limit 1
     `)
     const loadAssetStatement = client.query<MediaAssetRow, [string, string]>(`
-        select ${assetColumns}
+        select ${mediaListAssetColumns}
         from media_assets
         where project_id = ?1
           and id = ?2
     `)
-    const listAssetsStatement = client.query<
-        MediaAssetRow,
-        [
-            projectId: string,
-            search: string | null,
-            cursorCreatedAt: number | null,
-            cursorId: string | null,
-            limit: number,
-        ]
+    const listAssetsStatements = {
+        newest: client.query<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('newest')
+        ),
+        oldest: client.query<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('oldest')
+        ),
+        name_asc: client.query<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('name_asc')
+        ),
+        name_desc: client.query<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('name_desc')
+        ),
+        largest: client.query<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('largest')
+        ),
+        smallest: client.query<MediaAssetRow, MediaListStatementParams>(
+            mediaListStatementSql('smallest')
+        ),
+    } satisfies Record<MediaAssetListSort, ReturnType<typeof client.query>>
+    const countAssetsStatement = client.query<
+        { readonly total: number },
+        MediaListCountStatementParams
     >(`
-        select ${assetColumns}
+        select count(distinct media_assets.id) as total
         from media_assets
-        where project_id = ?1
-          and state <> 'deleted'
-          and archived_at is null
-          and (?2 is null or original_filename like ?2 escape '\\')
-          and (
-              ?3 is null
-              or created_at < ?3
-              or (created_at = ?3 and id < ?4)
-          )
-        order by created_at desc, id desc
-        limit ?5
+        left join media_representations as original_representation
+            on original_representation.project_id = media_assets.project_id
+           and original_representation.asset_id = media_assets.id
+           and original_representation.kind = 'original'
+        where media_assets.project_id = ?1
+          and media_assets.state <> 'deleted'
+          and media_assets.archived_at is null
+          and (?2 is null or media_assets.original_filename like ?2 escape '\\')
+          and (?3 is null or original_representation.family = ?3)
+          and (?4 is null or media_assets.created_at >= ?4)
     `)
     const loadRepresentationStatement = client.query<MediaRepresentationRow, [string, string]>(`
         select ${representationColumns}
@@ -1570,11 +1715,26 @@ export function createMediaAssetStore(
             }
 
             const search = normalizeMediaSearch(input.search)
-            const cursor = parseMediaAssetCursor(input.cursor)
-            const rows = listAssetsStatement.all(
+            const sort = normalizeMediaListSort(input.sort)
+            const family = normalizeMediaFamilyFilter(input.family)
+            const date = normalizeMediaDateFilter(input.date)
+            const cursor = parseMediaAssetCursor(input.cursor, sort)
+            const createdAfter = mediaDateFilterSince(date, now())
+            const cursorKey = cursor?.key ?? null
+            const searchPattern = search === null ? null : `%${escapeLikePattern(search)}%`
+            const totalRow = countAssetsStatement.get(
                 normalizedProjectId,
-                search === null ? null : `%${escapeLikePattern(search)}%`,
-                cursor?.createdAt ?? null,
+                searchPattern,
+                family,
+                createdAfter
+            )
+            const total = totalRow?.total ?? 0
+            const rows = listAssetsStatements[sort].all(
+                normalizedProjectId,
+                searchPattern,
+                family,
+                createdAfter,
+                cursorKey,
                 cursor?.id ?? null,
                 limit + 1
             )
@@ -1586,16 +1746,18 @@ export function createMediaAssetStore(
                     .all(normalizedProjectId, asset.id)
                     .map(toMediaRepresentation),
             }))
-            const last = hasMore ? items.at(-1)?.asset : undefined
+            const last = hasMore ? items.at(-1) : undefined
 
             return {
                 items,
+                total,
                 nextCursor:
                     last === undefined
                         ? null
                         : encodeMediaAssetCursor({
-                              createdAt: last.createdAt,
-                              id: last.id,
+                              sort,
+                              key: mediaAssetSortKey(last, sort),
+                              id: last.asset.id,
                           }),
             }
         },
@@ -1739,45 +1901,147 @@ async function scanObject(
 }
 
 interface MediaAssetCursor {
-    readonly createdAt: number
+    readonly sort: MediaAssetListSort
+    readonly key: string | number
     readonly id: string
 }
 
-const mediaAssetCursorPrefix = 'media-v1:'
+const mediaAssetCursorPrefix = 'media-v2:'
+const legacyMediaAssetCursorPrefix = 'media-v1:'
 
 function encodeMediaAssetCursor(cursor: MediaAssetCursor): string {
-    return `${mediaAssetCursorPrefix}${cursor.createdAt}:${encodeURIComponent(cursor.id)}`
+    return `${mediaAssetCursorPrefix}${encodeURIComponent(JSON.stringify(cursor))}`
 }
 
-function parseMediaAssetCursor(cursor: string | null | undefined): MediaAssetCursor | null {
+function parseMediaAssetCursor(
+    cursor: string | null | undefined,
+    expectedSort: MediaAssetListSort
+): MediaAssetCursor | null {
     if (cursor === null || cursor === undefined) return null
-    if (!cursor.startsWith(mediaAssetCursorPrefix)) {
-        throw new DomainInvariantError('invalid_input', 'media cursor is invalid')
+
+    if (cursor.startsWith(legacyMediaAssetCursorPrefix)) {
+        if (expectedSort !== 'newest') throw invalidMediaCursor()
+        const separator = cursor.indexOf(':', legacyMediaAssetCursorPrefix.length)
+        if (separator < 0) throw invalidMediaCursor()
+
+        const createdAt = Number(cursor.slice(legacyMediaAssetCursorPrefix.length, separator))
+        let id: string
+        try {
+            id = decodeURIComponent(cursor.slice(separator + 1))
+        } catch {
+            throw invalidMediaCursor()
+        }
+
+        if (
+            !Number.isSafeInteger(createdAt) ||
+            createdAt < 0 ||
+            id.length === 0 ||
+            `${legacyMediaAssetCursorPrefix}${createdAt}:${encodeURIComponent(id)}` !== cursor
+        ) {
+            throw invalidMediaCursor()
+        }
+        return { sort: 'newest', key: createdAt, id }
     }
 
-    const separator = cursor.indexOf(':', mediaAssetCursorPrefix.length)
-    if (separator < 0) {
-        throw new DomainInvariantError('invalid_input', 'media cursor is invalid')
-    }
+    if (!cursor.startsWith(mediaAssetCursorPrefix)) throw invalidMediaCursor()
 
-    const createdAt = Number(cursor.slice(mediaAssetCursorPrefix.length, separator))
-    let id: string
+    let parsed: unknown
     try {
-        id = decodeURIComponent(cursor.slice(separator + 1))
+        parsed = JSON.parse(decodeURIComponent(cursor.slice(mediaAssetCursorPrefix.length)))
     } catch {
-        throw new DomainInvariantError('invalid_input', 'media cursor is invalid')
+        throw invalidMediaCursor()
     }
 
-    const parsed = { createdAt, id }
-    if (
-        !Number.isSafeInteger(createdAt) ||
-        createdAt < 0 ||
-        id.length === 0 ||
-        encodeMediaAssetCursor(parsed) !== cursor
-    ) {
-        throw new DomainInvariantError('invalid_input', 'media cursor is invalid')
+    if (!isMediaAssetCursor(parsed) || parsed.sort !== expectedSort) {
+        throw invalidMediaCursor()
     }
+    if (encodeMediaAssetCursor(parsed) !== cursor) throw invalidMediaCursor()
     return parsed
+}
+
+function isMediaAssetCursor(value: unknown): value is MediaAssetCursor {
+    if (typeof value !== 'object' || value === null) return false
+    if (!('sort' in value) || !('key' in value) || !('id' in value)) return false
+
+    const candidate = value as { sort: unknown; key: unknown; id: unknown }
+    if (
+        typeof candidate.sort !== 'string' ||
+        !(mediaAssetListSorts as readonly string[]).includes(candidate.sort) ||
+        typeof candidate.id !== 'string' ||
+        candidate.id.length === 0
+    ) {
+        return false
+    }
+
+    const numericKeySorts: readonly MediaAssetListSort[] = [
+        'newest',
+        'oldest',
+        'largest',
+        'smallest',
+    ]
+    if (numericKeySorts.includes(candidate.sort as MediaAssetListSort)) {
+        return typeof candidate.key === 'number' && Number.isSafeInteger(candidate.key)
+    }
+    return typeof candidate.key === 'string' && candidate.key.length > 0
+}
+
+function invalidMediaCursor(): DomainInvariantError {
+    return new DomainInvariantError('invalid_input', 'media cursor is invalid')
+}
+
+function normalizeMediaListSort(value: MediaAssetListSort | null | undefined): MediaAssetListSort {
+    const candidate = value ?? 'newest'
+    if (!(mediaAssetListSorts as readonly string[]).includes(candidate)) {
+        throw new DomainInvariantError('invalid_input', 'media sort is invalid')
+    }
+    return candidate
+}
+
+function normalizeMediaFamilyFilter(
+    value: MediaAssetFamilyFilter | null | undefined
+): MediaFamily | null {
+    if (value === null || value === undefined || value === 'all') return null
+    if (!(mediaFamilies as readonly string[]).includes(value)) {
+        throw new DomainInvariantError('invalid_input', 'media family filter is invalid')
+    }
+    return value
+}
+
+function normalizeMediaDateFilter(
+    value: MediaAssetDateFilter | null | undefined
+): MediaAssetDateFilter {
+    const candidate = value ?? 'all'
+    if (!(mediaAssetDateFilters as readonly string[]).includes(candidate)) {
+        throw new DomainInvariantError('invalid_input', 'media date filter is invalid')
+    }
+    return candidate
+}
+
+function mediaDateFilterSince(filter: MediaAssetDateFilter, currentTime: number): number | null {
+    if (filter === 'all') return null
+    const duration = {
+        last_24_hours: 24 * 60 * 60 * 1_000,
+        last_7_days: 7 * 24 * 60 * 60 * 1_000,
+        last_30_days: 30 * 24 * 60 * 60 * 1_000,
+    }[filter]
+    return currentTime - duration
+}
+
+function mediaAssetSortKey(asset: MediaAssetReference, sort: MediaAssetListSort): string | number {
+    switch (sort) {
+        case 'newest':
+        case 'oldest':
+            return asset.asset.createdAt
+        case 'name_asc':
+        case 'name_desc':
+            return asset.asset.originalFilename.toLowerCase()
+        case 'largest':
+        case 'smallest':
+            return (
+                asset.representations.find(representation => representation.kind === 'original')
+                    ?.byteSize ?? -1
+            )
+    }
 }
 
 function normalizeMediaSearch(value: string | null | undefined): string | null {

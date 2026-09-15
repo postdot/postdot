@@ -17,6 +17,7 @@ import type { Logger } from 'pino'
 import { createAuthenticatedElysia } from '../../plugins/auth'
 import { registerAccessRoutes } from '../access/routes'
 import { registerMediaRoutes } from '../media/routes'
+import type { MediaUrlImporter } from '../media/url-import'
 import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
 import { registerProjectAccessTokenRoutes } from './access-token-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
@@ -42,6 +43,7 @@ export interface ProjectModuleOptions {
     readonly manualStore: ManualStore
     readonly publisher: PublisherRuntime
     readonly media?: MediaAssetStore
+    readonly mediaUrlImporter?: MediaUrlImporter
     readonly logger?: Logger
     readonly onWorkScheduled?: () => void
     readonly now?: () => number
@@ -153,7 +155,9 @@ export function createProjectModule(options: ProjectModuleOptions) {
             onWorkScheduled: options.onWorkScheduled,
         }
     )
-    const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media, options.access)
+    const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media, options.access, {
+        urlImporter: options.mediaUrlImporter,
+    })
     const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
     const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)
     const providerAnalyticsRoutes = registerProviderAnalyticsRoutes(

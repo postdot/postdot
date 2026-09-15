@@ -18,6 +18,13 @@ interface DragConstraints {
     readonly right: number
 }
 
+interface ThumbnailDrag {
+    readonly pointerId: number
+    readonly startTrackX: number
+    readonly startX: number
+    moved: boolean
+}
+
 const minThumbSize = 56
 const maxThumbSize = 80
 const followerMargin = 4
@@ -45,10 +52,16 @@ export function MediaViewerThumbnails({
     const mouseX = useMotionValue(Number.POSITIVE_INFINITY)
     const thumbContainerRef = useRef<HTMLDivElement>(null)
     const thumbGroupRef = useRef<HTMLDivElement>(null)
+    const dragRef = useRef<ThumbnailDrag | null>(null)
+    const isDraggingRef = useRef(false)
+    const suppressClickRef = useRef(false)
+    const trackX = useMotionValue(0)
+    const dragConstraintsRef = useRef<DragConstraints>({ left: 0, right: 0 })
     const [dragConstraints, setDragConstraints] = useState<DragConstraints>({
         left: 0,
         right: 0,
     })
+    const [isDragging, setIsDragging] = useState(false)
     const [followed, setFollowed] = useState<HTMLButtonElement | null>(null)
     const followerSpring = {
         width: useSpring(0, followerSpringConfig),
@@ -69,20 +82,91 @@ export function MediaViewerThumbnails({
                 ? { left: 0, right: 0 }
                 : { left: -groupWidth / 2, right: groupWidth / 2 }
 
+        dragConstraintsRef.current = next
         setDragConstraints(current =>
             current.left === next.left && current.right === next.right ? current : next
         )
-    }, [])
+
+        const currentX = trackX.get()
+        const clampedX = Math.max(next.left, Math.min(next.right, currentX))
+        if (clampedX !== currentX) trackX.set(clampedX)
+    }, [trackX])
 
     useEffect(() => {
         updateDragConstraints()
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateDragConstraints)
+            return () => window.removeEventListener('resize', updateDragConstraints)
+        }
+
+        const resizeObserver = new ResizeObserver(updateDragConstraints)
+        if (thumbContainerRef.current !== null) resizeObserver.observe(thumbContainerRef.current)
+        if (thumbGroupRef.current !== null) resizeObserver.observe(thumbGroupRef.current)
         window.addEventListener('resize', updateDragConstraints)
-        return () => window.removeEventListener('resize', updateDragConstraints)
+        return () => {
+            resizeObserver.disconnect()
+            window.removeEventListener('resize', updateDragConstraints)
+        }
     }, [updateDragConstraints])
 
     useEffect(() => {
         updateDragConstraints()
     }, [assets.length, updateDragConstraints])
+
+    function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+        if (event.pointerType === 'mouse' && event.button !== 0) return
+        updateDragConstraints()
+        const constraints = dragConstraintsRef.current
+        if (constraints.left === constraints.right) return
+
+        dragRef.current = {
+            pointerId: event.pointerId,
+            startTrackX: trackX.get(),
+            startX: event.clientX,
+            moved: false,
+        }
+        isDraggingRef.current = true
+        setIsDragging(true)
+        event.currentTarget.setPointerCapture(event.pointerId)
+    }
+
+    function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+        mouseX.set(event.clientX)
+        const drag = dragRef.current
+        if (drag === null || drag.pointerId !== event.pointerId) return
+
+        const delta = event.clientX - drag.startX
+        if (!drag.moved && Math.abs(delta) < 4) return
+        drag.moved = true
+        suppressClickRef.current = true
+        event.preventDefault()
+
+        const constraints = dragConstraintsRef.current
+        const nextX = Math.max(
+            constraints.left,
+            Math.min(constraints.right, drag.startTrackX + delta)
+        )
+        trackX.set(nextX)
+    }
+
+    function finishPointerDrag(event: React.PointerEvent<HTMLDivElement>) {
+        const drag = dragRef.current
+        if (drag === null || drag.pointerId !== event.pointerId) return
+
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+        }
+        dragRef.current = null
+        isDraggingRef.current = false
+        setIsDragging(false)
+        mouseX.set(event.clientX)
+
+        if (drag.moved) {
+            window.setTimeout(() => {
+                suppressClickRef.current = false
+            }, 0)
+        }
+    }
 
     useEffect(() => {
         const thumbGroup = thumbGroupRef.current
@@ -149,14 +233,20 @@ export function MediaViewerThumbnails({
             <motion.div
                 ref={thumbContainerRef}
                 data-media-viewer-thumbnail-track="true"
+                style={{
+                    cursor: isDragging
+                        ? 'grabbing'
+                        : dragConstraints.left !== dragConstraints.right
+                          ? 'grab'
+                          : 'default',
+                    x: trackX,
+                }}
                 className="relative flex h-20 w-full touch-pan-y justify-center"
-                drag="x"
-                dragConstraints={dragConstraints}
-                dragElastic={1}
-                whileTap={{ cursor: 'grabbing' }}>
-                <div
-                    ref={thumbGroupRef}
-                    className="absolute bottom-3 flex min-w-min items-end gap-3">
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={finishPointerDrag}
+                onPointerCancel={finishPointerDrag}>
+                <div ref={thumbGroupRef} className="absolute bottom-3 flex w-max items-end gap-3">
                     <motion.div
                         className="pointer-events-none absolute z-0 rounded-lg border-2 border-border/40 bg-surface-raised/50"
                         style={{ ...followerSpring }}
@@ -167,6 +257,7 @@ export function MediaViewerThumbnails({
                             asset={asset}
                             active={index === activeIndex}
                             mouseX={mouseX}
+                            suppressClickRef={suppressClickRef}
                             onAssetChange={onAssetChange}
                         />
                     ))}
@@ -180,11 +271,13 @@ function DockThumbnail({
     asset,
     active,
     mouseX,
+    suppressClickRef,
     onAssetChange,
 }: {
     readonly asset: MediaReference
     readonly active: boolean
     readonly mouseX: MotionValue<number>
+    readonly suppressClickRef: React.RefObject<boolean | null>
     readonly onAssetChange: (asset: MediaReference) => void
 }) {
     const thumbRef = useRef<HTMLButtonElement>(null)
@@ -210,7 +303,15 @@ function DockThumbnail({
             data-media-viewer-thumbnail="true"
             style={{ height: size, width: size }}
             className={`relative m-0 cursor-pointer overflow-hidden rounded-md bg-surface-raised p-0 shadow-field transition-[filter] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? 'brightness-[1.12] saturate-100' : 'brightness-90 saturate-[0.9] hover:brightness-[1.10] hover:saturate-100'}`}
-            onClick={() => onAssetChange(asset)}>
+            onClick={event => {
+                if (suppressClickRef.current) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    suppressClickRef.current = false
+                    return
+                }
+                onAssetChange(asset)
+            }}>
             <span aria-hidden="true" className="absolute inset-0 z-10 size-full" />
             <MediaPreview
                 projectId={asset.asset.projectId}
