@@ -761,9 +761,29 @@ test('persists mixed and media-only publications through the dashboard', async (
         .first()
     await expect(attachmentCard).toHaveCount(1)
     await attachmentSearch.fill('')
-    const libraryMediaToggle = attachmentCard.locator('[data-media-selection-toggle="true"]')
     await attachmentCard.locator('[data-media-preview="true"]').click()
-    await expect(libraryMediaToggle).toHaveAttribute('aria-pressed', 'true')
+    await expect(attachmentCard.locator('[data-media-selection-toggle="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await page.keyboard.press('Escape')
+    await expect(attachmentLibrary).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    const reopenedAttachmentCard = attachmentLibrary
+        .locator('article')
+        .filter({ hasText: editedMediaFilename })
+        .first()
+    const reopenedMediaToggle = reopenedAttachmentCard.locator(
+        '[data-media-selection-toggle="true"]'
+    )
+    await expect(reopenedMediaToggle).toHaveAttribute('aria-pressed', 'false')
+    await reopenedMediaToggle.focus()
+    await reopenedMediaToggle.press('Space')
+    await expect(reopenedMediaToggle).toHaveAttribute('aria-pressed', 'true')
     const selectedCardGaps = await attachmentLibrary
         .locator('[data-media-selection-active="true"]')
         .first()
@@ -842,13 +862,57 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
     await expect(page.locator('#source-body')).toHaveValue(sourceText)
     await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
-    await expect(
-        page
-            .locator('article')
-            .filter({ hasText: editedMediaFilename })
-            .first()
-            .locator('[data-media-selection-toggle="true"]')
-    ).toHaveAttribute('aria-pressed', 'true')
+    const editorMediaPicker = page.locator('[data-media-picker="true"]')
+    await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
+    await expect(editorMediaPicker.locator('input[id^="media-alt-"]')).toHaveCount(1)
+    await editorMediaPicker.getByRole('button', { name: 'Add media', exact: true }).click()
+    const editorAttachmentLibrary = page.locator('[data-media-library="true"]')
+    await expect(editorAttachmentLibrary).toBeVisible()
+    await expect(editorAttachmentLibrary.locator('input[id^="media-alt-"]')).toHaveCount(0)
+    const editorSelectedCard = editorAttachmentLibrary
+        .locator('article')
+        .filter({ hasText: editedMediaFilename })
+        .first()
+    const editorMediaToggle = editorSelectedCard.locator('[data-media-selection-toggle="true"]')
+    await expect(editorMediaToggle).toHaveAttribute('aria-pressed', 'true')
+    await editorSelectedCard.locator('[data-media-preview="true"]').click()
+    await expect(editorMediaToggle).toHaveAttribute('aria-pressed', 'false')
+    await page.keyboard.press('Escape')
+    await expect(editorAttachmentLibrary).toHaveCount(0)
+    await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
+
+    await page.setViewportSize({ width: 320, height: 844 })
+    const mobileEditorMediaLayout = await editorMediaPicker
+        .locator('[data-media-selection-preview="true"]')
+        .first()
+        .evaluate(element => {
+            const preview = element as HTMLElement
+            const thumbnail = preview.querySelector('[data-media-preview="true"]')
+            const accessibilityInput = preview.querySelector('input[id^="media-alt-"]')
+            if (thumbnail === null || accessibilityInput === null) return null
+
+            const previewRect = preview.getBoundingClientRect()
+            const thumbnailRect = thumbnail.getBoundingClientRect()
+            const inputRect = accessibilityInput.getBoundingClientRect()
+            return {
+                clientWidth: preview.clientWidth,
+                scrollWidth: preview.scrollWidth,
+                previewWidth: previewRect.width,
+                thumbnailBottom: thumbnailRect.bottom,
+                inputTop: inputRect.top,
+            }
+        })
+    expect(mobileEditorMediaLayout).not.toBeNull()
+    expect(mobileEditorMediaLayout?.scrollWidth).toBeLessThanOrEqual(
+        mobileEditorMediaLayout?.clientWidth ?? 0
+    )
+    expect(mobileEditorMediaLayout?.previewWidth).toBeLessThanOrEqual(
+        mobileEditorMediaLayout?.clientWidth ?? 0
+    )
+    expect(mobileEditorMediaLayout?.inputTop).toBeGreaterThanOrEqual(
+        (mobileEditorMediaLayout?.thumbnailBottom ?? 0) - 1
+    )
+    await page.setViewportSize({ width: 1280, height: 720 })
 
     const promotedSchedule = localDateTimeInHours(4)
     await page.locator('#deliver-at').fill(promotedSchedule)
@@ -878,13 +942,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first().click()
     await expect(page.getByRole('heading', { name: mediaOnlyTitle })).toBeVisible()
     await expect(page.locator('#source-body')).toHaveValue('')
-    await expect(
-        page
-            .locator('article')
-            .filter({ hasText: editedMediaFilename })
-            .first()
-            .locator('[data-media-selection-toggle="true"]')
-    ).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
 
     const mediaOnlyTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
     expect(mediaOnlyTarget.body).toBeUndefined()

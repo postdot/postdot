@@ -58,7 +58,6 @@ interface MediaAttachmentLibraryDialogProps {
     readonly onUpload: () => void
     readonly onLoadMore: () => void | Promise<void>
     readonly onToggle: (asset: MediaReference) => void
-    readonly onPreview: (asset: MediaReference) => void
     readonly onConfirm: () => void
     readonly onSearchQueryChange: (query: string) => void
     readonly onDateChange: (value: MediaListDateFilter) => void
@@ -92,7 +91,6 @@ export function MediaAttachmentLibraryDialog({
     onUpload,
     onLoadMore,
     onToggle,
-    onPreview,
     onConfirm,
     onSearchQueryChange,
     onDateChange,
@@ -186,7 +184,6 @@ export function MediaAttachmentLibraryDialog({
                                 className={mediaLibraryGridClass(mediaViewMode)}
                                 interactionDisabled={interactionDisabled}
                                 layout={mediaViewMode}
-                                onPreview={onPreview}
                                 onToggle={onToggle}
                                 projectId={projectId}
                                 selectable

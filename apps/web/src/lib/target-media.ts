@@ -3,6 +3,29 @@ export interface MediaSelection {
     readonly accessibilityText?: string
 }
 
+export function toggleMediaSelection(
+    selections: readonly MediaSelection[],
+    selection: MediaSelection
+): MediaSelection[] {
+    const selectedIndex = selections.findIndex(item => item.assetId === selection.assetId)
+    if (selectedIndex < 0) return [...selections, selection]
+
+    return selections.filter((_, index) => index !== selectedIndex)
+}
+
+export function mediaSelectionsEqual(
+    left: readonly MediaSelection[],
+    right: readonly MediaSelection[]
+) {
+    if (left.length !== right.length) return false
+
+    return left.every(
+        (selection, index) =>
+            selection.assetId === right[index]?.assetId &&
+            selection.accessibilityText === right[index]?.accessibilityText
+    )
+}
+
 export function updateTargetMedia(
     profile: unknown,
     target: Record<string, unknown>,

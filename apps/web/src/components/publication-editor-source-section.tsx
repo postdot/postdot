@@ -136,6 +136,8 @@ export function PublicationEditorSourceSection({
                         </Field>
                         <MediaAttachmentPicker
                             projectId={projectId}
+                            showAccessibilityText
+                            variant="publication-new-inline"
                             value={sourceContent.media}
                             onChange={onMediaChange}
                             disabled={mediaDisabled}

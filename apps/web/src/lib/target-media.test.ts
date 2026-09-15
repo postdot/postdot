@@ -1,6 +1,33 @@
 import { describe, expect, it } from 'bun:test'
 
-import { updateTargetMedia } from './target-media'
+import { mediaSelectionsEqual, toggleMediaSelection, updateTargetMedia } from './target-media'
+
+describe('media selection helpers', () => {
+    it('toggles an asset without mutating the current selection or changing order', () => {
+        const current = [{ assetId: 'asset-1' }, { assetId: 'asset-2' }]
+
+        expect(toggleMediaSelection(current, { assetId: 'asset-3' })).toEqual([
+            { assetId: 'asset-1' },
+            { assetId: 'asset-2' },
+            { assetId: 'asset-3' },
+        ])
+        expect(toggleMediaSelection(current, { assetId: 'asset-1' })).toEqual([
+            { assetId: 'asset-2' },
+        ])
+        expect(current).toEqual([{ assetId: 'asset-1' }, { assetId: 'asset-2' }])
+    })
+
+    it('compares ordered selections including accessibility text', () => {
+        const selection = [{ assetId: 'asset-1', accessibilityText: 'A room' }]
+
+        expect(mediaSelectionsEqual(selection, [{ ...selection[0]! }])).toBe(true)
+        expect(mediaSelectionsEqual(selection, [{ assetId: 'asset-1' }])).toBe(false)
+        expect(
+            mediaSelectionsEqual(selection, [{ assetId: 'asset-2', accessibilityText: 'A room' }])
+        ).toBe(false)
+        expect(mediaSelectionsEqual(selection, [])).toBe(false)
+    })
+})
 
 describe('target media updates', () => {
     it('maps selected assets into every ordered-media binding without changing other target fields', () => {

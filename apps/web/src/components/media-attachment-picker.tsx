@@ -7,6 +7,8 @@ import {
     EmptyMedia,
     EmptyTitle,
 } from '@herald/ui/components/empty'
+import { Field, FieldLabel } from '@herald/ui/components/field'
+import { Input } from '@herald/ui/components/input'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/bold/close'
@@ -65,7 +67,7 @@ import {
     type MediaLibraryViewMode,
     writeMediaLibraryViewMode,
 } from '@/lib/media-library-view'
-import type { MediaSelection } from '@/lib/target-media'
+import { mediaSelectionsEqual, toggleMediaSelection, type MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
 const MediaImageEditorDialog = lazy(async () => {
@@ -94,7 +96,10 @@ const DEFAULT_MEDIA_IMPORT_SOURCES: readonly MediaImportSource[] = [
     },
 ]
 
-interface MediaAttachmentPickerProps {
+export type MediaAttachmentPickerVariant = 'library' | 'publication-new' | 'publication-new-inline'
+export type MediaAttachmentPickerSelectionMode = 'attach' | 'manage'
+
+export interface MediaAttachmentPickerProps {
     readonly projectId: string
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
@@ -106,8 +111,9 @@ interface MediaAttachmentPickerProps {
     }) => ReactNode
     readonly disabled?: boolean
     readonly emptyDescription?: string
-    readonly variant?: 'library' | 'publication-new' | 'publication-new-inline'
-    readonly selectionMode?: 'attach' | 'manage'
+    readonly showAccessibilityText?: boolean
+    readonly variant?: MediaAttachmentPickerVariant
+    readonly selectionMode?: MediaAttachmentPickerSelectionMode
 }
 
 export function MediaAttachmentPicker(props: MediaAttachmentPickerProps) {
@@ -144,6 +150,7 @@ function MediaAttachmentPickerView({
     renderHeader,
     disabled = false,
     emptyDescription,
+    showAccessibilityText,
     variant = 'library',
     selectionMode = 'attach',
     controller,
@@ -224,6 +231,7 @@ function MediaAttachmentPickerView({
     const compact = variant === 'publication-new' || variant === 'publication-new-inline'
     const inline = variant === 'publication-new-inline'
     const manageOnly = selectionMode === 'manage'
+    const showSelectedAccessibilityText = showAccessibilityText ?? !compact
     const libraryControlsEnabled = manageOnly || compact
     const normalizedSearchQuery = libraryControlsEnabled ? searchQuery.trim() : ''
     const interactionLocked =
@@ -261,10 +269,6 @@ function MediaAttachmentPickerView({
         currentValueRef.current = value
         onChangeRef.current = onChange
     }, [onChange, value])
-
-    useEffect(() => {
-        pendingLibrarySelectionRef.current = pendingLibrarySelection
-    }, [pendingLibrarySelection])
 
     useEffect(() => {
         assetsRef.current = assets
@@ -547,52 +551,55 @@ function MediaAttachmentPickerView({
 
     function openAttachmentLibrary() {
         if (interactionLocked) return
-        setPendingLibrarySelection(current => current ?? [...value])
+        const currentDraft = pendingLibrarySelectionRef.current ?? [...value]
+        pendingLibrarySelectionRef.current = currentDraft
+        setPendingLibrarySelection(currentDraft)
         setLibraryOpen(true)
+    }
+
+    function discardAttachmentSelection() {
+        pendingLibrarySelectionRef.current = null
+        setPendingLibrarySelection(null)
     }
 
     function handleAttachmentLibraryOpenChange(open: boolean) {
         setLibraryOpen(open)
-        if (!open) setPendingLibrarySelection(null)
+        if (!open) discardAttachmentSelection()
     }
 
     function confirmAttachmentSelection() {
-        const nextSelection = pendingLibrarySelection ?? value
+        const nextSelection = pendingLibrarySelectionRef.current ?? value
         const committedSelection = [...nextSelection]
-        currentValueRef.current = committedSelection
-        onChange(committedSelection)
-        setPendingLibrarySelection(null)
+        if (!mediaSelectionsEqual(committedSelection, value)) {
+            currentValueRef.current = committedSelection
+            onChange(committedSelection)
+        }
+        discardAttachmentSelection()
         setLibraryOpen(false)
     }
 
     function toggleLibraryAsset(asset: MediaReference) {
         if (interactionLocked || asset.asset.state !== 'ready') return
 
-        setPendingLibrarySelection(current => {
-            const next = [...(current ?? value)]
-            const selectedIndex = next.findIndex(item => item.assetId === asset.asset.id)
-            if (selectedIndex >= 0) {
-                next.splice(selectedIndex, 1)
-                return next
-            }
-
-            next.push(mediaSelectionFor(asset))
-            return next
-        })
+        const next = toggleMediaSelection(
+            pendingLibrarySelectionRef.current ?? value,
+            mediaSelectionFor(asset)
+        )
+        pendingLibrarySelectionRef.current = next
+        setPendingLibrarySelection(next)
     }
 
     function stageAssetsForLibrary(importedAssets: readonly MediaReference[]) {
         if (importedAssets.length === 0) return
 
-        setPendingLibrarySelection(current => {
-            const next = [...(current ?? currentValueRef.current)]
-            for (const asset of importedAssets) {
-                if (!next.some(item => item.assetId === asset.asset.id)) {
-                    next.push(mediaSelectionFor(asset))
-                }
+        const next = [...(pendingLibrarySelectionRef.current ?? currentValueRef.current)]
+        for (const asset of importedAssets) {
+            if (!next.some(item => item.assetId === asset.asset.id)) {
+                next.push(mediaSelectionFor(asset))
             }
-            return next
-        })
+        }
+        pendingLibrarySelectionRef.current = next
+        setPendingLibrarySelection(next)
         setLibraryOpen(true)
     }
 
@@ -1292,6 +1299,9 @@ function MediaAttachmentPickerView({
                                 projectId={projectId}
                                 selection={selection}
                                 total={value.length}
+                                disabled={interactionLocked}
+                                showAccessibilityText={showSelectedAccessibilityText}
+                                onAccessibilityTextChange={updateAccessibilityText}
                                 onMove={moveSelection}
                                 onRemove={removeSelection}
                                 onPreview={openViewer}
@@ -1395,6 +1405,9 @@ function MediaAttachmentPickerView({
                                     projectId={projectId}
                                     selection={selection}
                                     total={value.length}
+                                    disabled={interactionLocked}
+                                    showAccessibilityText={showSelectedAccessibilityText}
+                                    onAccessibilityTextChange={updateAccessibilityText}
                                     onMove={moveSelection}
                                     onRemove={removeSelection}
                                     onPreview={openViewer}
@@ -1524,7 +1537,6 @@ function MediaAttachmentPickerView({
                     onFamilyChange={setMediaFamilyFilter}
                     onLoadMore={loadMoreAssets}
                     onOpenChange={handleAttachmentLibraryOpenChange}
-                    onPreview={openViewer}
                     onSearchQueryChange={handleSearchQueryChange}
                     onSortChange={setMediaSort}
                     onToggle={toggleLibraryAsset}
@@ -1629,10 +1641,13 @@ function MediaAttachmentPickerView({
 
 function CompactMediaPreview({
     asset,
+    disabled,
     index,
     projectId,
     selection,
+    showAccessibilityText,
     total,
+    onAccessibilityTextChange,
     onMove,
     onRemove,
     onPreview,
@@ -1644,10 +1659,13 @@ function CompactMediaPreview({
     dragOver,
 }: {
     readonly asset: MediaReference | undefined
+    readonly disabled: boolean
     readonly index: number
     readonly projectId: string
     readonly selection: MediaSelection
+    readonly showAccessibilityText: boolean
     readonly total: number
+    readonly onAccessibilityTextChange: (assetId: string, text: string) => void
     readonly onMove: (index: number, offset: -1 | 1) => void
     readonly onRemove: (assetId: string) => void
     readonly onPreview: (asset: MediaReference) => void
@@ -1663,70 +1681,92 @@ function CompactMediaPreview({
 
     return (
         <div
-            draggable={asset !== undefined && total > 1}
-            data-media-dragging={dragging || undefined}
-            data-media-drop-target={dragOver || undefined}
-            data-media-reorderable={asset !== undefined && total > 1 ? 'true' : undefined}
-            title={total > 1 ? m.media_reorder_hint() : undefined}
-            className={`group relative size-20 overflow-hidden rounded-md bg-surface-field ${
-                dragging ? 'opacity-45' : ''
-            } ${dragOver ? 'ring-2 ring-primary' : ''}`}
-            onDragStart={event => {
-                if (asset !== undefined) onDragStart(event, selection.assetId)
-            }}
-            onDragOver={event => onDragOver(event, selection.assetId)}
-            onDrop={event => onDrop(event, selection.assetId)}
-            onDragEnd={onDragEnd}>
-            {asset !== undefined && representation !== undefined ? (
-                <button
+            data-media-selection-preview={asset !== undefined ? 'true' : undefined}
+            className="flex min-w-0 max-w-full flex-col items-start gap-2 sm:flex-row">
+            <div
+                draggable={asset !== undefined && total > 1}
+                data-media-dragging={dragging || undefined}
+                data-media-drop-target={dragOver || undefined}
+                data-media-reorderable={asset !== undefined && total > 1 ? 'true' : undefined}
+                title={total > 1 ? m.media_reorder_hint() : undefined}
+                className={`group relative size-20 shrink-0 overflow-hidden rounded-md bg-surface-field ${
+                    dragging ? 'opacity-45' : ''
+                } ${dragOver ? 'ring-2 ring-primary' : ''}`}
+                onDragStart={event => {
+                    if (asset !== undefined) onDragStart(event, selection.assetId)
+                }}
+                onDragOver={event => onDragOver(event, selection.assetId)}
+                onDrop={event => onDrop(event, selection.assetId)}
+                onDragEnd={onDragEnd}>
+                {asset !== undefined && representation !== undefined ? (
+                    <button
+                        type="button"
+                        data-media-preview="true"
+                        className="block size-20 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                        aria-label={m.media_view_asset({ filename })}
+                        onClick={() => onPreview(asset)}>
+                        <MediaPreview
+                            projectId={projectId}
+                            asset={asset}
+                            representation={representation}
+                            className="size-20 rounded-md object-cover"
+                        />
+                    </button>
+                ) : (
+                    <span className="flex size-20 items-center justify-center text-xs text-muted-foreground">
+                        {m.media_file_type()}
+                    </span>
+                )}
+                {total > 1 ? (
+                    <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon-xs"
+                            aria-label={m.media_move_left({ filename })}
+                            disabled={disabled || index === 0}
+                            onClick={() => onMove(index, -1)}>
+                            <AltArrowLeftIcon aria-hidden="true" />
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon-xs"
+                            aria-label={m.media_move_right({ filename })}
+                            disabled={disabled || index === total - 1}
+                            onClick={() => onMove(index, 1)}>
+                            <AltArrowRightIcon aria-hidden="true" />
+                        </Button>
+                    </div>
+                ) : null}
+                <Button
                     type="button"
-                    data-media-preview="true"
-                    className="block size-20 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-                    aria-label={m.media_view_asset({ filename })}
-                    onClick={() => onPreview(asset)}>
-                    <MediaPreview
-                        projectId={projectId}
-                        asset={asset}
-                        representation={representation}
-                        className="size-20 rounded-md object-cover"
+                    variant="destructive"
+                    size="icon-xs"
+                    disabled={disabled}
+                    className="absolute top-1 right-1 border-2 border-background bg-state-failed text-white shadow-control hover:bg-state-failed/85"
+                    aria-label={m.media_remove({ filename })}
+                    onClick={() => onRemove(selection.assetId)}>
+                    <CloseIcon aria-hidden="true" />
+                </Button>
+            </div>
+            {showAccessibilityText && asset !== undefined ? (
+                <Field className="min-w-0 w-full max-w-full gap-1 sm:w-56">
+                    <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>
+                        {m.media_accessibility_text()}
+                    </FieldLabel>
+                    <Input
+                        id={`media-alt-${asset.asset.id}`}
+                        value={selection.accessibilityText ?? ''}
+                        disabled={disabled}
+                        onChange={event =>
+                            onAccessibilityTextChange(asset.asset.id, event.target.value)
+                        }
+                        placeholder={m.media_accessibility_placeholder()}
+                        className="h-8 text-xs"
                     />
-                </button>
-            ) : (
-                <span className="flex size-20 items-center justify-center text-xs text-muted-foreground">
-                    {m.media_file_type()}
-                </span>
-            )}
-            {total > 1 ? (
-                <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon-xs"
-                        aria-label={m.media_move_left({ filename })}
-                        disabled={index === 0}
-                        onClick={() => onMove(index, -1)}>
-                        <AltArrowLeftIcon aria-hidden="true" />
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon-xs"
-                        aria-label={m.media_move_right({ filename })}
-                        disabled={index === total - 1}
-                        onClick={() => onMove(index, 1)}>
-                        <AltArrowRightIcon aria-hidden="true" />
-                    </Button>
-                </div>
+                </Field>
             ) : null}
-            <Button
-                type="button"
-                variant="destructive"
-                size="icon-xs"
-                className="absolute top-1 right-1 border-2 border-background bg-state-failed text-white shadow-control hover:bg-state-failed/85"
-                aria-label={m.media_remove({ filename })}
-                onClick={() => onRemove(selection.assetId)}>
-                <CloseIcon aria-hidden="true" />
-            </Button>
         </div>
     )
 }

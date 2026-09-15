@@ -40,7 +40,7 @@ interface MediaAssetCardProps {
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
-    readonly onPreview: (asset: MediaReference) => void
+    readonly onPreview?: (asset: MediaReference) => void
 }
 
 export type MediaAssetCardLayout = 'grid' | 'compact' | 'list'
@@ -136,10 +136,14 @@ export function MediaAssetCard({
                 ) : (
                     <button
                         type="button"
-                        disabled={interactionDisabled || representation === undefined}
+                        disabled={
+                            interactionDisabled ||
+                            representation === undefined ||
+                            onPreview === undefined
+                        }
                         aria-label={m.media_view_asset({ filename: asset.asset.originalFilename })}
                         data-media-preview="true"
-                        onClick={() => onPreview(asset)}
+                        onClick={() => onPreview?.(asset)}
                         title={m.media_view_asset({ filename: asset.asset.originalFilename })}
                         className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50`}>
                         <MediaPreview
