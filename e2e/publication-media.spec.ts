@@ -972,17 +972,44 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
     ).toHaveCount(0)
-    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await page.keyboard.press('Escape')
+    await expect(attachmentLibrary).toHaveCount(0)
     await expect(
         page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
-    ).toHaveCount(1)
-    const urlRemoveButton = page.getByRole('button', {
-        name: new RegExp(`Remove ${urlMediaReference.asset.originalFilename}`),
-    })
-    await expect(urlRemoveButton).toBeVisible()
-    await urlRemoveButton.click()
-    await expect(urlRemoveButton).toHaveCount(0)
+    ).toHaveCount(0)
     await page.unroute('**/api/projects/*/media/imports/url', urlImportRoute)
+
+    const urlImportErrorRoute = async (route: Route) => {
+        await route.fulfill({
+            status: 415,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                error: {
+                    code: 'media_url_unsupported_type',
+                    message: 'This image format is not supported.',
+                },
+            }),
+        })
+    }
+    await page.route('**/api/projects/*/media/imports/url', urlImportErrorRoute)
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    await attachmentLibrary.getByRole('button', { name: 'Import', exact: true }).click()
+    const failedUrlSourcePicker = page.locator('[data-media-source-picker="true"]')
+    await expect(failedUrlSourcePicker).toBeVisible()
+    await failedUrlSourcePicker.locator('[data-media-source="url"]').click()
+    await failedUrlSourcePicker.locator('#media-source-url').fill(urlImport)
+    await failedUrlSourcePicker.getByRole('button', { name: 'Import', exact: true }).click()
+    await expect(failedUrlSourcePicker).toBeVisible()
+    await expect(
+        failedUrlSourcePicker.getByText('This image format is not supported.', { exact: true })
+    ).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(failedUrlSourcePicker).toHaveCount(0)
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(0)
+    await page.unroute('**/api/projects/*/media/imports/url', urlImportErrorRoute)
 
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     await expect(attachmentLibrary).toBeVisible()
