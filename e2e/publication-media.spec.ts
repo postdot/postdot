@@ -837,6 +837,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         'aria-pressed',
         'true'
     )
+    await expect(attachmentCard).toHaveAttribute('data-media-selection-active', 'true')
     await page.keyboard.press('Escape')
     await expect(attachmentLibrary).toHaveCount(0)
     await expect(
@@ -879,6 +880,9 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
     ).toHaveCount(0)
     await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(1)
     await expect(
         page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
     ).toBeVisible()

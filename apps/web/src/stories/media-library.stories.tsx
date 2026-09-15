@@ -49,6 +49,10 @@ export const AttachmentDialog: Story = {
     render: () => <AttachmentDialogExample />,
 }
 
+export const PublicationNewContext: Story = {
+    render: () => <AttachmentDialogExample context="publication" />,
+}
+
 export const FocusedAttachmentDialog: Story = {
     render: () => (
         <AttachmentDialogExample
@@ -107,6 +111,7 @@ function CardLayoutsExample() {
 }
 
 function AttachmentDialogExample({
+    context = 'picker',
     libraryFeatures = {
         filters: true,
         resultCount: true,
@@ -114,6 +119,7 @@ function AttachmentDialogExample({
         viewModes: true,
     },
 }: {
+    readonly context?: 'picker' | 'publication'
     readonly libraryFeatures?: MediaLibraryFeatureOptions
 }) {
     const [open, setOpen] = useState(true)
@@ -143,10 +149,49 @@ function AttachmentDialogExample({
 
     return (
         <StoryProviders>
-            <div className="min-h-screen bg-surface-canvas p-6 text-foreground">
-                <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
-                    Open attachment picker
-                </Button>
+            <div className="min-h-screen bg-surface-canvas p-6 text-foreground sm:p-10">
+                {context === 'publication' ? (
+                    <div className="mx-auto max-w-6xl space-y-6">
+                        <div>
+                            <p className="text-sm text-muted-foreground">Publications</p>
+                            <h1 className="mt-1 text-3xl font-semibold tracking-tight">
+                                New publication
+                            </h1>
+                        </div>
+                        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)]">
+                            <section className="rounded-lg bg-muted/70 p-5">
+                                <h2 className="text-lg font-medium">Content</h2>
+                                <div className="mt-4 rounded-md bg-surface-field p-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        Write something for your audience...
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        className="mt-4"
+                                        onClick={() => setOpen(true)}>
+                                        Add media
+                                    </Button>
+                                </div>
+                                <p className="mt-3 text-sm text-muted-foreground">
+                                    {selection.length === 0
+                                        ? 'No media attached'
+                                        : `${selection.length} media attached after confirmation`}
+                                </p>
+                            </section>
+                            <aside className="rounded-lg bg-muted/70 p-5">
+                                <h2 className="text-lg font-medium">Publish to</h2>
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    Choose the channels for this publication.
+                                </p>
+                            </aside>
+                        </div>
+                    </div>
+                ) : (
+                    <Button type="button" variant="secondary" onClick={() => setOpen(true)}>
+                        Open attachment picker
+                    </Button>
+                )}
                 <MediaAttachmentLibraryDialog
                     assets={assets}
                     error={null}
