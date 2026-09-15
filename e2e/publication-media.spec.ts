@@ -11,6 +11,7 @@ const e2eApiOrigin = `http://127.0.0.1:${e2eApiPort}`
 const mediaFilename = 'herald-e2e-pixel.png'
 const editedMediaFilename = 'herald-e2e-pixel-edited.png'
 const secondMediaFilename = 'herald-e2e-second-pixel.png'
+const pickerMediaFilename = 'herald-e2e-picker-pixel.png'
 const mediaBytes = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
     'base64'
@@ -42,6 +43,32 @@ test('persists mixed and media-only publications through the dashboard', async (
     request,
 }) => {
     test.setTimeout(60_000)
+
+    await page.addInitScript(() => {
+        const mediaDevices = navigator.mediaDevices ?? {}
+        Object.defineProperty(mediaDevices, 'getUserMedia', {
+            configurable: true,
+            value: async () => new MediaStream(),
+        })
+        Object.defineProperty(navigator, 'mediaDevices', {
+            configurable: true,
+            value: mediaDevices,
+        })
+
+        Object.defineProperty(HTMLVideoElement.prototype, 'readyState', {
+            configurable: true,
+            get: () => 4,
+        })
+        Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', {
+            configurable: true,
+            get: () => 640,
+        })
+        Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', {
+            configurable: true,
+            get: () => 480,
+        })
+        HTMLMediaElement.prototype.play = () => Promise.resolve()
+    })
 
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
@@ -825,6 +852,78 @@ test('persists mixed and media-only publications through the dashboard', async (
         name: 'Search media',
         exact: true,
     })
+
+    await attachmentLibrary.getByRole('button', { name: 'Import', exact: true }).click()
+    const deviceSourcePicker = page.locator('[data-media-source-picker="true"]')
+    await expect(deviceSourcePicker).toBeVisible()
+    await deviceSourcePicker.locator('[data-media-source="device"]').click()
+    await page.locator('input[type="file"]').setInputFiles({
+        name: pickerMediaFilename,
+        mimeType: 'image/png',
+        buffer: mediaBytes,
+    })
+    await expect(attachmentLibrary).toBeVisible()
+    const deviceCard = attachmentLibrary
+        .locator('article')
+        .filter({ hasText: pickerMediaFilename })
+        .first()
+    await expect(deviceCard).toBeVisible()
+    await expect(deviceCard.locator('[data-media-selection-toggle="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${pickerMediaFilename}`) })
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    const deviceRemoveButton = page.getByRole('button', {
+        name: new RegExp(`Remove ${pickerMediaFilename}`),
+    })
+    await expect(deviceRemoveButton).toBeVisible()
+    await deviceRemoveButton.click()
+    await expect(deviceRemoveButton).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    await attachmentLibrary.getByRole('button', { name: 'Import', exact: true }).click()
+    const webcamSourcePicker = page.locator('[data-media-source-picker="true"]')
+    await expect(webcamSourcePicker).toBeVisible()
+    await webcamSourcePicker.locator('[data-media-source="webcam"]').click()
+    const webcamDialog = page.locator('[data-media-webcam-dialog="true"]')
+    await expect(webcamDialog).toBeVisible()
+    const webcamVideo = webcamDialog.locator('video')
+    await webcamVideo.dispatchEvent('loadedmetadata')
+    await webcamVideo.dispatchEvent('canplay')
+    const captureButton = webcamDialog.getByRole('button', { name: 'Take photo', exact: true })
+    await expect(captureButton).toBeEnabled()
+    await captureButton.click()
+    await expect(webcamDialog).toHaveCount(0)
+    await expect(attachmentLibrary).toBeVisible()
+    const webcamCard = attachmentLibrary
+        .locator('article')
+        .filter({ hasText: /webcam-.*\.jpg/ })
+        .first()
+    await expect(webcamCard).toBeVisible()
+    await expect(webcamCard.locator('[data-media-selection-toggle="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(1)
+    const webcamRemoveButton = page.getByRole('button', {
+        name: /^Remove webcam-.*\.jpg$/,
+    })
+    await expect(webcamRemoveButton).toBeVisible()
+    await webcamRemoveButton.click()
+    await expect(webcamRemoveButton).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
     await attachmentSearch.fill(editedMediaFilename)
     const attachmentCard = attachmentLibrary
         .locator('article')
