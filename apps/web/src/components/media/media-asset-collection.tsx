@@ -25,6 +25,7 @@ interface MediaAssetCollectionProps {
     readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview?: (asset: MediaReference) => void
+    readonly previewUrl?: (asset: MediaReference) => string | undefined
 }
 
 export function MediaAssetCollection({
@@ -49,6 +50,7 @@ export function MediaAssetCollection({
     onRequestDelete,
     onToggle,
     onPreview,
+    previewUrl,
 }: MediaAssetCollectionProps) {
     return (
         <div data-media-library-view={viewMode} className={`grid gap-3 ${className ?? ''}`}>
@@ -74,6 +76,7 @@ export function MediaAssetCollection({
                     onRequestDelete={onRequestDelete}
                     onToggle={onToggle}
                     onPreview={onPreview}
+                    previewUrl={previewUrl?.(asset)}
                 />
             ))}
         </div>

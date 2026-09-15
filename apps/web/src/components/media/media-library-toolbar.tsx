@@ -32,7 +32,14 @@ const MEDIA_VIEW_SHORTCUTS = {
     list: 'L',
 } satisfies Record<MediaLibraryViewMode, RegisterableHotkey>
 
-interface MediaLibraryToolbarProps {
+export interface MediaLibraryFeatureOptions {
+    readonly search?: boolean
+    readonly filters?: boolean
+    readonly resultCount?: boolean
+    readonly viewModes?: boolean
+}
+
+export interface MediaLibraryToolbarProps {
     readonly projectId: string
     readonly searchQuery: string
     readonly searchPending: boolean
@@ -45,6 +52,7 @@ interface MediaLibraryToolbarProps {
     readonly assetCount: number
     readonly totalAssets: number
     readonly className?: string
+    readonly features?: MediaLibraryFeatureOptions
     readonly showResultCount?: boolean
     readonly showSelectionMode?: boolean
     readonly showViewControls?: boolean
@@ -69,9 +77,10 @@ export function MediaLibraryToolbar({
     assetCount,
     totalAssets,
     className,
-    showResultCount = true,
+    features,
+    showResultCount: showResultCountProp = true,
     showSelectionMode = true,
-    showViewControls = true,
+    showViewControls: showViewControlsProp = true,
     onSearchQueryChange,
     onDateChange,
     onFamilyChange,
@@ -79,39 +88,48 @@ export function MediaLibraryToolbar({
     onViewModeChange,
     onToggleSelectionMode,
 }: MediaLibraryToolbarProps) {
+    const showSearch = features?.search ?? true
+    const showFilters = features?.filters ?? true
+    const showResultCount = (features?.resultCount ?? true) && showResultCountProp
+    const showViewControls = (features?.viewModes ?? true) && showViewControlsProp
+
     return (
         <div
             role="search"
             aria-label={m.media_search_label()}
             data-media-library-toolbar="true"
             className={`flex flex-col gap-3 ${className ?? ''}`}>
-            <div className="relative min-w-0 sm:w-80">
-                <label className="sr-only" htmlFor={`media-search-${projectId}`}>
-                    {m.media_search_label()}
-                </label>
-                <MagnifierIcon
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                    id={`media-search-${projectId}`}
-                    type="search"
-                    data-media-search="true"
-                    value={searchQuery}
-                    onChange={event => onSearchQueryChange(event.target.value)}
-                    placeholder={m.media_search_placeholder()}
-                    className="h-8 pl-9 text-sm"
-                />
-            </div>
+            {showSearch ? (
+                <div className="relative min-w-0 sm:w-80">
+                    <label className="sr-only" htmlFor={`media-search-${projectId}`}>
+                        {m.media_search_label()}
+                    </label>
+                    <MagnifierIcon
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                        id={`media-search-${projectId}`}
+                        type="search"
+                        data-media-search="true"
+                        value={searchQuery}
+                        onChange={event => onSearchQueryChange(event.target.value)}
+                        placeholder={m.media_search_placeholder()}
+                        className="h-8 pl-9 text-sm"
+                    />
+                </div>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
-                <MediaLibraryFilters
-                    date={mediaDateFilter}
-                    family={mediaFamilyFilter}
-                    sort={mediaSort}
-                    onDateChange={onDateChange}
-                    onFamilyChange={onFamilyChange}
-                    onSortChange={onSortChange}
-                />
+                {showFilters ? (
+                    <MediaLibraryFilters
+                        date={mediaDateFilter}
+                        family={mediaFamilyFilter}
+                        sort={mediaSort}
+                        onDateChange={onDateChange}
+                        onFamilyChange={onFamilyChange}
+                        onSortChange={onSortChange}
+                    />
+                ) : null}
                 <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
                     {showResultCount && searchPending ? (
                         <p aria-live="polite" className="text-xs text-muted-foreground">

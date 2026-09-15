@@ -22,7 +22,10 @@ import {
     MediaAssetCollection,
     mediaLibraryGridClass,
 } from '@/components/media/media-asset-collection'
-import { MediaLibraryToolbar } from '@/components/media/media-library-toolbar'
+import {
+    MediaLibraryToolbar,
+    type MediaLibraryFeatureOptions,
+} from '@/components/media/media-library-toolbar'
 import type {
     MediaListDateFilter,
     MediaListFamilyFilter,
@@ -33,7 +36,7 @@ import type { MediaLibraryViewMode } from '@/lib/media-library-view'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
-interface MediaAttachmentLibraryDialogProps {
+export interface MediaAttachmentLibraryDialogProps {
     readonly open: boolean
     readonly onOpenChange: (open: boolean) => void
     readonly projectId: string
@@ -53,6 +56,8 @@ interface MediaAttachmentLibraryDialogProps {
     readonly mediaSort: MediaListSort
     readonly mediaViewMode: MediaLibraryViewMode
     readonly totalAssets: number
+    readonly libraryFeatures?: MediaLibraryFeatureOptions
+    readonly previewUrl?: (asset: MediaReference) => string | undefined
     readonly scrollRef: RefObject<HTMLDivElement | null>
     readonly loadMoreSentinelRef: RefObject<HTMLDivElement | null>
     readonly onUpload: () => void
@@ -88,6 +93,8 @@ export function MediaAttachmentLibraryDialog({
     totalAssets,
     scrollRef,
     loadMoreSentinelRef,
+    libraryFeatures,
+    previewUrl,
     onUpload,
     onLoadMore,
     onToggle,
@@ -140,6 +147,7 @@ export function MediaAttachmentLibraryDialog({
                     projectId={`${projectId}-attachment`}
                     searchPending={searchPending}
                     searchQuery={searchQuery}
+                    features={libraryFeatures}
                     showSelectionMode={false}
                     totalAssets={totalAssets}
                 />
@@ -191,6 +199,7 @@ export function MediaAttachmentLibraryDialog({
                                 showActions={false}
                                 showAccessibilityText={false}
                                 viewMode={mediaViewMode}
+                                previewUrl={previewUrl}
                             />
                             {nextCursor !== null ? (
                                 <div ref={loadMoreSentinelRef} className="mt-4 flex justify-center">

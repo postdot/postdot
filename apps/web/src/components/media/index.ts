@@ -1,3 +1,10 @@
 export { MediaAssetCollection, mediaLibraryGridClass } from './media-asset-collection'
-export { MediaAttachmentLibraryDialog } from './media-attachment-library-dialog'
-export { MediaLibraryToolbar } from './media-library-toolbar'
+export {
+    MediaAttachmentLibraryDialog,
+    type MediaAttachmentLibraryDialogProps,
+} from './media-attachment-library-dialog'
+export {
+    MediaLibraryToolbar,
+    type MediaLibraryFeatureOptions,
+    type MediaLibraryToolbarProps,
+} from './media-library-toolbar'

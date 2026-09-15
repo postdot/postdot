@@ -34,6 +34,7 @@ import {
     MediaAssetCollection,
     MediaAttachmentLibraryDialog,
     MediaLibraryToolbar,
+    type MediaLibraryFeatureOptions,
     mediaLibraryGridClass,
 } from '@/components/media'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
@@ -112,6 +113,7 @@ export interface MediaAttachmentPickerProps {
     readonly disabled?: boolean
     readonly emptyDescription?: string
     readonly showAccessibilityText?: boolean
+    readonly libraryFeatures?: MediaLibraryFeatureOptions
     readonly variant?: MediaAttachmentPickerVariant
     readonly selectionMode?: MediaAttachmentPickerSelectionMode
 }
@@ -151,6 +153,7 @@ function MediaAttachmentPickerView({
     disabled = false,
     emptyDescription,
     showAccessibilityText,
+    libraryFeatures,
     variant = 'library',
     selectionMode = 'attach',
     controller,
@@ -1238,6 +1241,7 @@ function MediaAttachmentPickerView({
                         projectId={projectId}
                         searchPending={searchPending}
                         searchQuery={searchQuery}
+                        features={libraryFeatures}
                         totalAssets={totalAssets}
                     />
                 ) : null}
@@ -1548,6 +1552,7 @@ function MediaAttachmentPickerView({
                     selectedAssetById={attachmentSelectedAssetById}
                     searchPending={searchPending}
                     searchQuery={searchQuery}
+                    libraryFeatures={libraryFeatures}
                     totalAssets={totalAssets}
                     uploading={uploading}
                 />
