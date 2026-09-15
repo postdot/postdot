@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test } from '@playwright/test'
+import type { MediaReference } from '@herald/client'
+import { expect, test, type Route } from '@playwright/test'
 
 const e2eApiPort = process.env.HERALD_E2E_API_PORT
 if (e2eApiPort === undefined) {
@@ -921,6 +922,67 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(webcamRemoveButton).toBeVisible()
     await webcamRemoveButton.click()
     await expect(webcamRemoveButton).toHaveCount(0)
+
+    const mediaProjectId = projectIdFromUrl(page.url())
+    const mediaList = (await page.evaluate(async projectId => {
+        const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/media?limit=1`)
+        if (!response.ok) {
+            throw new Error(`Could not load a media fixture (${response.status})`)
+        }
+        return response.json()
+    }, mediaProjectId)) as { media: MediaReference[] }
+    const urlMediaReference = mediaList.media[0]
+    if (urlMediaReference === undefined) {
+        throw new Error('The URL import flow requires at least one media fixture')
+    }
+
+    const urlImport = 'https://example.com/herald-e2e-url.png'
+    let requestedUrl: string | undefined
+    const urlImportRoute = async (route: Route) => {
+        const body = route.request().postDataJSON() as { url?: unknown }
+        requestedUrl = typeof body.url === 'string' ? body.url : undefined
+        await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            body: JSON.stringify({ status: 'ready', media: urlMediaReference }),
+        })
+    }
+    await page.route('**/api/projects/*/media/imports/url', urlImportRoute)
+
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    await attachmentLibrary.getByRole('button', { name: 'Import', exact: true }).click()
+    const urlSourcePicker = page.locator('[data-media-source-picker="true"]')
+    await expect(urlSourcePicker).toBeVisible()
+    await urlSourcePicker.locator('[data-media-source="url"]').click()
+    await urlSourcePicker.locator('#media-source-url').fill(urlImport)
+    await urlSourcePicker.getByRole('button', { name: 'Import', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    expect(requestedUrl).toBe(urlImport)
+
+    const urlMediaCard = attachmentLibrary
+        .locator('article')
+        .filter({ hasText: urlMediaReference.asset.originalFilename })
+        .first()
+    await expect(urlMediaCard).toBeVisible()
+    await expect(urlMediaCard.locator('[data-media-selection-toggle="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(1)
+    const urlRemoveButton = page.getByRole('button', {
+        name: new RegExp(`Remove ${urlMediaReference.asset.originalFilename}`),
+    })
+    await expect(urlRemoveButton).toBeVisible()
+    await urlRemoveButton.click()
+    await expect(urlRemoveButton).toHaveCount(0)
+    await page.unroute('**/api/projects/*/media/imports/url', urlImportRoute)
 
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     await expect(attachmentLibrary).toBeVisible()
