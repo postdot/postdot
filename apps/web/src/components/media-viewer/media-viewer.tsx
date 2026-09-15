@@ -228,7 +228,7 @@ export function MediaViewer({
                         <DialogHeader className="flex shrink-0 flex-row items-center gap-3 border-b border-border/60 bg-surface-inset px-4 py-3 sm:px-5">
                             <div className="min-w-0 flex-1">
                                 <div className="flex min-w-0 items-baseline gap-3 pr-2">
-                                    <DialogTitle className="min-w-0 truncate">
+                                    <DialogTitle className="min-w-0 truncate leading-5">
                                         {currentAsset.asset.originalFilename}
                                     </DialogTitle>
                                     {hasNavigation ? (
@@ -242,7 +242,7 @@ export function MediaViewer({
                                 </DialogDescription>
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
-                                <ButtonGroup className="rounded-md bg-surface-raised/95 p-0.5">
+                                <ButtonGroup className="h-7 rounded-md bg-surface-raised/95 p-0">
                                     {image ? (
                                         <MediaViewerZoomControls
                                             scalePercent={zoomStatus.scalePercent}

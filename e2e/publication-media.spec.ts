@@ -477,6 +477,57 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(droppedMediaCard.locator('[data-media-open-trigger="true"]')).toHaveCount(0)
     await droppedMediaCard.click({ position: { x: 2, y: 2 } })
     await expect(mediaLibraryViewer).toBeVisible()
+    const viewerChromeLayout = await mediaLibraryViewer.evaluate(viewer => {
+        const header = viewer.querySelector<HTMLElement>('[data-slot="dialog-header"]')
+        const title = viewer.querySelector<HTMLElement>('[data-slot="dialog-title"]')
+        const group = viewer.querySelector<HTMLElement>('[data-slot="button-group"]')
+        const zoomStatus = viewer.querySelector<HTMLElement>('[data-slot="button-group-text"]')
+        const zoomOut = viewer.querySelector<HTMLElement>('[data-media-viewer-zoom-out="true"]')
+        const close = viewer.querySelector<HTMLElement>('[data-media-viewer-close="true"]')
+        if (
+            header === null ||
+            title === null ||
+            group === null ||
+            zoomStatus === null ||
+            zoomOut === null ||
+            close === null
+        )
+            return null
+
+        const headerBounds = header.getBoundingClientRect()
+        const titleBounds = title.getBoundingClientRect()
+        const groupBounds = group.getBoundingClientRect()
+        const statusBounds = zoomStatus.getBoundingClientRect()
+        const closeBounds = close.getBoundingClientRect()
+        return {
+            headerBottom: headerBounds.bottom,
+            titleBottom: titleBounds.bottom,
+            titleHeight: titleBounds.height,
+            titleLineHeight: Number.parseFloat(getComputedStyle(title).lineHeight),
+            groupHeight: groupBounds.height,
+            statusHeight: statusBounds.height,
+            closeHeight: closeBounds.height,
+            groupBackground: getComputedStyle(group).backgroundColor,
+            buttonBackground: getComputedStyle(zoomOut).backgroundColor,
+            statusBackground: getComputedStyle(zoomStatus).backgroundColor,
+        }
+    })
+    expect(viewerChromeLayout).not.toBeNull()
+    expect(viewerChromeLayout?.titleLineHeight).toBeGreaterThan(16)
+    expect(viewerChromeLayout?.titleHeight).toBeGreaterThanOrEqual(
+        (viewerChromeLayout?.titleLineHeight ?? 0) - 1
+    )
+    expect(viewerChromeLayout?.titleBottom).toBeLessThanOrEqual(
+        (viewerChromeLayout?.headerBottom ?? 0) + 1
+    )
+    expect(
+        Math.abs((viewerChromeLayout?.groupHeight ?? 0) - (viewerChromeLayout?.closeHeight ?? 0))
+    ).toBeLessThanOrEqual(1)
+    expect(
+        Math.abs((viewerChromeLayout?.statusHeight ?? 0) - (viewerChromeLayout?.groupHeight ?? 0))
+    ).toBeLessThanOrEqual(1)
+    expect(viewerChromeLayout?.groupBackground).not.toBe(viewerChromeLayout?.buttonBackground)
+    expect(viewerChromeLayout?.statusBackground).not.toBe(viewerChromeLayout?.buttonBackground)
     await expect(
         mediaLibraryViewer.getByRole('button', { name: 'Enter fullscreen', exact: true })
     ).toBeVisible()
@@ -524,6 +575,26 @@ test('persists mixed and media-only publications through the dashboard', async (
     const viewerThumbnailViewport = mediaLibraryViewer.locator('[data-media-viewer-thumbnails]')
     const viewerThumbnailTrack = mediaLibraryViewer.locator(
         '[data-media-viewer-thumbnail-track="true"]'
+    )
+    await page.setViewportSize({ width: 390, height: 844 })
+    const mobileViewerHeaderLayout = await mediaLibraryViewer.evaluate(viewer => {
+        const header = viewer.querySelector<HTMLElement>('[data-slot="dialog-header"]')
+        const group = viewer.querySelector<HTMLElement>('[data-slot="button-group"]')
+        const close = viewer.querySelector<HTMLElement>('[data-media-viewer-close="true"]')
+        if (header === null || group === null || close === null) return null
+
+        return {
+            headerRight: header.getBoundingClientRect().right,
+            groupRight: group.getBoundingClientRect().right,
+            closeRight: close.getBoundingClientRect().right,
+        }
+    })
+    expect(mobileViewerHeaderLayout).not.toBeNull()
+    expect(mobileViewerHeaderLayout?.groupRight).toBeLessThanOrEqual(
+        (mobileViewerHeaderLayout?.headerRight ?? 0) + 1
+    )
+    expect(mobileViewerHeaderLayout?.closeRight).toBeLessThanOrEqual(
+        (mobileViewerHeaderLayout?.headerRight ?? 0) + 1
     )
     await page.setViewportSize({ width: 200, height: 480 })
     await expect(viewerThumbnailViewport).toBeVisible()
@@ -965,9 +1036,13 @@ test('persists mixed and media-only publications through the dashboard', async (
         'data-media-library-view',
         'compact'
     )
-    await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
+    const editedMediaCard = page
+        .locator('[data-media-bulk-selection-card="true"]')
+        .filter({ hasText: editedMediaFilename })
+        .first()
+    await expect(editedMediaCard).toBeVisible()
     await page.getByRole('button', { name: 'Select', exact: true }).click()
-    await page.getByRole('button', { name: `Select ${editedMediaFilename}`, exact: true }).click()
+    await editedMediaCard.click({ position: { x: 2, y: 2 } })
     const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
     await usedMediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true }).click()
     const usedMediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
