@@ -407,7 +407,7 @@ export function PublicationQueuePage({
 
 function queueEmptyDescription(filter: QueueFilter) {
     if (filter === 'attention') return m.queue_no_attention_description()
-    if (filter === 'draft') return m.queue_no_drafts_description()
+    if (filter === 'draft') return null
     if (filter === 'scheduled') return m.queue_no_scheduled_description()
     if (filter === 'manual') return m.queue_no_manual_description()
     return m.queue_no_publications_description()

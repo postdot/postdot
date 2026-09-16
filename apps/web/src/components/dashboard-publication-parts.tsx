@@ -9,7 +9,6 @@ import { cn } from '@herald/ui/lib/utils'
 import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
 import { ClipboardCheckIcon } from '@solar-icons/react/bold/clipboard-check'
 import { EyeIcon } from '@solar-icons/react/bold/eye'
-import { ListIcon } from '@solar-icons/react/bold/list'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, type ReactNode } from 'react'
@@ -20,11 +19,14 @@ import { useLanguage } from '@/lib/i18n'
 import { canEditPublication } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
 
+import { PublicationEmptyState } from './publication-empty-state'
+
 export type PublicationState = PublicationSummary['state']
 
 export function PublicationList({
     emptyDescription,
     emptyAction,
+    emptyIllustration,
     emptyTitle,
     allSelected = false,
     publications,
@@ -36,8 +38,9 @@ export function PublicationList({
     selectedPublicationIds,
     timeZone,
 }: {
-    readonly emptyDescription?: string
+    readonly emptyDescription?: string | null
     readonly emptyAction?: ReactNode
+    readonly emptyIllustration?: ReactNode
     readonly emptyTitle?: string
     readonly allSelected?: boolean
     readonly publications: readonly PublicationSummary[]
@@ -52,23 +55,16 @@ export function PublicationList({
     useLanguage()
     if (publications.length === 0) {
         return (
-            <div
-                aria-live="polite"
-                className="mt-4 flex min-w-0 flex-wrap items-center gap-3 rounded-md bg-surface-field/60 px-4 py-4 text-left shadow-field"
-                role="status">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-control text-foreground shadow-control">
-                    <ListIcon aria-hidden="true" className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                    <p className="font-heading text-sm font-medium tracking-tight">
-                        {emptyTitle ?? m.publication_empty_title()}
-                    </p>
-                    <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
-                        {emptyDescription ?? m.publication_empty_description()}
-                    </p>
-                </div>
-                {emptyAction ? <div className="ml-auto shrink-0">{emptyAction}</div> : null}
-            </div>
+            <PublicationEmptyState
+                action={emptyAction}
+                description={
+                    emptyDescription === undefined
+                        ? m.publication_empty_description()
+                        : emptyDescription
+                }
+                illustration={emptyIllustration}
+                title={emptyTitle ?? m.publication_empty_title()}
+            />
         )
     }
 

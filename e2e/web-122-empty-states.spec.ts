@@ -32,6 +32,8 @@ test('makes the calendar the first project view while keeping Queue focused', as
 
     await page.goto(page.url().replace(/\/overview(?:\?.*)?$/, '/queue'))
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()
+    await expect(page.locator('[data-publication-empty-state="true"]')).toBeVisible()
+    await expect(page.locator('[data-publication-empty-illustration="true"]')).toHaveCount(1)
     await expect(
         page.getByText('Create a publication to add work here.', { exact: true })
     ).toBeVisible()
@@ -41,6 +43,7 @@ test('makes the calendar the first project view while keeping Queue focused', as
 
     await page.getByRole('tab', { name: 'Needs attention (0)', exact: true }).click()
     await expect(page.getByText('Nothing needs attention', { exact: true })).toBeVisible()
+    await expect(page.locator('[data-publication-empty-illustration="true"]')).toHaveCount(1)
     await expect(page.getByRole('button', { name: 'Show all', exact: true })).toBeVisible()
     await expect(
         page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })

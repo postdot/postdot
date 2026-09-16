@@ -41,6 +41,9 @@ test('wraps queue filters without introducing horizontal scrolling', async ({ pa
     await page.getByRole('tab', { name: 'Drafts (0)', exact: true }).click()
     await expect(page).toHaveURL(/\/queue\?filter=draft$/)
     await expect(page.getByText('No drafts', { exact: true })).toBeVisible()
+    await expect(page.locator('[data-publication-empty-state="true"]')).toBeVisible()
+    await expect(page.locator('[data-publication-empty-illustration="true"]')).toHaveCount(1)
+    await expect(page.getByText('Saved drafts will appear here.', { exact: true })).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'All (0)', exact: true }).click()
     await expect(page).toHaveURL(/\/queue$/)
