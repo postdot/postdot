@@ -93,6 +93,115 @@ test('refreshes project data after realtime reconnect and project events', async
         .toBeGreaterThan(resyncRequestCount)
 })
 
+test('refreshes an open publication editor after a worker state change', async ({ page }) => {
+    test.setTimeout(45_000)
+
+    await installFakeEventSource(page)
+    const suffix = randomUUID().slice(0, 8)
+    const projectId = await createAccountAndProject(page, suffix)
+    const channelName = `E2E realtime channel ${suffix}`
+
+    await page.getByRole('link', { name: 'Channels', exact: true }).click()
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    await page.getByLabel('Channel name').fill(channelName)
+    await page.getByRole('button', { name: 'Create channel', exact: true }).click()
+    await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
+
+    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await page.getByLabel('Content', { exact: true }).fill('E2E realtime editor content')
+    const publicationResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Schedule', exact: true }).click()
+    const publicationResult = (await (await publicationResponse).json()) as {
+        publications: { id: string }[]
+    }
+    const publicationId = publicationResult.publications[0]?.id
+    if (publicationId === undefined) throw new Error('Expected a created publication')
+
+    await page.getByRole('link', { name: 'Queue', exact: true }).click()
+    const publicationLink = page.locator(`a[href$="/publications/${publicationId}"]`)
+    await expect(publicationLink).toBeVisible()
+
+    let editorRequestCount = 0
+    await page.route(
+        `**/api/projects/${projectId}/publications/${publicationId}/editor`,
+        async route => {
+            if (route.request().method() !== 'GET') {
+                await route.continue()
+                return
+            }
+
+            const response = await route.fetch()
+            const body = (await response.json()) as {
+                editor: { publication: Record<string, unknown> }
+            }
+            editorRequestCount += 1
+            if (editorRequestCount === 1) {
+                await route.fulfill({
+                    status: response.status(),
+                    contentType: 'application/json',
+                    body: JSON.stringify(body),
+                })
+                return
+            }
+
+            await route.fulfill({
+                status: response.status(),
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    ...body,
+                    editor: {
+                        ...body.editor,
+                        publication: {
+                            ...body.editor.publication,
+                            errorMessage: 'The worker could not deliver this publication',
+                            state: 'failed',
+                        },
+                    },
+                }),
+            })
+        }
+    )
+
+    await publicationLink.click()
+    await expect(
+        page.getByRole('heading', { name: 'Untitled publication', exact: true })
+    ).toBeVisible()
+    await expect(
+        page.locator('[data-publication-lifecycle="true"]').getByText('Queued', { exact: true })
+    ).toBeVisible()
+    await expect
+        .poll(() => readEventSource(page))
+        .toMatchObject({
+            url: `/api/projects/${projectId}/events`,
+            withCredentials: true,
+        })
+
+    await emitEventSourceSignal(
+        page,
+        'project.update',
+        JSON.stringify({
+            id: 'e2e-realtime-publication-failed',
+            cursor: 'event-sequence:failed',
+            projectId,
+            version: 1,
+            type: 'publication.execution.failed',
+            occurredAt: Date.now(),
+            entity: { type: 'publication', id: publicationId },
+            payload: {},
+        })
+    )
+
+    await expect.poll(() => editorRequestCount, { timeout: 10_000 }).toBeGreaterThan(1)
+    await expect(
+        page.locator('[data-publication-lifecycle="true"]').getByText('Failed', { exact: true })
+    ).toBeVisible()
+    await expect(
+        page.getByText('The publication changed in the background.', { exact: false })
+    ).toBeVisible()
+})
+
 test('shows notification loading, error, and retry states', async ({ page }) => {
     test.setTimeout(30_000)
 

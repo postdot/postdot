@@ -5,8 +5,12 @@ export const projectQueryKeys = {
     data: (projectId: string) => ['project', projectId, 'data'] as const,
     calendarPublications: (projectId: string) =>
         ['project', projectId, 'calendar-publications'] as const,
+    publicationEditors: (projectId: string) =>
+        ['project', projectId, 'publication-editor'] as const,
     publicationEditor: (projectId: string, publicationId: string) =>
-        ['project', projectId, 'publication-editor', publicationId] as const,
+        [...projectQueryKeys.publicationEditors(projectId), publicationId] as const,
+    publicationEditorInstance: (projectId: string, publicationId: string, instanceId: string) =>
+        [...projectQueryKeys.publicationEditor(projectId, publicationId), instanceId] as const,
     notifications: (projectId: string) => ['project', projectId, 'notifications'] as const,
     notificationPreferences: (projectId: string) =>
         ['project', projectId, 'notification-preferences'] as const,
@@ -341,7 +345,11 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
         let wasDisconnected = false
         const pendingRefreshes = new Map<string, Promise<void>>()
 
-        const refresh = (key: string, full = false): Promise<void> => {
+        const refresh = (
+            key: string,
+            full = false,
+            includePublicationEditors = false
+        ): Promise<void> => {
             const existing = pendingRefreshes.get(key)
             if (existing !== undefined) return existing
 
@@ -350,7 +358,7 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                     if (stopped) return
                     if (delay > 0) await wait(delay)
                     if (key === 'project') {
-                        await Promise.all([
+                        const invalidations = [
                             queryClient.invalidateQueries({
                                 queryKey: projectQueryKeys.data(projectId),
                                 refetchType: full ? 'all' : 'active',
@@ -359,7 +367,16 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                                 queryKey: projectQueryKeys.calendarPublications(projectId),
                                 refetchType: full ? 'all' : 'active',
                             }),
-                        ])
+                        ]
+                        if (includePublicationEditors) {
+                            invalidations.push(
+                                queryClient.invalidateQueries({
+                                    queryKey: projectQueryKeys.publicationEditors(projectId),
+                                    refetchType: full ? 'all' : 'active',
+                                })
+                            )
+                        }
+                        await Promise.all(invalidations)
                     } else {
                         await Promise.all([
                             queryClient.invalidateQueries({
@@ -382,7 +399,7 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
         const unsubscribe = source.subscribe(
             signal => {
                 if (signal.kind === 'resync-required') {
-                    void refresh('project', true)
+                    void refresh('project', true, true)
                     void refresh('notifications', true)
                     return
                 }
@@ -395,7 +412,7 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                 const resource = eventResource(signal.event.type)
                 if (resource === 'project') void refresh('project')
                 else {
-                    void refresh('project')
+                    void refresh('project', false, true)
                     void refresh('notifications')
                 }
             },
@@ -406,7 +423,7 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                 }
                 if (!wasDisconnected) return
                 wasDisconnected = false
-                void refresh('project', true)
+                void refresh('project', true, true)
                 void refresh('notifications', true)
             }
         )

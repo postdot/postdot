@@ -1136,6 +1136,7 @@
     "editor_previous_local_newer": "Une copie locale précédente a été conservée car le serveur contient un travail plus récent.",
     "editor_server_newer_local": "Le serveur contient un travail plus récent. Votre copie locale est conservée ; rechargez-la ou restaurez explicitement vos modifications.",
     "editor_server_loaded": "La version serveur est chargée. Votre copie locale précédente reste disponible.",
+    "editor_background_update": "La publication a changé en arrière-plan. Le dernier état du serveur est affiché.",
     "editor_server_loaded_conflict": "La version serveur est chargée, mais ce brouillon utilise toujours la révision source {revision}. Rebasez-le avant de réécrire.",
     "editor_recovered_review": "La copie récupérée est active pour vérification, mais le brouillon serveur doit être rebasé avant enregistrement.",
     "editor_recovered_promotion": "La copie récupérée est active et prête pour une promotion explicite.",

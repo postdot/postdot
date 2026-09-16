@@ -228,6 +228,44 @@ export function PublicationEditor({
         () => getTargetPreviewText(targetResult.value) ?? sourceContent.body?.text ?? '',
         [sourceContent.body?.text, targetResult.value]
     )
+    const currentEditorFingerprint = publicationEditorFingerprint(editor)
+    const incomingEditorFingerprint = publicationEditorFingerprint(initialEditor)
+    const lastIncomingEditorFingerprint = useRef<string | null>(null)
+
+    useEffect(() => {
+        if (initialEditor.publication.id !== editor.publication.id) return
+        if (incomingEditorFingerprint === lastIncomingEditorFingerprint.current) return
+        lastIncomingEditorFingerprint.current = incomingEditorFingerprint
+        if (incomingEditorFingerprint === currentEditorFingerprint) return
+
+        requestGeneration.current += 1
+        if (hasLocalChanges) {
+            setSaveState(current => (current === 'saving' ? current : 'conflict'))
+            setMessage(m.editor_server_newer_local())
+            return
+        }
+
+        setEditor(initialEditor)
+        setSourceContent(initialEditor.post.sourceContent)
+        setTargetText(formatJson(initialEditor.draft.content))
+        setExpectedRevision(initialEditor.draft.revision)
+        setScheduleValue(toDateTimeLocal(initialEditor.publication.scheduledAt, timeZone))
+        setDirty(false)
+        setScheduleDirty(false)
+        setSaveState(
+            initialEditor.draft.sourceRevision !== initialEditor.post.sourceRevision
+                ? 'conflict'
+                : 'saved'
+        )
+        setMessage(m.editor_background_update())
+    }, [
+        currentEditorFingerprint,
+        editor.publication.id,
+        hasLocalChanges,
+        incomingEditorFingerprint,
+        initialEditor,
+        timeZone,
+    ])
 
     function invalidatePublicationQueries() {
         void Promise.all([
@@ -236,10 +274,7 @@ export function PublicationEditor({
                 queryKey: projectQueryKeys.calendarPublications(projectId),
             }),
             queryClient.invalidateQueries({
-                queryKey: projectQueryKeys.publicationEditor(
-                    projectId,
-                    initialEditor.publication.id
-                ),
+                queryKey: projectQueryKeys.publicationEditors(projectId),
             }),
         ]).catch(() => undefined)
     }
@@ -1014,6 +1049,34 @@ function recoveryContentDiffers(
         formatJson(recovery.sourceContent) !== formatJson(current.post.sourceContent) ||
         recovery.targetText !== formatJson(current.draft.content)
     )
+}
+
+function publicationEditorFingerprint(editor: PublicationEditorState): string {
+    const publication = editor.publication
+    const draft = editor.draft
+    const target = editor.selectedTarget
+
+    return [
+        publication.id,
+        publication.state,
+        publication.updatedAt,
+        publication.scheduledAt ?? '',
+        publication.publishedAt ?? '',
+        publication.externalId ?? '',
+        publication.externalUrl ?? '',
+        publication.errorMessage ?? '',
+        publication.reviewState,
+        publication.targetRevisionId ?? '',
+        draft.id,
+        draft.revision,
+        draft.updatedAt,
+        draft.sourceRevision,
+        draft.profileVersionId,
+        draft.reviewState,
+        target?.id ?? '',
+        target?.sequence ?? '',
+        target?.sourceRevision ?? '',
+    ].join('|')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

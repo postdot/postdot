@@ -1136,6 +1136,7 @@
     "editor_previous_local_newer": "A previous local copy was kept because the server has newer work.",
     "editor_server_newer_local": "The server has newer work. Your local copy is preserved; reload it or restore your changes explicitly.",
     "editor_server_loaded": "The server version is loaded. Your previous local copy remains available.",
+    "editor_background_update": "The publication changed in the background. The latest server state is shown.",
     "editor_server_loaded_conflict": "The server version is loaded, but this draft still uses source revision {revision}. Rebase it before writing again.",
     "editor_recovered_review": "The recovered copy is active for review, but the server draft must be rebased before it can be saved.",
     "editor_recovered_promotion": "The recovered copy is active and ready for explicit promotion.",

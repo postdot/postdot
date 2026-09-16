@@ -1,8 +1,11 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useId } from 'react'
 
 import { PublicationEditor } from '@/components/publication-editor'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { projectQueryKeys } from '@/lib/project-realtime'
 import { isCalendarDateKey } from '@/lib/publication-calendar'
 import {
     isPublicationCalendarView,
@@ -43,18 +46,28 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 })
 
 function PublicationEditorRoute() {
-    const { projectId } = Route.useParams()
+    const { projectId, publicationId } = Route.useParams()
     const { date, from, view } = Route.useSearch()
     const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
     const { activeChannels, onPublish, project } = useProjectDashboard()
+    const instanceId = useId()
+    const editorQuery = useQuery({
+        queryKey: projectQueryKeys.publicationEditorInstance(projectId, publicationId, instanceId),
+        queryFn: () => api.getPublicationEditor(projectId, publicationId),
+        initialData: { editor },
+        staleTime: Number.POSITIVE_INFINITY,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+    })
+    const currentEditor = editorQuery.data?.editor ?? editor
 
     return (
         <PublicationEditor
-            key={editor.draft.id}
+            key={currentEditor.draft.id}
             projectId={projectId}
-            initialEditor={editor}
+            initialEditor={currentEditor}
             initialPublicationTags={publicationTags}
-            onPublish={() => onPublish(editor.publication.id)}
+            onPublish={() => onPublish(currentEditor.publication.id)}
             projectTags={projectTags}
             channels={activeChannels}
             relatedPublications={relatedPublications}
