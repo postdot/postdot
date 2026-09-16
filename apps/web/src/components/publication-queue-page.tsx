@@ -24,8 +24,10 @@ import {
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationQueuePage({
+    initialFilter = 'all',
     initialTagIds = [],
 }: {
+    readonly initialFilter?: QueueFilter
     readonly initialTagIds?: readonly string[]
 }) {
     const { locale } = useLanguage()
@@ -42,31 +44,34 @@ export function PublicationQueuePage({
         publicationSummary,
     } = useProjectDashboard()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/queue' })
-    const [filter, setFilter] = useState<QueueFilter>('all')
+    const [filter, setFilter] = useState<QueueFilter>(initialFilter)
     const [tagIds, setTagIds] = useState<string[]>(() => [...initialTagIds])
+    useEffect(() => {
+        setFilter(initialFilter)
+    }, [initialFilter])
     const initialTagIdsKey = initialTagIds.join('\u0000')
     useEffect(() => {
         setTagIds(initialTagIdsKey === '' ? [] : initialTagIdsKey.split('\u0000'))
     }, [initialTagIdsKey])
     const duePublicationIds = new Set(due.map(publication => publication.id))
-    const visiblePublications = filterQueueByTags(
-        filterQueuePublications(publications, duePublicationIds, filter),
-        tagIds
-    )
-    const {
-        automatic: automaticCount,
-        manual: manualCount,
-        scheduled: scheduledCount,
-    } = publicationSummary
+    const taggedPublications = filterQueueByTags(publications, tagIds)
+    const { automatic: automaticCount, manual: manualCount } = publicationSummary
     const totalCount = publicationSummary.total
-    const filteredCount =
-        filter === 'attention'
-            ? due.length
-            : filter === 'scheduled'
-              ? scheduledCount
-              : filter === 'manual'
-                ? manualCount
-                : totalCount
+    const filterCounts: Record<QueueFilter, number> = {
+        all: tagIds.length === 0 ? totalCount : taggedPublications.length,
+        attention: filterQueuePublications(taggedPublications, duePublicationIds, 'attention')
+            .length,
+        draft: filterQueuePublications(taggedPublications, duePublicationIds, 'draft').length,
+        scheduled: filterQueuePublications(taggedPublications, duePublicationIds, 'scheduled')
+            .length,
+        manual: filterQueuePublications(taggedPublications, duePublicationIds, 'manual').length,
+    }
+    const visiblePublications = filterQueuePublications(
+        taggedPublications,
+        duePublicationIds,
+        filter
+    )
+    const filteredCount = filterCounts[filter]
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
@@ -98,10 +103,10 @@ export function PublicationQueuePage({
                     { id: 'manual', label: m.queue_manual(), value: manualCount },
                     { id: 'automatic', label: m.overview_automatic(), value: automaticCount },
                     {
-                        attention: due.length > 0,
-                        id: 'due',
+                        attention: filterCounts.attention > 0,
+                        id: 'attention',
                         label: m.queue_attention(),
-                        value: due.length,
+                        value: filterCounts.attention,
                     },
                 ]}
             />
@@ -111,7 +116,14 @@ export function PublicationQueuePage({
                 className="mt-6"
                 value={filter}
                 onValueChange={value => {
-                    if (isQueueFilter(value)) setFilter(value)
+                    if (!isQueueFilter(value)) return
+                    setFilter(value)
+                    void navigate({
+                        search: current => ({
+                            ...current,
+                            filter: value === 'all' ? undefined : value,
+                        }),
+                    })
                 }}>
                 <TabsList
                     className="!h-auto min-h-8 w-full max-w-full justify-start overflow-x-auto [&>[data-slot=tabs-trigger]]:shrink-0"
@@ -127,28 +139,36 @@ export function PublicationQueuePage({
                     <TabsTrigger
                         aria-label={m.queue_filter_aria({
                             label: m.queue_attention(),
-                            count: due.length,
+                            count: filterCounts.attention,
                         })}
                         value="attention">
                         <span className="sm:hidden">{m.queue_attention()}</span>
                         <span className="hidden sm:inline">{m.queue_attention()}</span> (
-                        {formatNumber(due.length, locale)})
+                        {formatNumber(filterCounts.attention, locale)})
+                    </TabsTrigger>
+                    <TabsTrigger
+                        aria-label={m.queue_filter_aria({
+                            label: m.queue_drafts(),
+                            count: filterCounts.draft,
+                        })}
+                        value="draft">
+                        {m.queue_drafts()} ({formatNumber(filterCounts.draft, locale)})
                     </TabsTrigger>
                     <TabsTrigger
                         aria-label={m.queue_filter_aria({
                             label: m.queue_scheduled(),
-                            count: scheduledCount,
+                            count: filterCounts.scheduled,
                         })}
                         value="scheduled">
-                        {m.queue_scheduled()} ({formatNumber(scheduledCount, locale)})
+                        {m.queue_scheduled()} ({formatNumber(filterCounts.scheduled, locale)})
                     </TabsTrigger>
                     <TabsTrigger
                         aria-label={m.queue_filter_aria({
                             label: m.queue_manual(),
-                            count: manualCount,
+                            count: filterCounts.manual,
                         })}
                         value="manual">
-                        {m.queue_manual()} ({formatNumber(manualCount, locale)})
+                        {m.queue_manual()} ({formatNumber(filterCounts.manual, locale)})
                     </TabsTrigger>
                 </TabsList>
             </Tabs>
@@ -208,7 +228,18 @@ export function PublicationQueuePage({
                                     {m.overview_new_publication()}
                                 </Button>
                             ) : (
-                                <Button onClick={() => setFilter('all')} size="sm" variant="ghost">
+                                <Button
+                                    onClick={() => {
+                                        setFilter('all')
+                                        void navigate({
+                                            search: current => ({
+                                                ...current,
+                                                filter: undefined,
+                                            }),
+                                        })
+                                    }}
+                                    size="sm"
+                                    variant="ghost">
                                     {m.queue_show_all()}
                                 </Button>
                             )
@@ -246,6 +277,7 @@ export function PublicationQueuePage({
 
 function queueEmptyDescription(filter: QueueFilter) {
     if (filter === 'attention') return m.queue_no_attention_description()
+    if (filter === 'draft') return m.queue_no_drafts_description()
     if (filter === 'scheduled') return m.queue_no_scheduled_description()
     if (filter === 'manual') return m.queue_no_manual_description()
     return m.queue_no_publications_description()
@@ -253,6 +285,7 @@ function queueEmptyDescription(filter: QueueFilter) {
 
 function queueEmptyTitle(filter: QueueFilter) {
     if (filter === 'attention') return m.queue_no_attention_title()
+    if (filter === 'draft') return m.queue_no_drafts_title()
     if (filter === 'scheduled') return m.queue_no_scheduled_title()
     if (filter === 'manual') return m.queue_no_manual_title()
     return m.queue_no_publications()

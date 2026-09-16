@@ -85,7 +85,7 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('heading', { name: 'Queue', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'All (8)', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Needs attention (1)', exact: true })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Scheduled (4)', exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Scheduled (3)', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Manual (4)', exact: true })).toBeVisible()
     await expect(page.locator('a[href*="/publications/"]')).toHaveCount(9)
 
@@ -101,9 +101,10 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 1' })).toHaveCount(1)
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toHaveCount(0)
 
-    await page.getByRole('tab', { name: 'Scheduled (4)', exact: true }).click()
-    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(5)
-    await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 1' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Scheduled (3)', exact: true }).click()
+    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(4)
+    await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 1' })).toHaveCount(0)
+    await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 4' })).toBeVisible()
 
     await page.getByRole('tab', { name: 'Manual (4)', exact: true }).click()
@@ -421,7 +422,7 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     expect(newPublicationUrl.pathname).toBe(`/dashboard/projects/${projectId}/publications/new`)
     expect(newPublicationUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(newPublicationUrl.searchParams.get('time')).toBe('00:00')
-    await expect(page.getByRole('heading', { name: 'New publication', exact: true })).toBeVisible()
+    await expect(page.getByLabel('Content', { exact: true })).toBeVisible()
     await expect(page.locator('input[type="datetime-local"]').first()).toHaveValue(
         `${newPublicationUrl.searchParams.get('date')}T00:00`
     )

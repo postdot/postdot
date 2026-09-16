@@ -43,6 +43,13 @@ test('keeps queue filters horizontal-only at supported widths', async ({ page })
         expect(metrics.clientWidth).toBeGreaterThan(0)
         expect(metrics.scrollWidth).toBeGreaterThanOrEqual(metrics.clientWidth)
     }
+
+    await page.getByRole('tab', { name: 'Drafts (0)', exact: true }).click()
+    await expect(page).toHaveURL(/\/queue\?filter=draft$/)
+    await expect(page.getByText('No drafts', { exact: true })).toBeVisible()
+
+    await page.getByRole('tab', { name: 'All (0)', exact: true }).click()
+    await expect(page).toHaveURL(/\/queue$/)
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {

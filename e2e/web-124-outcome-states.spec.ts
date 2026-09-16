@@ -66,6 +66,11 @@ test('keeps failed and ambiguous publications legible across queue and overview'
     const ambiguousPublication = page.getByRole('link').filter({ hasText: ambiguousTitle })
     await expect(failedPublication).toContainText('Failed')
     await expect(ambiguousPublication).toContainText('Needs review')
+    await expect(ambiguousPublication.getByText('View', { exact: true })).toBeVisible()
+
+    await page.getByRole('tab', { name: 'Needs attention (2)', exact: true }).click()
+    await expect(page.getByRole('link').filter({ hasText: failedTitle })).toBeVisible()
+    await expect(page.getByRole('link').filter({ hasText: ambiguousTitle })).toBeVisible()
 
     for (const viewport of [
         { height: 720, width: 1280 },

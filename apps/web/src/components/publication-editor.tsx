@@ -646,7 +646,7 @@ export function PublicationEditor({
                     <Link
                         to="/dashboard/projects/$projectId/queue"
                         params={{ projectId }}
-                        search={{ tagIds: undefined }}
+                        search={{ filter: undefined, tagIds: undefined }}
                         className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
                         <ArrowLeftIcon aria-hidden="true" className="size-4" />
                         {m.editor_back_to_queue()}

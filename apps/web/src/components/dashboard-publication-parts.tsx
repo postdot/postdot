@@ -1,5 +1,6 @@
 import { Badge } from '@herald/ui/components/badge'
 import { cn } from '@herald/ui/lib/utils'
+import { EyeIcon } from '@solar-icons/react/bold/eye'
 import { ListIcon } from '@solar-icons/react/bold/list'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
@@ -8,6 +9,7 @@ import type { ReactNode } from 'react'
 import type { PublicationSummary } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import { canEditPublication } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
 
 export type PublicationState = PublicationSummary['state']
@@ -69,6 +71,7 @@ export function PublicationRow({
     readonly timeZone: string
 }) {
     const { locale } = useLanguage()
+    const editable = canEditPublication(publication.state)
     return (
         <Link
             to="/dashboard/projects/$projectId/publications/$publicationId"
@@ -110,8 +113,12 @@ export function PublicationRow({
                 </p>
             </div>
             <span className="hidden items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors group-hover:text-primary lg:flex">
-                <PenIcon aria-hidden="true" className="size-4" />
-                <span>{m.common_edit()}</span>
+                {editable ? (
+                    <PenIcon aria-hidden="true" className="size-4" />
+                ) : (
+                    <EyeIcon aria-hidden="true" className="size-4" />
+                )}
+                <span>{editable ? m.common_edit() : m.common_view()}</span>
             </span>
         </Link>
     )
