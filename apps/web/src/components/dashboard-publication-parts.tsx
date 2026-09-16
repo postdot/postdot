@@ -12,7 +12,7 @@ import { EyeIcon } from '@solar-icons/react/bold/eye'
 import { ListIcon } from '@solar-icons/react/bold/list'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 import type { PublicationSummary } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
@@ -26,9 +26,11 @@ export function PublicationList({
     emptyDescription,
     emptyAction,
     emptyTitle,
+    allSelected = false,
     publications,
     duePublicationIds,
     onPublish,
+    onToggleAll,
     pending = false,
     onToggleSelection,
     selectedPublicationIds,
@@ -37,9 +39,11 @@ export function PublicationList({
     readonly emptyDescription?: string
     readonly emptyAction?: ReactNode
     readonly emptyTitle?: string
+    readonly allSelected?: boolean
     readonly publications: readonly PublicationSummary[]
     readonly duePublicationIds?: ReadonlySet<string>
     readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onToggleAll?: () => void
     readonly pending?: boolean
     readonly onToggleSelection?: (publication: PublicationSummary) => void
     readonly selectedPublicationIds?: ReadonlySet<string>
@@ -69,31 +73,94 @@ export function PublicationList({
     }
 
     const selectionEnabled = onToggleSelection !== undefined && selectedPublicationIds !== undefined
+    const selectedVisibleCount = selectionEnabled
+        ? publications.reduce(
+              (count, publication) => count + (selectedPublicationIds.has(publication.id) ? 1 : 0),
+              0
+          )
+        : 0
+    const resolvedAllSelected =
+        allSelected || (publications.length > 0 && selectedVisibleCount === publications.length)
 
     return (
         <TooltipProvider delay={450}>
             <div
                 className="mt-4 overflow-hidden rounded-lg bg-surface-inset/55 p-1 shadow-surface"
                 data-publication-list="true">
-                {publications.map(publication => {
-                    const selected = selectedPublicationIds?.has(publication.id) ?? false
-                    return (
-                        <PublicationListItem
-                            key={publication.id}
-                            due={duePublicationIds?.has(publication.id) ?? false}
-                            onPublish={onPublish}
-                            onToggleSelection={
-                                selectionEnabled ? () => onToggleSelection(publication) : undefined
-                            }
-                            pending={pending}
-                            publication={publication}
-                            selected={selected}
-                            timeZone={timeZone}
-                        />
-                    )
-                })}
+                {selectionEnabled ? (
+                    <PublicationTableHeader
+                        allSelected={resolvedAllSelected}
+                        disabled={pending || onToggleAll === undefined}
+                        indeterminate={selectedVisibleCount > 0 && !resolvedAllSelected}
+                        onToggleAll={onToggleAll}
+                    />
+                ) : null}
+                <div className="space-y-1">
+                    {publications.map(publication => {
+                        const selected = selectedPublicationIds?.has(publication.id) ?? false
+                        return (
+                            <PublicationListItem
+                                key={publication.id}
+                                due={duePublicationIds?.has(publication.id) ?? false}
+                                onPublish={onPublish}
+                                onToggleSelection={
+                                    selectionEnabled
+                                        ? () => onToggleSelection(publication)
+                                        : undefined
+                                }
+                                pending={pending}
+                                publication={publication}
+                                selected={selected}
+                                timeZone={timeZone}
+                            />
+                        )
+                    })}
+                </div>
             </div>
         </TooltipProvider>
+    )
+}
+
+function PublicationTableHeader({
+    allSelected,
+    disabled,
+    indeterminate,
+    onToggleAll,
+}: {
+    readonly allSelected: boolean
+    readonly disabled: boolean
+    readonly indeterminate: boolean
+    readonly onToggleAll?: () => void
+}) {
+    return (
+        <div
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 rounded-md bg-surface-field/35 px-2 py-2 sm:px-3"
+            data-publication-table-header="true">
+            <SelectionCheckbox
+                checked={allSelected}
+                dataQueueSelectAll
+                disabled={disabled}
+                indeterminate={indeterminate}
+                label={allSelected ? m.queue_clear_selection() : m.queue_select_all_visible()}
+                onChange={() => onToggleAll?.()}
+            />
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:gap-7">
+                <div className="min-w-0">
+                    <span className="block truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                        {m.queue_column_publication()}
+                    </span>
+                    <span className="mt-1 block truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground lg:hidden">
+                        {m.queue_column_destination()}
+                    </span>
+                </div>
+                <span className="hidden truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground lg:block">
+                    {m.queue_column_destination()}
+                </span>
+                <span className="text-right text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                    {m.queue_column_action()}
+                </span>
+            </div>
+        </div>
     )
 }
 
@@ -132,9 +199,10 @@ function PublicationListItem({
                     selectionEnabled ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1'
                 )}>
                 {selectionEnabled ? (
-                    <button
-                        type="button"
-                        aria-label={
+                    <SelectionCheckbox
+                        checked={selected}
+                        dataPublicationSelectionToggle
+                        label={
                             selected
                                 ? m.queue_deselect_publication({
                                       title: publication.postTitle ?? m.publication_untitled_post(),
@@ -143,20 +211,9 @@ function PublicationListItem({
                                       title: publication.postTitle ?? m.publication_untitled_post(),
                                   })
                         }
-                        aria-pressed={selected}
-                        data-publication-selection-toggle="true"
-                        onClick={onToggleSelection}
-                        className="mt-4 ml-2 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-[color,background-color,box-shadow] hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                        <span
-                            aria-hidden="true"
-                            className={cn(
-                                'flex size-5 items-center justify-center rounded-[5px] border border-muted-foreground/45 transition-[background-color,border-color,box-shadow]',
-                                selected &&
-                                    'border-primary bg-primary text-primary-foreground shadow-control'
-                            )}>
-                            {selected ? <CheckSquareIcon className="size-3.5" /> : null}
-                        </span>
-                    </button>
+                        className="mt-4 ml-2"
+                        onChange={() => onToggleSelection?.()}
+                    />
                 ) : null}
                 <PublicationRow
                     action={
@@ -212,6 +269,67 @@ function PublicationListItem({
     )
 }
 
+function SelectionCheckbox({
+    checked,
+    className,
+    dataPublicationSelectionToggle = false,
+    dataQueueSelectAll = false,
+    disabled = false,
+    indeterminate = false,
+    label,
+    onChange,
+}: {
+    readonly checked: boolean
+    readonly className?: string
+    readonly dataPublicationSelectionToggle?: boolean
+    readonly dataQueueSelectAll?: boolean
+    readonly disabled?: boolean
+    readonly indeterminate?: boolean
+    readonly label: string
+    readonly onChange: (checked: boolean) => void
+}) {
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (inputRef.current !== null) inputRef.current.indeterminate = indeterminate
+    }, [indeterminate])
+
+    return (
+        <label
+            className={cn(
+                'flex size-6 shrink-0 cursor-pointer items-center justify-center',
+                className
+            )}
+            data-publication-selection-toggle={dataPublicationSelectionToggle ? 'true' : undefined}
+            data-queue-select-all={dataQueueSelectAll ? 'true' : undefined}>
+            <input
+                ref={inputRef}
+                aria-label={label}
+                checked={checked}
+                className="peer sr-only"
+                disabled={disabled}
+                onChange={event => onChange(event.currentTarget.checked)}
+                type="checkbox"
+            />
+            <span
+                aria-hidden="true"
+                className={cn(
+                    'flex size-5 items-center justify-center rounded-[5px] border border-muted-foreground/45 bg-transparent text-transparent transition-[background-color,border-color,box-shadow]',
+                    'peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background',
+                    'peer-disabled:cursor-not-allowed peer-disabled:opacity-50',
+                    (checked || indeterminate) &&
+                        'border-primary bg-primary text-primary-foreground shadow-control'
+                )}>
+                {checked ? (
+                    <CheckSquareIcon className="size-3.5" />
+                ) : indeterminate ? (
+                    <span className="h-0.5 w-2.5 rounded-full bg-current" />
+                ) : null}
+            </span>
+        </label>
+    )
+}
+
 export function PublicationRow({
     action,
     due = false,
@@ -237,7 +355,7 @@ export function PublicationRow({
                 params={{ projectId: publication.projectId, publicationId: publication.id }}
                 data-publication-edit-link="true"
                 className={cn(
-                    'group min-w-0',
+                    'col-start-1 group min-w-0',
                     action
                         ? 'lg:col-span-2 lg:grid lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)] lg:items-center lg:gap-7'
                         : 'col-span-full'
@@ -285,7 +403,7 @@ export function PublicationRow({
                 </div>
             </Link>
             {action ? (
-                <div className="row-start-1 flex min-w-0 items-center justify-end lg:col-start-3">
+                <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end lg:col-start-3">
                     {action}
                 </div>
             ) : null}

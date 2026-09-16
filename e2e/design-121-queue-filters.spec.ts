@@ -5,11 +5,10 @@ import { expect, test, type Page } from '@playwright/test'
 type ComputedStyleView = {
     getComputedStyle: (element: unknown) => {
         overflowX: string
-        overflowY: string
     }
 }
 
-test('keeps queue filters horizontal-only at supported widths', async ({ page }) => {
+test('wraps queue filters without introducing horizontal scrolling', async ({ page }) => {
     test.setTimeout(30_000)
 
     const suffix = randomUUID().slice(0, 8)
@@ -28,20 +27,15 @@ test('keeps queue filters horizontal-only at supported widths', async ({ page })
                 clientHeight: element.clientHeight,
                 clientWidth: element.clientWidth,
                 overflowX: style.overflowX,
-                overflowY: style.overflowY,
                 scrollHeight: element.scrollHeight,
                 scrollWidth: element.scrollWidth,
             }
         })
 
-        expect(metrics.overflowX).toBe('auto')
-        // Chromium normalizes `overflow-x: auto` + `overflow-y: clip` to
-        // `overflow-y: hidden`; both values keep the vertical axis from
-        // becoming scrollable.
-        expect(metrics.overflowY).toBe('hidden')
-        expect(metrics.scrollHeight - metrics.clientHeight).toBeLessThanOrEqual(1)
+        expect(metrics.overflowX).not.toBe('auto')
+        expect(metrics.scrollWidth - metrics.clientWidth).toBeLessThanOrEqual(1)
+        expect(metrics.scrollHeight).toBeGreaterThanOrEqual(metrics.clientHeight)
         expect(metrics.clientWidth).toBeGreaterThan(0)
-        expect(metrics.scrollWidth).toBeGreaterThanOrEqual(metrics.clientWidth)
     }
 
     await page.getByRole('tab', { name: 'Drafts (0)', exact: true }).click()

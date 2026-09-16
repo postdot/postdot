@@ -141,6 +141,13 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(deliveryFilter).toContainText('All delivery modes')
     await expect(page.locator('a[data-publication-edit-link="true"]')).toHaveCount(8)
     await expect(page.locator('[data-queue-publication-list="true"]')).toHaveCount(1)
+    const publicationTable = page.locator('[data-publication-table-header="true"]')
+    await expect(publicationTable).toContainText('Publication')
+    await expect(publicationTable).toContainText('Destination')
+    await expect(publicationTable).toContainText('Action')
+    await expect(
+        publicationTable.locator('[data-queue-select-all="true"] input[type="checkbox"]')
+    ).toHaveCount(1)
     await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'Needs attention (1)', exact: true }).click()

@@ -9,7 +9,6 @@ import {
 } from '@herald/ui/components/select'
 import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
 import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
-import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 import { Link } from '@tanstack/react-router'
@@ -176,10 +175,10 @@ export function PublicationQueuePage({
                 </p>
             </DashboardPageHeader>
 
-            <div className="mt-5 flex flex-wrap items-center gap-2" data-queue-controls="true">
+            <div className="mt-5 min-w-0" data-queue-controls="true">
                 <Tabs
                     aria-label={m.queue_filters()}
-                    className="min-w-0 flex-1"
+                    className="min-w-0 w-fit max-w-full"
                     value={filter === 'manual' ? null : filter}
                     onValueChange={value => {
                         if (!isQueueFilter(value)) return
@@ -187,7 +186,7 @@ export function PublicationQueuePage({
                         changeFilter(value)
                     }}>
                     <TabsList
-                        className="!h-auto min-h-8 max-w-full justify-start overflow-x-auto bg-surface-inset/70 p-1 shadow-surface [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:shrink-0"
+                        className="!h-auto min-h-8 w-fit max-w-full flex-wrap justify-start gap-0.5 !overflow-visible bg-surface-inset/70 p-1 shadow-surface [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:shrink-0"
                         variant="default">
                         <TabsTrigger
                             aria-label={m.queue_filter_aria({
@@ -243,7 +242,9 @@ export function PublicationQueuePage({
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
+            </div>
 
+            <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Select
                     value={filter === 'manual' ? 'manual' : 'all'}
                     onValueChange={value => {
@@ -287,29 +288,9 @@ export function PublicationQueuePage({
                         tags={projectTags}
                     />
                 ) : null}
-
-                <Button
-                    aria-label={
-                        allVisibleSelected
-                            ? m.queue_clear_selection()
-                            : m.queue_select_all_visible()
-                    }
-                    aria-pressed={allVisibleSelected}
-                    data-queue-select-all="true"
-                    disabled={visiblePublications.length === 0 || pending}
-                    onClick={toggleAllVisiblePublications}
-                    size="sm"
-                    variant="ghost">
-                    <CheckSquareIcon aria-hidden="true" />
-                    <span className="hidden sm:inline">
-                        {allVisibleSelected
-                            ? m.queue_clear_selection()
-                            : m.queue_select_all_visible()}
-                    </span>
-                </Button>
             </div>
 
-            <section className="mt-8 min-w-0" data-queue-publication-list="true">
+            <section className="mt-6 min-w-0" data-queue-publication-list="true">
                 {selectedCount > 0 ? (
                     <div className="mt-3">
                         <BulkActionBar
@@ -332,7 +313,6 @@ export function PublicationQueuePage({
                                     variant: 'destructive',
                                 },
                             ]}
-                            allSelected={allVisibleSelected}
                             ariaLabel={m.queue_bulk_actions()}
                             clearLabel={m.queue_clear_selection()}
                             onClear={clearPublicationSelection}
@@ -385,6 +365,8 @@ export function PublicationQueuePage({
                     onPublish={onPublish}
                     pending={pending}
                     publications={visiblePublications}
+                    allSelected={allVisibleSelected}
+                    onToggleAll={toggleAllVisiblePublications}
                     selectedPublicationIds={selectedPublicationIds}
                     timeZone={project.timeZone}
                 />
