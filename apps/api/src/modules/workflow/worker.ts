@@ -5,6 +5,7 @@ import {
     type ExternalEffectOutcome,
     type Job,
     type RetryPolicy,
+    type SchedulerTimers,
 } from '@herald/core'
 import {
     CUSTOM_HTTP_PUBLISHER_KIND,
@@ -52,6 +53,7 @@ export interface PublicationWorkerOptions {
     readonly now?: () => number
     readonly leaseDuration?: number
     readonly retryPolicy?: RetryPolicy
+    readonly timers?: SchedulerTimers
     readonly createClaimToken?: () => string
     readonly providerMediaDeliveryStore?: ReturnType<typeof createProviderMediaDeliveryStore>
     readonly onError?: (error: unknown) => void
@@ -131,6 +133,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
         processDueEvents,
         onError: options.onError ?? defaultWorkerErrorHandler,
         clock: { now },
+        timers: options.timers,
     })
 
     return {
