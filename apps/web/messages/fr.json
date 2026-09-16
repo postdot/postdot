@@ -252,6 +252,21 @@
     "overview_open_create_project": "Ouvrir Créer un projet…",
     "overview_load_failed": "Impossible de charger le projet",
     "workspace_action_failed": "Échec de l’action sur l’espace de travail",
+    "calendar_select": "Sélectionner",
+    "calendar_done": "Terminer",
+    "calendar_selection_actions": "Actions sur les publications du calendrier",
+    "calendar_selected_publications": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} sélectionnée",
+                "countPlural=other": "{count} sélectionnées"
+            }
+        }
+    ],
+    "calendar_select_all_visible": "Tout sélectionner",
+    "calendar_clear_selection": "Désélectionner",
     "queue_title": "File d’attente",
     "queue_filters": "Filtres de la file d’attente",
     "queue_summary": "Résumé de la file d’attente",

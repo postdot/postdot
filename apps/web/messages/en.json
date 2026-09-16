@@ -252,6 +252,21 @@
     "overview_open_create_project": "Open Create project…",
     "overview_load_failed": "Unable to load the project",
     "workspace_action_failed": "Workspace action failed",
+    "calendar_select": "Select",
+    "calendar_done": "Done",
+    "calendar_selection_actions": "Calendar publication actions",
+    "calendar_selected_publications": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} selected",
+                "countPlural=other": "{count} selected"
+            }
+        }
+    ],
+    "calendar_select_all_visible": "Select all visible",
+    "calendar_clear_selection": "Deselect",
     "queue_title": "Queue",
     "queue_filters": "Queue filters",
     "queue_summary": "Queue summary",

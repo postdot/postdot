@@ -1,10 +1,15 @@
 import { Button } from '@herald/ui/components/button'
+import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
-import { useQuery } from '@tanstack/react-query'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
+import { BulkActionBar } from '@/components/bulk-action-bar'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
+import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
+import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationCalendar } from '@/components/publication-calendar'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { api } from '@/lib/api'
@@ -18,7 +23,10 @@ import {
     parseCalendarDateKey,
     toDateKey,
 } from '@/lib/publication-calendar'
-import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
+import {
+    toPublicationCalendarEvents,
+    type PublicationCalendarView,
+} from '@/lib/publication-calendar-events'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationCalendarPage({
@@ -29,7 +37,9 @@ export function PublicationCalendarPage({
     readonly initialCalendarView?: PublicationCalendarView
 } = {}) {
     const { locale } = useLanguage()
-    const { due, project, publications } = useProjectDashboard()
+    const { due, onCancelPublications, onReschedulePublications, pending, project, publications } =
+        useProjectDashboard()
+    const queryClient = useQueryClient()
     const todayDate = toDateKey(new Date(), project.timeZone)
     const calendarDateKey = initialCalendarDateKey ?? todayDate
     const calendarCursor = useMemo(
@@ -56,6 +66,75 @@ export function PublicationCalendarPage({
     })
     const calendarPublications = calendarPublicationsQuery.data ?? publications
     const dueIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
+    const calendarPublicationIds = useMemo(
+        () => toPublicationCalendarEvents(calendarPublications, dueIds).map(event => event.id),
+        [calendarPublications, dueIds]
+    )
+    const [selectedPublicationIds, setSelectedPublicationIds] = useState<Set<string>>(
+        () => new Set()
+    )
+    const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+    useEffect(() => {
+        setSelectedPublicationIds(new Set())
+    }, [calendarDateKey])
+
+    const selectedCalendarPublications = calendarPublications.filter(publication =>
+        selectedPublicationIds.has(publication.id)
+    )
+    const selectedCount = selectedCalendarPublications.length
+    const allVisibleSelected =
+        calendarPublicationIds.length > 0 &&
+        calendarPublicationIds.every(publicationId => selectedPublicationIds.has(publicationId))
+    const canRescheduleSelection =
+        selectedCount > 0 &&
+        selectedCalendarPublications.every(publication => publication.state === 'scheduled')
+    const canCancelSelection = canRescheduleSelection
+
+    function clearPublicationSelection() {
+        setSelectedPublicationIds(new Set())
+    }
+
+    function toggleAllVisiblePublications() {
+        setSelectedPublicationIds(current => {
+            const next = new Set(current)
+            if (allVisibleSelected) {
+                for (const publicationId of calendarPublicationIds) next.delete(publicationId)
+            } else {
+                for (const publicationId of calendarPublicationIds) next.add(publicationId)
+            }
+            return next
+        })
+    }
+
+    async function refreshCalendarPublications() {
+        await queryClient.invalidateQueries({
+            queryKey: projectQueryKeys.calendarPublications(project.id),
+        })
+    }
+
+    async function rescheduleSelection(scheduledAt: number): Promise<boolean> {
+        const succeeded = await onReschedulePublications(
+            selectedCalendarPublications.map(publication => publication.id),
+            scheduledAt
+        )
+        if (succeeded) {
+            clearPublicationSelection()
+            await refreshCalendarPublications()
+        }
+        return succeeded
+    }
+
+    async function cancelSelection(): Promise<boolean> {
+        const succeeded = await onCancelPublications(
+            selectedCalendarPublications.map(publication => publication.id)
+        )
+        if (succeeded) {
+            clearPublicationSelection()
+            await refreshCalendarPublications()
+        }
+        return succeeded
+    }
     const scheduledPublications = publications.filter(
         publication => publication.scheduledAt !== null
     )
@@ -106,6 +185,42 @@ export function PublicationCalendarPage({
                 ]}
             />
 
+            {selectedCount > 0 ? (
+                <div className="mt-4">
+                    <BulkActionBar
+                        actions={[
+                            {
+                                disabled: !canRescheduleSelection,
+                                disabledReason: m.queue_reschedule_only_scheduled(),
+                                icon: <CalendarAddIcon aria-hidden="true" />,
+                                id: 'reschedule',
+                                label: m.queue_reschedule(),
+                                onSelect: () => setScheduleDialogOpen(true),
+                            },
+                            {
+                                disabled: !canCancelSelection,
+                                disabledReason: m.queue_cancel_only_scheduled(),
+                                icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
+                                id: 'cancel',
+                                label: m.queue_cancel(),
+                                onSelect: () => setCancelDialogOpen(true),
+                                variant: 'destructive',
+                            },
+                        ]}
+                        allSelected={allVisibleSelected}
+                        ariaLabel={m.calendar_selection_actions()}
+                        clearLabel={m.calendar_clear_selection()}
+                        onClear={clearPublicationSelection}
+                        onToggleAll={toggleAllVisiblePublications}
+                        selectedCount={selectedCount}
+                        selectionSummary={m.calendar_selected_publications({
+                            count: selectedCount,
+                        })}
+                        toggleAllLabel={m.calendar_select_all_visible()}
+                    />
+                </div>
+            ) : null}
+
             <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
                 <PublicationCalendar
                     duePublicationIds={dueIds}
@@ -113,8 +228,12 @@ export function PublicationCalendarPage({
                     locale={locale}
                     calendarDate={calendarDate}
                     initialView={initialCalendarView}
+                    onSelectedPublicationIdsChange={publicationIds =>
+                        setSelectedPublicationIds(new Set(publicationIds))
+                    }
                     projectId={project.id}
                     publications={calendarPublications}
+                    selectedPublicationIds={selectedPublicationIds}
                     timeZone={project.timeZone}
                 />
             </section>
@@ -132,6 +251,22 @@ export function PublicationCalendarPage({
                     .
                 </p>
             ) : null}
+
+            <PublicationBulkScheduleDialog
+                open={scheduleDialogOpen}
+                onOpenChange={setScheduleDialogOpen}
+                onSchedule={rescheduleSelection}
+                pending={pending}
+                selectedCount={selectedCount}
+                timeZone={project.timeZone}
+            />
+            <PublicationBulkCancellationDialog
+                open={cancelDialogOpen}
+                onCancel={cancelSelection}
+                onOpenChange={setCancelDialogOpen}
+                pending={pending}
+                selectedCount={selectedCount}
+            />
         </main>
     )
 }
