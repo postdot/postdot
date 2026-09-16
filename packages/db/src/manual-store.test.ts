@@ -815,7 +815,7 @@ describe('manual workflow store', () => {
         }
     })
 
-    it('reschedules a publication group atomically and moves automatic jobs', () => {
+    it('reschedules and cancels a publication group atomically with automatic jobs', () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
 
@@ -958,6 +958,92 @@ describe('manual workflow store', () => {
                     .where(eq(auditEvents.action, 'publication.rescheduled'))
                     .all()
             ).toHaveLength(2)
+
+            const firstJob = database
+                .select()
+                .from(jobs)
+                .all()
+                .find(job => job.publicationId === firstPublication.id)
+            if (firstJob === undefined) throw new Error('The first bulk scheduling job is missing')
+            database
+                .update(jobs)
+                .set({
+                    state: 'running',
+                    claimToken: 'bulk-cancel-claim',
+                    claimedByActorId: project.actor.id,
+                    claimedAt: now,
+                    leaseExpiresAt: now + 60_000,
+                    startedAt: now,
+                })
+                .where(eq(jobs.id, firstJob.id))
+                .run()
+            expect(() =>
+                store.cancelPublications({
+                    projectId: project.project.id,
+                    publicationIds: [firstPublication.id, secondPublication.id],
+                    subjectId: 'user-1',
+                })
+            ).toThrow('while its job is running')
+            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ id: firstPublication.id, state: 'scheduled' }),
+                    expect.objectContaining({ id: secondPublication.id, state: 'scheduled' }),
+                ])
+            )
+            database
+                .update(jobs)
+                .set({
+                    state: 'pending',
+                    claimToken: null,
+                    claimedByActorId: null,
+                    claimedAt: null,
+                    leaseExpiresAt: null,
+                    effectStartedAt: null,
+                    startedAt: null,
+                    completedAt: null,
+                    errorMessage: null,
+                    updatedAt: now,
+                })
+                .where(eq(jobs.id, firstJob.id))
+                .run()
+
+            const cancelled = store.cancelPublications({
+                projectId: project.project.id,
+                publicationIds: [firstPublication.id, secondPublication.id],
+                subjectId: 'user-1',
+            })
+            expect(cancelled).toMatchObject([
+                { id: firstPublication.id, state: 'cancelled' },
+                { id: secondPublication.id, state: 'cancelled' },
+            ])
+            expect(database.select().from(jobs).all()).toMatchObject([
+                { publicationId: firstPublication.id, state: 'cancelled', completedAt: now },
+                { publicationId: secondPublication.id, state: 'cancelled', completedAt: now },
+            ])
+            const cancellationAudits = database
+                .select({ action: auditEvents.action, entityId: auditEvents.entityId })
+                .from(auditEvents)
+                .all()
+                .filter(
+                    event =>
+                        event.action === 'publication.cancelled' ||
+                        event.action === 'publication.execution.cancelled'
+                )
+            expect(cancellationAudits).toHaveLength(4)
+            expect(cancellationAudits).toEqual(
+                expect.arrayContaining([
+                    { action: 'publication.cancelled', entityId: firstPublication.id },
+                    { action: 'publication.cancelled', entityId: secondPublication.id },
+                    {
+                        action: 'publication.execution.cancelled',
+                        entityId: firstPublication.id,
+                    },
+                    {
+                        action: 'publication.execution.cancelled',
+                        entityId: secondPublication.id,
+                    },
+                ])
+            )
         } finally {
             closeDatabase(database)
         }

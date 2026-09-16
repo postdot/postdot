@@ -2,13 +2,15 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-test('reschedules a selected group of scheduled publications from Queue', async ({ page }) => {
+test('reschedules and cancels selected publications from Queue', async ({ page }) => {
     test.setTimeout(30_000)
 
     const suffix = randomUUID().slice(0, 8)
     const projectId = await createAccountAndProject(page, suffix)
     let currentScheduledAt = Date.now() + 60 * 60 * 1_000
     let reschedulePayload: { publicationIds: string[]; scheduledAt: number } | null = null
+    let cancelPayload: { publicationIds: string[] } | null = null
+    const cancelledPublicationIds = new Set<string>()
     const publications = [
         publicationFixture({
             id: `e2e-queue-bulk-scheduled-1-${suffix}`,
@@ -54,12 +56,24 @@ test('reschedules a selected group of scheduled publications from Queue', async 
                 contentType: 'application/json',
                 body: JSON.stringify({
                     nextCursor: null,
-                    publications: publications.map(publication =>
-                        publication.state === 'scheduled'
+                    publications: publications.map(publication => {
+                        if (cancelledPublicationIds.has(publication.id)) {
+                            return {
+                                ...publication,
+                                scheduledAt: currentScheduledAt,
+                                state: 'cancelled',
+                            }
+                        }
+                        return publication.state === 'scheduled'
                             ? { ...publication, scheduledAt: currentScheduledAt }
                             : publication
-                    ),
-                    summary: { total: 3, manual: 0, automatic: 3, scheduled: 2 },
+                    }),
+                    summary: {
+                        total: 3,
+                        manual: 0,
+                        automatic: 3,
+                        scheduled: 2 - cancelledPublicationIds.size,
+                    },
                 }),
             })
         }
@@ -83,6 +97,29 @@ test('reschedules a selected group of scheduled publications from Queue', async 
                 publications: publications
                     .filter(publication => body.publicationIds.includes(publication.id))
                     .map(publication => ({ ...publication, scheduledAt: body.scheduledAt })),
+            }),
+        })
+    })
+    await page.route(`**/api/projects/${projectId}/publications/cancel`, async route => {
+        if (route.request().method() !== 'PATCH') {
+            await route.continue()
+            return
+        }
+
+        const body = route.request().postDataJSON() as { publicationIds: string[] }
+        cancelPayload = body
+        for (const publicationId of body.publicationIds) cancelledPublicationIds.add(publicationId)
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                publications: publications
+                    .filter(publication => body.publicationIds.includes(publication.id))
+                    .map(publication => ({
+                        ...publication,
+                        scheduledAt: currentScheduledAt,
+                        state: 'cancelled',
+                    })),
             }),
         })
     })
@@ -114,6 +151,22 @@ test('reschedules a selected group of scheduled publications from Queue', async 
         .toEqual({
             publicationIds: [firstPublication.id, secondPublication.id],
             scheduledAt: expect.any(Number),
+        })
+    await expect(page.locator('[data-bulk-action-bar="true"]')).toHaveCount(0)
+
+    await selectionToggles.nth(0).click()
+    const cancelButton = page.getByRole('button', { name: 'Cancel', exact: true })
+    await expect(cancelButton).toBeEnabled()
+    await cancelButton.click()
+    await expect(
+        page.getByRole('heading', { name: 'Cancel 1 publication', exact: true })
+    ).toBeVisible()
+    await expect.poll(() => cancelPayload).toBeNull()
+    await page.getByRole('button', { name: 'Cancel publications', exact: true }).click()
+    await expect
+        .poll(() => cancelPayload)
+        .toEqual({
+            publicationIds: [firstPublication.id],
         })
     await expect(page.locator('[data-bulk-action-bar="true"]')).toHaveCount(0)
 })

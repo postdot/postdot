@@ -3,6 +3,7 @@ import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
 import { cn } from '@herald/ui/lib/utils'
 import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
 import { PenIcon } from '@solar-icons/react/bold/pen'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 import { Link } from '@tanstack/react-router'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -12,6 +13,7 @@ import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { PublicationAttentionPanel } from '@/components/publication-attention-panel'
+import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
@@ -38,6 +40,7 @@ export function PublicationQueuePage({
         due,
         loadingMorePublications,
         onLoadMorePublications,
+        onCancelPublications,
         onPublish,
         onReschedulePublications,
         pending,
@@ -54,6 +57,7 @@ export function PublicationQueuePage({
         () => new Set()
     )
     const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     useEffect(() => {
         setFilter(initialFilter)
         setSelectedPublicationIds(new Set())
@@ -91,6 +95,7 @@ export function PublicationQueuePage({
     const canRescheduleSelection =
         selectedCount > 0 &&
         selectedPublications.every(publication => publication.state === 'scheduled')
+    const canCancelSelection = canRescheduleSelection
 
     function togglePublicationSelection(publicationId: string) {
         setSelectedPublicationIds(current => {
@@ -121,6 +126,14 @@ export function PublicationQueuePage({
         const succeeded = await onReschedulePublications(
             selectedPublications.map(publication => publication.id),
             scheduledAt
+        )
+        if (succeeded) clearPublicationSelection()
+        return succeeded
+    }
+
+    async function cancelSelection(): Promise<boolean> {
+        const succeeded = await onCancelPublications(
+            selectedPublications.map(publication => publication.id)
         )
         if (succeeded) clearPublicationSelection()
         return succeeded
@@ -262,6 +275,15 @@ export function PublicationQueuePage({
                                 label: m.queue_reschedule(),
                                 onSelect: () => setScheduleDialogOpen(true),
                             },
+                            {
+                                disabled: !canCancelSelection,
+                                disabledReason: m.queue_cancel_only_scheduled(),
+                                icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
+                                id: 'cancel',
+                                label: m.queue_cancel(),
+                                onSelect: () => setCancelDialogOpen(true),
+                                variant: 'destructive',
+                            },
                         ]}
                         allSelected={allVisibleSelected}
                         ariaLabel={m.queue_bulk_actions()}
@@ -363,6 +385,13 @@ export function PublicationQueuePage({
                 pending={pending}
                 selectedCount={selectedCount}
                 timeZone={project.timeZone}
+            />
+            <PublicationBulkCancellationDialog
+                open={cancelDialogOpen}
+                onCancel={cancelSelection}
+                onOpenChange={setCancelDialogOpen}
+                pending={pending}
+                selectedCount={selectedCount}
             />
         </main>
     )

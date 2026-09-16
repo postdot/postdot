@@ -681,6 +681,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/publications',
                 '/api/projects/{projectId}/publications/due',
                 '/api/projects/{projectId}/publications/schedule',
+                '/api/projects/{projectId}/publications/cancel',
                 '/api/projects/{projectId}/publications/{publicationId}/editor',
                 '/api/projects/{projectId}/publications/{publicationId}/draft',
                 '/api/projects/{projectId}/publications/{publicationId}/draft/rebase',
@@ -734,6 +735,10 @@ describe('Herald API', () => {
                 specification.paths['/api/projects/{projectId}/publications/schedule']?.patch
                     ?.operationId
             ).toBe('reschedulePublications')
+            expect(
+                specification.paths['/api/projects/{projectId}/publications/cancel']?.patch
+                    ?.operationId
+            ).toBe('cancelPublications')
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
                     bearerFormat: 'Herald project access token',
@@ -3121,7 +3126,7 @@ describe('Herald API', () => {
         }
     })
 
-    it('reschedules a group of queued publications through the project API', async () => {
+    it('reschedules and cancels groups of queued publications through the project API', async () => {
         const { app, database } = createFixture()
 
         try {
@@ -3253,6 +3258,36 @@ describe('Herald API', () => {
                 }
             )
             expect(duplicateResponse.status).toBe(422)
+
+            const cancelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/publications/cancel`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ publicationIds }),
+                }
+            )
+            expect(cancelResponse.status).toBe(200)
+            expect(await cancelResponse.json()).toMatchObject({
+                publications: [
+                    { id: publicationIds[0], state: 'cancelled' },
+                    { id: publicationIds[1], state: 'cancelled' },
+                ],
+            })
+
+            const duplicateCancelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/publications/cancel`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        publicationIds: [publicationIds[0], publicationIds[0]],
+                    }),
+                }
+            )
+            expect(duplicateCancelResponse.status).toBe(422)
         } finally {
             closeDatabase(database)
         }

@@ -40,6 +40,7 @@ const publicationEventActions = {
     ready: 'publication.ready',
     published: 'publication.published',
     reconciled: 'publication.reconciled',
+    cancelled: 'publication.cancelled',
 } as const
 
 const historicalActions = new Set<string>([
@@ -398,6 +399,7 @@ interface AttemptOutcome {
     readonly occurredAt: number
     readonly dimension: AnalyticsDimension
     readonly targetState: PublicationState | null
+    readonly recordLifecycle: boolean
     readonly row: HistoricalFactReference
 }
 
@@ -857,6 +859,15 @@ function buildHistoricalMetrics(
             case publicationEventActions.reconciled:
                 recordReconciliation(accumulator, row, metadata, dimension, included, timeZone)
                 break
+            case publicationEventActions.cancelled: {
+                const toState = readState(metadata.toState)
+                if (toState === null) {
+                    accumulator.coverage.missingLifecycleState += 1
+                    break
+                }
+                recordPublicationLifecycle(accumulator, row, dimension, included, toState, timeZone)
+                break
+            }
             case executionActions.claimed:
                 recordClaim(accumulator, row, metadata, dimension, included, timeZone)
                 break
@@ -1155,6 +1166,7 @@ function recordExecutionOutcome(
         occurredAt: row.occurredAt,
         dimension,
         targetState: readState(metadata.toState),
+        recordLifecycle: metadata.lifecycleEvent !== publicationEventActions.cancelled,
         row: { entityId: row.entityId, occurredAt: row.occurredAt },
     }
     if (attempt.outcome.targetState === null) {
@@ -1341,7 +1353,7 @@ function finalizeExecutionOutcomes(accumulator: HistoricalAccumulator, timeZone:
                     dimension,
                     'executionCancelled'
                 )
-                if (outcome.targetState !== null) {
+                if (outcome.targetState !== null && outcome.recordLifecycle) {
                     recordPublicationLifecycle(
                         accumulator,
                         outcome.row,

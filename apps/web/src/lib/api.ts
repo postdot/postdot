@@ -1095,6 +1095,17 @@ export const api = {
         )
     },
 
+    async cancelPublications(
+        projectId: string,
+        publicationIds: readonly string[]
+    ): Promise<{ publications: Publication[] }> {
+        return unwrap<{ publications: Publication[] }>(
+            await client.api.projects({ projectId }).publications.cancel.patch({
+                publicationIds: [...publicationIds],
+            })
+        )
+    },
+
     async rebasePublicationDraft(
         projectId: string,
         publicationId: string,

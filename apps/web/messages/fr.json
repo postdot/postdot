@@ -296,6 +296,20 @@
     "queue_reschedule_submit": "Appliquer",
     "queue_reschedule_required": "Choisissez une date et une heure.",
     "queue_reschedule_only_scheduled": "Seules les publications planifiées peuvent être replanifiées.",
+    "queue_cancel": "Annuler",
+    "queue_cancel_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Annuler {count} publication",
+                "countPlural=other": "Annuler {count} publications"
+            }
+        }
+    ],
+    "queue_cancel_description": "Ces publications ne seront pas diffusées.",
+    "queue_cancel_submit": "Annuler les publications",
+    "queue_cancel_only_scheduled": "Seules les publications planifiées peuvent être annulées.",
     "queue_no_attention_title": "Rien à traiter",
     "queue_no_attention_description": "Les publications à traiter apparaîtront ici.",
     "queue_no_drafts_title": "Aucun brouillon",

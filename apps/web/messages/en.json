@@ -296,6 +296,20 @@
     "queue_reschedule_submit": "Apply schedule",
     "queue_reschedule_required": "Choose a date and time.",
     "queue_reschedule_only_scheduled": "Only scheduled publications can be rescheduled.",
+    "queue_cancel": "Cancel",
+    "queue_cancel_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Cancel {count} publication",
+                "countPlural=other": "Cancel {count} publications"
+            }
+        }
+    ],
+    "queue_cancel_description": "These publications will not be delivered.",
+    "queue_cancel_submit": "Cancel publications",
+    "queue_cancel_only_scheduled": "Only scheduled publications can be cancelled.",
     "queue_no_attention_title": "Nothing needs attention",
     "queue_no_attention_description": "Publications needing attention will appear here.",
     "queue_no_drafts_title": "No drafts",

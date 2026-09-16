@@ -591,6 +591,14 @@ export const reschedulePublicationsBody = Type.Object({
     scheduledAt: Type.Integer({ minimum: 0 }),
 })
 
+export const cancelPublicationsBody = Type.Object({
+    publicationIds: Type.Array(Type.String({ minLength: 1 }), {
+        minItems: 1,
+        maxItems: 100,
+        uniqueItems: true,
+    }),
+})
+
 export function resolveChannelProfile(profile: unknown): ChannelProfileDefinition {
     if (typeof profile === 'string') {
         const resolved = resolveBuiltInChannelProfile(profile)

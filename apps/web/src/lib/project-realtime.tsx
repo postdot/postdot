@@ -28,6 +28,8 @@ const projectRealtimeEventTypes = [
     'publication.ready',
     'publication.published',
     'publication.reconciled',
+    'publication.rescheduled',
+    'publication.cancelled',
     'publication.execution.claimed',
     'publication.execution.effect_started',
     'publication.execution.succeeded',
