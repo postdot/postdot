@@ -235,6 +235,10 @@ the central project reads and projection/realtime reliability.
 
 - [x] **[WEB-183]** Consolidate Queue around one filterable publication list `Priority: 🟠` `Complexity: M` — remove the duplicate attention surface, separate lifecycle filters from delivery mode, preserve due-work and bulk actions, and prove mixed-state responsive behavior with localized browser coverage.
 
+## 🧭 Publication lifecycle UX
+
+- [x] **[WEB-184]** Make publication detail lifecycle actions explicit `Priority: 🟠` `Complexity: M` — expose due manual work, retry, cancellation, and terminal read-only transitions from one state-aware detail surface, with confirmation and localized browser coverage.
+
 ## 🧭 Autonomos ledger reconciliation
 
 - [x] **[META-153]** Reconcile issue completion state with task evidence and isolate explicit follow-ups `Priority: 🟠` `Complexity: S` — [ISSUE-078]; completed accepted issues are resolved with concise evidence, while open worktree/MCP limitations and deliberately deferred UX, account-lifecycle, and analytics work remain visible as separate follow-ups.

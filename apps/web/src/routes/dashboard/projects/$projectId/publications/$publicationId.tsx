@@ -49,7 +49,7 @@ function PublicationEditorRoute() {
     const { projectId, publicationId } = Route.useParams()
     const { date, from, view } = Route.useSearch()
     const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
-    const { activeChannels, onPublish, project } = useProjectDashboard()
+    const { activeChannels, onCancelPublications, onPublish, project } = useProjectDashboard()
     const instanceId = useId()
     const editorQuery = useQuery({
         queryKey: projectQueryKeys.publicationEditorInstance(projectId, publicationId, instanceId),
@@ -67,6 +67,7 @@ function PublicationEditorRoute() {
             projectId={projectId}
             initialEditor={currentEditor}
             initialPublicationTags={publicationTags}
+            onCancel={() => onCancelPublications([currentEditor.publication.id])}
             onPublish={() => onPublish(currentEditor.publication.id)}
             projectTags={projectTags}
             channels={activeChannels}

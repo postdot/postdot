@@ -197,6 +197,10 @@ test('refreshes an open publication editor after a worker state change', async (
     await expect(
         page.locator('[data-publication-lifecycle="true"]').getByText('Failed', { exact: true })
     ).toBeVisible()
+    await expect(page.locator('[data-publication-error="true"]')).toContainText(
+        'The worker could not deliver this publication'
+    )
+    await expect(page.locator('[data-publication-action="retry"]')).toBeVisible()
     await expect(
         page.getByText('The publication changed in the background.', { exact: false })
     ).toBeVisible()

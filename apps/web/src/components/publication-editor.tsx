@@ -4,6 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { type MediaSelection } from '@/components/media-attachment-picker'
+import { PublicationCancellationDialog } from '@/components/publication-cancellation-dialog'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
 import { PublicationEditorPromotionSection } from '@/components/publication-editor-promotion-section'
@@ -51,6 +52,7 @@ interface PublicationEditorProps {
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
     readonly initialPublicationTags: readonly ProjectTag[]
+    readonly onCancel?: () => Promise<boolean>
     readonly onPublish?: () => Promise<boolean>
     readonly projectTags: readonly ProjectTag[]
     readonly relatedPublications?: readonly PublicationSummary[]
@@ -78,6 +80,7 @@ export function PublicationEditor({
     channels = [],
     initialEditor,
     initialPublicationTags,
+    onCancel,
     onPublish,
     projectId,
     projectTags,
@@ -164,6 +167,8 @@ export function PublicationEditor({
     const [tagError, setTagError] = useState<string | null>(null)
     const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
     const [manualPublishPending, setManualPublishPending] = useState(false)
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+    const [cancelPending, setCancelPending] = useState(false)
     const requestGeneration = useRef(0)
 
     const availableTags = useMemo(() => {
@@ -194,6 +199,15 @@ export function PublicationEditor({
         sourceConflict ||
         draftRequiresReview ||
         draftDiffersFromTarget
+    const promotionBlocked =
+        dirty ||
+        sourceConflict ||
+        draftRequiresReview ||
+        saveState !== 'saved' ||
+        targetResult.value === null ||
+        sourceIssue !== null
+    const cancellationBlocked =
+        cancelPending || hasLocalChanges || saveState !== 'saved' || isRebasing
     const editorChannels = useMemo(() => {
         const channelsById = new Map(channels.map(channel => [channel.id, channel]))
         const orderedChannelIds = [
@@ -698,6 +712,48 @@ export function PublicationEditor({
         }
     }
 
+    async function cancelPublication(): Promise<boolean> {
+        if (
+            onCancel === undefined ||
+            editor.publication.state !== 'scheduled' ||
+            cancellationBlocked
+        ) {
+            return false
+        }
+
+        requestGeneration.current += 1
+        setCancelPending(true)
+        setMessage(null)
+        try {
+            const cancelled = await onCancel()
+            if (!cancelled) {
+                setMessage(m.editor_cancel_failed())
+                return false
+            }
+
+            const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            setEditor(response.editor)
+            setSourceContent(response.editor.post.sourceContent)
+            setTargetText(formatJson(response.editor.draft.content))
+            setExpectedRevision(response.editor.draft.revision)
+            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt, timeZone))
+            setDirty(false)
+            setScheduleDirty(false)
+            setSaveState('saved')
+            setRecoveryAvailable(false)
+            removeRecovery(recoveryKey)
+            setMessage(m.editor_cancelled())
+            invalidatePublicationQueries()
+            return true
+        } catch (caughtError) {
+            setSaveState('error')
+            setMessage(errorMessage(caughtError))
+            return false
+        } finally {
+            setCancelPending(false)
+        }
+    }
+
     async function reconcilePublication(input: PublicationOutcomeResolutionInput) {
         const response = await api.reconcileAmbiguousPublication(
             projectId,
@@ -752,11 +808,26 @@ export function PublicationEditor({
             </div>
 
             <PublicationLifecyclePanel
+                cancelDisabled={cancellationBlocked}
+                onCancel={onCancel === undefined ? undefined : () => setCancelDialogOpen(true)}
                 onPublish={onPublish === undefined ? undefined : recordManualPublication}
-                pending={manualPublicationBlocked}
+                onRetry={
+                    editor.publication.state === 'failed' ? () => void promoteDraft() : undefined
+                }
+                pending={manualPublicationBlocked || cancelPending}
                 publication={editor.publication}
+                retryDisabled={promotionBlocked}
                 timeZone={timeZone}
             />
+
+            {onCancel !== undefined ? (
+                <PublicationCancellationDialog
+                    open={cancelDialogOpen}
+                    onCancel={cancelPublication}
+                    onOpenChange={setCancelDialogOpen}
+                    pending={cancelPending}
+                />
+            ) : null}
 
             <PublicationEditorStatus
                 isRebasing={isRebasing}
@@ -849,16 +920,10 @@ export function PublicationEditor({
 
                         {publicationEditable ? (
                             <PublicationEditorPromotionSection
+                                retry={editor.publication.state === 'failed'}
                                 timeZone={timeZone}
                                 scheduleValue={scheduleValue}
-                                disabled={
-                                    dirty ||
-                                    sourceConflict ||
-                                    draftRequiresReview ||
-                                    saveState !== 'saved' ||
-                                    targetResult.value === null ||
-                                    sourceIssue !== null
-                                }
+                                disabled={promotionBlocked}
                                 draftRequiresReview={draftRequiresReview}
                                 draftDiffersFromTarget={draftDiffersFromTarget}
                                 onScheduleChange={value => {
