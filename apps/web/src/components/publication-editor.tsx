@@ -1,8 +1,10 @@
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { type MediaSelection } from '@/components/media-attachment-picker'
+import { PublicationComposer } from '@/components/publication-composer'
+import { PublicationDraftPreview } from '@/components/publication-draft-preview'
 import { PublicationEditorPromotionSection } from '@/components/publication-editor-promotion-section'
 import {
     type CapabilitySummary,
@@ -20,12 +22,16 @@ import {
     type PublicationOutcomeResolutionInput,
 } from '@/components/publication-outcome-panel'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
+import { PublicationChannelRail } from '@/components/publication-target-list'
 import {
     ApiError,
     api,
     formatApiError,
+    type Channel,
+    type MediaReference,
     type ProjectTag,
     type PublicationEditorState,
+    type PublicationSummary,
 } from '@/lib/api'
 import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
@@ -36,10 +42,12 @@ type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
 
 interface PublicationEditorProps {
+    readonly channels?: readonly Channel[]
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
     readonly initialPublicationTags: readonly ProjectTag[]
     readonly projectTags: readonly ProjectTag[]
+    readonly relatedPublications?: readonly PublicationSummary[]
     readonly timeZone: string
 }
 
@@ -57,13 +65,16 @@ type SaveState = PublicationEditorSaveState
 const recoveryVersion = 3 as const
 
 export function PublicationEditor({
+    channels = [],
     initialEditor,
     initialPublicationTags,
     projectId,
     projectTags,
+    relatedPublications = [],
     timeZone,
 }: PublicationEditorProps) {
     useLanguage()
+    const navigate = useNavigate()
     const recoveryKey = useMemo(
         () => createRecoveryKey(projectId, initialEditor.publication.id),
         [projectId, initialEditor.publication.id]
@@ -127,6 +138,7 @@ export function PublicationEditor({
     )
     const [tagSavePending, setTagSavePending] = useState(false)
     const [tagError, setTagError] = useState<string | null>(null)
+    const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
     const requestGeneration = useRef(0)
 
     const availableTags = useMemo(() => {
@@ -149,6 +161,40 @@ export function PublicationEditor({
         formatJson(editor.draft.content) !== formatJson(editor.selectedTarget.content)
     const hasLocalChanges = dirty || scheduleDirty
     const isRebasing = saveState === 'rebasing'
+    const editorChannels = useMemo(() => {
+        const channelsById = new Map(channels.map(channel => [channel.id, channel]))
+        const orderedChannelIds = [
+            ...relatedPublications.map(publication => publication.channelId),
+            editor.channel.id,
+        ]
+        const uniqueChannelIds = [...new Set(orderedChannelIds)]
+
+        return uniqueChannelIds.flatMap(channelId => {
+            const channel = channelsById.get(channelId)
+            return channel === undefined
+                ? channelId === editor.channel.id
+                    ? [editor.channel]
+                    : []
+                : [channel]
+        })
+    }, [channels, editor.channel, relatedPublications])
+    const editorChannelIds = useMemo(
+        () => new Set(editorChannels.map(channel => channel.id)),
+        [editorChannels]
+    )
+    const previewMedia = useMemo(
+        () =>
+            sourceContent.media
+                .map(selection =>
+                    availableMedia.find(asset => asset.asset.id === selection.assetId)
+                )
+                .filter((asset): asset is MediaReference => asset !== undefined),
+        [availableMedia, sourceContent.media]
+    )
+    const previewContent = useMemo(
+        () => getTargetPreviewText(targetResult.value) ?? sourceContent.body?.text ?? '',
+        [sourceContent.body?.text, targetResult.value]
+    )
 
     async function handlePublicationTagIdsChange(nextTagIds: string[]) {
         const previousTagIds = publicationTagIds
@@ -168,6 +214,16 @@ export function PublicationEditor({
         } finally {
             setTagSavePending(false)
         }
+    }
+
+    function handleChannelChange(channelId: string) {
+        const publication = relatedPublications.find(item => item.channelId === channelId)
+        if (publication === undefined || publication.id === editor.publication.id) return
+
+        void navigate({
+            to: '/dashboard/projects/$projectId/publications/$publicationId',
+            params: { projectId, publicationId: publication.id },
+        })
     }
 
     useEffect(() => {
@@ -586,77 +642,100 @@ export function PublicationEditor({
                 </div>
             ) : null}
 
-            <div className="mt-7 grid min-w-0 gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
-                <div className="min-w-0 space-y-8">
-                    <PublicationEditorSourceSection
-                        projectId={projectId}
-                        sourceContent={sourceContent}
-                        sourceRevision={editor.post.sourceRevision}
+            <PublicationComposer
+                className="mt-7"
+                channelNavigation={
+                    <PublicationChannelRail
+                        activeChannelId={editor.channel.id}
+                        channels={editorChannels}
                         disabled={isRebasing}
-                        mediaDisabled={saveState === 'saving' || saveState === 'rebasing'}
-                        onTextChange={updateSourceText}
-                        onFormatChange={updateSourceFormat}
-                        onOptionalFieldChange={updateSourceOptionalField}
-                        onMediaChange={updateSourceMedia}
+                        onActiveChannelChange={handleChannelChange}
+                        selectedChannelIds={editorChannelIds}
                     />
+                }
+                editor={
+                    <div className="min-w-0 space-y-8">
+                        <PublicationEditorSourceSection
+                            projectId={projectId}
+                            sourceContent={sourceContent}
+                            sourceRevision={editor.post.sourceRevision}
+                            disabled={isRebasing}
+                            mediaDisabled={saveState === 'saving' || saveState === 'rebasing'}
+                            onTextChange={updateSourceText}
+                            onFormatChange={updateSourceFormat}
+                            onOptionalFieldChange={updateSourceOptionalField}
+                            onMediaChange={updateSourceMedia}
+                            onAssetsChange={setAvailableMedia}
+                        />
 
-                    <PublicationEditorTargetSection
-                        profile={editor.profile.profile}
-                        reviewState={editor.draft.reviewState}
-                        validationIssues={editor.draft.validationIssues}
-                        target={targetResult.value}
-                        targetText={targetText}
-                        disabled={isRebasing}
-                        onTargetChange={next => {
-                            setTargetText(formatJson(next))
-                            setDirty(true)
-                        }}
-                        onRawTextChange={value => {
-                            setTargetText(value)
-                            setDirty(true)
-                        }}
-                        targetError={targetResult.error}
-                        issueCode={issueCode}
-                        issueMessage={issueMessage}
-                    />
+                        <PublicationEditorTargetSection
+                            profile={editor.profile.profile}
+                            reviewState={editor.draft.reviewState}
+                            validationIssues={editor.draft.validationIssues}
+                            target={targetResult.value}
+                            targetText={targetText}
+                            disabled={isRebasing}
+                            onTargetChange={next => {
+                                setTargetText(formatJson(next))
+                                setDirty(true)
+                            }}
+                            onRawTextChange={value => {
+                                setTargetText(value)
+                                setDirty(true)
+                            }}
+                            targetError={targetResult.error}
+                            issueCode={issueCode}
+                            issueMessage={issueMessage}
+                        />
 
-                    <PublicationEditorPromotionSection
-                        timeZone={timeZone}
-                        scheduleValue={scheduleValue}
-                        disabled={
-                            dirty ||
-                            sourceConflict ||
-                            draftRequiresReview ||
-                            saveState !== 'saved' ||
-                            targetResult.value === null ||
-                            sourceIssue !== null
-                        }
-                        draftRequiresReview={draftRequiresReview}
-                        draftDiffersFromTarget={draftDiffersFromTarget}
-                        onScheduleChange={value => {
-                            setScheduleValue(value)
-                            setScheduleDirty(
-                                value !== toDateTimeLocal(editor.publication.scheduledAt, timeZone)
-                            )
-                        }}
-                        onPromote={() => void promoteDraft()}
-                    />
-                </div>
-
-                <PublicationEditorSidebar
-                    editor={editor}
-                    capabilitySummary={capabilitySummary}
-                    timeZone={timeZone}
-                    sourceConflict={sourceConflict}
-                    saveState={saveState}
-                    isRebasing={isRebasing}
-                    recoveryAvailable={recoveryAvailable}
-                    hasLocalChanges={hasLocalChanges}
-                    onRebase={() => void rebaseToLatestSource()}
-                    onReload={() => void reloadServerVersion()}
-                    onRestore={() => void restoreRecoveryAgainstLatestServer()}
-                />
-            </div>
+                        <PublicationEditorPromotionSection
+                            timeZone={timeZone}
+                            scheduleValue={scheduleValue}
+                            disabled={
+                                dirty ||
+                                sourceConflict ||
+                                draftRequiresReview ||
+                                saveState !== 'saved' ||
+                                targetResult.value === null ||
+                                sourceIssue !== null
+                            }
+                            draftRequiresReview={draftRequiresReview}
+                            draftDiffersFromTarget={draftDiffersFromTarget}
+                            onScheduleChange={value => {
+                                setScheduleValue(value)
+                                setScheduleDirty(
+                                    value !==
+                                        toDateTimeLocal(editor.publication.scheduledAt, timeZone)
+                                )
+                            }}
+                            onPromote={() => void promoteDraft()}
+                        />
+                    </div>
+                }
+                preview={
+                    <div className="min-w-0 space-y-8">
+                        <PublicationDraftPreview
+                            channel={editor.channel}
+                            media={previewMedia}
+                            postContent={previewContent}
+                            postTitle={editor.post.title ?? ''}
+                        />
+                        <PublicationEditorSidebar
+                            editor={editor}
+                            capabilitySummary={capabilitySummary}
+                            timeZone={timeZone}
+                            sourceConflict={sourceConflict}
+                            saveState={saveState}
+                            isRebasing={isRebasing}
+                            recoveryAvailable={recoveryAvailable}
+                            hasLocalChanges={hasLocalChanges}
+                            onRebase={() => void rebaseToLatestSource()}
+                            onReload={() => void reloadServerVersion()}
+                            onRestore={() => void restoreRecoveryAgainstLatestServer()}
+                        />
+                    </div>
+                }
+            />
         </section>
     )
 }
@@ -771,6 +850,16 @@ function issueMessage(issue: Record<string, unknown>) {
     return path === null
         ? m.editor_target_validation_issue_without_path({ code })
         : m.editor_target_validation_issue({ path, code })
+}
+
+function getTargetPreviewText(target: Record<string, unknown> | null): string | null {
+    if (target === null) return null
+
+    for (const key of ['commentary', 'text', 'body', 'body_markdown', 'content']) {
+        const value = target[key]
+        if (typeof value === 'string') return value
+    }
+    return null
 }
 
 function formatJson(value: unknown) {

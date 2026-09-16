@@ -11,7 +11,7 @@ import {
 import { Textarea } from '@herald/ui/components/textarea'
 
 import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
-import type { PublicationEditorState } from '@/lib/api'
+import type { MediaReference, PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -27,6 +27,7 @@ interface PublicationEditorSourceSectionProps {
     readonly onFormatChange: (format: 'plain_text' | 'markdown') => void
     readonly onOptionalFieldChange: (field: 'headline' | 'language', value: string) => void
     readonly onMediaChange: (media: MediaSelection[]) => void
+    readonly onAssetsChange?: (assets: MediaReference[]) => void
 }
 
 export function PublicationEditorSourceSection({
@@ -39,6 +40,7 @@ export function PublicationEditorSourceSection({
     onFormatChange,
     onOptionalFieldChange,
     onMediaChange,
+    onAssetsChange,
 }: PublicationEditorSourceSectionProps) {
     useLanguage()
     const body = sourceContent.body
@@ -140,6 +142,7 @@ export function PublicationEditorSourceSection({
                             variant="publication-new-inline"
                             value={sourceContent.media}
                             onChange={onMediaChange}
+                            onAssetsChange={onAssetsChange}
                             disabled={mediaDisabled}
                         />
                     </div>

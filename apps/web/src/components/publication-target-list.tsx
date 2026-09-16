@@ -8,8 +8,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@herald/ui/components/select'
-import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
-import { AddIcon } from '@solar-icons/react/bold/add'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { Link } from '@tanstack/react-router'
 import type { Dispatch, ReactNode, SetStateAction } from 'react'
@@ -25,6 +24,85 @@ import {
 import * as m from '@/paraglide/messages.js'
 
 export const publicationSharedTabId = 'shared'
+
+export interface PublicationChannelRailProps {
+    readonly activeChannelId: string
+    readonly channels: readonly Channel[]
+    readonly disabled: boolean
+    readonly onActiveChannelChange: (channelId: string) => void
+    readonly onSharedChange?: () => void
+    readonly selectedChannelIds?: ReadonlySet<string>
+    readonly sharedActive?: boolean
+}
+
+export function PublicationChannelRail({
+    activeChannelId,
+    channels,
+    disabled,
+    onActiveChannelChange,
+    onSharedChange,
+    selectedChannelIds,
+    sharedActive = false,
+}: PublicationChannelRailProps) {
+    useLanguage()
+    const allChannelsSelected = selectedChannelIds === undefined
+
+    return (
+        <div data-publication-channel-selection="true" className="flex min-w-0 items-center gap-3">
+            {onSharedChange ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={
+                        sharedActive ? 'shrink-0 bg-surface-control shadow-control' : 'shrink-0'
+                    }
+                    aria-pressed={sharedActive}
+                    disabled={disabled}
+                    onClick={onSharedChange}>
+                    {m.publication_new_shared_content()}
+                </Button>
+            ) : null}
+            <div
+                className="flex min-w-0 items-center gap-2 overflow-x-auto p-1"
+                role="group"
+                aria-label={m.publication_new_destinations()}>
+                {channels.map(channel => {
+                    const selected = allChannelsSelected || selectedChannelIds.has(channel.id)
+                    const active = channel.id === activeChannelId
+                    return (
+                        <Tooltip key={channel.id}>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        aria-label={channel.name}
+                                        aria-pressed={selected}
+                                        data-active-channel={active || undefined}
+                                        disabled={disabled}
+                                        onClick={() => onActiveChannelChange(channel.id)}
+                                        className={`relative h-11 shrink-0 gap-2 rounded-xl px-2 ${active ? 'bg-primary/10 text-primary shadow-control' : selected ? '' : 'opacity-40 grayscale hover:opacity-80 hover:grayscale-0'}`}>
+                                        <ChannelAvatar channel={channel} size="md" />
+                                        {active ? (
+                                            <span className="max-w-32 truncate text-sm">
+                                                {channel.name}
+                                            </span>
+                                        ) : null}
+                                        {selected && !active ? (
+                                            <span className="absolute bottom-1 right-1 size-1.5 rounded-full bg-primary" />
+                                        ) : null}
+                                    </Button>
+                                }
+                            />
+                            <TooltipContent>{channel.name}</TooltipContent>
+                        </Tooltip>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
 
 export interface PublicationChannelTabsProps {
     readonly activeTargetId: string
@@ -43,7 +121,6 @@ export interface PublicationChannelTabsProps {
 export function PublicationChannelTabs({
     activeTargetId,
     channels,
-    connections,
     defaultDeliveryMode,
     defaultScheduledAt,
     disabled,
@@ -54,19 +131,18 @@ export function PublicationChannelTabs({
     timeZone,
 }: PublicationChannelTabsProps) {
     useLanguage()
-    const selectedChannelIds = new Set(
-        targets.map(target => target.channelId).filter(channelId => channelId !== '')
-    )
-    const availableChannel = channels.find(channel => !selectedChannelIds.has(channel.id))
-
-    function addTarget() {
-        if (availableChannel === undefined) return
+    function activateChannel(channelId: string) {
+        const existing = targets.find(target => target.channelId === channelId)
+        if (existing) {
+            onActiveTargetChange(existing.id)
+            return
+        }
         const nextTarget = {
-            ...createPublicationTarget(availableChannel.id, timeZone),
+            ...createPublicationTarget(channelId, timeZone),
             deliveryMode: defaultDeliveryMode,
             scheduledAt: defaultScheduledAt,
         }
-        onChange(currentTargets => [...currentTargets, nextTarget])
+        onChange(current => [...current.filter(target => target.channelId !== ''), nextTarget])
         onActiveTargetChange(nextTarget.id)
     }
 
@@ -89,69 +165,15 @@ export function PublicationChannelTabs({
     }
 
     return (
-        <div data-publication-channel-selection="true" className="flex min-w-0 items-center gap-2">
-            <Tabs
-                aria-label={m.publication_new_destinations()}
-                className="min-w-0 flex-1"
-                value={activeTargetId}
-                onValueChange={value => {
-                    if (value !== null) onActiveTargetChange(value)
-                }}>
-                <TabsList
-                    className="!h-auto min-h-9 w-full max-w-full justify-start overflow-x-auto [&>[data-slot=tabs-trigger]]:shrink-0"
-                    variant="line">
-                    <TabsTrigger value={publicationSharedTabId}>
-                        {m.publication_new_shared_content()}
-                    </TabsTrigger>
-                    {targets.map((target, index) => {
-                        const channel = channels.find(
-                            candidate => candidate.id === target.channelId
-                        )
-                        const status = resolveConnectionStatus(
-                            channel,
-                            connections.find(candidate => candidate.channelId === target.channelId),
-                            target.deliveryMode
-                        )
-                        return (
-                            <TabsTrigger
-                                key={target.id}
-                                aria-label={
-                                    channel?.name ??
-                                    m.publication_new_destination({ index: String(index + 1) })
-                                }
-                                value={target.id}>
-                                {channel ? <ChannelAvatar channel={channel} size="sm" /> : null}
-                                <span className="max-w-40 truncate">
-                                    {channel?.name ??
-                                        m.publication_new_destination({ index: String(index + 1) })}
-                                </span>
-                                {status ? (
-                                    <span
-                                        aria-label={status.label}
-                                        className={`size-1.5 shrink-0 rounded-full ${status.dotClassName}`}
-                                    />
-                                ) : null}
-                            </TabsTrigger>
-                        )
-                    })}
-                </TabsList>
-            </Tabs>
-            <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={m.publication_new_add_destination()}
-                disabled={disabled || availableChannel === undefined}
-                title={
-                    availableChannel === undefined
-                        ? m.publication_new_all_channels_selected()
-                        : undefined
-                }
-                onClick={addTarget}>
-                <AddIcon aria-hidden="true" />
-                <span className="hidden sm:inline">{m.publication_new_add_destination()}</span>
-            </Button>
-        </div>
+        <PublicationChannelRail
+            activeChannelId={targets.find(target => target.id === activeTargetId)?.channelId ?? ''}
+            channels={channels}
+            disabled={disabled}
+            onActiveChannelChange={activateChannel}
+            onSharedChange={() => onActiveTargetChange(publicationSharedTabId)}
+            selectedChannelIds={new Set(targets.map(target => target.channelId))}
+            sharedActive={activeTargetId === publicationSharedTabId}
+        />
     )
 }
 
@@ -212,12 +234,9 @@ export function PublicationChannelSettings({
     return (
         <div
             data-publication-settings="true"
-            className="border-t border-border/60 px-4 py-4 sm:px-6">
+            className="rounded-xl bg-surface-inset/60 px-4 py-3 sm:px-5">
             <section data-publication-shared-settings="true">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <h2 className="text-sm font-medium">
-                        {m.publication_new_defaults_for_channels()}
-                    </h2>
+                <div className="flex justify-end">
                     <span className="text-xs text-muted-foreground">
                         {m.publication_new_project_time({ timeZone })}
                     </span>
@@ -265,9 +284,12 @@ export function PublicationChannelSettings({
             </section>
 
             {activeChannel !== undefined && activeTarget !== undefined ? (
-                <section
+                <details
                     data-publication-active-channel-settings="true"
-                    className="mt-4 border-t border-border/60 pt-4">
+                    className="mt-3 rounded-lg bg-surface-raised/70 p-3">
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+                        {m.publication_new_customize_delivery()}
+                    </summary>
                     <div className="flex min-w-0 items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
                             <ChannelAvatar channel={activeChannel} size="md" />
@@ -388,7 +410,7 @@ export function PublicationChannelSettings({
                             </Button>
                         </div>
                     )}
-                </section>
+                </details>
             ) : null}
         </div>
     )

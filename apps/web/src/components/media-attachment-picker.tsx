@@ -9,6 +9,7 @@ import {
 } from '@herald/ui/components/empty'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@herald/ui/components/tooltip'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/bold/close'
@@ -1206,7 +1207,7 @@ function MediaAttachmentPickerView({
                 data-media-import-zone={manageOnly && !interactionLocked ? 'true' : undefined}
                 className={`${
                     inline
-                        ? 'border-t border-border/70 bg-muted/25 px-3 py-2'
+                        ? 'px-3 pb-3 pt-1'
                         : compact
                           ? 'pt-1'
                           : manageOnly
@@ -1343,30 +1344,43 @@ function MediaAttachmentPickerView({
                                     </p>
                                 ) : null}
                             </div>
+                        ) : null}
+                        {inline ? (
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            aria-label={m.media_upload()}
+                                            disabled={interactionLocked}
+                                            onClick={openAttachmentLibrary}>
+                                            <GalleryAddIcon aria-hidden="true" />
+                                        </Button>
+                                    }
+                                />
+                                <TooltipContent>{m.media_upload()}</TooltipContent>
+                            </Tooltip>
                         ) : (
-                            <span className="text-xs text-muted-foreground">
-                                {value.length === 0
-                                    ? m.media_attachments_title()
-                                    : m.common_media_selected({ count: value.length })}
-                            </span>
+                            <Button
+                                type="button"
+                                variant={compact ? 'ghost' : 'secondary'}
+                                size={compact ? 'sm' : 'default'}
+                                disabled={interactionLocked}
+                                onClick={() =>
+                                    compact ? openAttachmentLibrary() : openSourcePicker()
+                                }>
+                                {inline || compact ? (
+                                    <GalleryAddIcon aria-hidden="true" />
+                                ) : (
+                                    <UploadIcon aria-hidden="true" />
+                                )}
+                                {uploading === null
+                                    ? m.media_upload()
+                                    : m.media_uploading({ filename: uploading })}
+                            </Button>
                         )}
-                        <Button
-                            type="button"
-                            variant={compact ? 'ghost' : 'secondary'}
-                            size={compact ? 'sm' : 'default'}
-                            disabled={interactionLocked}
-                            onClick={() =>
-                                compact ? openAttachmentLibrary() : openSourcePicker()
-                            }>
-                            {inline || compact ? (
-                                <GalleryAddIcon aria-hidden="true" />
-                            ) : (
-                                <UploadIcon aria-hidden="true" />
-                            )}
-                            {uploading === null
-                                ? m.media_upload()
-                                : m.media_uploading({ filename: uploading })}
-                        </Button>
                     </div>
                 ) : null}
 

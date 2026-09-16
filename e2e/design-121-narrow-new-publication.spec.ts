@@ -10,7 +10,6 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     const suffix = randomUUID().slice(0, 8)
     const firstChannelName = `E2E-121 long destination alpha ${suffix} for a publishing workspace`
     const secondChannelName = `E2E-121 long destination beta ${suffix} for a publishing workspace`
-    const publicationTitle = `E2E-121 narrow new publication ${suffix}`
 
     await createAccountAndProject(page, suffix)
 
@@ -30,8 +29,8 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoHorizontalOverflow(page)
 
-    const firstTab = page.getByRole('tab', { name: new RegExp(firstChannelName) })
-    const addChannel = page.getByRole('button', { name: 'Add channel', exact: true })
+    const firstTab = page.getByRole('button', { name: new RegExp(firstChannelName) })
+    const addChannel = page.getByRole('button', { name: secondChannelName, exact: true })
     await expect(firstTab).toBeVisible()
     await expect(addChannel).toBeVisible()
 
@@ -65,15 +64,15 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expect(addChannel).toBeFocused()
     await page.keyboard.press('Enter')
 
-    const secondTab = page.getByRole('tab', { name: new RegExp(secondChannelName) })
+    const secondTab = page.getByRole('button', { name: new RegExp(secondChannelName) })
     await expect(secondTab).toBeVisible()
-    await expect(secondTab).toHaveAttribute('aria-selected', 'true')
+    await expect(secondTab).toHaveAttribute('data-active-channel', 'true')
     await expectNoHorizontalOverflow(page)
 
     const preview = page.locator('[data-publication-draft-preview="true"]')
     await expect(preview).toBeVisible()
 
-    await page.getByLabel('Title', { exact: true }).fill(publicationTitle)
+    await expect(page.getByLabel('Title', { exact: true })).toHaveCount(0)
     const sharedContent = 'E2E-121 narrow new publication content'
     await page.getByLabel('Content', { exact: true }).fill(sharedContent)
     await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
@@ -93,7 +92,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     )
 
     await firstTab.click()
-    await expect(firstTab).toHaveAttribute('aria-selected', 'true')
+    await expect(firstTab).toHaveAttribute('data-active-channel', 'true')
     await expect(preview).toContainText(firstChannelName)
     await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
         sharedContent
@@ -106,7 +105,9 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/queue$/)
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await expectNoHorizontalOverflow(page)
-    await expect(page.getByRole('link').filter({ hasText: publicationTitle })).toHaveCount(2)
+    await expect(
+        page.locator('a[href*="/publications/"]').filter({ hasText: 'Untitled' })
+    ).toHaveCount(2)
 
     await page.setViewportSize({ width: 768, height: 900 })
     await expectNoHorizontalOverflow(page)

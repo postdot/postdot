@@ -2,14 +2,12 @@ import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert
 import { Button } from '@herald/ui/components/button'
 import { Input } from '@herald/ui/components/input'
 import { Textarea } from '@herald/ui/components/textarea'
-import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
-import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import { DashboardFormField } from '@/components/dashboard-form-field'
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
+import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import {
@@ -218,24 +216,6 @@ export function NewPublicationPage({
 
     return (
         <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                action={
-                    <Button
-                        nativeButton={false}
-                        render={
-                            <Link
-                                to="/dashboard/projects/$projectId/overview"
-                                params={{ projectId: project.id }}
-                            />
-                        }
-                        variant="ghost">
-                        <ArrowLeftIcon aria-hidden="true" />
-                        {m.publication_new_back_overview()}
-                    </Button>
-                }
-                title={m.publication_new_title()}
-            />
-
             {error ? (
                 <Alert
                     variant="destructive"
@@ -246,65 +226,60 @@ export function NewPublicationPage({
             ) : null}
 
             <form onSubmit={onCreatePost}>
-                <section
-                    data-new-publication-workspace="true"
-                    className="mx-auto min-w-0 max-w-6xl overflow-hidden rounded-xl bg-surface-raised shadow-surface">
-                    <div className="border-b border-border/60 px-4 py-3 sm:px-6">
-                        <PublicationChannelTabs
-                            activeTargetId={activePublicationTabId}
-                            channels={activeChannels}
-                            connections={connections}
-                            defaultDeliveryMode={defaultDeliveryMode}
-                            defaultScheduledAt={defaultScheduledAt}
-                            disabled={pending}
-                            onActiveTargetChange={setActivePublicationTabId}
-                            onChange={onPublicationTargetsChange}
-                            projectId={project.id}
-                            targets={publicationTargets}
-                            timeZone={project.timeZone}
-                        />
-                    </div>
+                <section data-new-publication-workspace="true">
+                    <PublicationComposer
+                        channelNavigation={
+                            <PublicationChannelTabs
+                                activeTargetId={activePublicationTabId}
+                                channels={activeChannels}
+                                connections={connections}
+                                defaultDeliveryMode={defaultDeliveryMode}
+                                defaultScheduledAt={defaultScheduledAt}
+                                disabled={pending}
+                                onActiveTargetChange={setActivePublicationTabId}
+                                onChange={onPublicationTargetsChange}
+                                projectId={project.id}
+                                targets={publicationTargets}
+                                timeZone={project.timeZone}
+                            />
+                        }
+                        editor={
+                            <div className="min-w-0">
+                                {activePreviewChannel?.profileId === 'devto' ? (
+                                    <DashboardFormField
+                                        htmlFor="new-post-title"
+                                        label={m.publication_new_post_title()}>
+                                        <Input
+                                            id="new-post-title"
+                                            value={postTitle}
+                                            onChange={event =>
+                                                onPostTitleChange(event.target.value)
+                                            }
+                                            placeholder={m.publication_new_optional_source_title()}
+                                        />
+                                    </DashboardFormField>
+                                ) : null}
 
-                    <div
-                        className={
-                            activePreviewChannel === undefined
-                                ? 'min-w-0'
-                                : 'grid min-w-0 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.62fr)]'
-                        }>
-                        <div className="min-w-0 p-4 sm:p-6">
-                            <DashboardFormField
-                                htmlFor="new-post-title"
-                                label={m.publication_new_post_title()}>
-                                <Input
-                                    id="new-post-title"
-                                    value={postTitle}
-                                    onChange={event => onPostTitleChange(event.target.value)}
-                                    placeholder={m.publication_new_optional_source_title()}
-                                />
-                            </DashboardFormField>
-
-                            <div data-new-publication-editor="true" className="mt-5 space-y-4">
-                                {activeTarget !== undefined && !activeTargetUsesSharedContent ? (
-                                    <PublicationChannelContentEditor
-                                        content={activeTarget.content}
-                                        disabled={pending}
-                                        id={activeTarget.id}
-                                        onChange={content =>
-                                            updateTargetContent(activeTarget.id, content)
-                                        }
-                                        onUseShared={() => useSharedTargetContent(activeTarget.id)}
-                                    />
-                                ) : (
-                                    <div className="space-y-2">
-                                        {activeTarget !== undefined ? (
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <span className="text-sm font-medium">
-                                                    {m.publication_new_source_content()}
-                                                </span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-muted-foreground">
-                                                        {m.publication_new_source_fallback()}
-                                                    </span>
+                                <div
+                                    data-new-publication-editor="true"
+                                    className="overflow-hidden rounded-xl bg-surface-field shadow-surface focus-within:shadow-control">
+                                    {activeTarget !== undefined &&
+                                    !activeTargetUsesSharedContent ? (
+                                        <PublicationChannelContentEditor
+                                            content={activeTarget.content}
+                                            disabled={pending}
+                                            id={activeTarget.id}
+                                            onChange={content =>
+                                                updateTargetContent(activeTarget.id, content)
+                                            }
+                                            onUseShared={() =>
+                                                useSharedTargetContent(activeTarget.id)
+                                            }
+                                        />
+                                    ) : (
+                                        <div>
+                                            {activeTarget !== undefined ? (
+                                                <div className="flex justify-end px-3 pt-2">
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
@@ -316,55 +291,65 @@ export function NewPublicationPage({
                                                         {m.publication_new_customize_channel()}
                                                     </Button>
                                                 </div>
-                                            </div>
-                                        ) : null}
-                                        <DashboardFormField
-                                            htmlFor="new-post-content"
-                                            label={m.publication_new_source_content()}>
+                                            ) : null}
                                             <Textarea
                                                 id="new-post-content"
+                                                aria-label={m.publication_new_source_content()}
                                                 value={postContent}
+                                                disabled={pending}
                                                 onChange={event =>
                                                     onPostContentChange(event.target.value)
                                                 }
                                                 placeholder={m.publication_new_source_placeholder()}
-                                                rows={10}
-                                                className="min-h-52 resize-y"
+                                                rows={9}
+                                                className="min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
                                             />
-                                        </DashboardFormField>
-                                    </div>
-                                )}
+                                        </div>
+                                    )}
 
-                                <MediaAttachmentPicker
-                                    variant="publication-new-inline"
-                                    projectId={project.id}
-                                    value={sourceMedia}
-                                    onChange={onSourceMediaChange}
-                                    onAssetsChange={setAvailableMedia}
-                                    disabled={pending}
-                                />
-                            </div>
-
-                            {projectTags.length > 0 ? (
-                                <div className="mt-5">
-                                    <PublicationTagPicker
-                                        ariaLabel={m.taxonomy_select_tags()}
+                                    <MediaAttachmentPicker
+                                        variant="publication-new-inline"
+                                        projectId={project.id}
+                                        value={sourceMedia}
+                                        onChange={onSourceMediaChange}
+                                        onAssetsChange={setAvailableMedia}
                                         disabled={pending}
-                                        emptyLabel={m.taxonomy_no_tags()}
-                                        label={m.taxonomy_tags()}
-                                        onChange={onPublicationTagIdsChange}
-                                        selectedTagIds={publicationTagIds}
-                                        selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                                        tags={projectTags}
                                     />
                                 </div>
-                            ) : null}
-                        </div>
 
-                        {activePreviewChannel !== undefined ? (
-                            <aside className="border-t border-border/60 p-4 sm:p-6 lg:border-t-0 lg:border-l">
+                                {projectTags.length > 0 ? (
+                                    <div className="mt-5">
+                                        <PublicationTagPicker
+                                            ariaLabel={m.taxonomy_select_tags()}
+                                            disabled={pending}
+                                            emptyLabel={m.taxonomy_no_tags()}
+                                            label={m.taxonomy_tags()}
+                                            onChange={onPublicationTagIdsChange}
+                                            selectedTagIds={publicationTagIds}
+                                            selectedLabel={count =>
+                                                m.taxonomy_selected_tags({ count })
+                                            }
+                                            tags={projectTags}
+                                        />
+                                    </div>
+                                ) : null}
+                            </div>
+                        }
+                        footer={
+                            <Button type="submit" disabled={pending || activeChannels.length === 0}>
+                                <CalendarAddIcon aria-hidden="true" />
+                                {publicationTargets.length === 1
+                                    ? publicationTargets[0]?.deliveryMode === 'automatic'
+                                        ? m.publication_new_schedule_automatic()
+                                        : m.publication_new_schedule_manual()
+                                    : m.publication_new_schedule_count({
+                                          count: publicationTargets.length,
+                                      })}
+                            </Button>
+                        }
+                        preview={
+                            activePreviewChannel !== undefined ? (
                                 <PublicationDraftPreview
-                                    className="mt-0"
                                     channel={activePreviewChannel}
                                     media={previewMedia}
                                     postContent={postContent}
@@ -375,42 +360,30 @@ export function NewPublicationPage({
                                             : activePreviewTarget?.content
                                     }
                                 />
-                            </aside>
-                        ) : null}
-                    </div>
-
-                    <PublicationChannelSettings
-                        activeTargetId={activePublicationTabId}
-                        channels={activeChannels}
-                        connections={connections}
-                        customizedTargetIds={customizedTargetIds}
-                        defaultDeliveryMode={defaultDeliveryMode}
-                        defaultScheduledAt={defaultScheduledAt}
-                        disabled={pending}
-                        onActiveTargetChange={setActivePublicationTabId}
-                        onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
-                        onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
-                        onChange={onPublicationTargetsChange}
-                        onRemoveTarget={removeTarget}
-                        onTargetCustomizationChange={handleTargetCustomizationChange}
-                        projectId={project.id}
-                        targets={publicationTargets}
-                        timeZone={project.timeZone}
+                            ) : undefined
+                        }
+                        settings={
+                            <PublicationChannelSettings
+                                activeTargetId={activePublicationTabId}
+                                channels={activeChannels}
+                                connections={connections}
+                                customizedTargetIds={customizedTargetIds}
+                                defaultDeliveryMode={defaultDeliveryMode}
+                                defaultScheduledAt={defaultScheduledAt}
+                                disabled={pending}
+                                onActiveTargetChange={setActivePublicationTabId}
+                                onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
+                                onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
+                                onChange={onPublicationTargetsChange}
+                                onRemoveTarget={removeTarget}
+                                onTargetCustomizationChange={handleTargetCustomizationChange}
+                                projectId={project.id}
+                                targets={publicationTargets}
+                                timeZone={project.timeZone}
+                            />
+                        }
                     />
                 </section>
-
-                <div className="mx-auto mt-5 flex max-w-6xl justify-end border-t border-border/60 pt-4">
-                    <Button type="submit" disabled={pending || activeChannels.length === 0}>
-                        <CalendarAddIcon aria-hidden="true" />
-                        {publicationTargets.length === 1
-                            ? publicationTargets[0]?.deliveryMode === 'automatic'
-                                ? m.publication_new_schedule_automatic()
-                                : m.publication_new_schedule_manual()
-                            : m.publication_new_schedule_count({
-                                  count: publicationTargets.length,
-                              })}
-                    </Button>
-                </div>
             </form>
         </main>
     )
@@ -430,13 +403,8 @@ function PublicationChannelContentEditor({
     readonly onUseShared: () => void
 }) {
     return (
-        <section
-            data-publication-channel-content="true"
-            className="rounded-md bg-muted/45 p-3 sm:p-4">
+        <section data-publication-channel-content="true" className="p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                    <p className="text-sm font-medium">{m.publication_new_channel_copy()}</p>
-                </div>
                 <Button
                     type="button"
                     variant="ghost"
@@ -447,19 +415,16 @@ function PublicationChannelContentEditor({
                 </Button>
             </div>
 
-            <DashboardFormField
-                htmlFor={`publication-target-${id}-content`}
-                label={m.publication_new_channel_copy()}>
-                <Textarea
-                    id={`publication-target-${id}-content`}
-                    value={content}
-                    disabled={disabled}
-                    onChange={event => onChange(event.target.value)}
-                    placeholder={m.publication_new_optional_override()}
-                    rows={5}
-                    className="mt-3 min-h-32 leading-6"
-                />
-            </DashboardFormField>
+            <Textarea
+                aria-label={m.publication_new_channel_copy()}
+                id={`publication-target-${id}-content`}
+                value={content}
+                disabled={disabled}
+                onChange={event => onChange(event.target.value)}
+                placeholder={m.publication_new_optional_override()}
+                rows={9}
+                className="min-h-56 resize-y rounded-none border-0 bg-transparent text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
+            />
         </section>
     )
 }

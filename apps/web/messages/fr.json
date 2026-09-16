@@ -1105,6 +1105,10 @@
     "publication_new_destinations": "Publier sur",
     "publication_new_destinations_description": "Choisissez les canaux et vérifiez la livraison de chacun.",
     "publication_new_preview": "Aperçu",
+    "publication_preview_like": "J’aime",
+    "publication_preview_comment": "Commenter",
+    "publication_preview_repost": "Republier",
+    "publication_preview_share": "Partager",
     "publication_new_preview_empty": "Écrivez quelque chose ou ajoutez un média pour voir le résultat ici.",
     "publication_new_target_count": [
         {

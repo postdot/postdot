@@ -75,8 +75,6 @@ test('persists mixed and media-only publications through the dashboard', async (
     const projectName = `E2E-33 Project ${suffix}`
     const channelName = `E2E-33 Channel ${suffix}`
     const secondChannelName = `E2E-33 Second channel ${suffix}`
-    const mixedTitle = `E2E-33 Mixed ${suffix}`
-    const mediaOnlyTitle = `E2E-33 Media only ${suffix}`
     const sourceText = `E2E-33 source ${suffix}`
     const targetText = `E2E-33 target ${suffix}`
     const secondTargetText = `E2E-33 second target ${suffix}`
@@ -784,15 +782,15 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('button', { name: 'New publication', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
-    await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
     const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().inputValue()
     await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
     await page.getByLabel('Channel content', { exact: true }).fill(targetText)
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    await expect(page.getByRole('tab', { name: new RegExp(secondChannelName) })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toBeDisabled()
-    await expect(page.getByText('Uses shared settings', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: secondChannelName, exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: secondChannelName, exact: true })
+    ).toHaveAttribute('aria-pressed', 'true')
+    await page.locator('summary').filter({ hasText: 'Customize delivery' }).click()
     await page.getByRole('button', { name: 'Customize delivery', exact: true }).click()
     await expect(page.getByLabel('Channel schedule', { exact: true })).toHaveValue(defaultSchedule)
     await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
@@ -815,21 +813,27 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(populatedNewPublicationOverflow.scrollWidth).toBeLessThanOrEqual(
         populatedNewPublicationOverflow.clientWidth
     )
-    await expect(page.getByRole('tab', { name: new RegExp(channelName) })).toBeVisible()
-    await expect(page.getByRole('tab', { name: new RegExp(secondChannelName) })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(channelName) })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(secondChannelName) })).toBeVisible()
     await page.setViewportSize({ width: 1280, height: 720 })
 
+    const mixedResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
     await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
+    const mixedResult = (await (await mixedResponse).json()) as { publications: { id: string }[] }
+    const mixedSelector = mixedResult.publications
+        .map(item => `a[href$="/publications/${item.id}"]`)
+        .join(',')
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
-    const mixedPublications = page.getByRole('link').filter({ hasText: mixedTitle })
+    const mixedPublications = page.locator(mixedSelector)
     await expect(mixedPublications).toHaveCount(2)
 
     await page
         .locator('[data-slot="sidebar"]')
         .getByRole('button', { name: 'New publication', exact: true })
         .click()
-    await page.getByLabel('Title', { exact: true }).fill(mediaOnlyTitle)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const attachmentLibrary = page.locator('[data-media-library="true"]')
     await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')
@@ -1068,10 +1072,17 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
     ).toBeVisible()
+    const mediaOnlyResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
     await page.getByRole('button', { name: 'Schedule', exact: true }).click()
+    const mediaOnlyResult = (await (await mediaOnlyResponse).json()) as {
+        publications: { id: string }[]
+    }
+    const mediaOnlySelector = `a[href$="/publications/${mediaOnlyResult.publications[0]!.id}"]`
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
-    const mediaOnlyPublication = page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first()
+    const mediaOnlyPublication = page.locator(mediaOnlySelector).first()
     await expect(mediaOnlyPublication).toBeVisible()
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
@@ -1080,8 +1091,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     const calendarMonth = calendar.locator('[data-calendar-view="month"]')
     await expect(calendarMonth).toBeVisible()
     await expect(
-        calendarMonth.locator('[data-slot="event-calendar-event"]').filter({ hasText: mixedTitle })
-    ).toHaveCount(2)
+        calendarMonth
+            .locator('[data-slot="event-calendar-event"]')
+            .filter({ hasText: secondChannelName })
+    ).toHaveCount(1)
     const emptyCalendarDay = calendarMonth.locator('[data-slot="event-calendar-day-add"]').first()
     await expect(emptyCalendarDay).toBeVisible()
     await emptyCalendarDay.click()
@@ -1095,8 +1108,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(calendarMonth).toBeVisible()
     await page.getByRole('button', { name: 'Today', exact: true }).click()
     await expect(
-        calendarMonth.locator('[data-slot="event-calendar-event"]').filter({ hasText: mixedTitle })
-    ).toHaveCount(2)
+        calendarMonth
+            .locator('[data-slot="event-calendar-event"]')
+            .filter({ hasText: secondChannelName })
+    ).toHaveCount(1)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
@@ -1112,12 +1127,27 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/queue$/)
 
     await page.reload()
-    await expect(page.getByRole('link').filter({ hasText: mixedTitle }).first()).toBeVisible()
-    await expect(page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first()).toBeVisible()
+    await expect(page.locator(mixedSelector).first()).toBeVisible()
+    await expect(page.locator(mediaOnlySelector).first()).toBeVisible()
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
-    await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Untitled publication', level: 1 })
+    ).toBeVisible()
     await expect(page.locator('#source-body')).toHaveValue(sourceText)
+    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
+    const publicationChannelRail = page.locator('[data-publication-channel-selection="true"]')
+    await expect(publicationChannelRail).toBeVisible()
+    await expect(
+        publicationChannelRail.getByRole('button', { name: secondChannelName, exact: true })
+    ).toBeVisible()
+    await publicationChannelRail
+        .getByRole('button', { name: secondChannelName, exact: true })
+        .click()
+    await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
+        secondTargetText
+    )
+    await publicationChannelRail.getByRole('button', { name: channelName, exact: true }).click()
     await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
     const editorMediaPicker = page.locator('[data-media-picker="true"]')
     await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
@@ -1186,7 +1216,9 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await mixedPublications.filter({ hasText: secondChannelName }).first().click()
-    await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Untitled publication', level: 1 })
+    ).toBeVisible()
     await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
         secondTargetText
     )
@@ -1196,8 +1228,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(secondMixedTarget.media[0]?.assetId).toBe(assetId)
 
     await page.getByRole('link', { name: /Back to queue/ }).click()
-    await page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first().click()
-    await expect(page.getByRole('heading', { name: mediaOnlyTitle })).toBeVisible()
+    await page.locator(mediaOnlySelector).first().click()
+    await expect(page.getByRole('heading', { name: 'Untitled publication' })).toBeVisible()
     await expect(page.locator('#source-body')).toHaveValue('')
     await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
 

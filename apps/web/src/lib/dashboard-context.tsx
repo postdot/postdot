@@ -231,10 +231,23 @@ export function ProjectDashboardProvider({
 
     async function handleCreatePost(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        if (postContent.trim() === '' && sourceMedia.length === 0) {
+        const hasSharedText = postContent.trim() !== ''
+        if (
+            !hasSharedText &&
+            sourceMedia.length === 0 &&
+            (publicationTargets.length === 0 ||
+                publicationTargets.some(target => target.content.trim() === ''))
+        ) {
             setError(m.publication_new_source_required())
             return
         }
+        // A channel-only draft still needs a source body in the persistence contract.
+        // Every text-only destination has its own explicit content in this case.
+        const sourceBody = hasSharedText
+            ? postContent
+            : sourceMedia.length > 0
+              ? ''
+              : (publicationTargets[0]?.content ?? '')
         if (
             publicationTargets.length === 0 ||
             publicationTargets.some(target => target.channelId === '')
@@ -303,9 +316,9 @@ export function ProjectDashboardProvider({
                 title: postTitle.trim() === '' ? undefined : postTitle,
                 sourceContent: {
                     ...(postTitle.trim() === '' ? {} : { headline: postTitle.trim() }),
-                    ...(postContent.trim() === ''
+                    ...(sourceBody.trim() === ''
                         ? {}
-                        : { body: { text: postContent, format: 'plain_text' as const } }),
+                        : { body: { text: sourceBody, format: 'plain_text' as const } }),
                     media: sourceMedia,
                 },
                 publications: validPublicationInputs,

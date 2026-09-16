@@ -1105,6 +1105,10 @@
     "publication_new_destinations": "Publish to",
     "publication_new_destinations_description": "Choose channels and review delivery for each one.",
     "publication_new_preview": "Preview",
+    "publication_preview_like": "Like",
+    "publication_preview_comment": "Comment",
+    "publication_preview_repost": "Repost",
+    "publication_preview_share": "Share",
     "publication_new_preview_empty": "Write something or add media to see the result here.",
     "publication_new_target_count": [
         {
