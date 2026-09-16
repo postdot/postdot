@@ -1,7 +1,7 @@
 import { Badge } from '@herald/ui/components/badge'
 import { cn } from '@herald/ui/lib/utils'
-import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { ListIcon } from '@solar-icons/react/bold/list'
+import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
@@ -73,6 +73,7 @@ export function PublicationRow({
         <Link
             to="/dashboard/projects/$projectId/publications/$publicationId"
             params={{ projectId: publication.projectId, publicationId: publication.id }}
+            data-publication-edit-link="true"
             className="group grid min-w-0 gap-4 rounded-md px-1 py-4 transition-[background-color] hover:bg-muted/35 sm:px-3 lg:grid-cols-[minmax(11rem,0.8fr)_minmax(0,1.3fr)_auto] lg:items-center lg:gap-7">
             <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">{m.publication_source_post()}</p>
@@ -108,10 +109,10 @@ export function PublicationRow({
                         : ''}
                 </p>
             </div>
-            <AltArrowRightIcon
-                aria-hidden="true"
-                className="hidden size-4 text-muted-foreground transition-[color,transform] group-hover:translate-x-0.5 group-hover:text-primary lg:block"
-            />
+            <span className="hidden items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors group-hover:text-primary lg:flex">
+                <PenIcon aria-hidden="true" className="size-4" />
+                <span>{m.common_edit()}</span>
+            </span>
         </Link>
     )
 }

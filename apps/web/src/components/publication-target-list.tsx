@@ -273,7 +273,6 @@ export function PublicationChannelSettings({
                         label={m.publication_new_default_schedule()}>
                         <Input
                             id="publication-default-schedule"
-                            required
                             type="datetime-local"
                             value={defaultScheduledAt}
                             disabled={disabled}

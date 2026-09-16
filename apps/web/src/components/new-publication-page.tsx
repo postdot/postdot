@@ -3,7 +3,9 @@ import { Button } from '@herald/ui/components/button'
 import { Input } from '@herald/ui/components/input'
 import { Textarea } from '@herald/ui/components/textarea'
 import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
-import { useEffect, useRef, useState } from 'react'
+import { FileTextIcon } from '@solar-icons/react/bold/file-text'
+import { useNavigate } from '@tanstack/react-router'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import { DashboardFormField } from '@/components/dashboard-form-field'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
@@ -16,7 +18,7 @@ import {
     publicationSharedTabId,
 } from '@/components/publication-target-list'
 import type { MediaReference } from '@/lib/api'
-import { useProjectDashboard } from '@/lib/dashboard-context'
+import { type PublicationCreationMode, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
@@ -29,6 +31,7 @@ export function NewPublicationPage({
     readonly calendarTime?: string
 }) {
     useLanguage()
+    const navigate = useNavigate({ from: '/dashboard/projects/$projectId/publications/new' })
     const {
         activeChannels,
         connections,
@@ -83,6 +86,22 @@ export function NewPublicationPage({
     const previewMedia = sourceMedia
         .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
         .filter((asset): asset is MediaReference => asset !== undefined)
+
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        const submitter = (event.nativeEvent as SubmitEvent).submitter
+        const mode: PublicationCreationMode =
+            submitter instanceof HTMLButtonElement && submitter.value === 'draft'
+                ? 'draft'
+                : 'schedule'
+        const publications = await onCreatePost(event, mode)
+        const publication = publications?.[0]
+        if (mode !== 'draft' || publication === undefined) return
+
+        await navigate({
+            to: '/dashboard/projects/$projectId/publications/$publicationId',
+            params: { projectId: project.id, publicationId: publication.id },
+        })
+    }
 
     useEffect(() => {
         const nextTargetIds = new Set(publicationTargets.map(target => target.id))
@@ -225,7 +244,7 @@ export function NewPublicationPage({
                 </Alert>
             ) : null}
 
-            <form onSubmit={onCreatePost}>
+            <form onSubmit={event => void handleSubmit(event)}>
                 <section data-new-publication-workspace="true">
                     <PublicationComposer
                         channelNavigation={
@@ -336,16 +355,31 @@ export function NewPublicationPage({
                             </div>
                         }
                         footer={
-                            <Button type="submit" disabled={pending || activeChannels.length === 0}>
-                                <CalendarAddIcon aria-hidden="true" />
-                                {publicationTargets.length === 1
-                                    ? publicationTargets[0]?.deliveryMode === 'automatic'
-                                        ? m.publication_new_schedule_automatic()
-                                        : m.publication_new_schedule_manual()
-                                    : m.publication_new_schedule_count({
-                                          count: publicationTargets.length,
-                                      })}
-                            </Button>
+                            <div className="flex flex-wrap justify-end gap-2">
+                                <Button
+                                    name="publication-action"
+                                    type="submit"
+                                    value="draft"
+                                    variant="ghost"
+                                    disabled={pending || activeChannels.length === 0}>
+                                    <FileTextIcon aria-hidden="true" />
+                                    {m.publication_new_save_draft()}
+                                </Button>
+                                <Button
+                                    name="publication-action"
+                                    type="submit"
+                                    value="schedule"
+                                    disabled={pending || activeChannels.length === 0}>
+                                    <CalendarAddIcon aria-hidden="true" />
+                                    {publicationTargets.length === 1
+                                        ? publicationTargets[0]?.deliveryMode === 'automatic'
+                                            ? m.publication_new_schedule_automatic()
+                                            : m.publication_new_schedule_manual()
+                                        : m.publication_new_schedule_count({
+                                              count: publicationTargets.length,
+                                          })}
+                                </Button>
+                            </div>
                         }
                         preview={
                             activePreviewChannel !== undefined ? (

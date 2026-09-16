@@ -2,7 +2,7 @@ import { Button } from '@herald/ui/components/button'
 import { Card, CardContent } from '@herald/ui/components/card'
 import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -71,7 +71,7 @@ export function PublicationEditorPromotionSection({
                             </FieldDescription>
                         </Field>
                         <Button className="sm:mb-5" onClick={onPromote} disabled={disabled}>
-                            <CheckReadIcon aria-hidden="true" />
+                            <CheckSquareIcon aria-hidden="true" />
                             {m.editor_apply_draft()}
                         </Button>
                     </div>

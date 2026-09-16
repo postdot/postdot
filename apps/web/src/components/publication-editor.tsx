@@ -17,6 +17,7 @@ import {
     PublicationEditorStatus,
 } from '@/components/publication-editor-status'
 import { PublicationEditorTargetSection } from '@/components/publication-editor-target-section'
+import { PublicationLifecyclePanel } from '@/components/publication-lifecycle-panel'
 import {
     PublicationOutcomePanel,
     type PublicationOutcomeResolutionInput,
@@ -35,6 +36,7 @@ import {
 } from '@/lib/api'
 import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
 import { updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -46,6 +48,7 @@ interface PublicationEditorProps {
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
     readonly initialPublicationTags: readonly ProjectTag[]
+    readonly onPublish?: () => Promise<boolean>
     readonly projectTags: readonly ProjectTag[]
     readonly relatedPublications?: readonly PublicationSummary[]
     readonly timeZone: string
@@ -68,6 +71,7 @@ export function PublicationEditor({
     channels = [],
     initialEditor,
     initialPublicationTags,
+    onPublish,
     projectId,
     projectTags,
     relatedPublications = [],
@@ -83,8 +87,11 @@ export function PublicationEditor({
         () => readRecovery(recoveryKey, timeZone),
         [recoveryKey, timeZone]
     )
+    const initialPublicationEditable = canEditPublication(initialEditor.publication.state)
     const shouldRestoreInitialRecovery =
-        initialRecovery !== null && initialRecovery.baseRevision >= initialEditor.draft.revision
+        initialPublicationEditable &&
+        initialRecovery !== null &&
+        initialRecovery.baseRevision >= initialEditor.draft.revision
     const recoveredContentDiffers =
         shouldRestoreInitialRecovery &&
         initialRecovery !== null &&
@@ -110,22 +117,30 @@ export function PublicationEditor({
     const [expectedRevision, setExpectedRevision] = useState(initialEditor.draft.revision)
     const [dirty, setDirty] = useState(recoveredContentDiffers)
     const [saveState, setSaveState] = useState<SaveState>(
-        recoveredContentDiffers ? 'local_only' : initialSourceConflict ? 'conflict' : 'saved'
+        !initialPublicationEditable
+            ? 'saved'
+            : recoveredContentDiffers
+              ? 'local_only'
+              : initialSourceConflict
+                ? 'conflict'
+                : 'saved'
     )
     const [message, setMessage] = useState<string | null>(
-        recoveredContentDiffers || recoveredScheduleDiffers
-            ? m.editor_recovered_ready()
-            : initialSourceConflict
-              ? m.editor_initial_source_conflict({
-                    draftRevision: initialEditor.draft.sourceRevision,
-                    currentRevision: initialEditor.post.sourceRevision,
-                })
-              : initialRecovery === null
-                ? null
-                : m.editor_previous_local_newer()
+        !initialPublicationEditable
+            ? null
+            : recoveredContentDiffers || recoveredScheduleDiffers
+              ? m.editor_recovered_ready()
+              : initialSourceConflict
+                ? m.editor_initial_source_conflict({
+                      draftRevision: initialEditor.draft.sourceRevision,
+                      currentRevision: initialEditor.post.sourceRevision,
+                  })
+                : initialRecovery === null
+                  ? null
+                  : m.editor_previous_local_newer()
     )
     const [recoveryAvailable, setRecoveryAvailable] = useState(
-        initialRecovery !== null && !shouldRestoreInitialRecovery
+        initialPublicationEditable && initialRecovery !== null && !shouldRestoreInitialRecovery
     )
     const [scheduleValue, setScheduleValue] = useState(
         shouldRestoreInitialRecovery && initialRecovery !== null
@@ -139,6 +154,7 @@ export function PublicationEditor({
     const [tagSavePending, setTagSavePending] = useState(false)
     const [tagError, setTagError] = useState<string | null>(null)
     const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
+    const [manualPublishPending, setManualPublishPending] = useState(false)
     const requestGeneration = useRef(0)
 
     const availableTags = useMemo(() => {
@@ -161,6 +177,14 @@ export function PublicationEditor({
         formatJson(editor.draft.content) !== formatJson(editor.selectedTarget.content)
     const hasLocalChanges = dirty || scheduleDirty
     const isRebasing = saveState === 'rebasing'
+    const publicationEditable = canEditPublication(editor.publication.state)
+    const manualPublicationBlocked =
+        manualPublishPending ||
+        hasLocalChanges ||
+        saveState !== 'saved' ||
+        sourceConflict ||
+        draftRequiresReview ||
+        draftDiffersFromTarget
     const editorChannels = useMemo(() => {
         const channelsById = new Map(channels.map(channel => [channel.id, channel]))
         const orderedChannelIds = [
@@ -197,6 +221,7 @@ export function PublicationEditor({
     )
 
     async function handlePublicationTagIdsChange(nextTagIds: string[]) {
+        if (!publicationEditable) return
         const previousTagIds = publicationTagIds
         setPublicationTagIds(nextTagIds)
         setTagError(null)
@@ -252,7 +277,7 @@ export function PublicationEditor({
     ])
 
     useEffect(() => {
-        if (!dirty) return
+        if (!publicationEditable || !dirty) return
 
         const generation = ++requestGeneration.current
         if (sourceConflict || sourceIssue !== null || targetResult.value === null) {
@@ -298,6 +323,7 @@ export function PublicationEditor({
         editor.publication.id,
         expectedRevision,
         projectId,
+        publicationEditable,
         recoveryKey,
         sourceConflict,
         sourceContent,
@@ -519,6 +545,7 @@ export function PublicationEditor({
 
     async function promoteDraft() {
         if (
+            !publicationEditable ||
             dirty ||
             sourceConflict ||
             draftRequiresReview ||
@@ -559,6 +586,47 @@ export function PublicationEditor({
             }
             setSaveState('error')
             setMessage(errorMessage(caughtError))
+        }
+    }
+
+    async function recordManualPublication(): Promise<boolean> {
+        if (
+            onPublish === undefined ||
+            !isManualPublicationDue(editor.publication) ||
+            manualPublicationBlocked
+        ) {
+            return false
+        }
+
+        requestGeneration.current += 1
+        setManualPublishPending(true)
+        setMessage(null)
+        try {
+            const published = await onPublish()
+            if (!published) {
+                setMessage(m.editor_manual_publish_failed())
+                return false
+            }
+
+            const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            setEditor(response.editor)
+            setSourceContent(response.editor.post.sourceContent)
+            setTargetText(formatJson(response.editor.draft.content))
+            setExpectedRevision(response.editor.draft.revision)
+            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt, timeZone))
+            setDirty(false)
+            setScheduleDirty(false)
+            setSaveState('saved')
+            setRecoveryAvailable(false)
+            removeRecovery(recoveryKey)
+            setMessage(m.editor_manual_published())
+            return true
+        } catch (caughtError) {
+            setSaveState('error')
+            setMessage(errorMessage(caughtError))
+            return false
+        } finally {
+            setManualPublishPending(false)
         }
     }
 
@@ -603,6 +671,13 @@ export function PublicationEditor({
                 />
             </div>
 
+            <PublicationLifecyclePanel
+                onPublish={onPublish === undefined ? undefined : recordManualPublication}
+                pending={manualPublicationBlocked}
+                publication={editor.publication}
+                timeZone={timeZone}
+            />
+
             <PublicationEditorStatus
                 isRebasing={isRebasing}
                 message={message}
@@ -626,7 +701,7 @@ export function PublicationEditor({
                     <PublicationTagPicker
                         ariaLabel={m.taxonomy_select_tags()}
                         archivedLabel={m.common_archived()}
-                        disabled={isRebasing || tagSavePending}
+                        disabled={!publicationEditable || isRebasing || tagSavePending}
                         emptyLabel={m.taxonomy_no_tags()}
                         label={m.taxonomy_tags()}
                         onChange={value => void handlePublicationTagIdsChange(value)}
@@ -659,8 +734,12 @@ export function PublicationEditor({
                             projectId={projectId}
                             sourceContent={sourceContent}
                             sourceRevision={editor.post.sourceRevision}
-                            disabled={isRebasing}
-                            mediaDisabled={saveState === 'saving' || saveState === 'rebasing'}
+                            disabled={!publicationEditable || isRebasing}
+                            mediaDisabled={
+                                !publicationEditable ||
+                                saveState === 'saving' ||
+                                saveState === 'rebasing'
+                            }
                             onTextChange={updateSourceText}
                             onFormatChange={updateSourceFormat}
                             onOptionalFieldChange={updateSourceOptionalField}
@@ -674,7 +753,7 @@ export function PublicationEditor({
                             validationIssues={editor.draft.validationIssues}
                             target={targetResult.value}
                             targetText={targetText}
-                            disabled={isRebasing}
+                            disabled={!publicationEditable || isRebasing}
                             onTargetChange={next => {
                                 setTargetText(formatJson(next))
                                 setDirty(true)
@@ -688,28 +767,33 @@ export function PublicationEditor({
                             issueMessage={issueMessage}
                         />
 
-                        <PublicationEditorPromotionSection
-                            timeZone={timeZone}
-                            scheduleValue={scheduleValue}
-                            disabled={
-                                dirty ||
-                                sourceConflict ||
-                                draftRequiresReview ||
-                                saveState !== 'saved' ||
-                                targetResult.value === null ||
-                                sourceIssue !== null
-                            }
-                            draftRequiresReview={draftRequiresReview}
-                            draftDiffersFromTarget={draftDiffersFromTarget}
-                            onScheduleChange={value => {
-                                setScheduleValue(value)
-                                setScheduleDirty(
-                                    value !==
-                                        toDateTimeLocal(editor.publication.scheduledAt, timeZone)
-                                )
-                            }}
-                            onPromote={() => void promoteDraft()}
-                        />
+                        {publicationEditable ? (
+                            <PublicationEditorPromotionSection
+                                timeZone={timeZone}
+                                scheduleValue={scheduleValue}
+                                disabled={
+                                    dirty ||
+                                    sourceConflict ||
+                                    draftRequiresReview ||
+                                    saveState !== 'saved' ||
+                                    targetResult.value === null ||
+                                    sourceIssue !== null
+                                }
+                                draftRequiresReview={draftRequiresReview}
+                                draftDiffersFromTarget={draftDiffersFromTarget}
+                                onScheduleChange={value => {
+                                    setScheduleValue(value)
+                                    setScheduleDirty(
+                                        value !==
+                                            toDateTimeLocal(
+                                                editor.publication.scheduledAt,
+                                                timeZone
+                                            )
+                                    )
+                                }}
+                                onPromote={() => void promoteDraft()}
+                            />
+                        ) : null}
                     </div>
                 }
                 preview={

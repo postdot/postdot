@@ -386,6 +386,29 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(channelSidebarLayout).toEqual({ overlap: 0 })
     await page.getByRole('button', { name: 'New publication', exact: true }).click()
 
+    await page.getByLabel('Content', { exact: true }).fill(`E2E-33 draft ${suffix}`)
+    const draftResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+    const draftResult = (await (await draftResponse).json()) as {
+        publications: { id: string; state: string }[]
+    }
+    expect(draftResult.publications[0]?.state).toBe('draft')
+    await expect(page).toHaveURL(
+        new RegExp(`/dashboard/projects/[^/]+/publications/${draftResult.publications[0]?.id}$`)
+    )
+    await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
+    await expect(page.getByText('Draft', { exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('button', { name: 'Apply draft to target', exact: true })
+    ).toBeVisible()
+    await page.getByRole('link', { name: /Back to queue/ }).click()
+    await page
+        .locator('[data-slot="sidebar"]')
+        .getByRole('button', { name: 'New publication', exact: true })
+        .click()
+
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
         mimeType: 'image/png',
@@ -829,6 +852,8 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const mixedPublications = page.locator(mixedSelector)
     await expect(mixedPublications).toHaveCount(2)
+    await expect(mixedPublications.first()).toHaveAttribute('data-publication-edit-link', 'true')
+    await expect(mixedPublications.first().getByText('Edit', { exact: true })).toBeVisible()
 
     await page
         .locator('[data-slot="sidebar"]')

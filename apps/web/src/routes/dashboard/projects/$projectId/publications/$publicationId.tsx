@@ -29,7 +29,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 function PublicationEditorRoute() {
     const { projectId } = Route.useParams()
     const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
-    const { activeChannels, project } = useProjectDashboard()
+    const { activeChannels, onPublish, project } = useProjectDashboard()
 
     return (
         <PublicationEditor
@@ -37,6 +37,7 @@ function PublicationEditorRoute() {
             projectId={projectId}
             initialEditor={editor}
             initialPublicationTags={publicationTags}
+            onPublish={() => onPublish(editor.publication.id)}
             projectTags={projectTags}
             channels={activeChannels}
             relatedPublications={relatedPublications}

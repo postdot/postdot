@@ -20,6 +20,7 @@ import {
     type ProjectCategory,
     type ProjectTag,
     type PublisherConnection,
+    type Publication,
     type PublicationSummaryPage,
     type PublicationSummary,
     formatApiError,
@@ -123,7 +124,10 @@ export interface ProjectDashboardContextValue extends ProjectData {
         }
     ) => Promise<boolean>
     readonly onCreateChannel: (name: string, profile: ChannelCreationProfile) => Promise<boolean>
-    readonly onCreatePost: (event: FormEvent<HTMLFormElement>) => void
+    readonly onCreatePost: (
+        event: FormEvent<HTMLFormElement>,
+        mode?: PublicationCreationMode
+    ) => Promise<Publication[] | null>
     readonly onDeleteChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
     readonly onRefreshProject: () => Promise<void>
@@ -154,7 +158,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
         input: { botToken: string; channelId: string }
     ) => Promise<boolean>
     readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
-    readonly onPublish: (publicationId: string) => Promise<void>
+    readonly onPublish: (publicationId: string) => Promise<boolean>
     readonly onLoadMorePublications: () => Promise<void>
     readonly loadingMorePublications: boolean
     readonly pending: boolean
@@ -165,6 +169,8 @@ export interface ProjectDashboardContextValue extends ProjectData {
     readonly publicationTargets: readonly PublicationTargetDraft[]
     readonly sourceMedia: readonly MediaSelection[]
 }
+
+export type PublicationCreationMode = 'draft' | 'schedule'
 
 const ProjectDashboardContext = createContext<ProjectDashboardContextValue | null>(null)
 
@@ -229,7 +235,10 @@ export function ProjectDashboardProvider({
         })
     }
 
-    async function handleCreatePost(event: FormEvent<HTMLFormElement>) {
+    async function handleCreatePost(
+        event: FormEvent<HTMLFormElement>,
+        mode: PublicationCreationMode = 'schedule'
+    ): Promise<Publication[] | null> {
         event.preventDefault()
         const hasSharedText = postContent.trim() !== ''
         if (
@@ -239,7 +248,7 @@ export function ProjectDashboardProvider({
                 publicationTargets.some(target => target.content.trim() === ''))
         ) {
             setError(m.publication_new_source_required())
-            return
+            return null
         }
         // A channel-only draft still needs a source body in the persistence contract.
         // Every text-only destination has its own explicit content in this case.
@@ -253,22 +262,26 @@ export function ProjectDashboardProvider({
             publicationTargets.some(target => target.channelId === '')
         ) {
             setError(m.publication_new_channel_required())
-            return
+            return null
         }
         if (
             new Set(publicationTargets.map(target => target.channelId)).size !==
             publicationTargets.length
         ) {
             setError(m.publication_new_duplicate_channel())
-            return
+            return null
         }
 
         let scheduleError: DateTimeLocalError | null = null
         const publicationInputs = publicationTargets.map(target => {
-            const scheduledTimestamp = parseDateTimeLocal(target.scheduledAt, project.timeZone)
-            if (typeof scheduledTimestamp !== 'number') {
-                if (typeof scheduledTimestamp === 'string') scheduleError = scheduledTimestamp
-                return null
+            let scheduledTimestamp: number | null = null
+            if (mode === 'schedule') {
+                const parsedSchedule = parseDateTimeLocal(target.scheduledAt, project.timeZone)
+                if (typeof parsedSchedule !== 'number') {
+                    if (typeof parsedSchedule === 'string') scheduleError = parsedSchedule
+                    return null
+                }
+                scheduledTimestamp = parsedSchedule
             }
 
             const selectedChannel = activeChannels.find(channel => channel.id === target.channelId)
@@ -305,13 +318,14 @@ export function ProjectDashboardProvider({
                     ? m.publication_new_invalid_destination()
                     : dateTimeLocalErrorMessage(scheduleError)
             )
-            return
+            return null
         }
         const validPublicationInputs = publicationInputs.filter(
             (input): input is NonNullable<typeof input> => input !== null
         )
 
-        await runAction(async () => {
+        let createdPublications: Publication[] | null = null
+        const succeeded = await runAction(async () => {
             const response = await api.createPost(project.id, {
                 title: postTitle.trim() === '' ? undefined : postTitle,
                 sourceContent: {
@@ -323,6 +337,7 @@ export function ProjectDashboardProvider({
                 },
                 publications: validPublicationInputs,
             })
+            createdPublications = response.publications
             let tagAssignmentError: unknown = null
             if (publicationTagIds.length > 0) {
                 try {
@@ -351,10 +366,11 @@ export function ProjectDashboardProvider({
                 setError(`${m.taxonomy_assignment_failed()} ${formatApiError(tagAssignmentError)}`)
             }
         })
+        return succeeded ? createdPublications : null
     }
 
-    async function handlePublish(publicationId: string) {
-        await runAction(async () => {
+    async function handlePublish(publicationId: string): Promise<boolean> {
+        return runAction(async () => {
             await api.publishManualPublication(project.id, publicationId)
             await refreshProject()
         })
@@ -598,7 +614,7 @@ export function ProjectDashboardProvider({
         onArchiveChannel: handleArchiveChannel,
         onConnectCustomHttpPublisher: handleConnectCustomHttpPublisher,
         onCreateChannel: handleCreateChannel,
-        onCreatePost: event => void handleCreatePost(event),
+        onCreatePost: handleCreatePost,
         onDeleteChannel: handleDeleteChannel,
         onDisconnectPublisher: handleDisconnectPublisher,
         onRefreshProject: refreshProject,
