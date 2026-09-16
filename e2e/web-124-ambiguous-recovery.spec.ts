@@ -17,8 +17,6 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
     await page.getByRole('button', { name: 'New publication', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Channel' }).click()
-    await page.getByRole('option', { name: channelName, exact: true }).click()
     await page.getByLabel('Title', { exact: true }).fill(publicationTitle)
     await page.getByLabel('Content', { exact: true }).fill('E2E recovery content')
     await page.getByRole('button', { name: 'Schedule', exact: true }).click()

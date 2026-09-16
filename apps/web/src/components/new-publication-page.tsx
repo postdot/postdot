@@ -12,7 +12,11 @@ import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
-import { PublicationTargetList } from '@/components/publication-target-list'
+import {
+    PublicationChannelSettings,
+    PublicationChannelTabs,
+    publicationSharedTabId,
+} from '@/components/publication-target-list'
 import type { MediaReference } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -54,17 +58,30 @@ export function NewPublicationPage({
         () => publicationTargets[0]?.scheduledAt ?? ''
     )
     const [customizedTargetIds, setCustomizedTargetIds] = useState<Set<string>>(() => new Set())
-    const [activePreviewTargetId, setActivePreviewTargetId] = useState(
-        () => publicationTargets[0]?.id ?? ''
+    const [customizedContentTargetIds, setCustomizedContentTargetIds] = useState<Set<string>>(
+        () =>
+            new Set(
+                publicationTargets
+                    .filter(target => target.content.trim() !== '')
+                    .map(target => target.id)
+            )
+    )
+    const [activePublicationTabId, setActivePublicationTabId] = useState(
+        () =>
+            publicationTargets.find(target => target.channelId !== '')?.id ?? publicationSharedTabId
     )
     const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
     const previousTargetIds = useRef(new Set(publicationTargets.map(target => target.id)))
-    const activePreviewTarget =
-        publicationTargets.find(target => target.id === activePreviewTargetId) ??
-        publicationTargets[0]
+    const activeTarget =
+        activePublicationTabId === publicationSharedTabId
+            ? undefined
+            : publicationTargets.find(target => target.id === activePublicationTabId)
+    const activePreviewTarget = activeTarget ?? publicationTargets[0]
     const activePreviewChannel = activeChannels.find(
         channel => channel.id === activePreviewTarget?.channelId
     )
+    const activeTargetUsesSharedContent =
+        activeTarget === undefined || !customizedContentTargetIds.has(activeTarget.id)
     const previewMedia = sourceMedia
         .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
         .filter((asset): asset is MediaReference => asset !== undefined)
@@ -81,6 +98,20 @@ export function NewPublicationPage({
         }
         previousTargetIds.current = nextTargetIds
     }, [publicationTargets])
+
+    useEffect(() => {
+        if (activePublicationTabId === publicationSharedTabId) return
+        if (
+            publicationTargets.some(
+                target => target.id === activePublicationTabId && target.channelId !== ''
+            )
+        ) {
+            return
+        }
+        setActivePublicationTabId(
+            publicationTargets.find(target => target.channelId !== '')?.id ?? publicationSharedTabId
+        )
+    }, [activePublicationTabId, publicationTargets])
 
     useEffect(() => {
         if (
@@ -150,8 +181,43 @@ export function NewPublicationPage({
         }
     }
 
+    function updateTargetContent(targetId: string, content: string) {
+        onPublicationTargetsChange(currentTargets =>
+            currentTargets.map(target => (target.id === targetId ? { ...target, content } : target))
+        )
+    }
+
+    function customizeTargetContent(targetId: string) {
+        setCustomizedContentTargetIds(current => {
+            const next = new Set(current)
+            next.add(targetId)
+            return next
+        })
+        updateTargetContent(targetId, postContent)
+    }
+
+    function useSharedTargetContent(targetId: string) {
+        setCustomizedContentTargetIds(current => {
+            const next = new Set(current)
+            next.delete(targetId)
+            return next
+        })
+        updateTargetContent(targetId, '')
+    }
+
+    function removeTarget(targetId: string) {
+        setCustomizedContentTargetIds(current => {
+            const next = new Set(current)
+            next.delete(targetId)
+            return next
+        })
+        onPublicationTargetsChange(currentTargets =>
+            currentTargets.filter(target => target.id !== targetId)
+        )
+    }
+
     return (
-        <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
+        <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader
                 action={
                     <Button
@@ -167,11 +233,8 @@ export function NewPublicationPage({
                         {m.publication_new_back_overview()}
                     </Button>
                 }
-                title={m.publication_new_title()}>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    {project.name} · {project.timeZone}
-                </p>
-            </DashboardPageHeader>
+                title={m.publication_new_title()}
+            />
 
             {error ? (
                 <Alert
@@ -183,51 +246,107 @@ export function NewPublicationPage({
             ) : null}
 
             <form onSubmit={onCreatePost}>
-                <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.28fr)_minmax(19rem,0.72fr)] xl:grid-cols-[minmax(0,1.34fr)_minmax(22rem,0.66fr)]">
-                    <section data-new-publication-content="true" className="min-w-0">
-                        <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                            {m.publication_new_source()}
-                        </h2>
+                <section
+                    data-new-publication-workspace="true"
+                    className="mx-auto min-w-0 max-w-6xl overflow-hidden rounded-xl bg-surface-raised shadow-surface">
+                    <div className="border-b border-border/60 px-4 py-3 sm:px-6">
+                        <PublicationChannelTabs
+                            activeTargetId={activePublicationTabId}
+                            channels={activeChannels}
+                            connections={connections}
+                            defaultDeliveryMode={defaultDeliveryMode}
+                            defaultScheduledAt={defaultScheduledAt}
+                            disabled={pending}
+                            onActiveTargetChange={setActivePublicationTabId}
+                            onChange={onPublicationTargetsChange}
+                            projectId={project.id}
+                            targets={publicationTargets}
+                            timeZone={project.timeZone}
+                        />
+                    </div>
 
-                        <div className="mt-4 rounded-lg bg-muted/70 p-4 sm:p-5">
-                            <div className="space-y-4">
-                                <DashboardFormField
-                                    htmlFor="new-post-title"
-                                    label={m.publication_new_post_title()}>
-                                    <Input
-                                        id="new-post-title"
-                                        value={postTitle}
-                                        onChange={event => onPostTitleChange(event.target.value)}
-                                        placeholder={m.publication_new_optional_source_title()}
+                    <div
+                        className={
+                            activePreviewChannel === undefined
+                                ? 'min-w-0'
+                                : 'grid min-w-0 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.62fr)]'
+                        }>
+                        <div className="min-w-0 p-4 sm:p-6">
+                            <DashboardFormField
+                                htmlFor="new-post-title"
+                                label={m.publication_new_post_title()}>
+                                <Input
+                                    id="new-post-title"
+                                    value={postTitle}
+                                    onChange={event => onPostTitleChange(event.target.value)}
+                                    placeholder={m.publication_new_optional_source_title()}
+                                />
+                            </DashboardFormField>
+
+                            <div data-new-publication-editor="true" className="mt-5 space-y-4">
+                                {activeTarget !== undefined && !activeTargetUsesSharedContent ? (
+                                    <PublicationChannelContentEditor
+                                        content={activeTarget.content}
+                                        disabled={pending}
+                                        id={activeTarget.id}
+                                        onChange={content =>
+                                            updateTargetContent(activeTarget.id, content)
+                                        }
+                                        onUseShared={() => useSharedTargetContent(activeTarget.id)}
                                     />
-                                </DashboardFormField>
-                                <DashboardFormField
-                                    htmlFor="new-post-content"
-                                    label={m.publication_new_source_content()}>
-                                    <div
-                                        data-new-publication-editor="true"
-                                        className="overflow-hidden rounded-md bg-surface-field">
-                                        <Textarea
-                                            id="new-post-content"
-                                            value={postContent}
-                                            onChange={event =>
-                                                onPostContentChange(event.target.value)
-                                            }
-                                            placeholder={m.publication_new_source_placeholder()}
-                                            rows={10}
-                                            className="min-h-52 resize-y rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0"
-                                        />
-                                        <MediaAttachmentPicker
-                                            variant="publication-new-inline"
-                                            projectId={project.id}
-                                            value={sourceMedia}
-                                            onChange={onSourceMediaChange}
-                                            onAssetsChange={setAvailableMedia}
-                                            disabled={pending}
-                                        />
+                                ) : (
+                                    <div className="space-y-2">
+                                        {activeTarget !== undefined ? (
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <span className="text-sm font-medium">
+                                                    {m.publication_new_source_content()}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-muted-foreground">
+                                                        {m.publication_new_source_fallback()}
+                                                    </span>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="xs"
+                                                        disabled={pending}
+                                                        onClick={() =>
+                                                            customizeTargetContent(activeTarget.id)
+                                                        }>
+                                                        {m.publication_new_customize_channel()}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ) : null}
+                                        <DashboardFormField
+                                            htmlFor="new-post-content"
+                                            label={m.publication_new_source_content()}>
+                                            <Textarea
+                                                id="new-post-content"
+                                                value={postContent}
+                                                onChange={event =>
+                                                    onPostContentChange(event.target.value)
+                                                }
+                                                placeholder={m.publication_new_source_placeholder()}
+                                                rows={10}
+                                                className="min-h-52 resize-y"
+                                            />
+                                        </DashboardFormField>
                                     </div>
-                                </DashboardFormField>
-                                {projectTags.length > 0 ? (
+                                )}
+
+                                <MediaAttachmentPicker
+                                    variant="publication-new-inline"
+                                    projectId={project.id}
+                                    value={sourceMedia}
+                                    onChange={onSourceMediaChange}
+                                    onAssetsChange={setAvailableMedia}
+                                    disabled={pending}
+                                />
+                            </div>
+
+                            {projectTags.length > 0 ? (
+                                <div className="mt-5">
                                     <PublicationTagPicker
                                         ariaLabel={m.taxonomy_select_tags()}
                                         disabled={pending}
@@ -238,51 +357,49 @@ export function NewPublicationPage({
                                         selectedLabel={count => m.taxonomy_selected_tags({ count })}
                                         tags={projectTags}
                                     />
-                                ) : null}
-                            </div>
+                                </div>
+                            ) : null}
                         </div>
-                    </section>
 
-                    <section data-new-publication-publish-to="true" className="min-w-0">
-                        <div className="flex items-baseline justify-between gap-4">
-                            <h2 className="font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                {m.publication_new_destinations()}
-                            </h2>
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                                {m.publication_new_target_count({
-                                    count: publicationTargets.length,
-                                })}
-                            </span>
-                        </div>
-                        <div className="mt-4">
-                            <PublicationTargetList
-                                channels={activeChannels}
-                                connections={connections}
-                                customizedTargetIds={customizedTargetIds}
-                                defaultDeliveryMode={defaultDeliveryMode}
-                                defaultScheduledAt={defaultScheduledAt}
-                                disabled={pending}
-                                onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
-                                onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
-                                onChange={onPublicationTargetsChange}
-                                onActiveTargetChange={setActivePreviewTargetId}
-                                onTargetCustomizationChange={handleTargetCustomizationChange}
-                                projectId={project.id}
-                                targets={publicationTargets}
-                                timeZone={project.timeZone}
-                            />
-                            <PublicationDraftPreview
-                                channel={activePreviewChannel}
-                                media={previewMedia}
-                                postContent={postContent}
-                                postTitle={postTitle}
-                                targetContent={activePreviewTarget?.content}
-                            />
-                        </div>
-                    </section>
-                </div>
+                        {activePreviewChannel !== undefined ? (
+                            <aside className="border-t border-border/60 p-4 sm:p-6 lg:border-t-0 lg:border-l">
+                                <PublicationDraftPreview
+                                    className="mt-0"
+                                    channel={activePreviewChannel}
+                                    media={previewMedia}
+                                    postContent={postContent}
+                                    postTitle={postTitle}
+                                    targetContent={
+                                        activeTargetUsesSharedContent
+                                            ? undefined
+                                            : activePreviewTarget?.content
+                                    }
+                                />
+                            </aside>
+                        ) : null}
+                    </div>
 
-                <div className="mt-7 flex justify-end rounded-lg bg-muted/70 p-4 sm:p-5">
+                    <PublicationChannelSettings
+                        activeTargetId={activePublicationTabId}
+                        channels={activeChannels}
+                        connections={connections}
+                        customizedTargetIds={customizedTargetIds}
+                        defaultDeliveryMode={defaultDeliveryMode}
+                        defaultScheduledAt={defaultScheduledAt}
+                        disabled={pending}
+                        onActiveTargetChange={setActivePublicationTabId}
+                        onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
+                        onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
+                        onChange={onPublicationTargetsChange}
+                        onRemoveTarget={removeTarget}
+                        onTargetCustomizationChange={handleTargetCustomizationChange}
+                        projectId={project.id}
+                        targets={publicationTargets}
+                        timeZone={project.timeZone}
+                    />
+                </section>
+
+                <div className="mx-auto mt-5 flex max-w-6xl justify-end border-t border-border/60 pt-4">
                     <Button type="submit" disabled={pending || activeChannels.length === 0}>
                         <CalendarAddIcon aria-hidden="true" />
                         {publicationTargets.length === 1
@@ -296,5 +413,53 @@ export function NewPublicationPage({
                 </div>
             </form>
         </main>
+    )
+}
+
+function PublicationChannelContentEditor({
+    content,
+    disabled,
+    id,
+    onChange,
+    onUseShared,
+}: {
+    readonly content: string
+    readonly disabled: boolean
+    readonly id: string
+    readonly onChange: (content: string) => void
+    readonly onUseShared: () => void
+}) {
+    return (
+        <section
+            data-publication-channel-content="true"
+            className="rounded-md bg-muted/45 p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <p className="text-sm font-medium">{m.publication_new_channel_copy()}</p>
+                </div>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    disabled={disabled}
+                    onClick={onUseShared}>
+                    {m.publication_new_use_source()}
+                </Button>
+            </div>
+
+            <DashboardFormField
+                htmlFor={`publication-target-${id}-content`}
+                label={m.publication_new_channel_copy()}>
+                <Textarea
+                    id={`publication-target-${id}-content`}
+                    value={content}
+                    disabled={disabled}
+                    onChange={event => onChange(event.target.value)}
+                    placeholder={m.publication_new_optional_override()}
+                    rows={5}
+                    className="mt-3 min-h-32 leading-6"
+                />
+            </DashboardFormField>
+        </section>
     )
 }

@@ -1,3 +1,5 @@
+import { cn } from '@herald/ui/lib/utils'
+
 import { channelProfileLabel } from '@/components/dashboard-publication-parts'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
@@ -8,6 +10,7 @@ import * as m from '@/paraglide/messages.js'
 
 interface PublicationDraftPreviewProps {
     readonly channel: Channel | undefined
+    readonly className?: string
     readonly media: readonly MediaReference[]
     readonly postContent: string
     readonly postTitle: string
@@ -16,6 +19,7 @@ interface PublicationDraftPreviewProps {
 
 export function PublicationDraftPreview({
     channel,
+    className,
     media,
     postContent,
     postTitle,
@@ -33,7 +37,7 @@ export function PublicationDraftPreview({
     })
 
     return (
-        <section data-publication-draft-preview="true" className="mt-7 min-w-0">
+        <section data-publication-draft-preview="true" className={cn('min-w-0', className)}>
             <div className="flex min-w-0 items-baseline justify-between gap-3">
                 <h3 className="font-heading text-lg font-[580] leading-[1.05] tracking-[-0.04em]">
                     {m.publication_new_preview()}

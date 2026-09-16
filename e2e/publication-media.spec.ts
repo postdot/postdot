@@ -387,9 +387,6 @@ test('persists mixed and media-only publications through the dashboard', async (
         })
     expect(channelSidebarLayout).toEqual({ overlap: 0 })
     await page.getByRole('button', { name: 'New publication', exact: true }).click()
-    const publicationChannel = page.getByRole('combobox', { name: 'Channel' })
-    await publicationChannel.click()
-    await page.getByRole('option', { name: channelName, exact: true }).click()
 
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
@@ -832,9 +829,6 @@ test('persists mixed and media-only publications through the dashboard', async (
         .locator('[data-slot="sidebar"]')
         .getByRole('button', { name: 'New publication', exact: true })
         .click()
-    const mediaOnlyPublicationChannel = page.getByRole('combobox', { name: 'Channel' }).first()
-    await mediaOnlyPublicationChannel.click()
-    await page.getByRole('option', { name: channelName, exact: true }).click()
     await page.getByLabel('Title', { exact: true }).fill(mediaOnlyTitle)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const attachmentLibrary = page.locator('[data-media-library="true"]')

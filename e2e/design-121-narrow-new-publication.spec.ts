@@ -35,20 +35,19 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expect(firstTab).toBeVisible()
     await expect(addChannel).toBeVisible()
 
-    await expect(page.getByRole('heading', { name: 'Content', exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Publish to', exact: true })).toBeVisible()
+    await expect(page.locator('[data-new-publication-workspace="true"]')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Content', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Publish to', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Source', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Destinations', exact: true })).toHaveCount(0)
     await expect(
-        page.locator(
-            '[data-new-publication-publish-to="true"] [data-publication-channel-selection]'
-        )
+        page.locator('[data-new-publication-workspace="true"] [data-publication-channel-selection]')
     ).toBeVisible()
     await expect(
-        page.locator('[data-new-publication-publish-to="true"] [data-publication-shared-settings]')
+        page.locator('[data-new-publication-workspace="true"] [data-publication-shared-settings]')
     ).toBeVisible()
-    const publishToOrder = await page
-        .locator('[data-new-publication-publish-to="true"]')
+    const workspaceOrder = await page
+        .locator('[data-new-publication-workspace="true"]')
         .evaluate(element =>
             Array.from(
                 element.querySelectorAll(
@@ -58,7 +57,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
                 item.hasAttribute('data-publication-channel-selection') ? 'channels' : 'settings'
             )
         )
-    expect(publishToOrder).toEqual(['channels', 'settings'])
+    expect(workspaceOrder).toEqual(['channels', 'settings'])
 
     await firstTab.focus()
     await expect(firstTab).toBeFocused()
