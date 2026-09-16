@@ -117,10 +117,15 @@ export function PublicationCalendar({
         (publicationId: string) => {
             void navigate({
                 params: { projectId, publicationId },
+                search: {
+                    date: toDateKey(calendarDate, timeZone),
+                    from: 'calendar',
+                    view: isPublicationCalendarView(view) ? view : undefined,
+                },
                 to: '/dashboard/projects/$projectId/publications/$publicationId',
             })
         },
-        [navigate, projectId]
+        [calendarDate, navigate, projectId, timeZone, view]
     )
     const openPublicationPreview = useCallback((publicationId: string) => {
         setPreviewPublicationId(publicationId)

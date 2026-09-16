@@ -417,6 +417,7 @@ function EventCalendarEvent<TData = unknown>({
     const defaultProps = {
         type: 'button' as const,
         'data-slot': 'event-calendar-event',
+        'data-event-id': event.id,
         'data-view': view,
         'data-all-day': occurrence.allDay || undefined,
         'data-recurring': occurrence.isRecurring || undefined,

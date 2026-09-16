@@ -1061,6 +1061,7 @@
     "editor_manual_publish_failed": "The publication could not be recorded as published.",
     "editor_manual_published": "Publication recorded as published.",
     "editor_back_to_queue": "Back to queue",
+    "editor_back_to_calendar": "Back to calendar",
     "editor_title": "Publication editor",
     "editor_sidebar_selected_target": "Selected target",
     "editor_sidebar_delivery_snapshot": "Delivery snapshot",

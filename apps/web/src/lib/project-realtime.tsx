@@ -5,6 +5,8 @@ export const projectQueryKeys = {
     data: (projectId: string) => ['project', projectId, 'data'] as const,
     calendarPublications: (projectId: string) =>
         ['project', projectId, 'calendar-publications'] as const,
+    publicationEditor: (projectId: string, publicationId: string) =>
+        ['project', projectId, 'publication-editor', publicationId] as const,
     notifications: (projectId: string) => ['project', projectId, 'notifications'] as const,
     notificationPreferences: (projectId: string) =>
         ['project', projectId, 'notification-preferences'] as const,

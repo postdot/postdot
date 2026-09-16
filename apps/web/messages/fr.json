@@ -1061,6 +1061,7 @@
     "editor_manual_publish_failed": "La publication n’a pas pu être enregistrée comme publiée.",
     "editor_manual_published": "Publication enregistrée comme publiée.",
     "editor_back_to_queue": "Retour à la file d’attente",
+    "editor_back_to_calendar": "Retour au calendrier",
     "editor_title": "Éditeur de publication",
     "editor_sidebar_selected_target": "Cible sélectionnée",
     "editor_sidebar_delivery_snapshot": "Aperçu de la livraison",

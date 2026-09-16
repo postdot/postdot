@@ -3,8 +3,24 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { PublicationEditor } from '@/components/publication-editor'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
+import { isCalendarDateKey } from '@/lib/publication-calendar'
+import {
+    isPublicationCalendarView,
+    type PublicationCalendarView,
+} from '@/lib/publication-calendar-events'
+
+export interface PublicationEditorSearch {
+    from?: 'calendar'
+    date?: string
+    view?: PublicationCalendarView
+}
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/publications/$publicationId')({
+    validateSearch: (search: Record<string, unknown>): PublicationEditorSearch => ({
+        ...(search.from === 'calendar' ? { from: 'calendar' as const } : {}),
+        ...(isCalendarDateKey(search.date) ? { date: search.date } : {}),
+        ...(isPublicationCalendarView(search.view) ? { view: search.view } : {}),
+    }),
     loader: async ({ params }) => {
         const session = await api.getSession()
         if (session === null) {
@@ -28,6 +44,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 
 function PublicationEditorRoute() {
     const { projectId } = Route.useParams()
+    const { date, from, view } = Route.useSearch()
     const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
     const { activeChannels, onPublish, project } = useProjectDashboard()
 
@@ -41,6 +58,7 @@ function PublicationEditorRoute() {
             projectTags={projectTags}
             channels={activeChannels}
             relatedPublications={relatedPublications}
+            backToCalendar={from === 'calendar' ? { date, view } : undefined}
             timeZone={project.timeZone}
         />
     )

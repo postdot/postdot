@@ -16,6 +16,7 @@ import { useMemo, type ReactNode } from 'react'
 
 import { PublicationStatus, formatSchedule } from '@/components/dashboard-publication-parts'
 import { api, type PublicationSummary } from '@/lib/api'
+import { projectQueryKeys } from '@/lib/project-realtime'
 import { canEditPublication } from '@/lib/publication-lifecycle'
 
 export function PublicationCalendarPreviewSheet({
@@ -41,7 +42,7 @@ export function PublicationCalendarPreviewSheet({
     )
     const previewQuery = useQuery({
         enabled: publicationId !== null,
-        queryKey: ['publication-calendar-preview', projectId, publicationId],
+        queryKey: projectQueryKeys.publicationEditor(projectId, publicationId ?? ''),
         queryFn: () => {
             if (publicationId === null) {
                 throw new Error('A publication is required to load its preview')

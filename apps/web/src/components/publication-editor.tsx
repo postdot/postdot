@@ -1,4 +1,5 @@
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -36,6 +37,8 @@ import {
 } from '@/lib/api'
 import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import { projectQueryKeys } from '@/lib/project-realtime'
+import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
 import { updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
@@ -51,6 +54,10 @@ interface PublicationEditorProps {
     readonly onPublish?: () => Promise<boolean>
     readonly projectTags: readonly ProjectTag[]
     readonly relatedPublications?: readonly PublicationSummary[]
+    readonly backToCalendar?: {
+        readonly date?: string
+        readonly view?: PublicationCalendarView
+    }
     readonly timeZone: string
 }
 
@@ -75,10 +82,12 @@ export function PublicationEditor({
     projectId,
     projectTags,
     relatedPublications = [],
+    backToCalendar,
     timeZone,
 }: PublicationEditorProps) {
     useLanguage()
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const recoveryKey = useMemo(
         () => createRecoveryKey(projectId, initialEditor.publication.id),
         [projectId, initialEditor.publication.id]
@@ -220,6 +229,21 @@ export function PublicationEditor({
         [sourceContent.body?.text, targetResult.value]
     )
 
+    function invalidatePublicationQueries() {
+        void Promise.all([
+            queryClient.invalidateQueries({ queryKey: projectQueryKeys.data(projectId) }),
+            queryClient.invalidateQueries({
+                queryKey: projectQueryKeys.calendarPublications(projectId),
+            }),
+            queryClient.invalidateQueries({
+                queryKey: projectQueryKeys.publicationEditor(
+                    projectId,
+                    initialEditor.publication.id
+                ),
+            }),
+        ]).catch(() => undefined)
+    }
+
     async function handlePublicationTagIdsChange(nextTagIds: string[]) {
         if (!publicationEditable) return
         const previousTagIds = publicationTagIds
@@ -233,6 +257,7 @@ export function PublicationEditor({
                 nextTagIds
             )
             setPublicationTagIds(response.tags.map(tag => tag.id))
+            invalidatePublicationQueries()
         } catch (caughtError) {
             setPublicationTagIds(previousTagIds)
             setTagError(formatApiError(caughtError))
@@ -248,6 +273,10 @@ export function PublicationEditor({
         void navigate({
             to: '/dashboard/projects/$projectId/publications/$publicationId',
             params: { projectId, publicationId: publication.id },
+            search:
+                backToCalendar === undefined
+                    ? undefined
+                    : { ...backToCalendar, from: 'calendar' as const },
         })
     }
 
@@ -302,6 +331,7 @@ export function PublicationEditor({
                     setSaveState('saved')
                     setMessage(null)
                     setRecoveryAvailable(false)
+                    invalidatePublicationQueries()
                 })
                 .catch(caughtError => {
                     if (generation !== requestGeneration.current) return
@@ -531,6 +561,7 @@ export function PublicationEditor({
                       ? m.editor_shared_source_rebased_local()
                       : m.editor_shared_source_rebased()
             )
+            invalidatePublicationQueries()
         } catch (caughtError) {
             if (generation !== requestGeneration.current) return
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
@@ -578,6 +609,7 @@ export function PublicationEditor({
             setSaveState('saved')
             setRecoveryAvailable(false)
             setMessage(m.editor_promoted())
+            invalidatePublicationQueries()
         } catch (caughtError) {
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                 setSaveState('conflict')
@@ -620,6 +652,7 @@ export function PublicationEditor({
             setRecoveryAvailable(false)
             removeRecovery(recoveryKey)
             setMessage(m.editor_manual_published())
+            invalidatePublicationQueries()
             return true
         } catch (caughtError) {
             setSaveState('error')
@@ -637,20 +670,32 @@ export function PublicationEditor({
             input
         )
         setEditor(current => ({ ...current, publication: response.publication }))
+        invalidatePublicationQueries()
     }
 
     return (
         <section className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <div className="flex flex-col justify-between gap-5 pb-7 sm:flex-row sm:items-end">
                 <div>
-                    <Link
-                        to="/dashboard/projects/$projectId/queue"
-                        params={{ projectId }}
-                        search={{ filter: undefined, tagIds: undefined }}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-                        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                        {m.editor_back_to_queue()}
-                    </Link>
+                    {backToCalendar === undefined ? (
+                        <Link
+                            to="/dashboard/projects/$projectId/queue"
+                            params={{ projectId }}
+                            search={{ filter: undefined, tagIds: undefined }}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+                            <ArrowLeftIcon aria-hidden="true" className="size-4" />
+                            {m.editor_back_to_queue()}
+                        </Link>
+                    ) : (
+                        <Link
+                            to="/dashboard/projects/$projectId/overview"
+                            params={{ projectId }}
+                            search={backToCalendar}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+                            <ArrowLeftIcon aria-hidden="true" className="size-4" />
+                            {m.editor_back_to_calendar()}
+                        </Link>
+                    )}
                     <p className="mt-6 text-xs font-medium text-muted-foreground">
                         {m.editor_title()}
                     </p>
