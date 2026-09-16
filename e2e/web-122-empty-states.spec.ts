@@ -37,14 +37,14 @@ test('makes the calendar the first project view while keeping Queue focused', as
     ).toBeVisible()
     await expect(
         page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
-    ).toHaveCount(3)
+    ).toHaveCount(2)
 
     await page.getByRole('tab', { name: 'Needs attention (0)', exact: true }).click()
     await expect(page.getByText('Nothing needs attention', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Show all', exact: true })).toBeVisible()
     await expect(
         page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
-    ).toHaveCount(2)
+    ).toHaveCount(1)
 
     await page.getByRole('button', { name: 'Show all', exact: true }).click()
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()

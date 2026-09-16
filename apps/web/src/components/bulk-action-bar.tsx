@@ -46,7 +46,7 @@ export function BulkActionBar({
             role="toolbar"
             aria-label={ariaLabel}
             data-bulk-action-bar="true"
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
+            className="sticky top-3 z-10 flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-inset/95 px-3 py-2 shadow-surface backdrop-blur-sm">
             <div className="min-w-0 text-sm font-medium">{selectionSummary}</div>
             <div className="flex flex-wrap items-center gap-2">
                 {onToggleAll !== undefined && toggleAllLabel !== undefined ? (

@@ -136,20 +136,20 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('tab', { name: 'All (8)', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Needs attention (1)', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Scheduled (3)', exact: true })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Manual (4)', exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Drafts (4)', exact: true })).toBeVisible()
+    const deliveryFilter = page.getByRole('combobox', { name: 'Delivery', exact: true })
+    await expect(deliveryFilter).toContainText('All delivery modes')
     await expect(page.locator('a[href*="/publications/"]')).toHaveCount(9)
-
-    const queueAttentionBox = await page
-        .getByRole('heading', { name: 'Needs attention', exact: true })
-        .boundingBox()
-    const queuePublicationsBox = await page
-        .getByRole('heading', { name: 'Publications', exact: true })
-        .boundingBox()
-    expect(queueAttentionBox?.y).toBeLessThan(queuePublicationsBox?.y ?? Number.POSITIVE_INFINITY)
+    await expect(page.locator('[data-queue-publication-list="true"]')).toHaveCount(1)
+    await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'Needs attention (1)', exact: true }).click()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 1' })).toHaveCount(1)
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('button', { name: 'Record as published', exact: true })
+    ).toBeVisible()
 
     await page.getByRole('tab', { name: 'Scheduled (3)', exact: true }).click()
     await expect(page.locator('a[href*="/publications/"]')).toHaveCount(4)
@@ -157,7 +157,9 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 4' })).toBeVisible()
 
-    await page.getByRole('tab', { name: 'Manual (4)', exact: true }).click()
+    await deliveryFilter.click()
+    await page.getByRole('option', { name: 'Manual delivery (4)', exact: true }).click()
+    await expect(page).toHaveURL(/\/queue\?filter=manual$/)
     await expect(page.locator('a[href*="/publications/"]')).toHaveCount(5)
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 8' })).toBeVisible()

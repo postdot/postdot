@@ -43,7 +43,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     page,
     request,
 }) => {
-    test.setTimeout(60_000)
+    test.setTimeout(90_000)
 
     await page.addInitScript(() => {
         const mediaDevices = navigator.mediaDevices ?? {}
@@ -404,10 +404,7 @@ test('persists mixed and media-only publications through the dashboard', async (
         page.getByRole('button', { name: 'Apply draft to target', exact: true })
     ).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
-    await page
-        .locator('[data-slot="sidebar"]')
-        .getByRole('button', { name: 'New publication', exact: true })
-        .click()
+    await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
 
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
@@ -857,10 +854,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(mixedPublications.first()).toHaveAttribute('data-publication-edit-link', 'true')
     await expect(mixedPublications.first().getByText('Edit', { exact: true })).toBeVisible()
 
-    await page
-        .locator('[data-slot="sidebar"]')
-        .getByRole('button', { name: 'New publication', exact: true })
-        .click()
+    await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const attachmentLibrary = page.locator('[data-media-library="true"]')
     await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')

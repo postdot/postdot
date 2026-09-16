@@ -133,7 +133,7 @@ export function DashboardSidebar({
                 </div>
             </SidebarHeader>
 
-            {!isInstanceSettings && selectedProjectId !== null ? (
+            {!isInstanceSettings && selectedProjectId !== null && activeSection !== 'queue' ? (
                 <div className="px-3 pb-1 group-data-[collapsible=icon]:px-2">
                     <Button
                         nativeButton={false}
