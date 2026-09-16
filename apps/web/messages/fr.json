@@ -266,6 +266,36 @@
     "queue_no_publications_description": "Créez une publication pour y ajouter du travail.",
     "queue_show_all": "Tout afficher",
     "queue_load_more": "Charger davantage",
+    "queue_bulk_actions": "Actions sur les publications",
+    "queue_selected_publications": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} sélectionnée",
+                "countPlural=other": "{count} sélectionnées"
+            }
+        }
+    ],
+    "queue_select_all_visible": "Tout sélectionner",
+    "queue_clear_selection": "Désélectionner",
+    "queue_select_publication": "Sélectionner {title}",
+    "queue_deselect_publication": "Désélectionner {title}",
+    "queue_reschedule": "Replanifier",
+    "queue_reschedule_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Replanifier {count} publication",
+                "countPlural=other": "Replanifier {count} publications"
+            }
+        }
+    ],
+    "queue_reschedule_deliver_at": "Diffuser le",
+    "queue_reschedule_submit": "Appliquer",
+    "queue_reschedule_required": "Choisissez une date et une heure.",
+    "queue_reschedule_only_scheduled": "Seules les publications planifiées peuvent être replanifiées.",
     "queue_no_attention_title": "Rien à traiter",
     "queue_no_attention_description": "Les publications à traiter apparaîtront ici.",
     "queue_no_drafts_title": "Aucun brouillon",

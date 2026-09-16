@@ -1,15 +1,18 @@
 import { Button } from '@herald/ui/components/button'
 import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
 import { cn } from '@herald/ui/lib/utils'
+import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
+import { BulkActionBar } from '@/components/bulk-action-bar'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
 import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { PublicationAttentionPanel } from '@/components/publication-attention-panel'
+import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import { useProjectDashboard } from '@/lib/dashboard-context'
@@ -36,6 +39,7 @@ export function PublicationQueuePage({
         loadingMorePublications,
         onLoadMorePublications,
         onPublish,
+        onReschedulePublications,
         pending,
         project,
         projectTags,
@@ -46,12 +50,18 @@ export function PublicationQueuePage({
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/queue' })
     const [filter, setFilter] = useState<QueueFilter>(initialFilter)
     const [tagIds, setTagIds] = useState<string[]>(() => [...initialTagIds])
+    const [selectedPublicationIds, setSelectedPublicationIds] = useState<Set<string>>(
+        () => new Set()
+    )
+    const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
     useEffect(() => {
         setFilter(initialFilter)
+        setSelectedPublicationIds(new Set())
     }, [initialFilter])
     const initialTagIdsKey = initialTagIds.join('\u0000')
     useEffect(() => {
         setTagIds(initialTagIdsKey === '' ? [] : initialTagIdsKey.split('\u0000'))
+        setSelectedPublicationIds(new Set())
     }, [initialTagIdsKey])
     const duePublicationIds = new Set(due.map(publication => publication.id))
     const taggedPublications = filterQueueByTags(publications, tagIds)
@@ -72,6 +82,49 @@ export function PublicationQueuePage({
         filter
     )
     const filteredCount = filterCounts[filter]
+    const selectedPublications = visiblePublications.filter(publication =>
+        selectedPublicationIds.has(publication.id)
+    )
+    const selectedCount = selectedPublications.length
+    const allVisibleSelected =
+        visiblePublications.length > 0 && selectedCount === visiblePublications.length
+    const canRescheduleSelection =
+        selectedCount > 0 &&
+        selectedPublications.every(publication => publication.state === 'scheduled')
+
+    function togglePublicationSelection(publicationId: string) {
+        setSelectedPublicationIds(current => {
+            const next = new Set(current)
+            if (next.has(publicationId)) next.delete(publicationId)
+            else next.add(publicationId)
+            return next
+        })
+    }
+
+    function toggleAllVisiblePublications() {
+        setSelectedPublicationIds(current => {
+            const next = new Set(current)
+            if (allVisibleSelected) {
+                for (const publication of visiblePublications) next.delete(publication.id)
+            } else {
+                for (const publication of visiblePublications) next.add(publication.id)
+            }
+            return next
+        })
+    }
+
+    function clearPublicationSelection() {
+        setSelectedPublicationIds(new Set())
+    }
+
+    async function rescheduleSelection(scheduledAt: number): Promise<boolean> {
+        const succeeded = await onReschedulePublications(
+            selectedPublications.map(publication => publication.id),
+            scheduledAt
+        )
+        if (succeeded) clearPublicationSelection()
+        return succeeded
+    }
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
@@ -118,6 +171,7 @@ export function PublicationQueuePage({
                 onValueChange={value => {
                     if (!isQueueFilter(value)) return
                     setFilter(value)
+                    clearPublicationSelection()
                     void navigate({
                         search: current => ({
                             ...current,
@@ -181,6 +235,7 @@ export function PublicationQueuePage({
                         label={m.taxonomy_filter_tags()}
                         onChange={nextTagIds => {
                             setTagIds(nextTagIds)
+                            clearPublicationSelection()
                             void navigate({
                                 search: current => ({
                                     ...current,
@@ -191,6 +246,31 @@ export function PublicationQueuePage({
                         selectedTagIds={tagIds}
                         selectedLabel={count => m.taxonomy_selected_tags({ count })}
                         tags={projectTags}
+                    />
+                </div>
+            ) : null}
+
+            {selectedCount > 0 ? (
+                <div className="mt-4">
+                    <BulkActionBar
+                        actions={[
+                            {
+                                disabled: !canRescheduleSelection,
+                                disabledReason: m.queue_reschedule_only_scheduled(),
+                                icon: <CalendarAddIcon aria-hidden="true" />,
+                                id: 'reschedule',
+                                label: m.queue_reschedule(),
+                                onSelect: () => setScheduleDialogOpen(true),
+                            },
+                        ]}
+                        allSelected={allVisibleSelected}
+                        ariaLabel={m.queue_bulk_actions()}
+                        clearLabel={m.queue_clear_selection()}
+                        onClear={clearPublicationSelection}
+                        onToggleAll={toggleAllVisiblePublications}
+                        selectedCount={selectedCount}
+                        selectionSummary={m.queue_selected_publications({ count: selectedCount })}
+                        toggleAllLabel={m.queue_select_all_visible()}
                     />
                 </div>
             ) : null}
@@ -246,7 +326,11 @@ export function PublicationQueuePage({
                         }
                         emptyDescription={queueEmptyDescription(filter)}
                         emptyTitle={queueEmptyTitle(filter)}
+                        onToggleSelection={publication =>
+                            togglePublicationSelection(publication.id)
+                        }
                         publications={visiblePublications}
+                        selectedPublicationIds={selectedPublicationIds}
                         timeZone={project.timeZone}
                     />
                     {publicationsNextCursor !== null ? (
@@ -271,6 +355,15 @@ export function PublicationQueuePage({
                     </div>
                 ) : null}
             </div>
+
+            <PublicationBulkScheduleDialog
+                open={scheduleDialogOpen}
+                onOpenChange={setScheduleDialogOpen}
+                onSchedule={rescheduleSelection}
+                pending={pending}
+                selectedCount={selectedCount}
+                timeZone={project.timeZone}
+            />
         </main>
     )
 }

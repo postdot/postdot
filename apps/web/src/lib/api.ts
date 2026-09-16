@@ -1082,6 +1082,19 @@ export const api = {
         )
     },
 
+    async reschedulePublications(
+        projectId: string,
+        publicationIds: readonly string[],
+        scheduledAt: number
+    ): Promise<{ publications: Publication[] }> {
+        return unwrap<{ publications: Publication[] }>(
+            await client.api.projects({ projectId }).publications.schedule.patch({
+                publicationIds: [...publicationIds],
+                scheduledAt,
+            })
+        )
+    },
+
     async rebasePublicationDraft(
         projectId: string,
         publicationId: string,

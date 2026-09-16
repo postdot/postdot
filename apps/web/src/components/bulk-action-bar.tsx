@@ -16,6 +16,7 @@ export interface BulkAction {
     readonly icon?: ReactNode
     readonly variant?: BulkActionVariant
     readonly disabled?: boolean
+    readonly disabledReason?: string
     readonly onSelect: () => void
 }
 
@@ -78,6 +79,7 @@ export function BulkActionBar({
                         variant={action.variant ?? 'secondary'}
                         size="sm"
                         disabled={selectedCount === 0 || action.disabled === true}
+                        title={action.disabled ? action.disabledReason : undefined}
                         data-bulk-action={action.id}
                         onClick={action.onSelect}>
                         {action.icon}

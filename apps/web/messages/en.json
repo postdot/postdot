@@ -266,6 +266,36 @@
     "queue_no_publications_description": "Create a publication to add work here.",
     "queue_show_all": "Show all",
     "queue_load_more": "Load more",
+    "queue_bulk_actions": "Publication actions",
+    "queue_selected_publications": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} selected",
+                "countPlural=other": "{count} selected"
+            }
+        }
+    ],
+    "queue_select_all_visible": "Select all visible",
+    "queue_clear_selection": "Deselect",
+    "queue_select_publication": "Select {title}",
+    "queue_deselect_publication": "Deselect {title}",
+    "queue_reschedule": "Reschedule",
+    "queue_reschedule_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Reschedule {count} publication",
+                "countPlural=other": "Reschedule {count} publications"
+            }
+        }
+    ],
+    "queue_reschedule_deliver_at": "Deliver at",
+    "queue_reschedule_submit": "Apply schedule",
+    "queue_reschedule_required": "Choose a date and time.",
+    "queue_reschedule_only_scheduled": "Only scheduled publications can be rescheduled.",
     "queue_no_attention_title": "Nothing needs attention",
     "queue_no_attention_description": "Publications needing attention will appear here.",
     "queue_no_drafts_title": "No drafts",

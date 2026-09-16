@@ -19,12 +19,16 @@ export function PublicationList({
     emptyAction,
     emptyTitle,
     publications,
+    onToggleSelection,
+    selectedPublicationIds,
     timeZone,
 }: {
     readonly emptyDescription?: string
     readonly emptyAction?: ReactNode
     readonly emptyTitle?: string
     readonly publications: readonly PublicationSummary[]
+    readonly onToggleSelection?: (publication: PublicationSummary) => void
+    readonly selectedPublicationIds?: ReadonlySet<string>
     readonly timeZone: string
 }) {
     useLanguage()
@@ -50,15 +54,65 @@ export function PublicationList({
         )
     }
 
+    const selectionEnabled = onToggleSelection !== undefined && selectedPublicationIds !== undefined
+
     return (
         <div className="mt-4 divide-y divide-border/70">
-            {publications.map(publication => (
-                <PublicationRow
-                    key={publication.id}
-                    publication={publication}
-                    timeZone={timeZone}
-                />
-            ))}
+            {publications.map(publication => {
+                const selected = selectedPublicationIds?.has(publication.id) ?? false
+                if (!selectionEnabled) {
+                    return (
+                        <PublicationRow
+                            key={publication.id}
+                            publication={publication}
+                            timeZone={timeZone}
+                        />
+                    )
+                }
+
+                return (
+                    <div
+                        key={publication.id}
+                        data-publication-selection-card="true"
+                        data-publication-selection-active={selected || undefined}
+                        className={cn(
+                            'grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-1 rounded-md transition-[background-color,box-shadow]',
+                            selected && 'bg-primary/[0.04] ring-1 ring-primary/40'
+                        )}>
+                        <button
+                            type="button"
+                            aria-label={
+                                selected
+                                    ? m.queue_deselect_publication({
+                                          title:
+                                              publication.postTitle ??
+                                              m.publication_untitled_post(),
+                                      })
+                                    : m.queue_select_publication({
+                                          title:
+                                              publication.postTitle ??
+                                              m.publication_untitled_post(),
+                                      })
+                            }
+                            aria-pressed={selected}
+                            data-publication-selection-toggle="true"
+                            onClick={() => onToggleSelection(publication)}
+                            className="mt-4 ml-1 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-[color,background-color,box-shadow] hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+                            <span
+                                aria-hidden="true"
+                                className={cn(
+                                    'flex size-4 items-center justify-center rounded-full border border-current transition-[background-color,border-color,box-shadow]',
+                                    selected && 'border-primary bg-primary ring-2 ring-primary/20'
+                                )}>
+                                {selected ? (
+                                    <span className="size-1.5 rounded-full bg-primary-foreground" />
+                                ) : null}
+                            </span>
+                        </button>
+                        <PublicationRow publication={publication} timeZone={timeZone} />
+                    </div>
+                )
+            })}
         </div>
     )
 }
