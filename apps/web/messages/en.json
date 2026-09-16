@@ -358,7 +358,7 @@
     "publication_attention_description": "Review the destination and record the outcome before this work can leave the queue.",
     "publication_nothing_due": "Nothing is due",
     "publication_manual_destination": "Manual destination — record the outcome when it is complete.",
-    "publication_record_published": "Record as published",
+    "publication_record_published": "Mark published",
     "publication_retry_delivery": "Retry delivery",
     "publication_cancel_title": "Cancel publication?",
     "publication_cancel_description": "This publication will not be delivered.",

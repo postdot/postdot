@@ -1,6 +1,13 @@
 import { Button } from '@herald/ui/components/button'
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@herald/ui/components/tooltip'
 import { cn } from '@herald/ui/lib/utils'
 import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
+import { ClipboardCheckIcon } from '@solar-icons/react/bold/clipboard-check'
 import { EyeIcon } from '@solar-icons/react/bold/eye'
 import { ListIcon } from '@solar-icons/react/bold/list'
 import { PenIcon } from '@solar-icons/react/bold/pen'
@@ -64,25 +71,29 @@ export function PublicationList({
     const selectionEnabled = onToggleSelection !== undefined && selectedPublicationIds !== undefined
 
     return (
-        <div className="mt-4 space-y-1" data-publication-list="true">
-            {publications.map(publication => {
-                const selected = selectedPublicationIds?.has(publication.id) ?? false
-                return (
-                    <PublicationListItem
-                        key={publication.id}
-                        due={duePublicationIds?.has(publication.id) ?? false}
-                        onPublish={onPublish}
-                        onToggleSelection={
-                            selectionEnabled ? () => onToggleSelection(publication) : undefined
-                        }
-                        pending={pending}
-                        publication={publication}
-                        selected={selected}
-                        timeZone={timeZone}
-                    />
-                )
-            })}
-        </div>
+        <TooltipProvider delay={450}>
+            <div
+                className="mt-4 overflow-hidden rounded-lg bg-surface-inset/55 p-1 shadow-surface"
+                data-publication-list="true">
+                {publications.map(publication => {
+                    const selected = selectedPublicationIds?.has(publication.id) ?? false
+                    return (
+                        <PublicationListItem
+                            key={publication.id}
+                            due={duePublicationIds?.has(publication.id) ?? false}
+                            onPublish={onPublish}
+                            onToggleSelection={
+                                selectionEnabled ? () => onToggleSelection(publication) : undefined
+                            }
+                            pending={pending}
+                            publication={publication}
+                            selected={selected}
+                            timeZone={timeZone}
+                        />
+                    )
+                })}
+            </div>
+        </TooltipProvider>
     )
 }
 
@@ -105,13 +116,7 @@ function PublicationListItem({
 }) {
     const selectionEnabled = onToggleSelection !== undefined
     const showManualAction = due && onPublish !== undefined
-    const rowGridClassName = selectionEnabled
-        ? showManualAction
-            ? 'grid-cols-[auto_minmax(0,1fr)] lg:grid-cols-[auto_minmax(0,1fr)_auto]'
-            : 'grid-cols-[auto_minmax(0,1fr)]'
-        : showManualAction
-          ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto]'
-          : 'grid-cols-1'
+    const editable = canEditPublication(publication.state)
 
     return (
         <div
@@ -121,7 +126,11 @@ function PublicationListItem({
                 'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55',
                 selected && 'bg-primary/[0.07] shadow-[inset_3px_0_0_var(--primary)]'
             )}>
-            <div className={cn('grid min-w-0 items-start gap-x-1', rowGridClassName)}>
+            <div
+                className={cn(
+                    'grid min-w-0 items-start gap-x-2',
+                    selectionEnabled ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1'
+                )}>
                 {selectionEnabled ? (
                     <button
                         type="button"
@@ -149,94 +158,157 @@ function PublicationListItem({
                         </span>
                     </button>
                 ) : null}
-                <PublicationRow due={due} publication={publication} timeZone={timeZone} />
-                {showManualAction ? (
-                    <div
-                        className={cn(
-                            'col-span-full flex justify-end px-3 pb-3',
-                            selectionEnabled && 'pl-9',
-                            'lg:col-auto lg:items-center lg:px-3 lg:py-3 lg:pl-0',
-                            selectionEnabled ? 'lg:[grid-column:3]' : 'lg:[grid-column:2]'
-                        )}>
-                        <Button
-                            data-publication-action="record-published"
-                            disabled={pending}
-                            onClick={() => void onPublish(publication.id)}
-                            size="sm"
-                            type="button"
-                            variant="secondary">
-                            <CheckSquareIcon aria-hidden="true" />
-                            {m.publication_record_published()}
-                        </Button>
-                    </div>
-                ) : null}
+                <PublicationRow
+                    action={
+                        showManualAction ? (
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            aria-label={m.publication_record_published()}
+                                            data-publication-action="record-published"
+                                            disabled={pending}
+                                            onClick={() => void onPublish(publication.id)}
+                                            size="icon-sm"
+                                            type="button"
+                                            variant="secondary">
+                                            <CheckSquareIcon aria-hidden="true" />
+                                        </Button>
+                                    }
+                                />
+                                <TooltipContent>{m.publication_record_published()}</TooltipContent>
+                            </Tooltip>
+                        ) : (
+                            <Button
+                                aria-label={editable ? m.common_edit() : m.common_view()}
+                                className="text-muted-foreground hover:text-foreground"
+                                nativeButton={false}
+                                render={
+                                    <Link
+                                        params={{
+                                            projectId: publication.projectId,
+                                            publicationId: publication.id,
+                                        }}
+                                        to="/dashboard/projects/$projectId/publications/$publicationId"
+                                    />
+                                }
+                                size="sm"
+                                variant="ghost">
+                                {editable ? (
+                                    <PenIcon aria-hidden="true" className="size-4" />
+                                ) : (
+                                    <EyeIcon aria-hidden="true" className="size-4" />
+                                )}
+                                <span>{editable ? m.common_edit() : m.common_view()}</span>
+                            </Button>
+                        )
+                    }
+                    due={due}
+                    publication={publication}
+                    timeZone={timeZone}
+                />
             </div>
         </div>
     )
 }
 
 export function PublicationRow({
+    action,
     due = false,
     publication,
     timeZone,
 }: {
+    readonly action?: ReactNode
     readonly due?: boolean
     readonly publication: PublicationSummary
     readonly timeZone: string
 }) {
     const { locale } = useLanguage()
-    const editable = canEditPublication(publication.state)
     return (
-        <Link
-            to="/dashboard/projects/$projectId/publications/$publicationId"
-            params={{ projectId: publication.projectId, publicationId: publication.id }}
-            data-publication-edit-link="true"
-            className="group grid min-w-0 gap-4 px-1 py-4 transition-[background-color] sm:px-3 lg:grid-cols-[minmax(11rem,0.8fr)_minmax(0,1.3fr)_auto] lg:items-center lg:gap-7">
-            <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">{m.publication_source_post()}</p>
-                <h3 className="mt-1 truncate text-sm font-medium">
-                    {publication.postTitle ?? m.publication_untitled_post()}
-                </h3>
-            </div>
-            <div className="min-w-0 pl-0 lg:pl-3">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    <span
-                        className={cn(
-                            'size-2 shrink-0 rounded-full bg-current',
-                            channelMarkerClass(
-                                publication.deliveryMode === 'automatic'
-                                    ? 'automatic'
-                                    : 'manual-message'
-                            )
-                        )}
-                        aria-hidden="true"
-                    />
-                    <span className="truncate text-sm font-medium">{publication.channelName}</span>
-                    {!due ? (
-                        <span className="text-xs text-muted-foreground">
-                            {publication.deliveryMode === 'automatic'
-                                ? m.publication_automatic()
-                                : m.publication_manual()}
-                        </span>
-                    ) : null}
-                    <PublicationStatus due={due} state={publication.state} />
+        <div
+            className={cn(
+                'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-2 py-3 sm:px-3',
+                action
+                    ? 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:gap-7'
+                    : 'lg:grid-cols-1'
+            )}>
+            <Link
+                to="/dashboard/projects/$projectId/publications/$publicationId"
+                params={{ projectId: publication.projectId, publicationId: publication.id }}
+                data-publication-edit-link="true"
+                className={cn(
+                    'group min-w-0',
+                    action
+                        ? 'lg:col-span-2 lg:grid lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)] lg:items-center lg:gap-7'
+                        : 'col-span-full'
+                )}>
+                <div className="min-w-0">
+                    <h3
+                        className="truncate text-sm font-medium"
+                        title={publication.postTitle ?? m.publication_untitled_post()}>
+                        {publication.postTitle ?? m.publication_untitled_post()}
+                    </h3>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                    {formatSchedule(publication.scheduledAt, timeZone, locale)}
-                    {publication.draftDiffersFromTarget
-                        ? ` · ${m.publication_draft_changes_pending()}`
-                        : ''}
-                </p>
-            </div>
-            <span className="hidden items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors group-hover:text-primary lg:flex">
-                {editable ? (
-                    <PenIcon aria-hidden="true" className="size-4" />
-                ) : (
-                    <EyeIcon aria-hidden="true" className="size-4" />
-                )}
-                <span>{editable ? m.common_edit() : m.common_view()}</span>
-            </span>
-        </Link>
+                <div className="min-w-0">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <span
+                            className={cn(
+                                'size-2 shrink-0 rounded-full bg-current',
+                                channelMarkerClass(
+                                    publication.deliveryMode === 'automatic'
+                                        ? 'automatic'
+                                        : 'manual-message'
+                                )
+                            )}
+                            aria-hidden="true"
+                        />
+                        <span
+                            className="truncate text-sm font-medium"
+                            title={publication.channelName}>
+                            {publication.channelName}
+                        </span>
+                        {due ? (
+                            <PublicationDueIndicator />
+                        ) : (
+                            <PublicationStatus state={publication.state} />
+                        )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        {formatSchedule(publication.scheduledAt, timeZone, locale)}
+                        {publication.draftDiffersFromTarget ? (
+                            <span className="text-state-attention">
+                                {' · '}
+                                {m.publication_draft_changes_pending()}
+                            </span>
+                        ) : null}
+                    </p>
+                </div>
+            </Link>
+            {action ? (
+                <div className="row-start-1 flex min-w-0 items-center justify-end lg:col-start-3">
+                    {action}
+                </div>
+            ) : null}
+        </div>
+    )
+}
+
+function PublicationDueIndicator() {
+    return (
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    <span
+                        aria-label={m.publication_due_manual()}
+                        className="inline-flex size-5 shrink-0 cursor-help items-center justify-center text-state-attention outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                        role="img"
+                        tabIndex={0}>
+                        <ClipboardCheckIcon aria-hidden="true" className="size-4" />
+                    </span>
+                }
+            />
+            <TooltipContent>{m.publication_due_manual()}</TooltipContent>
+        </Tooltip>
     )
 }
 

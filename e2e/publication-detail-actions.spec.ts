@@ -26,9 +26,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
 
     await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/publications/[^/]+$`))
     await expect(page.locator('[data-publication-action="cancel"]')).toBeVisible()
-    await expect(
-        page.getByRole('button', { name: 'Record as published', exact: true })
-    ).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Mark published', exact: true })).toHaveCount(0)
 
     await page.locator('[data-publication-action="cancel"]').click()
     await expect(

@@ -234,6 +234,7 @@ the central project reads and projection/realtime reliability.
 ## 🧭 Queue operational UX
 
 - [x] **[WEB-183]** Consolidate Queue around one filterable publication list `Priority: 🟠` `Complexity: M` — remove the duplicate attention surface, separate lifecycle filters from delivery mode, preserve due-work and bulk actions, and prove mixed-state responsive behavior with localized browser coverage.
+- [x] **[WEB-185]** Simplify Queue hierarchy and row actions `Priority: 🟠` `Complexity: M` — consolidate filters, selection, and list presentation into one readable control/list composition, expose global selection directly, and align concise per-publication actions across responsive layouts. Implemented with surface-based controls, compact count badges, direct global selection, icon-led due actions, and aligned publication row actions; targeted and full repository validation passed.
 
 ## 🧭 Publication lifecycle UX
 

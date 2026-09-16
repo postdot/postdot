@@ -358,7 +358,7 @@
     "publication_attention_description": "Vérifiez la destination et enregistrez le résultat avant de retirer ce travail de la file.",
     "publication_nothing_due": "Rien à traiter",
     "publication_manual_destination": "Destination manuelle — enregistrez le résultat une fois terminé.",
-    "publication_record_published": "Enregistrer comme publiée",
+    "publication_record_published": "Marquer publiée",
     "publication_retry_delivery": "Réessayer la livraison",
     "publication_cancel_title": "Annuler la publication ?",
     "publication_cancel_description": "Cette publication ne sera pas diffusée.",

@@ -64,9 +64,12 @@ test('keeps failed and ambiguous publications legible across queue and overview'
 
     const failedPublication = page.getByRole('link').filter({ hasText: failedTitle })
     const ambiguousPublication = page.getByRole('link').filter({ hasText: ambiguousTitle })
+    const ambiguousCard = page
+        .locator('[data-publication-selection-card="true"]')
+        .filter({ hasText: ambiguousTitle })
     await expect(failedPublication).toContainText('Failed')
     await expect(ambiguousPublication).toContainText('Needs review')
-    await expect(ambiguousPublication.getByText('View', { exact: true })).toBeVisible()
+    await expect(ambiguousCard.getByRole('button', { name: 'View', exact: true })).toBeVisible()
 
     await page.getByRole('tab', { name: 'Needs attention (2)', exact: true }).click()
     await expect(page.getByRole('link').filter({ hasText: failedTitle })).toBeVisible()

@@ -29,6 +29,7 @@ export function BulkActionBar({
     onToggleAll,
     selectedCount,
     selectionSummary,
+    showClearSelection = false,
     toggleAllLabel,
 }: {
     readonly actions?: readonly BulkAction[]
@@ -39,6 +40,7 @@ export function BulkActionBar({
     readonly onToggleAll?: () => void
     readonly selectedCount: number
     readonly selectionSummary: ReactNode
+    readonly showClearSelection?: boolean
     readonly toggleAllLabel?: string
 }) {
     return (
@@ -71,6 +73,17 @@ export function BulkActionBar({
                             {clearLabel}
                         </Button>
                     </ButtonGroup>
+                ) : null}
+                {showClearSelection ? (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={selectedCount === 0}
+                        data-bulk-clear-selection="true"
+                        onClick={onClear}>
+                        {clearLabel}
+                    </Button>
                 ) : null}
                 {actions?.map(action => (
                     <Button

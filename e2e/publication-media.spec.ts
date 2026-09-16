@@ -845,14 +845,19 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mixedPublicationId = mixedResult.publications[0]?.id
     if (mixedPublicationId === undefined) throw new Error('Expected a mixed publication')
     const mixedSelector = mixedResult.publications
-        .map(item => `a[href$="/publications/${item.id}"]`)
+        .map(item => `a[data-publication-edit-link="true"][href$="/publications/${item.id}"]`)
         .join(',')
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const mixedPublications = page.locator(mixedSelector)
     await expect(mixedPublications).toHaveCount(2)
     await expect(mixedPublications.first()).toHaveAttribute('data-publication-edit-link', 'true')
-    await expect(mixedPublications.first().getByText('Edit', { exact: true })).toBeVisible()
+    await expect(
+        page
+            .locator('[data-publication-selection-card="true"]')
+            .first()
+            .getByRole('button', { name: 'Edit', exact: true })
+    ).toBeVisible()
 
     await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
@@ -1100,7 +1105,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mediaOnlyResult = (await (await mediaOnlyResponse).json()) as {
         publications: { id: string }[]
     }
-    const mediaOnlySelector = `a[href$="/publications/${mediaOnlyResult.publications[0]!.id}"]`
+    const mediaOnlySelector = `a[data-publication-edit-link="true"][href$="/publications/${mediaOnlyResult.publications[0]!.id}"]`
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const mediaOnlyPublication = page.locator(mediaOnlySelector).first()
@@ -1187,7 +1192,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByText(editedCalendarSource, { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
-    await expect(page.locator(`a[href$="/publications/${mixedPublicationId}"]`)).toBeVisible()
+    await expect(
+        page.locator(
+            `a[data-publication-edit-link="true"][href$="/publications/${mixedPublicationId}"]`
+        )
+    ).toBeVisible()
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
     await expect(

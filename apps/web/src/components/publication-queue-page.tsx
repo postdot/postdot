@@ -1,3 +1,4 @@
+import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
 import {
     Select,
@@ -8,6 +9,7 @@ import {
 } from '@herald/ui/components/select'
 import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
 import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
+import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 import { Link } from '@tanstack/react-router'
@@ -17,7 +19,6 @@ import { useEffect, useState } from 'react'
 import { BulkActionBar } from '@/components/bulk-action-bar'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
-import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
@@ -175,56 +176,74 @@ export function PublicationQueuePage({
                 </p>
             </DashboardPageHeader>
 
-            <Tabs
-                aria-label={m.queue_filters()}
-                className="mt-6"
-                value={filter === 'manual' ? null : filter}
-                onValueChange={value => {
-                    if (!isQueueFilter(value)) return
-                    if (value === 'manual') return
-                    changeFilter(value)
-                }}>
-                <TabsList
-                    className="!h-auto min-h-8 w-full max-w-full justify-start overflow-x-auto [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:shrink-0"
-                    variant="line">
-                    <TabsTrigger
-                        aria-label={m.queue_filter_aria({
-                            label: m.queue_all(),
-                            count: totalCount,
-                        })}
-                        value="all">
-                        {m.queue_all()} ({formatNumber(totalCount, locale)})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        aria-label={m.queue_filter_aria({
-                            label: m.queue_attention(),
-                            count: filterCounts.attention,
-                        })}
-                        value="attention">
-                        <span className="sm:hidden">{m.queue_attention()}</span>
-                        <span className="hidden sm:inline">{m.queue_attention()}</span> (
-                        {formatNumber(filterCounts.attention, locale)})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        aria-label={m.queue_filter_aria({
-                            label: m.queue_scheduled(),
-                            count: filterCounts.scheduled,
-                        })}
-                        value="scheduled">
-                        {m.queue_scheduled()} ({formatNumber(filterCounts.scheduled, locale)})
-                    </TabsTrigger>
-                    <TabsTrigger
-                        aria-label={m.queue_filter_aria({
-                            label: m.queue_drafts(),
-                            count: filterCounts.draft,
-                        })}
-                        value="draft">
-                        {m.queue_drafts()} ({formatNumber(filterCounts.draft, locale)})
-                    </TabsTrigger>
-                </TabsList>
-            </Tabs>
+            <div className="mt-5 flex flex-wrap items-center gap-2" data-queue-controls="true">
+                <Tabs
+                    aria-label={m.queue_filters()}
+                    className="min-w-0 flex-1"
+                    value={filter === 'manual' ? null : filter}
+                    onValueChange={value => {
+                        if (!isQueueFilter(value)) return
+                        if (value === 'manual') return
+                        changeFilter(value)
+                    }}>
+                    <TabsList
+                        className="!h-auto min-h-8 max-w-full justify-start overflow-x-auto bg-surface-inset/70 p-1 shadow-surface [&>[data-slot=tabs-trigger]]:flex-none [&>[data-slot=tabs-trigger]]:shrink-0"
+                        variant="default">
+                        <TabsTrigger
+                            aria-label={m.queue_filter_aria({
+                                label: m.queue_all(),
+                                count: totalCount,
+                            })}
+                            value="all">
+                            {m.queue_all()}
+                            <Badge
+                                className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
+                                variant="secondary">
+                                {formatNumber(totalCount, locale)}
+                            </Badge>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            aria-label={m.queue_filter_aria({
+                                label: m.queue_attention(),
+                                count: filterCounts.attention,
+                            })}
+                            value="attention">
+                            {m.queue_attention()}
+                            <Badge
+                                className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
+                                variant="secondary">
+                                {formatNumber(filterCounts.attention, locale)}
+                            </Badge>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            aria-label={m.queue_filter_aria({
+                                label: m.queue_scheduled(),
+                                count: filterCounts.scheduled,
+                            })}
+                            value="scheduled">
+                            {m.queue_scheduled()}
+                            <Badge
+                                className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
+                                variant="secondary">
+                                {formatNumber(filterCounts.scheduled, locale)}
+                            </Badge>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            aria-label={m.queue_filter_aria({
+                                label: m.queue_drafts(),
+                                count: filterCounts.draft,
+                            })}
+                            value="draft">
+                            {m.queue_drafts()}
+                            <Badge
+                                className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
+                                variant="secondary">
+                                {formatNumber(filterCounts.draft, locale)}
+                            </Badge>
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Select
                     value={filter === 'manual' ? 'manual' : 'all'}
                     onValueChange={value => {
@@ -233,21 +252,18 @@ export function PublicationQueuePage({
                     }}>
                     <SelectTrigger
                         aria-label={m.queue_delivery_filter()}
-                        className="w-fit min-w-40"
+                        className="w-fit min-w-32"
                         data-queue-delivery-filter="true"
                         size="sm">
                         <SelectValue>
                             {filter === 'manual'
-                                ? `${m.queue_manual_delivery_mode()} (${formatNumber(filterCounts.manual, locale)})`
+                                ? m.queue_manual_delivery_mode()
                                 : m.queue_all_delivery_modes()}
                         </SelectValue>
                     </SelectTrigger>
                     <SelectContent align="start">
                         <SelectItem value="all">{m.queue_all_delivery_modes()}</SelectItem>
-                        <SelectItem value="manual">
-                            {m.queue_manual_delivery_mode()} (
-                            {formatNumber(filterCounts.manual, locale)})
-                        </SelectItem>
+                        <SelectItem value="manual">{m.queue_manual_delivery_mode()}</SelectItem>
                     </SelectContent>
                 </Select>
 
@@ -271,10 +287,29 @@ export function PublicationQueuePage({
                         tags={projectTags}
                     />
                 ) : null}
+
+                <Button
+                    aria-label={
+                        allVisibleSelected
+                            ? m.queue_clear_selection()
+                            : m.queue_select_all_visible()
+                    }
+                    aria-pressed={allVisibleSelected}
+                    data-queue-select-all="true"
+                    disabled={visiblePublications.length === 0 || pending}
+                    onClick={toggleAllVisiblePublications}
+                    size="sm"
+                    variant="ghost">
+                    <CheckSquareIcon aria-hidden="true" />
+                    <span className="hidden sm:inline">
+                        {allVisibleSelected
+                            ? m.queue_clear_selection()
+                            : m.queue_select_all_visible()}
+                    </span>
+                </Button>
             </div>
 
             <section className="mt-8 min-w-0" data-queue-publication-list="true">
-                <DashboardSectionHeading title={queueListTitle(filter)} />
                 {selectedCount > 0 ? (
                     <div className="mt-3">
                         <BulkActionBar
@@ -301,12 +336,11 @@ export function PublicationQueuePage({
                             ariaLabel={m.queue_bulk_actions()}
                             clearLabel={m.queue_clear_selection()}
                             onClear={clearPublicationSelection}
-                            onToggleAll={toggleAllVisiblePublications}
                             selectedCount={selectedCount}
                             selectionSummary={m.queue_selected_publications({
                                 count: selectedCount,
                             })}
-                            toggleAllLabel={m.queue_select_all_visible()}
+                            showClearSelection={!allVisibleSelected}
                         />
                     </div>
                 ) : null}
@@ -399,12 +433,4 @@ function queueEmptyTitle(filter: QueueFilter) {
     if (filter === 'scheduled') return m.queue_no_scheduled_title()
     if (filter === 'manual') return m.queue_no_manual_title()
     return m.queue_no_publications()
-}
-
-function queueListTitle(filter: QueueFilter) {
-    if (filter === 'attention') return m.queue_attention()
-    if (filter === 'draft') return m.queue_drafts()
-    if (filter === 'scheduled') return m.queue_scheduled()
-    if (filter === 'manual') return m.queue_manual_delivery_mode()
-    return m.queue_publications()
 }

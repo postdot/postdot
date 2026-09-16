@@ -120,7 +120,9 @@ test('refreshes an open publication editor after a worker state change', async (
     if (publicationId === undefined) throw new Error('Expected a created publication')
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
-    const publicationLink = page.locator(`a[href$="/publications/${publicationId}"]`)
+    const publicationLink = page.locator(
+        `a[data-publication-edit-link="true"][href$="/publications/${publicationId}"]`
+    )
     await expect(publicationLink).toBeVisible()
 
     let editorRequestCount = 0
