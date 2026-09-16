@@ -127,15 +127,35 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     const selectionToggles = page.locator('[data-publication-selection-toggle="true"]')
     await expect(selectionToggles).toHaveCount(3)
+    const queueBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
+    await expect(queueBulkActionBar).toBeVisible()
+    await expect(
+        queueBulkActionBar.getByRole('button', { name: 'Reschedule', exact: true })
+    ).toHaveCount(0)
+    const publicationTable = page.locator('[data-publication-table-header="true"]')
+    const initialTableTop = await publicationTable.evaluate(
+        element => element.getBoundingClientRect().top
+    )
     const selectAllControl = page.locator('[data-queue-select-all="true"]')
     const selectAllCheckbox = selectAllControl.locator('input[type="checkbox"]')
     await expect(selectAllControl).toBeVisible()
     await selectAllControl.click()
     await expect(page.locator('[data-publication-selection-active="true"]')).toHaveCount(3)
     await expect(selectAllCheckbox).toBeChecked()
+    await expect
+        .poll(async () => {
+            const tableTop = await publicationTable.evaluate(
+                element => element.getBoundingClientRect().top
+            )
+            return Math.abs(tableTop - initialTableTop)
+        })
+        .toBeLessThanOrEqual(1)
     await selectAllControl.click()
     await expect(page.locator('[data-publication-selection-active="true"]')).toHaveCount(0)
     await expect(selectAllCheckbox).not.toBeChecked()
+    await expect(
+        queueBulkActionBar.getByRole('button', { name: 'Reschedule', exact: true })
+    ).toHaveCount(0)
 
     await selectionToggles.nth(0).click()
     await selectionToggles.nth(1).click()
@@ -161,7 +181,10 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
             publicationIds: [firstPublication.id, secondPublication.id],
             scheduledAt: expect.any(Number),
         })
-    await expect(page.locator('[data-bulk-action-bar="true"]')).toHaveCount(0)
+    await expect(queueBulkActionBar).toBeVisible()
+    await expect(
+        queueBulkActionBar.getByRole('button', { name: 'Reschedule', exact: true })
+    ).toHaveCount(0)
 
     await selectionToggles.nth(0).click()
     const cancelButton = page.getByRole('button', { name: 'Cancel', exact: true })
@@ -177,7 +200,10 @@ test('reschedules and cancels selected publications from Queue', async ({ page }
         .toEqual({
             publicationIds: [firstPublication.id],
         })
-    await expect(page.locator('[data-bulk-action-bar="true"]')).toHaveCount(0)
+    await expect(queueBulkActionBar).toBeVisible()
+    await expect(
+        queueBulkActionBar.getByRole('button', { name: 'Reschedule', exact: true })
+    ).toHaveCount(0)
 })
 
 function publicationFixture(input: {

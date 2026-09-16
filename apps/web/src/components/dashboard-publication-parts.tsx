@@ -191,7 +191,7 @@ function PublicationListItem({
             data-publication-selection-active={selected || undefined}
             className={cn(
                 'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55',
-                selected && 'bg-primary/[0.07] shadow-[inset_3px_0_0_var(--primary)]'
+                selected && 'bg-primary/[0.07]'
             )}>
             <div
                 className={cn(

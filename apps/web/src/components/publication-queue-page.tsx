@@ -244,86 +244,90 @@ export function PublicationQueuePage({
                 </Tabs>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Select
-                    value={filter === 'manual' ? 'manual' : 'all'}
-                    onValueChange={value => {
-                        if (value === 'manual') changeFilter('manual')
-                        else if (value === 'all') changeFilter('all')
-                    }}>
-                    <SelectTrigger
-                        aria-label={m.queue_delivery_filter()}
-                        className="w-fit min-w-32"
-                        data-queue-delivery-filter="true"
-                        size="sm">
-                        <SelectValue>
-                            {filter === 'manual'
-                                ? m.queue_manual_delivery_mode()
-                                : m.queue_all_delivery_modes()}
-                        </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent align="start">
-                        <SelectItem value="all">{m.queue_all_delivery_modes()}</SelectItem>
-                        <SelectItem value="manual">{m.queue_manual_delivery_mode()}</SelectItem>
-                    </SelectContent>
-                </Select>
+            <BulkActionBar
+                actions={[
+                    {
+                        disabled: !canRescheduleSelection,
+                        disabledReason: m.queue_reschedule_only_scheduled(),
+                        icon: <CalendarAddIcon aria-hidden="true" />,
+                        id: 'reschedule',
+                        label: m.queue_reschedule(),
+                        onSelect: () => setScheduleDialogOpen(true),
+                    },
+                    {
+                        disabled: !canCancelSelection,
+                        disabledReason: m.queue_cancel_only_scheduled(),
+                        icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
+                        id: 'cancel',
+                        label: m.queue_cancel(),
+                        onSelect: () => setCancelDialogOpen(true),
+                        variant: 'destructive',
+                    },
+                ]}
+                ariaLabel={selectedCount > 0 ? m.queue_bulk_actions() : m.queue_delivery_filter()}
+                className="mt-3 min-h-11 px-2 py-1.5 sm:px-3"
+                clearLabel={m.queue_clear_selection()}
+                leadingContent={
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <Select
+                            value={filter === 'manual' ? 'manual' : 'all'}
+                            onValueChange={value => {
+                                if (value === 'manual') changeFilter('manual')
+                                else if (value === 'all') changeFilter('all')
+                            }}>
+                            <SelectTrigger
+                                aria-label={m.queue_delivery_filter()}
+                                className="w-fit min-w-32"
+                                data-queue-delivery-filter="true"
+                                size="sm">
+                                <SelectValue>
+                                    {filter === 'manual'
+                                        ? m.queue_manual_delivery_mode()
+                                        : m.queue_all_delivery_modes()}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                                <SelectItem value="all">{m.queue_all_delivery_modes()}</SelectItem>
+                                <SelectItem value="manual">
+                                    {m.queue_manual_delivery_mode()}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
 
-                {projectTags.length > 0 ? (
-                    <PublicationTagPicker
-                        ariaLabel={m.taxonomy_filter_tags()}
-                        emptyLabel={m.taxonomy_no_tags()}
-                        label={m.taxonomy_filter_tags()}
-                        onChange={nextTagIds => {
-                            setTagIds(nextTagIds)
-                            clearPublicationSelection()
-                            void navigate({
-                                search: current => ({
-                                    ...current,
-                                    tagIds: nextTagIds.length > 0 ? nextTagIds : undefined,
-                                }),
-                            })
-                        }}
-                        selectedTagIds={tagIds}
-                        selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                        tags={projectTags}
-                    />
-                ) : null}
-            </div>
-
-            <section className="mt-6 min-w-0" data-queue-publication-list="true">
-                {selectedCount > 0 ? (
-                    <div className="mt-3">
-                        <BulkActionBar
-                            actions={[
-                                {
-                                    disabled: !canRescheduleSelection,
-                                    disabledReason: m.queue_reschedule_only_scheduled(),
-                                    icon: <CalendarAddIcon aria-hidden="true" />,
-                                    id: 'reschedule',
-                                    label: m.queue_reschedule(),
-                                    onSelect: () => setScheduleDialogOpen(true),
-                                },
-                                {
-                                    disabled: !canCancelSelection,
-                                    disabledReason: m.queue_cancel_only_scheduled(),
-                                    icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
-                                    id: 'cancel',
-                                    label: m.queue_cancel(),
-                                    onSelect: () => setCancelDialogOpen(true),
-                                    variant: 'destructive',
-                                },
-                            ]}
-                            ariaLabel={m.queue_bulk_actions()}
-                            clearLabel={m.queue_clear_selection()}
-                            onClear={clearPublicationSelection}
-                            selectedCount={selectedCount}
-                            selectionSummary={m.queue_selected_publications({
-                                count: selectedCount,
-                            })}
-                            showClearSelection={!allVisibleSelected}
-                        />
+                        {projectTags.length > 0 ? (
+                            <PublicationTagPicker
+                                ariaLabel={m.taxonomy_filter_tags()}
+                                emptyLabel={m.taxonomy_no_tags()}
+                                label={m.taxonomy_filter_tags()}
+                                onChange={nextTagIds => {
+                                    setTagIds(nextTagIds)
+                                    clearPublicationSelection()
+                                    void navigate({
+                                        search: current => ({
+                                            ...current,
+                                            tagIds: nextTagIds.length > 0 ? nextTagIds : undefined,
+                                        }),
+                                    })
+                                }}
+                                selectedTagIds={tagIds}
+                                selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                                tags={projectTags}
+                            />
+                        ) : null}
                     </div>
-                ) : null}
+                }
+                onClear={clearPublicationSelection}
+                selectedCount={selectedCount}
+                selectionSummary={
+                    selectedCount > 0
+                        ? m.queue_selected_publications({ count: selectedCount })
+                        : null
+                }
+                showActions={selectedCount > 0}
+                showClearSelection={!allVisibleSelected}
+            />
+
+            <section className="min-w-0" data-queue-publication-list="true">
                 <PublicationList
                     emptyAction={
                         filter === 'all' ? (
