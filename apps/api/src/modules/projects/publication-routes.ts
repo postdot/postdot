@@ -10,6 +10,8 @@ import {
     publicationParams,
     publicationEditorStateSchema,
     publicationListQuery,
+    publicationComposerDraftResponseSchema,
+    publicationComposerDraftSchema,
     publicationSchema,
     publicationSummaryPageSchema,
     parsePublicationTagFilter,
@@ -18,8 +20,11 @@ import {
     promotePublicationDraftBody,
     rebasePublicationDraftBody,
     cancelPublicationsBody,
+    deleteDraftPublicationResponseSchema,
+    duplicateDraftPublicationResponseSchema,
     reschedulePublicationsBody,
     savePublicationDraftBody,
+    savePublicationComposerDraftBody,
 } from './models'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
@@ -34,6 +39,123 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
     options: PublicationRouteOptions = {}
 ) {
     return app
+        .get(
+            '/api/projects/:projectId/publication-composer-draft',
+            {
+                auth: true,
+                params: projectParams,
+                response: {
+                    200: publicationComposerDraftResponseSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'getPublicationComposerDraft',
+                    summary: 'Read the current durable recovery point for a new publication',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'viewer',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                return { draft: manualStore.getPublicationComposerDraft(params.projectId, user.id) }
+            }
+        )
+        .put(
+            '/api/projects/:projectId/publication-composer-draft',
+            {
+                auth: true,
+                body: savePublicationComposerDraftBody,
+                params: projectParams,
+                response: {
+                    200: Type.Object({ draft: publicationComposerDraftSchema }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'savePublicationComposerDraft',
+                    summary: 'Persist the new-publication composer recovery point',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+                const draft = manualStore.savePublicationComposerDraft({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                    expectedRevision: body.expectedRevision,
+                    content: body.content,
+                })
+                if (draft === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                return { draft }
+            }
+        )
+        .delete(
+            '/api/projects/:projectId/publication-composer-draft',
+            {
+                auth: true,
+                params: projectParams,
+                response: {
+                    200: Type.Object({ deleted: Type.Boolean() }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'deletePublicationComposerDraft',
+                    summary: 'Discard the new-publication composer recovery point',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+                const deleted = manualStore.deletePublicationComposerDraft({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                })
+                return { deleted }
+            }
+        )
         .get(
             '/api/projects/:projectId/publications',
             {
@@ -60,6 +182,8 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     filter: parsePublicationTagFilter(query.tagIds),
                     from: query.from,
                     limit: query.limit,
+                    sort: query.sort,
+                    state: query.state,
                     to: query.to,
                 })
                 if (page === null) {
@@ -194,6 +318,110 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
 
                 options.onWorkScheduled?.()
                 return { publications }
+            }
+        )
+        .delete(
+            '/api/projects/:projectId/publications/:publicationId',
+            {
+                auth: true,
+                params: publicationParams,
+                response: {
+                    200: deleteDraftPublicationResponseSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'deleteDraftPublication',
+                    summary: 'Delete a publication that is still a draft',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const result = manualStore.deleteDraftPublication({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                })
+                if (result.kind === 'not_found') {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+                if (result.kind === 'not_draft') {
+                    return status(409, {
+                        error: {
+                            code: 'invalid_transition',
+                            message: 'Only draft publications can be deleted',
+                        },
+                    })
+                }
+                return { deleted: true, postDeleted: result.postDeleted }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/duplicate',
+            {
+                auth: true,
+                params: publicationParams,
+                response: {
+                    201: duplicateDraftPublicationResponseSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'duplicateDraftPublication',
+                    summary: 'Create an independent copy of a draft publication',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const result = manualStore.duplicateDraftPublication({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                })
+                if (result.kind === 'not_found') {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+                if (result.kind === 'not_draft') {
+                    return status(409, {
+                        error: {
+                            code: 'invalid_transition',
+                            message: 'Only draft publications can be duplicated',
+                        },
+                    })
+                }
+                return status(201, { post: result.post, publication: result.publication })
             }
         )
         .get(
@@ -461,6 +689,64 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     })
                 }
                 return { publication }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/retry',
+            {
+                auth: true,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ publication: publicationSchema }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                },
+                detail: {
+                    operationId: 'retryFailedPublication',
+                    summary: 'Requeue a failed automatic publication using its current target',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const result = manualStore.retryFailedPublication({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                })
+                if (result.kind === 'not_found') {
+                    return status(404, {
+                        error: {
+                            code: 'not_found',
+                            message: 'Publication not found',
+                        },
+                    })
+                }
+                if (result.kind === 'not_retryable') {
+                    return status(409, {
+                        error: {
+                            code: 'invalid_transition',
+                            message:
+                                'Only a failed automatic publication with a failed delivery job can be retried',
+                        },
+                    })
+                }
+
+                options.onWorkScheduled?.()
+                return { publication: result.publication }
             }
         )
         .post(

@@ -52,7 +52,7 @@ function createFixture(devtoFetcher?: DevtoFetcher) {
         notifications,
         ...(devtoFetcher === undefined ? {} : { devtoFetcher }),
     })
-    return { app, database }
+    return { app, database, publisher }
 }
 
 async function signUp(app: ReturnType<typeof createApp>, email: string) {
@@ -159,6 +159,50 @@ describe('DEV.to publisher connection routes', () => {
 
             expect(response.status).toBe(400)
             expect(await response.json()).toMatchObject({ error: { code: 'invalid_api_key' } })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('reconnects a channel after its credential requires reconnection', async () => {
+        const devto = createDevtoFetcher([
+            jsonResponse({ id: 42, username: 'herald', name: 'Herald' }),
+            jsonResponse({ id: 42, username: 'herald', name: 'Herald' }),
+        ])
+        const { app, database, publisher } = createFixture(devto.fetcher)
+
+        try {
+            const cookie = await signUp(app, 'devto-reconnect@herald.local')
+            const { projectId, channelId } = await createDevtoChannel(app, cookie)
+            const initial = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/channels/${channelId}/publisher/devto/connect`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({ apiKey }) }
+            )
+            expect(initial.status).toBe(200)
+            const initialBody = (await initial.json()) as {
+                connection: { credentialId: string }
+            }
+
+            publisher.credentialStore.markPublisherCredentialReconnectRequired(
+                projectId,
+                initialBody.connection.credentialId
+            )
+
+            const reconnected = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/channels/${channelId}/publisher/devto/connect`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({ apiKey }) }
+            )
+            expect(reconnected.status).toBe(200)
+            expect(await reconnected.json()).toMatchObject({
+                connection: {
+                    kind: 'devto',
+                    state: 'active',
+                },
+            })
         } finally {
             closeDatabase(database)
         }

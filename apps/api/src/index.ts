@@ -62,7 +62,6 @@ export type {
 } from './modules/media/routes'
 export type {
     AuditEventResponse,
-    CreatedProjectAccessTokenResponse,
     ChannelResponse,
     ChannelProfileActivationResponse,
     ChannelProfileAssessmentResponse,
@@ -75,8 +74,6 @@ export type {
     PublicationEditorStateResponse,
     PublisherConnectionResponse,
     PublisherConnectionsResponse,
-    ProjectAccessTokenResponse,
-    ProjectAccessTokensResponse,
     ProjectResponse,
     PublicationResponse,
     PublicationSummaryResponse,
@@ -136,13 +133,13 @@ async function startServerWithRuntimeLock(
     const email = createHeraldAuthEmailDelivery({
         smtp: config.email?.smtp,
         webOrigin: config.web.origin,
-        getProjectIdForOrganization: organizationId =>
-            access.getProjectIdForOrganization(organizationId),
         onDeliveryError: (kind, error) => {
             const message = error instanceof Error ? error.message : 'unknown transport error'
             console.error(`[herald-email] ${kind} delivery failed: ${message}`)
         },
     })
+    const allowAdditionalSignups =
+        config.environment === 'test' && Bun.env.HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true'
     const auth = createAuth(database, {
         baseURL: config.auth.baseURL,
         secret: config.auth.secret,
@@ -150,8 +147,7 @@ async function startServerWithRuntimeLock(
         requireEmailVerificationOnInvitation: config.auth.requireEmailVerificationOnInvitation,
         ...email,
         access,
-        allowAdditionalSignups:
-            Bun.env.NODE_ENV === 'test' && Bun.env.HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS === 'true',
+        allowAdditionalSignups,
     })
     const mastodonFetcher = createNetworkControlledFetcher({
         privateDestinations: config.network.privateDestinations,
@@ -228,6 +224,7 @@ async function startServerWithRuntimeLock(
         logging: config.logging,
         onWorkScheduled: worker.replan,
         access,
+        allowAdditionalSignups,
         notifications,
         projectChanges: realtime.hub,
         userChanges: realtime.userHub,

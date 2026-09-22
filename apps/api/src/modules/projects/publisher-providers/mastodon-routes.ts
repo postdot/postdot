@@ -11,6 +11,7 @@ import {
     createAuthorizationRequest,
     digestAuthorizationState,
     exchangeAuthorizationCode,
+    isAuthorizationDeniedError,
     validateAuthorizationResponse,
     type OAuthAuthorizationServer,
 } from '@herald/oauth'
@@ -21,6 +22,7 @@ import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth
 import type { PublisherRuntime } from '../../publishers/runtime'
 import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { errorResponse, mastodonConnectionBody, mastodonConnectionSchema } from '../models'
+import { publisherChannelsReturnPath } from './publisher-redirect'
 
 interface MastodonAuthorizationState {
     readonly version: 1
@@ -94,7 +96,12 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                     })
                 }
 
-                if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+                const existingConnection = publisherStore.getPublisherConnection(
+                    params.projectId,
+                    params.channelId,
+                    user.id
+                )
+                if (existingConnection?.state === 'active') {
                     return status(409, {
                         error: {
                             code: 'publisher_exists',
@@ -172,7 +179,7 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                         providerId: MASTODON_PROVIDER,
                         callbackUri,
                         scopes: authorization.scopes,
-                        returnPath: '/dashboard',
+                        returnPath: publisherChannelsReturnPath(params.projectId, params.channelId),
                         stateDigest: await digestAuthorizationState(authorization.state),
                         codeVerifier: authorization.codeVerifier,
                         providerState: serializeAuthorizationState({
@@ -358,7 +365,17 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                         )
                     }
 
-                    const credential = await credentialStore.createPublisherCredential({
+                    const existingConnection = publisherStore.getPublisherConnection(
+                        consumed.attempt.projectId,
+                        consumed.attempt.channelId,
+                        user.id
+                    )
+                    const replaceNonActiveConnection =
+                        existingConnection === null || existingConnection.state === 'active'
+                            ? undefined
+                            : { id: existingConnection.id, state: existingConnection.state }
+
+                    const savedCredential = await credentialStore.createPublisherCredential({
                         projectId: consumed.attempt.projectId,
                         connectedByActorId: consumed.attempt.connectedByActorId,
                         providerId: MASTODON_PROVIDER,
@@ -370,7 +387,29 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                         providerSession: serializeAuthorizationState(authorizationState),
                         expiresAt: tokenExpiry(tokenSet.expiresInSeconds, publisher.now()),
                     })
-                    if (credential.kind !== 'created') {
+                    let credentialId: string
+                    if (savedCredential.kind === 'created') {
+                        credentialId = savedCredential.credential.id
+                    } else if (savedCredential.kind === 'already_exists') {
+                        const replaced = await credentialStore.replacePublisherCredentialTokens({
+                            projectId: consumed.attempt.projectId,
+                            credentialId: savedCredential.credential.id,
+                            scopes: [...(tokenSet.scopes ?? consumed.attempt.scopes)],
+                            accessToken: tokenSet.accessToken,
+                            refreshToken: tokenSet.refreshToken,
+                            providerSession: serializeAuthorizationState(authorizationState),
+                            expiresAt: tokenExpiry(tokenSet.expiresInSeconds, publisher.now()),
+                        })
+                        if (replaced.kind === 'updated') {
+                            credentialId = replaced.credential.id
+                        } else {
+                            return redirectMastodonPublisher(
+                                publisher.webOrigin,
+                                consumed.attempt.returnPath,
+                                'provider_unavailable'
+                            )
+                        }
+                    } else {
                         return redirectMastodonPublisher(
                             publisher.webOrigin,
                             consumed.attempt.returnPath,
@@ -383,13 +422,14 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                         channelId: consumed.attempt.channelId,
                         subjectId: user.id,
                         kind: MASTODON_PROVIDER,
-                        credentialId: credential.credential.id,
+                        credentialId,
                         endpointUrl: authorizationState.instanceUrl,
                         destination: {
                             type: 'account',
                             id: account.value.id,
                             name: account.value.acct,
                         },
+                        replaceNonActiveConnection,
                     })
                     if (connection.kind !== 'created') {
                         return redirectMastodonPublisher(
@@ -410,6 +450,13 @@ export function registerMastodonPublisherRoutes<const Routes extends Record<stri
                         'connected'
                     )
                 } catch (error) {
+                    if (isAuthorizationDeniedError(error)) {
+                        return redirectMastodonPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            'authorization_denied'
+                        )
+                    }
                     logMastodonFlowError(
                         options.logger,
                         {
@@ -508,6 +555,7 @@ function redirectMastodonPublisher(
     result:
         | 'connected'
         | 'already_used'
+        | 'authorization_denied'
         | 'invalid_callback'
         | 'provider_unavailable'
         | 'publisher_exists'

@@ -295,16 +295,14 @@ exists` error. At the same time, the Vite development proxy always targets port
   model, including attributable machine access where required, without coupling
   project ownership or publisher credentials to Better Auth account rows.
 - Tasks: ACCESS-14 (completed)
-- Resolution: Better Auth now owns global user administration, project organizations,
-  project membership/invitations, and new organization-owned API keys with bounded
-  expiry. Herald keeps the instance membership boundary, actor attribution, publisher
-  credentials, and a compatibility projection. New keys use `herald_pat_`, carry a
-  verified project binding, and are managed through guarded Herald routes. ACCESS-133
-  now provides the offline report and backup-gated cutover that revokes legacy
-  `herald_pat_v1_` tokens and old project invitation links; physical cleanup remains
-  explicitly tracked by ACCESS-135.
-  Machine tokens use ordinary project operations but cannot create projects, manage
-  tokens, or start interactive publisher OAuth flows.
+- Resolution: Better Auth now owns global user administration, project
+  membership/invitations, and user-owned API keys with bounded expiry. Herald keeps
+  the instance membership boundary, actor attribution, publisher credentials, and
+  the project-grant projection. New keys use `herald_pat_`, authenticate as their
+  creating user, and optionally narrow that user's current project access. API-key
+  management is session-only; bearer keys cannot create, list, update, or revoke
+  keys. Project-token routes, storage, and compatibility facades are removed from
+  the private development baseline.
 - Decision: [ADR-030](decisions/ADR-030-project-scoped-machine-access.md),
   [ADR-063](decisions/ADR-063-adopt-better-auth-access-plugins.md)
 - Verification: Database and API integration tests cover secret handling,
@@ -757,30 +755,30 @@ exists` error. At the same time, the Vite development proxy always targets port
   secret segment. The API, database connection boundary, transport, response
   schema, UI, and redaction tests now fail closed around this contract.
 
-## [ISSUE-032] Expose project machine access through supported operator clients
+## [ISSUE-032] Expose user-owned API-key access through supported operator clients
 
 - Type: problem
 - Status: resolved
-- Evidence: Project-scoped bearer-token storage, authentication, OpenAPI routes,
-  revocation, actor attribution, and operator-client integration are implemented.
-  The typed client accepts project bearer tokens, the CLI supports ordinary
-  bearer-authenticated operations and human-session token management, and the
-  authenticated dashboard exposes the same token lifecycle.
-- Impact: Operators cannot use the accepted project-token boundary conveniently
-  from the supported web and CLI surfaces, which limits unattended scripts and
-  agents and encourages session-cookie workarounds.
+- Evidence: User-owned API-key storage, authentication, OpenAPI routes, revocation,
+  owner attribution, and operator-client integration are implemented. The typed
+  client accepts a user API key, the CLI supports ordinary bearer-authenticated
+  operations and human-session key management, and the authenticated dashboard
+  exposes the same user-key lifecycle.
+- Impact: Operators need one external credential representing their Herald account,
+  with optional project narrowing, rather than a separate credential per project.
 - Desired outcome: Supported operator clients can create, display once, list, and
-  revoke project-scoped tokens through the existing human-only management
-  boundary, while ordinary project operations accept the bearer token and keep
-  plaintext secrets out of logs and persistent state.
+  revoke user-owned keys through the existing human-only management boundary,
+  while ordinary project operations accept the bearer key and keep plaintext
+  secrets out of logs and persistent state.
 - Tasks: ACCESS-68
 - Resolution: `@herald/client`, the supported CLI, and the authenticated web
-  application now cover project token creation, one-time display, metadata
-  listing, and revocation. Ordinary client and CLI project operations can send
-  the project bearer token; token management deliberately uses a human session.
+  application now cover user-key creation, one-time display, metadata listing,
+  and revocation. Ordinary client and CLI project operations can send the user
+  bearer key; key management deliberately uses a human session. A key can cover
+  all projects the owner can access or an explicit selected subset.
   The plaintext value remains in process/UI memory only after creation and is
   never returned by metadata operations or written to persistent state.
-- Related decision: ADR-030
+- Related decision: [ADR-075](decisions/ADR-075-user-owned-api-keys.md)
 - Verification: Client, CLI, database, and API integration tests cover bearer
   propagation, human-only management, one-time secret handling, metadata
   redaction, and project isolation. The browser E2E flow creates a disposable
@@ -1830,9 +1828,9 @@ channels` with a foreign-key constraint error even though a fresh empty database
   about, keep untested authorization branches alive, and force every future schema
   change to carry an unnecessary historical migration chain.
 - Desired outcome: The current codebase starts from one generated Drizzle baseline,
-  uses Better Auth Organization members/invitations/API keys as the project access
-  authority, and keeps only the Herald-owned instance boundary and actor projection
-  that have independent domain meaning.
+  uses Better Auth Organization members/invitations for project access and user-owned
+  API keys for external callers, and keeps only the Herald-owned instance boundary
+  and actor projection that have independent domain meaning.
 - Tasks: ACCESS-133, ACCESS-135
 - Related decisions: [ADR-064](decisions/ADR-064-clean-development-access-baseline.md)
 - Resolution: The old project access tables, legacy project bearer-token store,
@@ -1868,7 +1866,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   403 without side effects while editors and owners retain their capabilities.
   Owner-only membership, project-setting, and API-key operations remain explicit
   human-session boundaries. The lifecycle integration test covers viewer denial,
-  editor success, removed access, and project-token restrictions.
+  editor success, removed access, and user-API-key restrictions.
 
 ## [ISSUE-069] End or reauthorize project event streams after access revocation
 
@@ -2982,3 +2980,299 @@ channels` with a foreign-key constraint error even though a fresh empty database
   categories and deletion outcomes, upload constraints, and test/measurement
   targets. The contract identifies which decisions are product defaults and
   which remain intentionally deferred before implementation work begins.
+
+## [ISSUE-105] Define the integration state of the external audit branch
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied external audit reports a branch materially ahead of `main`, while the current checkout also contains user-owned working-tree changes.
+- Impact: Without an explicit integration state, later work can be evaluated against the wrong baseline and unrelated user changes can be mistaken for audit output.
+- Desired outcome: The audit has a reproducible baseline and a clear owner decision for integration, without discarding or silently absorbing unrelated work.
+- Tasks: OPS-191, OPS-192
+- Resolution: The owner selected `codex/reui-calendar-spike` as the integration
+  source. `main` was advanced to `f557a37b` with a fast-forward, preserving all
+  80 commits without rebasing or squashing. The current checkout's uncommitted
+  changes remain untouched and are not represented as committed integration
+  output.
+- Current classification: `main` and `codex/reui-calendar-spike` now resolve to
+  the same commit. The current checkout still contains user-owned working-tree
+  changes, which remain separately identifiable.
+
+## [ISSUE-106] Make untracked audit-era work classifiable
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports many untracked paths, including migrations, API files, design artifacts, and UI primitives whose ownership and intended lifecycle are not uniformly obvious.
+- Impact: Ambiguous ownership makes review, integration, cleanup, and recovery unsafe.
+- Desired outcome: Every audit-relevant untracked path has an explicit classification as retained project work, generated output, disposable runtime data, or owner-controlled follow-up.
+- Tasks: OPS-191
+- Resolution: The current 81 untracked paths are retained source, migrations,
+  tests, UI assets, Autonomos records, or reviewed spelling configuration. No
+  untracked path was classified as disposable runtime output, and none was
+  deleted or silently absorbed into a different change set.
+
+## [ISSUE-107] Reconcile branch and worktree hygiene
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports stale branches and multiple worktrees, including references to removed branches and a prunable worktree.
+- Impact: Stale parallel state increases collision risk and makes it difficult to identify the authoritative checkout.
+- Desired outcome: Repository lifecycle state is inventoryable, ownership is clear, and cleanup can be performed safely when the owner authorizes it.
+- Tasks: OPS-192
+- Resolution: After the owner selected `main` as the integration baseline, 18
+  clean worktrees whose HEADs were already ancestors of `main` were removed.
+  The missing `/tmp/herald-review-discord` worktree was pruned from Git's
+  administrative metadata. Local branch refs were then evaluated against
+  `main` and removed only when their work was integrated or superseded.
+- Current classification before the final cleanup pass: the detached
+  `/home/hakim/.codex/worktrees/7ae0/herald` and branch-backed
+  `/home/hakim/.codex/worktrees/taxonomy-130-backend` each contained one commit
+  not reachable from `main`, while
+  `/home/hakim/Documents/Codex/2026-09-02/in-app-browser-context-source-ambient`
+  contained two uncommitted changes. The first two were retained pending a
+  content-level evaluation rather than being assumed abandoned.
+- Final classification: `7ae0` was superseded by `b0027ac5`, which carries the
+  same disabled-profile and worker-clock corrections plus the corresponding
+  Autonomos record; `main` passes the focused workflow boundary tests. The
+  taxonomy worktree's patch is identical to `c3df184a`, already present in
+  `main`, and its focused API, client, domain, and database tests pass. Both
+  worktrees were therefore removed. The dirty
+  `/home/hakim/Documents/Codex/2026-09-02/in-app-browser-context-source-ambient`
+  worktree was an old calendar MVP. The owner confirmed that the calendar has
+  since been built in the canonical checkout, so the entire secondary worktree
+  and its untracked files were removed.
+- Branch classification: 47 local branches were already ancestors of `main`;
+  their work is integrated and their local refs were removed, excluding the
+  authoritative `main` ref and the checked-out `codex/reui-calendar-spike` ref.
+  Four non-ancestor branches were evaluated individually: `codex/taxonomy-130-
+  backend` is an exact patch duplicate of `c3df184a`, `docs/analytics-storage-
+  posture` is an exact patch duplicate of `aa889111`, and
+  `feat/analytics-112-bluesky-observations` is an exact patch duplicate of
+  `57f09e0f`. `feat/provider-bluesky-loopback-oauth` is superseded by the
+  integrated `ce962f20` implementation and its follow-up access-policy records.
+  Those four local refs were removed; no remote branch was modified.
+
+## [ISSUE-108] Align quality gates with the repository test topology
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit questions whether root-level script tests are included consistently in local hooks, CI, and the standard check, and whether the complete gate is unnecessarily duplicated.
+- Impact: A green local check may fail to represent the checks required before integration, while an over-broad hook can discourage ordinary commits.
+- Desired outcome: Each quality gate has an explicit purpose, stable coverage, and a documented relationship between local, CI, and release validation.
+- Tasks: OPS-193
+- Resolution: `check:quick` is the bounded local pre-commit path. `check` runs
+  format, lint, typecheck, unit tests, browser tests, and build; CI invokes that
+  complete path. Root script tests are included through `test:unit`, so the
+  reported topology gap is not reproduced in the current checkout.
+
+## [ISSUE-109] Reconcile task, issue, and worklog completion states
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit identifies accepted issues with apparently incomplete follow-up tasks and a worklog whose task identifier does not match its subject.
+- Impact: The Autonomos ledger can claim closure without a matching implementation or can route future work to the wrong boundary.
+- Desired outcome: Issue status, task status, worklog identity, and completion evidence agree without rewriting historical evidence.
+- Tasks: OPS-195
+- Resolution: Current protocol status reports valid artifacts and the new audit
+  tasks link back to their issues. Historical worklogs remain unchanged; the
+  earlier mismatched record is retained as history and is not used as current
+  closure evidence.
+
+## [ISSUE-110] Revalidate historical audit closure evidence
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports that prior H-01 through H-07 findings are marked corrected, but the supporting evidence may predate the current source tree.
+- Impact: Historical closure labels can create false confidence about current security, reliability, cleanup, or quality-gate behavior.
+- Desired outcome: Each historical finding is explicitly classified as current, corrected, not reproduced, or historical-only using current source and tests.
+- Tasks: AUDIT-196
+- Resolution: H-01 through H-07 are classified in the current audit evidence as
+  current, corrected, not reproduced, or historical-only. The original records
+  remain historical and are not rewritten.
+
+## [ISSUE-111] Define publisher encryption key lifecycle
+
+- Type: problem
+- Status: accepted
+- Evidence: The supplied audit reports one deployment-owned publisher encryption key without a demonstrated rotation or re-encryption lifecycle.
+- Impact: Key compromise, planned rotation, or secret-provider migration may require manual reconnection of every publisher or create recovery ambiguity.
+- Desired outcome: Herald has an accepted key lifecycle covering rotation, active-version selection, re-encryption, rollback, recovery, and operator evidence without exposing secret values.
+- Tasks: SECURITY-197
+- Current classification: Herald supports one deployment-owned key, key IDs,
+  encrypted credential envelopes, recovery instructions, and fail-closed restore
+  behavior. Rotation, keyrings, and re-encryption are not implemented because
+  the secret-provider and rollback contract is an owner-level deployment
+  decision.
+
+## [ISSUE-112] Prove authorization coverage across route families
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit questions whether project mutation, analytics, and publisher routes consistently enforce the same role and subject boundary.
+- Impact: A route that relies on a caller-selected subject or an incomplete guard could permit unauthorized writes or cross-project reads.
+- Desired outcome: Every route family has an explicit authorization contract, consistent enforcement, and tests for the relevant actor and project boundaries.
+- Tasks: SECURITY-198
+- Resolution: The shared authentication macro separates sessions and user-owned
+  API keys. Project scope is checked before route handlers; project role checks
+  protect mutations and access-management routes;
+  provider and analytics routes have explicit subject/project checks; existing
+  boundary tests cover unauthorized and cross-project cases. The reported
+  inconsistency is not reproduced in the current source.
+
+## [ISSUE-113] Reauthorize global user event streams after session or membership changes
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports that a long-lived user notification stream may remain open after session expiry or loss of all relevant project memberships.
+- Impact: A connected client could continue receiving events after its authentication or visibility authority is no longer valid.
+- Desired outcome: Long-lived user event streams stop or reauthorize within a defined contract after authentication or access changes.
+- Tasks: REALTIME-194
+- Resolution: User streams now revalidate the session and visible project set on
+  pulls, emit a terminal `user.access-revoked` frame, close the server stream,
+  and close the browser source. Focused API and web tests cover the contract.
+
+## [ISSUE-114] Define and connect external notification delivery
+
+- Type: problem
+- Status: accepted
+- Evidence: The supplied audit reports a durable notification-delivery store that is exported and tested but not connected to an external transport.
+- Impact: The repository can persist delivery intent without providing an operator-visible path to deliver or reconcile it.
+- Desired outcome: Supported external notification destinations, ownership, transport, retry, ambiguity, and observability semantics are explicit and exercised end to end.
+- Tasks: NOTIFY-199
+- Current classification: The durable delivery store is real and tested, but no
+  external destination is part of the current Herald product contract. Wiring a
+  transport without selecting destinations, ownership, and ambiguity semantics
+  would invent behavior.
+
+## [ISSUE-115] Define durable email failure handling
+
+- Type: problem
+- Status: accepted
+- Evidence: The supplied audit reports that authentication email delivery is fire-and-forget without durable retry or dead-letter handling.
+- Impact: Temporary transport failures can silently lose invitations, verification messages, or password-reset messages.
+- Desired outcome: Email delivery has an explicit reliability contract for acceptance, retry, ambiguity, permanent failure, and operator reconciliation.
+- Tasks: NOTIFY-200
+- Current classification: SMTP delivery is intentionally documented as
+  best-effort and asynchronous, with Mailpit limited to development. Durable
+  retry and dead-letter behavior require an explicit delivery guarantee and
+  operator reconciliation contract.
+
+## [ISSUE-116] Prove worker fairness and multi-process execution policy
+
+- Type: problem
+- Status: accepted
+- Evidence: The supplied audit questions project scheduling fairness, timer behavior, claim races, and the absence of runtime execution metrics.
+- Impact: A busy project or multiple process instances could delay or duplicate external effects, while operators lack evidence about backlog and claim health.
+- Desired outcome: The supported worker topology, fairness guarantees, lease behavior, shutdown semantics, and operational measurements are explicit and tested.
+- Tasks: WORKFLOW-201
+- Current classification: The worker uses bounded round-robin service, atomic
+  lease-fenced claims, and awaited scheduler drain behavior. Runtime metrics and
+  a supported multi-process deployment policy remain undefined and are not safe
+  to infer from the current single-process product boundary.
+
+## [ISSUE-117] Enforce the repository language boundary and vocabulary
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports French text outside translation catalogs, inconsistent Post/Publication vocabulary, and identical untranslated catalog values.
+- Impact: Repository artifacts become harder to review and localization drift can enter unnoticed.
+- Desired outcome: Non-translation repository artifacts remain English, application translations remain catalog-owned, and intentional identical localized values are explicit and reviewable.
+- Tasks: TOOLING-190
+- Resolution: CSpell now owns the repository spelling gate; the translation
+  catalogs and generated localization output are excluded, and intentional
+  identical localized values are allowlisted by the i18n coverage check. The
+  cache-reset spelling run, full lint, typecheck, unit tests, browser suite, and
+  production build all pass.
+
+## [ISSUE-118] Make Queue and Calendar query failures explicit
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports that Queue and Calendar can render fallback publication data when their own query fails instead of presenting a failure state.
+- Impact: Operators can mistake incomplete or unrelated data for an accurate project view.
+- Desired outcome: Failed reads are visibly distinguishable from empty reads, preserve the correct scope, and offer an appropriate recovery action.
+- Tasks: WEB-203
+- Resolution: Queue and Calendar render the shared retryable `QueryErrorState`
+  when their own server query fails and suppress the affected data list. The
+  previous unrelated-data fallback is not present in the current source.
+
+## [ISSUE-119] Reduce web component maintenance debt without changing behavior
+
+- Type: problem
+- Status: accepted
+- Evidence: The supplied audit reports oversized UI modules and duplicated responsibilities across page, data, and interaction components.
+- Impact: Future corrections become slower and more likely to introduce regressions or inconsistent behavior.
+- Desired outcome: High-risk web modules have coherent ownership boundaries and measurable extraction targets without speculative abstraction.
+- Tasks: WEB-204
+- Current classification: Large modules remain, including the calendar, access,
+  and publication editor surfaces. The first bounded seam is now implemented:
+  management-mode rendering has moved into
+  `MediaLibraryManagementSurface`, while upload, attachment selection, and
+  dialog orchestration remain explicit in `MediaAttachmentPicker`. The issue
+  remains accepted for future seams; no compatibility wrapper was retained for
+  the extracted internal structure.
+
+## [ISSUE-120] Close confirmed accessibility and responsive gaps
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports incomplete keyboard behavior, touch affordances, overflow handling, and narrow-layout coverage in calendar, media, and composer surfaces.
+- Impact: Some users cannot discover or operate important workflows reliably across input methods and viewport sizes.
+- Desired outcome: Supported surfaces have explicit keyboard, touch, focus, overflow, and responsive contracts verified by targeted evidence.
+- Tasks: A11Y-205
+- Resolution: The shared shell now exposes one top-level main landmark and an
+  aside landmark for the sidebar. Axe coverage now passes on Overview, Queue,
+  and Media, while existing browser checks cover keyboard calendar commands,
+  touch media navigation, narrow calendar behavior, and responsive queue and
+  publication surfaces.
+
+## [ISSUE-121] Expand browser coverage for high-risk workflows
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports missing browser scenarios for notifications, calendar interactions, bulk actions, media editing, offline/error recovery, and accessibility.
+- Impact: Regressions can pass unit and type checks while breaking the workflows users actually operate.
+- Desired outcome: High-risk states and transitions have deterministic browser coverage with isolated runtime ownership and actionable failure artifacts.
+- Tasks: WEB-206
+- Resolution: The browser inventory covers notifications, calendar interactions,
+  bulk actions, media, realtime, and recovery scenarios. A standard Axe smoke
+  test covers the core project surfaces, and the complete serial suite passes
+  28/28 in the isolated runtime.
+
+## [ISSUE-122] Define an operational observability contract
+
+- Type: problem
+- Status: accepted
+- Evidence: The supplied audit reports health/readiness checks and domain analytics but no accepted metrics, tracing, dashboards, or alert thresholds.
+- Impact: Operators may detect failures only after users report them and cannot distinguish backlog, provider, notification, or storage degradation quickly.
+- Desired outcome: Supported deployments have a bounded observability contract tied to concrete service-level and recovery goals.
+- Tasks: OPS-207
+- Current classification: Health/readiness and domain analytics exist, but
+  metrics, tracing, dashboards, alert thresholds, and retention are not defined
+  for a supported deployment target.
+
+## [ISSUE-123] Define production deployment and recovery boundaries
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports a production image and development Mailpit compose file but no complete production orchestration, TLS, backup retention, or restore policy.
+- Impact: Operators may deploy a technically runnable image without a supported secure lifecycle for networking, persistence, and recovery.
+- Desired outcome: Supported deployment modes state their network, secret, persistence, retention, upgrade, and restore responsibilities.
+- Tasks: OPS-208
+- Resolution: The repository documents the supported single-process container,
+  health/readiness checks, development-only Mailpit, database/media backup and
+  restore commands, runtime locking, and separate publisher-key recovery. Full
+  orchestration, TLS termination, and retention remain deployment-owned concerns
+  rather than undocumented application behavior.
+
+## [ISSUE-124] Keep project documentation aligned with implemented boundaries
+
+- Type: problem
+- Status: resolved
+- Evidence: The supplied audit reports stale provider lists, incomplete LinkedIn scope language, and documentation that may no longer match accepted specifications or current routes.
+- Impact: Contributors and operators can follow obsolete instructions or misunderstand ownership and capability boundaries.
+- Desired outcome: Public project documentation reflects current supported providers, routes, recovery procedures, accepted vocabulary, and explicit deferrals.
+- Tasks: DOCS-209
+- Resolution: README and deployment documentation now match the provider
+  packages, LinkedIn member scope, user-owned API-key boundary, recovery flow,
+  and explicit deferred capabilities verified in the current source.

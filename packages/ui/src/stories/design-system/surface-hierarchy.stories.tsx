@@ -34,7 +34,7 @@ function SurfaceTheme({ name }: { readonly name: string }) {
                 data-theme-preview={name.toLowerCase()}>
                 <header className="mb-6 flex items-baseline justify-between gap-4">
                     <div>
-                        <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase">
                             Theme
                         </p>
                         <h2 className="font-heading mt-1 text-xl font-semibold">{name}</h2>
@@ -82,7 +82,7 @@ function SurfaceTheme({ name }: { readonly name: string }) {
                 </div>
 
                 <div className="mt-6 rounded-lg bg-surface-raised p-4 shadow-surface">
-                    <p className="mb-3 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                    <p className="mb-3 text-xs font-semibold text-muted-foreground uppercase">
                         Neutral controls
                     </p>
                     <div className="flex flex-wrap items-center gap-2">

@@ -1,5 +1,20 @@
 export { Badge, badgeVariants } from './badge'
 export { Button, buttonVariants } from './button'
+export { Calendar, CalendarDayButton } from './calendar'
+export {
+    Combobox,
+    ComboboxEmpty,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxItemIndicator,
+    ComboboxLabel,
+    ComboboxList,
+    ComboboxPopup,
+    ComboboxPortal,
+    ComboboxPositioner,
+    ComboboxTrigger,
+    ComboboxValue,
+} from './combobox'
 export {
     ButtonGroup,
     ButtonGroupSeparator,

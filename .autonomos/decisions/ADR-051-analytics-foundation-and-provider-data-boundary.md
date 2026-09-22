@@ -113,6 +113,11 @@ manual channel with no publisher just as they work for an automatic channel.
   `publication.execution.failed`, `publication.execution.ambiguous`, and
   recovery facts use their recorded target state. Unsupported or incomplete
   facts are not guessed from error text or current rows.
+- `publication.retry_requested` is a supported operator-command fact. It is
+  retained in the journal for audit and realtime consumers, but it is not a
+  lifecycle transition, an execution attempt, or an execution outcome. The
+  requeued job and its subsequent execution facts remain authoritative for
+  those metrics.
 - `publication.published_count` is the distinct-publication KPI for definitive
   publication success. Its canonical success facts are manual
   `publication.published`, automatic `publication.execution.succeeded`, and
@@ -563,7 +568,7 @@ The future implementation is acceptable when focused deterministic tests prove:
 - duplicate/replayed facts, unknown event versions, and contradictory attempt
   outcomes produce the documented idempotent or data-quality behavior;
 - project authorization and all joins remain project-isolated for session,
-  agent, and project-token callers;
+  agent, and user-API-key callers;
 - no notification, provider credential, source content, media, or engagement
   value leaks into the operational response;
 - representative SQLite fixtures meet the measured query and memory budget, or

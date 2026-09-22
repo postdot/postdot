@@ -1,25 +1,37 @@
 import { Button } from '@herald/ui/components/button'
 import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@herald/ui/components/dropdown-menu'
+import {
     Tooltip,
     TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from '@herald/ui/components/tooltip'
 import { cn } from '@herald/ui/lib/utils'
-import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
-import { ClipboardCheckIcon } from '@solar-icons/react/bold/clipboard-check'
-import { EyeIcon } from '@solar-icons/react/bold/eye'
-import { PenIcon } from '@solar-icons/react/bold/pen'
+import { CheckIcon } from '@solar-icons/react/linear/check'
+import { ClipboardCheckIcon } from '@solar-icons/react/linear/clipboard-check'
+import { CopyIcon } from '@solar-icons/react/linear/copy'
+import { EyeIcon } from '@solar-icons/react/linear/eye'
+import { GalleryIcon } from '@solar-icons/react/linear/gallery'
+import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
+import { PenIcon } from '@solar-icons/react/linear/pen'
+import { RestartIcon } from '@solar-icons/react/linear/restart'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, type ReactNode } from 'react'
 
-import type { PublicationSummary } from '@/lib/api'
+import { api, type PublicationSummary } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { canEditPublication } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
 
-import { PublicationEmptyState } from './publication-empty-state'
+import { EmptyState, type EmptyStateIllustration, type EmptyStateLayout } from './empty-state'
 
 export type PublicationState = PublicationSummary['state']
 
@@ -27,35 +39,47 @@ export function PublicationList({
     emptyDescription,
     emptyAction,
     emptyIllustration,
+    emptyLayout,
     emptyTitle,
     allSelected = false,
     publications,
     duePublicationIds,
+    onDeleteDraft,
+    onDuplicateDraft,
     onPublish,
+    onRetry,
     onToggleAll,
     pending = false,
     onToggleSelection,
+    readOnly = false,
     selectedPublicationIds,
+    showCreationDate = false,
     timeZone,
 }: {
     readonly emptyDescription?: string | null
     readonly emptyAction?: ReactNode
-    readonly emptyIllustration?: ReactNode
+    readonly emptyIllustration?: EmptyStateIllustration
+    readonly emptyLayout?: EmptyStateLayout
     readonly emptyTitle?: string
     readonly allSelected?: boolean
     readonly publications: readonly PublicationSummary[]
     readonly duePublicationIds?: ReadonlySet<string>
     readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onRetry?: (publicationId: string) => Promise<boolean>
+    readonly onDeleteDraft?: (publication: PublicationSummary) => void
+    readonly onDuplicateDraft?: (publicationId: string) => void
     readonly onToggleAll?: () => void
     readonly pending?: boolean
     readonly onToggleSelection?: (publication: PublicationSummary) => void
+    readonly readOnly?: boolean
     readonly selectedPublicationIds?: ReadonlySet<string>
+    readonly showCreationDate?: boolean
     readonly timeZone: string
 }) {
     useLanguage()
     if (publications.length === 0) {
         return (
-            <PublicationEmptyState
+            <EmptyState
                 action={emptyAction}
                 description={
                     emptyDescription === undefined
@@ -63,7 +87,10 @@ export function PublicationList({
                         : emptyDescription
                 }
                 illustration={emptyIllustration}
+                layout={emptyLayout}
                 title={emptyTitle ?? m.publication_empty_title()}
+                className="mt-4"
+                data-publication-empty-state="true"
             />
         )
     }
@@ -98,7 +125,10 @@ export function PublicationList({
                             <PublicationListItem
                                 key={publication.id}
                                 due={duePublicationIds?.has(publication.id) ?? false}
+                                onDeleteDraft={onDeleteDraft}
+                                onDuplicateDraft={onDuplicateDraft}
                                 onPublish={onPublish}
+                                onRetry={onRetry}
                                 onToggleSelection={
                                     selectionEnabled
                                         ? () => onToggleSelection(publication)
@@ -106,7 +136,9 @@ export function PublicationList({
                                 }
                                 pending={pending}
                                 publication={publication}
+                                readOnly={readOnly}
                                 selected={selected}
+                                showCreationDate={showCreationDate}
                                 timeZone={timeZone}
                             />
                         )
@@ -142,17 +174,17 @@ function PublicationTableHeader({
             />
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:gap-7">
                 <div className="min-w-0">
-                    <span className="block truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                    <span className="block truncate text-[0.65rem] font-semibold uppercase text-muted-foreground">
                         {m.queue_column_publication()}
                     </span>
-                    <span className="mt-1 block truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground lg:hidden">
+                    <span className="mt-1 block truncate text-[0.65rem] font-semibold uppercase text-muted-foreground lg:hidden">
                         {m.queue_column_destination()}
                     </span>
                 </div>
-                <span className="hidden truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground lg:block">
+                <span className="hidden truncate text-[0.65rem] font-semibold uppercase text-muted-foreground lg:block">
                     {m.queue_column_destination()}
                 </span>
-                <span className="text-right text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                <span className="text-right text-[0.65rem] font-semibold uppercase text-muted-foreground">
                     {m.queue_column_action()}
                 </span>
             </div>
@@ -162,24 +194,39 @@ function PublicationTableHeader({
 
 function PublicationListItem({
     due,
+    onDeleteDraft,
+    onDuplicateDraft,
     onPublish,
+    onRetry,
     onToggleSelection,
     pending,
     publication,
+    readOnly,
     selected,
+    showCreationDate = false,
     timeZone,
 }: {
     readonly due: boolean
+    readonly onDeleteDraft?: (publication: PublicationSummary) => void
+    readonly onDuplicateDraft?: (publicationId: string) => void
     readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onRetry?: (publicationId: string) => Promise<boolean>
     readonly onToggleSelection?: () => void
     readonly pending: boolean
     readonly publication: PublicationSummary
+    readonly readOnly: boolean
     readonly selected: boolean
+    readonly showCreationDate: boolean
     readonly timeZone: string
 }) {
     const selectionEnabled = onToggleSelection !== undefined
     const showManualAction = due && onPublish !== undefined
-    const editable = canEditPublication(publication.state)
+    const showRetryAction =
+        publication.state === 'failed' &&
+        publication.deliveryMode === 'automatic' &&
+        onRetry !== undefined
+    const showReviewAction = publication.state === 'ambiguous'
+    const editable = !readOnly && canEditPublication(publication.state)
 
     return (
         <div
@@ -201,10 +248,10 @@ function PublicationListItem({
                         label={
                             selected
                                 ? m.queue_deselect_publication({
-                                      title: publication.postTitle ?? m.publication_untitled_post(),
+                                      title: publicationIdentityLabel(publication),
                                   })
                                 : m.queue_select_publication({
-                                      title: publication.postTitle ?? m.publication_untitled_post(),
+                                      title: publicationIdentityLabel(publication),
                                   })
                         }
                         className="mt-4 ml-2"
@@ -213,7 +260,25 @@ function PublicationListItem({
                 ) : null}
                 <PublicationRow
                     action={
-                        showManualAction ? (
+                        showRetryAction ? (
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            aria-label={m.publication_retry_delivery()}
+                                            data-publication-action="retry"
+                                            disabled={pending}
+                                            onClick={() => void onRetry(publication.id)}
+                                            size="icon-sm"
+                                            type="button"
+                                            variant="secondary">
+                                            <RestartIcon aria-hidden="true" />
+                                        </Button>
+                                    }
+                                />
+                                <TooltipContent>{m.publication_retry_delivery()}</TooltipContent>
+                            </Tooltip>
+                        ) : showManualAction ? (
                             <Tooltip>
                                 <TooltipTrigger
                                     render={
@@ -225,16 +290,17 @@ function PublicationListItem({
                                             size="icon-sm"
                                             type="button"
                                             variant="secondary">
-                                            <CheckSquareIcon aria-hidden="true" />
+                                            <CheckIcon aria-hidden="true" />
                                         </Button>
                                     }
                                 />
                                 <TooltipContent>{m.publication_record_published()}</TooltipContent>
                             </Tooltip>
-                        ) : (
+                        ) : showReviewAction ? (
                             <Button
-                                aria-label={editable ? m.common_edit() : m.common_view()}
+                                aria-label={m.publication_review_outcome()}
                                 className="text-muted-foreground hover:text-foreground"
+                                data-publication-action="review-outcome"
                                 nativeButton={false}
                                 render={
                                     <Link
@@ -247,17 +313,95 @@ function PublicationListItem({
                                 }
                                 size="sm"
                                 variant="ghost">
-                                {editable ? (
-                                    <PenIcon aria-hidden="true" className="size-4" />
-                                ) : (
-                                    <EyeIcon aria-hidden="true" className="size-4" />
-                                )}
-                                <span>{editable ? m.common_edit() : m.common_view()}</span>
+                                <ClipboardCheckIcon aria-hidden="true" className="size-4" />
+                                <span>{m.publication_review_outcome()}</span>
                             </Button>
+                        ) : (
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    aria-label={
+                                        publication.state === 'draft'
+                                            ? m.queue_resume_draft()
+                                            : editable
+                                              ? m.common_edit()
+                                              : m.common_view()
+                                    }
+                                    className="text-muted-foreground hover:text-foreground"
+                                    nativeButton={false}
+                                    render={
+                                        <Link
+                                            params={{
+                                                projectId: publication.projectId,
+                                                publicationId: publication.id,
+                                            }}
+                                            to="/dashboard/projects/$projectId/publications/$publicationId"
+                                        />
+                                    }
+                                    size="sm"
+                                    variant="ghost">
+                                    {editable ? (
+                                        <PenIcon aria-hidden="true" className="size-4" />
+                                    ) : (
+                                        <EyeIcon aria-hidden="true" className="size-4" />
+                                    )}
+                                    <span>
+                                        {publication.state === 'draft'
+                                            ? m.queue_resume_draft()
+                                            : editable
+                                              ? m.common_edit()
+                                              : m.common_view()}
+                                    </span>
+                                </Button>
+                                {publication.state === 'draft' &&
+                                (onDeleteDraft !== undefined || onDuplicateDraft !== undefined) ? (
+                                    <DropdownMenu modal={false}>
+                                        <DropdownMenuTrigger
+                                            render={
+                                                <Button
+                                                    aria-label={m.queue_draft_actions()}
+                                                    data-publication-draft-actions="true"
+                                                    disabled={pending}
+                                                    size="icon-sm"
+                                                    type="button"
+                                                    variant="ghost">
+                                                    <MenuDotsIcon aria-hidden="true" />
+                                                </Button>
+                                            }
+                                        />
+                                        <DropdownMenuContent align="end" className="min-w-40">
+                                            {onDuplicateDraft !== undefined ? (
+                                                <DropdownMenuItem
+                                                    disabled={pending}
+                                                    onClick={() =>
+                                                        onDuplicateDraft(publication.id)
+                                                    }>
+                                                    <CopyIcon aria-hidden="true" />
+                                                    {m.queue_duplicate_draft()}
+                                                </DropdownMenuItem>
+                                            ) : null}
+                                            {onDeleteDraft !== undefined ? (
+                                                <>
+                                                    {onDuplicateDraft !== undefined ? (
+                                                        <DropdownMenuSeparator />
+                                                    ) : null}
+                                                    <DropdownMenuItem
+                                                        disabled={pending}
+                                                        onClick={() => onDeleteDraft(publication)}
+                                                        variant="destructive">
+                                                        <TrashBinMinimalisticIcon aria-hidden="true" />
+                                                        {m.queue_delete_draft()}
+                                                    </DropdownMenuItem>
+                                                </>
+                                            ) : null}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                ) : null}
+                            </div>
                         )
                     }
                     due={due}
                     publication={publication}
+                    showCreationDate={showCreationDate}
                     timeZone={timeZone}
                 />
             </div>
@@ -317,7 +461,7 @@ function SelectionCheckbox({
                         'border-primary bg-primary text-primary-foreground shadow-control'
                 )}>
                 {checked ? (
-                    <CheckSquareIcon className="size-3.5" />
+                    <CheckIcon className="size-3.5" />
                 ) : indeterminate ? (
                     <span className="h-0.5 w-2.5 rounded-full bg-current" />
                 ) : null}
@@ -330,38 +474,49 @@ export function PublicationRow({
     action,
     due = false,
     publication,
+    showCreationDate = false,
     timeZone,
 }: {
     readonly action?: ReactNode
     readonly due?: boolean
     readonly publication: PublicationSummary
+    readonly showCreationDate?: boolean
     readonly timeZone: string
 }) {
     const { locale } = useLanguage()
+    const identityLabel = publicationIdentityLabel(publication)
+    const createdAt = normalizePublicationTimestamp(publication.createdAt)
+    const lastEditedAt =
+        normalizePublicationTimestamp(publication.lastEditedAt) ??
+        normalizePublicationTimestamp(publication.updatedAt) ??
+        createdAt
     return (
         <div
             className={cn(
-                'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-2 py-3 sm:px-3',
+                'grid min-w-0 grid-cols-1 items-start gap-y-2 px-2 py-3 sm:px-3',
                 action
-                    ? 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:gap-7'
-                    : 'lg:grid-cols-1'
+                    ? 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:items-center lg:gap-7'
+                    : ''
             )}>
             <Link
                 to="/dashboard/projects/$projectId/publications/$publicationId"
                 params={{ projectId: publication.projectId, publicationId: publication.id }}
                 data-publication-edit-link="true"
                 className={cn(
-                    'col-start-1 group min-w-0',
+                    'col-span-full row-start-1 group min-w-0',
                     action
                         ? 'lg:col-span-2 lg:grid lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)] lg:items-center lg:gap-7'
-                        : 'col-span-full'
+                        : ''
                 )}>
-                <div className="min-w-0">
-                    <h3
-                        className="truncate text-sm font-medium"
-                        title={publication.postTitle ?? m.publication_untitled_post()}>
-                        {publication.postTitle ?? m.publication_untitled_post()}
-                    </h3>
+                <div className="flex min-w-0 items-start gap-2">
+                    {publication.mediaCount > 0 ? (
+                        <PublicationMediaThumbnail publication={publication} />
+                    ) : null}
+                    <div className="min-w-0">
+                        <h3 className="truncate text-sm font-medium" title={identityLabel}>
+                            {identityLabel}
+                        </h3>
+                    </div>
                 </div>
                 <div className="min-w-0">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -387,8 +542,17 @@ export function PublicationRow({
                             <PublicationStatus state={publication.state} />
                         )}
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        {formatSchedule(publication.scheduledAt, timeZone, locale)}
+                    <p
+                        className={cn(
+                            'mt-1 text-xs leading-5 text-muted-foreground',
+                            !showCreationDate && 'truncate'
+                        )}>
+                        {showCreationDate
+                            ? m.publication_draft_dates({
+                                  created: formatPublicationDateTime(createdAt, timeZone, locale),
+                                  edited: formatPublicationDateTime(lastEditedAt, timeZone, locale),
+                              })
+                            : formatSchedule(publication.scheduledAt, timeZone, locale)}
                         {publication.draftDiffersFromTarget ? (
                             <span className="text-state-attention">
                                 {' · '}
@@ -399,11 +563,53 @@ export function PublicationRow({
                 </div>
             </Link>
             {action ? (
-                <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end lg:col-start-3">
+                <div className="col-start-1 row-start-2 flex w-full min-w-0 items-center justify-end lg:col-start-3 lg:row-start-1 lg:w-auto">
                     {action}
                 </div>
             ) : null}
         </div>
+    )
+}
+
+function normalizePublicationTimestamp(value: unknown): number | null {
+    const timestamp = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(timestamp) ? timestamp : null
+}
+
+function formatPublicationDateTime(timestamp: number | null, timeZone: string, locale: string) {
+    return timestamp === null ? '—' : formatProjectDateTime(timestamp, timeZone, locale)
+}
+
+function publicationIdentityLabel(publication: PublicationSummary) {
+    const title = publication.postTitle?.trim()
+    if (title) return title
+    const excerpt = publication.sourceExcerpt?.trim()
+    if (excerpt) return excerpt
+    if (publication.mediaCount > 0) {
+        return m.publication_media_count({ count: publication.mediaCount })
+    }
+    return m.publication_untitled()
+}
+
+function PublicationMediaThumbnail({ publication }: { readonly publication: PublicationSummary }) {
+    const assetId = publication.mediaAssetIds?.[0]
+    return (
+        <span
+            aria-hidden="true"
+            className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-control text-muted-foreground">
+            <GalleryIcon className="size-4" />
+            {assetId ? (
+                <img
+                    alt=""
+                    className="absolute size-9 rounded-md object-cover"
+                    loading="lazy"
+                    onError={event => {
+                        event.currentTarget.style.display = 'none'
+                    }}
+                    src={api.mediaContentUrl(publication.projectId, assetId)}
+                />
+            ) : null}
+        </span>
     )
 }
 

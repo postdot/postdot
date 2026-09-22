@@ -1,57 +1,57 @@
-# Herald — audit critique des fondations
+# Herald — critical foundation audit
 
-Date : 11 septembre 2026. Référence finale : `main`, commit `60bbb319` (`merge: consolidate local work into main`). Rapport de diagnostic ; aucune correction, nouvelle décision normative ou modification du backlog.
+Date: 11 September 2026. Final reference: `main`, commit `60bbb319` (`merge: consolidate local work into main`). Diagnostic report only; no fix, normative decision, or backlog change was made.
 
 ## Verdict
 
-**Herald possède des fondations techniques sérieuses, mais la cohérence de son intégration ne permet pas encore de considérer tous ses contrats comme fiables.** Je recommande de conserver l’architecture et de consacrer les prochaines sessions à sa consolidation avant une nouvelle expansion fonctionnelle.
+**Herald has solid technical foundations, but integration consistency does not yet make every contract reliable.** The recommendation is to keep the architecture and spend the next sessions consolidating it before adding another functional expansion.
 
-Le modèle Post / Publication, la séparation Channel / Publisher, les révisions immuables, le journal transactionnel et la reconnaissance explicite des résultats externes ambigus répondent à de vrais problèmes du produit. Le monolithe avec SQLite convient au déploiement prévu. Rien dans cet audit ne justifie une réécriture, une migration immédiate vers PostgreSQL, un moteur de workflow externe ou des microservices.
+The Post / Publication model, Channel / Publisher separation, immutable revisions, transactional journal, and explicit recognition of ambiguous external outcomes address real product problems. The monolith with SQLite fits the intended deployment. Nothing in this audit justifies a rewrite, an immediate PostgreSQL migration, an external workflow engine, or microservices.
 
-En revanche, des fonctions récentes ne prolongent pas toujours les garanties existantes. Les rôles sont définis sans être imposés partout ; le temps réel protège l’ouverture d’une connexion mais pas sa durée de vie ; le calendrier et la Queue consomment une liste tronquée ; une projection durable peut cesser de rattraper son retard tout en se déclarant active. Ce sont des défauts de produit, pas de simples préférences de style.
+However, recent features do not always extend the existing guarantees. Roles are defined without being enforced everywhere; real-time protects connection opening but not connection lifetime; the calendar and Queue consume a truncated list; a durable projection can stop catching up while still reporting itself as active. These are product defects, not mere style preferences.
 
-## Lecture des rapports
+## Report index
 
-1. [Sécurité et autorisations](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/01-securite-et-acces.md) — rôles, révocation et protections existantes.
-2. [Fiabilité, données et exploitation](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md) — listes, notifications, nettoyage et arrêt du processus.
-3. [Architecture, client et qualité](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md) — cohérence, coût de maintenance et angles morts des contrôles.
-4. [Suite à court, moyen et long terme](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/04-suite-proposee.md) — ordre recommandé et critères de sortie des futures sessions.
-5. [Méthode et preuves](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/05-verification.md) — contrôles exécutés, reproductions, limites et hypothèses écartées.
+1. [Security and access](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/01-securite-et-acces.md) — roles, revocation, and existing protections.
+2. [Reliability, data, and operations](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md) — lists, notifications, cleanup, and process shutdown.
+3. [Architecture, client, and quality](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md) — consistency, maintenance cost, and control blind spots.
+4. [Proposed follow-up](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/04-suite-proposee.md) — recommended order and exit criteria for future sessions.
+5. [Method and evidence](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/05-verification.md) — executed checks, reproductions, limits, and rejected hypotheses.
 
-## Constats prioritaires
+## Priority findings
 
-| ID | Priorité | Constat | Preuve |
+| ID | Priority | Finding | Evidence |
 | --- | --- | --- | --- |
-| H-01 | P1 | Un viewer peut créer un canal et un post malgré son rôle en lecture seule | Reproduction par l’API en mémoire : HTTP 201 pour les deux opérations |
-| H-02 | P1 | Un membre retiré continue de recevoir des événements projet sur son SSE ouvert | Nouvelle requête refusée en 404, événement ultérieur reçu sur l’ancien flux |
-| H-03 | P1 | La liste des publications est limitée à 100 sans pagination exploitable | 101 lignes stockées, 100 retournées, aucun curseur dans la réponse |
-| H-04 | P2 | Le rattrapage des notifications s’arrête après dix lots et peut rester incomplet | Runtime demandant douze lots : dix exécutés, état `started` |
-| H-05 | P2 | Les événements de taxonomie sont exclus de la diffusion SSE | Événement réel `publication.tags_replaced` transformé en `null` |
-| H-06 | P2 | La commande `clean` supprime les migrations suivies dans Git | Script `@herald/db`: `rimraf dist .turbo drizzle` |
-| H-07 | P2 | Les tests des scripts et du CLI ne font pas partie de `bun run check` | Graphe Turbo : seulement les workspaces ; huit tests supplémentaires exécutés séparément |
+| H-01 | P1 | A viewer can create a channel and a post despite having read-only access | In-memory API reproduction: HTTP 201 for both operations |
+| H-02 | P1 | A removed member continues receiving project events on an already-open SSE stream | New request rejected with 404, later event received on the old stream |
+| H-03 | P1 | The publication list is limited to 100 without usable pagination | 101 stored rows, 100 returned, no cursor in the response |
+| H-04 | P2 | Notification catch-up stops after ten batches and can remain incomplete | Runtime requesting twelve batches: ten executed, state `started` |
+| H-05 | P2 | Taxonomy events are excluded from SSE delivery | Real `publication.tags_replaced` event transformed to `null` |
+| H-06 | P2 | The `clean` command deletes migrations tracked by Git | `@herald/db` script: `rimraf dist .turbo drizzle` |
+| H-07 | P2 | Script and CLI tests are not part of `bun run check` | Turbo graph contains workspaces only; eight additional tests run separately |
 
-P1 signifie à corriger en priorité avant de se fier à la fonction concernée en usage partagé ou soutenu. P2 désigne un défaut réel dont le déclenchement ou l’impact est plus circonscrit. Aucun P0 démontré. Une base conservée mais mal affichée n’est pas une base ayant perdu ses données.
+P1 means the issue should be fixed before relying on the affected function in shared or supported use. P2 identifies a real defect with a narrower trigger or impact. No P0 was demonstrated. Preserving a database while displaying it incompletely is not the same as losing its data.
 
-## Bilan équilibré
+## Balanced assessment
 
-| Domaine | Appréciation |
+| Area | Assessment |
 | --- | --- |
-| Modèle métier et publication durable | Bonne fondation ; conserver les distinctions et les invariants |
-| Isolation entre projets | Contrôles d’accès présents ; cet audit ne démontre pas de traversée générale entre projets |
-| Rôles et révocation | Garantie incomplète et défauts reproduits |
-| Médias et secrets | Frontières utiles et tests substantiels ; pas de certification exhaustive |
-| Client web | Surface réelle et testée, mais dépendante d’un contrat de liste incomplet et de signaux d’invalidation incomplets |
-| Exploitation | Sauvegarde/restauration pensées sérieusement ; garanties de reprise et d’arrêt à compléter |
-| Qualité | Contrôles réels qui passent ; matrice de comportements encore incomplète |
+| Domain model and durable publication | Good foundation; preserve the distinctions and invariants |
+| Project isolation | Access controls exist; this audit does not demonstrate general cross-project traversal |
+| Roles and revocation | Incomplete guarantee and reproduced defects |
+| Media and secrets | Useful boundaries and substantial tests; not exhaustive certification |
+| Web client | Real, tested surface, but dependent on an incomplete list contract and incomplete invalidation signals |
+| Operations | Backup and restore are thoughtfully designed; restart and shutdown guarantees need work |
+| Quality | Real checks pass; behavior matrix is still incomplete |
 
-Sur l’état final : `bun run check` réussit, dont **16 tests navigateur**. Une exécution forcée séparée confirme **566 tests de workspaces réussis, sans cache**. Les **8 tests de scripts** passent aussi lorsqu’on les lance explicitement. Ces résultats sont une base positive, mais ne réfutent pas les défauts reproduits.
+On the final state: `bun run check` succeeds, including **16 browser tests**. A separate forced run confirms **566 workspace tests passed without cache**. The **8 script tests** also pass when run explicitly. These results are a positive baseline, but they do not disprove the reproduced defects.
 
-## Interprétation du travail produit par agents
+## Interpretation of agent-produced work
 
-L’origine IA n’est pas une preuve de mauvaise qualité. Les indices observables sont plutôt ceux d’un développement par tranches : plusieurs contrats parallèles, des tableaux d’événements recopiés, des tests qui suivent les parcours ajoutés et des anciennes hypothèses conservées dans des fonctions désormais utilisées plus largement.
+AI origin is not evidence of poor quality. The observable signs are those of slice-by-slice development: several parallel contracts, copied event tables, tests that follow added journeys, and old assumptions retained in functions now used more broadly.
 
-Exemples concrets : le passage à la collaboration n’a pas remplacé partout le contrôle « un acteur existe » par un contrôle de rôle ; l’ajout de tags n’a pas étendu la liste des événements SSE ; une liste bornée est devenue la source du calendrier. L’effort suivant doit porter sur ces jonctions et sur leurs scénarios négatifs, davantage que sur le nombre de fonctionnalités ou le découpage mécanique des fichiers.
+Concrete examples: the move to collaboration did not replace the historical “an actor exists” check with a role check everywhere; adding tags did not extend the SSE event list; a bounded list became the calendar source. The next effort should focus on these joins and their negative scenarios, rather than on feature count or mechanical file splitting.
 
-## Limites
+## Limits
 
-Audit de code et de contrats, accompagné de tests locaux isolés. Aucun appel à un fournisseur réel, aucune inspection de secrets ou de données utilisateur, aucun test destructif sur une installation existante. Pas de campagne exhaustive de sécurité, de test de charge complet, de validation S3 réelle ni de nouvelle construction/restauration Docker. Les constats visuels se limitent aux preuves des tests navigateur et à la structure du client ; ceci n’est pas un nouvel audit visuel complet.
+This was a code and contract audit with isolated local tests. No real provider call, secret or user-data inspection, destructive test on an existing installation, full load test, real S3 validation, or new Docker build/restore campaign was performed. Visual findings are limited to browser-test evidence and client structure; this is not a new complete visual audit.

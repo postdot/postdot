@@ -679,7 +679,7 @@ function classifyProviderError(
     if (/not.?found|actor.?not.?found|profile.?not.?found/i.test(providerError ?? '')) {
         return 'not_found'
     }
-    if (/deactivat|takedown|suspend/i.test(providerError ?? '')) {
+    if (/(?:deactivate|deactivated|deactivation|takedown|suspend)/i.test(providerError ?? '')) {
         return 'disabled'
     }
     return 'invalid_response'

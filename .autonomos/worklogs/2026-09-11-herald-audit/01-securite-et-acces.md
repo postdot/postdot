@@ -1,52 +1,52 @@
-# Sécurité et accès
+# Security and access
 
-Référence : `main@60bbb319`. Les deux défauts ci-dessous ont été reproduits avec des comptes fictifs, une base SQLite en mémoire et `app.handle`, sans serveur partagé ni fournisseur externe.
+Reference: `main@60bbb319`. The two defects below were reproduced with fictional accounts, an in-memory SQLite database, and `app.handle`, without a shared server or external provider.
 
-## H-01 — P1 — Le rôle viewer n’interdit pas toutes les écritures
+## H-01 — P1 — The viewer role does not prevent every write
 
-**Contrat attendu.** [ADR-061](/home/hakim/projects/herald/.autonomos/decisions/ADR-061-human-account-and-instance-access-policy.md:83) définit le viewer comme un membre en lecture seule. Le même contrat autorise les écritures opérationnelles à l’editor et réserve la gestion des accès à l’owner.
+**Expected contract.** [ADR-061](/home/hakim/projects/herald/.autonomos/decisions/ADR-061-human-account-and-instance-access-policy.md:83) defines a viewer as a read-only project member. The same contract permits operational writes for an editor and reserves access management for the owner.
 
-**Comportement observé.** Après création d’un utilisateur non administrateur et ajout comme viewer d’un projet :
+**Observed behavior.** After creating a non-administrator user and adding that user as a project viewer:
 
-- `PATCH /api/projects/:id` pour modifier le fuseau renvoie 403, conformément au contrat ;
-- `POST /api/projects/:id/channels` renvoie 201 et crée effectivement un canal ;
-- `POST /api/projects/:id/posts` renvoie 201 et crée une publication en brouillon.
+- `PATCH /api/projects/:id` to change the timezone returns 403, as expected;
+- `POST /api/projects/:id/channels` returns 201 and actually creates a channel;
+- `POST /api/projects/:id/posts` returns 201 and creates a draft publication.
 
-Le compte a bien le rôle projet `viewer`. Les privilèges administrateur propres au mécanisme de fixtures ont été retirés avant la reproduction.
+The account has the project `viewer` role. Fixture-specific administrator privileges were removed before the reproduction.
 
-**Cause.** [La composition des routes](/home/hakim/projects/herald/apps/api/src/modules/projects/index.ts:94) appelle `canAccessProject` sans rôle minimal. [Le store d’accès](/home/hakim/projects/herald/packages/db/src/access-store.ts:904) utilise alors `viewer`. [La création de canal](/home/hakim/projects/herald/apps/api/src/modules/projects/channel-routes.ts:66) délègue directement au store. [Le store](/home/hakim/projects/herald/packages/db/src/manual-store/project-channel-store.ts:338) vérifie la présence du projet et d’un acteur, sans contrôler le rôle. [Le chargement d’acteur](/home/hakim/projects/herald/packages/db/src/manual-store.ts:260) sert à l’attribution mais ne constitue pas une autorisation d’écriture.
+**Cause.** [Route composition](/home/hakim/projects/herald/apps/api/src/modules/projects/index.ts:94) calls `canAccessProject` without a minimum role. [The access store](/home/hakim/projects/herald/packages/db/src/access-store.ts:904) therefore accepts `viewer`. [Channel creation](/home/hakim/projects/herald/apps/api/src/modules/projects/channel-routes.ts:66) delegates directly to the store. [The store](/home/hakim/projects/herald/packages/db/src/manual-store/project-channel-store.ts:338) checks for a project and actor, but not the role. [Actor loading](/home/hakim/projects/herald/packages/db/src/manual-store.ts:260) supports attribution and is not current write authorization.
 
-**Impact.** Un utilisateur invité en lecture seule peut modifier le contenu du projet. La protection présente dans la page de gestion des membres ou sur la route de fuseau ne protège pas les autres routes. Les autres mutations qui emploient ce modèle demandent une revue systématique ; cet audit ne prétend pas avoir exécuté chacune d’elles ni avoir publié vers un service externe avec un viewer.
+**Impact.** A read-only invited user can change project content. The protection on the member-management page or timezone route does not protect the other routes. Other mutations using this model require a systematic review; this audit did not execute every mutation or publish to an external service as a viewer.
 
-**Suite recommandée.** Définir une frontière d’autorisation appliquée à chaque action : lecteur, éditeur, propriétaire, administrateur d’instance et clé projet. Conserver l’acteur comme identité d’audit. Éviter de traiter l’existence historique de cet acteur comme un droit courant. L’emplacement exact du contrôle reste une décision d’implémentation ; aucun remplacement de Better Auth n’est requis.
+**Recommended follow-up.** Define an authorization boundary for every action: reader, editor, owner, instance administrator, and project key. Keep the actor as audit identity. Do not treat historical actor existence as a current permission. The exact control location remains an implementation decision; replacing Better Auth is not required.
 
-**Acceptation.** Tester au minimum lecture, création/édition de contenu, promotion, publication manuelle, connexion/déconnexion fournisseur, médias, tags, profils de canaux et gestion des accès pour chaque principal. Vérifier aussi le refus après rétrogradation et retrait. Une requête refusée ne doit laisser ni écriture ni effet externe.
+**Acceptance.** At minimum, test reading, content creation/editing, promotion, manual publication, provider connect/disconnect, media, tags, channel profiles, and access management for each principal. Also test denial after downgrade and removal. A rejected request must leave no write and no external effect.
 
-## H-02 — P1 — Une connexion SSE projet survit à la révocation de l’accès
+## H-02 — P1 — A project SSE connection survives access revocation
 
-**Reproduction.** Un viewer ouvre `/api/projects/:id/events`. L’owner retire ce membre. Une nouvelle lecture de canaux renvoie 404, preuve que l’appartenance courante a été révoquée. L’owner crée ensuite un canal ; le lecteur de l’ancienne connexion reçoit encore un événement `channel.created`.
+**Reproduction.** A viewer opens `/api/projects/:id/events`. The owner removes that member. A new channel read returns 404, proving that current membership was revoked. The owner then creates a channel; the reader on the old connection still receives a `channel.created` event.
 
-**Cause.** [La route SSE](/home/hakim/projects/herald/apps/api/src/modules/projects/realtime-routes.ts:156) contrôle l’accès à l’ouverture. [La boucle du flux](/home/hakim/projects/herald/apps/api/src/modules/projects/realtime-routes.ts:336) contrôle l’annulation de la requête, puis relit le journal du projet ; elle ne reçoit aucun moyen de revalider la session ou l’appartenance. Une révocation n’annule pas automatiquement le `Request.signal` de cette connexion.
+**Cause.** [The SSE route](/home/hakim/projects/herald/apps/api/src/modules/projects/realtime-routes.ts:156) checks access when opening. [The stream loop](/home/hakim/projects/herald/apps/api/src/modules/projects/realtime-routes.ts:336) checks request cancellation and then rereads the project journal; it has no way to revalidate the session or membership. Revocation does not automatically abort the connection's `Request.signal`.
 
-**Impact précis.** Le flux contient des identifiants, types d’événements, sujets et horodatages. Son `payload` est vide : la reproduction démontre une fuite de métadonnées et d’activité, pas une fuite de texte des posts ou de tokens. La connexion peut rester ouverte après la disparition du droit qui l’autorisait.
+**Precise impact.** The stream contains identifiers, event types, subjects, and timestamps. Its `payload` is empty: the reproduction demonstrates metadata and activity leakage, not post text or token leakage. The connection can remain open after the permission that authorized it disappears.
 
-Le flux utilisateur recalcule les projets visibles lors de ses lectures : c’est une protection supplémentaire réelle. Cela ne vaut pas preuve de fermeture sur expiration ou révocation de session. Ces scénarios doivent être testés séparément.
+The user stream recalculates visible projects during reads, which is a real additional protection. That is not proof of closure after session expiration or revocation. Those cases require separate tests.
 
-**Suite recommandée.** Coupler les connexions longues à la validité de leur principal, avec fermeture ou revalidation bornée après retrait, bannissement, expiration et déconnexion. Définir le délai de révocation acceptable. Ne pas envoyer de nouveau fait privé après ce délai ; une reconnexion doit refaire tous les contrôles.
+**Recommended follow-up.** Couple long-lived connections to principal validity, with closure or bounded revalidation after removal, ban, expiration, and sign-out. Define the acceptable revocation delay. Do not send new private facts after that delay; reconnecting must repeat all checks.
 
-## Protections à préserver
+## Protections to preserve
 
-- Better Auth détient les identités humaines et les appartenances Organization ; Herald conserve ses règles d’instance et son attribution métier.
-- [Les clés projet](/home/hakim/projects/herald/apps/api/src/modules/projects/index.ts:59) sont vérifiées, liées à une organisation et à un projet. La macro refuse le mauvais projet ; les routes de gestion des clés exigent un owner humain.
-- [Les mutations Better Auth réservées](/home/hakim/projects/herald/packages/auth/src/index.ts:66) sont bloquées sur le montage HTTP public afin de faire passer les opérations concernées par les routes Herald. Cette liste demande un contrôle de compatibilité à chaque évolution des plugins.
-- Les secrets fournisseurs sont séparés des comptes de connexion Herald et chiffrés au repos ; la connexion appartient au projet.
-- [L’egress HTTP](/home/hakim/projects/herald/packages/custom-http/src/egress.ts:76) classe les adresses résolues, applique la politique privée et refuse les métadonnées d’infrastructure. [Le transport](/home/hakim/projects/herald/packages/custom-http/src/node-requester.ts:40) emploie l’adresse sélectionnée. C’est une frontière concrète, supérieure à une simple validation de chaîne URL.
-- Les contrats de schémas et de médias sont bornés ; ils n’autorisent pas l’exécution de scripts persistés.
+- Better Auth owns human identities and Organization membership; Herald keeps its instance rules and domain attribution.
+- [Project keys](/home/hakim/projects/herald/apps/api/src/modules/projects/index.ts:59) are checked and bound to an organization and project. The macro rejects the wrong project; key-management routes require a human owner.
+- [Reserved Better Auth mutations](/home/hakim/projects/herald/packages/auth/src/index.ts:66) are blocked on the public HTTP mount so the affected operations go through Herald routes. This list requires a compatibility check whenever plugins evolve.
+- Provider secrets are separate from Herald login accounts and encrypted at rest; the connection belongs to the project.
+- [HTTP egress](/home/hakim/projects/herald/packages/custom-http/src/egress.ts:76) classifies resolved addresses, applies the private-address policy, and rejects infrastructure metadata. [The transport](/home/hakim/projects/herald/packages/custom-http/src/node-requester.ts:40) uses the selected address. This is a concrete boundary, stronger than string-only URL validation.
+- Schema and media contracts are bounded; they do not permit persisted script execution.
 
-Ces protections ne compensent pas H-01 et H-02, mais elles justifient de corriger des frontières ciblées plutôt que de reconstruire toute la sécurité.
+These protections do not compensate for H-01 and H-02, but they justify targeted boundary fixes rather than rebuilding all security.
 
-## Points non certifiés
+## Uncertified areas
 
-Pas de conclusion sur l’absence de toutes les vulnérabilités, de dépendances vulnérables ou de failles d’authentification. Les parcours de vérification d’email, d’administration, d’invitation et les plugins exposent une surface substantielle. Une prochaine revue devrait être guidée par une matrice de permissions et de cycles de vie, avec des versions de dépendances précises.
+This audit does not conclude that there are no vulnerabilities, vulnerable dependencies, or authentication flaws. Email verification, administration, invitation, and plugin journeys expose a substantial surface. A later review should use a permission and lifecycle matrix with precise dependency versions.
 
-La [documentation officielle Better Auth sur les sessions](https://better-auth.com/docs/concepts/session-management) a servi de référence pour distinguer session, expiration et révocation. Les constats H-01/H-02 reposent sur Herald et les reproductions locales, pas sur une hypothèse concernant un défaut de Better Auth.
+The [official Better Auth session documentation](https://better-auth.com/docs/concepts/session-management) was used to distinguish session validity, expiration, and revocation. H-01 and H-02 are based on Herald and local reproductions, not on an assumption about a Better Auth defect.

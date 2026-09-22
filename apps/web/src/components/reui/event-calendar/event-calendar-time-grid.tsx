@@ -3,7 +3,7 @@
 
 'use client'
 
-import { AddIcon } from '@solar-icons/react/bold/add'
+import { AddIcon } from '@solar-icons/react/linear/add'
 import { addDays, addMinutes, format } from 'date-fns'
 import {
     Fragment,

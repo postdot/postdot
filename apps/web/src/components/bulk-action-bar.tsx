@@ -30,6 +30,7 @@ export function BulkActionBar({
     leadingContent,
     onClear,
     onToggleAll,
+    quietWhenEmpty = false,
     selectedCount,
     selectionSummary,
     showActions = true,
@@ -44,19 +45,25 @@ export function BulkActionBar({
     readonly leadingContent?: ReactNode
     readonly onClear: () => void
     readonly onToggleAll?: () => void
+    readonly quietWhenEmpty?: boolean
     readonly selectedCount: number
     readonly selectionSummary: ReactNode
     readonly showActions?: boolean
     readonly showClearSelection?: boolean
     readonly toggleAllLabel?: string
 }) {
+    const quiet = quietWhenEmpty && selectedCount === 0
+
     return (
         <div
             role="toolbar"
             aria-label={ariaLabel}
             data-bulk-action-bar="true"
             className={cn(
-                'sticky top-3 z-10 flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-inset/95 px-3 py-2 shadow-surface backdrop-blur-sm',
+                'sticky top-3 z-10 flex flex-wrap items-center justify-between gap-2 max-sm:flex-col max-sm:items-stretch',
+                quiet
+                    ? 'px-0 py-0'
+                    : 'rounded-md bg-surface-inset/95 px-3 py-2 shadow-surface backdrop-blur-sm',
                 className
             )}>
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -66,7 +73,9 @@ export function BulkActionBar({
                 ) : null}
             </div>
             {showActions ? (
-                <div className="flex flex-wrap items-center gap-2">
+                <div
+                    className="flex flex-wrap items-center justify-end gap-2"
+                    data-bulk-actions="true">
                     {onToggleAll !== undefined && toggleAllLabel !== undefined ? (
                         <ButtonGroup>
                             <Button

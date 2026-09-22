@@ -29,7 +29,7 @@ future landing-page decisions remain explicit below.
   use. The authenticated app is an operational workspace, not a centered
   marketing canvas.
 - Known constraints: React/TanStack Router/Vite, Tailwind and `@herald/ui`,
-  Base UI, Recursive Variable, Solar Icons Bold, native-first motion policy,
+  Base UI, Recursive Variable, Solar Icons Linear, native-first motion policy,
   English product copy, and the existing `Post` / `Publication` and `Channel`
   boundaries.
 - Assumptions to validate: the exact first-run workflow, right-context surface,
@@ -39,7 +39,7 @@ future landing-page decisions remain explicit below.
 
 - Thesis: Herald is a quiet dispatch desk where one source becomes several
   accountable publications, so the interface should make routing, state, and
-  the next human decision visible without becoming a control-room cliché.
+  the next human decision visible without becoming a control-room stereotype.
 - Emotional register: attentive, technical, calm, and deliberate; never
   sterile or theatrically futuristic.
 - Domain anchor: a dispatch desk or routing board that tracks an instruction
@@ -320,7 +320,7 @@ building it; the current app contract must not silently decide those choices.
   foundation, purposeful lines, rare depth, and task-dependent density —
   accepted after H-10 owner review; 2026-09-02 — Graphite/Ash low-chroma
   surface palette accepted as the neutral refinement; 2026-09-02 — Recursive
-  Variable as the owner-selected type family, Solar Icons Bold as the shared
+  Variable as the owner-selected type family, Solar Icons Linear as the shared
   icon weight, and reserved sidebar badge space to prevent channel labels from
   overlapping their status; 2026-09-02 — the owner-supplied Herald bird mark
   accepted as the product logo, with an inline current-color implementation for
@@ -337,7 +337,7 @@ building it; the current app contract must not silently decide those choices.
 - Baseline: the pre-direction Tailwind dashboard and the H-09 linework
   comparison, using the same Herald fixture and wide viewport.
 - Current candidate: this contract plus Cobalt, neutral surface-led roles,
-  Recursive Variable, Solar Icons Bold, the Herald bird mark, and task-
+  Recursive Variable, Solar Icons Linear, the Herald bird mark, and task-
   dependent composition.
 - Observable rubric: product category is clear; source/publication relation is
   visible; each surface has one primary task; shared identity survives layout

@@ -8,7 +8,7 @@ import { useRender } from '@base-ui/react/use-render'
 import { Popover, PopoverContent, PopoverTrigger } from '@herald/ui/components/popover'
 import { ScrollArea } from '@herald/ui/components/scroll-area'
 import { cn } from '@herald/ui/lib/utils'
-import { AddIcon } from '@solar-icons/react/bold/add'
+import { AddIcon } from '@solar-icons/react/linear/add'
 import { addDays, format, getWeek } from 'date-fns'
 import {
     useCallback,

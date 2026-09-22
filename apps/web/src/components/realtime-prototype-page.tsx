@@ -48,10 +48,8 @@ export function RealtimePrototypePage({ projectId }: { readonly projectId: strin
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="mx-auto max-w-7xl">
                 <header className="max-w-3xl">
-                    <p className="text-xs font-semibold tracking-[0.12em] text-primary">
-                        REALTIME-96 · SPIKE
-                    </p>
-                    <h1 className="mt-2 font-heading text-3xl font-semibold leading-tight tracking-[-0.04em]">
+                    <p className="text-xs font-semibold text-primary">REALTIME-96 · SPIKE</p>
+                    <h1 className="mt-2 font-heading text-3xl font-semibold leading-tight">
                         {m.realtime_title()}
                     </h1>
                     <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -434,7 +432,7 @@ function DataSection({
     return (
         <section className="min-w-0 border-t-2 border-foreground/15">
             <div className="flex items-baseline justify-between gap-4 py-3">
-                <h2 className="text-sm font-semibold tracking-[-0.01em]">{heading}</h2>
+                <h2 className="text-sm font-semibold">{heading}</h2>
                 <span className="text-xs tabular-nums text-muted-foreground">{count}</span>
             </div>
             <div className="overflow-hidden border border-border bg-card shadow-surface">

@@ -148,7 +148,7 @@ The taxonomy data itself is owned by Herald, not by a publisher provider.
   project-management operation.
 - Publication tag definitions and assignments are project-scoped. Reading tags
   follows project read access. Assigning tags follows publication authoring or
-  project write access, so supported humans, agents, and project access tokens
+  project write access, so supported humans, agents, and user API keys
   can preserve metadata during normal publication workflows.
 - Creating, renaming, archiving, or restoring a project tag is taxonomy
   administration within that project. Until a finer membership-role model is

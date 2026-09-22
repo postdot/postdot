@@ -10,10 +10,10 @@ import {
     DialogTitle,
 } from '@herald/ui/components/dialog'
 import { Input } from '@herald/ui/components/input'
-import { CameraIcon } from '@solar-icons/react/bold/camera'
-import { FolderOpenIcon } from '@solar-icons/react/bold/folder-open'
-import { LinkIcon } from '@solar-icons/react/bold/link'
-import { UploadIcon } from '@solar-icons/react/bold/upload'
+import { CameraIcon } from '@solar-icons/react/linear/camera'
+import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
+import { LinkIcon } from '@solar-icons/react/linear/link'
+import { UploadIcon } from '@solar-icons/react/linear/upload'
 import { useEffect, useState } from 'react'
 
 import * as m from '@/paraglide/messages.js'
@@ -59,7 +59,9 @@ export function MediaSourcePickerDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md" data-media-source-picker="true">
+            <DialogContent
+                className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-x-hidden overflow-y-auto sm:max-w-md"
+                data-media-source-picker="true">
                 <DialogHeader>
                     <DialogTitle>{m.media_source_picker_title()}</DialogTitle>
                     <DialogDescription>{m.media_source_picker_description()}</DialogDescription>
@@ -76,12 +78,12 @@ export function MediaSourcePickerDialog({
                             variant="ghost"
                             disabled={disabled}
                             data-media-source="device"
-                            className="h-auto justify-start gap-3 px-3 py-3 text-left"
+                            className="h-auto min-w-0 w-full justify-start gap-3 px-3 py-3 text-left"
                             onClick={onDevice}>
                             <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
                                 <FolderOpenIcon aria-hidden="true" />
                             </span>
-                            <span className="min-w-0">
+                            <span className="min-w-0 whitespace-normal break-words">
                                 <span className="block text-sm font-medium">
                                     {m.media_source_device()}
                                 </span>
@@ -97,12 +99,12 @@ export function MediaSourcePickerDialog({
                             variant="ghost"
                             disabled={disabled}
                             data-media-source="webcam"
-                            className="h-auto justify-start gap-3 px-3 py-3 text-left"
+                            className="h-auto min-w-0 w-full justify-start gap-3 px-3 py-3 text-left"
                             onClick={onWebcam}>
                             <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
                                 <CameraIcon aria-hidden="true" />
                             </span>
-                            <span className="min-w-0">
+                            <span className="min-w-0 whitespace-normal break-words">
                                 <span className="block text-sm font-medium">
                                     {m.media_source_webcam()}
                                 </span>
@@ -119,12 +121,12 @@ export function MediaSourcePickerDialog({
                             disabled={disabled || urlImportPending}
                             data-media-source="url"
                             aria-pressed={selectedSource === 'url'}
-                            className="h-auto justify-start gap-3 px-3 py-3 text-left"
+                            className="h-auto min-w-0 w-full justify-start gap-3 px-3 py-3 text-left"
                             onClick={() => setSelectedSource('url')}>
                             <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
                                 <LinkIcon aria-hidden="true" />
                             </span>
-                            <span className="min-w-0">
+                            <span className="min-w-0 whitespace-normal break-words">
                                 <span className="block text-sm font-medium">
                                     {m.media_source_url()}
                                 </span>

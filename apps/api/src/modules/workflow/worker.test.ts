@@ -21,7 +21,7 @@ import {
     createProviderMediaDeliveryStore,
     runMigrations,
 } from '@herald/db'
-import { providerMediaDeliveries, publications } from '@herald/db/schema'
+import { auditEvents, providerMediaDeliveries, publications } from '@herald/db/schema'
 import {
     createLinkedInImagePublisher,
     createLinkedInTextPublisher,
@@ -72,6 +72,38 @@ const customWebhookProfile: ChannelProfileDefinition = {
         contractId: 'custom-webhook',
         revision: '1',
         mode: 'herald_webhook',
+    },
+}
+
+const customMappedRetryProfile: ChannelProfileDefinition = {
+    ...customWebhookProfile,
+    id: 'custom-mapped-retry',
+    profileHash: 'sha256:custom-mapped-retry-profile-v1',
+    schemaHash: 'sha256:custom-mapped-retry-schema-v1',
+    execution: {
+        kind: 'declarative_http',
+        contractId: 'custom-mapped-retry',
+        revision: '1',
+        mode: 'mapped_http',
+        request: {
+            method: 'POST',
+            path: [],
+            body: {
+                kind: 'json',
+                value: {
+                    kind: 'object',
+                    properties: {
+                        commentary: { kind: 'content', pointer: '/commentary' },
+                    },
+                },
+            },
+            response: {
+                successStatuses: [200, 201],
+                retryableStatuses: [429, 503],
+                rejectedStatuses: [400],
+                ambiguousStatuses: [500],
+            },
+        },
     },
 }
 
@@ -406,6 +438,190 @@ describe('publication worker', () => {
                 credentialStore.getPublisherCredential(project.project.id, credential.credential.id)
             ).toMatchObject({ state: 'reconnect_required' })
         } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('retries a rejected custom HTTP publication and projects the final outcome', async () => {
+        let attempt = 0
+        const receivedBodies: unknown[] = []
+        const receiver = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                receivedBodies.push(await request.json())
+                attempt += 1
+                return Response.json(
+                    { accepted: attempt === 2 },
+                    { status: attempt === 1 ? 400 : 201 }
+                )
+            },
+        })
+        const receiverPort = receiver.port
+        if (receiverPort === undefined) throw new Error('The retry receiver has no port')
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const manualStore = createManualStore(database, { now: () => now })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => now,
+            })
+            const publisherStore = createPublisherStore(database, {
+                credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
+                now: () => now,
+            })
+            const project = manualStore.createProject({
+                name: 'Custom HTTP Retry Project',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Retry Receiver',
+                profile: customMappedRetryProfile,
+            })
+            expect(channel).not.toBeNull()
+            if (channel === null) throw new Error('The retry channel was not created')
+
+            const credential = await credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'custom_http',
+                externalAccountId: 'retry-receiver',
+                externalAccountName: 'Retry Receiver',
+                scopes: [],
+                accessToken: 'custom-http-retry-secret-with-at-least-32-characters',
+                expiresAt: null,
+            })
+            expect(credential.kind).toBe('created')
+            if (credential.kind !== 'created')
+                throw new Error('The retry credential was not created')
+
+            const connection = publisherStore.createPublisherConnection({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                kind: 'custom_http',
+                credentialId: credential.credential.id,
+                endpointUrl: `http://127.0.0.1:${receiverPort}`,
+                authentication: { kind: 'none' },
+            })
+            expect(connection.kind).toBe('created')
+
+            const created = manualStore.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: {
+                    body: { text: 'Retry this rejected publication', format: 'plain_text' },
+                    media: [],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
+                ],
+            })
+            expect(created).not.toBeNull()
+            if (created === null || created.publications[0] === undefined) {
+                throw new Error('The retry publication was not created')
+            }
+            const publication = created.publications[0]
+
+            const worker = createPublicationWorker({
+                database,
+                publisherStore,
+                publisherCredentialStore: credentialStore,
+                builtInProviderRegistry: createBuiltInProviderRegistry([]),
+                customHttpTransport: createCustomHttpTransport({
+                    privateDestinations: [
+                        {
+                            kind: 'cidr',
+                            cidr: '127.0.0.0/8',
+                            port: receiverPort,
+                            schemes: ['http'],
+                        },
+                    ],
+                }),
+                now: () => now,
+            })
+
+            await worker.processDueEvents(now)
+            expect(attempt).toBe(1)
+            expect(readPublicationState(database, publication.id)).toBe('failed')
+
+            const retried = manualStore.retryFailedPublication({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+            })
+            expect(retried).toMatchObject({
+                kind: 'retried',
+                publication: { id: publication.id, state: 'ready' },
+            })
+
+            await worker.processDueEvents(now)
+            expect(attempt).toBe(2)
+            expect(readPublicationState(database, publication.id)).toBe('published')
+            expect(receivedBodies).toEqual([
+                { commentary: 'Retry this rejected publication' },
+                { commentary: 'Retry this rejected publication' },
+            ])
+
+            const publicationAudit = database
+                .select({
+                    action: auditEvents.action,
+                    entityId: auditEvents.entityId,
+                    id: auditEvents.id,
+                    metadataJson: auditEvents.metadataJson,
+                })
+                .from(auditEvents)
+                .where(eq(auditEvents.entityId, publication.id))
+                .all()
+            expect(publicationAudit.map(event => event.action)).toEqual(
+                expect.arrayContaining([
+                    'publication.execution.failed',
+                    'publication.retry_requested',
+                    'publication.execution.succeeded',
+                ])
+            )
+            const retryEvent = publicationAudit.find(
+                event => event.action === 'publication.retry_requested'
+            )
+            expect(retryEvent).toBeDefined()
+            expect(JSON.parse(retryEvent?.metadataJson ?? '{}')).toMatchObject({
+                fromState: 'failed',
+                toState: 'ready',
+                previousAttempts: 1,
+                retryAt: now,
+            })
+
+            const failedEvent = publicationAudit.find(
+                event => event.action === 'publication.execution.failed'
+            )
+            const succeededEvent = publicationAudit.find(
+                event => event.action === 'publication.execution.succeeded'
+            )
+            const notifications = createNotificationStore(database, { now: () => now })
+            const notificationProjection = createNotificationProjectionRuntime(notifications)
+            notificationProjection.runNow()
+            const publicationNotifications = notifications
+                .list({ projectId: project.project.id, subjectId: 'user-1' })
+                ?.items.filter(item => item.subject.id === publication.id)
+            expect(publicationNotifications).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        kind: 'publication_failed',
+                        sourceEventId: failedEvent?.id,
+                    }),
+                    expect.objectContaining({
+                        kind: 'publication_published',
+                        sourceEventId: succeededEvent?.id,
+                    }),
+                ])
+            )
+        } finally {
+            receiver.stop()
             closeDatabase(database)
         }
     })
@@ -965,6 +1181,7 @@ describe('publication worker', () => {
     it('runs scheduled work through the worker scheduler and a local provider sandbox', async () => {
         let currentTime = now
         const attempts = new Map<string, number>()
+        const timeoutRequests: number[] = []
         const deliveries: Array<{
             readonly label: string
             readonly attempt: number
@@ -975,21 +1192,34 @@ describe('publication worker', () => {
             async fetch(request) {
                 const envelope = (await request.json()) as {
                     readonly content?: { readonly commentary?: string }
+                    readonly commentary?: string
                 }
-                const label = envelope.content?.commentary ?? 'unknown'
+                const label = envelope.content?.commentary ?? envelope.commentary ?? 'unknown'
                 const attempt = (attempts.get(label) ?? 0) + 1
                 attempts.set(label, attempt)
+
+                if (label === 'timeout') {
+                    timeoutRequests.push(attempt)
+                    if (attempt === 1) {
+                        await new Promise(resolve => setTimeout(resolve, 25))
+                        return Response.json({ accepted: true }, { status: 201 })
+                    }
+                }
 
                 const status =
                     label === 'retry'
                         ? attempt === 1
                             ? 429
                             : 201
-                        : label === 'failed'
-                          ? 400
-                          : label === 'ambiguous'
-                            ? 500
-                            : 201
+                        : label === 'retry-5xx'
+                          ? attempt === 1
+                              ? 503
+                              : 201
+                          : label === 'failed'
+                            ? 400
+                            : label === 'ambiguous'
+                              ? 500
+                              : 201
                 deliveries.push({ label, attempt, status })
                 return Response.json({ accepted: status === 201 }, { status })
             },
@@ -1050,7 +1280,32 @@ describe('publication worker', () => {
             })
             expect(connection.kind).toBe('created')
 
-            const createSandboxPublication = (label: string, scheduledAt: number) => {
+            const mappedChannel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Mapped Provider Sandbox',
+                profile: customMappedRetryProfile,
+            })
+            expect(mappedChannel).not.toBeNull()
+            if (mappedChannel === null)
+                throw new Error('The mapped provider sandbox channel was not created')
+
+            const mappedConnection = publisherStore.createPublisherConnection({
+                projectId: project.project.id,
+                channelId: mappedChannel.id,
+                subjectId: 'user-1',
+                kind: 'custom_http',
+                credentialId: credential.credential.id,
+                endpointUrl: `http://127.0.0.1:${receiverPort}`,
+                authentication: { kind: 'none' },
+            })
+            expect(mappedConnection.kind).toBe('created')
+
+            const createSandboxPublication = (
+                label: string,
+                scheduledAt: number,
+                publicationChannelId = channel.id
+            ) => {
                 const created = manualStore.createPost({
                     projectId: project.project.id,
                     subjectId: 'user-1',
@@ -1059,7 +1314,11 @@ describe('publication worker', () => {
                         media: [],
                     },
                     publications: [
-                        { channelId: channel.id, deliveryMode: 'automatic', scheduledAt },
+                        {
+                            channelId: publicationChannelId,
+                            deliveryMode: 'automatic',
+                            scheduledAt,
+                        },
                     ],
                 })
                 expect(created).not.toBeNull()
@@ -1086,6 +1345,7 @@ describe('publication worker', () => {
                             schemes: ['http'],
                         },
                     ],
+                    timeoutMs: 5,
                 }),
                 now: () => currentTime,
                 retryPolicy: { nextRunAt: ({ failedAt }) => failedAt + 100 },
@@ -1115,31 +1375,79 @@ describe('publication worker', () => {
             expect(readPublicationState(database, cancelled.id)).toBe('cancelled')
 
             const retry = createSandboxPublication('retry', now + 200)
+            const retryFiveHundredThree = createSandboxPublication(
+                'retry-5xx',
+                now + 200,
+                mappedChannel.id
+            )
             const failed = createSandboxPublication('failed', now + 200)
             const ambiguous = createSandboxPublication('ambiguous', now + 200)
+            const timeout = createSandboxPublication('timeout', now + 200)
             worker.replan()
             expect(worker.scheduler.scheduledAt).toBe(now + 200)
 
             currentTime = now + 200
             await timers.fireOnly()
-            expect(deliveries).toHaveLength(4)
+            expect(deliveries).toHaveLength(5)
             expect(deliveries).toEqual(
                 expect.arrayContaining([
                     { label: 'success', attempt: 1, status: 201 },
                     { label: 'retry', attempt: 1, status: 429 },
+                    { label: 'retry-5xx', attempt: 1, status: 503 },
                     { label: 'failed', attempt: 1, status: 400 },
                     { label: 'ambiguous', attempt: 1, status: 500 },
                 ])
             )
             expect(readPublicationState(database, retry.id)).toBe('ready')
+            expect(readPublicationState(database, retryFiveHundredThree.id)).toBe('ready')
             expect(readPublicationState(database, failed.id)).toBe('failed')
             expect(readPublicationState(database, ambiguous.id)).toBe('ambiguous')
+            expect(readPublicationState(database, timeout.id)).toBe('ambiguous')
+            expect(timeoutRequests).toEqual([1])
+            expect(worker.scheduler.scheduledAt).toBe(now + 300)
+
+            const reconciledTimeout = manualStore.reconcileAmbiguousPublication({
+                projectId: project.project.id,
+                publicationId: timeout.id,
+                subjectId: 'user-1',
+                resolution: 'failed',
+                errorMessage: 'Operator verified that the provider did not accept the request',
+            })
+            expect(reconciledTimeout).toMatchObject({
+                kind: 'reconciled',
+                publication: { state: 'failed' },
+            })
+            expect(
+                manualStore.retryFailedPublication({
+                    projectId: project.project.id,
+                    publicationId: timeout.id,
+                    subjectId: 'user-1',
+                })
+            ).toMatchObject({ kind: 'retried', publication: { state: 'ready' } })
+            worker.replan()
+            expect(worker.scheduler.scheduledAt).toBe(now + 200)
+
+            currentTime = now + 200
+            await timers.fireOnly()
+            expect(readPublicationState(database, timeout.id)).toBe('published')
+            expect(timeoutRequests).toEqual([1, 2])
+            expect(attempts.get('timeout')).toBe(2)
             expect(worker.scheduler.scheduledAt).toBe(now + 300)
 
             currentTime = now + 300
             await timers.fireOnly()
-            expect(deliveries).toHaveLength(5)
-            expect(deliveries.at(-1)).toEqual({ label: 'retry', attempt: 2, status: 201 })
+            expect(deliveries).toHaveLength(8)
+            expect(deliveries).toEqual(
+                expect.arrayContaining([
+                    { label: 'retry', attempt: 2, status: 201 },
+                    { label: 'retry-5xx', attempt: 2, status: 201 },
+                ])
+            )
+            expect(attempts.get('retry')).toBe(2)
+            expect(attempts.get('retry-5xx')).toBe(2)
+            expect(attempts.get('failed')).toBe(1)
+            expect(attempts.get('ambiguous')).toBe(1)
+            expect(attempts.get('timeout')).toBe(2)
             expect(readPublicationState(database, retry.id)).toBe('published')
             expect(worker.scheduler.scheduledAt).toBeNull()
 

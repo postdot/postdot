@@ -4,6 +4,7 @@ import {
     createAuthorizationRequest,
     digestAuthorizationState,
     exchangeAuthorizationCode,
+    isAuthorizationDeniedError,
     validateAuthorizationResponse,
 } from '@herald/oauth'
 import { X_PROVIDER, X_REQUIRED_SCOPES, type XUser } from '@herald/x'
@@ -14,6 +15,7 @@ import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth
 import type { PublisherRuntime } from '../../publishers/runtime'
 import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { errorResponse, xConnectionBody, xConnectionSchema } from '../models'
+import { publisherChannelsReturnPath } from './publisher-redirect'
 
 export function registerXPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -79,7 +81,12 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                     })
                 }
 
-                if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+                const existingConnection = publisherStore.getPublisherConnection(
+                    params.projectId,
+                    params.channelId,
+                    user.id
+                )
+                if (existingConnection?.state === 'active') {
                     return status(409, {
                         error: {
                             code: 'publisher_exists',
@@ -130,7 +137,7 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                         providerId: X_PROVIDER,
                         callbackUri: x.callbackUri,
                         scopes: authorization.scopes,
-                        returnPath: '/dashboard',
+                        returnPath: publisherChannelsReturnPath(params.projectId, params.channelId),
                         context: {},
                         stateDigest: await digestAuthorizationState(authorization.state),
                         codeVerifier: authorization.codeVerifier,
@@ -310,6 +317,15 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                         id: profile.id,
                         name: `@${profile.username}`,
                     }
+                    const existingConnection = publisherStore.getPublisherConnection(
+                        consumed.attempt.projectId,
+                        consumed.attempt.channelId,
+                        user.id
+                    )
+                    const replaceNonActiveConnection =
+                        existingConnection === null || existingConnection.state === 'active'
+                            ? undefined
+                            : { id: existingConnection.id, state: existingConnection.state }
 
                     const expiresAt = tokenExpiry(publisher.now(), tokenSet.expiresInSeconds)
                     callbackStage = 'save_credential'
@@ -341,6 +357,7 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                         kind: X_PROVIDER,
                         credentialId: credential.id,
                         destination,
+                        replaceNonActiveConnection,
                     })
                     if (connection.kind !== 'created') {
                         return redirectPublisher(
@@ -361,6 +378,13 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                         'connected'
                     )
                 } catch (error) {
+                    if (isAuthorizationDeniedError(error)) {
+                        return redirectPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            'authorization_denied'
+                        )
+                    }
                     logPublisherFlowError(
                         options.logger,
                         {
@@ -506,6 +530,7 @@ function redirectPublisher(
     result:
         | 'connected'
         | 'already_used'
+        | 'authorization_denied'
         | 'invalid_callback'
         | 'invalid_destination'
         | 'provider_unavailable'

@@ -15,12 +15,8 @@ describe('Herald client', () => {
         expect(client.api.projects.get).toBeFunction()
         expect(client.api.projects.post).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).patch).toBeFunction()
-        expect(client.api.projects({ projectId: 'project-1' })['access-tokens'].get).toBeFunction()
-        expect(client.api.projects({ projectId: 'project-1' })['access-tokens'].post).toBeFunction()
-        expect(
-            client.api.projects({ projectId: 'project-1' })['access-tokens']({ tokenId: 'token-1' })
-                .delete
-        ).toBeFunction()
+        expect(client.api['api-keys'].get).toBeFunction()
+        expect(client.api['api-keys'].post).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).publishers.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).channels.get).toBeFunction()
         expect(client.api.projects({ projectId: 'project-1' }).notifications.get).toBeFunction()
@@ -125,8 +121,9 @@ describe('Herald client', () => {
             const createdProject = await client.api.projects.post({ name: 'Machine access' })
             expect(createdProject.error).toBeNull()
             const projectId = (createdProject.data as { project: { id: string } }).project.id
-            const createdToken = await client.api.projects({ projectId })['access-tokens'].post({
-                name: 'Client test token',
+            const createdToken = await client.api['api-keys'].post({
+                name: 'Client test key',
+                projectIds: [projectId],
             })
             expect(createdToken.error).toBeNull()
             const token = (createdToken.data as { token: string }).token
@@ -156,19 +153,14 @@ describe('Herald client', () => {
             expect(filteredPublications.data).toEqual({
                 publications: [],
                 nextCursor: null,
-                summary: { total: 0, manual: 0, automatic: 0, scheduled: 0 },
+                summary: { total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 },
             })
-
-            const deniedTokenList = await machineClient.api
-                .projects({ projectId })
-                ['access-tokens'].get()
-            expect(deniedTokenList.status).toBe(403)
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('sends a project API key through the typed client', async () => {
+    it('sends a user API key through the typed client', async () => {
         let authorization: string | null = null
         const client = createHeraldClient('http://localhost:3000', {
             token: 'herald_pat_test-token',

@@ -11,6 +11,7 @@ import {
 } from './plugins'
 
 export type { HeraldAuthInvitationOptions, HeraldOrganizationInvitationEmail } from './plugins'
+export { heraldUserApiKeyConfigId } from './plugins'
 
 export interface HeraldAuthVerificationEmail {
     readonly user: {
@@ -72,6 +73,11 @@ const heraldManagedAuthMutationPaths = new Set([
     '/organization/cancel-invitation',
     '/organization/remove-member',
     '/organization/update-member-role',
+    '/organization/create-team',
+    '/organization/update-team',
+    '/organization/remove-team',
+    '/organization/add-team-member',
+    '/organization/remove-team-member',
     '/organization/delete',
     '/organization/update',
     '/organization/leave',
@@ -152,6 +158,7 @@ export interface HeraldOrganizationMember {
 
 export interface HeraldApiKeyRecord {
     readonly id: string
+    readonly configId: string
     readonly name: string | null
     readonly referenceId: string
     readonly key?: string
@@ -168,8 +175,9 @@ export interface HeraldApiKeyRecord {
 export interface HeraldApiKeyAuthApi {
     createApiKey(input: {
         body: {
+            configId?: string
             name: string
-            organizationId: string
+            organizationId?: string
             userId?: string
             expiresIn?: number | null
             metadata?: unknown
@@ -177,15 +185,25 @@ export interface HeraldApiKeyAuthApi {
         headers?: Headers
     }): Promise<HeraldApiKeyRecord & { readonly key: string }>
     listApiKeys(input: {
-        query: { organizationId: string; limit?: number; offset?: number }
+        query: { configId?: string; organizationId?: string; limit?: number; offset?: number }
         headers: Headers
     }): Promise<{ readonly apiKeys: readonly HeraldApiKeyRecord[]; readonly total: number }>
     deleteApiKey(input: {
-        body: { keyId: string }
+        body: { configId?: string; keyId: string }
         headers: Headers
     }): Promise<{ readonly success: boolean }>
+    updateApiKey(input: {
+        body: {
+            configId?: string
+            keyId: string
+            metadata?: unknown
+            name?: string
+            expiresIn?: number | null
+        }
+        headers: Headers
+    }): Promise<HeraldApiKeyRecord>
     verifyApiKey(input: {
-        body: { key: string }
+        body: { configId?: string; key: string }
     }): Promise<
         | { readonly valid: true; readonly error: null; readonly key: HeraldApiKeyRecord }
         | { readonly valid: false; readonly error: unknown; readonly key: null }
@@ -197,9 +215,34 @@ export interface HeraldOrganizationInvitation {
     readonly email: string
     readonly role: string
     readonly organizationId: string
+    readonly projectId?: string | null
+    readonly projectRole?: string | null
     readonly inviterId: string
     readonly status: string
     readonly expiresAt: Date
+    readonly createdAt: Date
+    readonly teamId?: string
+}
+
+export interface HeraldOrganizationInvitationDetails extends HeraldOrganizationInvitation {
+    readonly organizationName: string
+    readonly organizationSlug: string
+    readonly inviterEmail: string
+}
+
+export interface HeraldOrganizationTeam {
+    readonly id: string
+    readonly name: string
+    readonly organizationId: string
+    readonly memberCount?: number
+    readonly createdAt: Date
+    readonly updatedAt?: Date
+}
+
+export interface HeraldOrganizationTeamMember {
+    readonly id: string
+    readonly teamId: string
+    readonly userId: string
     readonly createdAt: Date
 }
 
@@ -221,9 +264,16 @@ export interface HeraldOrganizationInvitationAuthApi {
             role: string | string[]
             organizationId: string
             resend?: boolean
+            teamId?: string | string[]
+            projectId?: string
+            projectRole?: string
         }
         headers: Headers
     }): Promise<HeraldOrganizationInvitation>
+    getInvitation(input: {
+        query: { id: string }
+        headers: Headers
+    }): Promise<HeraldOrganizationInvitationDetails>
     acceptInvitation(input: { body: { invitationId: string }; headers: Headers }): Promise<{
         readonly invitation: HeraldOrganizationInvitation
         readonly member: {
@@ -238,6 +288,33 @@ export interface HeraldOrganizationInvitationAuthApi {
         body: { invitationId: string }
         headers: Headers
     }): Promise<HeraldOrganizationInvitation>
+    listOrganizationTeams(input: {
+        query: { organizationId: string }
+        headers: Headers
+    }): Promise<readonly HeraldOrganizationTeam[]>
+    createTeam(input: {
+        body: { name: string; organizationId: string }
+        headers: Headers
+    }): Promise<HeraldOrganizationTeam>
+    updateTeam(input: {
+        body: {
+            teamId: string
+            data: { name?: string; organizationId?: string }
+        }
+        headers: Headers
+    }): Promise<HeraldOrganizationTeam>
+    listTeamMembers(input: {
+        query: { teamId: string }
+        headers: Headers
+    }): Promise<readonly HeraldOrganizationTeamMember[]>
+    addTeamMember(input: {
+        body: { teamId: string; userId: string; organizationId: string }
+        headers: Headers
+    }): Promise<HeraldOrganizationTeamMember>
+    removeTeamMember(input: {
+        body: { teamId: string; userId: string; organizationId: string }
+        headers: Headers
+    }): Promise<{ readonly message: string }>
 }
 
 export interface HeraldAdminAuthApi {
@@ -350,42 +427,58 @@ export function createAuth(
               }),
         plugins: createHeraldAuthPlugins(
             {
-                afterOrganizationMemberAdded: ({ organizationId, userId, role, displayName }) => {
-                    access.syncProjectMembershipFromOrganizationMember({
-                        organizationId,
-                        userId,
-                        role,
-                        displayName,
-                    })
-                },
-                afterOrganizationMemberRemoved: ({ organizationId, userId }) => {
-                    access.removeProjectMembershipForOrganizationMember({ organizationId, userId })
-                },
-                afterOrganizationMemberRoleUpdated: ({
-                    organizationId,
-                    userId,
-                    role,
-                    displayName,
-                }) => {
-                    access.updateProjectMembershipForOrganizationMember({
-                        organizationId,
-                        userId,
-                        role,
-                        displayName,
-                    })
-                },
                 afterOrganizationInvitationAccepted: ({
                     organizationId,
                     userId,
-                    role,
                     displayName,
+                    teamId,
+                    projectId,
+                    projectRole,
                 }) => {
-                    access.ensureProjectMembershipForOrganizationInvitation({
+                    // Workspace invitations are the product-level membership
+                    // flow. Keep the legacy instance projection in sync, but
+                    // do not try to interpret workspace roles as project roles.
+                    const workspace = access.ensureInstanceMembershipForWorkspaceMember({
                         organizationId,
                         userId,
-                        role,
-                        displayName,
                     })
+                    if (workspace !== null) {
+                        if (
+                            projectId !== undefined &&
+                            (projectRole === 'editor' || projectRole === 'viewer')
+                        ) {
+                            access.grantProjectUserAccess({
+                                projectId,
+                                userId,
+                                role: projectRole,
+                            })
+                        }
+                        if (teamId !== undefined) {
+                            access.syncTeamMemberToProjectGrants({
+                                teamId,
+                                userId,
+                                displayName,
+                            })
+                        }
+                        return
+                    }
+
+                    // A Better Auth organization that is not backed by a
+                    // Herald workspace is legacy data. It must not grant
+                    // project access after the workspace/grant boundary is
+                    // established.
+                },
+                afterOrganizationTeamMemberAdded: ({
+                    organizationId,
+                    teamId,
+                    userId,
+                    displayName,
+                }) => {
+                    // Only workspace teams can grant Herald project access.
+                    // Legacy Better Auth organizations are not part of the
+                    // product-level group model.
+                    if (access.getWorkspaceByOrganizationId(organizationId) === null) return
+                    access.syncTeamMemberToProjectGrants({ teamId, userId, displayName })
                 },
             } satisfies HeraldAuthPluginHooks,
             {

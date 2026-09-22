@@ -27,7 +27,7 @@ import type { AuthenticatedElysia } from './types'
 /**
  * Categories are instance-level definitions. Human sessions may read them for
  * project context and filters; only enabled instance administrators may mutate
- * them. Project API keys are never accepted on this instance surface.
+ * them. User API keys are never accepted on this instance surface.
  */
 export function registerTaxonomyRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,

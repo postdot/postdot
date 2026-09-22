@@ -7,10 +7,10 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@herald/ui/components/sheet'
-import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
-import { EyeIcon } from '@solar-icons/react/bold/eye'
-import { LinkIcon } from '@solar-icons/react/bold/link'
-import { PenIcon } from '@solar-icons/react/bold/pen'
+import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
+import { EyeIcon } from '@solar-icons/react/linear/eye'
+import { LinkIcon } from '@solar-icons/react/linear/link'
+import { PenIcon } from '@solar-icons/react/linear/pen'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, type ReactNode } from 'react'
 
@@ -18,6 +18,7 @@ import { PublicationStatus, formatSchedule } from '@/components/dashboard-public
 import { api, type PublicationSummary } from '@/lib/api'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import { canEditPublication } from '@/lib/publication-lifecycle'
+import * as m from '@/paraglide/messages.js'
 
 export function PublicationCalendarPreviewSheet({
     locale,
@@ -65,7 +66,7 @@ export function PublicationCalendarPreviewSheet({
             <SheetContent
                 aria-describedby={undefined}
                 className="w-[min(32rem,calc(100vw-1rem))] gap-0 p-0 sm:max-w-lg"
-                closeLabel={locale === 'fr' ? 'Fermer' : 'Close'}
+                closeLabel={m.common_close({}, { locale: locale === 'fr' ? 'fr' : 'en' })}
                 side="right">
                 <SheetHeader className="bg-surface-inset px-5 py-5 sm:px-6">
                     <SheetTitle className="pr-8 truncate text-xl leading-tight">{title}</SheetTitle>
@@ -206,35 +207,20 @@ interface PreviewCopy {
 }
 
 function getPreviewCopy(locale: string): PreviewCopy {
-    if (locale === 'fr') {
-        return {
-            channel: 'Canal',
-            content: 'Contenu',
-            loadError: 'Le contenu n’a pas pu être chargé.',
-            loading: 'Chargement…',
-            mediaOnly: 'Publication avec média',
-            noContent: 'Aucun contenu à afficher',
-            edit: 'Modifier la publication',
-            view: 'Voir la publication',
-            schedule: 'Planification',
-            status: 'Statut',
-            unavailable: 'Cette publication n’est plus disponible.',
-            untitled: 'Publication sans titre',
-        }
-    }
-
+    const messageLocale = locale === 'fr' ? 'fr' : 'en'
+    const messageOptions = { locale: messageLocale } as const
     return {
-        channel: 'Channel',
-        content: 'Content',
-        loadError: 'The content could not be loaded.',
-        loading: 'Loading…',
-        mediaOnly: 'Media publication',
-        noContent: 'No content to display',
-        edit: 'Edit publication',
-        view: 'View publication',
-        schedule: 'Schedule',
-        status: 'Status',
-        unavailable: 'This publication is no longer available.',
-        untitled: 'Untitled publication',
+        channel: m.calendar_preview_channel({}, messageOptions),
+        content: m.calendar_preview_content({}, messageOptions),
+        loadError: m.calendar_preview_load_error({}, messageOptions),
+        loading: m.calendar_preview_loading({}, messageOptions),
+        mediaOnly: m.calendar_preview_media_only({}, messageOptions),
+        noContent: m.calendar_preview_no_content({}, messageOptions),
+        edit: m.calendar_preview_edit({}, messageOptions),
+        view: m.calendar_preview_view({}, messageOptions),
+        schedule: m.calendar_preview_schedule({}, messageOptions),
+        status: m.calendar_preview_status({}, messageOptions),
+        unavailable: m.calendar_preview_unavailable({}, messageOptions),
+        untitled: m.calendar_preview_untitled({}, messageOptions),
     }
 }

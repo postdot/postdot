@@ -14,6 +14,7 @@ dist/
 build/
 .turbo/
 .vite/
+.cspellcache
 storybook-static/
 coverage/
 playwright-report/

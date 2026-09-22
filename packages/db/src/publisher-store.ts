@@ -35,6 +35,11 @@ export interface CreatePublisherConnectionInput {
     readonly endpointUrl?: string | null
     readonly authentication?: CustomHttpAuthentication | null
     readonly destination?: PublisherConnectionDestination
+    /** Replace the exact connection observed in a reconnectable state before reauth. */
+    readonly replaceNonActiveConnection?: {
+        readonly id: string
+        readonly state: 'reconnect_required' | 'revoked'
+    }
 }
 
 export interface PublisherConnectionPolicy {
@@ -141,6 +146,7 @@ interface ProjectRow {
     readonly id: string
     readonly name: string
     readonly timeZone: string
+    readonly workspaceId: string | null
     readonly primaryCategoryId: string | null
     readonly createdAt: number
     readonly updatedAt: number
@@ -256,6 +262,7 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
         select id,
                name,
                time_zone as timeZone,
+               workspace_id as workspaceId,
                primary_category_id as primaryCategoryId,
                created_at as createdAt,
                updated_at as updatedAt
@@ -654,8 +661,35 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 return { kind: 'incompatible_profile' }
             }
 
-            if (loadPublisherForChannelStatement.get(input.projectId, input.channelId) !== null) {
-                return { kind: 'publisher_exists' }
+            const existingConnection = loadPublisherConnectionStatement.get(
+                input.projectId,
+                input.channelId
+            )
+            if (existingConnection !== null) {
+                const replacement = input.replaceNonActiveConnection
+                if (
+                    replacement === undefined ||
+                    replacement.id !== existingConnection.id ||
+                    (replacement.state !== 'reconnect_required' &&
+                        replacement.state !== 'revoked') ||
+                    (existingConnection.state === 'active' &&
+                        existingConnection.credentialId !== credentialRow.id)
+                ) {
+                    return { kind: 'publisher_exists' }
+                }
+
+                const deleted = deletePublisherStatement.run(
+                    input.projectId,
+                    existingConnection.publisherId
+                )
+                if (deleted.changes < 1) return { kind: 'publisher_exists' }
+
+                if (existingConnection.credentialId !== credentialRow.id) {
+                    options.credentialRevoker.revokePublisherCredentialIfUnreferenced(
+                        input.projectId,
+                        existingConnection.credentialId
+                    )
+                }
             }
 
             const timestamp = requireTimestamp(now(), 'now')
@@ -713,7 +747,11 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                 'publisher.connected',
                 'publisher',
                 publisher.id,
-                JSON.stringify({ kind: publisher.kind, providerId: credentialRow.providerId }),
+                JSON.stringify({
+                    kind: publisher.kind,
+                    providerId: credentialRow.providerId,
+                    replaced: existingConnection !== null,
+                }),
                 timestamp
             )
 
@@ -803,6 +841,25 @@ export function createPublisherStore(database: HeraldDatabase, options: Publishe
                     requireNonBlank(channelId, 'channelId')
                 ) !== null
             )
+        },
+
+        getPublisherConnection(
+            projectId: string,
+            channelId: string,
+            subjectId: string
+        ): PublisherConnection | null {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedChannelId = requireNonBlank(channelId, 'channelId')
+            const normalizedSubjectId = requireNonBlank(subjectId, 'subjectId')
+            if (loadActorStatement.get(normalizedProjectId, normalizedSubjectId) === null) {
+                return null
+            }
+
+            const connection = loadPublisherConnectionStatement.get(
+                normalizedProjectId,
+                normalizedChannelId
+            )
+            return connection === null ? null : toPublisherConnection(connection)
         },
 
         getPublisherExecutionTarget(
@@ -897,6 +954,7 @@ function toProject(row: ProjectRow): Project {
         id: row.id,
         name: row.name,
         timeZone: row.timeZone,
+        workspaceId: row.workspaceId,
         primaryCategoryId: row.primaryCategoryId,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,

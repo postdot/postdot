@@ -52,12 +52,12 @@ export function PublicationEditorSidebar({
 }: PublicationEditorSidebarProps) {
     const { locale } = useLanguage()
     return (
-        <aside className="min-w-0 space-y-8 xl:sticky xl:top-20 xl:self-start">
-            <section className="min-w-0 rounded-md bg-muted p-5 shadow-surface">
+        <aside className="grid min-w-0 gap-4 lg:grid-cols-2">
+            <section className="min-w-0 rounded-xl bg-surface-inset/65 p-4 shadow-surface sm:p-5">
                 <p className="text-xs font-medium text-muted-foreground">
                     {m.editor_sidebar_selected_target()}
                 </p>
-                <h2 className="mt-2 font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em]">
+                <h2 className="mt-2 font-heading text-xl font-[580] leading-[1.03]">
                     {m.editor_sidebar_delivery_snapshot()}
                 </h2>
                 {editor.selectedTarget === null ? (
@@ -92,11 +92,11 @@ export function PublicationEditorSidebar({
                 )}
             </section>
 
-            <section className="min-w-0 pt-2">
+            <section className="min-w-0 rounded-xl bg-surface-raised p-4 shadow-surface sm:p-5">
                 <p className="text-xs font-medium text-muted-foreground">
                     {m.editor_sidebar_contract()}
                 </p>
-                <h2 className="mt-2 font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em]">
+                <h2 className="mt-2 font-heading text-xl font-[580] leading-[1.03]">
                     {m.editor_sidebar_capability_feedback()}
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -134,7 +134,7 @@ export function PublicationEditorSidebar({
             {sourceConflict || saveState === 'conflict' ? (
                 <Alert
                     variant="destructive"
-                    className="rounded-md border-destructive/35 bg-destructive/5 px-4 py-5">
+                    className="rounded-xl border-destructive/35 bg-destructive/5 px-4 py-5 lg:col-span-2">
                     <AlertTitle>
                         {sourceConflict
                             ? m.editor_sidebar_source_review_title()

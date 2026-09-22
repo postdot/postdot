@@ -1,22 +1,13 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
-import {
-    Empty,
-    EmptyDescription,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-} from '@herald/ui/components/empty'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@herald/ui/components/tooltip'
-import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
-import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
-import { CloseIcon } from '@solar-icons/react/bold/close'
-import { FolderOpenIcon } from '@solar-icons/react/bold/folder-open'
-import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
-import { UploadIcon } from '@solar-icons/react/bold/upload'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
+import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
+import { CloseIcon } from '@solar-icons/react/linear/close'
+import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
+import { UploadIcon } from '@solar-icons/react/linear/upload'
 import type { Meta, UploadResult } from '@uppy/core'
 import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
 import {
@@ -30,13 +21,12 @@ import {
     type ReactNode,
 } from 'react'
 
-import { BulkActionBar } from '@/components/bulk-action-bar'
+import { EmptyState } from '@/components/empty-state'
 import {
     MediaAssetCollection,
     MediaAttachmentLibraryDialog,
-    MediaLibraryToolbar,
+    MediaLibraryManagementSurface,
     type MediaLibraryFeatureOptions,
-    mediaLibraryGridClass,
 } from '@/components/media'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { MediaBulkDeletionDialog } from '@/components/media-bulk-deletion-dialog'
@@ -112,6 +102,7 @@ export interface MediaAttachmentPickerProps {
         readonly uploading: string | null
     }) => ReactNode
     readonly disabled?: boolean
+    readonly readOnly?: boolean
     readonly emptyDescription?: string
     readonly showAccessibilityText?: boolean
     readonly libraryFeatures?: MediaLibraryFeatureOptions
@@ -152,6 +143,7 @@ function MediaAttachmentPickerView({
     onAssetsChange,
     renderHeader,
     disabled = false,
+    readOnly = false,
     emptyDescription,
     showAccessibilityText,
     libraryFeatures,
@@ -202,6 +194,7 @@ function MediaAttachmentPickerView({
     const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
     const [dragOverAssetId, setDragOverAssetId] = useState<string | null>(null)
     const [dragActive, setDragActive] = useState(false)
+    const dragDepthRef = useRef(0)
     const [sourcePickerOpen, setSourcePickerOpen] = useState(false)
     const [webcamOpen, setWebcamOpen] = useState(false)
     const [mediaSources, setMediaSources] = useState<MediaImportSource[]>([
@@ -221,9 +214,19 @@ function MediaAttachmentPickerView({
     const dropzoneOptions = useMemo(
         () => ({
             noClick: true,
-            onDragEnter: () => setDragActive(true),
-            onDragLeave: () => setDragActive(false),
-            onDrop: () => setDragActive(false),
+            onDragEnter: () => {
+                dragDepthRef.current += 1
+                setDragActive(true)
+            },
+            onDragOver: () => setDragActive(true),
+            onDragLeave: () => {
+                dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+                if (dragDepthRef.current === 0) setDragActive(false)
+            },
+            onDrop: () => {
+                dragDepthRef.current = 0
+                setDragActive(false)
+            },
         }),
         []
     )
@@ -235,6 +238,7 @@ function MediaAttachmentPickerView({
     const compact = variant === 'publication-new' || variant === 'publication-new-inline'
     const inline = variant === 'publication-new-inline'
     const manageOnly = selectionMode === 'manage'
+    const canManageLibrary = manageOnly && !readOnly
     const showSelectedAccessibilityText = showAccessibilityText ?? !compact
     const libraryControlsEnabled = manageOnly || compact
     const normalizedSearchQuery = libraryControlsEnabled ? searchQuery.trim() : ''
@@ -246,6 +250,7 @@ function MediaAttachmentPickerView({
         bulkDeletionPending ||
         bulkSelectionResolutionPending ||
         recoveryActionPending
+    const mediaWriteDisabled = interactionLocked || readOnly
     const currentValueRef = useRef(value)
     const onChangeRef = useRef(onChange)
     const listRequestId = useRef(0)
@@ -349,11 +354,11 @@ function MediaAttachmentPickerView({
     }, [controller, locale])
 
     useEffect(() => {
-        if (!manageOnly) {
+        if (!canManageLibrary) {
             setBulkSelectionMode(false)
             setBulkSelectedAssetIds(new Set())
         }
-    }, [manageOnly])
+    }, [canManageLibrary])
 
     useEffect(() => {
         let active = true
@@ -453,6 +458,11 @@ function MediaAttachmentPickerView({
         result: UploadResult<Meta, Record<string, never>>,
         restrictionMessages: readonly string[] = []
     ) {
+        if (readOnly) {
+            setError(null)
+            return [...(result.successful ?? []), ...(result.failed ?? [])].map(file => file.id)
+        }
+
         const uploaded = (result.successful ?? [])
             .map(file => controller.mediaByFileId.get(file.id))
             .filter((asset): asset is MediaReference => asset !== undefined)
@@ -495,7 +505,7 @@ function MediaAttachmentPickerView({
 
     useEffect(() => {
         const handleFilesAdded = (files: HeraldMediaUppyFile[]) => {
-            if (disabled || savingEdited) {
+            if (disabled || readOnly || savingEdited) {
                 controller.uppy.removeFiles(files.map(file => file.id))
                 return
             }
@@ -534,10 +544,10 @@ function MediaAttachmentPickerView({
             controller.uppy.off('complete', handleRecoveryComplete)
             controller.uppy.off('error', handleRecoveryError)
         }
-    }, [controller, disabled, manageOnly, normalizedSearchQuery, savingEdited])
+    }, [controller, disabled, manageOnly, normalizedSearchQuery, readOnly, savingEdited])
 
     function toggleAsset(asset: MediaReference) {
-        if (interactionLocked || asset.asset.state !== 'ready') return
+        if (readOnly || interactionLocked || asset.asset.state !== 'ready') return
         const selected = value.find(item => item.assetId === asset.asset.id)
         if (selected !== undefined) {
             onChange(value.filter(item => item.assetId !== asset.asset.id))
@@ -554,7 +564,7 @@ function MediaAttachmentPickerView({
     }
 
     function openAttachmentLibrary() {
-        if (interactionLocked) return
+        if (mediaWriteDisabled) return
         const currentDraft = pendingLibrarySelectionRef.current ?? [...value]
         pendingLibrarySelectionRef.current = currentDraft
         setPendingLibrarySelection(currentDraft)
@@ -572,6 +582,7 @@ function MediaAttachmentPickerView({
     }
 
     function confirmAttachmentSelection() {
+        if (readOnly) return
         const nextSelection = pendingLibrarySelectionRef.current ?? value
         const committedSelection = [...nextSelection]
         if (!mediaSelectionsEqual(committedSelection, value)) {
@@ -583,7 +594,7 @@ function MediaAttachmentPickerView({
     }
 
     function toggleLibraryAsset(asset: MediaReference) {
-        if (interactionLocked || asset.asset.state !== 'ready') return
+        if (readOnly || interactionLocked || asset.asset.state !== 'ready') return
 
         const next = toggleMediaSelection(
             pendingLibrarySelectionRef.current ?? value,
@@ -608,7 +619,7 @@ function MediaAttachmentPickerView({
     }
 
     function toggleBulkAsset(asset: MediaReference) {
-        if (interactionLocked || asset.asset.state !== 'ready') return
+        if (!canManageLibrary || interactionLocked || asset.asset.state !== 'ready') return
 
         setBulkSelectedAssetIds(current => {
             const next = new Set(current)
@@ -622,7 +633,7 @@ function MediaAttachmentPickerView({
     }
 
     function toggleVisibleBulkSelection() {
-        if (interactionLocked) return
+        if (mediaWriteDisabled) return
         const visibleReadyAssets = assets.filter(asset => asset.asset.state === 'ready')
         const allVisibleSelected =
             visibleReadyAssets.length > 0 &&
@@ -646,7 +657,7 @@ function MediaAttachmentPickerView({
     }
 
     function toggleBulkSelectionMode() {
-        if (interactionLocked) return
+        if (!canManageLibrary || mediaWriteDisabled) return
         if (bulkSelectionMode) setBulkSelectedAssetIds(new Set())
         setBulkSelectionMode(current => !current)
     }
@@ -724,7 +735,7 @@ function MediaAttachmentPickerView({
     async function openViewer(asset: MediaReference) {
         const previewOnly = compact && libraryOpen && pendingLibrarySelectionRef.current !== null
 
-        if (bulkSelectionMode && bulkSelectedAssetIds.has(asset.asset.id)) {
+        if (canManageLibrary && bulkSelectionMode && bulkSelectedAssetIds.has(asset.asset.id)) {
             const collection = await resolveBulkSelectedAssets()
             if (collection === null || collection.length === 0) return
             setViewerAllowsFileActions(true)
@@ -736,12 +747,13 @@ function MediaAttachmentPickerView({
             return
         }
 
-        setViewerAllowsFileActions(!previewOnly)
+        setViewerAllowsFileActions(!previewOnly && !readOnly)
         setViewerAssets(assets.length > 0 ? assets : [asset])
         setViewerAsset(asset)
     }
 
     async function openSelectedViewer() {
+        if (!canManageLibrary) return
         const collection = await resolveBulkSelectedAssets()
         if (collection === null || collection.length === 0) return
         setViewerAllowsFileActions(true)
@@ -756,14 +768,14 @@ function MediaAttachmentPickerView({
     }
 
     function openDeletion(asset: MediaReference) {
-        if (!manageOnly) return
+        if (!canManageLibrary) return
         closeViewer()
         setDeletionAsset(asset)
         setDeletionError(null)
     }
 
     async function confirmDeletion() {
-        if (deletionAsset === null) return
+        if (!canManageLibrary || deletionAsset === null) return
 
         const asset = deletionAsset
         setDeletionPending(true)
@@ -795,7 +807,7 @@ function MediaAttachmentPickerView({
     }
 
     async function openBulkDeletion() {
-        if (!manageOnly || bulkSelectedAssetIds.size === 0) return
+        if (!canManageLibrary || bulkSelectedAssetIds.size === 0) return
         const selectedAssets = await resolveBulkSelectedAssets()
         if (selectedAssets === null || selectedAssets.length === 0) return
         setBulkDeletionError(null)
@@ -803,7 +815,7 @@ function MediaAttachmentPickerView({
     }
 
     async function confirmBulkDeletion() {
-        if (bulkDeletionAssets.length === 0) return
+        if (!canManageLibrary || bulkDeletionAssets.length === 0) return
 
         const assetsToDelete = bulkDeletionAssets
         setBulkDeletionPending(true)
@@ -861,6 +873,7 @@ function MediaAttachmentPickerView({
     }
 
     function openEditor(asset: MediaReference) {
+        if (readOnly) return
         closeViewer()
         setEditorAsset(asset)
     }
@@ -880,6 +893,7 @@ function MediaAttachmentPickerView({
     }
 
     async function saveEditedAsset(sourceAssetId: string, file: File) {
+        if (readOnly) return
         setError(null)
         setSavingEdited(true)
         try {
@@ -943,6 +957,7 @@ function MediaAttachmentPickerView({
     }
 
     async function importMediaFromUrl(url: string) {
+        if (mediaWriteDisabled) return
         setUrlImportPending(true)
         setUrlImportError(null)
         try {
@@ -1133,7 +1148,7 @@ function MediaAttachmentPickerView({
     const allVisibleBulkSelected =
         visibleReadyAssets.length > 0 &&
         visibleReadyAssets.every(asset => bulkSelectedAssetIds.has(asset.asset.id))
-    const dropzoneRootProps = interactionLocked ? {} : dropzone.getRootProps()
+    const dropzoneRootProps = mediaWriteDisabled ? {} : dropzone.getRootProps()
     const containerDropzoneProps = dropzoneRootProps
     const fileInputProps = fileInput.getInputProps()
     const fileButtonProps = fileInput.getButtonProps()
@@ -1155,7 +1170,7 @@ function MediaAttachmentPickerView({
         controller.uppy.emit('restore-confirmed')
     }
     const openSourcePicker = () => {
-        if (interactionLocked) return
+        if (mediaWriteDisabled) return
         setUrlImportError(null)
         setLibraryOpen(false)
         setSourcePickerOpen(true)
@@ -1165,18 +1180,18 @@ function MediaAttachmentPickerView({
         setSearchQuery(query)
     }
     const openDevicePicker = () => {
-        if (interactionLocked) return
+        if (mediaWriteDisabled) return
         fileButtonProps.onClick()
         setSourcePickerOpen(false)
     }
     const openWebcamPicker = () => {
-        if (interactionLocked) return
+        if (mediaWriteDisabled) return
         setUrlImportError(null)
         setSourcePickerOpen(false)
         setWebcamOpen(true)
     }
     const captureWebcamFile = async (file: File) => {
-        if (interactionLocked) return
+        if (mediaWriteDisabled) return
         setError(null)
         try {
             controller.uppy.addFile({
@@ -1191,7 +1206,7 @@ function MediaAttachmentPickerView({
         }
     }
     const header = renderHeader?.({
-        disabled: interactionLocked,
+        disabled: mediaWriteDisabled,
         onImport: openSourcePicker,
         uploading,
     })
@@ -1203,8 +1218,11 @@ function MediaAttachmentPickerView({
                 {...containerDropzoneProps}
                 data-media-picker="true"
                 data-media-picker-mode={manageOnly ? 'manage' : 'attach'}
-                data-media-dropzone={!interactionLocked ? 'true' : undefined}
-                data-media-import-zone={manageOnly && !interactionLocked ? 'true' : undefined}
+                data-media-dropzone={!mediaWriteDisabled ? 'true' : undefined}
+                data-media-import-zone={
+                    canManageLibrary && !mediaWriteDisabled ? 'true' : undefined
+                }
+                data-media-drop-active={dragActive || undefined}
                 className={`${
                     inline
                         ? 'px-3 pb-3 pt-1'
@@ -1214,7 +1232,7 @@ function MediaAttachmentPickerView({
                             ? 'flex min-h-[calc(100vh-12rem)] flex-col gap-4'
                             : 'rounded-lg bg-muted p-4 sm:p-5'
                 }`}>
-                {hasRecoveredFiles ? (
+                {!readOnly && hasRecoveredFiles ? (
                     <MediaUploadRecoveryNotice
                         files={recoveredFiles}
                         missingFileCount={ghostFiles.length}
@@ -1224,166 +1242,6 @@ function MediaAttachmentPickerView({
                         pending={recoveryActionPending}
                     />
                 ) : null}
-                {manageOnly ? (
-                    <MediaLibraryToolbar
-                        assetCount={assets.length}
-                        bulkSelectionMode={bulkSelectionMode}
-                        interactionDisabled={interactionLocked}
-                        mediaDateFilter={mediaDateFilter}
-                        mediaFamilyFilter={mediaFamilyFilter}
-                        mediaSort={mediaSort}
-                        mediaViewMode={mediaViewMode}
-                        onDateChange={setMediaDateFilter}
-                        onFamilyChange={setMediaFamilyFilter}
-                        onSearchQueryChange={handleSearchQueryChange}
-                        onSortChange={setMediaSort}
-                        onToggleSelectionMode={toggleBulkSelectionMode}
-                        onViewModeChange={setMediaViewMode}
-                        projectId={projectId}
-                        searchPending={searchPending}
-                        searchQuery={searchQuery}
-                        features={libraryFeatures}
-                        totalAssets={totalAssets}
-                    />
-                ) : null}
-                {manageOnly && bulkSelectionMode ? (
-                    <div className="sticky top-0 z-20 mt-3">
-                        <BulkActionBar
-                            actions={[
-                                {
-                                    id: 'open',
-                                    label: m.media_bulk_open_action({
-                                        count: bulkSelectedCount,
-                                    }),
-                                    icon: <FolderOpenIcon aria-hidden="true" />,
-                                    variant: 'secondary',
-                                    disabled: bulkSelectionResolutionPending,
-                                    onSelect: openSelectedViewer,
-                                },
-                                {
-                                    id: 'delete',
-                                    label: m.media_bulk_delete_action({
-                                        count: bulkSelectedCount,
-                                    }),
-                                    icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
-                                    variant: 'destructive',
-                                    disabled: bulkSelectionResolutionPending,
-                                    onSelect: openBulkDeletion,
-                                },
-                            ]}
-                            allSelected={allVisibleBulkSelected}
-                            ariaLabel={m.media_bulk_actions()}
-                            clearLabel={m.media_bulk_clear_selection()}
-                            onClear={clearBulkSelection}
-                            onToggleAll={
-                                visibleReadyAssets.length > 0
-                                    ? toggleVisibleBulkSelection
-                                    : undefined
-                            }
-                            selectedCount={bulkSelectedCount}
-                            selectionSummary={m.media_bulk_selected({
-                                count: bulkSelectedCount,
-                            })}
-                            toggleAllLabel={
-                                visibleReadyAssets.length > 0
-                                    ? allVisibleBulkSelected
-                                        ? m.media_bulk_clear_visible()
-                                        : m.media_bulk_select_visible()
-                                    : undefined
-                            }
-                        />
-                    </div>
-                ) : null}
-                {inline && !loading && selectedAssets.length > 0 ? (
-                    <div className="mb-2 flex flex-wrap gap-2">
-                        {selectedAssets.map(({ asset, selection }, index) => (
-                            <CompactMediaPreview
-                                key={selection.assetId}
-                                asset={asset}
-                                index={index}
-                                projectId={projectId}
-                                selection={selection}
-                                total={value.length}
-                                disabled={interactionLocked}
-                                showAccessibilityText={showSelectedAccessibilityText}
-                                onAccessibilityTextChange={updateAccessibilityText}
-                                onMove={moveSelection}
-                                onRemove={removeSelection}
-                                onPreview={openViewer}
-                                onDragStart={startReorder}
-                                onDragOver={overReorder}
-                                onDrop={dropReorder}
-                                onDragEnd={() => {
-                                    setDraggingAssetId(null)
-                                    setDragOverAssetId(null)
-                                }}
-                                dragging={draggingAssetId === selection.assetId}
-                                dragOver={dragOverAssetId === selection.assetId}
-                            />
-                        ))}
-                    </div>
-                ) : null}
-                {!manageOnly ? (
-                    <div
-                        className={
-                            inline
-                                ? 'flex items-center justify-between gap-3'
-                                : compact
-                                  ? 'flex items-center justify-between gap-3'
-                                  : 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center'
-                        }>
-                        {!inline ? (
-                            <div>
-                                <div className="flex items-center gap-2 text-sm font-medium">
-                                    <GalleryAddIcon aria-hidden="true" />
-                                    {m.media_attachments_title()}
-                                </div>
-                                {!compact ? (
-                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                        {m.media_picker_description()}
-                                    </p>
-                                ) : null}
-                            </div>
-                        ) : null}
-                        {inline ? (
-                            <Tooltip>
-                                <TooltipTrigger
-                                    render={
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon-sm"
-                                            aria-label={m.media_upload()}
-                                            disabled={interactionLocked}
-                                            onClick={openAttachmentLibrary}>
-                                            <GalleryAddIcon aria-hidden="true" />
-                                        </Button>
-                                    }
-                                />
-                                <TooltipContent>{m.media_upload()}</TooltipContent>
-                            </Tooltip>
-                        ) : (
-                            <Button
-                                type="button"
-                                variant={compact ? 'ghost' : 'secondary'}
-                                size={compact ? 'sm' : 'default'}
-                                disabled={interactionLocked}
-                                onClick={() =>
-                                    compact ? openAttachmentLibrary() : openSourcePicker()
-                                }>
-                                {inline || compact ? (
-                                    <GalleryAddIcon aria-hidden="true" />
-                                ) : (
-                                    <UploadIcon aria-hidden="true" />
-                                )}
-                                {uploading === null
-                                    ? m.media_upload()
-                                    : m.media_uploading({ filename: uploading })}
-                            </Button>
-                        )}
-                    </div>
-                ) : null}
-
                 <input
                     {...fileInputProps}
                     className="sr-only"
@@ -1391,149 +1249,266 @@ function MediaAttachmentPickerView({
                     tabIndex={-1}
                     aria-hidden="true"
                 />
-
-                {error !== null ? (
-                    <Alert variant="destructive" className="mt-4 rounded-md">
-                        <AlertTitle>{m.media_action_failed()}</AlertTitle>
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                ) : null}
-
-                {loading && assets.length === 0 ? (
-                    <p
-                        className={
-                            inline
-                                ? 'mt-2 text-xs text-muted-foreground'
-                                : 'mt-4 text-sm text-muted-foreground'
-                        }>
-                        {m.media_loading()}
-                    </p>
-                ) : compact ? (
-                    inline ? null : selectedAssets.length === 0 ? (
-                        <p className="mt-2 text-xs text-muted-foreground">
-                            {m.media_empty_publication_new()}
-                        </p>
-                    ) : (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                            {selectedAssets.map(({ asset, selection }, index) => (
-                                <CompactMediaPreview
-                                    key={selection.assetId}
-                                    asset={asset}
-                                    index={index}
-                                    projectId={projectId}
-                                    selection={selection}
-                                    total={value.length}
-                                    disabled={interactionLocked}
-                                    showAccessibilityText={showSelectedAccessibilityText}
-                                    onAccessibilityTextChange={updateAccessibilityText}
-                                    onMove={moveSelection}
-                                    onRemove={removeSelection}
-                                    onPreview={openViewer}
-                                    onDragStart={startReorder}
-                                    onDragOver={overReorder}
-                                    onDrop={dropReorder}
-                                    onDragEnd={() => {
-                                        setDraggingAssetId(null)
-                                        setDragOverAssetId(null)
-                                    }}
-                                    dragging={draggingAssetId === selection.assetId}
-                                    dragOver={dragOverAssetId === selection.assetId}
-                                />
-                            ))}
-                        </div>
-                    )
-                ) : assets.length === 0 ? (
-                    normalizedSearchQuery !== '' ? (
-                        <p className="mt-4 text-sm text-muted-foreground">{m.media_no_results()}</p>
-                    ) : manageOnly ? null : (
-                        <Empty className="mt-4 min-h-28 bg-surface-field px-4 py-5">
-                            <EmptyHeader>
-                                <EmptyMedia variant="icon">
-                                    <GalleryAddIcon aria-hidden="true" />
-                                </EmptyMedia>
-                                <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
-                                <EmptyDescription>
-                                    {emptyDescription ?? m.media_empty_here()}
-                                </EmptyDescription>
-                            </EmptyHeader>
-                        </Empty>
-                    )
-                ) : (
-                    <MediaAssetCollection
-                        assets={assets}
-                        className={`${manageOnly ? '' : 'mt-4 '}${
-                            manageOnly ? mediaLibraryGridClass(mediaViewMode) : 'sm:grid-cols-2'
-                        }`}
-                        interactionDisabled={interactionLocked}
-                        layout={manageOnly ? mediaViewMode : 'list'}
-                        onAccessibilityTextChange={updateAccessibilityText}
-                        onActionSelectionToggle={toggleBulkAsset}
-                        onDownload={manageOnly ? downloadAsset : undefined}
-                        onEdit={manageOnly ? openEditor : undefined}
-                        onInfo={manageOnly ? openInformation : undefined}
-                        onOpen={manageOnly ? openViewer : undefined}
-                        onPreview={openViewer}
-                        onRequestDelete={manageOnly ? openDeletion : undefined}
-                        onToggle={toggleAsset}
-                        projectId={projectId}
-                        selectable={!manageOnly}
-                        selectedAssetById={selectedAssetById}
-                        actionSelectedAssetIds={bulkSelectedAssetIds}
-                        actionSelectionEnabled={manageOnly && bulkSelectionMode}
-                        showActions={manageOnly}
-                        viewMode={manageOnly ? mediaViewMode : undefined}
-                    />
-                )}
-
-                {!compact && !loading && assets.length > 0 && nextCursor !== null ? (
-                    <div ref={loadMoreSentinelRef} className="mt-4 flex justify-center">
-                        <Button
-                            type="button"
-                            className="shadow-none"
-                            variant="outline"
-                            disabled={interactionLocked || loadingMore}
-                            data-media-load-more="true"
-                            onClick={() => void loadMoreAssets()}>
-                            {loadingMore ? m.media_loading_more() : m.media_load_more()}
-                        </Button>
-                    </div>
-                ) : null}
-
-                {!hydratingSelection &&
-                value.some(item => !assets.some(asset => asset.asset.id === item.assetId)) ? (
-                    <div className="mt-3 flex items-start gap-2 rounded-md bg-state-attention/10 px-3 py-2 text-xs text-state-attention">
-                        <CloseIcon aria-hidden="true" className="mt-0.5 shrink-0" />
-                        <p>{m.media_missing_assets()}</p>
-                    </div>
-                ) : null}
-
                 {manageOnly ? (
-                    <div
-                        data-media-drop-hint="true"
-                        className={
-                            dragActive
-                                ? 'mt-auto flex flex-col items-center gap-2 pt-16 pb-4 text-center text-sm text-primary transition-colors'
-                                : 'mt-auto flex flex-col items-center gap-2 pt-16 pb-4 text-center text-sm text-muted-foreground transition-colors'
-                        }>
-                        <GalleryAddIcon aria-hidden="true" className="size-8" />
-                        <p>
-                            {dragActive ? m.media_drop_files_active() : m.media_drop_files()}{' '}
-                            {m.media_drop_files_hint()}{' '}
-                            <Button
-                                type="button"
-                                variant="link"
-                                size="sm"
-                                disabled={interactionLocked}
-                                className="h-auto p-0 align-baseline text-sm font-medium"
-                                onClick={openSourcePicker}>
-                                {uploading === null
-                                    ? m.media_browse_files()
-                                    : m.media_uploading({ filename: uploading })}
-                            </Button>
-                        </p>
-                        <p className="text-xs text-muted-foreground">{m.media_supported_types()}</p>
-                    </div>
-                ) : null}
+                    <MediaLibraryManagementSurface
+                        allVisibleBulkSelected={allVisibleBulkSelected}
+                        assets={assets}
+                        bulkSelectedAssetIds={bulkSelectedAssetIds}
+                        bulkSelectedCount={bulkSelectedCount}
+                        bulkSelectionMode={bulkSelectionMode}
+                        bulkSelectionResolutionPending={bulkSelectionResolutionPending}
+                        canManageLibrary={canManageLibrary}
+                        dragActive={dragActive}
+                        emptyDescription={emptyDescription}
+                        error={error}
+                        interactionDisabled={interactionLocked}
+                        libraryFeatures={libraryFeatures}
+                        loadMoreSentinelRef={loadMoreSentinelRef}
+                        loading={loading}
+                        loadingMore={loadingMore}
+                        mediaDateFilter={mediaDateFilter}
+                        mediaFamilyFilter={mediaFamilyFilter}
+                        mediaSort={mediaSort}
+                        mediaViewMode={mediaViewMode}
+                        mediaWriteDisabled={mediaWriteDisabled}
+                        nextCursor={nextCursor}
+                        onAccessibilityTextChange={updateAccessibilityText}
+                        onBrowse={openSourcePicker}
+                        onClearBulkSelection={clearBulkSelection}
+                        onDateChange={setMediaDateFilter}
+                        onDownload={downloadAsset}
+                        onEdit={canManageLibrary ? openEditor : undefined}
+                        onFamilyChange={setMediaFamilyFilter}
+                        onInfo={openInformation}
+                        onLoadMore={loadMoreAssets}
+                        onOpenAsset={asset => {
+                            void openViewer(asset)
+                        }}
+                        onOpenBulkDeletion={() => {
+                            void openBulkDeletion()
+                        }}
+                        onOpenSelected={() => {
+                            void openSelectedViewer()
+                        }}
+                        onRequestDelete={canManageLibrary ? openDeletion : undefined}
+                        onSearchQueryChange={handleSearchQueryChange}
+                        onSortChange={setMediaSort}
+                        onToggleAsset={toggleAsset}
+                        onToggleBulkAsset={canManageLibrary ? toggleBulkAsset : undefined}
+                        onToggleSelectionMode={toggleBulkSelectionMode}
+                        onToggleVisibleBulkSelection={
+                            visibleReadyAssets.length > 0 ? toggleVisibleBulkSelection : undefined
+                        }
+                        onViewModeChange={setMediaViewMode}
+                        projectId={projectId}
+                        searchPending={searchPending}
+                        searchQuery={searchQuery}
+                        selectedAssetById={selectedAssetById}
+                        totalAssets={totalAssets}
+                        uploading={uploading}
+                        visibleReadyAssetCount={visibleReadyAssets.length}
+                    />
+                ) : (
+                    <>
+                        {inline && !loading && selectedAssets.length > 0 ? (
+                            <div className="mb-2 flex flex-wrap gap-2">
+                                {selectedAssets.map(({ asset, selection }, index) => (
+                                    <CompactMediaPreview
+                                        key={selection.assetId}
+                                        asset={asset}
+                                        index={index}
+                                        projectId={projectId}
+                                        selection={selection}
+                                        total={value.length}
+                                        disabled={interactionLocked}
+                                        showAccessibilityText={showSelectedAccessibilityText}
+                                        onAccessibilityTextChange={updateAccessibilityText}
+                                        onMove={moveSelection}
+                                        onRemove={removeSelection}
+                                        onPreview={openViewer}
+                                        onDragStart={startReorder}
+                                        onDragOver={overReorder}
+                                        onDrop={dropReorder}
+                                        onDragEnd={() => {
+                                            setDraggingAssetId(null)
+                                            setDragOverAssetId(null)
+                                        }}
+                                        dragging={draggingAssetId === selection.assetId}
+                                        dragOver={dragOverAssetId === selection.assetId}
+                                    />
+                                ))}
+                            </div>
+                        ) : null}
+                        {!readOnly ? (
+                            <div
+                                className={
+                                    inline
+                                        ? 'flex items-center justify-between gap-3'
+                                        : compact
+                                          ? 'flex items-center justify-between gap-3'
+                                          : 'flex flex-col justify-between gap-3 sm:flex-row sm:items-center'
+                                }>
+                                {!inline ? (
+                                    <div>
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <GalleryAddIcon aria-hidden="true" />
+                                            {m.media_attachments_title()}
+                                        </div>
+                                        {!compact ? (
+                                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                                {m.media_picker_description()}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+                                {inline ? (
+                                    <Tooltip>
+                                        <TooltipTrigger
+                                            render={
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon-sm"
+                                                    aria-label={m.media_upload()}
+                                                    disabled={interactionLocked}
+                                                    onClick={openAttachmentLibrary}>
+                                                    <GalleryAddIcon aria-hidden="true" />
+                                                </Button>
+                                            }
+                                        />
+                                        <TooltipContent>{m.media_upload()}</TooltipContent>
+                                    </Tooltip>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        variant={compact ? 'ghost' : 'secondary'}
+                                        size={compact ? 'sm' : 'default'}
+                                        disabled={interactionLocked}
+                                        onClick={() =>
+                                            compact ? openAttachmentLibrary() : openSourcePicker()
+                                        }>
+                                        {compact ? (
+                                            <GalleryAddIcon aria-hidden="true" />
+                                        ) : (
+                                            <UploadIcon aria-hidden="true" />
+                                        )}
+                                        {uploading === null
+                                            ? m.media_upload()
+                                            : m.media_uploading({ filename: uploading })}
+                                    </Button>
+                                )}
+                            </div>
+                        ) : null}
+
+                        {error !== null ? (
+                            <Alert variant="destructive" className="mt-4 rounded-md">
+                                <AlertTitle>{m.media_action_failed()}</AlertTitle>
+                                <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                        ) : null}
+
+                        {loading && assets.length === 0 ? (
+                            <p
+                                className={
+                                    inline
+                                        ? 'mt-2 text-xs text-muted-foreground'
+                                        : 'mt-4 text-sm text-muted-foreground'
+                                }>
+                                {m.media_loading()}
+                            </p>
+                        ) : compact ? (
+                            inline ? null : selectedAssets.length === 0 ? (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    {m.media_empty_publication_new()}
+                                </p>
+                            ) : (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {selectedAssets.map(({ asset, selection }, index) => (
+                                        <CompactMediaPreview
+                                            key={selection.assetId}
+                                            asset={asset}
+                                            index={index}
+                                            projectId={projectId}
+                                            selection={selection}
+                                            total={value.length}
+                                            disabled={interactionLocked}
+                                            showAccessibilityText={showSelectedAccessibilityText}
+                                            onAccessibilityTextChange={updateAccessibilityText}
+                                            onMove={moveSelection}
+                                            onRemove={removeSelection}
+                                            onPreview={openViewer}
+                                            onDragStart={startReorder}
+                                            onDragOver={overReorder}
+                                            onDrop={dropReorder}
+                                            onDragEnd={() => {
+                                                setDraggingAssetId(null)
+                                                setDragOverAssetId(null)
+                                            }}
+                                            dragging={draggingAssetId === selection.assetId}
+                                            dragOver={dragOverAssetId === selection.assetId}
+                                        />
+                                    ))}
+                                </div>
+                            )
+                        ) : assets.length === 0 ? (
+                            normalizedSearchQuery !== '' ? (
+                                <EmptyState
+                                    className="mt-4 min-h-48 bg-surface-field px-4 py-6 shadow-none"
+                                    description={null}
+                                    illustration="result"
+                                    illustrationClassName="w-32"
+                                    title={m.media_no_results()}
+                                />
+                            ) : (
+                                <EmptyState
+                                    className="mt-4 min-h-28 bg-surface-field px-4 py-5 shadow-none"
+                                    description={emptyDescription ?? null}
+                                    illustration="image"
+                                    illustrationClassName="w-28"
+                                    title={m.media_empty_title()}
+                                />
+                            )
+                        ) : (
+                            <MediaAssetCollection
+                                assets={assets}
+                                className="mt-4 sm:grid-cols-2"
+                                interactionDisabled={interactionLocked}
+                                layout="list"
+                                onAccessibilityTextChange={updateAccessibilityText}
+                                onPreview={openViewer}
+                                onToggle={toggleAsset}
+                                projectId={projectId}
+                                selectable
+                                selectedAssetById={selectedAssetById}
+                                showActions={false}
+                            />
+                        )}
+
+                        {!compact && !loading && assets.length > 0 && nextCursor !== null ? (
+                            <div ref={loadMoreSentinelRef} className="mt-4 flex justify-center">
+                                <Button
+                                    type="button"
+                                    className="shadow-none"
+                                    variant="outline"
+                                    disabled={interactionLocked || loadingMore}
+                                    data-media-load-more="true"
+                                    onClick={() => void loadMoreAssets()}>
+                                    {loadingMore ? m.media_loading_more() : m.media_load_more()}
+                                </Button>
+                            </div>
+                        ) : null}
+
+                        {!hydratingSelection &&
+                        value.some(
+                            item => !assets.some(asset => asset.asset.id === item.assetId)
+                        ) ? (
+                            <div className="mt-3 flex items-start gap-2 rounded-md bg-state-attention/10 px-3 py-2 text-xs text-state-attention">
+                                <CloseIcon aria-hidden="true" className="mt-0.5 shrink-0" />
+                                <p>{m.media_missing_assets()}</p>
+                            </div>
+                        ) : null}
+                    </>
+                )}
             </div>
 
             {compact ? (
@@ -1541,7 +1516,7 @@ function MediaAttachmentPickerView({
                     assets={assets}
                     emptyDescription={emptyDescription}
                     error={error}
-                    interactionDisabled={interactionLocked}
+                    interactionDisabled={interactionLocked || readOnly}
                     loadMoreSentinelRef={loadMoreSentinelRef}
                     loading={loading}
                     loadingMore={loadingMore}
@@ -1572,7 +1547,7 @@ function MediaAttachmentPickerView({
                 />
             ) : null}
             <MediaSourcePickerDialog
-                disabled={interactionLocked}
+                disabled={mediaWriteDisabled}
                 onDevice={openDevicePicker}
                 onWebcam={openWebcamPicker}
                 onImportUrl={importMediaFromUrl}
@@ -1580,36 +1555,36 @@ function MediaAttachmentPickerView({
                     setSourcePickerOpen(open)
                     if (!open && !urlImportPending) setUrlImportError(null)
                 }}
-                open={sourcePickerOpen}
+                open={sourcePickerOpen && !readOnly}
                 sources={mediaSources}
                 sourcesLoading={mediaSourcesLoading}
                 urlImportError={urlImportError}
                 urlImportPending={urlImportPending}
             />
             <MediaWebcamDialog
-                disabled={interactionLocked}
+                disabled={mediaWriteDisabled}
                 onCapture={captureWebcamFile}
                 onOpenChange={setWebcamOpen}
-                open={webcamOpen}
+                open={webcamOpen && !readOnly}
             />
             <Suspense fallback={null}>
                 {viewerAsset !== null ? (
                     <MediaViewer
                         assets={viewerAssets}
                         asset={viewerAsset}
-                        allowDelete={manageOnly}
+                        allowDelete={canManageLibrary}
                         open
                         onOpenChange={open => {
                             if (!open) closeViewer()
                         }}
                         onAssetChange={setViewerAsset}
                         onEdit={viewerAllowsFileActions ? openEditor : undefined}
-                        onRequestDelete={manageOnly ? openDeletion : undefined}
+                        onRequestDelete={canManageLibrary ? openDeletion : undefined}
                     />
                 ) : null}
                 <MediaImageEditorDialog
                     asset={editorAsset}
-                    open={editorAsset !== null}
+                    open={editorAsset !== null && !readOnly}
                     saving={savingEdited}
                     onOpenChange={open => {
                         if (!open && !savingEdited) setEditorAsset(null)
@@ -1708,7 +1683,7 @@ function CompactMediaPreview({
                 data-media-drop-target={dragOver || undefined}
                 data-media-reorderable={asset !== undefined && total > 1 ? 'true' : undefined}
                 title={total > 1 ? m.media_reorder_hint() : undefined}
-                className={`group relative size-20 shrink-0 overflow-hidden rounded-md bg-surface-field ${
+                className={`group relative size-16 shrink-0 overflow-hidden rounded-md bg-surface-field ${
                     dragging ? 'opacity-45' : ''
                 } ${dragOver ? 'ring-2 ring-primary' : ''}`}
                 onDragStart={event => {
@@ -1721,18 +1696,18 @@ function CompactMediaPreview({
                     <button
                         type="button"
                         data-media-preview="true"
-                        className="block size-20 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                        className="block size-16 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                         aria-label={m.media_view_asset({ filename })}
                         onClick={() => onPreview(asset)}>
                         <MediaPreview
                             projectId={projectId}
                             asset={asset}
                             representation={representation}
-                            className="size-20 rounded-md object-cover"
+                            className="size-16 rounded-md object-cover"
                         />
                     </button>
                 ) : (
-                    <span className="flex size-20 items-center justify-center text-xs text-muted-foreground">
+                    <span className="flex size-16 items-center justify-center text-xs text-muted-foreground">
                         {m.media_file_type()}
                     </span>
                 )}
@@ -1760,10 +1735,10 @@ function CompactMediaPreview({
                 ) : null}
                 <Button
                     type="button"
-                    variant="destructive"
+                    variant="ghost"
                     size="icon-xs"
                     disabled={disabled}
-                    className="absolute top-1 right-1 border-2 border-background bg-state-failed text-white shadow-control hover:bg-state-failed/85"
+                    className="absolute top-1 right-1 bg-surface-overlay/95 text-foreground shadow-field hover:bg-surface-raised hover:text-destructive"
                     aria-label={m.media_remove({ filename })}
                     onClick={() => onRemove(selection.assetId)}>
                     <CloseIcon aria-hidden="true" />

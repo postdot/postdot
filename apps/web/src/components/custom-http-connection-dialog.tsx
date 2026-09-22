@@ -16,8 +16,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@herald/ui/components/select'
-import { AddIcon } from '@solar-icons/react/bold/add'
-import { LinkIcon } from '@solar-icons/react/bold/link'
+import { AddIcon } from '@solar-icons/react/linear/add'
+import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useState } from 'react'
 
 import type { Channel, CustomHttpAuthentication } from '@/lib/api'
@@ -36,12 +36,14 @@ interface CustomHttpConnectionDialogProps {
             secret: string
         }
     ) => Promise<boolean>
+    readonly reconnect?: boolean
 }
 
 export function CustomHttpConnectionDialog({
     channel,
     disabled,
     onConnect,
+    reconnect = false,
 }: CustomHttpConnectionDialogProps) {
     useLanguage()
     const [open, setOpen] = useState(false)
@@ -95,9 +97,15 @@ export function CustomHttpConnectionDialog({
 
     return (
         <>
-            <Button size="sm" onClick={() => setOpen(true)} disabled={disabled}>
+            <Button
+                className="self-end sm:self-start"
+                size="sm"
+                onClick={() => setOpen(true)}
+                disabled={disabled}>
                 <AddIcon aria-hidden="true" />
-                {m.provider_connect_http()}
+                {reconnect
+                    ? m.provider_reconnect_title({ provider: 'custom HTTP' })
+                    : m.provider_connect_http()}
             </Button>
             <Dialog
                 open={open}
@@ -105,10 +113,12 @@ export function CustomHttpConnectionDialog({
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-lg overflow-x-hidden overflow-y-auto sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
-                            {m.provider_connect_title({ provider: channel.name })}
+                            {reconnect
+                                ? m.provider_reconnect_title({ provider: channel.name })
+                                : m.provider_connect_title({ provider: channel.name })}
                         </DialogTitle>
                         <DialogDescription>
                             {m.provider_http_connect_description()}
@@ -208,7 +218,9 @@ export function CustomHttpConnectionDialog({
                         </Button>
                         <Button type="button" onClick={() => void submit()} disabled={disabled}>
                             <LinkIcon aria-hidden="true" />
-                            {m.provider_connect_endpoint()}
+                            {reconnect
+                                ? m.provider_reconnect_title({ provider: 'custom HTTP' })
+                                : m.provider_connect_endpoint()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

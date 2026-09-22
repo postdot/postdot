@@ -87,6 +87,44 @@ describe('project event stream', () => {
         expect(result.text).not.toContain('project-2')
     })
 
+    it('emits access revocation when its session is no longer authorized', async () => {
+        const stream = createUserEventStream({
+            request: new Request('http://localhost/api/notifications/events'),
+            userId: 'user-1',
+            listProjectIds: () => ['project-1'],
+            journal: { readAllAfter: () => [] },
+            after: null,
+            isAuthorized: () => false,
+            options: { heartbeatIntervalMs: 100, batchSize: 10 },
+        })
+
+        const reader = stream.getReader()
+        const result = await readText(reader)
+        const terminal = await readText(reader)
+
+        expect(result.text).toContain('event: user.access-revoked')
+        expect(terminal.done).toBe(true)
+    })
+
+    it('emits an access-revoked signal when the user loses every visible project', async () => {
+        const stream = createUserEventStream({
+            request: new Request('http://localhost/api/notifications/events'),
+            userId: 'user-1',
+            listProjectIds: () => [],
+            journal: { readAllAfter: () => [] },
+            after: null,
+            options: { heartbeatIntervalMs: 100, batchSize: 10 },
+        })
+
+        const reader = stream.getReader()
+        const result = await readText(reader)
+        const terminal = await readText(reader)
+
+        expect(result.text).toContain('event: user.access-revoked')
+        expect(result.text).toContain('"reason":"access_revoked"')
+        expect(terminal.done).toBe(true)
+    })
+
     it('replays after a cursor and emits heartbeats while idle', async () => {
         const first = journalEntry({ id: 'event-1', sequence: 1 })
         const second = journalEntry({ id: 'event-2', sequence: 2 })

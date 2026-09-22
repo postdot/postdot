@@ -9,9 +9,9 @@ import {
 } from '@herald/ui/components/dialog'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
-import { ArchiveIcon } from '@solar-icons/react/bold/archive'
-import { RestartIcon } from '@solar-icons/react/bold/restart'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { ArchiveIcon } from '@solar-icons/react/linear/archive'
+import { RestartIcon } from '@solar-icons/react/linear/restart'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useEffect, useState } from 'react'
 
 import type { Channel } from '@/lib/api'

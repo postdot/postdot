@@ -110,7 +110,12 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     })
                 }
 
-                if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+                const existingConnection = publisherStore.getPublisherConnection(
+                    params.projectId,
+                    params.channelId,
+                    user.id
+                )
+                if (existingConnection?.state === 'active') {
                     return status(409, {
                         error: {
                             code: 'publisher_exists',
@@ -118,6 +123,10 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                         },
                     })
                 }
+                const replaceNonActiveConnection =
+                    existingConnection === null
+                        ? undefined
+                        : { id: existingConnection.id, state: existingConnection.state }
 
                 let endpoint: ReturnType<typeof normalizeCustomHttpEndpoint>
                 try {
@@ -174,6 +183,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     credentialId: credential.credential.id,
                     endpointUrl: endpoint.url.origin,
                     authentication: body.authentication,
+                    replaceNonActiveConnection,
                 })
                 if (connection.kind !== 'created') {
                     publisher.credentialStore.revokePublisherCredential(

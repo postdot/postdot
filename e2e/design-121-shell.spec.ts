@@ -29,7 +29,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await expect(page.getByRole('link', { name: 'Overview', exact: true })).toBeVisible()
 
     const collapsedSidebar = page.locator('[data-slot="sidebar-container"]')
-    await expect(collapsedSidebar).toHaveCSS('width', '64px')
+    await expect(collapsedSidebar).toHaveCSS('width', '48px')
     const collapsedSidebarBox = await collapsedSidebar.boundingBox()
     const compactLogoBox = await page.locator('a[aria-label="Herald workspace"]').boundingBox()
     if (collapsedSidebarBox === null || compactLogoBox === null) {
@@ -39,6 +39,12 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
         collapsedSidebarBox.x + collapsedSidebarBox.width / 2,
         0
     )
+    expect(Math.round(compactLogoBox.y)).toBe(0)
+    expect(Math.round(compactLogoBox.height)).toBe(56)
+
+    await page.reload()
+    await expect(page.locator('[data-slot="sidebar-container"]')).toHaveCSS('width', '48px')
+
     const collapsedShell = await collapsedSidebar.evaluate(container => {
         const inner = container.querySelector('[data-slot="sidebar-inner"]')
         const inset = container.ownerDocument.querySelector('[data-slot="sidebar-inset"]')
@@ -63,14 +69,14 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     expect(collapsedShell.innerLeft).toBe(collapsedShell.containerLeft)
     expect(collapsedShell.innerRight).toBe(collapsedShell.containerRight)
     expect(collapsedShell.insetLeft).toBe(collapsedShell.innerRight)
-    expect(collapsedShell.scrollLeft).toBe(collapsedShell.innerRight)
+    expect(collapsedShell.scrollLeft).toBe(collapsedShell.insetLeft)
 
-    for (const label of ['Queue', 'Access']) {
+    for (const label of ['Queue', 'Media']) {
         const link = page.getByRole('link', { name: label, exact: true })
         const box = await link.boundingBox()
         if (box === null) throw new Error(`Expected the collapsed ${label} link to be visible`)
         expect(Math.round(box.x)).toBe(8)
-        expect(Math.round(box.width)).toBe(48)
+        expect(Math.round(box.width)).toBe(32)
 
         const middleX = Math.round(box.width / 2)
         const middleY = Math.round(box.height / 2)
@@ -123,7 +129,7 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
 
     for (const [label, path] of [
         ['Queue', 'queue'],
-        ['Access', 'access'],
+        ['Media', 'media'],
     ] as const) {
         const link = page.getByRole('link', { name: label, exact: true })
         const box = await link.boundingBox()
@@ -137,9 +143,8 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/overview$/)
     const calendar = page.locator('[data-calendar="reui"]')
-    await expect(calendar).toBeVisible()
-    await expect(calendar.locator('[data-calendar-view="month"]')).toBeVisible()
-    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+    await expect(calendar).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toBeVisible()
     await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute('data-variant', 'inset')
     await expect(page.locator('[data-slot="sidebar-inset"]')).toBeVisible()
 
@@ -156,33 +161,44 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
         .getByRole('button', {
             name: 'Afficher ou masquer la navigation de l’espace de travail',
             exact: true,
-        })
+        }) // cspell:ignore Afficher l’espace
         .click()
     await expect(
-        page.getByRole('navigation', { name: 'Navigation du travail', exact: true })
+        page.getByRole('navigation', { name: 'Navigation du travail', exact: true }) // language-lint-ignore: localized browser assertion
     ).toBeVisible()
     const mobileDrawer = page.locator('[data-slot="sidebar"][data-mobile="true"]')
     await expect(mobileDrawer).toBeVisible()
     await expect(mobileDrawer).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
-    await expect(page.getByRole('button', { name: 'Fermer', exact: true })).toBeVisible()
-    await page.getByRole('button', { name: 'Fermer', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Fermer', exact: true })).toBeVisible() // cspell:ignore Fermer
+    await page.getByRole('button', { name: 'Fermer', exact: true }).click() // cspell:ignore Fermer
     await expect(
-        page.getByRole('navigation', { name: 'Navigation du travail', exact: true })
+        page.getByRole('navigation', { name: 'Navigation du travail', exact: true }) // language-lint-ignore: localized browser assertion
     ).toBeHidden()
 
     await page
         .getByRole('button', {
             name: 'Afficher ou masquer la navigation de l’espace de travail',
             exact: true,
-        })
+        }) // cspell:ignore Afficher l’espace
         .click()
-    await expect(
-        page.getByRole('button', { name: 'Nouvelle publication', exact: true })
-    ).toBeVisible()
-
-    await page.getByRole('button', { name: 'Nouvelle publication', exact: true }).click()
-    await expect(page).toHaveURL(/\/publications\/new$/)
+    await expect(page.getByRole('link', { name: 'Canaux', exact: true })).toBeVisible() // cspell:ignore Canaux
     await expectNoHorizontalOverflow(page)
+})
+
+test('keeps the explicit no-project context on the project picker', async ({ page }) => {
+    test.setTimeout(30_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'No project selected', exact: true }).click()
+
+    await expect(page).toHaveURL(/\/dashboard\?[^#]*projectId=none/)
+    await expect(page.getByRole('heading', { name: 'Select project', exact: true })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Select project', exact: true })).toHaveText(
+        'No project selected'
+    )
 })
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -199,20 +215,29 @@ async function expectNoHorizontalOverflow(page: Page) {
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Need an account?' }).click()
+    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-121 ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-121-${suffix}@herald.local`)
-    await page.getByLabel('Password').fill('e2e-121-password')
-    await page.getByRole('button', { name: 'Create account', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await page.getByLabel('Password', { exact: true }).fill('e2e-121-password')
+    await Promise.all([
+        page.waitForResponse(
+            response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+        ),
+        page.getByRole('button', { name: 'Create account', exact: true }).click(),
+    ])
+    await page.goto('/dashboard?projectId=none')
+    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
-    await page.getByRole('option', { name: 'Create project', exact: true }).click()
-    await page.locator('#new-project').fill(`E2E-121 project ${suffix}`)
+    await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
+    await page
+        .getByRole('textbox', { name: 'New project', exact: true })
+        .fill(`E2E-121 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.locator('#new-project') })
+        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
         .getByRole('button', { name: 'Add project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 }

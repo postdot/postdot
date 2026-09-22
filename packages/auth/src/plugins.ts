@@ -5,26 +5,20 @@ import { organization, type OrganizationOptions } from 'better-auth/plugins/orga
 import { heraldOrganizationAccess, heraldOrganizationRoles } from './access-control'
 
 export interface HeraldAuthPluginHooks {
-    readonly afterOrganizationMemberAdded?: (input: {
-        readonly organizationId: string
-        readonly userId: string
-        readonly role: string
-        readonly displayName: string
-    }) => Promise<void> | void
-    readonly afterOrganizationMemberRemoved?: (input: {
-        readonly organizationId: string
-        readonly userId: string
-    }) => Promise<void> | void
-    readonly afterOrganizationMemberRoleUpdated?: (input: {
-        readonly organizationId: string
-        readonly userId: string
-        readonly role: string
-        readonly displayName: string
-    }) => Promise<void> | void
     readonly afterOrganizationInvitationAccepted?: (input: {
+        readonly invitationId: string
         readonly organizationId: string
         readonly userId: string
         readonly role: string
+        readonly displayName: string
+        readonly teamId?: string
+        readonly projectId?: string
+        readonly projectRole?: string
+    }) => Promise<void> | void
+    readonly afterOrganizationTeamMemberAdded?: (input: {
+        readonly organizationId: string
+        readonly teamId: string
+        readonly userId: string
         readonly displayName: string
     }) => Promise<void> | void
 }
@@ -33,11 +27,19 @@ type BetterAuthInvitationEmailData = Parameters<
     NonNullable<OrganizationOptions['sendInvitationEmail']>
 >[0]
 
+type HeraldInvitationFields = {
+    readonly teamId?: string | null
+    readonly projectId?: string | null
+    readonly projectRole?: string | null
+}
+
 export interface HeraldOrganizationInvitationEmail {
     readonly id: string
     readonly email: string
     readonly role: string
     readonly organizationId: string
+    readonly projectId?: string
+    readonly projectRole?: string
     readonly organizationName: string
     readonly inviterId: string
     readonly inviterEmail: string
@@ -55,6 +57,7 @@ export interface HeraldAuthInvitationOptions {
     readonly organizationInvitationURL?: (input: {
         readonly id: string
         readonly organizationId: string
+        readonly projectId?: string
     }) => string
     /** Enables Better Auth's verified-email gate for invitation acceptance. */
     readonly requireEmailVerificationOnInvitation?: boolean
@@ -67,15 +70,25 @@ function createInvitationEmailOption(
 
     return {
         sendInvitationEmail: async (data: BetterAuthInvitationEmailData) => {
+            const invitation = data.invitation as typeof data.invitation & HeraldInvitationFields
             const invitationURL = options.organizationInvitationURL?.({
                 id: data.id,
                 organizationId: data.organization.id,
+                ...(typeof invitation.projectId !== 'string'
+                    ? {}
+                    : { projectId: invitation.projectId }),
             })
             await options.sendOrganizationInvitationEmail?.({
                 id: data.id,
                 email: data.email,
                 role: data.role,
                 organizationId: data.organization.id,
+                ...(typeof invitation.projectId !== 'string'
+                    ? {}
+                    : { projectId: invitation.projectId }),
+                ...(typeof invitation.projectRole !== 'string'
+                    ? {}
+                    : { projectRole: invitation.projectRole }),
                 organizationName: data.organization.name,
                 inviterId: data.inviter.userId,
                 inviterEmail: data.inviter.user.email,
@@ -99,6 +112,9 @@ function readHeraldApiKey(request: Request | undefined): string | null {
     return request.headers.get('x-api-key')
 }
 
+/** Default configuration used by Herald's user-owned API keys. */
+export const heraldUserApiKeyConfigId = 'default'
+
 /** Shared plugin configuration for the runtime auth instance and CLI schema generation. */
 export type HeraldAuthPlugins = [
     ReturnType<typeof admin>,
@@ -120,37 +136,55 @@ export function createHeraldAuthPlugins(
             cancelPendingInvitationsOnReInvite: true,
             creatorRole: 'owner',
             invitationExpiresIn: 7 * 24 * 60 * 60,
+            schema: {
+                invitation: {
+                    additionalFields: {
+                        projectId: {
+                            type: 'string',
+                            input: true,
+                            required: false,
+                        },
+                        projectRole: {
+                            type: 'string',
+                            input: true,
+                            required: false,
+                        },
+                    },
+                },
+            },
+            // Workspace groups are provisioned by Herald. Organizations that
+            // exist only in legacy development data must not silently get a
+            // new default group.
+            teams: { enabled: true, defaultTeam: { enabled: false } },
             ...(requireEmailVerification === undefined
                 ? {}
                 : { requireEmailVerificationOnInvitation: requireEmailVerification }),
             organizationHooks: {
-                afterAddMember: async ({ member, user, organization }) => {
-                    await hooks.afterOrganizationMemberAdded?.({
-                        organizationId: organization.id,
-                        userId: member.userId,
-                        role: member.role,
-                        displayName: user.name,
-                    })
-                },
-                afterRemoveMember: async ({ member, organization }) => {
-                    await hooks.afterOrganizationMemberRemoved?.({
-                        organizationId: organization.id,
-                        userId: member.userId,
-                    })
-                },
-                afterUpdateMemberRole: async ({ member, user, organization }) => {
-                    await hooks.afterOrganizationMemberRoleUpdated?.({
-                        organizationId: organization.id,
-                        userId: member.userId,
-                        role: member.role,
-                        displayName: user.name,
-                    })
-                },
                 afterAcceptInvitation: async ({ invitation, user, organization }) => {
+                    const projectInvitation = invitation as typeof invitation &
+                        HeraldInvitationFields
                     await hooks.afterOrganizationInvitationAccepted?.({
+                        invitationId: invitation.id,
                         organizationId: organization.id,
                         userId: user.id,
                         role: invitation.role,
+                        displayName: user.name,
+                        ...(typeof projectInvitation.teamId !== 'string'
+                            ? {}
+                            : { teamId: projectInvitation.teamId }),
+                        ...(typeof projectInvitation.projectId !== 'string'
+                            ? {}
+                            : { projectId: projectInvitation.projectId }),
+                        ...(typeof projectInvitation.projectRole !== 'string'
+                            ? {}
+                            : { projectRole: projectInvitation.projectRole }),
+                    })
+                },
+                afterAddTeamMember: async ({ teamMember, team, user, organization }) => {
+                    await hooks.afterOrganizationTeamMemberAdded?.({
+                        organizationId: organization.id,
+                        teamId: team.id,
+                        userId: teamMember.userId,
                         displayName: user.name,
                     })
                 },
@@ -158,21 +192,22 @@ export function createHeraldAuthPlugins(
             ...createInvitationEmailOption(invitationOptions),
             roles: heraldOrganizationRoles,
         }),
-        apiKey({
-            apiKeyHeaders: ['x-api-key', 'authorization'],
-            customAPIKeyGetter: ({ request }) => readHeraldApiKey(request),
-            defaultPrefix: 'herald_pat_',
-            enableMetadata: true,
-            keyExpiration: {
-                // The API endpoint accepts seconds; the plugin's min/max
-                // bounds are expressed in days.
-                defaultExpiresIn: 180 * 24 * 60 * 60,
-                maxExpiresIn: 10 * 365,
-                minExpiresIn: 1,
+        apiKey([
+            {
+                apiKeyHeaders: ['x-api-key', 'authorization'],
+                configId: heraldUserApiKeyConfigId,
+                customAPIKeyGetter: ({ request }) => readHeraldApiKey(request),
+                defaultPrefix: 'herald_pat_',
+                enableMetadata: true,
+                keyExpiration: {
+                    defaultExpiresIn: 180 * 24 * 60 * 60,
+                    maxExpiresIn: 10 * 365,
+                    minExpiresIn: 1,
+                },
+                rateLimit: { enabled: false },
+                references: 'user',
+                requireName: true,
             },
-            rateLimit: { enabled: false },
-            references: 'organization',
-            requireName: true,
-        }),
-    ]
+        ]),
+    ] as unknown as HeraldAuthPlugins
 }

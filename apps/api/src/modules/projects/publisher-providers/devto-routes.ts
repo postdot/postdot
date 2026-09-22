@@ -77,7 +77,12 @@ export function registerDevtoPublisherRoutes<const Routes extends Record<string,
                 })
             }
 
-            if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+            const existingConnection = publisherStore.getPublisherConnection(
+                params.projectId,
+                params.channelId,
+                user.id
+            )
+            if (existingConnection?.state === 'active') {
                 return status(409, {
                     error: {
                         code: 'publisher_exists',
@@ -85,6 +90,10 @@ export function registerDevtoPublisherRoutes<const Routes extends Record<string,
                     },
                 })
             }
+            const replaceNonActiveConnection =
+                existingConnection === null
+                    ? undefined
+                    : { id: existingConnection.id, state: existingConnection.state }
 
             let apiKey: string
             try {
@@ -141,7 +150,7 @@ export function registerDevtoPublisherRoutes<const Routes extends Record<string,
                 })
             }
 
-            const credential = await credentialStore.createPublisherCredential({
+            const savedCredential = await credentialStore.createPublisherCredential({
                 projectId: params.projectId,
                 connectedByActorId: actorId,
                 providerId: DEVTO_PROVIDER,
@@ -151,11 +160,32 @@ export function registerDevtoPublisherRoutes<const Routes extends Record<string,
                 accessToken: apiKey,
                 expiresAt: null,
             })
-            if (credential.kind !== 'created') {
-                return status(409, {
+            let credentialId: string
+            const shouldRevokeCredentialOnFailure = savedCredential.kind === 'created'
+            if (savedCredential.kind === 'created') {
+                credentialId = savedCredential.credential.id
+            } else if (savedCredential.kind === 'already_exists') {
+                const replaced = await credentialStore.replacePublisherCredentialTokens({
+                    projectId: params.projectId,
+                    credentialId: savedCredential.credential.id,
+                    accessToken: apiKey,
+                    refreshToken: null,
+                    expiresAt: null,
+                })
+                if (replaced.kind !== 'updated') {
+                    return status(409, {
+                        error: {
+                            code: 'credential_exists',
+                            message: 'The DEV.to credential could not be updated',
+                        },
+                    })
+                }
+                credentialId = replaced.credential.id
+            } else {
+                return status(404, {
                     error: {
-                        code: 'credential_exists',
-                        message: 'The DEV.to credential could not be created',
+                        code: 'not_found',
+                        message: 'Project not found',
                     },
                 })
             }
@@ -165,7 +195,8 @@ export function registerDevtoPublisherRoutes<const Routes extends Record<string,
                 channelId: params.channelId,
                 subjectId: user.id,
                 kind: DEVTO_PROVIDER,
-                credentialId: credential.credential.id,
+                credentialId,
+                replaceNonActiveConnection,
                 destination: {
                     type: 'account',
                     id: account.value.id,
@@ -173,10 +204,9 @@ export function registerDevtoPublisherRoutes<const Routes extends Record<string,
                 },
             })
             if (connection.kind !== 'created') {
-                credentialStore.revokePublisherCredential(
-                    params.projectId,
-                    credential.credential.id
-                )
+                if (shouldRevokeCredentialOnFailure) {
+                    credentialStore.revokePublisherCredential(params.projectId, credentialId)
+                }
                 return connection.kind === 'publisher_exists'
                     ? status(409, {
                           error: {

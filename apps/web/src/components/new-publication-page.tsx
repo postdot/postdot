@@ -2,12 +2,14 @@ import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert
 import { Button } from '@herald/ui/components/button'
 import { Input } from '@herald/ui/components/input'
 import { Textarea } from '@herald/ui/components/textarea'
-import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
-import { FileTextIcon } from '@solar-icons/react/bold/file-text'
-import { useNavigate } from '@tanstack/react-router'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
+import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
+import { FileTextIcon } from '@solar-icons/react/linear/file-text'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import { DashboardFormField } from '@/components/dashboard-form-field'
+import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
@@ -17,10 +19,18 @@ import {
     PublicationChannelTabs,
     publicationSharedTabId,
 } from '@/components/publication-target-list'
-import type { MediaReference } from '@/lib/api'
+import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
 import { type PublicationCreationMode, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
+import {
+    clearPublicationRecovery,
+    hasRecoverablePublicationContent,
+    readPublicationRecovery,
+    writePublicationRecovery,
+    type PublicationComposerDraftContent,
+    type PublicationRecoveryState,
+} from '@/lib/publication-recovery'
 import * as m from '@/paraglide/messages.js'
 
 export function NewPublicationPage({
@@ -72,6 +82,25 @@ export function NewPublicationPage({
             publicationTargets.find(target => target.channelId !== '')?.id ?? publicationSharedTabId
     )
     const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
+    const hasCurrentComposerContent = hasRecoverablePublicationContent({
+        postContent,
+        publicationTargets,
+        sourceMedia,
+    })
+    const [recovery, setRecovery] = useState<PublicationRecoveryState | null>(() =>
+        hasCurrentComposerContent ? null : readPublicationRecovery(project.id)
+    )
+    const [serverDraft, setServerDraft] = useState<PublicationComposerDraft | null>(null)
+    const [serverDraftReady, setServerDraftReady] = useState(false)
+    const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+        'idle'
+    )
+    const [autosaveError, setAutosaveError] = useState<string | null>(null)
+    const recoveryPromptOpen = useRef(recovery !== null)
+    const currentComposerHasContent = useRef(hasCurrentComposerContent)
+    const serverDraftRef = useRef<PublicationComposerDraft | null>(null)
+    const autosaveQueue = useRef(Promise.resolve())
+    const autosaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
     const previousTargetIds = useRef(new Set(publicationTargets.map(target => target.id)))
     const activeTarget =
         activePublicationTabId === publicationSharedTabId
@@ -87,13 +116,25 @@ export function NewPublicationPage({
         .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
         .filter((asset): asset is MediaReference => asset !== undefined)
 
+    currentComposerHasContent.current = hasCurrentComposerContent
+    serverDraftRef.current = serverDraft
+
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        if (autosaveTimer.current !== undefined) clearTimeout(autosaveTimer.current)
+        await autosaveQueue.current.catch(() => undefined)
+
         const submitter = (event.nativeEvent as SubmitEvent).submitter
         const mode: PublicationCreationMode =
             submitter instanceof HTMLButtonElement && submitter.value === 'draft'
                 ? 'draft'
                 : 'schedule'
         const publications = await onCreatePost(event, mode)
+        if (publications !== null) {
+            clearPublicationRecovery(project.id)
+            await discardServerDraft()
+            recoveryPromptOpen.current = false
+            setRecovery(null)
+        }
         const publication = publications?.[0]
         if (mode !== 'draft' || publication === undefined) return
 
@@ -102,6 +143,190 @@ export function NewPublicationPage({
             params: { projectId: project.id, publicationId: publication.id },
         })
     }
+
+    function restoreRecovery() {
+        if (recovery === null) return
+
+        onPostTitleChange(recovery.postTitle)
+        onPostContentChange(recovery.postContent)
+        onSourceMediaChange(recovery.sourceMedia)
+        onPublicationTargetsChange(recovery.publicationTargets)
+        onPublicationTagIdsChange(recovery.publicationTagIds)
+        setDefaultDeliveryMode(recovery.defaultDeliveryMode)
+        setDefaultScheduledAt(recovery.defaultScheduledAt)
+        setCustomizedTargetIds(new Set(recovery.customizedTargetIds))
+        setCustomizedContentTargetIds(new Set(recovery.customizedContentTargetIds))
+        setActivePublicationTabId(recovery.activePublicationTabId)
+        clearPublicationRecovery(project.id)
+        recoveryPromptOpen.current = false
+        setRecovery(null)
+    }
+
+    async function discardRecovery() {
+        clearPublicationRecovery(project.id)
+        await discardServerDraft()
+        recoveryPromptOpen.current = false
+        setRecovery(null)
+    }
+
+    async function discardServerDraft() {
+        if (serverDraftRef.current === null) return
+
+        try {
+            await api.deletePublicationComposerDraft(project.id)
+            serverDraftRef.current = null
+            setServerDraft(null)
+            setAutosaveState('idle')
+            setAutosaveError(null)
+        } catch (caughtError) {
+            setAutosaveState('error')
+            setAutosaveError(formatApiError(caughtError))
+        }
+    }
+
+    function composerDraftContent(): PublicationComposerDraftContent {
+        return {
+            activePublicationTabId,
+            customizedContentTargetIds: [...customizedContentTargetIds],
+            customizedTargetIds: [...customizedTargetIds],
+            defaultDeliveryMode,
+            defaultScheduledAt,
+            postContent,
+            postTitle,
+            publicationTagIds: [...publicationTagIds],
+            publicationTargets: publicationTargets.map(target => ({ ...target })),
+            sourceMedia: sourceMedia.map(selection => ({ ...selection })),
+        }
+    }
+
+    const autosaveStatus =
+        autosaveState === 'saving'
+            ? m.publication_new_autosave_saving()
+            : autosaveState === 'saved'
+              ? m.publication_new_autosave_saved()
+              : autosaveState === 'error'
+                ? m.publication_new_autosave_unavailable()
+                : null
+
+    useEffect(() => {
+        let cancelled = false
+
+        void api
+            .getPublicationComposerDraft(project.id)
+            .then(({ draft }) => {
+                if (cancelled) return
+                serverDraftRef.current = draft
+                setServerDraft(draft)
+                setServerDraftReady(true)
+
+                if (currentComposerHasContent.current || draft === null) return
+
+                const localRecovery = readPublicationRecovery(project.id)
+                const serverRecovery: PublicationRecoveryState = {
+                    ...draft.content,
+                    savedAt: draft.updatedAt,
+                    version: 1,
+                }
+                if (localRecovery === null || draft.updatedAt >= localRecovery.savedAt) {
+                    recoveryPromptOpen.current = true
+                    setRecovery(serverRecovery)
+                }
+            })
+            .catch(caughtError => {
+                if (cancelled) return
+                setServerDraftReady(true)
+                setAutosaveState('error')
+                setAutosaveError(formatApiError(caughtError))
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [project.id])
+
+    useEffect(() => {
+        if (!serverDraftReady || recoveryPromptOpen.current) return
+
+        if (!hasCurrentComposerContent) {
+            if (serverDraftRef.current === null) return
+            autosaveQueue.current = autosaveQueue.current
+                .catch(() => undefined)
+                .then(() => discardServerDraft())
+            return
+        }
+
+        if (autosaveTimer.current !== undefined) clearTimeout(autosaveTimer.current)
+        const content = composerDraftContent()
+        autosaveTimer.current = setTimeout(() => {
+            autosaveQueue.current = autosaveQueue.current
+                .catch(() => undefined)
+                .then(async () => {
+                    setAutosaveState('saving')
+                    setAutosaveError(null)
+                    try {
+                        const response = await api.savePublicationComposerDraft(
+                            project.id,
+                            serverDraftRef.current?.revision ?? 0,
+                            content
+                        )
+                        serverDraftRef.current = response.draft
+                        setServerDraft(response.draft)
+                        setAutosaveState('saved')
+                    } catch (caughtError) {
+                        setAutosaveState('error')
+                        setAutosaveError(formatApiError(caughtError))
+                    }
+                })
+        }, 900)
+
+        return () => {
+            if (autosaveTimer.current !== undefined) clearTimeout(autosaveTimer.current)
+            autosaveTimer.current = undefined
+        }
+    }, [
+        activePublicationTabId,
+        customizedContentTargetIds,
+        customizedTargetIds,
+        defaultDeliveryMode,
+        defaultScheduledAt,
+        hasCurrentComposerContent,
+        postContent,
+        postTitle,
+        project.id,
+        publicationTagIds,
+        publicationTargets,
+        recovery,
+        serverDraftReady,
+        sourceMedia,
+    ])
+
+    useEffect(() => {
+        if (recoveryPromptOpen.current) return
+        writePublicationRecovery(project.id, {
+            activePublicationTabId,
+            customizedContentTargetIds,
+            customizedTargetIds,
+            defaultDeliveryMode,
+            defaultScheduledAt,
+            postContent,
+            postTitle,
+            publicationTagIds,
+            publicationTargets,
+            sourceMedia,
+        })
+    }, [
+        activePublicationTabId,
+        customizedContentTargetIds,
+        customizedTargetIds,
+        defaultDeliveryMode,
+        defaultScheduledAt,
+        postContent,
+        postTitle,
+        project.id,
+        publicationTagIds,
+        publicationTargets,
+        sourceMedia,
+    ])
 
     useEffect(() => {
         const nextTargetIds = new Set(publicationTargets.map(target => target.id))
@@ -115,6 +340,28 @@ export function NewPublicationPage({
         }
         previousTargetIds.current = nextTargetIds
     }, [publicationTargets])
+
+    useEffect(() => {
+        const firstTarget = publicationTargets[0]
+        const firstActiveChannel = activeChannels[0]
+        if (
+            publicationTargets.length !== 1 ||
+            firstTarget === undefined ||
+            firstTarget.channelId !== '' ||
+            firstActiveChannel === undefined
+        ) {
+            return
+        }
+
+        onPublicationTargetsChange(currentTargets =>
+            currentTargets.map(target =>
+                target.id === firstTarget.id
+                    ? { ...target, channelId: firstActiveChannel.id }
+                    : target
+            )
+        )
+        setActivePublicationTabId(firstTarget.id)
+    }, [activeChannels, onPublicationTargetsChange, publicationTargets])
 
     useEffect(() => {
         if (activePublicationTabId === publicationSharedTabId) return
@@ -235,6 +482,49 @@ export function NewPublicationPage({
 
     return (
         <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            <DashboardPageHeader
+                action={
+                    <Button
+                        className="gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+                        nativeButton={false}
+                        render={
+                            <Link
+                                params={{ projectId: project.id }}
+                                to="/dashboard/projects/$projectId/overview"
+                            />
+                        }
+                        size="sm"
+                        variant="ghost">
+                        <AltArrowLeftIcon aria-hidden="true" />
+                        {m.publication_new_back_overview()}
+                    </Button>
+                }
+                title={m.publication_new_title()}>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    {project.name} · {project.timeZone}
+                </p>
+            </DashboardPageHeader>
+
+            {recovery !== null ? (
+                <Alert className="mb-4 rounded-md border-primary/25 bg-primary/5">
+                    <AlertTitle>{m.publication_new_recovery_title()}</AlertTitle>
+                    <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                        <span>{m.publication_new_recovery_description()}</span>
+                        <span className="flex shrink-0 items-center gap-2">
+                            <Button
+                                onClick={() => void discardRecovery()}
+                                size="xs"
+                                type="button"
+                                variant="ghost">
+                                {m.publication_new_recovery_discard()}
+                            </Button>
+                            <Button onClick={restoreRecovery} size="xs" type="button">
+                                {m.publication_new_recovery_restore()}
+                            </Button>
+                        </span>
+                    </AlertDescription>
+                </Alert>
+            ) : null}
             {error ? (
                 <Alert
                     variant="destructive"
@@ -257,6 +547,7 @@ export function NewPublicationPage({
                                 disabled={pending}
                                 onActiveTargetChange={setActivePublicationTabId}
                                 onChange={onPublicationTargetsChange}
+                                onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
                                 projectId={project.id}
                                 targets={publicationTargets}
                                 timeZone={project.timeZone}
@@ -355,30 +646,38 @@ export function NewPublicationPage({
                             </div>
                         }
                         footer={
-                            <div className="flex flex-wrap justify-end gap-2">
-                                <Button
-                                    name="publication-action"
-                                    type="submit"
-                                    value="draft"
-                                    variant="ghost"
-                                    disabled={pending || activeChannels.length === 0}>
-                                    <FileTextIcon aria-hidden="true" />
-                                    {m.publication_new_save_draft()}
-                                </Button>
-                                <Button
-                                    name="publication-action"
-                                    type="submit"
-                                    value="schedule"
-                                    disabled={pending || activeChannels.length === 0}>
-                                    <CalendarAddIcon aria-hidden="true" />
-                                    {publicationTargets.length === 1
-                                        ? publicationTargets[0]?.deliveryMode === 'automatic'
-                                            ? m.publication_new_schedule_automatic()
-                                            : m.publication_new_schedule_manual()
-                                        : m.publication_new_schedule_count({
-                                              count: publicationTargets.length,
-                                          })}
-                                </Button>
+                            <div className="flex w-full flex-wrap items-center justify-between gap-3">
+                                <span
+                                    aria-live="polite"
+                                    className="min-h-4 text-xs text-muted-foreground"
+                                    title={autosaveError ?? undefined}>
+                                    {autosaveStatus}
+                                </span>
+                                <div className="flex flex-wrap justify-end gap-2">
+                                    <Button
+                                        name="publication-action"
+                                        type="submit"
+                                        value="draft"
+                                        variant="ghost"
+                                        disabled={pending || activeChannels.length === 0}>
+                                        <FileTextIcon aria-hidden="true" />
+                                        {m.publication_new_save_draft()}
+                                    </Button>
+                                    <Button
+                                        name="publication-action"
+                                        type="submit"
+                                        value="schedule"
+                                        disabled={pending || activeChannels.length === 0}>
+                                        <CalendarAddIcon aria-hidden="true" />
+                                        {publicationTargets.length === 1
+                                            ? publicationTargets[0]?.deliveryMode === 'automatic'
+                                                ? m.publication_new_schedule_automatic()
+                                                : m.publication_new_schedule_manual()
+                                            : m.publication_new_schedule_count({
+                                                  count: publicationTargets.length,
+                                              })}
+                                    </Button>
+                                </div>
                             </div>
                         }
                         preview={

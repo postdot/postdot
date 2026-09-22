@@ -8,10 +8,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
-import { CloseIcon } from '@solar-icons/react/bold/close'
-import { InfoCircleIcon } from '@solar-icons/react/bold/info-circle'
-import { LinkIcon } from '@solar-icons/react/bold/link'
+import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
+import { CloseIcon } from '@solar-icons/react/linear/close'
+import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
+import { LinkIcon } from '@solar-icons/react/linear/link'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useState, type ReactNode } from 'react'
 
@@ -310,9 +310,7 @@ function UsageGroup({
 }) {
     return (
         <div className="grid gap-2">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {title}
-            </h3>
+            <h3 className="text-xs font-medium uppercase text-muted-foreground">{title}</h3>
             <ul className="grid gap-2">
                 {references.map(reference => (
                     <UsageReference

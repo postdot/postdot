@@ -11,12 +11,20 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as InviteRouteImport } from './routes/invite'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as SetupRouteImport } from './routes/setup'
+import { Route as DashboardPreferencesRouteImport } from './routes/dashboard/preferences'
+import { Route as DashboardPreferencesIndexRouteImport } from './routes/dashboard/preferences/index'
+import { Route as DashboardPreferencesApiKeysRouteImport } from './routes/dashboard/preferences/api-keys'
 import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboard/projects/$projectId'
+import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard/settings/index'
 import { Route as DashboardSettingsAccessRouteImport } from './routes/dashboard/settings/access'
 import { Route as DashboardSettingsProviderApplicationsRouteImport } from './routes/dashboard/settings/provider-applications'
+import { Route as DashboardSettingsWorkspaceRouteImport } from './routes/dashboard/settings/workspace'
 import { Route as DashboardProjectsProjectIdAccessRouteImport } from './routes/dashboard/projects/$projectId/access'
 import { Route as DashboardProjectsProjectIdChannelsRouteImport } from './routes/dashboard/projects/$projectId/channels'
+import { Route as DashboardProjectsProjectIdInvitationsRouteImport } from './routes/dashboard/projects/$projectId/invitations'
 import { Route as DashboardProjectsProjectIdMediaRouteImport } from './routes/dashboard/projects/$projectId/media'
 import { Route as DashboardProjectsProjectIdOverviewRouteImport } from './routes/dashboard/projects/$projectId/overview'
 import { Route as DashboardProjectsProjectIdQueueRouteImport } from './routes/dashboard/projects/$projectId/queue'
@@ -34,17 +42,49 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InviteRoute = InviteRouteImport.update({
+  id: '/invite',
+  path: '/invite',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardPreferencesRoute = DashboardPreferencesRouteImport.update({
+  id: '/preferences',
+  path: '/preferences',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardPreferencesIndexRoute =
+  DashboardPreferencesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardPreferencesRoute,
+  } as any)
+const DashboardPreferencesApiKeysRoute =
+  DashboardPreferencesApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => DashboardPreferencesRoute,
+  } as any)
 const DashboardProjectsProjectIdRoute =
   DashboardProjectsProjectIdRouteImport.update({
     id: '/projects/$projectId',
     path: '/projects/$projectId',
     getParentRoute: () => DashboardRoute,
   } as any)
+const DashboardSettingsIndexRoute = DashboardSettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardSettingsAccessRoute = DashboardSettingsAccessRouteImport.update({
   id: '/settings/access',
   path: '/settings/access',
@@ -54,6 +94,12 @@ const DashboardSettingsProviderApplicationsRoute =
   DashboardSettingsProviderApplicationsRouteImport.update({
     id: '/settings/provider-applications',
     path: '/settings/provider-applications',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardSettingsWorkspaceRoute =
+  DashboardSettingsWorkspaceRouteImport.update({
+    id: '/settings/workspace',
+    path: '/settings/workspace',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardProjectsProjectIdAccessRoute =
@@ -66,6 +112,12 @@ const DashboardProjectsProjectIdChannelsRoute =
   DashboardProjectsProjectIdChannelsRouteImport.update({
     id: '/channels',
     path: '/channels',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
+const DashboardProjectsProjectIdInvitationsRoute =
+  DashboardProjectsProjectIdInvitationsRouteImport.update({
+    id: '/invitations',
+    path: '/invitations',
     getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
 const DashboardProjectsProjectIdMediaRoute =
@@ -108,12 +160,20 @@ const DashboardProjectsProjectIdPublicationsNewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
+  '/setup': typeof SetupRoute
+  '/dashboard/preferences': typeof DashboardPreferencesRouteWithChildren
+  '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
+  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
+  '/dashboard/preferences/': typeof DashboardPreferencesIndexRoute
+  '/dashboard/settings/': typeof DashboardSettingsIndexRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
+  '/dashboard/projects/$projectId/invitations': typeof DashboardProjectsProjectIdInvitationsRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
@@ -124,12 +184,19 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
+  '/setup': typeof SetupRoute
+  '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
+  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
+  '/dashboard/preferences': typeof DashboardPreferencesIndexRoute
+  '/dashboard/settings': typeof DashboardSettingsIndexRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
+  '/dashboard/projects/$projectId/invitations': typeof DashboardProjectsProjectIdInvitationsRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
@@ -141,12 +208,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
+  '/setup': typeof SetupRoute
+  '/dashboard/preferences': typeof DashboardPreferencesRouteWithChildren
+  '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
+  '/dashboard/settings/workspace': typeof DashboardSettingsWorkspaceRoute
+  '/dashboard/preferences/': typeof DashboardPreferencesIndexRoute
+  '/dashboard/settings/': typeof DashboardSettingsIndexRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
+  '/dashboard/projects/$projectId/invitations': typeof DashboardProjectsProjectIdInvitationsRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
@@ -159,12 +234,20 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/invite'
     | '/login'
+    | '/setup'
+    | '/dashboard/preferences'
+    | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
+    | '/dashboard/settings/workspace'
+    | '/dashboard/preferences/'
+    | '/dashboard/settings/'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/channels'
+    | '/dashboard/projects/$projectId/invitations'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/queue'
@@ -175,12 +258,19 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/invite'
     | '/login'
+    | '/setup'
+    | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
+    | '/dashboard/settings/workspace'
+    | '/dashboard/preferences'
+    | '/dashboard/settings'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/channels'
+    | '/dashboard/projects/$projectId/invitations'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/queue'
@@ -191,12 +281,20 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/invite'
     | '/login'
+    | '/setup'
+    | '/dashboard/preferences'
+    | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
+    | '/dashboard/settings/workspace'
+    | '/dashboard/preferences/'
+    | '/dashboard/settings/'
     | '/dashboard/projects/$projectId/access'
     | '/dashboard/projects/$projectId/channels'
+    | '/dashboard/projects/$projectId/invitations'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
     | '/dashboard/projects/$projectId/queue'
@@ -208,7 +306,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
+  InviteRoute: typeof InviteRoute
   LoginRoute: typeof LoginRoute
+  SetupRoute: typeof SetupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -227,6 +327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invite': {
+      id: '/invite'
+      path: '/invite'
+      fullPath: '/invite'
+      preLoaderRoute: typeof InviteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -234,11 +341,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/preferences': {
+      id: '/dashboard/preferences'
+      path: '/preferences'
+      fullPath: '/dashboard/preferences'
+      preLoaderRoute: typeof DashboardPreferencesRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/preferences/': {
+      id: '/dashboard/preferences/'
+      path: '/'
+      fullPath: '/dashboard/preferences/'
+      preLoaderRoute: typeof DashboardPreferencesIndexRouteImport
+      parentRoute: typeof DashboardPreferencesRoute
+    }
+    '/dashboard/preferences/api-keys': {
+      id: '/dashboard/preferences/api-keys'
+      path: '/api-keys'
+      fullPath: '/dashboard/preferences/api-keys'
+      preLoaderRoute: typeof DashboardPreferencesApiKeysRouteImport
+      parentRoute: typeof DashboardPreferencesRoute
+    }
     '/dashboard/projects/$projectId': {
       id: '/dashboard/projects/$projectId'
       path: '/projects/$projectId'
       fullPath: '/dashboard/projects/$projectId'
       preLoaderRoute: typeof DashboardProjectsProjectIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/settings/': {
+      id: '/dashboard/settings/'
+      path: '/settings'
+      fullPath: '/dashboard/settings/'
+      preLoaderRoute: typeof DashboardSettingsIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/dashboard/settings/access': {
@@ -255,6 +397,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSettingsProviderApplicationsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/dashboard/settings/workspace': {
+      id: '/dashboard/settings/workspace'
+      path: '/settings/workspace'
+      fullPath: '/dashboard/settings/workspace'
+      preLoaderRoute: typeof DashboardSettingsWorkspaceRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/projects/$projectId/access': {
       id: '/dashboard/projects/$projectId/access'
       path: '/access'
@@ -267,6 +416,13 @@ declare module '@tanstack/react-router' {
       path: '/channels'
       fullPath: '/dashboard/projects/$projectId/channels'
       preLoaderRoute: typeof DashboardProjectsProjectIdChannelsRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
+    '/dashboard/projects/$projectId/invitations': {
+      id: '/dashboard/projects/$projectId/invitations'
+      path: '/invitations'
+      fullPath: '/dashboard/projects/$projectId/invitations'
+      preLoaderRoute: typeof DashboardProjectsProjectIdInvitationsRouteImport
       parentRoute: typeof DashboardProjectsProjectIdRoute
     }
     '/dashboard/projects/$projectId/media': {
@@ -314,9 +470,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DashboardPreferencesRouteChildren {
+  DashboardPreferencesApiKeysRoute: typeof DashboardPreferencesApiKeysRoute
+  DashboardPreferencesIndexRoute: typeof DashboardPreferencesIndexRoute
+}
+
+const DashboardPreferencesRouteChildren: DashboardPreferencesRouteChildren = {
+  DashboardPreferencesApiKeysRoute: DashboardPreferencesApiKeysRoute,
+  DashboardPreferencesIndexRoute: DashboardPreferencesIndexRoute,
+}
+
+const DashboardPreferencesRouteWithChildren =
+  DashboardPreferencesRoute._addFileChildren(DashboardPreferencesRouteChildren)
+
 interface DashboardProjectsProjectIdRouteChildren {
   DashboardProjectsProjectIdAccessRoute: typeof DashboardProjectsProjectIdAccessRoute
   DashboardProjectsProjectIdChannelsRoute: typeof DashboardProjectsProjectIdChannelsRoute
+  DashboardProjectsProjectIdInvitationsRoute: typeof DashboardProjectsProjectIdInvitationsRoute
   DashboardProjectsProjectIdMediaRoute: typeof DashboardProjectsProjectIdMediaRoute
   DashboardProjectsProjectIdOverviewRoute: typeof DashboardProjectsProjectIdOverviewRoute
   DashboardProjectsProjectIdQueueRoute: typeof DashboardProjectsProjectIdQueueRoute
@@ -331,6 +501,8 @@ const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteCh
       DashboardProjectsProjectIdAccessRoute,
     DashboardProjectsProjectIdChannelsRoute:
       DashboardProjectsProjectIdChannelsRoute,
+    DashboardProjectsProjectIdInvitationsRoute:
+      DashboardProjectsProjectIdInvitationsRoute,
     DashboardProjectsProjectIdMediaRoute: DashboardProjectsProjectIdMediaRoute,
     DashboardProjectsProjectIdOverviewRoute:
       DashboardProjectsProjectIdOverviewRoute,
@@ -349,16 +521,22 @@ const DashboardProjectsProjectIdRouteWithChildren =
   )
 
 interface DashboardRouteChildren {
+  DashboardPreferencesRoute: typeof DashboardPreferencesRouteWithChildren
   DashboardProjectsProjectIdRoute: typeof DashboardProjectsProjectIdRouteWithChildren
   DashboardSettingsAccessRoute: typeof DashboardSettingsAccessRoute
   DashboardSettingsProviderApplicationsRoute: typeof DashboardSettingsProviderApplicationsRoute
+  DashboardSettingsWorkspaceRoute: typeof DashboardSettingsWorkspaceRoute
+  DashboardSettingsIndexRoute: typeof DashboardSettingsIndexRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
+  DashboardPreferencesRoute: DashboardPreferencesRouteWithChildren,
   DashboardProjectsProjectIdRoute: DashboardProjectsProjectIdRouteWithChildren,
   DashboardSettingsAccessRoute: DashboardSettingsAccessRoute,
   DashboardSettingsProviderApplicationsRoute:
     DashboardSettingsProviderApplicationsRoute,
+  DashboardSettingsWorkspaceRoute: DashboardSettingsWorkspaceRoute,
+  DashboardSettingsIndexRoute: DashboardSettingsIndexRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
@@ -368,7 +546,9 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
+  InviteRoute: InviteRoute,
   LoginRoute: LoginRoute,
+  SetupRoute: SetupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

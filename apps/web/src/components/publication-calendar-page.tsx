@@ -1,17 +1,20 @@
 import { Button } from '@herald/ui/components/button'
-import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
-import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { AddIcon } from '@solar-icons/react/linear/add'
+import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
+import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
+import { EmptyState } from '@/components/empty-state'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationCalendar } from '@/components/publication-calendar'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
+import { QueryErrorState } from '@/components/query-error-state'
 import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -37,8 +40,16 @@ export function PublicationCalendarPage({
     readonly initialCalendarView?: PublicationCalendarView
 } = {}) {
     const { locale } = useLanguage()
-    const { due, onCancelPublications, onReschedulePublications, pending, project, publications } =
-        useProjectDashboard()
+    const {
+        channels,
+        due,
+        onCancelPublications,
+        onReschedulePublications,
+        pending,
+        project,
+        projectRole,
+        publications,
+    } = useProjectDashboard()
     const queryClient = useQueryClient()
     const todayDate = toDateKey(new Date(), project.timeZone)
     const calendarDateKey = initialCalendarDateKey ?? todayDate
@@ -61,10 +72,11 @@ export function PublicationCalendarPage({
             calendarRange.to,
         ],
         queryFn: () => loadCalendarPublications(project.id, calendarRange),
+        enabled: channels.length > 0,
         staleTime: Number.POSITIVE_INFINITY,
         retry: 1,
     })
-    const calendarPublications = calendarPublicationsQuery.data ?? publications
+    const calendarPublications = calendarPublicationsQuery.data ?? []
     const dueIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
     const calendarPublicationIds = useMemo(
         () => toPublicationCalendarEvents(calendarPublications, dueIds).map(event => event.id),
@@ -139,23 +151,27 @@ export function PublicationCalendarPage({
         publication => publication.scheduledAt !== null
     )
     const unscheduledPublications = getUnscheduledPublications(publications)
+    const canEditProject = projectRole === 'owner' || projectRole === 'editor'
+    const noChannels = channels.length === 0
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader
                 action={
-                    <Button
-                        nativeButton={false}
-                        render={
-                            <Link
-                                params={{ projectId: project.id }}
-                                search={{ date: todayDate }}
-                                to="/dashboard/projects/$projectId/publications/new"
-                            />
-                        }>
-                        <CalendarMinimalisticIcon aria-hidden="true" />
-                        {m.overview_new_publication()}
-                    </Button>
+                    noChannels ? undefined : (
+                        <Button
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    params={{ projectId: project.id }}
+                                    search={{ date: todayDate }}
+                                    to="/dashboard/projects/$projectId/publications/new"
+                                />
+                            }>
+                            <CalendarMinimalisticIcon aria-hidden="true" />
+                            {m.overview_new_publication()}
+                        </Button>
+                    )
                 }
                 title={m.overview_title()}>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -163,94 +179,136 @@ export function PublicationCalendarPage({
                 </p>
             </DashboardPageHeader>
 
-            <PublicationSummaryBar
-                ariaLabel={m.overview_summary_aria()}
-                items={[
-                    {
-                        id: 'scheduled',
-                        label: m.calendar_scheduled(),
-                        value: scheduledPublications.length,
-                    },
-                    {
-                        id: 'unscheduled',
-                        label: m.calendar_unscheduled(),
-                        value: unscheduledPublications.length,
-                    },
-                    {
-                        attention: due.length > 0,
-                        id: 'attention',
-                        label: m.calendar_attention(),
-                        value: due.length,
-                    },
-                ]}
-            />
-
-            {selectedCount > 0 ? (
-                <div className="mt-4">
-                    <BulkActionBar
-                        actions={[
+            {noChannels ? (
+                <EmptyState
+                    action={
+                        canEditProject ? (
+                            <Button
+                                nativeButton={false}
+                                render={
+                                    <Link
+                                        params={{ projectId: project.id }}
+                                        to="/dashboard/projects/$projectId/channels"
+                                    />
+                                }>
+                                <AddIcon aria-hidden="true" />
+                                {m.channel_add()}
+                            </Button>
+                        ) : undefined
+                    }
+                    className="w-full"
+                    description={m.overview_setup_channels_description()}
+                    illustration="network"
+                    layout="compact"
+                    title={m.overview_setup_channels_title()}
+                />
+            ) : (
+                <>
+                    <PublicationSummaryBar
+                        ariaLabel={m.overview_summary_aria()}
+                        items={[
                             {
-                                disabled: !canRescheduleSelection,
-                                disabledReason: m.queue_reschedule_only_scheduled(),
-                                icon: <CalendarAddIcon aria-hidden="true" />,
-                                id: 'reschedule',
-                                label: m.queue_reschedule(),
-                                onSelect: () => setScheduleDialogOpen(true),
+                                id: 'scheduled',
+                                label: m.calendar_scheduled(),
+                                value: scheduledPublications.length,
                             },
                             {
-                                disabled: !canCancelSelection,
-                                disabledReason: m.queue_cancel_only_scheduled(),
-                                icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
-                                id: 'cancel',
-                                label: m.queue_cancel(),
-                                onSelect: () => setCancelDialogOpen(true),
-                                variant: 'destructive',
+                                id: 'unscheduled',
+                                label: m.calendar_unscheduled(),
+                                value: unscheduledPublications.length,
+                            },
+                            {
+                                attention: due.length > 0,
+                                id: 'attention',
+                                label: m.calendar_attention(),
+                                value: due.length,
                             },
                         ]}
-                        allSelected={allVisibleSelected}
-                        ariaLabel={m.calendar_selection_actions()}
-                        clearLabel={m.calendar_clear_selection()}
-                        onClear={clearPublicationSelection}
-                        onToggleAll={toggleAllVisiblePublications}
-                        selectedCount={selectedCount}
-                        selectionSummary={m.calendar_selected_publications({
-                            count: selectedCount,
-                        })}
-                        toggleAllLabel={m.calendar_select_all_visible()}
                     />
-                </div>
-            ) : null}
 
-            <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
-                <PublicationCalendar
-                    duePublicationIds={dueIds}
-                    loading={calendarPublicationsQuery.isFetching}
-                    locale={locale}
-                    calendarDate={calendarDate}
-                    initialView={initialCalendarView}
-                    onSelectedPublicationIdsChange={publicationIds =>
-                        setSelectedPublicationIds(new Set(publicationIds))
-                    }
-                    projectId={project.id}
-                    publications={calendarPublications}
-                    selectedPublicationIds={selectedPublicationIds}
-                    timeZone={project.timeZone}
-                />
-            </section>
+                    {selectedCount > 0 ? (
+                        <div className="mt-4">
+                            <BulkActionBar
+                                actions={[
+                                    {
+                                        disabled: !canRescheduleSelection,
+                                        disabledReason: m.queue_reschedule_only_scheduled(),
+                                        icon: <CalendarAddIcon aria-hidden="true" />,
+                                        id: 'reschedule',
+                                        label: m.queue_reschedule(),
+                                        onSelect: () => setScheduleDialogOpen(true),
+                                    },
+                                    {
+                                        disabled: !canCancelSelection,
+                                        disabledReason: m.queue_cancel_only_scheduled(),
+                                        icon: <TrashBinMinimalisticIcon aria-hidden="true" />,
+                                        id: 'cancel',
+                                        label: m.queue_cancel(),
+                                        onSelect: () => setCancelDialogOpen(true),
+                                        variant: 'destructive',
+                                    },
+                                ]}
+                                allSelected={allVisibleSelected}
+                                ariaLabel={m.calendar_selection_actions()}
+                                clearLabel={m.calendar_clear_selection()}
+                                onClear={clearPublicationSelection}
+                                onToggleAll={toggleAllVisiblePublications}
+                                selectedCount={selectedCount}
+                                selectionSummary={m.calendar_selected_publications({
+                                    count: selectedCount,
+                                })}
+                                toggleAllLabel={m.calendar_select_all_visible()}
+                            />
+                        </div>
+                    ) : null}
 
-            {unscheduledPublications.length > 0 ? (
-                <p className="mt-5 text-sm text-muted-foreground">
-                    {m.calendar_unscheduled_description({ count: unscheduledPublications.length })}{' '}
-                    <Link
-                        className="text-primary underline-offset-4 hover:text-foreground hover:underline"
-                        params={{ projectId: project.id }}
-                        search={{ filter: undefined, tagIds: undefined }}
-                        to="/dashboard/projects/$projectId/queue">
-                        {m.calendar_review_queue()}
-                    </Link>
-                    .
-                </p>
-            ) : null}
+                    {calendarPublicationsQuery.isError ? (
+                        <QueryErrorState
+                            className="mt-7"
+                            onRetry={() => void calendarPublicationsQuery.refetch()}
+                        />
+                    ) : (
+                        <>
+                            <section aria-labelledby="calendar-title" className="mt-7 min-w-0">
+                                <PublicationCalendar
+                                    duePublicationIds={dueIds}
+                                    loading={calendarPublicationsQuery.isFetching}
+                                    locale={locale}
+                                    calendarDate={calendarDate}
+                                    initialView={initialCalendarView}
+                                    onSelectedPublicationIdsChange={publicationIds =>
+                                        setSelectedPublicationIds(new Set(publicationIds))
+                                    }
+                                    projectId={project.id}
+                                    publications={calendarPublications}
+                                    selectedPublicationIds={selectedPublicationIds}
+                                    timeZone={project.timeZone}
+                                />
+                            </section>
+
+                            {unscheduledPublications.length > 0 ? (
+                                <p className="mt-5 text-sm text-muted-foreground">
+                                    {m.calendar_unscheduled_description({
+                                        count: unscheduledPublications.length,
+                                    })}{' '}
+                                    <Link
+                                        className="text-primary underline-offset-4 hover:text-foreground hover:underline"
+                                        params={{ projectId: project.id }}
+                                        search={{
+                                            filter: undefined,
+                                            sort: undefined,
+                                            tagIds: undefined,
+                                        }}
+                                        to="/dashboard/projects/$projectId/queue">
+                                        {m.calendar_review_queue()}
+                                    </Link>
+                                    .
+                                </p>
+                            ) : null}
+                        </>
+                    )}
+                </>
+            )}
 
             <PublicationBulkScheduleDialog
                 open={scheduleDialogOpen}

@@ -17,12 +17,83 @@ interface LocaleCoverage {
     missing: string[]
     extra: string[]
     unchanged: string[]
+    unapprovedUnchanged: string[]
 }
 
 const rootDirectory = resolve(import.meta.dir, '..')
 const webDirectory = resolve(rootDirectory, 'apps/web')
 const settingsPath = resolve(webDirectory, 'project.inlang/settings.json')
 const messagesDirectory = resolve(webDirectory, 'messages')
+const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
+    [
+        'fr',
+        new Set([
+            'access_project_access_direct',
+            'access_project_access_via_group',
+            'api_keys_expiration',
+            'api_keys_active',
+            'calendar_event',
+            'calendar_events',
+            'calendar_view_agenda',
+            'common_publication_count',
+            'date_time_picker_date',
+            'editor_markdown',
+            'editor_target_compatible',
+            'editor_target_null',
+            'media_editor_aspect_portrait',
+            'media_editor_aspect_source',
+            'media_editor_rotation',
+            'media_editor_zoom',
+            'media_filter_audio',
+            'media_filter_documents',
+            'media_filter_images',
+            'media_info_animation',
+            'media_info_dimensions',
+            'media_info_format',
+            'media_info_pages',
+            'media_info_type',
+            'media_info_usage_publication',
+            'media_source_url',
+            'media_source_url_hint',
+            'media_source_webcam',
+            'media_supported_types',
+            'nav_channel_tooltip',
+            'nav_instance',
+            'nav_instance_settings',
+            'nav_publications',
+            'nav_workspace',
+            'nav_workspace_settings',
+            'notifications_title',
+            'overview_publications',
+            'provider_apps_active',
+            'provider_apps_handle_resolver_placeholder',
+            'provider_apps_name_placeholder',
+            'provider_apps_provider',
+            'provider_apps_provider_bluesky',
+            'provider_apps_provider_linkedin',
+            'provider_apps_provider_x',
+            'provider_discord_channel_placeholder',
+            'provider_endpoint_placeholder',
+            'provider_header_name_placeholder',
+            'provider_instance_placeholder',
+            'publication_outcome_external_url_placeholder',
+            'queue_column_action',
+            'queue_column_destination',
+            'queue_column_publication',
+            'queue_filter_aria',
+            'queue_publications',
+            'realtime_db_option',
+            'realtime_notification_created',
+            'realtime_notification_read',
+            'realtime_notifications',
+            'realtime_publication_status_changed',
+            'realtime_publication_updated',
+            'realtime_publications',
+            'realtime_query_option',
+            'taxonomy_tags',
+        ]),
+    ],
+])
 
 const settings = (await Bun.file(settingsPath).json()) as InlangSettings
 const baseCatalog = await readCatalog(settings.baseLocale)
@@ -33,7 +104,12 @@ if (baseKeys.length === 0) {
 }
 
 const reports = await Promise.all(settings.locales.map(locale => measureLocale(locale)))
-const hasFailure = reports.some(report => report.missing.length > 0 || report.extra.length > 0)
+const hasFailure = reports.some(
+    report =>
+        report.missing.length > 0 ||
+        report.extra.length > 0 ||
+        report.unapprovedUnchanged.length > 0
+)
 
 console.log(`i18n coverage (base locale: ${settings.baseLocale})`)
 for (const report of reports) {
@@ -51,7 +127,13 @@ for (const report of reports) {
     }
 
     if (report.unchanged.length > 0 && report.locale !== settings.baseLocale) {
-        console.log(`  unchanged-as-base (review): ${report.unchanged.join(', ')}`)
+        console.log(`  unchanged-as-base: ${report.unchanged.join(', ')}`)
+    }
+
+    if (report.unapprovedUnchanged.length > 0) {
+        console.log(
+            `  unchanged-as-base (not allowlisted): ${report.unapprovedUnchanged.join(', ')}`
+        )
     }
 }
 
@@ -76,6 +158,8 @@ async function measureLocale(locale: string): Promise<LocaleCoverage> {
                       !missing.includes(key) &&
                       serializeMessage(catalog[key]) === serializeMessage(baseCatalog[key])
               )
+    const allowedUnchanged = allowedUnchangedByLocale.get(locale) ?? new Set<string>()
+    const unapprovedUnchanged = unchanged.filter(key => !allowedUnchanged.has(key))
 
     return {
         locale,
@@ -85,6 +169,7 @@ async function measureLocale(locale: string): Promise<LocaleCoverage> {
         missing,
         extra,
         unchanged,
+        unapprovedUnchanged,
     }
 }
 

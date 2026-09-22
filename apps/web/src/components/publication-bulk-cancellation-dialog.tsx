@@ -7,7 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'

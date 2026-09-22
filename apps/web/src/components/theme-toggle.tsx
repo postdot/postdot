@@ -1,6 +1,6 @@
 import { Button } from '@herald/ui/components/button'
-import { MoonIcon } from '@solar-icons/react/bold/moon'
-import { SunIcon } from '@solar-icons/react/bold/sun'
+import { MoonIcon } from '@solar-icons/react/linear/moon'
+import { SunIcon } from '@solar-icons/react/linear/sun'
 import type { ComponentProps } from 'react'
 
 import { useLanguage } from '@/lib/i18n'

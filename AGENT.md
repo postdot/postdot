@@ -17,6 +17,10 @@ content generator.
 
 - **Commits:** Conventional Commits
 - **Language:** English
+- **Repository language:** Keep code, comments, documentation, Autonomos artifacts,
+  and test descriptions in English. French is allowed only in application
+  translation catalogs and generated localization output; run the CSpell
+  repository spelling gate when adding text.
 - **Protocol:** Follow `.autonomos/PROTOCOL.md` and the installed harness workflows. Keep task state in `.autonomos/TASKS.md` and session evidence in `.autonomos/worklogs/`.
 - **Design:** Read the root `DESIGN.md` before changing a user-facing surface; keep unresolved visual findings in `.autonomos/worklogs/` and promote only owner-accepted rules.
 - **Tooling:** Prefer the `@tala-tools/*` packages already used by the surrounding projects; improve a shared tool when a missing capability belongs there.
@@ -52,7 +56,7 @@ content generator.
 
 ## 🏗 Stack & Architecture
 
-- **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Drizzle ORM with Bun SQLite, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Recursive Variable, and Solar Icons React v2 (Bold)
+- **Tech:** Bun, Turborepo, TypeScript, Elysia 2 beta (API), Drizzle ORM with Bun SQLite, Better Auth, React 19, TanStack Router, Vite, Tailwind CSS, shadcn/ui with Base UI, Recursive Variable, and Solar Icons React v2 Linear
 - **Patterns:** A single process for API, static dashboard, scheduler, and worker; framework-independent domain logic in `packages/core`.
 - **Authentication boundary:** Better Auth authenticates people into Herald and currently uses email/password only. OAuth belongs exclusively to publisher-channel connections unless a later accepted decision explicitly changes the application-authentication strategy.
 - **Publisher ownership:** Channel connections and their credentials belong to a project. The actor who connects one is audit attribution, not its owner; actor departure or account deletion does not revoke the project connection.

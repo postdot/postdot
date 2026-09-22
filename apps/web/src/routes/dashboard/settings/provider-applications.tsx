@@ -8,6 +8,10 @@ export const Route = createFileRoute('/dashboard/settings/provider-applications'
             typeof search.projectId === 'string' && search.projectId.length > 0
                 ? search.projectId
                 : undefined,
+        workspaceId:
+            typeof search.workspaceId === 'string' && search.workspaceId.length > 0
+                ? search.workspaceId
+                : undefined,
     }),
     component: ProviderApplicationSettingsPage,
 })

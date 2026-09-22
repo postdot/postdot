@@ -7,10 +7,10 @@ import {
     DialogTitle,
 } from '@herald/ui/components/dialog'
 import { Field, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
-import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
+import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { useEffect, useState } from 'react'
 
+import { DateTimePicker } from '@/components/date-time-picker'
 import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -30,7 +30,7 @@ export function PublicationBulkScheduleDialog({
     readonly selectedCount: number
     readonly timeZone: string
 }) {
-    useLanguage()
+    const { locale } = useLanguage()
     const [scheduleValue, setScheduleValue] = useState('')
     const [scheduleError, setScheduleError] = useState<string | null>(null)
 
@@ -51,6 +51,10 @@ export function PublicationBulkScheduleDialog({
             setScheduleError(dateTimeLocalErrorMessage(parsed))
             return
         }
+        if (parsed < Date.now()) {
+            setScheduleError(dateTimeLocalErrorMessage('past'))
+            return
+        }
 
         void onSchedule(parsed).then(succeeded => {
             if (succeeded) onOpenChange(false)
@@ -68,17 +72,21 @@ export function PublicationBulkScheduleDialog({
                     <FieldLabel htmlFor="bulk-publication-schedule">
                         {m.queue_reschedule_deliver_at()}
                     </FieldLabel>
-                    <Input
+                    <DateTimePicker
                         id="bulk-publication-schedule"
-                        type="datetime-local"
                         value={scheduleValue}
-                        aria-invalid={scheduleError !== null}
-                        onChange={event => {
-                            setScheduleValue(event.target.value)
+                        ariaInvalid={scheduleError !== null}
+                        onChange={value => {
+                            setScheduleValue(value)
                             setScheduleError(null)
                         }}
                         disabled={pending}
                         autoFocus
+                        dateLabel={m.date_time_picker_date()}
+                        locale={locale}
+                        placeholder={m.date_time_picker_placeholder()}
+                        timeLabel={m.date_time_picker_time()}
+                        timeZone={timeZone}
                     />
                     {scheduleError !== null ? (
                         <p className="text-sm text-destructive" role="alert">

@@ -78,7 +78,12 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 })
             }
 
-            if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+            const existingConnection = publisherStore.getPublisherConnection(
+                params.projectId,
+                params.channelId,
+                user.id
+            )
+            if (existingConnection?.state === 'active') {
                 return status(409, {
                     error: {
                         code: 'publisher_exists',
@@ -86,6 +91,10 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                     },
                 })
             }
+            const replaceNonActiveConnection =
+                existingConnection === null
+                    ? undefined
+                    : { id: existingConnection.id, state: existingConnection.state }
 
             const actorId = publisherStore.getProjectActorId(params.projectId, user.id)
             if (actorId === null) {
@@ -205,7 +214,7 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
             // so it is enforced at publication time: Discord answers 403 and the
             // worker records a permanent failure without marking reconnect.
 
-            const credential = await credentialStore.createPublisherCredential({
+            const savedCredential = await credentialStore.createPublisherCredential({
                 projectId: params.projectId,
                 connectedByActorId: actorId,
                 providerId: DISCORD_PROVIDER,
@@ -215,11 +224,32 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 accessToken: botToken,
                 expiresAt: null,
             })
-            if (credential.kind !== 'created') {
-                return status(409, {
+            let credentialId: string
+            const shouldRevokeCredentialOnFailure = savedCredential.kind === 'created'
+            if (savedCredential.kind === 'created') {
+                credentialId = savedCredential.credential.id
+            } else if (savedCredential.kind === 'already_exists') {
+                const replaced = await credentialStore.replacePublisherCredentialTokens({
+                    projectId: params.projectId,
+                    credentialId: savedCredential.credential.id,
+                    accessToken: botToken,
+                    refreshToken: null,
+                    expiresAt: null,
+                })
+                if (replaced.kind !== 'updated') {
+                    return status(409, {
+                        error: {
+                            code: 'credential_exists',
+                            message: 'The Discord credential could not be updated',
+                        },
+                    })
+                }
+                credentialId = replaced.credential.id
+            } else {
+                return status(404, {
                     error: {
-                        code: 'credential_exists',
-                        message: 'The Discord credential could not be created',
+                        code: 'not_found',
+                        message: 'Project not found',
                     },
                 })
             }
@@ -229,7 +259,8 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 channelId: params.channelId,
                 subjectId: user.id,
                 kind: DISCORD_PROVIDER,
-                credentialId: credential.credential.id,
+                credentialId,
+                replaceNonActiveConnection,
                 destination: {
                     type: 'channel',
                     id: channel.value.id,
@@ -237,10 +268,9 @@ export function registerDiscordPublisherRoutes<const Routes extends Record<strin
                 },
             })
             if (connection.kind !== 'created') {
-                credentialStore.revokePublisherCredential(
-                    params.projectId,
-                    credential.credential.id
-                )
+                if (shouldRevokeCredentialOnFailure) {
+                    credentialStore.revokePublisherCredential(params.projectId, credentialId)
+                }
                 return connection.kind === 'publisher_exists'
                     ? status(409, {
                           error: {

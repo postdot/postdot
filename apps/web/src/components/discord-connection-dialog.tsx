@@ -9,8 +9,8 @@ import {
 } from '@herald/ui/components/dialog'
 import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
-import { AddIcon } from '@solar-icons/react/bold/add'
-import { LinkIcon } from '@solar-icons/react/bold/link'
+import { AddIcon } from '@solar-icons/react/linear/add'
+import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useState } from 'react'
 
 import type { Channel } from '@/lib/api'
@@ -24,12 +24,14 @@ interface DiscordConnectionDialogProps {
         channelId: string,
         input: { botToken: string; channelId: string }
     ) => Promise<boolean>
+    readonly reconnect?: boolean
 }
 
 export function DiscordConnectionDialog({
     channel,
     disabled,
     onConnect,
+    reconnect = false,
 }: DiscordConnectionDialogProps) {
     useLanguage()
     const [open, setOpen] = useState(false)
@@ -66,9 +68,15 @@ export function DiscordConnectionDialog({
 
     return (
         <>
-            <Button size="sm" onClick={() => setOpen(true)} disabled={disabled}>
+            <Button
+                className="self-end sm:self-start"
+                size="sm"
+                onClick={() => setOpen(true)}
+                disabled={disabled}>
                 <AddIcon aria-hidden="true" />
-                {m.provider_connect_discord()}
+                {reconnect
+                    ? m.provider_reconnect_title({ provider: 'Discord' })
+                    : m.provider_connect_discord()}
             </Button>
             <Dialog
                 open={open}
@@ -76,10 +84,12 @@ export function DiscordConnectionDialog({
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-lg overflow-x-hidden overflow-y-auto sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
-                            {m.provider_connect_title({ provider: channel.name })}
+                            {reconnect
+                                ? m.provider_reconnect_title({ provider: channel.name })
+                                : m.provider_connect_title({ provider: channel.name })}
                         </DialogTitle>
                         <DialogDescription>{m.provider_discord_description()}</DialogDescription>
                     </DialogHeader>
@@ -127,7 +137,9 @@ export function DiscordConnectionDialog({
                         </Button>
                         <Button type="button" onClick={() => void submit()} disabled={disabled}>
                             <LinkIcon aria-hidden="true" />
-                            {m.provider_connect_discord()}
+                            {reconnect
+                                ? m.provider_reconnect_title({ provider: 'Discord' })
+                                : m.provider_connect_discord()}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -1,9 +1,10 @@
 import type { HeraldAuth } from '@herald/auth'
 import { Elysia } from 'elysia'
 
-interface ProjectApiKeyAuthentication {
-    readonly projectId: string
-    readonly subjectId: string
+interface UserApiKeyAuthentication {
+    /** null means all projects currently available to the key owner. */
+    readonly projectIds: readonly string[] | null
+    readonly ownerUserId: string
     readonly displayName: string
 }
 
@@ -14,25 +15,19 @@ export function createAuthRoutes(auth: HeraldAuth) {
 export interface AuthenticatedElysiaOptions {
     readonly authenticateBetterAuthProjectApiKey?: (
         token: string
-    ) => Promise<ProjectApiKeyAuthentication | null>
-    readonly authorizeProjectSessionAccess?: (projectId: string, userId: string) => boolean
+    ) => Promise<UserApiKeyAuthentication | null>
+    readonly authorizeProjectSessionAccess?: (
+        projectId: string,
+        userId: string,
+        requestPath: string
+    ) => boolean
 }
 
 type HeraldAuthSession = NonNullable<Awaited<ReturnType<HeraldAuth['api']['getSession']>>>
 export type HeraldAuthenticatedUser = Pick<HeraldAuthSession['user'], 'id' | 'name'> & {
     readonly email: string | null
 }
-export type HeraldAuthenticationMethod = 'session' | 'project_token'
-
-function createProjectTokenUser(
-    authentication: ProjectApiKeyAuthentication
-): HeraldAuthenticatedUser {
-    return {
-        id: authentication.subjectId,
-        name: authentication.displayName,
-        email: null,
-    }
-}
+export type HeraldAuthenticationMethod = 'session' | 'user_api_key'
 
 function parseBearerToken(authorization: string): string | null {
     const match = /^Bearer\s+(\S+)$/i.exec(authorization)
@@ -43,8 +38,8 @@ export const sessionSecurity = [{ sessionCookie: [] }]
 
 /**
  * Keep the route-facing macro contract stable. Elysia beta's macro inference
- * cannot model the runtime union between a Better Auth session and a project
- * token without collapsing downstream route schemas to `never`.
+ * cannot model the runtime union between a Better Auth session and an API key
+ * without collapsing downstream route schemas to `never`.
  */
 function createAuthenticatedElysiaContract(auth: HeraldAuth) {
     return new Elysia().macro({
@@ -68,7 +63,7 @@ function createAuthenticatedElysiaContract(auth: HeraldAuth) {
                     },
                     session: session.session as HeraldAuthSession['session'] | null,
                     authMethod: 'session' as HeraldAuthenticationMethod,
-                    projectTokenProjectId: undefined,
+                    apiKeyProjectIds: undefined as readonly string[] | null | undefined,
                 }
             },
         },
@@ -109,17 +104,25 @@ export function createAuthenticatedElysia(
                     }
 
                     const projectId = readProjectIdFromRequest(request.url)
-                    if (projectId !== null && authentication.projectId !== projectId) {
+                    if (
+                        projectId !== null &&
+                        authentication.projectIds !== null &&
+                        !authentication.projectIds.includes(projectId)
+                    ) {
                         return status(404, {
                             error: { code: 'not_found', message: 'Project not found' },
                         })
                     }
 
                     return {
-                        user: createProjectTokenUser(authentication),
+                        user: {
+                            id: authentication.ownerUserId,
+                            name: authentication.displayName,
+                            email: null,
+                        },
                         session: null,
-                        authMethod: 'project_token' as const,
-                        projectTokenProjectId: authentication.projectId,
+                        authMethod: 'user_api_key' as const,
+                        apiKeyProjectIds: authentication.projectIds,
                     }
                 }
 
@@ -137,7 +140,11 @@ export function createAuthenticatedElysia(
                 if (
                     projectId !== null &&
                     options.authorizeProjectSessionAccess !== undefined &&
-                    !options.authorizeProjectSessionAccess(projectId, session.user.id)
+                    !options.authorizeProjectSessionAccess(
+                        projectId,
+                        session.user.id,
+                        new URL(request.url).pathname
+                    )
                 ) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },

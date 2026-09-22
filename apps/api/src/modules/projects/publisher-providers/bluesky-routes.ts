@@ -9,7 +9,7 @@ import {
     readBlueskySessionTokenSet,
 } from '@herald/bluesky'
 import type { AccessStore } from '@herald/db'
-import { digestAuthorizationState } from '@herald/oauth'
+import { digestAuthorizationState, isAuthorizationDeniedError } from '@herald/oauth'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 
@@ -17,6 +17,7 @@ import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth
 import type { PublisherRuntime } from '../../publishers/runtime'
 import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { blueskyConnectionBody, blueskyConnectionSchema, errorResponse } from '../models'
+import { publisherChannelsReturnPath } from './publisher-redirect'
 
 export function registerBlueskyPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -82,7 +83,12 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                     })
                 }
 
-                if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+                const existingConnection = publisherStore.getPublisherConnection(
+                    params.projectId,
+                    params.channelId,
+                    user.id
+                )
+                if (existingConnection?.state === 'active') {
                     return status(409, {
                         error: {
                             code: 'publisher_exists',
@@ -158,7 +164,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         providerApplicationId: bluesky.applicationId,
                         callbackUri: bluesky.callbackUri,
                         scopes: BLUESKY_REQUIRED_SCOPES,
-                        returnPath: '/dashboard',
+                        returnPath: publisherChannelsReturnPath(params.projectId, params.channelId),
                         context: { handle: body.handle.trim() },
                         stateDigest: await digestAuthorizationState(state),
                         codeVerifier: null,
@@ -357,6 +363,16 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         )
                     }
 
+                    const existingConnection = publisherStore.getPublisherConnection(
+                        consumed.attempt.projectId,
+                        consumed.attempt.channelId,
+                        user.id
+                    )
+                    const replaceNonActiveConnection =
+                        existingConnection === null || existingConnection.state === 'active'
+                            ? undefined
+                            : { id: existingConnection.id, state: existingConnection.state }
+
                     const savedCredential = await credentialStore.createPublisherCredential({
                         projectId: consumed.attempt.projectId,
                         connectedByActorId: consumed.attempt.connectedByActorId,
@@ -415,6 +431,7 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                             id: callback.session.did,
                             name: readHandle(consumed.attempt.context),
                         },
+                        replaceNonActiveConnection,
                     })
                     if (connection.kind !== 'created') {
                         return redirectBlueskyPublisher(
@@ -435,6 +452,13 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                         'connected'
                     )
                 } catch (error) {
+                    if (isAuthorizationDeniedError(error)) {
+                        return redirectBlueskyPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            'authorization_denied'
+                        )
+                    }
                     logBlueskyFlowError(
                         options.logger,
                         {
@@ -500,6 +524,7 @@ function redirectBlueskyPublisher(
     result:
         | 'connected'
         | 'already_used'
+        | 'authorization_denied'
         | 'invalid_callback'
         | 'provider_unavailable'
         | 'publisher_exists'

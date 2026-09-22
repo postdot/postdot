@@ -1,41 +1,41 @@
-# Méthode, vérifications et preuves
+# Method, checks, and evidence
 
-## Périmètre et provenance
+## Scope and provenance
 
-Lecture du workflow `.agent/workflows/session.md`, de la chaîne `AGENT.md` des périmètres inspectés, du tableau des tâches, des spécifications et décisions pertinentes. Le workflow distingue explicitement diagnostic et implémentation. Aucune tâche d’implémentation n’a été démarrée.
+Read the `.agent/workflows/session.md` workflow, the scoped `AGENT.md` chain, the task table, and relevant specifications and decisions. The workflow explicitly distinguishes diagnosis from implementation. No implementation task was started.
 
-L’audit avait commencé sur un checkout comportant les changements non commités CHANNEL-142, à partir de `19fbcaed`. Après intervention du propriétaire, la référence a été rétablie sur `main@60bbb319`, arbre propre. Le diff depuis `19fbcaed` correspond aux profils réutilisables et à leurs intégrations. Les constats retenus ont été vérifiés sur l’état final, notamment par le probe ci-dessous et par un nouveau contrôle complet.
+The audit began on a checkout with uncommitted CHANNEL-142 changes, based on `19fbcaed`. After owner intervention, the reference was restored to a clean `main@60bbb319`. The diff from `19fbcaed` contains reusable profiles and their integrations. Findings were checked on the final state, including the probe below and a new full check.
 
-Environnement : Linux, Bun 1.4.0, Node v25.9.0, Turbo installé 2.10.12. Les résultats décrivent cet environnement, pas une garantie universelle sur toutes les installations.
+Environment: Linux, Bun 1.4.0, Node v25.9.0, Turbo 2.10.12. Results describe this environment and are not a universal guarantee for every installation.
 
-Les skills Better Auth et React ont servi de guides de revue. La lecture des sources et des dépendances locales prime pour le comportement de cette révision. Aucun sous-agent n’a été utilisé. Aucun fichier de secrets n’a été inspecté.
+Better Auth and React skills were used as review guides. Local source and dependency behavior takes precedence for this revision. No sub-agent was used. No secret file was inspected.
 
-## Vérifications exécutées
+## Executed checks
 
-| Contrôle | Résultat | Portée |
+| Check | Result | Scope |
 | --- | --- | --- |
-| `bun run check` sur main | Succès | Format, lint, TypeScript, tests workspaces, Playwright, build ; plusieurs étapes Turbo ont réutilisé leur cache |
-| `bun run test:unit --force` sur main | 566 pass, 0 fail ; 17 workspaces ; 0 cache | Nouvelle exécution effective des suites unitaires et d’intégration des workspaces |
-| `bun test scripts` | 8 pass, 0 fail | CLI et gestion des ressources E2E ; hors du gate habituel |
-| Playwright inclus dans check | 16 pass, 35,8 s | Processus API/Vite et données jetables propres à l’invocation |
-| Build exécuté avant remise sur main, puis réutilisé sur sources identiques | Succès, 17 workspaces | Compilation ; ne vaut pas nouveau build Docker |
-| Probes métier sur main | H-01, H-02, H-03 reproduits | Base en mémoire et vraies routes via `app.handle` |
-| Probe de projection et transformation d’événement | H-04/H-05 reproduits à leur frontière | Store simulé pour le nombre de lots ; fonction réelle pour la conversion SSE |
-| Graphe `turbo run test --dry=json` | 17 tâches, sans tests racine | Confirme le périmètre de H-07 |
-| Clone local jetable pour hypothèse de cache | Hypothèse écartée | Un changement du core invalide bien les hashes API et DB dans la configuration actuelle |
+| `bun run check` on main | Passed | Format, lint, TypeScript, workspace tests, Playwright, and build; several Turbo steps reused cache |
+| `bun run test:unit --force` on main | 566 passed, 0 failed; 17 workspaces; 0 cache | Fresh workspace unit and integration suites |
+| `bun test scripts` | 8 passed, 0 failed | CLI and E2E resource management; outside the usual gate |
+| Playwright included in check | 16 passed, 35.8 s | API/Vite processes and per-invocation disposable data |
+| Build before returning to main, then reused from identical sources | Passed, 17 workspaces | Compilation; not a new Docker build |
+| Domain probes on main | H-01, H-02, H-03 reproduced | In-memory database and real routes through `app.handle` |
+| Projection and event-transformation probe | H-04/H-05 reproduced at their boundary | Simulated batch count and real SSE conversion function |
+| `turbo run test --dry=json` graph | 17 tasks, no root tests | Confirms H-07 scope |
+| Disposable local clone for cache hypothesis | Hypothesis rejected | Core change invalidated API and DB hashes in the current configuration |
 
-Une exécution Playwright antérieure à la remise sur main a donné 15 réussites et un échec sur l’attente du titre « Project invitation ». La nouvelle exécution sur main a réussi. Aucune cause unique n’a été établie : cette observation n’est pas classée comme défaut produit confirmé.
+A browser run before branch cleanup produced 15 passes and one failure waiting for the “Project invitation” title. The new run on main passed. No single cause was established; the observation is not classified as a stable main product defect.
 
-Les logs bruts de travail sont temporaires sous `/tmp/herald-audit-…-20260911.log`. Leurs résultats utiles sont transcrits ici afin que le rapport reste lisible après nettoyage de `/tmp`.
+Temporary raw work logs lived under `/tmp/herald-audit-…-20260911.log`. Useful results are transcribed here so the report remains readable after temporary cleanup.
 
-## Niveaux de preuve
+## Evidence levels
 
-- **Reproduction intégrée** : un effet a été observé via l’API avec une base fictive ; H-01, H-02 et H-03.
-- **Reproduction ciblée et lecture du raccordement** : une frontière réelle a été exercée et son utilisation vérifiée ; H-04 et H-05. Aucun scénario de charge réel ou double navigateur supplémentaire n’est prétendu.
-- **Défaut statique établi** : le script ou le graphe prouve le comportement ; H-06 et H-07. `clean` n’a volontairement pas été exécuté sur le dépôt.
-- **Risque à investiguer** : arrêt en cours d’effet, reprise après kill, équité entre projets, coût des rafraîchissements. Ces sujets ne sont pas comptabilisés comme incidents reproduits.
+- **Integrated reproduction:** an effect was observed through the API with a fictional database; H-01, H-02, and H-03.
+- **Targeted reproduction and connection review:** a real boundary was exercised and its use verified; H-04 and H-05. No real load scenario or additional two-browser claim is made.
+- **Established static defect:** a script or graph proves the behavior; H-06 and H-07. `clean` was intentionally not run on the repository.
+- **Risk to investigate:** stopping during an effect, recovery after kill, fairness across projects, and refresh cost. These are not counted as reproduced incidents.
 
-## Sortie des probes
+## Probe output
 
 ```text
 viewer role: viewer
@@ -49,13 +49,13 @@ projection needing 12 batches: {"processed":10,"state":"started"}
 taxonomy mapped to SSE: null
 ```
 
-Le 422 obtenu lors d’une première ébauche du probe de post provenait d’un corps de requête incorrect dans ce probe. Il a été corrigé selon le schéma réel avant la reproduction finale à 201 ; ce 422 n’était pas un défaut de Herald.
+The 422 returned by an early version of the post probe came from an incorrect request body in that probe. It was corrected against the actual schema before the final 201 reproduction; the 422 was not a Herald defect.
 
-La fixture crée un administrateur et un second utilisateur, puis retire explicitement au second les privilèges administrateur ajoutés par le mode de test. Ce second utilisateur devient viewer du projet. Aucune vraie identité, clé ou destination externe n’est utilisée.
+The fixture creates an administrator and a second user, then explicitly removes the second user's administrator privileges added by the test mode. That user becomes a project viewer. No real identity, key, or external destination is used.
 
-## Probe autonome utilisé
+## Autonomous probe used
 
-Code de diagnostic temporaire, non installé dans l’application et non ajouté aux suites du dépôt. Il s’exécute avec Bun ; les chemins absolus correspondent au checkout audité. Il effectue ses écritures métier uniquement dans `:memory:`. Il ne démarre pas le worker ni un serveur réseau.
+Temporary diagnostic code, not installed in the application and not added to repository suites. It runs with Bun; absolute paths refer to the audited checkout. Business writes occur only in `:memory:`. It does not start the worker or a network server.
 
 ```typescript
 import { createAuth } from '/home/hakim/projects/herald/packages/auth/src/index.ts'
@@ -106,27 +106,27 @@ projection.start();await new Promise(r=>setTimeout(r,30));console.log('projectio
 console.log('taxonomy mapped to SSE:',toProjectRealtimeEvent({id:'test',cursor:'event:1',projectId:'audit',version:1,name:'publication.tags_replaced',subject:{type:'publication',id:'p'},occurredAt:Date.now(),payload:{}} as any))
 ```
 
-## Vérification négative du cache
+## Negative cache verification
 
-Un clone local partagé, créé sous un répertoire temporaire propre à cet audit, a été inspecté avant/après ajout d’un commentaire au core dans cette seule copie. Les hashes sont passés de :
+A shared local clone created under an audit-specific temporary directory was inspected before and after adding a comment to core in that copy. Hashes changed as follows:
 
 ```text
 @herald/core#test cbf97bfbc3bd01b8 -> b4f92e8955dc2ca6
 @herald/api#test  77633eef0b88b25f -> 3b484ab4d84da50b
 @herald/db#test   7b67bb473c646eca -> 7db3937547b6b84c
-globalCacheInputs.hashOfInternalDependencies : changé
+globalCacheInputs.hashOfInternalDependencies : changed
 ```
 
-Le test invalide donc l’hypothèse initiale d’un cache aval forcément périmé faute de `dependsOn`. L’absence de cette option ne suffit pas à diagnostiquer un bug dans la topologie précise de Herald.
+The test invalidates the original hypothesis that downstream cache entries are necessarily stale without `dependsOn`. The absence of that option is not enough to diagnose a bug in Herald's exact topology.
 
-## Ce qui n’a pas été vérifié
+## Not verified
 
-Pas de fournisseur réel, SMTP réel, S3 réel, rotation réelle de secrets, installation Docker à neuf, restauration d’une installation existante, test d’intrusion complet ou campagne de performance globale. Les tests déjà présents de backup, migration, crypto et conformance ont été exécutés ; cela ne remplace pas toutes ces validations opérationnelles.
+No real provider, SMTP, S3, real secret rotation, clean Docker installation, restore of an existing installation, full penetration test, or global performance campaign was performed. Existing backup, migration, crypto, and conformance tests were run; they do not replace these operational validations.
 
-Pas d’affirmation que tous les fichiers ont été lus ligne par ligne. La revue a privilégié les frontières de responsabilité et les parcours critiques, puis suivi les indices par recherche ciblée et reproduction. Les différences de style ou la taille d’un fichier n’ont pas été traitées comme bugs.
+There is no claim that every file was read line by line. The review prioritized responsibility boundaries and critical journeys, then followed targeted search clues and reproductions. Style differences and file size were not treated as defects.
 
-## Clôture documentaire
+## Documentation closure
 
-Six rapports ont été créés dans ce dossier, sans modifier le code applicatif, les tests du dépôt, `TASKS.md`, `ISSUES.md`, les specs ou les ADR. Les commandes de vérification ont pu régénérer des sorties ignorées habituelles. Aucune correction ni nouvelle règle d’architecture n’a été appliquée.
+Six reports were created in this directory without changing application code, repository tests, `TASKS.md`, `ISSUES.md`, specifications, or ADRs. Verification commands may have regenerated the usual ignored outputs. No fix or new architecture rule was applied.
 
-Crystallization : les constats et suites possibles sont conservés dans ce dossier de rapports. Aucun état de tâche à changer pour ce diagnostic ; aucun `AGENT.md` mis à jour, puisque les recommandations restent à arbitrer dans les prochaines sessions.
+Crystallization: findings and possible follow-ups are kept in this report set. No task state changed for this diagnosis; no `AGENT.md` was updated because the recommendations still required decisions in future sessions.

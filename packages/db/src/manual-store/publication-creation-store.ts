@@ -11,6 +11,7 @@ import {
     type DeliveryMode,
     type Publication,
     type PublicationReviewState,
+    type ProjectTag,
     type ValidationIssue,
 } from '@herald/core'
 
@@ -255,6 +256,26 @@ export function createPublicationCreationStore(
             created_at
         ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
     `)
+    const loadProjectTagStatement = client.query<
+        { readonly id: string; readonly state: ProjectTag['state'] },
+        [projectId: string, tagId: string]
+    >(`
+        select id, state
+        from project_tags
+        where project_id = ?1
+          and id = ?2
+    `)
+    const insertPublicationTagStatement = client.query<
+        void,
+        [projectId: string, publicationId: string, tagId: string, createdAt: number]
+    >(`
+        insert into publication_tags (
+            project_id,
+            publication_id,
+            tag_id,
+            created_at
+        ) values (?1, ?2, ?3, ?4)
+    `)
 
     const createPostTransaction = createDatabaseTransaction(
         database,
@@ -295,6 +316,32 @@ export function createPublicationCreationStore(
                         'invalid_transition',
                         `Cannot create a publication for an ${channelRow.state} channel`
                     )
+                }
+
+                const tagIds =
+                    publicationInput.tagIds === undefined
+                        ? []
+                        : [
+                              ...new Set(
+                                  publicationInput.tagIds.map(tagId =>
+                                      requireNonBlank(tagId, 'tagId')
+                                  )
+                              ),
+                          ]
+                for (const tagId of tagIds) {
+                    const tag = loadProjectTagStatement.get(input.projectId, tagId)
+                    if (tag === null) {
+                        throw new DomainInvariantError(
+                            'invalid_input',
+                            'Every publication tag must belong to the project'
+                        )
+                    }
+                    if (tag.state === 'archived') {
+                        throw new DomainInvariantError(
+                            'invalid_transition',
+                            'Archived tags cannot be newly assigned to a publication'
+                        )
+                    }
                 }
 
                 const profileRow = options.loadProfile(project.id, channelRow.profileVersionId)
@@ -376,6 +423,7 @@ export function createPublicationCreationStore(
                     targetContentJson,
                     targetMedia,
                     validationIssues,
+                    tagIds,
                     workingDraftId: options.createId(),
                     targetRevisionId,
                     publisher: channelRow.publisherId === null ? null : toPublisher(channelRow),
@@ -469,6 +517,9 @@ export function createPublicationCreationStore(
                         )
                     }
                 }
+                for (const tagId of entry.tagIds) {
+                    insertPublicationTagStatement.run(project.id, publication.id, tagId, timestamp)
+                }
                 options.insertAuditEvent({
                     id: options.createId(),
                     projectId: project.id,
@@ -481,6 +532,7 @@ export function createPublicationCreationStore(
                         scheduledAt: publication.scheduledAt,
                         state: publication.state,
                         deliveryMode: publication.deliveryMode,
+                        tagIds: entry.tagIds,
                         provider:
                             publication.deliveryMode === 'manual'
                                 ? 'manual'

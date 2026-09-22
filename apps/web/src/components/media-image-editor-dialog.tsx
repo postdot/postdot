@@ -7,10 +7,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import { CameraRotateIcon } from '@solar-icons/react/bold/camera-rotate'
-import { CropMinimalisticIcon } from '@solar-icons/react/bold/crop-minimalistic'
-import { GalleryEditIcon } from '@solar-icons/react/bold/gallery-edit'
-import { RefreshCircleIcon } from '@solar-icons/react/bold/refresh-circle'
+import { CameraRotateIcon } from '@solar-icons/react/linear/camera-rotate'
+import { CropMinimalisticIcon } from '@solar-icons/react/linear/crop-minimalistic'
+import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'
+import { RefreshCircleIcon } from '@solar-icons/react/linear/refresh-circle'
 import { useEffect, useMemo, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 

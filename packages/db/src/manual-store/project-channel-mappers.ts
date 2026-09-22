@@ -7,6 +7,7 @@ export function toProject(row: ProjectRow): Project {
         id: row.id,
         name: row.name,
         timeZone: row.timeZone,
+        workspaceId: row.workspaceId,
         primaryCategoryId: row.primaryCategoryId,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,

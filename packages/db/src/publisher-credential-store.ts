@@ -72,6 +72,7 @@ interface ProjectRow {
     readonly id: string
     readonly name: string
     readonly timeZone: string
+    readonly workspaceId: string | null
     readonly primaryCategoryId: string | null
     readonly createdAt: number
     readonly updatedAt: number
@@ -178,6 +179,7 @@ function toProject(row: ProjectRow): Project {
         id: row.id,
         name: row.name,
         timeZone: row.timeZone,
+        workspaceId: row.workspaceId,
         primaryCategoryId: row.primaryCategoryId,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
@@ -244,6 +246,7 @@ export function createPublisherCredentialStore(
         select id,
                name,
                time_zone as timeZone,
+               workspace_id as workspaceId,
                primary_category_id as primaryCategoryId,
                created_at as createdAt,
                updated_at as updatedAt

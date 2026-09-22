@@ -1,6 +1,5 @@
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@herald/ui/components/empty'
 import { Field, FieldContent, FieldDescription, FieldTitle } from '@herald/ui/components/field'
 import {
     Popover,
@@ -11,15 +10,16 @@ import {
 } from '@herald/ui/components/popover'
 import { ScrollArea } from '@herald/ui/components/scroll-area'
 import { Switch } from '@herald/ui/components/switch'
-import { ArchiveIcon } from '@solar-icons/react/bold/archive'
-import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
-import { BellIcon } from '@solar-icons/react/bold/bell'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
-import { CloseIcon } from '@solar-icons/react/bold/close'
-import { SettingsIcon } from '@solar-icons/react/bold/settings'
+import { ArchiveIcon } from '@solar-icons/react/linear/archive'
+import { ArrowLeftIcon } from '@solar-icons/react/linear/arrow-left'
+import { BellIcon } from '@solar-icons/react/linear/bell'
+import { CheckIcon } from '@solar-icons/react/linear/check'
+import { CloseIcon } from '@solar-icons/react/linear/close'
+import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import {
     api,
     formatApiError,
@@ -51,10 +51,11 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
     >(null)
     const [actionError, setActionError] = useState<string | null>(null)
 
+    // The bell badge must be informed before the popover opens. The user
+    // realtime bridge invalidates this active query when a notification lands.
     const inboxQuery = useQuery<NotificationInboxState>({
         queryKey: ['notifications', projectId ?? 'all'],
         queryFn: () => api.listUserNotifications(projectId, { limit: 25 }),
-        enabled: open,
         staleTime: Number.POSITIVE_INFINITY,
         retry: false,
         refetchOnWindowFocus: false,
@@ -298,14 +299,13 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                             {loading && inbox === undefined ? (
                                 <NotificationLoadingState />
                             ) : notifications.length === 0 ? (
-                                <Empty className="min-h-40 bg-muted/60 px-5 py-8">
-                                    <EmptyHeader>
-                                        <EmptyMedia variant="icon">
-                                            <BellIcon aria-hidden="true" />
-                                        </EmptyMedia>
-                                        <EmptyTitle>{m.notifications_empty()}</EmptyTitle>
-                                    </EmptyHeader>
-                                </Empty>
+                                <EmptyState
+                                    className="min-h-56 bg-surface-inset/55 px-5 py-8 shadow-none"
+                                    description={null}
+                                    illustration="notifications"
+                                    illustrationClassName="w-32"
+                                    title={m.notifications_empty()}
+                                />
                             ) : (
                                 <div className="grid gap-2" role="list">
                                     {notifications.map(notification => (
@@ -405,7 +405,7 @@ function NotificationItem({
                                 title={m.notifications_read_short()}
                                 variant="ghost"
                                 onClick={() => void onMarkRead(notification)}>
-                                <CheckReadIcon aria-hidden="true" />
+                                <CheckIcon aria-hidden="true" />
                                 <span className="sr-only">{m.notifications_read_short()}</span>
                             </Button>
                         ) : null}

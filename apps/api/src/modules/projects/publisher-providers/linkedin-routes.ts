@@ -10,6 +10,7 @@ import {
     createAuthorizationRequest,
     digestAuthorizationState,
     exchangeAuthorizationCode,
+    isAuthorizationDeniedError,
     validateAuthorizationResponse,
 } from '@herald/oauth'
 import type { Logger } from 'pino'
@@ -19,6 +20,7 @@ import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth
 import type { PublisherRuntime } from '../../publishers/runtime'
 import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { errorResponse, linkedInConnectionBody, linkedInConnectionSchema } from '../models'
+import { publisherChannelsReturnPath } from './publisher-redirect'
 
 export function registerLinkedInPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
@@ -84,7 +86,12 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     })
                 }
 
-                if (publisherStore.hasPublisherForChannel(params.projectId, params.channelId)) {
+                const existingConnection = publisherStore.getPublisherConnection(
+                    params.projectId,
+                    params.channelId,
+                    user.id
+                )
+                if (existingConnection?.state === 'active') {
                     return status(409, {
                         error: {
                             code: 'publisher_exists',
@@ -150,7 +157,7 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                         providerApplicationId: linkedin.applicationId,
                         callbackUri: publisher.callbackUri,
                         scopes: authorization.scopes,
-                        returnPath: '/dashboard',
+                        returnPath: publisherChannelsReturnPath(params.projectId, params.channelId),
                         context: { destination },
                         stateDigest: await digestAuthorizationState(authorization.state),
                         codeVerifier: authorization.codeVerifier,
@@ -343,6 +350,15 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                         id: destination.id,
                         name: destination.name,
                     }
+                    const existingConnection = publisherStore.getPublisherConnection(
+                        consumed.attempt.projectId,
+                        consumed.attempt.channelId,
+                        user.id
+                    )
+                    const replaceNonActiveConnection =
+                        existingConnection === null || existingConnection.state === 'active'
+                            ? undefined
+                            : { id: existingConnection.id, state: existingConnection.state }
                     const expiresAt = tokenExpiry(publisher.now(), tokenSet.expiresInSeconds)
                     callbackStage = 'save_credential'
                     const credential = await savePublisherCredential({
@@ -373,6 +389,7 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                         kind: LINKEDIN_PROVIDER,
                         credentialId: credential.id,
                         destination: normalizedDestination,
+                        replaceNonActiveConnection,
                     })
                     if (connection.kind !== 'created') {
                         return redirectPublisher(
@@ -393,6 +410,13 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                         'connected'
                     )
                 } catch (error) {
+                    if (isAuthorizationDeniedError(error)) {
+                        return redirectPublisher(
+                            publisher.webOrigin,
+                            consumed.attempt.returnPath,
+                            'authorization_denied'
+                        )
+                    }
                     logPublisherFlowError(
                         options.logger,
                         {
@@ -580,6 +604,7 @@ function redirectPublisher(
     result:
         | 'connected'
         | 'already_used'
+        | 'authorization_denied'
         | 'invalid_callback'
         | 'invalid_destination'
         | 'provider_unavailable'

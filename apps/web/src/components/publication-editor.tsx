@@ -1,9 +1,11 @@
-import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
+import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
+import { ArrowLeftIcon } from '@solar-icons/react/linear/arrow-left'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { type MediaSelection } from '@/components/media-attachment-picker'
+import { PublicationActivityTimeline } from '@/components/publication-activity-timeline'
 import { PublicationCancellationDialog } from '@/components/publication-cancellation-dialog'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
@@ -36,7 +38,12 @@ import {
     type PublicationEditorState,
     type PublicationSummary,
 } from '@/lib/api'
-import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
+import {
+    dateTimeLocalErrorMessage,
+    parseDateTimeLocal,
+    toDateTimeLocal,
+    type DateTimeLocalResult,
+} from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
@@ -54,6 +61,8 @@ interface PublicationEditorProps {
     readonly initialPublicationTags: readonly ProjectTag[]
     readonly onCancel?: () => Promise<boolean>
     readonly onPublish?: () => Promise<boolean>
+    readonly onRetry?: () => Promise<boolean>
+    readonly readOnly?: boolean
     readonly projectTags: readonly ProjectTag[]
     readonly relatedPublications?: readonly PublicationSummary[]
     readonly backToCalendar?: {
@@ -82,6 +91,8 @@ export function PublicationEditor({
     initialPublicationTags,
     onCancel,
     onPublish,
+    onRetry,
+    readOnly = false,
     projectId,
     projectTags,
     relatedPublications = [],
@@ -99,7 +110,8 @@ export function PublicationEditor({
         () => readRecovery(recoveryKey, timeZone),
         [recoveryKey, timeZone]
     )
-    const initialPublicationEditable = canEditPublication(initialEditor.publication.state)
+    const initialPublicationEditable =
+        !readOnly && canEditPublication(initialEditor.publication.state)
     const shouldRestoreInitialRecovery =
         initialPublicationEditable &&
         initialRecovery !== null &&
@@ -169,6 +181,11 @@ export function PublicationEditor({
     const [manualPublishPending, setManualPublishPending] = useState(false)
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     const [cancelPending, setCancelPending] = useState(false)
+    const [retryPending, setRetryPending] = useState(false)
+    const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(initialSourceConflict)
+    const [targetCustomizationOpen, setTargetCustomizationOpen] = useState(
+        initialEditor.draft.reviewState !== 'compatible'
+    )
     const requestGeneration = useRef(0)
 
     const availableTags = useMemo(() => {
@@ -191,7 +208,7 @@ export function PublicationEditor({
         formatJson(editor.draft.content) !== formatJson(editor.selectedTarget.content)
     const hasLocalChanges = dirty || scheduleDirty
     const isRebasing = saveState === 'rebasing'
-    const publicationEditable = canEditPublication(editor.publication.state)
+    const publicationEditable = !readOnly && canEditPublication(editor.publication.state)
     const manualPublicationBlocked =
         manualPublishPending ||
         hasLocalChanges ||
@@ -208,6 +225,26 @@ export function PublicationEditor({
         sourceIssue !== null
     const cancellationBlocked =
         cancelPending || hasLocalChanges || saveState !== 'saved' || isRebasing
+    const retryBlocked =
+        retryPending ||
+        onRetry === undefined ||
+        !publicationEditable ||
+        editor.publication.state !== 'failed' ||
+        editor.publication.deliveryMode !== 'automatic' ||
+        hasLocalChanges ||
+        sourceConflict ||
+        draftRequiresReview ||
+        saveState !== 'saved' ||
+        draftDiffersFromTarget
+
+    useEffect(() => {
+        if (sourceConflict || saveState === 'conflict') setTechnicalDetailsOpen(true)
+    }, [saveState, sourceConflict])
+    useEffect(() => {
+        if (targetResult.error !== null || editor.draft.validationIssues.length > 0) {
+            setTargetCustomizationOpen(true)
+        }
+    }, [editor.draft.validationIssues.length, targetResult.error])
     const editorChannels = useMemo(() => {
         const channelsById = new Map(channels.map(channel => [channel.id, channel]))
         const orderedChannelIds = [
@@ -641,6 +678,10 @@ export function PublicationEditor({
             setMessage(dateTimeLocalErrorMessage(scheduledAt))
             return
         }
+        if (scheduledAt !== null && scheduledAt < Date.now()) {
+            setMessage(dateTimeLocalErrorMessage('past'))
+            return
+        }
 
         setMessage(null)
         try {
@@ -667,6 +708,42 @@ export function PublicationEditor({
             }
             setSaveState('error')
             setMessage(errorMessage(caughtError))
+        }
+    }
+
+    async function retryDelivery(): Promise<boolean> {
+        if (onRetry === undefined || retryBlocked) return false
+
+        requestGeneration.current += 1
+        setRetryPending(true)
+        setMessage(null)
+        try {
+            const retried = await onRetry()
+            if (!retried) {
+                setMessage(m.editor_retry_failed())
+                return false
+            }
+
+            const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            setEditor(response.editor)
+            setSourceContent(response.editor.post.sourceContent)
+            setTargetText(formatJson(response.editor.draft.content))
+            setExpectedRevision(response.editor.draft.revision)
+            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt, timeZone))
+            setDirty(false)
+            setScheduleDirty(false)
+            setSaveState('saved')
+            setRecoveryAvailable(false)
+            removeRecovery(recoveryKey)
+            setMessage(m.publication_retry_scheduled())
+            invalidatePublicationQueries()
+            return true
+        } catch (caughtError) {
+            setSaveState('error')
+            setMessage(errorMessage(caughtError))
+            return false
+        } finally {
+            setRetryPending(false)
         }
     }
 
@@ -765,208 +842,275 @@ export function PublicationEditor({
     }
 
     return (
-        <section className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <div className="flex flex-col justify-between gap-5 pb-7 sm:flex-row sm:items-end">
-                <div>
-                    {backToCalendar === undefined ? (
-                        <Link
-                            to="/dashboard/projects/$projectId/queue"
-                            params={{ projectId }}
-                            search={{ filter: undefined, tagIds: undefined }}
-                            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-                            <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                            {m.editor_back_to_queue()}
-                        </Link>
-                    ) : (
-                        <Link
-                            to="/dashboard/projects/$projectId/overview"
-                            params={{ projectId }}
-                            search={backToCalendar}
-                            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-                            <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                            {m.editor_back_to_calendar()}
-                        </Link>
-                    )}
-                    <p className="mt-6 text-xs font-medium text-muted-foreground">
-                        {m.editor_title()}
-                    </p>
-                    <h1 className="mt-2 font-heading text-4xl font-semibold leading-[1.02] tracking-[-0.05em]">
-                        {editor.post.title ?? m.publication_untitled()}
-                    </h1>
-                    <p className="mt-3 text-sm text-muted-foreground">
-                        {editor.channel.name} ·{' '}
-                        {m.common_profile_version({
-                            profile: editor.profile.profileId,
-                            version: editor.profile.version,
-                        })}
-                    </p>
-                </div>
-                <PublicationEditorSaveIndicator
-                    state={saveState}
-                    revision={editor.draft.revision}
-                />
-            </div>
-
-            <PublicationLifecyclePanel
-                cancelDisabled={cancellationBlocked}
-                onCancel={onCancel === undefined ? undefined : () => setCancelDialogOpen(true)}
-                onPublish={onPublish === undefined ? undefined : recordManualPublication}
-                onRetry={
-                    editor.publication.state === 'failed' ? () => void promoteDraft() : undefined
-                }
-                pending={manualPublicationBlocked || cancelPending}
-                publication={editor.publication}
-                retryDisabled={promotionBlocked}
-                timeZone={timeZone}
-            />
-
-            {onCancel !== undefined ? (
-                <PublicationCancellationDialog
-                    open={cancelDialogOpen}
-                    onCancel={cancelPublication}
-                    onOpenChange={setCancelDialogOpen}
-                    pending={cancelPending}
-                />
-            ) : null}
-
-            <PublicationEditorStatus
-                isRebasing={isRebasing}
-                message={message}
-                recoveryAvailable={recoveryAvailable}
-                saveState={saveState}
-                onRestoreRecovery={restoreRecovery}
-                onDiscardRecovery={() => {
-                    requestGeneration.current += 1
-                    removeRecovery(recoveryKey)
-                    setRecoveryAvailable(false)
-                }}
-            />
-
-            <PublicationOutcomePanel
-                publication={editor.publication}
-                onResolve={reconcilePublication}
-            />
-
-            {availableTags.length > 0 ? (
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <PublicationTagPicker
-                        ariaLabel={m.taxonomy_select_tags()}
-                        archivedLabel={m.common_archived()}
-                        disabled={!publicationEditable || isRebasing || tagSavePending}
-                        emptyLabel={m.taxonomy_no_tags()}
-                        label={m.taxonomy_tags()}
-                        onChange={value => void handlePublicationTagIdsChange(value)}
-                        selectedTagIds={publicationTagIds}
-                        selectedLabel={count => m.taxonomy_selected_tags({ count })}
-                        tags={availableTags}
-                    />
-                    {tagError ? (
-                        <p className="text-xs text-state-failed" role="alert">
-                            {tagError}
-                        </p>
-                    ) : null}
-                </div>
-            ) : null}
-
-            <PublicationComposer
-                className="mt-7"
-                channelNavigation={
-                    <PublicationChannelRail
-                        activeChannelId={editor.channel.id}
-                        channels={editorChannels}
-                        disabled={isRebasing}
-                        onActiveChannelChange={handleChannelChange}
-                        selectedChannelIds={editorChannelIds}
-                    />
-                }
-                editor={
-                    <div className="min-w-0 space-y-8">
-                        <PublicationEditorSourceSection
-                            projectId={projectId}
-                            sourceContent={sourceContent}
-                            sourceRevision={editor.post.sourceRevision}
-                            disabled={!publicationEditable || isRebasing}
-                            mediaDisabled={
-                                !publicationEditable ||
-                                saveState === 'saving' ||
-                                saveState === 'rebasing'
-                            }
-                            onTextChange={updateSourceText}
-                            onFormatChange={updateSourceFormat}
-                            onOptionalFieldChange={updateSourceOptionalField}
-                            onMediaChange={updateSourceMedia}
-                            onAssetsChange={setAvailableMedia}
+        <section className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+            <div className="mx-auto min-w-0 max-w-6xl">
+                <div className="flex flex-col justify-between gap-4 pb-5 sm:flex-row sm:items-start">
+                    <div className="min-w-0">
+                        {backToCalendar === undefined ? (
+                            <Link
+                                to="/dashboard/projects/$projectId/queue"
+                                params={{ projectId }}
+                                search={{ filter: undefined, sort: undefined, tagIds: undefined }}
+                                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+                                <ArrowLeftIcon aria-hidden="true" className="size-4" />
+                                {m.editor_back_to_queue()}
+                            </Link>
+                        ) : (
+                            <Link
+                                to="/dashboard/projects/$projectId/overview"
+                                params={{ projectId }}
+                                search={backToCalendar}
+                                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+                                <ArrowLeftIcon aria-hidden="true" className="size-4" />
+                                {m.editor_back_to_calendar()}
+                            </Link>
+                        )}
+                        <div className="mt-4 flex min-w-0 flex-wrap items-end justify-between gap-x-4 gap-y-2">
+                            <div className="min-w-0">
+                                <h1 className="break-words font-heading text-3xl font-semibold leading-tight sm:text-4xl">
+                                    {publicationEditorHeading(editor)}
+                                </h1>
+                                <p className="mt-2 break-words text-sm text-muted-foreground">
+                                    {editor.channel.name}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="shrink-0 sm:pt-8">
+                        <PublicationEditorSaveIndicator
+                            state={saveState}
+                            revision={editor.draft.revision}
+                            showRevision={false}
                         />
+                    </div>
+                </div>
 
-                        <PublicationEditorTargetSection
-                            profile={editor.profile.profile}
-                            reviewState={editor.draft.reviewState}
-                            validationIssues={editor.draft.validationIssues}
-                            target={targetResult.value}
-                            targetText={targetText}
-                            disabled={!publicationEditable || isRebasing}
-                            onTargetChange={next => {
-                                setTargetText(formatJson(next))
-                                setDirty(true)
-                            }}
-                            onRawTextChange={value => {
-                                setTargetText(value)
-                                setDirty(true)
-                            }}
-                            targetError={targetResult.error}
-                            issueCode={issueCode}
-                            issueMessage={issueMessage}
+                <PublicationLifecyclePanel
+                    cancelDisabled={cancellationBlocked}
+                    onCancel={onCancel === undefined ? undefined : () => setCancelDialogOpen(true)}
+                    onPublish={onPublish === undefined ? undefined : recordManualPublication}
+                    onRetry={
+                        editor.publication.state === 'failed'
+                            ? () => void retryDelivery()
+                            : undefined
+                    }
+                    pending={manualPublicationBlocked || cancelPending || retryPending}
+                    publication={editor.publication}
+                    retryDisabled={retryBlocked}
+                    timeZone={timeZone}
+                />
+
+                {onCancel !== undefined ? (
+                    <PublicationCancellationDialog
+                        open={cancelDialogOpen}
+                        onCancel={cancelPublication}
+                        onOpenChange={setCancelDialogOpen}
+                        pending={cancelPending}
+                    />
+                ) : null}
+
+                <PublicationEditorStatus
+                    isRebasing={isRebasing}
+                    message={message}
+                    recoveryAvailable={recoveryAvailable}
+                    saveState={saveState}
+                    onRestoreRecovery={restoreRecovery}
+                    onDiscardRecovery={() => {
+                        requestGeneration.current += 1
+                        removeRecovery(recoveryKey)
+                        setRecoveryAvailable(false)
+                    }}
+                />
+
+                <PublicationOutcomePanel
+                    publication={editor.publication}
+                    onResolve={reconcilePublication}
+                />
+
+                {availableTags.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <PublicationTagPicker
+                            ariaLabel={m.taxonomy_select_tags()}
+                            archivedLabel={m.common_archived()}
+                            disabled={!publicationEditable || isRebasing || tagSavePending}
+                            emptyLabel={m.taxonomy_no_tags()}
+                            label={m.taxonomy_tags()}
+                            onChange={value => void handlePublicationTagIdsChange(value)}
+                            selectedTagIds={publicationTagIds}
+                            selectedLabel={count => m.taxonomy_selected_tags({ count })}
+                            tags={availableTags}
                         />
-
-                        {publicationEditable ? (
-                            <PublicationEditorPromotionSection
-                                retry={editor.publication.state === 'failed'}
-                                timeZone={timeZone}
-                                scheduleValue={scheduleValue}
-                                disabled={promotionBlocked}
-                                draftRequiresReview={draftRequiresReview}
-                                draftDiffersFromTarget={draftDiffersFromTarget}
-                                onScheduleChange={value => {
-                                    setScheduleValue(value)
-                                    setScheduleDirty(
-                                        value !==
-                                            toDateTimeLocal(
-                                                editor.publication.scheduledAt,
-                                                timeZone
-                                            )
-                                    )
-                                }}
-                                onPromote={() => void promoteDraft()}
-                            />
+                        {tagError ? (
+                            <p className="text-xs text-state-failed" role="alert">
+                                {tagError}
+                            </p>
                         ) : null}
                     </div>
-                }
-                preview={
-                    <div className="min-w-0 space-y-8">
-                        <PublicationDraftPreview
-                            channel={editor.channel}
-                            media={previewMedia}
-                            postContent={previewContent}
-                            postTitle={editor.post.title ?? ''}
+                ) : null}
+
+                <PublicationComposer
+                    className="mt-6"
+                    channelNavigation={
+                        <PublicationChannelRail
+                            activeChannelId={editor.channel.id}
+                            channels={editorChannels}
+                            disabled={isRebasing}
+                            onActiveChannelChange={handleChannelChange}
+                            selectedChannelIds={editorChannelIds}
                         />
-                        <PublicationEditorSidebar
-                            editor={editor}
-                            capabilitySummary={capabilitySummary}
-                            timeZone={timeZone}
-                            sourceConflict={sourceConflict}
-                            saveState={saveState}
-                            isRebasing={isRebasing}
-                            recoveryAvailable={recoveryAvailable}
-                            hasLocalChanges={hasLocalChanges}
-                            onRebase={() => void rebaseToLatestSource()}
-                            onReload={() => void reloadServerVersion()}
-                            onRestore={() => void restoreRecoveryAgainstLatestServer()}
-                        />
-                    </div>
-                }
-            />
+                    }
+                    editor={
+                        <div className="min-w-0 space-y-5">
+                            <PublicationEditorSourceSection
+                                projectId={projectId}
+                                sourceContent={sourceContent}
+                                sourceRevision={editor.post.sourceRevision}
+                                disabled={!publicationEditable || isRebasing}
+                                readOnly={!publicationEditable}
+                                mediaDisabled={
+                                    !publicationEditable ||
+                                    saveState === 'saving' ||
+                                    saveState === 'rebasing'
+                                }
+                                onTextChange={updateSourceText}
+                                onFormatChange={updateSourceFormat}
+                                onOptionalFieldChange={updateSourceOptionalField}
+                                onMediaChange={updateSourceMedia}
+                                onAssetsChange={setAvailableMedia}
+                            />
+
+                            <PublicationEditorTargetSection
+                                profile={editor.profile.profile}
+                                reviewState={editor.draft.reviewState}
+                                validationIssues={editor.draft.validationIssues}
+                                target={targetResult.value}
+                                targetText={targetText}
+                                disabled={!publicationEditable || isRebasing}
+                                readOnly={!publicationEditable}
+                                open={targetCustomizationOpen}
+                                onOpenChange={setTargetCustomizationOpen}
+                                onTargetChange={next => {
+                                    setTargetText(formatJson(next))
+                                    setDirty(true)
+                                }}
+                                onRawTextChange={value => {
+                                    setTargetText(value)
+                                    setDirty(true)
+                                }}
+                                targetError={targetResult.error}
+                                issueCode={issueCode}
+                                issueMessage={issueMessage}
+                            />
+
+                            {publicationEditable ? (
+                                <PublicationEditorPromotionSection
+                                    timeZone={timeZone}
+                                    scheduleValue={scheduleValue}
+                                    disabled={promotionBlocked}
+                                    draftRequiresReview={draftRequiresReview}
+                                    draftDiffersFromTarget={draftDiffersFromTarget}
+                                    onScheduleChange={value => {
+                                        setScheduleValue(value)
+                                        setScheduleDirty(
+                                            value !==
+                                                toDateTimeLocal(
+                                                    editor.publication.scheduledAt,
+                                                    timeZone
+                                                )
+                                        )
+                                    }}
+                                    onPromote={() => void promoteDraft()}
+                                />
+                            ) : null}
+                        </div>
+                    }
+                    preview={
+                        <div className="min-w-0">
+                            <PublicationDraftPreview
+                                channel={editor.channel}
+                                media={previewMedia}
+                                postContent={previewContent}
+                                postTitle={editor.post.title ?? ''}
+                            />
+                        </div>
+                    }
+                />
+
+                <div className="mt-5 grid min-w-0 gap-3">
+                    <details
+                        className="group rounded-xl bg-surface-inset/35 p-1 shadow-surface"
+                        open={technicalDetailsOpen}
+                        onToggle={event => setTechnicalDetailsOpen(event.currentTarget.open)}>
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
+                            <span className="min-w-0">
+                                <span className="font-medium">{m.editor_technical_details()}</span>
+                                <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">
+                                    {m.editor_technical_details_hint()}
+                                </span>
+                            </span>
+                            <AltArrowDownIcon
+                                aria-hidden="true"
+                                className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                            />
+                        </summary>
+                        <div className="px-2 pb-2 pt-2 sm:px-3">
+                            <PublicationEditorSidebar
+                                editor={editor}
+                                capabilitySummary={capabilitySummary}
+                                timeZone={timeZone}
+                                sourceConflict={sourceConflict}
+                                saveState={saveState}
+                                isRebasing={isRebasing}
+                                recoveryAvailable={recoveryAvailable}
+                                hasLocalChanges={hasLocalChanges}
+                                onRebase={() => void rebaseToLatestSource()}
+                                onReload={() => void reloadServerVersion()}
+                                onRestore={() => void restoreRecoveryAgainstLatestServer()}
+                            />
+                        </div>
+                    </details>
+
+                    <details className="group rounded-xl bg-surface-inset/35 p-1 shadow-surface">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
+                            <span className="min-w-0">
+                                <span className="font-medium">{m.editor_activity_details()}</span>
+                                <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">
+                                    {m.editor_activity_details_hint()}
+                                </span>
+                            </span>
+                            <AltArrowDownIcon
+                                aria-hidden="true"
+                                className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                            />
+                        </summary>
+                        <div className="px-2 pb-2 pt-2 sm:px-3">
+                            <PublicationActivityTimeline
+                                className="mt-0 bg-transparent px-0 shadow-none"
+                                projectId={projectId}
+                                publicationId={editor.publication.id}
+                                refreshKey={editor.publication.updatedAt}
+                                timeZone={timeZone}
+                            />
+                        </div>
+                    </details>
+                </div>
+            </div>
         </section>
     )
+}
+
+function publicationEditorHeading(editor: PublicationEditorState) {
+    const title = editor.post.title?.trim()
+    if (title) return title
+
+    const candidate =
+        editor.post.sourceContent.body?.text.trim() ||
+        editor.post.sourceContent.headline?.trim() ||
+        ''
+    if (candidate === '') return m.publication_untitled()
+
+    const normalized = candidate.replace(/\s+/g, ' ')
+    return normalized.length > 96 ? `${normalized.slice(0, 93)}…` : normalized
 }
 
 function createRecoveryKey(projectId: string, publicationId: string) {
@@ -1095,10 +1239,7 @@ function formatJson(value: unknown) {
     return JSON.stringify(value, null, 2)
 }
 
-function parseSchedule(
-    value: string,
-    timeZone: string
-): number | null | 'invalid' | 'nonexistent' | 'ambiguous' {
+function parseSchedule(value: string, timeZone: string): DateTimeLocalResult {
     return parseDateTimeLocal(value, timeZone)
 }
 

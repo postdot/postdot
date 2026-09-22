@@ -10,6 +10,7 @@ import * as m from '@/paraglide/messages.js'
 
 export interface PublicationOutcomeResolutionInput {
     readonly resolution: 'published' | 'failed'
+    readonly externalId?: string
     readonly externalUrl?: string
     readonly errorMessage?: string
 }
@@ -21,6 +22,7 @@ interface PublicationOutcomePanelProps {
 
 export function PublicationOutcomePanel({ publication, onResolve }: PublicationOutcomePanelProps) {
     useLanguage()
+    const [externalId, setExternalId] = useState('')
     const [externalUrl, setExternalUrl] = useState('')
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -31,11 +33,20 @@ export function PublicationOutcomePanel({ publication, onResolve }: PublicationO
         setPending(true)
         setError(null)
         try {
+            const trimmedExternalId = externalId.trim()
             const trimmedUrl = externalUrl.trim()
+            if (resolution === 'published' && trimmedExternalId.length === 0) {
+                setError(m.publication_outcome_external_id_required())
+                setPending(false)
+                return
+            }
             await onResolve({
                 resolution,
-                ...(resolution === 'published' && trimmedUrl.length > 0
-                    ? { externalUrl: trimmedUrl }
+                ...(resolution === 'published'
+                    ? {
+                          externalId: trimmedExternalId,
+                          ...(trimmedUrl.length > 0 ? { externalUrl: trimmedUrl } : {}),
+                      }
                     : {}),
                 ...(resolution === 'failed'
                     ? { errorMessage: publication.errorMessage ?? m.publication_outcome_failed() }
@@ -57,6 +68,18 @@ export function PublicationOutcomePanel({ publication, onResolve }: PublicationO
                 ) : null}
             </AlertDescription>
             <div className="mt-4 space-y-3">
+                <Field className="max-w-xl gap-1.5">
+                    <FieldLabel htmlFor="publication-outcome-external-id">
+                        {m.publication_outcome_external_id_label()}
+                    </FieldLabel>
+                    <Input
+                        id="publication-outcome-external-id"
+                        value={externalId}
+                        onChange={event => setExternalId(event.target.value)}
+                        placeholder={m.publication_outcome_external_id_placeholder()}
+                        disabled={pending}
+                    />
+                </Field>
                 <Field className="max-w-xl gap-1.5">
                     <FieldLabel htmlFor="publication-outcome-url">
                         {m.publication_outcome_external_url_label()}

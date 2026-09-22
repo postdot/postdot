@@ -29,6 +29,34 @@ const channelIcons = {
 type ChannelIdentity = Pick<Channel, 'id' | 'name' | 'profileId'>
 type ChannelAvatarSize = 'sm' | 'md' | 'lg'
 
+export function ResourceAvatar({
+    kind,
+    name,
+    seed = name,
+}: {
+    readonly kind: 'workspace' | 'project'
+    readonly name: string
+    readonly seed?: string
+}) {
+    const generatedImage = useMemo(
+        () => createDiceBearImage(channelStyle, `${kind}:${seed}`),
+        [kind, seed]
+    )
+
+    return (
+        <span
+            aria-hidden="true"
+            data-resource-avatar="true"
+            data-resource-kind={kind}
+            className={cn(
+                'inline-flex size-6 shrink-0 items-center justify-center overflow-hidden bg-primary/10',
+                kind === 'workspace' ? 'rounded-full' : 'rounded-md'
+            )}>
+            <img alt="" className="size-full object-cover" src={generatedImage} />
+        </span>
+    )
+}
+
 export function UserAvatar({
     imageUrl,
     name,

@@ -25,7 +25,6 @@ export interface HeraldEmailTransport {
 export interface HeraldEmailDeliveryOptions {
     readonly smtp?: HeraldSmtpConfig
     readonly webOrigin: string
-    readonly getProjectIdForOrganization?: (organizationId: string) => string | null
     readonly transport?: HeraldEmailTransport
     readonly onDeliveryError?: (kind: HeraldEmailKind, error: unknown) => void
 }
@@ -72,10 +71,10 @@ export function createHeraldAuthEmailDelivery(
     }
 
     return {
-        organizationInvitationURL: ({ id, organizationId }) => {
-            const url = new URL('/dashboard/settings/access', options.webOrigin)
-            url.searchParams.set('organizationInvitation', id)
-            const projectId = options.getProjectIdForOrganization?.(organizationId)
+        organizationInvitationURL: ({ id, organizationId, projectId }) => {
+            const url = new URL('/invite', options.webOrigin)
+            url.searchParams.set('invitationId', id)
+            url.searchParams.set('organizationId', organizationId)
             if (projectId !== null && projectId !== undefined) {
                 url.searchParams.set('projectId', projectId)
             }

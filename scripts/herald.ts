@@ -1,13 +1,9 @@
-import {
-    createHeraldClient,
-    type CreatedProjectAccessToken,
-    type ProjectAccessToken,
-} from '@herald/client'
+import { createHeraldClient } from '@herald/client'
 
 type CliFetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>
 
 export interface HeraldCliEnvironment {
-    readonly HERALD_PROJECT_TOKEN?: string
+    readonly HERALD_API_KEY?: string
     readonly HERALD_SESSION_COOKIE?: string
     readonly HERALD_URL?: string
 }
@@ -48,15 +44,11 @@ export async function runCli(
         'http://localhost:3000'
     ).replace(/\/$/, '')
     const sessionCookie = optionValue(args, '--cookie') ?? environment.HERALD_SESSION_COOKIE
-    const projectToken = optionValue(args, '--token') ?? environment.HERALD_PROJECT_TOKEN
-    const sessionClient = createHeraldClient(baseURL, {
-        cookie: sessionCookie,
-        fetcher,
-    })
+    const apiKey = optionValue(args, '--token') ?? environment.HERALD_API_KEY
     const client = createHeraldClient(baseURL, {
         cookie: sessionCookie,
         fetcher,
-        token: projectToken,
+        token: apiKey,
     })
 
     const write = (value: unknown, humanMessage: string) => {
@@ -91,10 +83,10 @@ export async function runCli(
         return
     }
 
-    if (resource === 'access-tokens') {
+    if (resource === 'api-keys') {
         requireSession(sessionCookie)
     } else {
-        requireAuthenticated(sessionCookie, projectToken)
+        requireAuthenticated(sessionCookie, apiKey)
     }
 
     if (resource === 'projects' && action === 'list') {
@@ -111,38 +103,39 @@ export async function runCli(
         return
     }
 
-    if (resource === 'access-tokens' && action === 'list') {
-        const projectId = requiredOption(args, '--project')
-        const body = await call<{ accessTokens: ProjectAccessToken[] }>(
-            sessionClient.api.projects({ projectId })['access-tokens'].get()
-        )
-        write(body, body.accessTokens.map(formatAccessToken).join('\n'))
+    if (resource === 'api-keys' && action === 'list') {
+        const body = await requestAuth<{ keys: UserApiKey[] }>('/api/api-keys')
+        write(body.body, body.body.keys.map(formatUserApiKey).join('\n'))
         return
     }
 
-    if (resource === 'access-tokens' && action === 'create') {
-        const projectId = requiredOption(args, '--project')
+    if (resource === 'api-keys' && action === 'create') {
         const expiresAt = parseExpiresAt(optionValue(args, '--expires-at'))
-        const body = await call<CreatedProjectAccessToken>(
-            sessionClient.api.projects({ projectId })['access-tokens'].post({
-                name: requiredOption(args, '--name'),
+        const projectIds = parseProjectIds(optionValue(args, '--projects'))
+        const body = await requestAuth<CreatedUserApiKey>('/api/api-keys', {
+            method: 'POST',
+            body: JSON.stringify({
+                ...(optionValue(args, '--name') === undefined
+                    ? {}
+                    : { name: optionValue(args, '--name') }),
+                projectIds,
                 ...(expiresAt === undefined ? {} : { expiresAt }),
-            })
-        )
+            }),
+        })
         write(
-            body,
-            `Created access token "${body.accessToken.name}". Copy it now; it will not be shown again:\n\n${body.token}`
+            body.body,
+            `Created API key "${body.body.key.name}". Copy it now; it will not be shown again:\n\n${body.body.token}`
         )
         return
     }
 
-    if (resource === 'access-tokens' && action === 'revoke') {
-        const projectId = requiredOption(args, '--project')
-        const tokenId = requiredOption(args, '--token-id')
-        const body = await call(
-            sessionClient.api.projects({ projectId })['access-tokens']({ tokenId }).delete()
+    if (resource === 'api-keys' && action === 'revoke') {
+        const keyId = requiredOption(args, '--key-id')
+        const body = await requestAuth<{ deleted: true }>(
+            `/api/api-keys/${encodeURIComponent(keyId)}`,
+            { method: 'DELETE' }
         )
-        write(body, 'Access token revoked.')
+        write(body.body, 'API key revoked.')
         return
     }
 
@@ -296,10 +289,36 @@ function parseExpiresAt(value: string | undefined) {
     return expiresAt
 }
 
-function formatAccessToken(token: ProjectAccessToken) {
-    const expiry = token.expiresAt === null ? 'never' : new Date(token.expiresAt).toISOString()
-    const state = token.revokedAt === null ? 'active' : 'revoked'
-    return `${token.id}\t${token.name}\t${token.tokenPrefix}\t${state}\t${expiry}`
+interface UserApiKey {
+    readonly id: string
+    readonly name: string
+    readonly tokenPrefix: string
+    readonly projectAccess: 'all' | readonly string[]
+    readonly expiresAt: number | null
+    readonly createdAt: number
+    readonly updatedAt: number
+}
+
+interface CreatedUserApiKey {
+    readonly key: UserApiKey
+    readonly token: string
+}
+
+function formatUserApiKey(key: UserApiKey) {
+    const expiry = key.expiresAt === null ? 'never' : new Date(key.expiresAt).toISOString()
+    const scope = key.projectAccess === 'all' ? 'all-projects' : key.projectAccess.join(',')
+    return `${key.id}\t${key.name}\t${key.tokenPrefix}\t${scope}\t${expiry}`
+}
+
+function parseProjectIds(value: string | undefined): string[] | null {
+    if (value === undefined) return null
+    const projectIds = [...new Set(value.split(',').map(projectId => projectId.trim()))].filter(
+        projectId => projectId.length > 0
+    )
+    if (projectIds.length === 0) {
+        throw new CliError('--projects must contain at least one project id', 2)
+    }
+    return projectIds
 }
 
 function printCliHelp(output: (message: string) => void) {
@@ -312,9 +331,9 @@ Resources:
   auth login                         Sign in and print a session cookie
   projects list                      List projects
   projects create --name <name>      Create a project
-  access-tokens list --project <id>  List project token metadata
-  access-tokens create --project <id> --name <name>
-  access-tokens revoke --project <id> --token-id <id>
+  api-keys list                      List your API keys
+  api-keys create [--name <name>]    Create a user-owned API key
+  api-keys revoke --key-id <id>      Revoke one of your API keys
   channels list --project <id>       List project channels
   channels create --project <id> --name <name>
   publications due --project <id>    List due manual publications
@@ -326,19 +345,20 @@ Options:
   --json                             Print structured JSON
   --base-url <url>                   Herald API URL (default: http://localhost:3000)
   --cookie <value>                   Session cookie for authenticated requests
-  --token <value>                    Project bearer token for machine requests
+  --token <value>                    Herald API key for machine requests
+  --projects <id,id,...>             Limit a new API key to selected projects
   --expires-at <epoch-ms>            Expiration for a new token
 
 Environment:
   HERALD_URL
   HERALD_SESSION_COOKIE
-  HERALD_PROJECT_TOKEN`)
+  HERALD_API_KEY`)
 }
 
-function requireAuthenticated(sessionCookie: string | undefined, projectToken: string | undefined) {
-    if (!sessionCookie && !projectToken) {
+function requireAuthenticated(sessionCookie: string | undefined, apiKey: string | undefined) {
+    if (!sessionCookie && !apiKey) {
         throw new CliError(
-            'Authentication required. Set HERALD_SESSION_COOKIE or HERALD_PROJECT_TOKEN, or pass --cookie or --token.'
+            'Authentication required. Set HERALD_SESSION_COOKIE or HERALD_API_KEY, or pass --cookie or --token.'
         )
     }
 }

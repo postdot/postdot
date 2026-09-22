@@ -32,9 +32,9 @@ Herald adopts a clean-slate development boundary:
   disposable local database aside explicitly; a database containing data that must
   be preserved requires a new, separately accepted production migration plan.
 - Better Auth Admin owns global user administration, Organization owns project
-  membership and invitations, and the API Key plugin owns organization-backed
-  project keys and their expiry. Herald routes retain the project binding and
-  actor-attribution checks around those standard primitives.
+  membership and invitations, and the API Key plugin owns user-owned keys and
+  their expiry. Herald routes retain the project-scope and owner-attribution
+  checks around that standard primitive.
 - Herald retains only access state with independent domain meaning: instance
   bootstrap and membership, a dedicated instance-invitation table, and human or
   machine actor projections used by the domain and audit history.

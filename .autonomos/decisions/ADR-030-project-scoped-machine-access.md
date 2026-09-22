@@ -1,12 +1,13 @@
 # ADR-030 — Use Project-Scoped Bearer Tokens for Machine Access
 
-- Status: accepted
+- Status: superseded
 - Scope: Initial project access, CLI/agent authentication, and actor attribution
 - Provenance: ISSUE-013, ACCESS-14, SPEC-001, SPEC-002, SPEC-003, and SPEC-005
 - Related decisions: [ADR-008](ADR-008-enforce-project-scoped-domain-state.md), [ADR-012](ADR-012-own-publisher-credentials-and-use-oauth4webapi.md), [ADR-063](ADR-063-adopt-better-auth-access-plugins.md), [ADR-064](ADR-064-clean-development-access-baseline.md)
 - Superseded by: [ADR-063](ADR-063-adopt-better-auth-access-plugins.md) for the
   Better Auth key contract, and [ADR-064](ADR-064-clean-development-access-baseline.md)
-  for removal of the discarded Herald-owned token contract
+  for removal of the discarded Herald-owned token contract, and [ADR-075](ADR-075-user-owned-api-keys.md)
+  for the final user-owned key model
 
 ## Context
 

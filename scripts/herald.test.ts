@@ -7,16 +7,17 @@ function requestFromInput(input: string | URL | Request, init?: RequestInit) {
 }
 
 describe('Herald CLI', () => {
-    it('documents project token commands and machine authentication', async () => {
+    it('documents user API keys and machine authentication', async () => {
         const output: string[] = []
 
         await runCli(['--help'], {}, { output: message => output.push(message) })
 
-        expect(output[0]).toContain('access-tokens create --project <id> --name <name>')
+        expect(output[0]).toContain('api-keys create [--name <name>]')
+        expect(output[0]).not.toContain('access-tokens')
         expect(output[0]).toContain('--token <value>')
     })
 
-    it('uses a project API key for ordinary project operations', async () => {
+    it('uses a user API key for ordinary project operations', async () => {
         const requests: Request[] = []
         const output: string[] = []
 
@@ -39,75 +40,41 @@ describe('Herald CLI', () => {
         expect(output).toEqual(['project-1\tHerald'])
     })
 
-    it('uses the human session for one-time token creation and never exposes it in metadata output', async () => {
-        const secret = 'herald_pat_only-returned-once'
+    it('creates a user-owned API key with a selected project scope', async () => {
         const output: string[] = []
-        let requestBody: unknown
-        let requestAuthorization: string | null = null
+        let request: Request | null = null
 
         await runCli(
-            ['access-tokens', 'create', '--project', 'project-1', '--name', 'Release agent'],
+            ['api-keys', 'create', '--name', 'MCP server', '--projects', 'project-1,project-2'],
             { HERALD_SESSION_COOKIE: 'better-auth.session_token=session' },
             {
                 fetcher: async (input, init) => {
-                    const request = requestFromInput(input, init)
-                    requestBody = await request.clone().json()
-                    requestAuthorization = request.headers.get('authorization')
+                    request = requestFromInput(input, init)
                     return Response.json({
-                        accessToken: {
-                            id: 'token-1',
-                            projectId: 'project-1',
-                            name: 'Release agent',
-                            tokenPrefix: 'herald_pat_only-ret',
+                        key: {
+                            id: 'key-1',
+                            name: 'MCP server',
+                            tokenPrefix: 'herald_pat_abc',
+                            projectAccess: ['project-1', 'project-2'],
                             expiresAt: null,
-                            revokedAt: null,
                             createdAt: 1_800_000_000_000,
                             updatedAt: 1_800_000_000_000,
                         },
-                        token: secret,
+                        token: 'herald_pat_secret',
                     })
                 },
                 output: message => output.push(message),
             }
         )
 
-        expect(requestBody).toEqual({ name: 'Release agent' })
-        expect(requestAuthorization).toBeNull()
-        expect(output[0]).toContain(secret)
-
-        output.length = 0
-        await runCli(
-            ['access-tokens', 'list', '--project', 'project-1'],
-            { HERALD_SESSION_COOKIE: 'better-auth.session_token=session' },
-            {
-                fetcher: async () =>
-                    Response.json({
-                        accessTokens: [
-                            {
-                                id: 'token-1',
-                                projectId: 'project-1',
-                                name: 'Release agent',
-                                tokenPrefix: 'herald_pat_only-ret',
-                                expiresAt: null,
-                                revokedAt: null,
-                                createdAt: 1_800_000_000_000,
-                                updatedAt: 1_800_000_000_000,
-                            },
-                        ],
-                    }),
-                output: message => output.push(message),
-            }
-        )
-
-        expect(output[0]).not.toContain(secret)
-        expect(output[0]).toContain('herald_pat_only-ret')
-    })
-
-    it('rejects token management without a human session', async () => {
-        await expect(
-            runCli(['access-tokens', 'list', '--project', 'project-1'], {
-                HERALD_PROJECT_TOKEN: 'herald_pat_machine-secret',
-            })
-        ).rejects.toThrow('requires a human session')
+        const capturedRequest = request as Request | null
+        if (!capturedRequest) throw new Error('The CLI did not issue an API-key request')
+        expect(capturedRequest.url).toContain('/api/api-keys')
+        expect(capturedRequest.headers.get('cookie')).toBe('better-auth.session_token=session')
+        expect(await capturedRequest.clone().json()).toEqual({
+            name: 'MCP server',
+            projectIds: ['project-1', 'project-2'],
+        })
+        expect(output[0]).toContain('herald_pat_secret')
     })
 })

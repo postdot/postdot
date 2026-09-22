@@ -14,13 +14,13 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@herald/ui/components/tooltip'
-import { CloseIcon } from '@solar-icons/react/bold/close'
-import { GalleryEditIcon } from '@solar-icons/react/bold/gallery-edit'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
+import { CloseIcon } from '@solar-icons/react/linear/close'
 import { FullScreenIcon } from '@solar-icons/react/linear/full-screen'
+import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'
 import { QuitFullScreenIcon } from '@solar-icons/react/linear/quit-full-screen'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { AnimatePresence, motion, type PanInfo, useReducedMotion, wrap } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FullScreen, useFullScreenHandle } from 'react-full-screen'
@@ -358,7 +358,7 @@ export function MediaViewer({
 
                                 {hasNavigation ? (
                                     <>
-                                        <div className="pointer-events-none absolute inset-y-0 left-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100">
+                                        <div className="pointer-events-none absolute inset-y-0 left-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100 [@media(hover:none)]:opacity-100">
                                             <Tooltip>
                                                 <TooltipTrigger
                                                     render={
@@ -388,7 +388,7 @@ export function MediaViewer({
                                                 </TooltipContent>
                                             </Tooltip>
                                         </div>
-                                        <div className="pointer-events-none absolute inset-y-0 right-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100">
+                                        <div className="pointer-events-none absolute inset-y-0 right-3 z-20 flex items-center opacity-0 transition-opacity duration-150 group-hover/media-stage:opacity-100 group-focus-within/media-stage:opacity-100 [@media(hover:none)]:opacity-100">
                                             <Tooltip>
                                                 <TooltipTrigger
                                                     render={

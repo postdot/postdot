@@ -10,17 +10,21 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     const channelName = `E2E-124 recovery channel ${suffix}`
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
+    const addChannelButton = page.getByRole('button', { name: 'Add channel', exact: true })
+    await expect(addChannelButton).toBeEnabled()
+    await addChannelButton.click()
+    await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByLabel('Channel name').fill(channelName)
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
-    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New publication', exact: true }).click()
     await page.getByLabel('Content', { exact: true }).fill('E2E recovery content')
-    await page.getByRole('button', { name: 'Schedule', exact: true }).click()
+    await page.locator('button[name="publication-action"][value="schedule"]').click()
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
-    const publicationLink = page.getByRole('link').filter({ hasText: 'Untitled post' }).first()
+    const publicationLink = page.locator('a[data-publication-edit-link="true"]').first()
     await expect(publicationLink).toBeVisible()
     const publicationHref = await publicationLink.getAttribute('href')
     if (publicationHref === null) throw new Error('Expected a publication editor link')
@@ -82,6 +86,7 @@ test('resolves an ambiguous publication without retrying the provider', async ({
             }
 
             expect(requestBody).toEqual({
+                externalId: 'provider-publication-124',
                 externalUrl: 'https://example.test/herald/recovery',
                 resolution: 'published',
             })
@@ -112,6 +117,7 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     await expect(page.getByRole('alert')).toContainText('The request could not be completed.')
     await expect(page.getByRole('button', { name: 'Mark as published', exact: true })).toBeVisible()
 
+    await page.getByLabel('Provider publication ID').fill('provider-publication-124')
     await page.getByLabel('Published URL (optional)').fill('https://example.test/herald/recovery')
     await page.getByRole('button', { name: 'Mark as published', exact: true }).click()
     await expect(page.getByRole('alert')).toHaveCount(0)
@@ -121,22 +127,31 @@ test('resolves an ambiguous publication without retrying the provider', async ({
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Need an account?' }).click()
+    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-124 ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-124-recovery-${suffix}@herald.local`)
-    await page.getByLabel('Password').fill('e2e-124-recovery-password')
-    await page.getByRole('button', { name: 'Create account', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await page.getByLabel('Password', { exact: true }).fill('e2e-124-recovery-password')
+    await Promise.all([
+        page.waitForResponse(
+            response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+        ),
+        page.getByRole('button', { name: 'Create account', exact: true }).click(),
+    ])
+    await page.goto('/dashboard?projectId=none')
+    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
-    await page.getByRole('option', { name: 'Create project', exact: true }).click()
-    await page.locator('#new-project').fill(`E2E-124 recovery project ${suffix}`)
+    await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
+    await page
+        .getByRole('textbox', { name: 'New project', exact: true })
+        .fill(`E2E-124 recovery project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.locator('#new-project') })
+        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
         .getByRole('button', { name: 'Add project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 
     const match = new URL(page.url()).pathname.match(/^\/dashboard\/projects\/([^/]+)/)
     if (match?.[1] === undefined)

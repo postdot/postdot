@@ -13,7 +13,7 @@ export interface ProjectRow {
     readonly id: string
     readonly name: string
     readonly timeZone: string
-    readonly organizationId: string | null
+    readonly workspaceId: string | null
     readonly primaryCategoryId: string | null
     readonly createdAt: number
     readonly updatedAt: number
@@ -177,11 +177,14 @@ export interface DuePublicationRow extends PublicationRow {
 
 export interface PublicationSummaryRow extends PublicationRow {
     readonly postTitle: string | null
+    readonly sourceContentJson: string
+    readonly postUpdatedAt: number
     readonly channelName: string
     readonly draftRevision: number
     readonly draftReviewState: PublicationReviewState
     readonly draftSourceRevision: number
     readonly draftContentJson: string
+    readonly draftUpdatedAt: number
     readonly targetSourceRevision: number | null
     readonly targetContentJson: string | null
     readonly tagIdsJson: string
