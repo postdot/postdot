@@ -8,7 +8,6 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     const suffix = randomUUID().slice(0, 8)
     const projectId = await createAccountAndProject(page, suffix)
     const channelName = `E2E-124 recovery channel ${suffix}`
-    const publicationTitle = `E2E-124 recovery ${suffix}`
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
@@ -17,14 +16,11 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
     await page.getByRole('button', { name: 'New publication', exact: true }).click()
-    await page.getByRole('combobox', { name: 'Channel' }).click()
-    await page.getByRole('option', { name: channelName, exact: true }).click()
-    await page.getByLabel('Title', { exact: true }).fill(publicationTitle)
     await page.getByLabel('Content', { exact: true }).fill('E2E recovery content')
     await page.getByRole('button', { name: 'Schedule', exact: true }).click()
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
-    const publicationLink = page.getByRole('link').filter({ hasText: publicationTitle }).first()
+    const publicationLink = page.getByRole('link').filter({ hasText: 'Untitled post' }).first()
     await expect(publicationLink).toBeVisible()
     const publicationHref = await publicationLink.getAttribute('href')
     if (publicationHref === null) throw new Error('Expected a publication editor link')

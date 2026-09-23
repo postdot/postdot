@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type Page } from '@playwright/test'
+import type { MediaReference } from '@herald/client'
+import { expect, test, type Page, type Route } from '@playwright/test'
 
 const e2eApiPort = process.env.HERALD_E2E_API_PORT
 if (e2eApiPort === undefined) {
@@ -11,6 +12,7 @@ const e2eApiOrigin = `http://127.0.0.1:${e2eApiPort}`
 const mediaFilename = 'herald-e2e-pixel.png'
 const editedMediaFilename = 'herald-e2e-pixel-edited.png'
 const secondMediaFilename = 'herald-e2e-second-pixel.png'
+const pickerMediaFilename = 'herald-e2e-picker-pixel.png'
 const mediaBytes = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
     'base64'
@@ -37,14 +39,43 @@ type LayoutView = {
     }
 }
 
+async function mockWebcam(page: Page) {
+    await page.addInitScript(() => {
+        const mediaDevices = navigator.mediaDevices ?? {}
+        Object.defineProperty(mediaDevices, 'getUserMedia', {
+            configurable: true,
+            value: async () => new MediaStream(),
+        })
+        Object.defineProperty(navigator, 'mediaDevices', {
+            configurable: true,
+            value: mediaDevices,
+        })
+
+        Object.defineProperty(HTMLVideoElement.prototype, 'readyState', {
+            configurable: true,
+            get: () => 4,
+        })
+        Object.defineProperty(HTMLVideoElement.prototype, 'videoWidth', {
+            configurable: true,
+            get: () => 640,
+        })
+        Object.defineProperty(HTMLVideoElement.prototype, 'videoHeight', {
+            configurable: true,
+            get: () => 480,
+        })
+        HTMLMediaElement.prototype.play = () => Promise.resolve()
+    })
+}
+
 test('keeps dashboard and composer media journeys reliable', async ({ page, request }) => {
     test.setTimeout(60_000)
+
+    await mockWebcam(page)
 
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
     const channelName = `E2E-33 Channel ${suffix}`
     const secondChannelName = `E2E-33 Second channel ${suffix}`
-
     const readinessResponse = await request.get(`${e2eApiOrigin}/ready`)
     expect(readinessResponse.status()).toBe(200)
     expect(await readinessResponse.json()).toEqual({
@@ -350,9 +381,29 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         })
     expect(channelSidebarLayout).toEqual({ overlap: 0 })
     await page.getByRole('button', { name: 'New publication', exact: true }).click()
-    const publicationChannel = page.getByRole('combobox', { name: 'Channel' })
-    await publicationChannel.click()
-    await page.getByRole('option', { name: channelName, exact: true }).click()
+
+    await page.getByLabel('Content', { exact: true }).fill(`E2E-33 draft ${suffix}`)
+    const draftResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+    const draftResult = (await (await draftResponse).json()) as {
+        publications: { id: string; state: string }[]
+    }
+    expect(draftResult.publications[0]?.state).toBe('draft')
+    await expect(page).toHaveURL(
+        new RegExp(`/dashboard/projects/[^/]+/publications/${draftResult.publications[0]?.id}$`)
+    )
+    await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
+    await expect(page.getByText('Draft', { exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('button', { name: 'Apply draft to target', exact: true })
+    ).toBeVisible()
+    await page.getByRole('link', { name: /Back to queue/ }).click()
+    await page
+        .locator('[data-slot="sidebar"]')
+        .getByRole('button', { name: 'New publication', exact: true })
+        .click()
 
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
@@ -464,6 +515,57 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(droppedMediaCard.locator('[data-media-open-trigger="true"]')).toHaveCount(0)
     await droppedMediaCard.click({ position: { x: 2, y: 2 } })
     await expect(mediaLibraryViewer).toBeVisible()
+    const viewerChromeLayout = await mediaLibraryViewer.evaluate(viewer => {
+        const header = viewer.querySelector<HTMLElement>('[data-slot="dialog-header"]')
+        const title = viewer.querySelector<HTMLElement>('[data-slot="dialog-title"]')
+        const group = viewer.querySelector<HTMLElement>('[data-slot="button-group"]')
+        const zoomStatus = viewer.querySelector<HTMLElement>('[data-slot="button-group-text"]')
+        const zoomOut = viewer.querySelector<HTMLElement>('[data-media-viewer-zoom-out="true"]')
+        const close = viewer.querySelector<HTMLElement>('[data-media-viewer-close="true"]')
+        if (
+            header === null ||
+            title === null ||
+            group === null ||
+            zoomStatus === null ||
+            zoomOut === null ||
+            close === null
+        )
+            return null
+
+        const headerBounds = header.getBoundingClientRect()
+        const titleBounds = title.getBoundingClientRect()
+        const groupBounds = group.getBoundingClientRect()
+        const statusBounds = zoomStatus.getBoundingClientRect()
+        const closeBounds = close.getBoundingClientRect()
+        return {
+            headerBottom: headerBounds.bottom,
+            titleBottom: titleBounds.bottom,
+            titleHeight: titleBounds.height,
+            titleLineHeight: Number.parseFloat(getComputedStyle(title).lineHeight),
+            groupHeight: groupBounds.height,
+            statusHeight: statusBounds.height,
+            closeHeight: closeBounds.height,
+            groupBackground: getComputedStyle(group).backgroundColor,
+            buttonBackground: getComputedStyle(zoomOut).backgroundColor,
+            statusBackground: getComputedStyle(zoomStatus).backgroundColor,
+        }
+    })
+    expect(viewerChromeLayout).not.toBeNull()
+    expect(viewerChromeLayout?.titleLineHeight).toBeGreaterThan(16)
+    expect(viewerChromeLayout?.titleHeight).toBeGreaterThanOrEqual(
+        (viewerChromeLayout?.titleLineHeight ?? 0) - 1
+    )
+    expect(viewerChromeLayout?.titleBottom).toBeLessThanOrEqual(
+        (viewerChromeLayout?.headerBottom ?? 0) + 1
+    )
+    expect(
+        Math.abs((viewerChromeLayout?.groupHeight ?? 0) - (viewerChromeLayout?.closeHeight ?? 0))
+    ).toBeLessThanOrEqual(1)
+    expect(
+        Math.abs((viewerChromeLayout?.statusHeight ?? 0) - (viewerChromeLayout?.groupHeight ?? 0))
+    ).toBeLessThanOrEqual(1)
+    expect(viewerChromeLayout?.groupBackground).not.toBe(viewerChromeLayout?.buttonBackground)
+    expect(viewerChromeLayout?.statusBackground).not.toBe(viewerChromeLayout?.buttonBackground)
     await expect(
         mediaLibraryViewer.getByRole('button', { name: 'Enter fullscreen', exact: true })
     ).toBeVisible()
@@ -512,19 +614,45 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     const viewerThumbnailTrack = mediaLibraryViewer.locator(
         '[data-media-viewer-thumbnail-track="true"]'
     )
+    const draggableViewerThumbnail = viewerThumbnailTrack
+        .locator('[data-media-viewer-thumbnail="true"]')
+        .first()
+    await page.setViewportSize({ width: 390, height: 844 })
+    const mobileViewerHeaderLayout = await mediaLibraryViewer.evaluate(viewer => {
+        const header = viewer.querySelector<HTMLElement>('[data-slot="dialog-header"]')
+        const group = viewer.querySelector<HTMLElement>('[data-slot="button-group"]')
+        const close = viewer.querySelector<HTMLElement>('[data-media-viewer-close="true"]')
+        if (header === null || group === null || close === null) return null
+
+        return {
+            headerRight: header.getBoundingClientRect().right,
+            groupRight: group.getBoundingClientRect().right,
+            closeRight: close.getBoundingClientRect().right,
+        }
+    })
+    expect(mobileViewerHeaderLayout).not.toBeNull()
+    expect(mobileViewerHeaderLayout?.groupRight).toBeLessThanOrEqual(
+        (mobileViewerHeaderLayout?.headerRight ?? 0) + 1
+    )
+    expect(mobileViewerHeaderLayout?.closeRight).toBeLessThanOrEqual(
+        (mobileViewerHeaderLayout?.headerRight ?? 0) + 1
+    )
     await page.setViewportSize({ width: 200, height: 480 })
     await expect(viewerThumbnailViewport).toBeVisible()
     await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grab')
-    const viewerThumbnailBounds = await viewerThumbnailViewport.boundingBox()
-    expect(viewerThumbnailBounds).not.toBeNull()
+    await draggableViewerThumbnail.hover()
+    const draggableThumbnailBounds = await draggableViewerThumbnail.boundingBox()
+    expect(draggableThumbnailBounds).not.toBeNull()
     const thumbnailTrackLeftBefore = (await viewerThumbnailTrack.boundingBox())?.x
     expect(thumbnailTrackLeftBefore).toBeDefined()
-    const thumbnailDragX = (viewerThumbnailBounds?.x ?? 0) + (viewerThumbnailBounds?.width ?? 0) / 2
+    const thumbnailDragX =
+        (draggableThumbnailBounds?.x ?? 0) + (draggableThumbnailBounds?.width ?? 0) / 2
     const thumbnailDragY =
-        (viewerThumbnailBounds?.y ?? 0) + (viewerThumbnailBounds?.height ?? 0) / 2
+        (draggableThumbnailBounds?.y ?? 0) + (draggableThumbnailBounds?.height ?? 0) / 2
     await page.mouse.move(thumbnailDragX, thumbnailDragY)
     await page.mouse.down()
-    await page.mouse.move(thumbnailDragX - 50, thumbnailDragY, { steps: 4 })
+    await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grabbing')
+    await page.mouse.move(thumbnailDragX + 40, thumbnailDragY, { steps: 4 })
     await page.mouse.up()
     await expect
         .poll(async () => (await viewerThumbnailTrack.boundingBox())?.x)
@@ -686,13 +814,12 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
 
 test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
     test.setTimeout(60_000)
+    await mockWebcam(page)
 
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
     const channelName = `E2E-33 Channel ${suffix}`
     const secondChannelName = `E2E-33 Second channel ${suffix}`
-    const mixedTitle = `E2E-33 Mixed ${suffix}`
-    const mediaOnlyTitle = `E2E-33 Media only ${suffix}`
     const sourceText = `E2E-33 source ${suffix}`
     const targetText = `E2E-33 target ${suffix}`
     const secondTargetText = `E2E-33 second target ${suffix}`
@@ -711,7 +838,6 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('button', { name: 'New publication', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
-    await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const mixedAttachmentLibrary = page.locator('[data-media-library="true"]')
@@ -736,10 +862,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().inputValue()
     await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
     await page.getByLabel('Channel content', { exact: true }).fill(targetText)
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
-    await expect(page.getByRole('tab', { name: new RegExp(secondChannelName) })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add channel', exact: true })).toBeDisabled()
-    await expect(page.getByText('Uses shared settings', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: secondChannelName, exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: secondChannelName, exact: true })
+    ).toHaveAttribute('aria-pressed', 'true')
+    await page.locator('summary').filter({ hasText: 'Customize delivery' }).click()
     await page.getByRole('button', { name: 'Customize delivery', exact: true }).click()
     await expect(page.getByLabel('Channel schedule', { exact: true })).toHaveValue(defaultSchedule)
     await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
@@ -762,24 +889,29 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(populatedNewPublicationOverflow.scrollWidth).toBeLessThanOrEqual(
         populatedNewPublicationOverflow.clientWidth
     )
-    await expect(page.getByRole('tab', { name: new RegExp(channelName) })).toBeVisible()
-    await expect(page.getByRole('tab', { name: new RegExp(secondChannelName) })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(channelName) })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(secondChannelName) })).toBeVisible()
     await page.setViewportSize({ width: 1280, height: 720 })
 
+    const mixedResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
     await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
+    const mixedResult = (await (await mixedResponse).json()) as { publications: { id: string }[] }
+    const mixedSelector = mixedResult.publications
+        .map(item => `a[href$="/publications/${item.id}"]`)
+        .join(',')
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
-    const mixedPublications = page.getByRole('link').filter({ hasText: mixedTitle })
+    const mixedPublications = page.locator(mixedSelector)
     await expect(mixedPublications).toHaveCount(2)
+    await expect(mixedPublications.first()).toHaveAttribute('data-publication-edit-link', 'true')
+    await expect(mixedPublications.first().getByText('Edit', { exact: true })).toBeVisible()
 
     await page
         .locator('[data-slot="sidebar"]')
         .getByRole('button', { name: 'New publication', exact: true })
         .click()
-    const mediaOnlyPublicationChannel = page.getByRole('combobox', { name: 'Channel' }).first()
-    await mediaOnlyPublicationChannel.click()
-    await page.getByRole('option', { name: channelName, exact: true }).click()
-    await page.getByLabel('Title', { exact: true }).fill(mediaOnlyTitle)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const attachmentLibrary = page.locator('[data-media-library="true"]')
     await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')
@@ -797,6 +929,166 @@ test('persists mixed and media-only publications through the dashboard', async (
         name: 'Search media',
         exact: true,
     })
+
+    await attachmentLibrary.getByRole('button', { name: 'Import', exact: true }).click()
+    const deviceSourcePicker = page.locator('[data-media-source-picker="true"]')
+    await expect(deviceSourcePicker).toBeVisible()
+    await deviceSourcePicker.locator('[data-media-source="device"]').click()
+    await page.locator('input[type="file"]').setInputFiles({
+        name: pickerMediaFilename,
+        mimeType: 'image/png',
+        buffer: mediaBytes,
+    })
+    await expect(attachmentLibrary).toBeVisible()
+    const deviceCard = attachmentLibrary
+        .locator('article')
+        .filter({ hasText: pickerMediaFilename })
+        .first()
+    await expect(deviceCard).toBeVisible()
+    await expect(deviceCard.locator('[data-media-selection-toggle="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${pickerMediaFilename}`) })
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    const deviceRemoveButton = page.getByRole('button', {
+        name: new RegExp(`Remove ${pickerMediaFilename}`),
+    })
+    await expect(deviceRemoveButton).toBeVisible()
+    await deviceRemoveButton.click()
+    await expect(deviceRemoveButton).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    await attachmentLibrary.getByRole('button', { name: 'Import', exact: true }).click()
+    const webcamSourcePicker = page.locator('[data-media-source-picker="true"]')
+    await expect(webcamSourcePicker).toBeVisible()
+    await webcamSourcePicker.locator('[data-media-source="webcam"]').click()
+    const webcamDialog = page.locator('[data-media-webcam-dialog="true"]')
+    await expect(webcamDialog).toBeVisible()
+    const webcamVideo = webcamDialog.locator('video')
+    await webcamVideo.dispatchEvent('loadedmetadata')
+    await webcamVideo.dispatchEvent('canplay')
+    const captureButton = webcamDialog.getByRole('button', { name: 'Take photo', exact: true })
+    await expect(captureButton).toBeEnabled()
+    await captureButton.click()
+    await expect(webcamDialog).toHaveCount(0)
+    await expect(attachmentLibrary).toBeVisible()
+    const webcamCard = attachmentLibrary
+        .locator('article')
+        .filter({ hasText: /webcam-.*\.jpg/ })
+        .first()
+    await expect(webcamCard).toBeVisible()
+    await expect(webcamCard.locator('[data-media-selection-toggle="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(1)
+    const webcamRemoveButton = page.getByRole('button', {
+        name: /^Remove webcam-.*\.jpg$/,
+    })
+    await expect(webcamRemoveButton).toBeVisible()
+    await webcamRemoveButton.click()
+    await expect(webcamRemoveButton).toHaveCount(0)
+
+    const mediaProjectId = projectIdFromUrl(page.url())
+    const mediaList = (await page.evaluate(async projectId => {
+        const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/media?limit=1`)
+        if (!response.ok) {
+            throw new Error(`Could not load a media fixture (${response.status})`)
+        }
+        return response.json()
+    }, mediaProjectId)) as { media: MediaReference[] }
+    const urlMediaReference = mediaList.media[0]
+    if (urlMediaReference === undefined) {
+        throw new Error('The URL import flow requires at least one media fixture')
+    }
+
+    const urlImport = 'https://example.com/herald-e2e-url.png'
+    let requestedUrl: string | undefined
+    const urlImportRoute = async (route: Route) => {
+        const body = route.request().postDataJSON() as { url?: unknown }
+        requestedUrl = typeof body.url === 'string' ? body.url : undefined
+        await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            body: JSON.stringify({ status: 'ready', media: urlMediaReference }),
+        })
+    }
+    await page.route('**/api/projects/*/media/imports/url', urlImportRoute)
+
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    await attachmentLibrary.getByRole('button', { name: 'Import', exact: true }).click()
+    const urlSourcePicker = page.locator('[data-media-source-picker="true"]')
+    await expect(urlSourcePicker).toBeVisible()
+    await urlSourcePicker.locator('[data-media-source="url"]').click()
+    await urlSourcePicker.locator('#media-source-url').fill(urlImport)
+    await urlSourcePicker.getByRole('button', { name: 'Import', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    expect(requestedUrl).toBe(urlImport)
+
+    const urlMediaCard = attachmentLibrary
+        .locator('article')
+        .filter({ hasText: urlMediaReference.asset.originalFilename })
+        .first()
+    await expect(urlMediaCard).toBeVisible()
+    await expect(urlMediaCard.locator('[data-media-selection-toggle="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(attachmentLibrary).toHaveCount(0)
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(0)
+    await page.unroute('**/api/projects/*/media/imports/url', urlImportRoute)
+
+    const urlImportErrorRoute = async (route: Route) => {
+        await route.fulfill({
+            status: 415,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                error: {
+                    code: 'media_url_unsupported_type',
+                    message: 'This image format is not supported.',
+                },
+            }),
+        })
+    }
+    await page.route('**/api/projects/*/media/imports/url', urlImportErrorRoute)
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    await attachmentLibrary.getByRole('button', { name: 'Import', exact: true }).click()
+    const failedUrlSourcePicker = page.locator('[data-media-source-picker="true"]')
+    await expect(failedUrlSourcePicker).toBeVisible()
+    await failedUrlSourcePicker.locator('[data-media-source="url"]').click()
+    await failedUrlSourcePicker.locator('#media-source-url').fill(urlImport)
+    await failedUrlSourcePicker.getByRole('button', { name: 'Import', exact: true }).click()
+    await expect(failedUrlSourcePicker).toBeVisible()
+    await expect(
+        failedUrlSourcePicker.getByText('This image format is not supported.', { exact: true })
+    ).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(failedUrlSourcePicker).toHaveCount(0)
+    await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(0)
+    await page.unroute('**/api/projects/*/media/imports/url', urlImportErrorRoute)
+
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
     await attachmentSearch.fill(editedMediaFilename)
     const attachmentCard = attachmentLibrary
         .locator('article')
@@ -804,9 +1096,30 @@ test('persists mixed and media-only publications through the dashboard', async (
         .first()
     await expect(attachmentCard).toHaveCount(1)
     await attachmentSearch.fill('')
-    const libraryMediaToggle = attachmentCard.locator('[data-media-selection-toggle="true"]')
     await attachmentCard.locator('[data-media-preview="true"]').click()
-    await expect(libraryMediaToggle).toHaveAttribute('aria-pressed', 'true')
+    await expect(attachmentCard.locator('[data-media-selection-toggle="true"]')).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
+    await expect(attachmentCard).toHaveAttribute('data-media-selection-active', 'true')
+    await page.keyboard.press('Escape')
+    await expect(attachmentLibrary).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    await expect(attachmentLibrary).toBeVisible()
+    const reopenedAttachmentCard = attachmentLibrary
+        .locator('article')
+        .filter({ hasText: editedMediaFilename })
+        .first()
+    const reopenedMediaToggle = reopenedAttachmentCard.locator(
+        '[data-media-selection-toggle="true"]'
+    )
+    await expect(reopenedMediaToggle).toHaveAttribute('aria-pressed', 'false')
+    await reopenedMediaToggle.focus()
+    await reopenedMediaToggle.press('Space')
+    await expect(reopenedMediaToggle).toHaveAttribute('aria-pressed', 'true')
     const selectedCardGaps = await attachmentLibrary
         .locator('[data-media-selection-active="true"]')
         .first()
@@ -832,12 +1145,22 @@ test('persists mixed and media-only publications through the dashboard', async (
     ).toHaveCount(0)
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(
+        page.locator('[data-new-publication-editor="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(1)
+    await expect(
         page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
     ).toBeVisible()
+    const mediaOnlyResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
     await page.getByRole('button', { name: 'Schedule', exact: true }).click()
+    const mediaOnlyResult = (await (await mediaOnlyResponse).json()) as {
+        publications: { id: string }[]
+    }
+    const mediaOnlySelector = `a[href$="/publications/${mediaOnlyResult.publications[0]!.id}"]`
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
-    const mediaOnlyPublication = page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first()
+    const mediaOnlyPublication = page.locator(mediaOnlySelector).first()
     await expect(mediaOnlyPublication).toBeVisible()
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
@@ -846,8 +1169,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     const calendarMonth = calendar.locator('[data-calendar-view="month"]')
     await expect(calendarMonth).toBeVisible()
     await expect(
-        calendarMonth.locator('[data-slot="event-calendar-event"]').filter({ hasText: mixedTitle })
-    ).toHaveCount(2)
+        calendarMonth
+            .locator('[data-slot="event-calendar-event"]')
+            .filter({ hasText: secondChannelName })
+    ).toHaveCount(1)
     const emptyCalendarDay = calendarMonth.locator('[data-slot="event-calendar-day-add"]').first()
     await expect(emptyCalendarDay).toBeVisible()
     await emptyCalendarDay.click()
@@ -861,8 +1186,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(calendarMonth).toBeVisible()
     await page.getByRole('button', { name: 'Today', exact: true }).click()
     await expect(
-        calendarMonth.locator('[data-slot="event-calendar-event"]').filter({ hasText: mixedTitle })
-    ).toHaveCount(2)
+        calendarMonth
+            .locator('[data-slot="event-calendar-event"]')
+            .filter({ hasText: secondChannelName })
+    ).toHaveCount(1)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
@@ -878,20 +1205,79 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/queue$/)
 
     await page.reload()
-    await expect(page.getByRole('link').filter({ hasText: mixedTitle }).first()).toBeVisible()
-    await expect(page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first()).toBeVisible()
+    await expect(page.locator(mixedSelector).first()).toBeVisible()
+    await expect(page.locator(mediaOnlySelector).first()).toBeVisible()
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
-    await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Untitled publication', level: 1 })
+    ).toBeVisible()
     await expect(page.locator('#source-body')).toHaveValue(sourceText)
     await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
+    const publicationChannelRail = page.locator('[data-publication-channel-selection="true"]')
+    await expect(publicationChannelRail).toBeVisible()
     await expect(
-        page
-            .locator('article')
-            .filter({ hasText: editedMediaFilename })
-            .first()
-            .locator('[data-media-selection-toggle="true"]')
-    ).toHaveAttribute('aria-pressed', 'true')
+        publicationChannelRail.getByRole('button', { name: secondChannelName, exact: true })
+    ).toBeVisible()
+    await publicationChannelRail
+        .getByRole('button', { name: secondChannelName, exact: true })
+        .click()
+    await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
+        secondTargetText
+    )
+    await publicationChannelRail.getByRole('button', { name: channelName, exact: true }).click()
+    await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
+    const editorMediaPicker = page.locator('[data-media-picker="true"]')
+    await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
+    await expect(editorMediaPicker.locator('input[id^="media-alt-"]')).toHaveCount(1)
+    await editorMediaPicker.getByRole('button', { name: 'Add media', exact: true }).click()
+    const editorAttachmentLibrary = page.locator('[data-media-library="true"]')
+    await expect(editorAttachmentLibrary).toBeVisible()
+    await expect(editorAttachmentLibrary.locator('input[id^="media-alt-"]')).toHaveCount(0)
+    const editorSelectedCard = editorAttachmentLibrary
+        .locator('article')
+        .filter({ hasText: editedMediaFilename })
+        .first()
+    const editorMediaToggle = editorSelectedCard.locator('[data-media-selection-toggle="true"]')
+    await expect(editorMediaToggle).toHaveAttribute('aria-pressed', 'true')
+    await editorSelectedCard.locator('[data-media-preview="true"]').click()
+    await expect(editorMediaToggle).toHaveAttribute('aria-pressed', 'false')
+    await page.keyboard.press('Escape')
+    await expect(editorAttachmentLibrary).toHaveCount(0)
+    await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
+
+    await page.setViewportSize({ width: 320, height: 844 })
+    const mobileEditorMediaLayout = await editorMediaPicker
+        .locator('[data-media-selection-preview="true"]')
+        .first()
+        .evaluate(element => {
+            const preview = element as HTMLElement
+            const thumbnail = preview.querySelector('[data-media-preview="true"]')
+            const accessibilityInput = preview.querySelector('input[id^="media-alt-"]')
+            if (thumbnail === null || accessibilityInput === null) return null
+
+            const previewRect = preview.getBoundingClientRect()
+            const thumbnailRect = thumbnail.getBoundingClientRect()
+            const inputRect = accessibilityInput.getBoundingClientRect()
+            return {
+                clientWidth: preview.clientWidth,
+                scrollWidth: preview.scrollWidth,
+                previewWidth: previewRect.width,
+                thumbnailBottom: thumbnailRect.bottom,
+                inputTop: inputRect.top,
+            }
+        })
+    expect(mobileEditorMediaLayout).not.toBeNull()
+    expect(mobileEditorMediaLayout?.scrollWidth).toBeLessThanOrEqual(
+        mobileEditorMediaLayout?.clientWidth ?? 0
+    )
+    expect(mobileEditorMediaLayout?.previewWidth).toBeLessThanOrEqual(
+        mobileEditorMediaLayout?.clientWidth ?? 0
+    )
+    expect(mobileEditorMediaLayout?.inputTop).toBeGreaterThanOrEqual(
+        (mobileEditorMediaLayout?.thumbnailBottom ?? 0) - 1
+    )
+    await page.setViewportSize({ width: 1280, height: 720 })
 
     const promotedSchedule = localDateTimeInHours(4)
     await page.locator('#deliver-at').fill(promotedSchedule)
@@ -908,7 +1294,9 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await mixedPublications.filter({ hasText: secondChannelName }).first().click()
-    await expect(page.getByRole('heading', { name: mixedTitle, level: 1 })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Untitled publication', level: 1 })
+    ).toBeVisible()
     await expect(page.locator('[data-target-field="commentary"] textarea')).toHaveValue(
         secondTargetText
     )
@@ -918,16 +1306,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(secondMixedTarget.media[0]?.assetId).toBe(assetId)
 
     await page.getByRole('link', { name: /Back to queue/ }).click()
-    await page.getByRole('link').filter({ hasText: mediaOnlyTitle }).first().click()
-    await expect(page.getByRole('heading', { name: mediaOnlyTitle })).toBeVisible()
+    await page.locator(mediaOnlySelector).first().click()
+    await expect(page.getByRole('heading', { name: 'Untitled publication' })).toBeVisible()
     await expect(page.locator('#source-body')).toHaveValue('')
-    await expect(
-        page
-            .locator('article')
-            .filter({ hasText: editedMediaFilename })
-            .first()
-            .locator('[data-media-selection-toggle="true"]')
-    ).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
 
     const mediaOnlyTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
     expect(mediaOnlyTarget.body).toBeUndefined()
@@ -950,9 +1332,13 @@ test('persists mixed and media-only publications through the dashboard', async (
         'data-media-library-view',
         'compact'
     )
-    await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
+    const editedMediaCard = page
+        .locator('[data-media-bulk-selection-card="true"]')
+        .filter({ hasText: editedMediaFilename })
+        .first()
+    await expect(editedMediaCard).toBeVisible()
     await page.getByRole('button', { name: 'Select', exact: true }).click()
-    await page.getByRole('button', { name: `Select ${editedMediaFilename}`, exact: true }).click()
+    await editedMediaCard.click({ position: { x: 2, y: 2 } })
     const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
     await usedMediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true }).click()
     const usedMediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')

@@ -2,3 +2,4 @@
 @import '../src/styles/globals.css';
 
 @source '../src';
+@source '../../../apps/web/src';

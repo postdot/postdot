@@ -1,4 +1,11 @@
-import { channelProfileLabel } from '@/components/dashboard-publication-parts'
+import { cn } from '@herald/ui/lib/utils'
+import { ChatRoundIcon } from '@solar-icons/react/linear/chat-round'
+import { HeartIcon } from '@solar-icons/react/linear/heart'
+import { LikeIcon } from '@solar-icons/react/linear/like'
+import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
+import { RepeatIcon } from '@solar-icons/react/linear/repeat'
+import { ShareIcon } from '@solar-icons/react/linear/share'
+
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import type { Channel, MediaReference } from '@/lib/api'
@@ -8,6 +15,7 @@ import * as m from '@/paraglide/messages.js'
 
 interface PublicationDraftPreviewProps {
     readonly channel: Channel | undefined
+    readonly className?: string
     readonly media: readonly MediaReference[]
     readonly postContent: string
     readonly postTitle: string
@@ -16,6 +24,7 @@ interface PublicationDraftPreviewProps {
 
 export function PublicationDraftPreview({
     channel,
+    className,
     media,
     postContent,
     postTitle,
@@ -32,24 +41,42 @@ export function PublicationDraftPreview({
         targetContent,
     })
 
-    return (
-        <section data-publication-draft-preview="true" className="mt-7 min-w-0">
-            <div className="flex min-w-0 items-baseline justify-between gap-3">
-                <h3 className="font-heading text-lg font-[580] leading-[1.05] tracking-[-0.04em]">
-                    {m.publication_new_preview()}
-                </h3>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                    {channelProfileLabel(channel.profileId)}
-                </span>
-            </div>
+    const linkedIn = channel.profileId === 'linkedin'
+    const social = linkedIn || ['bluesky', 'mastodon', 'x'].includes(channel.profileId)
 
-            <article className="mt-3 min-w-0 overflow-hidden rounded-md bg-surface-raised">
-                <header className="flex min-w-0 items-center gap-3 px-4 py-3">
-                    <ChannelAvatar channel={channel} size="md" />
-                    <p className="min-w-0 truncate text-sm font-medium">{channel.name}</p>
+    return (
+        <section data-publication-draft-preview="true" className={cn('min-w-0', className)}>
+            <p className="mb-3 text-xs font-medium text-muted-foreground">
+                {m.publication_new_preview()}
+            </p>
+            <article
+                data-preview-platform={channel.profileId}
+                className={cn(
+                    'min-w-0 overflow-hidden bg-surface-raised shadow-surface',
+                    linkedIn ? 'rounded-lg' : 'rounded-2xl'
+                )}>
+                <header className="flex min-w-0 items-center gap-3 px-4 pt-4 pb-2">
+                    <ChannelAvatar
+                        channel={channel}
+                        size="lg"
+                        className={linkedIn ? 'rounded-md' : 'rounded-full'}
+                    />
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{channel.name}</p>
+                        {linkedIn ? (
+                            <span className="text-xs text-muted-foreground">LinkedIn</span>
+                        ) : null}
+                    </div>
+                    {social ? (
+                        <MenuDotsIcon aria-hidden="true" className="size-5 text-muted-foreground" />
+                    ) : null}
                 </header>
 
-                <div className="min-w-0 bg-surface-field px-4 py-4">
+                <div
+                    className={cn(
+                        'min-w-0 pb-4 pt-2',
+                        social && !linkedIn ? 'pl-16 pr-4' : 'px-4'
+                    )}>
                     {preview.showTitle && preview.title !== '' ? (
                         <h4 className="font-heading text-base font-medium leading-snug tracking-[-0.02em]">
                             {preview.title}
@@ -84,13 +111,51 @@ export function PublicationDraftPreview({
                     ) : null}
 
                     {!preview.hasText && media.length === 0 ? (
-                        <p
+                        <div
                             data-publication-preview-empty="true"
-                            className="min-h-24 content-center text-sm text-muted-foreground">
-                            {m.publication_new_preview_empty()}
-                        </p>
+                            aria-hidden="true"
+                            className="space-y-2 py-4">
+                            <div className="h-2 w-4/5 rounded bg-surface-inset" />
+                            <div className="h-2 w-3/5 rounded bg-surface-inset" />
+                        </div>
                     ) : null}
                 </div>
+                {social ? (
+                    <div
+                        aria-hidden="true"
+                        className={cn(
+                            'flex items-center justify-between px-5 pb-4 text-muted-foreground [&_svg]:size-5',
+                            linkedIn ? 'gap-2 pt-2 text-[11px]' : 'max-w-sm pl-16'
+                        )}>
+                        {linkedIn ? (
+                            <>
+                                <span className="flex flex-col items-center gap-1">
+                                    <LikeIcon />
+                                    {m.publication_preview_like()}
+                                </span>
+                                <span className="flex flex-col items-center gap-1">
+                                    <ChatRoundIcon />
+                                    {m.publication_preview_comment()}
+                                </span>
+                                <span className="flex flex-col items-center gap-1">
+                                    <RepeatIcon />
+                                    {m.publication_preview_repost()}
+                                </span>
+                                <span className="flex flex-col items-center gap-1">
+                                    <ShareIcon />
+                                    {m.publication_preview_share()}
+                                </span>
+                            </>
+                        ) : (
+                            <>
+                                <ChatRoundIcon />
+                                <RepeatIcon />
+                                <HeartIcon />
+                                <ShareIcon />
+                            </>
+                        )}
+                    </div>
+                ) : null}
             </article>
         </section>
     )

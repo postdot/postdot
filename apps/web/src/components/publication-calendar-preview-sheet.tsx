@@ -7,9 +7,9 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@herald/ui/components/sheet'
-import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
 import { LinkIcon } from '@solar-icons/react/bold/link'
+import { PenIcon } from '@solar-icons/react/bold/pen'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, type ReactNode } from 'react'
 
@@ -121,8 +121,8 @@ export function PublicationCalendarPreviewSheet({
                                     size="sm"
                                 />
                             }>
-                            {copy.open}
-                            <AltArrowRightIcon aria-hidden="true" />
+                            <PenIcon aria-hidden="true" />
+                            {copy.edit}
                         </SheetClose>
                     )}
                 </SheetFooter>
@@ -189,7 +189,7 @@ interface PreviewCopy {
     readonly loading: string
     readonly mediaOnly: string
     readonly noContent: string
-    readonly open: string
+    readonly edit: string
     readonly schedule: string
     readonly status: string
     readonly unavailable: string
@@ -205,7 +205,7 @@ function getPreviewCopy(locale: string): PreviewCopy {
             loading: 'Chargement…',
             mediaOnly: 'Publication avec média',
             noContent: 'Aucun contenu à afficher',
-            open: 'Ouvrir la publication',
+            edit: 'Modifier la publication',
             schedule: 'Planification',
             status: 'Statut',
             unavailable: 'Cette publication n’est plus disponible.',
@@ -220,7 +220,7 @@ function getPreviewCopy(locale: string): PreviewCopy {
         loading: 'Loading…',
         mediaOnly: 'Media publication',
         noContent: 'No content to display',
-        open: 'Open publication',
+        edit: 'Edit publication',
         schedule: 'Schedule',
         status: 'Status',
         unavailable: 'This publication is no longer available.',

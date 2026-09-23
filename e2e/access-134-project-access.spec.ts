@@ -55,9 +55,15 @@ test('an owner can invite, update, and remove project members', async ({ page })
         await memberPage.getByLabel('Email').fill(memberEmail)
         await memberPage.getByLabel('Password').fill('e2e-134-member-password')
         await memberPage.getByRole('button', { name: 'Create account', exact: true }).click()
+        await expect(memberPage).toHaveURL(/\/dashboard\/settings\/access\?/, {
+            timeout: 15_000,
+        })
+        const invitationUrl = new URL(memberPage.url())
+        expect(invitationUrl.searchParams.get('projectId')).toBe(owner.projectId)
+        expect(invitationUrl.searchParams.get('organizationInvitation')).toEqual(expect.any(String))
         await expect(
             memberPage.getByRole('heading', { name: 'Project invitation', exact: true })
-        ).toBeVisible()
+        ).toBeVisible({ timeout: 15_000 })
         await memberPage.getByRole('button', { name: 'Join project', exact: true }).click()
         await expect(memberPage).toHaveURL(
             new RegExp(`/dashboard/projects/${owner.projectId}/overview$`)

@@ -40,7 +40,8 @@ interface MediaAssetCardProps {
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
-    readonly onPreview: (asset: MediaReference) => void
+    readonly onPreview?: (asset: MediaReference) => void
+    readonly previewUrl?: string
 }
 
 export type MediaAssetCardLayout = 'grid' | 'compact' | 'list'
@@ -65,6 +66,7 @@ export function MediaAssetCard({
     onRequestDelete,
     onToggle,
     onPreview,
+    previewUrl,
 }: MediaAssetCardProps) {
     const { locale } = useLanguage()
     const representation = readyRepresentation(asset)
@@ -131,15 +133,20 @@ export function MediaAssetCard({
                             asset={asset}
                             representation={representation}
                             className={previewClassName}
+                            src={previewUrl}
                         />
                     </div>
                 ) : (
                     <button
                         type="button"
-                        disabled={interactionDisabled || representation === undefined}
+                        disabled={
+                            interactionDisabled ||
+                            representation === undefined ||
+                            onPreview === undefined
+                        }
                         aria-label={m.media_view_asset({ filename: asset.asset.originalFilename })}
                         data-media-preview="true"
-                        onClick={() => onPreview(asset)}
+                        onClick={() => onPreview?.(asset)}
                         title={m.media_view_asset({ filename: asset.asset.originalFilename })}
                         className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50`}>
                         <MediaPreview
@@ -147,6 +154,7 @@ export function MediaAssetCard({
                             asset={asset}
                             representation={representation}
                             className={previewClassName}
+                            src={previewUrl}
                         />
                     </button>
                 )}
@@ -196,6 +204,15 @@ export function MediaAssetCard({
                         className={`flex min-w-0 flex-1 items-start gap-2 ${isGrid ? 'items-start' : 'items-center'}`}>
                         <button
                             type="button"
+                            aria-label={
+                                selected !== undefined
+                                    ? m.media_bulk_deselect_asset({
+                                          filename: asset.asset.originalFilename,
+                                      })
+                                    : m.media_bulk_select_asset({
+                                          filename: asset.asset.originalFilename,
+                                      })
+                            }
                             aria-pressed={selected !== undefined}
                             data-media-selection-toggle="true"
                             disabled={interactionDisabled || asset.asset.state !== 'ready'}
@@ -439,17 +456,19 @@ export function MediaPreview({
     representation,
     className,
     draggable,
+    src,
 }: {
     readonly projectId: string
     readonly asset: MediaReference
     readonly representation: ReturnType<typeof readyRepresentation>
     readonly className?: string
     readonly draggable?: boolean
+    readonly src?: string
 }) {
     if (representation?.family === 'image') {
         return (
             <img
-                src={api.mediaContentUrl(projectId, asset.asset.id)}
+                src={src ?? api.mediaContentUrl(projectId, asset.asset.id)}
                 alt=""
                 loading="lazy"
                 draggable={draggable}

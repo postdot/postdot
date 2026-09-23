@@ -1,5 +1,5 @@
 import { Button } from '@herald/ui/components/button'
-import { Field as UiField, FieldDescription, FieldLabel } from '@herald/ui/components/field'
+import { Field as UiField, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import {
     Select,
@@ -8,11 +8,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@herald/ui/components/select'
-import { Textarea } from '@herald/ui/components/textarea'
-import { AddIcon } from '@solar-icons/react/bold/add'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
 import { CloseIcon } from '@solar-icons/react/bold/close'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import type { Dispatch, ReactNode, SetStateAction } from 'react'
 
 import { ChannelAvatar } from '@/components/identity-visuals'
 import type { Channel, PublisherConnection } from '@/lib/api'
@@ -24,491 +23,394 @@ import {
 } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
 
-interface PublicationTargetListProps {
+export const publicationSharedTabId = 'shared'
+
+export interface PublicationChannelRailProps {
+    readonly activeChannelId: string
+    readonly channels: readonly Channel[]
+    readonly disabled: boolean
+    readonly onActiveChannelChange: (channelId: string) => void
+    readonly onSharedChange?: () => void
+    readonly selectedChannelIds?: ReadonlySet<string>
+    readonly sharedActive?: boolean
+}
+
+export function PublicationChannelRail({
+    activeChannelId,
+    channels,
+    disabled,
+    onActiveChannelChange,
+    onSharedChange,
+    selectedChannelIds,
+    sharedActive = false,
+}: PublicationChannelRailProps) {
+    useLanguage()
+    const allChannelsSelected = selectedChannelIds === undefined
+
+    return (
+        <div data-publication-channel-selection="true" className="flex min-w-0 items-center gap-3">
+            {onSharedChange ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={
+                        sharedActive ? 'shrink-0 bg-surface-control shadow-control' : 'shrink-0'
+                    }
+                    aria-pressed={sharedActive}
+                    disabled={disabled}
+                    onClick={onSharedChange}>
+                    {m.publication_new_shared_content()}
+                </Button>
+            ) : null}
+            <div
+                className="flex min-w-0 items-center gap-2 overflow-x-auto p-1"
+                role="group"
+                aria-label={m.publication_new_destinations()}>
+                {channels.map(channel => {
+                    const selected = allChannelsSelected || selectedChannelIds.has(channel.id)
+                    const active = channel.id === activeChannelId
+                    return (
+                        <Tooltip key={channel.id}>
+                            <TooltipTrigger
+                                render={
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        aria-label={channel.name}
+                                        aria-pressed={selected}
+                                        data-active-channel={active || undefined}
+                                        disabled={disabled}
+                                        onClick={() => onActiveChannelChange(channel.id)}
+                                        className={`relative h-11 shrink-0 gap-2 rounded-xl px-2 ${active ? 'bg-primary/10 text-primary shadow-control' : selected ? '' : 'opacity-40 grayscale hover:opacity-80 hover:grayscale-0'}`}>
+                                        <ChannelAvatar channel={channel} size="md" />
+                                        {active ? (
+                                            <span className="max-w-32 truncate text-sm">
+                                                {channel.name}
+                                            </span>
+                                        ) : null}
+                                        {selected && !active ? (
+                                            <span className="absolute bottom-1 right-1 size-1.5 rounded-full bg-primary" />
+                                        ) : null}
+                                    </Button>
+                                }
+                            />
+                            <TooltipContent>{channel.name}</TooltipContent>
+                        </Tooltip>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+export interface PublicationChannelTabsProps {
+    readonly activeTargetId: string
+    readonly channels: readonly Channel[]
+    readonly connections: readonly PublisherConnection[]
+    readonly defaultDeliveryMode: DeliveryMode
+    readonly defaultScheduledAt: string
+    readonly disabled: boolean
+    readonly onActiveTargetChange: (targetId: string) => void
+    readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
+    readonly projectId: string
+    readonly targets: readonly PublicationTargetDraft[]
+    readonly timeZone: string
+}
+
+export function PublicationChannelTabs({
+    activeTargetId,
+    channels,
+    defaultDeliveryMode,
+    defaultScheduledAt,
+    disabled,
+    onActiveTargetChange,
+    onChange,
+    projectId,
+    targets,
+    timeZone,
+}: PublicationChannelTabsProps) {
+    useLanguage()
+    function activateChannel(channelId: string) {
+        const existing = targets.find(target => target.channelId === channelId)
+        if (existing) {
+            onActiveTargetChange(existing.id)
+            return
+        }
+        const nextTarget = {
+            ...createPublicationTarget(channelId, timeZone),
+            deliveryMode: defaultDeliveryMode,
+            scheduledAt: defaultScheduledAt,
+        }
+        onChange(current => [...current.filter(target => target.channelId !== ''), nextTarget])
+        onActiveTargetChange(nextTarget.id)
+    }
+
+    if (channels.length === 0) {
+        return (
+            <div
+                data-publication-channel-selection="true"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/45 px-3 py-2.5">
+                <span className="text-sm text-muted-foreground">
+                    {m.publication_new_add_channel()}
+                </span>
+                <Link
+                    className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                    params={{ projectId }}
+                    to="/dashboard/projects/$projectId/channels">
+                    {m.publication_new_manage_channels()}
+                </Link>
+            </div>
+        )
+    }
+
+    return (
+        <PublicationChannelRail
+            activeChannelId={targets.find(target => target.id === activeTargetId)?.channelId ?? ''}
+            channels={channels}
+            disabled={disabled}
+            onActiveChannelChange={activateChannel}
+            onSharedChange={() => onActiveTargetChange(publicationSharedTabId)}
+            selectedChannelIds={new Set(targets.map(target => target.channelId))}
+            sharedActive={activeTargetId === publicationSharedTabId}
+        />
+    )
+}
+
+export interface PublicationChannelSettingsProps {
+    readonly activeTargetId: string
     readonly channels: readonly Channel[]
     readonly connections: readonly PublisherConnection[]
     readonly customizedTargetIds: ReadonlySet<string>
     readonly defaultDeliveryMode: DeliveryMode
     readonly defaultScheduledAt: string
     readonly disabled: boolean
+    readonly onActiveTargetChange: (targetId: string) => void
     readonly onDefaultDeliveryModeChange: (deliveryMode: DeliveryMode) => void
     readonly onDefaultScheduledAtChange: (scheduledAt: string) => void
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
-    readonly onActiveTargetChange?: (targetId: string) => void
     readonly onTargetCustomizationChange: (targetId: string, customized: boolean) => void
+    readonly onRemoveTarget: (targetId: string) => void
     readonly projectId: string
     readonly targets: readonly PublicationTargetDraft[]
     readonly timeZone: string
 }
 
-export function PublicationTargetList({
+export function PublicationChannelSettings({
+    activeTargetId,
     channels,
     connections,
     customizedTargetIds,
     defaultDeliveryMode,
     defaultScheduledAt,
     disabled,
+    onActiveTargetChange,
     onDefaultDeliveryModeChange,
     onDefaultScheduledAtChange,
     onChange,
-    onActiveTargetChange,
     onTargetCustomizationChange,
+    onRemoveTarget,
     projectId,
     targets,
     timeZone,
-}: PublicationTargetListProps) {
+}: PublicationChannelSettingsProps) {
     useLanguage()
-    const [activeTargetId, setActiveTargetId] = useState(targets[0]?.id ?? '')
-    const selectedChannelIds = new Set(
-        targets.map(target => target.channelId).filter(channelId => channelId !== '')
+    const activeTarget = targets.find(target => target.id === activeTargetId)
+    const activeChannel = channels.find(channel => channel.id === activeTarget?.channelId)
+    const activeConnection = connections.find(
+        connection => connection.channelId === activeTarget?.channelId
     )
-    const activeTarget = targets.find(target => target.id === activeTargetId) ?? targets[0]
-    const availableChannel = channels.find(channel => !selectedChannelIds.has(channel.id))
-    const hasSelectedChannel = targets.some(target => target.channelId !== '')
-
-    useEffect(() => {
-        if (targets.some(target => target.id === activeTargetId)) return
-        setActiveTargetId(targets[0]?.id ?? '')
-    }, [activeTargetId, targets])
-
-    useEffect(() => {
-        onActiveTargetChange?.(activeTargetId)
-    }, [activeTargetId, onActiveTargetChange])
+    const activeStatus =
+        activeTarget === undefined || activeChannel === undefined
+            ? null
+            : resolveConnectionStatus(activeChannel, activeConnection, activeTarget.deliveryMode)
 
     function updateTarget(id: string, patch: Partial<PublicationTargetDraft>) {
-        if (
-            patch.channelId !== undefined &&
-            patch.channelId !== '' &&
-            targets.some(target => target.id !== id && target.channelId === patch.channelId)
-        ) {
-            return
-        }
         onChange(currentTargets =>
             currentTargets.map(target => (target.id === id ? { ...target, ...patch } : target))
         )
     }
 
-    function addTarget() {
-        if (availableChannel === undefined) return
-        const nextTarget = {
-            ...createPublicationTarget(availableChannel.id, timeZone),
-            deliveryMode: defaultDeliveryMode,
-            scheduledAt: defaultScheduledAt,
-        }
-        setActiveTargetId(nextTarget.id)
-        onChange(currentTargets => [...currentTargets, nextTarget])
-    }
-
-    function removeTarget(id: string) {
-        if (targets.length === 1) return
-        const nextTargets = targets.filter(target => target.id !== id)
-        if (activeTargetId === id) setActiveTargetId(nextTargets[0]?.id ?? '')
-        onChange(nextTargets)
-    }
-
     return (
-        <div className="space-y-4">
-            {channels.length === 0 ? (
-                <div className="space-y-3 rounded-md bg-muted/60 p-4">
-                    <p className="text-sm text-muted-foreground">
-                        {m.publication_new_add_channel()}
-                    </p>
-                    <Link
-                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                        params={{ projectId }}
-                        to="/dashboard/projects/$projectId/channels">
-                        {m.publication_new_manage_channels()}
-                    </Link>
-                    <div className="max-w-sm pt-1">
-                        <TargetField
-                            htmlFor="publication-default-schedule"
-                            label={m.publication_new_default_schedule()}>
-                            <Input
-                                id="publication-default-schedule"
-                                type="datetime-local"
-                                value={defaultScheduledAt}
-                                disabled
-                            />
-                        </TargetField>
-                    </div>
-                </div>
-            ) : null}
-
-            {channels.length > 0 ? (
-                <div
-                    data-publication-channel-selection="true"
-                    className="flex min-w-0 items-center gap-2">
-                    <div className="min-w-0 flex-1 overflow-x-auto rounded-md bg-muted/60 p-1">
-                        <div
-                            className="flex min-w-max gap-0.5"
-                            role="tablist"
-                            aria-label={m.publication_new_destinations()}>
-                            {targets.map((target, index) => {
-                                const channel = channels.find(
-                                    candidate => candidate.id === target.channelId
-                                )
-                                const status = resolveConnectionStatus(
-                                    channel,
-                                    connections.find(
-                                        candidate => candidate.channelId === target.channelId
-                                    ),
-                                    target.deliveryMode
-                                )
-                                const active = activeTarget?.id === target.id
-                                return (
-                                    <button
-                                        key={target.id}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={active}
-                                        onClick={() => setActiveTargetId(target.id)}
-                                        className={`flex min-w-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${
-                                            active
-                                                ? 'bg-surface-raised text-foreground'
-                                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                                        }`}>
-                                        {channel ? (
-                                            <ChannelAvatar channel={channel} size="sm" />
-                                        ) : null}
-                                        <span className="max-w-40 truncate">
-                                            {channel?.name ??
-                                                m.publication_new_destination({
-                                                    index: String(index + 1),
-                                                })}
-                                        </span>
-                                        {status ? (
-                                            <span
-                                                aria-label={status.label}
-                                                className={`size-1.5 shrink-0 rounded-full ${status.dotClassName}`}
-                                            />
-                                        ) : null}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={disabled || availableChannel === undefined}
-                        title={
-                            availableChannel === undefined
-                                ? m.publication_new_all_channels_selected()
-                                : undefined
-                        }
-                        onClick={addTarget}>
-                        <AddIcon aria-hidden="true" />
-                        {m.publication_new_add_destination()}
-                    </Button>
-                </div>
-            ) : null}
-
-            {hasSelectedChannel ? (
-                <section
-                    data-publication-shared-settings="true"
-                    className="rounded-md bg-muted/55 p-3 sm:p-4">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                        <h3 className="text-sm font-medium">
-                            {m.publication_new_defaults_for_channels()}
-                        </h3>
-                        <span className="text-xs text-muted-foreground">
-                            {m.publication_new_project_time({ timeZone })}
-                        </span>
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <TargetField
-                            htmlFor="publication-default-delivery"
-                            label={m.publication_new_default_delivery()}>
-                            <Select
-                                items={{
-                                    manual: m.publication_new_manual_publication(),
-                                    automatic: m.publication_new_automatic_publication(),
-                                }}
-                                value={defaultDeliveryMode}
-                                onValueChange={value =>
-                                    onDefaultDeliveryModeChange(value as DeliveryMode)
-                                }
-                                disabled={disabled}>
-                                <SelectTrigger id="publication-default-delivery">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent align="start">
-                                    <SelectItem value="manual">
-                                        {m.publication_new_manual_publication()}
-                                    </SelectItem>
-                                    <SelectItem value="automatic">
-                                        {m.publication_new_automatic_publication()}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </TargetField>
-                        <TargetField
-                            htmlFor="publication-default-schedule"
-                            label={m.publication_new_default_schedule()}>
-                            <Input
-                                id="publication-default-schedule"
-                                required
-                                type="datetime-local"
-                                value={defaultScheduledAt}
-                                disabled={disabled}
-                                onChange={event => onDefaultScheduledAtChange(event.target.value)}
-                            />
-                        </TargetField>
-                    </div>
-                </section>
-            ) : null}
-
-            {channels.length > 0 && activeTarget ? (
-                <PublicationTargetCard
-                    key={activeTarget.id}
-                    channels={channels}
-                    connections={connections}
-                    disabled={disabled}
-                    index={targets.indexOf(activeTarget)}
-                    onChange={patch => updateTarget(activeTarget.id, patch)}
-                    onRemove={() => removeTarget(activeTarget.id)}
-                    onToggleCustomization={customized =>
-                        onTargetCustomizationChange(activeTarget.id, customized)
-                    }
-                    projectId={projectId}
-                    selectedChannelIds={selectedChannelIds}
-                    target={activeTarget}
-                    usesDefaults={!customizedTargetIds.has(activeTarget.id)}
-                    removable={targets.length > 1}
-                />
-            ) : null}
-        </div>
-    )
-}
-
-function PublicationTargetCard({
-    channels,
-    connections,
-    disabled,
-    index,
-    onChange,
-    onRemove,
-    onToggleCustomization,
-    projectId,
-    removable,
-    selectedChannelIds,
-    target,
-    usesDefaults,
-}: {
-    readonly channels: readonly Channel[]
-    readonly connections: readonly PublisherConnection[]
-    readonly disabled: boolean
-    readonly index: number
-    readonly onChange: (patch: Partial<PublicationTargetDraft>) => void
-    readonly onRemove: () => void
-    readonly onToggleCustomization: (customized: boolean) => void
-    readonly projectId: string
-    readonly removable: boolean
-    readonly selectedChannelIds: ReadonlySet<string>
-    readonly target: PublicationTargetDraft
-    readonly usesDefaults: boolean
-}) {
-    useLanguage()
-    const [overrideOpen, setOverrideOpen] = useState(target.content.trim() !== '')
-    const channel = channels.find(candidate => candidate.id === target.channelId)
-    const connection = connections.find(candidate => candidate.channelId === target.channelId)
-    const fieldPrefix = `publication-target-${target.id}`
-    const connectionStatus = resolveConnectionStatus(channel, connection, target.deliveryMode)
-
-    return (
-        <div className="space-y-4 rounded-md bg-muted/45 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
-                    {channel ? <ChannelAvatar channel={channel} size="md" /> : null}
-                    <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                            {channel?.name ?? m.publication_new_choose_channel()}
-                        </p>
-                        {connectionStatus ? (
-                            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                                <span className={connectionStatus.className}>
-                                    {connectionStatus.label}
-                                </span>
-                                {connectionStatus.requiresConnection ? (
-                                    <Link
-                                        className="text-primary underline-offset-4 hover:underline"
-                                        params={{ projectId }}
-                                        to="/dashboard/projects/$projectId/channels">
-                                        {m.publication_new_manage_connection()}
-                                    </Link>
-                                ) : null}
-                            </div>
-                        ) : null}
-                    </div>
-                </div>
-                {removable ? (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={m.publication_new_remove_destination({
-                            index: String(index + 1),
-                        })}
-                        disabled={disabled}
-                        onClick={onRemove}>
-                        <CloseIcon aria-hidden="true" />
-                    </Button>
-                ) : null}
-            </div>
-
-            <TargetField htmlFor={`${fieldPrefix}-channel`} label={m.publication_new_channel()}>
-                <Select
-                    required
-                    items={Object.fromEntries(
-                        channels.map(candidate => [candidate.id, candidate.name])
-                    )}
-                    value={target.channelId || null}
-                    onValueChange={value => onChange({ channelId: value ?? '' })}
-                    disabled={disabled}>
-                    <SelectTrigger id={`${fieldPrefix}-channel`}>
-                        <SelectValue placeholder={m.publication_new_choose_channel()} />
-                    </SelectTrigger>
-                    <SelectContent align="start">
-                        {channels.map(candidate => {
-                            const alreadySelected =
-                                candidate.id !== target.channelId &&
-                                selectedChannelIds.has(candidate.id)
-                            return (
-                                <SelectItem
-                                    key={candidate.id}
-                                    value={candidate.id}
-                                    disabled={alreadySelected}
-                                    title={
-                                        alreadySelected
-                                            ? m.publication_new_channel_already_selected()
-                                            : undefined
-                                    }>
-                                    {candidate.name}
-                                </SelectItem>
-                            )
-                        })}
-                    </SelectContent>
-                </Select>
-            </TargetField>
-
-            <div className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">
-                        {m.publication_new_channel_copy()}
+        <div
+            data-publication-settings="true"
+            className="rounded-xl bg-surface-inset/60 px-4 py-3 sm:px-5">
+            <section data-publication-shared-settings="true">
+                <div className="flex justify-end">
+                    <span className="text-xs text-muted-foreground">
+                        {m.publication_new_project_time({ timeZone })}
                     </span>
-                    {overrideOpen ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            disabled={disabled}
-                            onClick={() => {
-                                onChange({ content: '' })
-                                setOverrideOpen(false)
-                            }}>
-                            {m.publication_new_use_source()}
-                        </Button>
-                    ) : (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            disabled={disabled}
-                            onClick={() => setOverrideOpen(true)}>
-                            {m.publication_new_customize_channel()}
-                        </Button>
-                    )}
                 </div>
-                {overrideOpen ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <TargetField
-                        htmlFor={`${fieldPrefix}-content`}
-                        label={m.publication_new_channel_copy()}>
-                        <Textarea
-                            id={`${fieldPrefix}-content`}
-                            value={target.content}
+                        htmlFor="publication-default-delivery"
+                        label={m.publication_new_default_delivery()}>
+                        <Select
+                            items={{
+                                manual: m.publication_new_manual_publication(),
+                                automatic: m.publication_new_automatic_publication(),
+                            }}
+                            value={defaultDeliveryMode}
+                            onValueChange={value =>
+                                onDefaultDeliveryModeChange(value as DeliveryMode)
+                            }
+                            disabled={disabled}>
+                            <SelectTrigger id="publication-default-delivery">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                                <SelectItem value="manual">
+                                    {m.publication_new_manual_publication()}
+                                </SelectItem>
+                                <SelectItem value="automatic">
+                                    {m.publication_new_automatic_publication()}
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </TargetField>
+                    <TargetField
+                        htmlFor="publication-default-schedule"
+                        label={m.publication_new_default_schedule()}>
+                        <Input
+                            id="publication-default-schedule"
+                            type="datetime-local"
+                            value={defaultScheduledAt}
                             disabled={disabled}
-                            onChange={event => onChange({ content: event.target.value })}
-                            placeholder={m.publication_new_optional_override()}
-                            rows={4}
-                            className="min-h-28 leading-6"
+                            onChange={event => onDefaultScheduledAtChange(event.target.value)}
                         />
                     </TargetField>
-                ) : (
-                    <p className="text-xs text-muted-foreground">
-                        {m.publication_new_source_fallback()}
-                    </p>
-                )}
-            </div>
+                </div>
+            </section>
 
-            {usesDefaults ? (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted/70 px-3 py-2.5">
-                    <span className="text-xs text-muted-foreground">
-                        {m.publication_new_uses_defaults()}
-                    </span>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        disabled={disabled}
-                        onClick={() => onToggleCustomization(true)}>
+            {activeChannel !== undefined && activeTarget !== undefined ? (
+                <details
+                    data-publication-active-channel-settings="true"
+                    className="mt-3 rounded-lg bg-surface-raised/70 p-3">
+                    <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
                         {m.publication_new_customize_delivery()}
-                    </Button>
-                </div>
-            ) : (
-                <div className="space-y-2">
-                    <div className="flex justify-end">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            disabled={disabled}
-                            onClick={() => onToggleCustomization(false)}>
-                            {m.publication_new_use_defaults()}
-                        </Button>
-                    </div>
-                    <div className="grid gap-4 xl:grid-cols-2">
-                        <TargetField
-                            htmlFor={`${fieldPrefix}-delivery`}
-                            label={m.publication_new_delivery_mode()}>
-                            <Select
-                                items={{
-                                    manual: m.publication_new_manual_publication(),
-                                    automatic: m.publication_new_automatic_publication(),
-                                }}
-                                value={target.deliveryMode}
-                                onValueChange={value =>
-                                    onChange({ deliveryMode: value as DeliveryMode })
-                                }
-                                disabled={disabled}>
-                                <SelectTrigger id={`${fieldPrefix}-delivery`}>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent align="start">
-                                    <SelectItem value="manual">
-                                        {m.publication_new_manual_publication()}
-                                    </SelectItem>
-                                    <SelectItem value="automatic">
-                                        {m.publication_new_automatic_publication()}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </TargetField>
-                        <TargetField
-                            htmlFor={`${fieldPrefix}-schedule`}
-                            label={m.publication_new_scheduled_for()}>
-                            <Input
-                                id={`${fieldPrefix}-schedule`}
-                                required
-                                type="datetime-local"
-                                value={target.scheduledAt}
+                    </summary>
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <ChannelAvatar channel={activeChannel} size="md" />
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">{activeChannel.name}</p>
+                                {activeStatus ? (
+                                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                        <span className={activeStatus.className}>
+                                            {activeStatus.label}
+                                        </span>
+                                        {activeStatus.requiresConnection ? (
+                                            <Link
+                                                className="text-primary underline-offset-4 hover:underline"
+                                                params={{ projectId }}
+                                                to="/dashboard/projects/$projectId/channels">
+                                                {m.publication_new_manage_connection()}
+                                            </Link>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+                            </div>
+                        </div>
+                        {targets.length > 1 ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={m.publication_new_remove_destination({
+                                    index: String(targets.indexOf(activeTarget) + 1),
+                                })}
                                 disabled={disabled}
-                                onChange={event => onChange({ scheduledAt: event.target.value })}
-                            />
-                        </TargetField>
+                                onClick={() => {
+                                    const nextTargets = targets.filter(
+                                        target => target.id !== activeTarget.id
+                                    )
+                                    onRemoveTarget(activeTarget.id)
+                                    onActiveTargetChange(
+                                        nextTargets[0]?.id ?? publicationSharedTabId
+                                    )
+                                }}>
+                                <CloseIcon aria-hidden="true" />
+                            </Button>
+                        ) : null}
                     </div>
-                </div>
-            )}
+
+                    {customizedTargetIds.has(activeTarget.id) ? (
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <TargetField
+                                htmlFor={`publication-target-${activeTarget.id}-delivery`}
+                                label={m.publication_new_delivery_mode()}>
+                                <Select
+                                    items={{
+                                        manual: m.publication_new_manual_publication(),
+                                        automatic: m.publication_new_automatic_publication(),
+                                    }}
+                                    value={activeTarget.deliveryMode}
+                                    onValueChange={value =>
+                                        updateTarget(activeTarget.id, {
+                                            deliveryMode: value as DeliveryMode,
+                                        })
+                                    }
+                                    disabled={disabled}>
+                                    <SelectTrigger
+                                        id={`publication-target-${activeTarget.id}-delivery`}>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                        <SelectItem value="manual">
+                                            {m.publication_new_manual_publication()}
+                                        </SelectItem>
+                                        <SelectItem value="automatic">
+                                            {m.publication_new_automatic_publication()}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </TargetField>
+                            <TargetField
+                                htmlFor={`publication-target-${activeTarget.id}-schedule`}
+                                label={m.publication_new_scheduled_for()}>
+                                <Input
+                                    id={`publication-target-${activeTarget.id}-schedule`}
+                                    required
+                                    type="datetime-local"
+                                    value={activeTarget.scheduledAt}
+                                    disabled={disabled}
+                                    onChange={event =>
+                                        updateTarget(activeTarget.id, {
+                                            scheduledAt: event.target.value,
+                                        })
+                                    }
+                                />
+                            </TargetField>
+                            <div className="sm:col-span-2 flex justify-end">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="xs"
+                                    disabled={disabled}
+                                    onClick={() =>
+                                        onTargetCustomizationChange(activeTarget.id, false)
+                                    }>
+                                    {m.publication_new_use_defaults()}
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <span className="text-muted-foreground">
+                                {m.publication_new_uses_defaults()}
+                            </span>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="xs"
+                                disabled={disabled}
+                                onClick={() => onTargetCustomizationChange(activeTarget.id, true)}>
+                                {m.publication_new_customize_delivery()}
+                            </Button>
+                        </div>
+                    )}
+                </details>
+            ) : null}
         </div>
     )
 }
@@ -561,12 +463,10 @@ function resolveConnectionStatus(
 
 function TargetField({
     children,
-    hint,
     htmlFor,
     label,
 }: {
     readonly children: ReactNode
-    readonly hint?: string
     readonly htmlFor: string
     readonly label: string
 }) {
@@ -576,9 +476,6 @@ function TargetField({
                 {label}
             </FieldLabel>
             {children}
-            {hint ? (
-                <FieldDescription className="text-xs leading-5">{hint}</FieldDescription>
-            ) : null}
         </UiField>
     )
 }

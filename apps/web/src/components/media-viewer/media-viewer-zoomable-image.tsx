@@ -219,7 +219,7 @@ export function MediaViewerZoomControls({
             <ButtonGroupText
                 aria-live="polite"
                 aria-atomic="true"
-                className="min-w-12 justify-center border-0 bg-surface-raised px-2 text-xs tabular-nums text-foreground shadow-none">
+                className="h-7 min-w-12 justify-center border-0 bg-transparent px-2 text-xs leading-none tabular-nums text-foreground shadow-none">
                 {scalePercent}%
             </ButtonGroupText>
             <Tooltip>

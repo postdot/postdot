@@ -21,7 +21,7 @@ export function PublicationAttentionPanel({
     timeZone,
 }: {
     readonly duePublications: readonly DuePublication[]
-    readonly onPublish: (publicationId: string) => Promise<void>
+    readonly onPublish: (publicationId: string) => Promise<boolean>
     readonly pending: boolean
     readonly timeZone: string
 }) {

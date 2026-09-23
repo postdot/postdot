@@ -358,7 +358,7 @@ test('supports dense events and slot creation in the ReUI week view', async ({ p
     expect(newPublicationUrl.pathname).toBe(`/dashboard/projects/${projectId}/publications/new`)
     expect(newPublicationUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(newPublicationUrl.searchParams.get('time')).toBe('00:00')
-    await expect(page.getByRole('heading', { name: 'New publication', exact: true })).toBeVisible()
+    await expect(page.locator('[data-new-publication-editor="true"]')).toBeVisible()
     await expect(page.locator('input[type="datetime-local"]').first()).toHaveValue(
         `${newPublicationUrl.searchParams.get('date')}T00:00`
     )
