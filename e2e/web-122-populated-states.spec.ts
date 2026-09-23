@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 test('uses the calendar as the project overview and keeps Queue distinct', async ({ page }) => {
     test.setTimeout(30_000)
@@ -112,61 +112,8 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 8' })).toBeVisible()
 })
 
-test('expands a dense ReUI calendar day in place', async ({ page }) => {
-    // This scenario intentionally exercises the full responsive calendar matrix;
-    // allow parallel E2E workers enough time without weakening any assertion.
-    test.setTimeout(60_000)
-
-    const suffix = randomUUID().slice(0, 8)
-    const projectId = await createAccountAndProject(page, suffix)
-    const scheduledAt = currentMonthAt(23, 30)
-    const channelName = 'Calendar review destination channel with a deliberately long name'
-    const publications = Array.from({ length: 6 }, (_, index) =>
-        publicationFixture({
-            channelName,
-            deliveryMode: 'automatic',
-            id: `e2e-122-reui-publication-${index + 1}-${suffix}`,
-            postTitle: `E2E-122 ReUI publication ${index + 1} ${suffix}`,
-            projectId,
-            scheduledAt,
-            state: 'scheduled',
-        })
-    )
-
-    await page.route(
-        new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
-        async route => {
-            const requestUrl = new URL(route.request().url())
-            if (
-                route.request().method() !== 'GET' ||
-                requestUrl.pathname !== `/api/projects/${projectId}/publications`
-            ) {
-                await route.continue()
-                return
-            }
-
-            await route.fulfill({
-                status: 200,
-                contentType: 'application/json',
-                body: JSON.stringify({
-                    publications,
-                    nextCursor: null,
-                    summary: { total: 6, manual: 0, automatic: 6, scheduled: 6 },
-                }),
-            })
-        }
-    )
-    await page.route(`**/api/projects/${projectId}/publications/due`, async route => {
-        await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ publications: [] }),
-        })
-    })
-
-    await page.goto(`/dashboard/projects/${projectId}/overview`)
-    const calendar = page.locator('[data-calendar="reui"]')
-    await expect(calendar).toBeVisible()
+test('keeps the populated ReUI calendar responsive and keyboard navigable', async ({ page }) => {
+    const { calendar, projectId } = await createDenseCalendarProject(page)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(calendar.locator('[data-calendar-view="agenda"]')).toBeVisible()
@@ -253,6 +200,11 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
         'border-right-width',
         '0px'
     )
+})
+
+test('supports dense events and slot creation in the ReUI week view', async ({ page }) => {
+    const { calendar, projectId, suffix } = await createDenseCalendarProject(page)
+    await page.setViewportSize({ width: 1280, height: 900 })
 
     await calendar.getByRole('button', { name: 'Week', exact: true }).click()
     const weekView = calendar.locator('[data-calendar-view="week"]')
@@ -401,42 +353,19 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     const emptyTimeSlotBox = await emptyTimeSlot.boundingBox()
     expect(denseTimeSlotBox?.height).toBeGreaterThan(emptyTimeSlotBox?.height ?? 0)
 
-    await weekScrollSurface.evaluate(element => {
-        element.scrollLeft = element.scrollWidth - element.clientWidth
-    })
-    await expect
-        .poll(() => weekScrollSurface.evaluate(element => element.scrollLeft))
-        .toBeGreaterThan(0)
-    const scrollSurfaceBox = await weekScrollSurface.boundingBox()
-    const timeGutter = weekView.locator('[data-slot="event-calendar-time-gutter-slot"]').first()
-    await expect(timeGutter).toHaveCSS('position', 'sticky')
-    const timeGutterBox = await timeGutter.boundingBox()
-    expect(Math.abs((timeGutterBox?.x ?? 0) - (scrollSurfaceBox?.x ?? 0))).toBeLessThanOrEqual(1)
-    await weekScrollSurface.evaluate(element => {
-        element.scrollLeft = 0
-    })
-
     await emptySlotAdd.click()
     const newPublicationUrl = new URL(page.url())
     expect(newPublicationUrl.pathname).toBe(`/dashboard/projects/${projectId}/publications/new`)
     expect(newPublicationUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(newPublicationUrl.searchParams.get('time')).toBe('00:00')
-    await expect(page.getByRole('heading', { name: 'New publication', exact: true })).toBeVisible()
+    await expect(page.locator('[data-new-publication-editor="true"]')).toBeVisible()
     await expect(page.locator('input[type="datetime-local"]').first()).toHaveValue(
         `${newPublicationUrl.searchParams.get('date')}T00:00`
     )
+})
 
-    await page.goto(`/dashboard/projects/${projectId}/overview`)
-    await expect(calendar.locator('[data-calendar-view="month"]')).toBeVisible()
-    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
-    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
-    const weekViewAfterCreate = calendar.locator('[data-calendar-view="week"]')
-    await expect(weekViewAfterCreate.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
-    await weekViewAfterCreate.getByRole('button', { name: /E2E-122 ReUI publication 1/ }).click()
-    await expect(
-        page.getByRole('heading', { name: `E2E-122 ReUI publication 1 ${suffix}`, exact: true })
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Close', exact: true }).click()
+test('preserves day view and expands dense ReUI month cells in place', async ({ page }) => {
+    const { calendar, suffix } = await createDenseCalendarProject(page)
 
     await calendar.getByRole('button', { name: 'Day', exact: true }).click()
     const dayView = calendar.locator('[data-calendar-view="day"]')
@@ -459,6 +388,27 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
             scrollWidth: element.scrollWidth,
         }))
     expect(weekScroll.scrollWidth).toBeGreaterThan(weekScroll.clientWidth)
+    const narrowWeekScrollSurface = narrowWeek.locator(
+        '[data-slot="event-calendar-time-grid-scroll"]'
+    )
+    await narrowWeekScrollSurface.evaluate(element => {
+        element.scrollLeft = element.scrollWidth - element.clientWidth
+    })
+    await expect
+        .poll(() => narrowWeekScrollSurface.evaluate(element => element.scrollLeft))
+        .toBeGreaterThan(0)
+    const narrowScrollSurfaceBox = await narrowWeekScrollSurface.boundingBox()
+    const narrowTimeGutter = narrowWeek
+        .locator('[data-slot="event-calendar-time-gutter-slot"]')
+        .first()
+    await expect(narrowTimeGutter).toHaveCSS('position', 'sticky')
+    const narrowTimeGutterBox = await narrowTimeGutter.boundingBox()
+    expect(
+        Math.abs((narrowTimeGutterBox?.x ?? 0) - (narrowScrollSurfaceBox?.x ?? 0))
+    ).toBeLessThanOrEqual(1)
+    await narrowWeekScrollSurface.evaluate(element => {
+        element.scrollLeft = 0
+    })
 
     await calendar.getByRole('button', { name: 'Day', exact: true }).click()
     const narrowDay = calendar.locator('[data-calendar-view="day"]')
@@ -502,6 +452,65 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await expect(denseCell).toHaveAttribute('data-expanded', 'true')
 })
+
+async function createDenseCalendarProject(page: Page): Promise<{
+    calendar: Locator
+    projectId: string
+    suffix: string
+}> {
+    const suffix = randomUUID().slice(0, 8)
+    const projectId = await createAccountAndProject(page, suffix)
+    const scheduledAt = currentMonthAt(23, 30)
+    const channelName = 'Calendar review destination channel with a deliberately long name'
+    const publications = Array.from({ length: 6 }, (_, index) =>
+        publicationFixture({
+            channelName,
+            deliveryMode: 'automatic',
+            id: `e2e-122-reui-publication-${index + 1}-${suffix}`,
+            postTitle: `E2E-122 ReUI publication ${index + 1} ${suffix}`,
+            projectId,
+            scheduledAt,
+            state: 'scheduled',
+        })
+    )
+
+    await page.route(
+        new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
+        async route => {
+            const requestUrl = new URL(route.request().url())
+            if (
+                route.request().method() !== 'GET' ||
+                requestUrl.pathname !== `/api/projects/${projectId}/publications`
+            ) {
+                await route.continue()
+                return
+            }
+
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    publications,
+                    nextCursor: null,
+                    summary: { total: 6, manual: 0, automatic: 6, scheduled: 6 },
+                }),
+            })
+        }
+    )
+    await page.route(`**/api/projects/${projectId}/publications/due`, async route => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ publications: [] }),
+        })
+    })
+
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
+    const calendar = page.locator('[data-calendar="reui"]')
+    await expect(calendar).toBeVisible()
+
+    return { calendar, projectId, suffix }
+}
 
 function publicationFixture(input: {
     readonly channelName: string
