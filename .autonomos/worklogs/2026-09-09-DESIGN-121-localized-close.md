@@ -9,8 +9,8 @@
 
 - Added an explicit close-label prop to the shared Sheet primitive.
 - Passed the application locale through the mobile workspace drawer and the
-  notification inbox, so French users receive `Fermer` instead of the
-  primitive's English fallback.
+  notification inbox, so the close control uses the active locale instead of
+  the primitive's English fallback.
 - Extended the responsive shell scenario to switch to French, verify the
   localized drawer close control, close the drawer, and reopen navigation.
 

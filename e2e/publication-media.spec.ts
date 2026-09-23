@@ -39,12 +39,7 @@ type LayoutView = {
     }
 }
 
-test('persists mixed and media-only publications through the dashboard', async ({
-    page,
-    request,
-}) => {
-    test.setTimeout(90_000)
-
+async function mockWebcam(page: Page) {
     await page.addInitScript(() => {
         const mediaDevices = navigator.mediaDevices ?? {}
         Object.defineProperty(mediaDevices, 'getUserMedia', {
@@ -70,16 +65,17 @@ test('persists mixed and media-only publications through the dashboard', async (
         })
         HTMLMediaElement.prototype.play = () => Promise.resolve()
     })
+}
+
+test('keeps dashboard and composer media journeys reliable', async ({ page, request }) => {
+    test.setTimeout(60_000)
+
+    await mockWebcam(page)
 
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
     const channelName = `E2E-33 Channel ${suffix}`
     const secondChannelName = `E2E-33 Second channel ${suffix}`
-    const sourceText = `E2E-33 source ${suffix}`
-    const targetText = `E2E-33 target ${suffix}`
-    const secondTargetText = `E2E-33 second target ${suffix}`
-    const scheduledDateTime = localDateTimeInHours(2)
-
     const readinessResponse = await request.get(`${e2eApiOrigin}/ready`)
     expect(readinessResponse.status()).toBe(200)
     expect(await readinessResponse.json()).toEqual({
@@ -130,14 +126,13 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
     await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
-    await expect(
-        page.getByRole('button', { name: 'Changer la langue pour Anglais', exact: true }) // language-lint-ignore: localized browser assertion; cspell:ignore Anglais
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Changer la langue pour Anglais', exact: true }).click() // language-lint-ignore: localized browser assertion; cspell:ignore Anglais
-    await page.getByRole('menuitem', { name: 'Anglais', exact: true }).click() // cspell:ignore Anglais
-    await expect(
-        page.getByRole('button', { name: 'Switch language to French', exact: true })
-    ).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
+    const languageSwitcher = page.locator('[data-slot="language-switcher-trigger"]')
+    await expect(languageSwitcher).toBeVisible()
+    await languageSwitcher.click()
+    await expect(page.locator('[role="menuitem"][aria-current="true"]')).toHaveCount(1)
+    await page.locator('[role="menuitem"]:not([aria-current="true"])').click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
 
     await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
     await expect(page.getByText(`e2e-33-${suffix}@herald.local`, { exact: true })).toBeVisible()
@@ -495,6 +490,14 @@ test('persists mixed and media-only publications through the dashboard', async (
             name: new RegExp(`Remove ${secondMediaFilename}`),
         })
     ).toHaveCount(0)
+})
+
+test('supports media library search, viewing, and bulk actions', async ({ page }) => {
+    test.setTimeout(60_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+    const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
 
     await page.getByRole('link', { name: 'Media', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/media$/)
@@ -509,19 +512,7 @@ test('persists mixed and media-only publications through the dashboard', async (
             .locator('[data-media-import-zone="true"]')
             .getByRole('button', { name: 'Browse', exact: true })
     ).toBeVisible()
-    const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
-    await page.locator('[data-media-import-zone="true"]').evaluate(
-        (element, file) => {
-            const dataTransfer = new DataTransfer()
-            dataTransfer.items.add(
-                new File([Uint8Array.from(file.bytes)], file.name, { type: file.mimeType })
-            )
-            element.dispatchEvent(
-                new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer })
-            )
-        },
-        { name: droppedMediaFilename, mimeType: 'image/png', bytes: [...mediaBytes] }
-    )
+    await importMediaFiles(page, [mediaFilename, secondMediaFilename, droppedMediaFilename])
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
@@ -632,6 +623,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     const viewerThumbnailTrack = mediaLibraryViewer.locator(
         '[data-media-viewer-thumbnail-track="true"]'
     )
+    const draggableViewerThumbnail = viewerThumbnailTrack
+        .locator('[data-media-viewer-thumbnail="true"]')
+        .first()
     await page.setViewportSize({ width: 390, height: 844 })
     const mobileViewerHeaderLayout = await mediaLibraryViewer.evaluate(viewer => {
         const header = viewer.querySelector<HTMLElement>('[data-slot="dialog-header"]')
@@ -655,6 +649,23 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.setViewportSize({ width: 200, height: 480 })
     await expect(viewerThumbnailViewport).toBeVisible()
     await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grab')
+    await draggableViewerThumbnail.hover()
+    const draggableThumbnailBounds = await draggableViewerThumbnail.boundingBox()
+    expect(draggableThumbnailBounds).not.toBeNull()
+    const thumbnailTrackLeftBefore = (await viewerThumbnailTrack.boundingBox())?.x
+    expect(thumbnailTrackLeftBefore).toBeDefined()
+    const thumbnailDragX =
+        (draggableThumbnailBounds?.x ?? 0) + (draggableThumbnailBounds?.width ?? 0) / 2
+    const thumbnailDragY =
+        (draggableThumbnailBounds?.y ?? 0) + (draggableThumbnailBounds?.height ?? 0) / 2
+    await page.mouse.move(thumbnailDragX, thumbnailDragY)
+    await page.mouse.down()
+    await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grabbing')
+    await page.mouse.move(thumbnailDragX + 40, thumbnailDragY, { steps: 4 })
+    await page.mouse.up()
+    await expect
+        .poll(async () => (await viewerThumbnailTrack.boundingBox())?.x)
+        .not.toBe(thumbnailTrackLeftBefore)
     await page.setViewportSize({ width: 1280, height: 720 })
     await expect(
         mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
@@ -808,6 +819,27 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toHaveCount(0)
+})
+
+test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
+    test.setTimeout(90_000)
+    await mockWebcam(page)
+
+    const suffix = randomUUID().slice(0, 8)
+    const projectName = `E2E-33 Project ${suffix}`
+    const channelName = `E2E-33 Channel ${suffix}`
+    const secondChannelName = `E2E-33 Second channel ${suffix}`
+    const sourceText = `E2E-33 source ${suffix}`
+    const targetText = `E2E-33 target ${suffix}`
+    const secondTargetText = `E2E-33 second target ${suffix}`
+    const scheduledDateTime = localDateTimeInHours(2)
+
+    const { projectId: firstProjectId } = await createAccountAndProject(page, suffix, projectName)
+    await createChannel(page, channelName)
+    await createChannel(page, secondChannelName, 'LinkedIn text')
+    await page.goto(`/dashboard/projects/${firstProjectId}/media`)
+    await importMediaFiles(page, [editedMediaFilename])
+    await page.getByRole('button', { name: 'List view', exact: true }).click()
 
     await expect(
         page.locator('main').getByRole('button', { name: 'New publication', exact: true })
@@ -816,6 +848,26 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    const mixedAttachmentLibrary = page.locator('[data-media-library="true"]')
+    const mixedAttachmentSearch = mixedAttachmentLibrary.getByRole('searchbox', {
+        name: 'Search media',
+        exact: true,
+    })
+    await mixedAttachmentSearch.fill(editedMediaFilename)
+    const mixedAttachmentCard = mixedAttachmentLibrary
+        .locator('article')
+        .filter({ hasText: editedMediaFilename })
+        .first()
+    await expect(mixedAttachmentCard).toHaveCount(1)
+    await mixedAttachmentCard.locator('[data-media-preview="true"]').click()
+    await expect(
+        mixedAttachmentCard.locator('[data-media-selection-toggle="true"]')
+    ).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
+    ).toBeVisible()
     const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().innerText()
     await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
     await page.getByLabel('Channel content', { exact: true }).fill(targetText)
@@ -1359,7 +1411,6 @@ test('persists mixed and media-only publications through the dashboard', async (
     await usedMediaBulkDeletionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(usedMediaBulkDeletionDialog).toHaveCount(0)
 
-    const firstProjectId = projectIdFromUrl(page.url())
     const secondProjectName = `E2E-51 Second project ${suffix}`
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
@@ -1394,6 +1445,72 @@ test('persists mixed and media-only publications through the dashboard', async (
         secondProjectName
     )
 })
+
+async function createAccountAndProject(page: Page, suffix: string, projectName?: string) {
+    const email = `e2e-33-${suffix}@herald.local`
+    const resolvedProjectName = projectName ?? `E2E-33 Project ${suffix}`
+
+    await page.goto('/')
+    await expect(page).toHaveURL(/\/login$/)
+    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
+    await page.getByLabel('Name').fill('E2E-33 Operator')
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Password', { exact: true }).fill('e2e-33-password')
+    await Promise.all([
+        page.waitForResponse(
+            response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+        ),
+        page.getByRole('button', { name: 'Create account', exact: true }).click(),
+    ])
+    await page.goto('/dashboard?projectId=none')
+    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
+
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
+    await page.getByRole('textbox', { name: 'New project', exact: true }).fill(resolvedProjectName)
+    await page
+        .locator('form')
+        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
+        .getByRole('button', { name: 'Add project', exact: true })
+        .click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+
+    return { email, projectId: projectIdFromUrl(page.url()), projectName: resolvedProjectName }
+}
+
+async function createChannel(page: Page, channelName: string, profileName?: string) {
+    const projectId = projectIdFromUrl(page.url())
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    if (profileName !== undefined) {
+        const channelProfile = page.getByRole('radiogroup', { name: 'Profile', exact: true })
+        await channelProfile.getByRole('radio', { name: profileName, exact: true }).click()
+    }
+    await page.getByLabel('Channel name').fill(channelName)
+    await page.getByRole('button', { name: 'Create channel', exact: true }).click()
+    await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
+}
+
+async function importMediaFiles(page: Page, filenames: readonly string[]) {
+    const importZone = page.locator('[data-media-import-zone="true"]')
+    await expect(importZone).toBeVisible()
+
+    for (const name of filenames) {
+        await importZone.evaluate(
+            (element, file) => {
+                const dataTransfer = new DataTransfer()
+                dataTransfer.items.add(
+                    new File([Uint8Array.from(file.bytes)], file.name, { type: file.mimeType })
+                )
+                element.dispatchEvent(
+                    new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer })
+                )
+            },
+            { name, mimeType: 'image/png', bytes: [...mediaBytes] }
+        )
+        await expect(page.getByRole('button', { name: `View ${name}`, exact: true })).toBeVisible()
+    }
+}
 
 interface TargetContent {
     readonly body?: string

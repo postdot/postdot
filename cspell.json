@@ -8,6 +8,7 @@
     ],
     "ignorePaths": [
         ".git/**",
+        ".agents/skills/**",
         ".turbo/**",
         ".worktrees/**",
         "apps/web/messages/**",
@@ -52,7 +53,6 @@
         "typescript",
         "web-services"
     ],
-    "ignoreRegExpList": ["/.*language-lint-ignore.*/"],
     "words": [
         "Adwaita",
         "affordances",

@@ -12,11 +12,11 @@ However, recent features do not always extend the existing guarantees. Roles are
 
 ## Report index
 
-1. [Security and access](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/01-securite-et-acces.md) — roles, revocation, and existing protections.
-2. [Reliability, data, and operations](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md) — lists, notifications, cleanup, and process shutdown.
-3. [Architecture, client, and quality](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md) — consistency, maintenance cost, and control blind spots.
-4. [Proposed follow-up](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/04-suite-proposee.md) — recommended order and exit criteria for future sessions.
-5. [Method and evidence](/home/hakim/projects/herald/.autonomos/worklogs/2026-09-11-herald-audit/05-verification.md) — executed checks, reproductions, limits, and rejected hypotheses.
+1. [Security and access](01-security-and-access.md) — roles, revocation, and existing protections.
+2. [Reliability, data, and operations](02-reliability-data-and-operations.md) — lists, notifications, cleanup, and process shutdown.
+3. [Architecture, client, and quality](03-architecture-client-and-quality.md) — consistency, maintenance cost, and control blind spots.
+4. [Proposed follow-up](04-proposed-follow-up.md) — recommended order and exit criteria for future sessions.
+5. [Method and evidence](05-verification-and-evidence.md) — executed checks, reproductions, limits, and rejected hypotheses.
 
 ## Priority findings
 

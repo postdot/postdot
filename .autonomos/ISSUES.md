@@ -1848,7 +1848,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   Better Auth `viewer` role receiving `201 Created` from both channel creation and
   post creation. The same fixture received `403` for the existing project timezone
   mutation, proving that the role is known but not enforced consistently. See the
-  [security audit](worklogs/2026-09-11-herald-audit/01-securite-et-acces.md).
+  [security audit](worklogs/2026-09-11-herald-audit/01-security-and-access.md).
 - Impact: A principal explicitly granted read-only access can modify project
   content and potentially influence downstream publication work. The current
   route-level test coverage can therefore pass while the product-wide role contract
@@ -1876,7 +1876,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   membership, confirmed a new project read was rejected, and then observed a later
   `channel.created` event on the already-open stream. The stream currently checks
   access at connection time but does not revalidate the principal during its
-  lifetime. See the [security audit](worklogs/2026-09-11-herald-audit/01-securite-et-acces.md).
+  lifetime. See the [security audit](worklogs/2026-09-11-herald-audit/01-security-and-access.md).
 - Impact: Revoked members can continue observing project identifiers, event types,
   subjects, and timestamps. The reproduction did not expose post text, tokens, or
   provider responses, but it violates the expected lifetime of a revoked project
@@ -1903,7 +1903,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   API returns only `{ publications }` and the web project context consumes that
   array as the complete data set for Queue and calendar views. The audit created 101
   stored publications and received 100 with no continuation metadata. See the
-  [reliability audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+  [reliability audit](worklogs/2026-09-11-herald-audit/02-reliability-data-and-operations.md).
 - Impact: Queue filters, counters, and the calendar can silently omit valid work.
   Ordering the bounded result before the calendar groups it can also hide future
   publications behind older history; the database rows themselves are not lost.
@@ -1929,7 +1929,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   runtime without a recovery interval, so a backlog larger than the bounded pass can
   remain unprojected until another signal or restart. The audit reproduced twelve
   required batches as ten processed with state `started`. See the [reliability
-  audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+  audit](worklogs/2026-09-11-herald-audit/02-reliability-data-and-operations.md).
 - Impact: The durable fact journal remains intact, but the user-global notification
   inbox can be stale or incomplete while readiness still reports the runtime as
   active. Recovery after interruption is therefore not guaranteed by the current
@@ -1955,7 +1955,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   `publication.tags_replaced` facts, but those event names are absent from both the
   server and browser realtime allowlists. The real `publication.tags_replaced`
   event is therefore converted to no client event. See the [client architecture
-  audit](worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md).
+  audit](worklogs/2026-09-11-herald-audit/03-architecture-client-and-quality.md).
 - Impact: Another tab or session can retain stale tags, filters, and publication
   data indefinitely because the project query uses an infinite stale time and relies
   on realtime invalidation or an explicit local action.
@@ -1980,7 +1980,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Evidence: `packages/db/package.json` defines `clean` as `rimraf dist .turbo drizzle`,
   while `drizzle` contains the committed migration SQL and metadata. The audit did
   not execute the destructive command against the repository, but the script and
-  tracked files establish the behavior statically. See the [reliability audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+  tracked files establish the behavior statically. See the [reliability audit](worklogs/2026-09-11-herald-audit/02-reliability-data-and-operations.md).
 - Impact: A normal cleanup can remove the source history required for a fresh
   startup or package build. Git can restore committed files, but a local migration
   that has not been committed is not recoverable through that path.
@@ -2002,7 +2002,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Evidence: `bun run check` reaches workspace tests through Turbo but does not run
   the eight tests under `scripts/`; those tests are only green when invoked
   separately with `bun test scripts`. The audit confirmed the omission in the Turbo
-  task graph and the root package scripts. See the [client and quality audit](worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md).
+  task graph and the root package scripts. See the [client and quality audit](worklogs/2026-09-11-herald-audit/03-architecture-client-and-quality.md).
 - Impact: Regressions in the CLI and runtime-isolation helpers can merge while the
   repository's advertised check remains green. This weakens confidence in the same
   orchestration paths used by local development and browser validation.
@@ -2494,7 +2494,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Type: problem
 - Status: resolved
-- Evidence: In the populated Week view, the selected `Semaine` control is
+- Evidence: In the populated Week view, the selected week-view control is
   rendered with the same tonal family as its container and relies mainly on a
   shadow to form its boundary. The controls carry `aria-keyshortcuts`, but no
   visible keycap tells an operator that `M`, `W`, `D`, `A`, `T`, `[` or `]`
@@ -2716,7 +2716,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   authoring module now use `/publications/new`, all in-scope links, copy, route
   artifacts, and browser contracts were updated, and the former `/compose` route
   and Composer navigation peer were removed. The project selector is labeled
-  `Project` / `Projet`, contains the inline project-creation action, and the
+  the project-context label, contains the inline project-creation action, and the
   active-project sidebar exposes one prominent `New publication` /
   `Nouvelle publication` action. The authoring form hierarchy remains deferred
   to a separate UX slice.
@@ -2764,8 +2764,8 @@ channels` with a foreign-key constraint error even though a fresh empty database
   headings, no duplicate “destination” framing in the active channel card, and
   remains usable at narrow widths with localized English and French copy.
 - Resolution: DESIGN-175 and WEB-176 implement the accepted authoring contract.
-  The page now leads with `Content` / `Contenu`, uses `Publish to` /
-  `Publier sur`, gives the editor the dominant column, puts channel selection
+  The page now leads with its content section, uses an explicit channel-scope
+  section, gives the editor the dominant column, puts channel selection
   before shared delivery settings, and keeps channel-specific changes in the
   active channel card. User-facing Source/Destinations and duplicate destination
   framing were removed without changing the multi-channel API or draft behavior.
@@ -3017,7 +3017,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Status: resolved
 - Evidence: The supplied audit reports stale branches and multiple worktrees, including references to removed branches and a prunable worktree.
 - Impact: Stale parallel state increases collision risk and makes it difficult to identify the authoritative checkout.
-- Desired outcome: Repository lifecycle state is inventoryable, ownership is clear, and cleanup can be performed safely when the owner authorizes it.
+- Desired outcome: Repository lifecycle state can be inventoried, ownership is clear, and cleanup can be performed safely when the owner authorizes it.
 - Tasks: OPS-192
 - Resolution: After the owner selected `main` as the integration baseline, 18
   clean worktrees whose HEADs were already ancestors of `main` were removed.

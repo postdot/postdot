@@ -12,7 +12,7 @@
         "build-storybook": "bun run --cwd packages/ui build-storybook",
         "dev": "turbo dev",
         "lint": "turbo lint && oxlint --deny-warnings scripts e2e *.config.* && bun run lint:spelling",
-        "lint:spelling": "cspell lint --gitignore --no-progress --no-summary --show-context --cache",
+        "lint:spelling": "cspell lint --dot --gitignore --no-progress --no-summary --show-context --cache",
         "lint:fix": "turbo lint:fix && oxlint --fix scripts e2e *.config.*",
         "format": "turbo format && oxfmt --check scripts e2e package.json cspell.json turbo.json tsconfig.json bunfig.toml *.config.*",
         "format:fix": "turbo format:fix && oxfmt --write scripts e2e package.json cspell.json turbo.json tsconfig.json bunfig.toml *.config.*",

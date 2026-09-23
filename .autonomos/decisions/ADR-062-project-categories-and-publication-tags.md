@@ -182,7 +182,7 @@ recent edit. Category/tag IDs must be opaque stable IDs, not labels or slugs.
 A label safety bound may be introduced at the API/storage edge only to protect
 compact controls, logs, and resource usage; it is not a product quota. The
 first implementation should document the bound, count Unicode user-visible
-characters rather than bytes where practical, and make it safely raiseable.
+characters rather than bytes where practical, and keep later increases safe.
 There is no separate limit on the number of categories, tags, or assignments.
 
 ### Ordering and filtering semantics

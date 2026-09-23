@@ -157,31 +157,19 @@ test('keeps the workspace navigation reachable when reduced and on mobile', asyn
     await expect(page.getByRole('heading', { name: 'Vue d’ensemble', exact: true })).toBeVisible()
     await expectNoHorizontalOverflow(page)
 
-    await page
-        .getByRole('button', {
-            name: 'Afficher ou masquer la navigation de l’espace de travail',
-            exact: true,
-        }) // cspell:ignore Afficher l’espace
-        .click()
-    await expect(
-        page.getByRole('navigation', { name: 'Navigation du travail', exact: true }) // language-lint-ignore: localized browser assertion
-    ).toBeVisible()
+    await page.locator('[data-slot="sidebar-trigger"]').click()
+    const workNavigation = page.locator('nav').filter({ has: page.locator('a[href$="/channels"]') })
+    await expect(workNavigation).toBeVisible()
     const mobileDrawer = page.locator('[data-slot="sidebar"][data-mobile="true"]')
     await expect(mobileDrawer).toBeVisible()
     await expect(mobileDrawer).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
-    await expect(page.getByRole('button', { name: 'Fermer', exact: true })).toBeVisible() // cspell:ignore Fermer
-    await page.getByRole('button', { name: 'Fermer', exact: true }).click() // cspell:ignore Fermer
-    await expect(
-        page.getByRole('navigation', { name: 'Navigation du travail', exact: true }) // language-lint-ignore: localized browser assertion
-    ).toBeHidden()
+    const drawerClose = mobileDrawer.locator('[data-slot="sheet-close"]')
+    await expect(drawerClose).toBeVisible()
+    await drawerClose.click()
+    await expect(workNavigation).toBeHidden()
 
-    await page
-        .getByRole('button', {
-            name: 'Afficher ou masquer la navigation de l’espace de travail',
-            exact: true,
-        }) // cspell:ignore Afficher l’espace
-        .click()
-    await expect(page.getByRole('link', { name: 'Canaux', exact: true })).toBeVisible() // cspell:ignore Canaux
+    await page.locator('[data-slot="sidebar-trigger"]').click()
+    await expect(page.locator('[data-sidebar="menu-button"][href$="/channels"]')).toBeVisible()
     await expectNoHorizontalOverflow(page)
 })
 

@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+import { frenchTranslation } from './locale'
+
 test('keeps failed and ambiguous publications legible across queue and overview', async ({
     page,
 }) => {
@@ -98,9 +100,11 @@ test('keeps failed and ambiguous publications legible across queue and overview'
 
     await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
     await page.getByRole('menuitem', { name: 'French', exact: true }).click()
-    await expect(page.getByRole('link').filter({ hasText: failedTitle })).toContainText('Échec') // language-lint-ignore: localized browser assertion
+    await expect(page.getByRole('link').filter({ hasText: failedTitle })).toContainText(
+        frenchTranslation('publication_state_failed')
+    )
     await expect(page.getByRole('link').filter({ hasText: ambiguousTitle })).toContainText(
-        'À vérifier' // language-lint-ignore: localized browser assertion
+        frenchTranslation('publication_state_needs_review')
     )
 
     await page.setViewportSize({ width: 1280, height: 720 })

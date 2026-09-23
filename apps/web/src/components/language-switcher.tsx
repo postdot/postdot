@@ -39,6 +39,7 @@ export function LanguageSwitcher() {
                                 <Button
                                     aria-label={label}
                                     className="px-2"
+                                    data-slot="language-switcher-trigger"
                                     size="icon-sm"
                                     title={label}
                                     variant="ghost"
