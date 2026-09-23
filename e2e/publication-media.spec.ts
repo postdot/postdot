@@ -614,6 +614,9 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     const viewerThumbnailTrack = mediaLibraryViewer.locator(
         '[data-media-viewer-thumbnail-track="true"]'
     )
+    const draggableViewerThumbnail = viewerThumbnailTrack
+        .locator('[data-media-viewer-thumbnail="true"]')
+        .first()
     await page.setViewportSize({ width: 390, height: 844 })
     const mobileViewerHeaderLayout = await mediaLibraryViewer.evaluate(viewer => {
         const header = viewer.querySelector<HTMLElement>('[data-slot="dialog-header"]')
@@ -637,16 +640,19 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await page.setViewportSize({ width: 200, height: 480 })
     await expect(viewerThumbnailViewport).toBeVisible()
     await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grab')
-    const viewerThumbnailBounds = await viewerThumbnailViewport.boundingBox()
-    expect(viewerThumbnailBounds).not.toBeNull()
+    await draggableViewerThumbnail.hover()
+    const draggableThumbnailBounds = await draggableViewerThumbnail.boundingBox()
+    expect(draggableThumbnailBounds).not.toBeNull()
     const thumbnailTrackLeftBefore = (await viewerThumbnailTrack.boundingBox())?.x
     expect(thumbnailTrackLeftBefore).toBeDefined()
-    const thumbnailDragX = (viewerThumbnailBounds?.x ?? 0) + (viewerThumbnailBounds?.width ?? 0) / 2
+    const thumbnailDragX =
+        (draggableThumbnailBounds?.x ?? 0) + (draggableThumbnailBounds?.width ?? 0) / 2
     const thumbnailDragY =
-        (viewerThumbnailBounds?.y ?? 0) + (viewerThumbnailBounds?.height ?? 0) / 2
+        (draggableThumbnailBounds?.y ?? 0) + (draggableThumbnailBounds?.height ?? 0) / 2
     await page.mouse.move(thumbnailDragX, thumbnailDragY)
     await page.mouse.down()
-    await page.mouse.move(thumbnailDragX - 50, thumbnailDragY, { steps: 4 })
+    await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grabbing')
+    await page.mouse.move(thumbnailDragX + 40, thumbnailDragY, { steps: 4 })
     await page.mouse.up()
     await expect
         .poll(async () => (await viewerThumbnailTrack.boundingBox())?.x)
