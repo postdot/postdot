@@ -399,21 +399,6 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
     const emptyTimeSlotBox = await emptyTimeSlot.boundingBox()
     expect(denseTimeSlotBox?.height).toBeGreaterThan(emptyTimeSlotBox?.height ?? 0)
 
-    await weekScrollSurface.evaluate(element => {
-        element.scrollLeft = element.scrollWidth - element.clientWidth
-    })
-    await expect
-        .poll(() => weekScrollSurface.evaluate(element => element.scrollLeft))
-        .toBeGreaterThan(0)
-    const scrollSurfaceBox = await weekScrollSurface.boundingBox()
-    const timeGutter = weekView.locator('[data-slot="event-calendar-time-gutter-slot"]').first()
-    await expect(timeGutter).toHaveCSS('position', 'sticky')
-    const timeGutterBox = await timeGutter.boundingBox()
-    expect(Math.abs((timeGutterBox?.x ?? 0) - (scrollSurfaceBox?.x ?? 0))).toBeLessThanOrEqual(1)
-    await weekScrollSurface.evaluate(element => {
-        element.scrollLeft = 0
-    })
-
     await emptySlotAdd.click()
     const composeUrl = new URL(page.url())
     expect(composeUrl.pathname).toBe(`/dashboard/projects/${projectId}/compose`)
@@ -457,6 +442,27 @@ test('expands a dense ReUI calendar day in place', async ({ page }) => {
             scrollWidth: element.scrollWidth,
         }))
     expect(weekScroll.scrollWidth).toBeGreaterThan(weekScroll.clientWidth)
+    const narrowWeekScrollSurface = narrowWeek.locator(
+        '[data-slot="event-calendar-time-grid-scroll"]'
+    )
+    await narrowWeekScrollSurface.evaluate(element => {
+        element.scrollLeft = element.scrollWidth - element.clientWidth
+    })
+    await expect
+        .poll(() => narrowWeekScrollSurface.evaluate(element => element.scrollLeft))
+        .toBeGreaterThan(0)
+    const narrowScrollSurfaceBox = await narrowWeekScrollSurface.boundingBox()
+    const narrowTimeGutter = narrowWeek
+        .locator('[data-slot="event-calendar-time-gutter-slot"]')
+        .first()
+    await expect(narrowTimeGutter).toHaveCSS('position', 'sticky')
+    const narrowTimeGutterBox = await narrowTimeGutter.boundingBox()
+    expect(
+        Math.abs((narrowTimeGutterBox?.x ?? 0) - (narrowScrollSurfaceBox?.x ?? 0))
+    ).toBeLessThanOrEqual(1)
+    await narrowWeekScrollSurface.evaluate(element => {
+        element.scrollLeft = 0
+    })
 
     await calendar.getByRole('button', { name: 'Day', exact: true }).click()
     const narrowDay = calendar.locator('[data-calendar-view="day"]')
