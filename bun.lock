@@ -64,6 +64,7 @@
     "apps/web": {
       "name": "@herald/web",
       "dependencies": {
+        "@base-ui/react": "1.7.0",
         "@date-fns/tz": "1.5.0",
         "@dicebear/core": "10.7.0",
         "@dicebear/styles": "10.6.0",
