@@ -9,8 +9,8 @@ import {
 } from '@herald/ui/components/dialog'
 import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
-import { AddIcon } from '@solar-icons/react/bold/add'
-import { LinkIcon } from '@solar-icons/react/bold/link'
+import { AddIcon } from '@solar-icons/react/linear/add'
+import { LinkIcon } from '@solar-icons/react/linear/link'
 import { useState } from 'react'
 
 import { ProviderApplicationSelect } from '@/components/provider-application-select'
@@ -29,6 +29,7 @@ interface BlueskyConnectionDialogProps {
     readonly onProviderApplicationChange: (providerApplicationId: string) => void
     readonly providerApplicationId?: string
     readonly providerApplications: readonly ProviderApplication[]
+    readonly reconnect?: boolean
 }
 
 export function BlueskyConnectionDialog({
@@ -38,6 +39,7 @@ export function BlueskyConnectionDialog({
     onProviderApplicationChange,
     providerApplicationId,
     providerApplications,
+    reconnect = false,
 }: BlueskyConnectionDialogProps) {
     useLanguage()
     const [open, setOpen] = useState(false)
@@ -62,9 +64,15 @@ export function BlueskyConnectionDialog({
 
     return (
         <>
-            <Button size="sm" onClick={() => setOpen(true)} disabled={disabled}>
+            <Button
+                className="self-end sm:self-start"
+                size="sm"
+                onClick={() => setOpen(true)}
+                disabled={disabled}>
                 <AddIcon aria-hidden="true" />
-                {m.provider_connect_title({ provider: 'Bluesky' })}
+                {reconnect
+                    ? m.provider_reconnect_title({ provider: 'Bluesky' })
+                    : m.provider_connect_title({ provider: 'Bluesky' })}
             </Button>
             <Dialog
                 open={open}
@@ -72,10 +80,12 @@ export function BlueskyConnectionDialog({
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-lg overflow-x-hidden overflow-y-auto sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
-                            {m.provider_connect_title({ provider: channel.name })}
+                            {reconnect
+                                ? m.provider_reconnect_title({ provider: channel.name })
+                                : m.provider_connect_title({ provider: channel.name })}
                         </DialogTitle>
                         <DialogDescription>{m.provider_bluesky_description()}</DialogDescription>
                     </DialogHeader>

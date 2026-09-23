@@ -49,7 +49,15 @@ function PublicationEditorRoute() {
     const { projectId, publicationId } = Route.useParams()
     const { date, from, view } = Route.useSearch()
     const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
-    const { activeChannels, onCancelPublications, onPublish, project } = useProjectDashboard()
+    const {
+        activeChannels,
+        onCancelPublications,
+        onPublish,
+        onRetryPublication,
+        project,
+        projectRole,
+    } = useProjectDashboard()
+    const readOnly = projectRole === 'viewer'
     const instanceId = useId()
     const editorQuery = useQuery({
         queryKey: projectQueryKeys.publicationEditorInstance(projectId, publicationId, instanceId),
@@ -67,9 +75,13 @@ function PublicationEditorRoute() {
             projectId={projectId}
             initialEditor={currentEditor}
             initialPublicationTags={publicationTags}
-            onCancel={() => onCancelPublications([currentEditor.publication.id])}
-            onPublish={() => onPublish(currentEditor.publication.id)}
+            onCancel={
+                readOnly ? undefined : () => onCancelPublications([currentEditor.publication.id])
+            }
+            onPublish={readOnly ? undefined : () => onPublish(currentEditor.publication.id)}
+            onRetry={readOnly ? undefined : () => onRetryPublication(currentEditor.publication.id)}
             projectTags={projectTags}
+            readOnly={readOnly}
             channels={activeChannels}
             relatedPublications={relatedPublications}
             backToCalendar={from === 'calendar' ? { date, view } : undefined}

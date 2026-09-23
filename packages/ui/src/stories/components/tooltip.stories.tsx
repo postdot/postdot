@@ -1,4 +1,4 @@
-import { InfoCircleIcon } from '@solar-icons/react/bold/info-circle'
+import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { Button } from '../../components/button'

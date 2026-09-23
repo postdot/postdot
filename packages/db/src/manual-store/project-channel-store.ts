@@ -26,7 +26,8 @@ export interface CreateProjectInput {
     readonly name: string
     readonly subjectId: string
     readonly displayName: string
-    readonly organizationId?: string | null
+    /** The workspace is the user-facing access boundary. */
+    readonly workspaceId?: string | null
     readonly timeZone?: string
 }
 
@@ -64,7 +65,7 @@ export function createProjectChannelStore(
         select id,
                name,
                time_zone as timeZone,
-               organization_id as organizationId,
+               workspace_id as workspaceId,
                primary_category_id as primaryCategoryId,
                created_at as createdAt,
                updated_at as updatedAt
@@ -90,7 +91,7 @@ export function createProjectChannelStore(
         select distinct projects.id,
                projects.name,
                projects.time_zone as timeZone,
-               projects.organization_id as organizationId,
+               projects.workspace_id as workspaceId,
                projects.primary_category_id as primaryCategoryId,
                projects.created_at as createdAt,
                projects.updated_at as updatedAt
@@ -99,6 +100,18 @@ export function createProjectChannelStore(
             on actors.project_id = projects.id
            and actors.kind in ('human', 'agent', 'api_token')
            and actors.subject_id = ?1
+        order by projects.created_at, projects.id
+    `)
+    const listWorkspaceProjectsStatement = client.query<ProjectRow, [workspaceId: string]>(`
+        select projects.id,
+               projects.name,
+               projects.time_zone as timeZone,
+               projects.workspace_id as workspaceId,
+               projects.primary_category_id as primaryCategoryId,
+               projects.created_at as createdAt,
+               projects.updated_at as updatedAt
+        from projects
+        where projects.workspace_id = ?1
         order by projects.created_at, projects.id
     `)
     const listChannelsStatement = client.query<ChannelRow, [projectId: string]>(`
@@ -122,10 +135,16 @@ export function createProjectChannelStore(
     `)
     const insertProjectStatement = client.query<
         void,
-        [id: string, name: string, timeZone: string, organizationId: string | null, now: number]
+        [id: string, name: string, timeZone: string, workspaceId: string | null, now: number]
     >(`
-        insert into projects (id, name, time_zone, organization_id, created_at, updated_at)
-        values (?1, ?2, ?3, ?4, ?5, ?5)
+        insert into projects (
+            id,
+            name,
+            time_zone,
+            workspace_id,
+            created_at,
+            updated_at
+        ) values (?1, ?2, ?3, ?4, ?5, ?5)
     `)
     const updateProjectTimeZoneStatement = client.query<
         { readonly changes: number },
@@ -243,6 +262,7 @@ export function createProjectChannelStore(
                 id: options.createId(),
                 name: input.name,
                 timeZone: input.timeZone,
+                workspaceId: input.workspaceId,
                 now: timestamp,
             })
             const actor = createActor({
@@ -266,7 +286,7 @@ export function createProjectChannelStore(
                 project.id,
                 project.name,
                 project.timeZone,
-                input.organizationId ?? null,
+                input.workspaceId ?? null,
                 timestamp
             )
             insertActorStatement.run(
@@ -418,6 +438,12 @@ export function createProjectChannelStore(
 
         listProjects(subjectId: string): Project[] {
             return listProjectsStatement.all(requireNonBlank(subjectId, 'subjectId')).map(toProject)
+        },
+
+        listProjectsForWorkspace(workspaceId: string): Project[] {
+            return listWorkspaceProjectsStatement
+                .all(requireNonBlank(workspaceId, 'workspaceId'))
+                .map(toProject)
         },
 
         updateProjectTimeZone(input: UpdateProjectTimeZoneInput): Project | null {

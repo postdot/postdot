@@ -8,35 +8,47 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
-import { CalendarAddIcon } from '@solar-icons/react/bold/calendar-add'
-import { PenIcon } from '@solar-icons/react/bold/pen'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { cn } from '@herald/ui/lib/utils'
+import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
+import { PenIcon } from '@solar-icons/react/linear/pen'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { BulkActionBar } from '@/components/bulk-action-bar'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
+import type { EmptyStateIllustration } from '@/components/empty-state'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
+import { PublicationDraftDeletionDialog } from '@/components/publication-draft-deletion-dialog'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
+import { QueryErrorState } from '@/components/query-error-state'
+import { api } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
+import { projectQueryKeys } from '@/lib/project-realtime'
 import {
+    defaultPublicationQueueSort,
     filterQueueByTags,
     filterQueuePublications,
     isQueueFilter,
+    isPublicationQueueSort,
+    type PublicationQueueSort,
     type QueueFilter,
 } from '@/lib/publication-queue'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationQueuePage({
     initialFilter = 'all',
+    initialSort,
     initialTagIds = [],
 }: {
     readonly initialFilter?: QueueFilter
+    readonly initialSort?: PublicationQueueSort
     readonly initialTagIds?: readonly string[]
 }) {
     const { locale } = useLanguage()
@@ -45,43 +57,84 @@ export function PublicationQueuePage({
         loadingMorePublications,
         onLoadMorePublications,
         onCancelPublications,
+        onDeleteDraftPublication,
+        onDuplicateDraftPublication,
         onPublish,
+        onRetryPublication,
         onReschedulePublications,
         pending,
         project,
+        projectRole,
         projectTags,
         publications,
         publicationsNextCursor,
         publicationSummary,
     } = useProjectDashboard()
+    const canEditProject = projectRole === 'owner' || projectRole === 'editor'
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/queue' })
     const [filter, setFilter] = useState<QueueFilter>(initialFilter)
+    const [sort, setSort] = useState<PublicationQueueSort>(
+        initialSort ?? defaultPublicationQueueSort(initialFilter)
+    )
     const [tagIds, setTagIds] = useState<string[]>(() => [...initialTagIds])
     const [selectedPublicationIds, setSelectedPublicationIds] = useState<Set<string>>(
         () => new Set()
     )
     const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+    const [draftToDelete, setDraftToDelete] = useState<string | null>(null)
     useEffect(() => {
         setFilter(initialFilter)
+        setSort(initialSort ?? defaultPublicationQueueSort(initialFilter))
         setSelectedPublicationIds(new Set())
-    }, [initialFilter])
+    }, [initialFilter, initialSort])
     const initialTagIdsKey = initialTagIds.join('\u0000')
     useEffect(() => {
         setTagIds(initialTagIdsKey === '' ? [] : initialTagIdsKey.split('\u0000'))
         setSelectedPublicationIds(new Set())
     }, [initialTagIdsKey])
-    const duePublicationIds = new Set(due.map(publication => publication.id))
-    const taggedPublications = filterQueueByTags(publications, tagIds)
-    const totalCount = publicationSummary.total
+    const duePublicationIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
+    const serverState = filter === 'draft' || filter === 'scheduled' ? filter : undefined
+    const useServerQueue = serverState !== undefined || tagIds.length > 0 || sort !== 'queue'
+    const queueQuery = useInfiniteQuery({
+        queryKey: [
+            ...projectQueryKeys.publicationQueues(project.id),
+            serverState ?? 'all',
+            sort,
+            tagIds.join('\u0000'),
+        ],
+        queryFn: ({ pageParam }) =>
+            api.listPublications(project.id, {
+                cursor: pageParam,
+                limit: 100,
+                sort,
+                state: serverState,
+                tagIds: tagIds.length > 0 ? tagIds : undefined,
+            }),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: page => page.nextCursor ?? undefined,
+        enabled: useServerQueue,
+        staleTime: Number.POSITIVE_INFINITY,
+        retry: 1,
+    })
+    const queuePublications = useServerQueue
+        ? (queueQuery.data?.pages.flatMap(page => page.publications) ?? [])
+        : publications
+    const queueSummary = useServerQueue
+        ? (queueQuery.data?.pages[0]?.summary ?? publicationSummary)
+        : publicationSummary
+    const draftCount =
+        typeof queueSummary.draft === 'number' && Number.isFinite(queueSummary.draft)
+            ? queueSummary.draft
+            : queuePublications.filter(publication => publication.state === 'draft').length
+    const taggedPublications = filterQueueByTags(queuePublications, tagIds)
     const filterCounts: Record<QueueFilter, number> = {
-        all: tagIds.length === 0 ? totalCount : taggedPublications.length,
+        all: queueSummary.total,
         attention: filterQueuePublications(taggedPublications, duePublicationIds, 'attention')
             .length,
-        draft: filterQueuePublications(taggedPublications, duePublicationIds, 'draft').length,
-        scheduled: filterQueuePublications(taggedPublications, duePublicationIds, 'scheduled')
-            .length,
-        manual: filterQueuePublications(taggedPublications, duePublicationIds, 'manual').length,
+        draft: draftCount,
+        scheduled: queueSummary.scheduled,
+        manual: queueSummary.manual,
     }
     const visiblePublications = filterQueuePublications(
         taggedPublications,
@@ -141,6 +194,29 @@ export function PublicationQueuePage({
         return succeeded
     }
 
+    async function deleteDraft(): Promise<boolean> {
+        if (draftToDelete === null) return false
+        const succeeded = await onDeleteDraftPublication(draftToDelete)
+        if (succeeded) {
+            setDraftToDelete(null)
+            clearPublicationSelection()
+        }
+        return succeeded
+    }
+
+    function duplicateDraft(publicationId: string) {
+        void onDuplicateDraftPublication(publicationId).then(publication => {
+            if (publication === null) return
+            void navigate({
+                to: '/dashboard/projects/$projectId/publications/$publicationId',
+                params: {
+                    projectId: project.id,
+                    publicationId: publication.id,
+                },
+            })
+        })
+    }
+
     function changeFilter(nextFilter: QueueFilter) {
         setFilter(nextFilter)
         clearPublicationSelection()
@@ -156,18 +232,20 @@ export function PublicationQueuePage({
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader
                 action={
-                    <Button
-                        nativeButton={false}
-                        render={
-                            <Link
-                                params={{ projectId: project.id }}
-                                search={{ date: undefined }}
-                                to="/dashboard/projects/$projectId/publications/new"
-                            />
-                        }>
-                        <PenIcon aria-hidden="true" />
-                        {m.overview_new_publication()}
-                    </Button>
+                    canEditProject ? (
+                        <Button
+                            nativeButton={false}
+                            render={
+                                <Link
+                                    params={{ projectId: project.id }}
+                                    search={{ date: undefined }}
+                                    to="/dashboard/projects/$projectId/publications/new"
+                                />
+                            }>
+                            <PenIcon aria-hidden="true" />
+                            {m.overview_new_publication()}
+                        </Button>
+                    ) : undefined
                 }
                 title={m.queue_title()}>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -191,14 +269,14 @@ export function PublicationQueuePage({
                         <TabsTrigger
                             aria-label={m.queue_filter_aria({
                                 label: m.queue_all(),
-                                count: totalCount,
+                                count: filterCounts.all,
                             })}
                             value="all">
                             {m.queue_all()}
                             <Badge
                                 className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
                                 variant="secondary">
-                                {formatNumber(totalCount, locale)}
+                                {formatNumber(filterCounts.all, locale)}
                             </Badge>
                         </TabsTrigger>
                         <TabsTrigger
@@ -265,7 +343,7 @@ export function PublicationQueuePage({
                     },
                 ]}
                 ariaLabel={selectedCount > 0 ? m.queue_bulk_actions() : m.queue_delivery_filter()}
-                className="mt-3 min-h-11 px-2 py-1.5 sm:px-3"
+                className={cn('mt-3 min-h-11', selectedCount > 0 && 'px-2 py-1.5 sm:px-3')}
                 clearLabel={m.queue_clear_selection()}
                 leadingContent={
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -291,6 +369,38 @@ export function PublicationQueuePage({
                                 <SelectItem value="manual">
                                     {m.queue_manual_delivery_mode()}
                                 </SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={sort}
+                            onValueChange={value => {
+                                if (value === null || !isPublicationQueueSort(value)) return
+                                setSort(value)
+                                clearPublicationSelection()
+                                void navigate({
+                                    search: current => ({
+                                        ...current,
+                                        sort: value === 'queue' ? undefined : value,
+                                    }),
+                                })
+                            }}>
+                            <SelectTrigger
+                                aria-label={m.queue_sort_label()}
+                                className="w-fit min-w-36"
+                                data-queue-sort="true"
+                                size="sm">
+                                <SelectValue>
+                                    {queueSortOptions(filter).find(option => option.value === sort)
+                                        ?.label ?? m.queue_sort_queue()}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                                {queueSortOptions(filter).map(option => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
 
@@ -323,64 +433,100 @@ export function PublicationQueuePage({
                         ? m.queue_selected_publications({ count: selectedCount })
                         : null
                 }
+                quietWhenEmpty
                 showActions={selectedCount > 0}
                 showClearSelection={!allVisibleSelected}
             />
 
             <section className="min-w-0" data-queue-publication-list="true">
-                <PublicationList
-                    emptyAction={
-                        filter === 'all' ? (
-                            <Button
-                                nativeButton={false}
-                                render={
-                                    <Link
-                                        params={{ projectId: project.id }}
-                                        search={{ date: undefined }}
-                                        to="/dashboard/projects/$projectId/publications/new"
-                                    />
-                                }
-                                size="sm"
-                                variant="default">
-                                <PenIcon aria-hidden="true" />
-                                {m.overview_new_publication()}
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={() => {
-                                    setFilter('all')
-                                    void navigate({
-                                        search: current => ({
-                                            ...current,
-                                            filter: undefined,
-                                        }),
-                                    })
-                                }}
-                                size="sm"
-                                variant="ghost">
-                                {m.queue_show_all()}
-                            </Button>
-                        )
-                    }
-                    emptyDescription={queueEmptyDescription(filter)}
-                    emptyTitle={queueEmptyTitle(filter)}
-                    onToggleSelection={publication => togglePublicationSelection(publication.id)}
-                    duePublicationIds={duePublicationIds}
-                    onPublish={onPublish}
-                    pending={pending}
-                    publications={visiblePublications}
-                    allSelected={allVisibleSelected}
-                    onToggleAll={toggleAllVisiblePublications}
-                    selectedPublicationIds={selectedPublicationIds}
-                    timeZone={project.timeZone}
-                />
-                {publicationsNextCursor !== null ? (
+                {queueQuery.isError && useServerQueue ? (
+                    <QueryErrorState onRetry={() => void queueQuery.refetch()} />
+                ) : (
+                    <PublicationList
+                        emptyAction={
+                            filter === 'all' ? (
+                                canEditProject ? (
+                                    <Button
+                                        nativeButton={false}
+                                        render={
+                                            <Link
+                                                params={{ projectId: project.id }}
+                                                search={{ date: undefined }}
+                                                to="/dashboard/projects/$projectId/publications/new"
+                                            />
+                                        }
+                                        size="sm"
+                                        variant="default">
+                                        <PenIcon aria-hidden="true" />
+                                        {m.overview_new_publication()}
+                                    </Button>
+                                ) : null
+                            ) : (
+                                <Button
+                                    onClick={() => {
+                                        setFilter('all')
+                                        void navigate({
+                                            search: current => ({
+                                                ...current,
+                                                filter: undefined,
+                                            }),
+                                        })
+                                    }}
+                                    size="sm"
+                                    variant="ghost">
+                                    {m.queue_show_all()}
+                                </Button>
+                            )
+                        }
+                        emptyDescription={queueEmptyDescription(filter)}
+                        emptyIllustration={queueEmptyIllustration(filter)}
+                        emptyLayout="compact"
+                        emptyTitle={queueEmptyTitle(filter)}
+                        onToggleSelection={
+                            canEditProject
+                                ? publication => togglePublicationSelection(publication.id)
+                                : undefined
+                        }
+                        duePublicationIds={duePublicationIds}
+                        onDeleteDraft={
+                            canEditProject
+                                ? publication => setDraftToDelete(publication.id)
+                                : undefined
+                        }
+                        onDuplicateDraft={canEditProject ? duplicateDraft : undefined}
+                        onPublish={canEditProject ? onPublish : undefined}
+                        onRetry={canEditProject ? onRetryPublication : undefined}
+                        pending={pending}
+                        publications={visiblePublications}
+                        allSelected={allVisibleSelected}
+                        onToggleAll={canEditProject ? toggleAllVisiblePublications : undefined}
+                        readOnly={!canEditProject}
+                        selectedPublicationIds={selectedPublicationIds}
+                        showCreationDate={filter === 'draft'}
+                        timeZone={project.timeZone}
+                    />
+                )}
+                {!queueQuery.isError &&
+                (useServerQueue ? queueQuery.hasNextPage : publicationsNextCursor !== null) ? (
                     <div className="mt-5 flex justify-center">
                         <Button
-                            disabled={loadingMorePublications}
-                            onClick={() => void onLoadMorePublications()}
+                            disabled={
+                                useServerQueue
+                                    ? queueQuery.isFetchingNextPage
+                                    : loadingMorePublications
+                            }
+                            onClick={() => {
+                                if (useServerQueue) void queueQuery.fetchNextPage()
+                                else void onLoadMorePublications()
+                            }}
                             variant="secondary">
-                            {loadingMorePublications ? m.common_loading() : m.queue_load_more()}
+                            {useServerQueue
+                                ? queueQuery.isFetchingNextPage
+                                    ? m.common_loading()
+                                    : m.queue_load_more()
+                                : loadingMorePublications
+                                  ? m.common_loading()
+                                  : m.queue_load_more()}
                         </Button>
                     </div>
                 ) : null}
@@ -401,6 +547,14 @@ export function PublicationQueuePage({
                 pending={pending}
                 selectedCount={selectedCount}
             />
+            <PublicationDraftDeletionDialog
+                open={draftToDelete !== null}
+                onDelete={deleteDraft}
+                onOpenChange={open => {
+                    if (!open) setDraftToDelete(null)
+                }}
+                pending={pending}
+            />
         </main>
     )
 }
@@ -419,4 +573,32 @@ function queueEmptyTitle(filter: QueueFilter) {
     if (filter === 'scheduled') return m.queue_no_scheduled_title()
     if (filter === 'manual') return m.queue_no_manual_title()
     return m.queue_no_publications()
+}
+
+function queueEmptyIllustration(filter: QueueFilter): EmptyStateIllustration {
+    if (filter === 'scheduled') return 'event'
+    if (filter === 'draft' || filter === 'manual' || filter === 'attention') return 'task'
+    return 'data'
+}
+
+function queueSortOptions(filter: QueueFilter) {
+    const updated = [
+        { value: 'updated_desc' as const, label: m.queue_sort_updated_desc() },
+        { value: 'updated_asc' as const, label: m.queue_sort_updated_asc() },
+    ]
+    const created = [
+        { value: 'created_desc' as const, label: m.queue_sort_created_desc() },
+        { value: 'created_asc' as const, label: m.queue_sort_created_asc() },
+    ]
+
+    if (filter === 'scheduled') {
+        return [
+            { value: 'queue' as const, label: m.queue_sort_queue() },
+            { value: 'scheduled_asc' as const, label: m.queue_sort_scheduled_asc() },
+            { value: 'scheduled_desc' as const, label: m.queue_sort_scheduled_desc() },
+            ...updated,
+        ]
+    }
+    if (filter === 'draft') return [...updated, ...created]
+    return [{ value: 'queue' as const, label: m.queue_sort_queue() }, ...updated, ...created]
 }

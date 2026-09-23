@@ -10,11 +10,14 @@ test('offers provider profiles as editable custom channel starters', async ({ pa
     await createAccountAndProject(page, suffix)
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
+    const addChannelButton = page.getByRole('button', { name: 'Add channel', exact: true })
+    await expect(addChannelButton).toBeEnabled()
+    await addChannelButton.click()
+    await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByLabel('Channel name').fill(channelName)
 
-    await page.getByRole('combobox', { name: 'Profile', exact: true }).click()
-    await page.getByRole('option', { name: 'Custom runtime profile', exact: true }).click()
+    await page.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
 
     const starter = page.getByRole('combobox', { name: 'Starter template', exact: true })
     await starter.click()
@@ -38,20 +41,29 @@ test('offers provider profiles as editable custom channel starters', async ({ pa
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Need an account?' }).click()
+    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-142 ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-142-${suffix}@herald.local`)
-    await page.getByLabel('Password').fill('e2e-142-password')
-    await page.getByRole('button', { name: 'Create account', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await page.getByLabel('Password', { exact: true }).fill('e2e-142-password')
+    await Promise.all([
+        page.waitForResponse(
+            response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+        ),
+        page.getByRole('button', { name: 'Create account', exact: true }).click(),
+    ])
+    await page.goto('/dashboard?projectId=none')
+    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
-    await page.getByRole('option', { name: 'Create project', exact: true }).click()
-    await page.locator('#new-project').fill(`E2E-142 project ${suffix}`)
+    await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
+    await page
+        .getByRole('textbox', { name: 'New project', exact: true })
+        .fill(`E2E-142 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.locator('#new-project') })
+        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
         .getByRole('button', { name: 'Add project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 }

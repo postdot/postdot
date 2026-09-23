@@ -46,6 +46,7 @@ interface ProjectEntity extends Entity {
 export interface Project extends Entity {
     readonly name: string
     readonly timeZone: ProjectTimeZone
+    readonly workspaceId: string | null
     readonly primaryCategoryId: string | null
 }
 
@@ -146,12 +147,17 @@ function projectEntityFields(input: CreateEntityInput, project: Project): Projec
 }
 
 export function createProject(
-    input: CreateEntityInput & { readonly name: string; readonly timeZone?: string }
+    input: CreateEntityInput & {
+        readonly name: string
+        readonly timeZone?: string
+        readonly workspaceId?: string | null
+    }
 ): Project {
     return {
         ...entityFields(input),
         name: requireNonBlank(input.name, 'name'),
         timeZone: requireProjectTimeZone(input.timeZone),
+        workspaceId: input.workspaceId ?? null,
         primaryCategoryId: null,
     }
 }

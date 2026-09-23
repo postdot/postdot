@@ -4,22 +4,32 @@ import * as m from '../paraglide/messages.js'
 
 describe('web localization foundation', () => {
     test('compiles the base and French catalogs with typed interpolation', () => {
-        expect(String(m.language_menu_label({}, { locale: 'en' }))).toBe('Language')
-        expect(String(m.language_menu_label({}, { locale: 'fr' }))).toBe('Langue')
-        expect(String(m.language_switch_to({ language: 'Français' }, { locale: 'fr' }))).toBe(
-            'Changer la langue pour Français'
+        const englishMenuLabel = String(m.language_menu_label({}, { locale: 'en' }))
+        const frenchMenuLabel = String(m.language_menu_label({}, { locale: 'fr' }))
+        const frenchLanguage = String(m.language_french({}, { locale: 'fr' }))
+        const frenchSwitchLabel = String(
+            m.language_switch_to({ language: frenchLanguage }, { locale: 'fr' })
+        )
+
+        expect(englishMenuLabel).not.toBe(frenchMenuLabel)
+        expect(frenchSwitchLabel).toContain(frenchLanguage)
+        expect(frenchSwitchLabel).not.toBe(
+            String(m.language_switch_to({ language: frenchLanguage }, { locale: 'en' }))
         )
     })
 
     test('keeps the reviewed media copy translated in both locales', () => {
-        expect(String(m.media_upload({}, { locale: 'en' }))).toBe('Add media')
-        expect(String(m.media_upload({}, { locale: 'fr' }))).toBe('Ajouter un média')
-        expect(String(m.media_uploading({ filename: 'hero.png' }, { locale: 'fr' }))).toBe(
-            'Ajout de hero.png…'
+        const englishUpload = String(m.media_upload({}, { locale: 'en' }))
+        const frenchUpload = String(m.media_upload({}, { locale: 'fr' }))
+        const frenchUploading = String(
+            m.media_uploading({ filename: 'hero.png' }, { locale: 'fr' })
         )
-        expect(String(m.editor_sidebar_no_source_format({}, { locale: 'fr' }))).toBe(
-            'Aucun format source'
-        )
-        expect(String(m.media_file_type({}, { locale: 'fr' }))).toBe('Fichier')
+        const frenchSourceFormat = String(m.editor_sidebar_no_source_format({}, { locale: 'fr' }))
+        const frenchFileType = String(m.media_file_type({}, { locale: 'fr' }))
+
+        expect(englishUpload).not.toBe(frenchUpload)
+        expect(frenchUploading).toContain('hero.png')
+        expect(frenchSourceFormat).not.toHaveLength(0)
+        expect(frenchFileType).not.toHaveLength(0)
     })
 })

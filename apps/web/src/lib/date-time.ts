@@ -1,6 +1,6 @@
 import * as m from '@/paraglide/messages.js'
 
-export type DateTimeLocalError = 'invalid' | 'nonexistent' | 'ambiguous'
+export type DateTimeLocalError = 'invalid' | 'nonexistent' | 'ambiguous' | 'past'
 export type DateTimeLocalResult = number | null | DateTimeLocalError
 
 export interface ZonedDateTimeParts {
@@ -86,8 +86,10 @@ export function formatProjectDateTime(
     locale = 'en',
     unscheduledLabel = m.publication_unscheduled()
 ): string {
-    if (timestamp === null) return unscheduledLabel
-    return getDisplayFormatter(timeZone, locale).format(new Date(timestamp))
+    if (timestamp === null || !Number.isFinite(timestamp)) return unscheduledLabel
+    const date = new Date(timestamp)
+    if (!Number.isFinite(date.getTime())) return unscheduledLabel
+    return getDisplayFormatter(timeZone, locale).format(date)
 }
 
 export function dateTimeLocalErrorMessage(error: DateTimeLocalError): string {
@@ -96,6 +98,9 @@ export function dateTimeLocalErrorMessage(error: DateTimeLocalError): string {
     }
     if (error === 'ambiguous') {
         return m.editor_schedule_ambiguous()
+    }
+    if (error === 'past') {
+        return m.editor_schedule_past()
     }
     return m.editor_schedule_invalid()
 }

@@ -8,6 +8,41 @@
             "when": 1789095580004,
             "tag": "0000_jittery_maelstrom",
             "breakpoints": true
+        },
+        {
+            "idx": 1,
+            "version": "6",
+            "when": 1789660723886,
+            "tag": "0001_curly_screwball",
+            "breakpoints": true
+        },
+        {
+            "idx": 2,
+            "version": "6",
+            "when": 1789712446738,
+            "tag": "0002_rapid_sabretooth",
+            "breakpoints": true
+        },
+        {
+            "idx": 3,
+            "version": "6",
+            "when": 1789714925744,
+            "tag": "0003_dark_thena",
+            "breakpoints": true
+        },
+        {
+            "idx": 4,
+            "version": "6",
+            "when": 1789748109893,
+            "tag": "0004_cheerful_captain_flint",
+            "breakpoints": true
+        },
+        {
+            "idx": 5,
+            "version": "6",
+            "when": 1789771738742,
+            "tag": "0005_flimsy_maximus",
+            "breakpoints": true
         }
     ]
 }

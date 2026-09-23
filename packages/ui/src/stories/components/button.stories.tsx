@@ -1,6 +1,6 @@
-import { DownloadMinimalisticIcon } from '@solar-icons/react/bold/download-minimalistic'
-import { MenuDotsIcon } from '@solar-icons/react/bold/menu-dots'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { DownloadMinimalisticIcon } from '@solar-icons/react/linear/download-minimalistic'
+import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { Button } from '../../components/button'

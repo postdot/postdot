@@ -1,6 +1,18 @@
 import type { PublicationSummary } from '@/lib/api'
 
 export type QueueFilter = 'all' | 'attention' | 'draft' | 'scheduled' | 'manual'
+export type PublicationQueueSort =
+    | 'queue'
+    | 'updated_desc'
+    | 'updated_asc'
+    | 'created_desc'
+    | 'created_asc'
+    | 'scheduled_desc'
+    | 'scheduled_asc'
+
+export function defaultPublicationQueueSort(filter: QueueFilter): PublicationQueueSort {
+    return filter === 'draft' ? 'updated_desc' : 'queue'
+}
 
 export function filterQueuePublications(
     publications: readonly PublicationSummary[],
@@ -33,6 +45,18 @@ export function isQueueFilter(value: string): value is QueueFilter {
         value === 'draft' ||
         value === 'scheduled' ||
         value === 'manual'
+    )
+}
+
+export function isPublicationQueueSort(value: string): value is PublicationQueueSort {
+    return (
+        value === 'queue' ||
+        value === 'updated_desc' ||
+        value === 'updated_asc' ||
+        value === 'created_desc' ||
+        value === 'created_asc' ||
+        value === 'scheduled_desc' ||
+        value === 'scheduled_asc'
     )
 }
 

@@ -7,17 +7,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import {
-    Empty,
-    EmptyDescription,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-} from '@herald/ui/components/empty'
-import { GalleryAddIcon } from '@solar-icons/react/bold/gallery-add'
-import { UploadIcon } from '@solar-icons/react/bold/upload'
+import { UploadIcon } from '@solar-icons/react/linear/upload'
 import type { RefObject } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import {
     MediaAssetCollection,
     mediaLibraryGridClass,
@@ -110,7 +103,7 @@ export function MediaAttachmentLibraryDialog({
             <DialogContent
                 data-media-library="true"
                 data-media-picker-mode="attach"
-                className="flex max-h-[min(44rem,calc(100vh-2rem))] flex-col overflow-hidden sm:max-w-3xl">
+                className="flex max-h-[min(44rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-3xl flex-col overflow-hidden sm:max-w-3xl">
                 <DialogHeader>
                     <div className="flex items-start justify-between gap-4 pr-8">
                         <div className="min-w-0">
@@ -162,29 +155,27 @@ export function MediaAttachmentLibraryDialog({
                 <div
                     ref={scrollRef}
                     data-media-attachment-scroll="true"
-                    className="-mr-5 min-h-0 flex-1 overflow-y-auto overscroll-contain p-1 pr-5">
+                    className="-mr-5 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-1 pr-5">
                     {loading ? (
                         <p className="text-sm text-muted-foreground">{m.media_loading()}</p>
                     ) : assets.length === 0 ? (
-                        <Empty className="min-h-40 bg-surface-field px-4 py-5">
-                            <EmptyHeader>
-                                <EmptyMedia variant="icon">
-                                    <GalleryAddIcon aria-hidden="true" />
-                                </EmptyMedia>
-                                <EmptyTitle>{m.media_empty_title()}</EmptyTitle>
-                                <EmptyDescription>
-                                    {emptyDescription ?? m.media_empty_here()}
-                                </EmptyDescription>
-                            </EmptyHeader>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                disabled={interactionDisabled}
-                                onClick={onUpload}>
-                                <UploadIcon aria-hidden="true" />
-                                {m.media_upload_image()}
-                            </Button>
-                        </Empty>
+                        <EmptyState
+                            action={
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    disabled={interactionDisabled}
+                                    onClick={onUpload}>
+                                    <UploadIcon aria-hidden="true" />
+                                    {m.media_upload_image()}
+                                </Button>
+                            }
+                            className="min-h-40 bg-surface-field px-4 py-5 shadow-none"
+                            description={emptyDescription ?? null}
+                            illustration="image"
+                            illustrationClassName="w-28"
+                            title={m.media_empty_title()}
+                        />
                     ) : (
                         <>
                             <MediaAssetCollection

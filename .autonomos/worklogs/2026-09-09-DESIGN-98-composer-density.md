@@ -17,7 +17,7 @@
   destination, and delivery sections while retaining labels and actionable
   recovery states.
 - Replaced awkward media terminology with concise product language such as
-  `Médias`, `Ajouter un média`, and `Planifier` in English and French.
+  `Media`, `Add media`, and `Schedule` in both locales.
 - Updated browser coverage for the intentional compact media layout and exact
   accessible field labels.
 

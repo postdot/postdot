@@ -387,7 +387,7 @@ describe('manual workflow store', () => {
                 store.listPublicationSummaryPage(project.project.id, 'user-1', {
                     filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
                 })?.summary
-            ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0 })
+            ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1 })
             expect(
                 store.listPublicationSummaries(project.project.id, 'user-1', {
                     tagIds: [foreignTag?.id ?? ''],
@@ -397,7 +397,7 @@ describe('manual workflow store', () => {
                 store.listPublicationSummaryPage(project.project.id, 'user-1', {
                     filter: { tagIds: [foreignTag?.id ?? ''] },
                 })?.summary
-            ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0 })
+            ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 })
         } finally {
             closeDatabase(database)
         }
@@ -459,6 +459,7 @@ describe('manual workflow store', () => {
                 manual: 100,
                 automatic: 1,
                 scheduled: 100,
+                draft: 1,
             })
 
             const secondPage = store.listPublicationSummaryPage(project.project.id, 'user-1', {
@@ -486,7 +487,28 @@ describe('manual workflow store', () => {
                 manual: 1,
                 automatic: 0,
                 scheduled: 1,
+                draft: 0,
             })
+
+            const drafts = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                state: 'draft',
+                sort: 'updated_desc',
+            })
+            expect(drafts?.publications.map(publication => publication.postTitle)).toEqual([
+                'Unscheduled tail',
+            ])
+            expect(drafts?.summary.draft).toBe(1)
+
+            const soonest = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                limit: 1,
+                sort: 'scheduled_asc',
+            })
+            expect(soonest?.publications[0]?.postTitle).toBe('Scheduled 0')
+            const latest = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                limit: 1,
+                sort: 'scheduled_desc',
+            })
+            expect(latest?.publications[0]?.postTitle).toBe('Scheduled 99')
 
             expect(() =>
                 store.listPublicationSummaryPage(project.project.id, 'user-1', {
@@ -810,6 +832,143 @@ describe('manual workflow store', () => {
             })
             expect(created?.publications[0]?.state).toBe('scheduled')
             expect(database.select().from(jobs).all()).toHaveLength(1)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('requeues a failed automatic publication without changing its target', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Retry Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Automatic Channel',
+                profile: automaticTestProfile,
+            })
+            if (channel === null) throw new Error('The retry test channel was not created')
+
+            database
+                .insert(publishers)
+                .values({
+                    id: 'retry-publisher',
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    kind: 'future-provider',
+                })
+                .run()
+
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Retry this publication'),
+                publications: [
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        scheduledAt: now,
+                    },
+                ],
+            })
+            if (created === null) throw new Error('The retry test post was not created')
+            const publication = created.publications[0]
+            const job = database.select().from(jobs).all()[0]
+            if (publication === undefined || publication.targetRevisionId === null) {
+                throw new Error('The retry test publication is missing its target')
+            }
+            if (job === undefined) throw new Error('The retry test job is missing')
+
+            database
+                .update(publications)
+                .set({
+                    state: 'failed',
+                    errorMessage: 'Provider rejected the payload',
+                    stateChangedByActorId: project.actor.id,
+                    updatedAt: now,
+                })
+                .where(eq(publications.id, publication.id))
+                .run()
+            database
+                .update(jobs)
+                .set({
+                    state: 'failed',
+                    attempts: 2,
+                    claimedAt: now,
+                    effectStartedAt: now,
+                    startedAt: now,
+                    completedAt: now,
+                    errorMessage: 'Provider rejected the payload',
+                    updatedAt: now,
+                })
+                .where(eq(jobs.id, job.id))
+                .run()
+
+            const retried = store.retryFailedPublication({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+            })
+            expect(retried).toMatchObject({
+                kind: 'retried',
+                publication: {
+                    id: publication.id,
+                    state: 'ready',
+                    errorMessage: null,
+                    targetRevisionId: publication.targetRevisionId,
+                },
+            })
+            expect(database.select().from(jobs).all()).toMatchObject([
+                {
+                    id: job.id,
+                    state: 'pending',
+                    attempts: 2,
+                    runAt: now,
+                    claimToken: null,
+                    claimedByActorId: null,
+                    claimedAt: null,
+                    leaseExpiresAt: null,
+                    effectStartedAt: null,
+                    startedAt: null,
+                    completedAt: null,
+                    errorMessage: null,
+                },
+            ])
+            const retryEvent = database
+                .select()
+                .from(auditEvents)
+                .all()
+                .find(event => event.action === 'publication.retry_requested')
+            expect(retryEvent).toMatchObject({
+                entityId: publication.id,
+                actorId: project.actor.id,
+            })
+            expect(JSON.parse(retryEvent?.metadataJson ?? '{}')).toEqual(
+                expect.objectContaining({
+                    fromState: 'failed',
+                    toState: 'ready',
+                    targetRevisionId: publication.targetRevisionId,
+                    jobId: job.id,
+                    previousAttempts: 2,
+                    retryAt: now,
+                })
+            )
+
+            expect(
+                store.retryFailedPublication({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
+                })
+            ).toEqual({ kind: 'not_retryable' })
         } finally {
             closeDatabase(database)
         }

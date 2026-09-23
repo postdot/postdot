@@ -8,7 +8,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
-import { CameraIcon } from '@solar-icons/react/bold/camera'
+import { CameraIcon } from '@solar-icons/react/linear/camera'
 import { useEffect, useRef, useState } from 'react'
 
 import * as m from '@/paraglide/messages.js'
@@ -135,7 +135,7 @@ export function MediaWebcamDialog({
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent
                 data-media-webcam-dialog="true"
-                className="max-w-2xl gap-0 overflow-hidden p-0">
+                className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl gap-0 overflow-x-hidden overflow-y-auto p-0 sm:max-w-2xl">
                 <DialogHeader className="border-b border-border/60 px-5 py-4 sm:px-6">
                     <DialogTitle className="flex items-center gap-2">
                         <CameraIcon aria-hidden="true" />

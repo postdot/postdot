@@ -166,9 +166,17 @@ export function toTargetRevision(row: TargetRevisionRow): PublicationTargetRevis
 }
 
 export function toPublicationSummary(row: PublicationSummaryRow): PublicationSummary {
+    const sourceContent = parseSourceContent(row.sourceContentJson)
+    const sourceExcerpt = summarizeSourceExcerpt(sourceContent)
+    const mediaAssetIds = sourceContent.media.slice(0, 3).map(media => media.assetId)
+
     return {
         ...toPublication(row),
         postTitle: row.postTitle,
+        sourceExcerpt,
+        mediaAssetIds,
+        mediaCount: sourceContent.media.length,
+        lastEditedAt: Math.max(row.updatedAt, row.postUpdatedAt, row.draftUpdatedAt),
         channelName: row.channelName,
         draftRevision: row.draftRevision,
         draftReviewState: row.draftReviewState,
@@ -178,6 +186,14 @@ export function toPublicationSummary(row: PublicationSummaryRow): PublicationSum
             row.draftContentJson !== row.targetContentJson,
         tagIds: parseJsonStringArray(row.tagIdsJson, 'publication tag IDs'),
     }
+}
+
+function summarizeSourceExcerpt(sourceContent: ReturnType<typeof parseSourceContent>) {
+    const candidate = sourceContent.body?.text.trim() || sourceContent.headline?.trim() || ''
+    if (candidate === '') return null
+
+    const normalized = candidate.replace(/\s+/g, ' ')
+    return normalized.length > 96 ? `${normalized.slice(0, 93)}…` : normalized
 }
 
 export function toWorkingDraft(row: WorkingDraftRow): PublicationWorkingDraft {

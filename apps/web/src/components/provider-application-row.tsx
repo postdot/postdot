@@ -1,7 +1,7 @@
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
 import { Card, CardContent } from '@herald/ui/components/card'
-import { PenIcon } from '@solar-icons/react/bold/pen'
+import { PenIcon } from '@solar-icons/react/linear/pen'
 
 import { type ProviderApplication, type ProviderApplicationProvider } from '@/lib/api'
 import * as m from '@/paraglide/messages.js'

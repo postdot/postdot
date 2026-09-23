@@ -23,8 +23,6 @@ describe('Herald auth email delivery', () => {
         const delivery = createHeraldAuthEmailDelivery({
             transport,
             webOrigin: 'https://app.example.test',
-            getProjectIdForOrganization: organizationId =>
-                organizationId === 'organization-1' ? 'project-1' : null,
             smtp: {
                 host: 'smtp.example.test',
                 port: 587,
@@ -62,7 +60,7 @@ describe('Herald auth email delivery', () => {
         await waitForDelivery(() => sent.length === 3)
 
         expect(invitationURL).toBe(
-            'https://app.example.test/dashboard/settings/access?organizationInvitation=invitation-1&projectId=project-1'
+            'https://app.example.test/invite?invitationId=invitation-1&organizationId=organization-1'
         )
         expect(delivery.sendEmailVerificationOnSignUp).toBe(true)
         expect(sent).toHaveLength(3)

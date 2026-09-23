@@ -1,4 +1,4 @@
-import { MagnifierIcon } from '@solar-icons/react/bold/magnifier'
+import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { Button } from '../../components/button'

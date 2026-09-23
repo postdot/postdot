@@ -17,11 +17,16 @@ const secret = 'herald-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const publisherEncryptionKey = new Uint8Array(32).fill(9)
 
-function createFixture() {
+function createFixture(options: { readonly allowAdditionalSignups?: boolean } = {}) {
     const database = createDatabase(':memory:')
     runMigrations(database)
     const access = createAccessStore(database, { now: () => now })
-    const auth = createAuth(database, { baseURL, secret, access })
+    const auth = createAuth(database, {
+        baseURL,
+        secret,
+        access,
+        allowAdditionalSignups: options.allowAdditionalSignups,
+    })
     const publisher = createPublisherRuntime(database, {
         apiOrigin: baseURL,
         webOrigin: 'http://localhost:5173',
@@ -39,6 +44,7 @@ function createFixture() {
         publisher,
         manualStore: { now: () => now },
         taxonomy: createTaxonomyStore(database, { now: () => now }),
+        allowAdditionalSignups: options.allowAdditionalSignups,
     })
     return { access, app, auth, database }
 }
@@ -163,10 +169,120 @@ async function bearerJsonRequest(
 }
 
 describe('access HTTP routes', () => {
+    it('creates user-owned API keys with an optional project subset', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'api-key-owner@herald.local')
+            const firstProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'First API project' }),
+            })
+            const secondProjectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Second API project' }),
+            })
+            expect(firstProjectResponse.status).toBe(201)
+            expect(secondProjectResponse.status).toBe(201)
+            const firstProject = (await firstProjectResponse.json()) as {
+                project: { id: string }
+            }
+            const secondProject = (await secondProjectResponse.json()) as {
+                project: { id: string }
+            }
+
+            const createAllResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ projectIds: null }),
+            })
+            expect(createAllResponse.status).toBe(201)
+            const createdAll = (await createAllResponse.json()) as {
+                key: { name: string; projectAccess: string }
+                token: string
+            }
+            expect(createdAll.key.projectAccess).toBe('all')
+            expect(createdAll.key.name).toMatch(
+                /^Herald (Amber|Bright|Calm|Clever|Golden|Gentle|Noble|Quiet|Silver|Sunny|Swift|Warm) (Cedar|Comet|Fox|Horizon|Maple|Meadow|Orbit|Pine|River|Sparrow|Stone|Willow) [0-9A-F]{6}$/
+            )
+            expect(createdAll.token).toMatch(/^herald_pat_/)
+
+            const allProjectsResponse = await bearerRequest(app, '/api/projects', createdAll.token)
+            expect(allProjectsResponse.status).toBe(200)
+            const allProjects = (await allProjectsResponse.json()) as { projects: unknown[] }
+            expect(allProjects.projects).toHaveLength(2)
+
+            const allKeyProjectResponse = await bearerRequest(
+                app,
+                `/api/projects/${secondProject.project.id}/channels`,
+                createdAll.token
+            )
+            expect(allKeyProjectResponse.status).toBe(200)
+
+            const createSelectedResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Herald MCP',
+                    projectIds: [firstProject.project.id],
+                }),
+            })
+            expect(createSelectedResponse.status).toBe(201)
+            const createdSelected = (await createSelectedResponse.json()) as {
+                key: { name: string; projectAccess: string[] }
+                token: string
+            }
+            expect(createdSelected.key.name).toBe('Herald MCP')
+            expect(createdSelected.key.projectAccess).toEqual([firstProject.project.id])
+
+            const selectedProjectsResponse = await bearerRequest(
+                app,
+                '/api/projects',
+                createdSelected.token
+            )
+            expect(selectedProjectsResponse.status).toBe(200)
+            const selectedProjects = (await selectedProjectsResponse.json()) as {
+                projects: unknown[]
+            }
+            expect(selectedProjects.projects).toEqual([
+                expect.objectContaining({ id: firstProject.project.id }),
+            ])
+
+            const selectedKeyProjectResponse = await bearerRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/channels`,
+                createdSelected.token
+            )
+            expect(selectedKeyProjectResponse.status).toBe(200)
+            const rejectedProjectResponse = await bearerRequest(
+                app,
+                `/api/projects/${secondProject.project.id}/channels`,
+                createdSelected.token
+            )
+            expect(rejectedProjectResponse.status).toBe(404)
+
+            const listed = await jsonRequest(app, '/api/api-keys', cookie)
+            expect(listed.status).toBe(200)
+            const listedKeys = (await listed.json()) as { keys: unknown[] }
+            expect(listedKeys.keys).toHaveLength(2)
+
+            expect(secondProject.project.id).not.toBe(firstProject.project.id)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('publishes access paths with session security and typed status responses', async () => {
         const { app, database } = createFixture()
 
         try {
+            const setupStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
+            expect(setupStatus.status).toBe(200)
+            expect(await setupStatus.json()).toEqual({ setupAvailable: true })
+
+            await signUp(app, 'bootstrap@herald.local')
+            const claimedStatus = await app.handle(new Request(`${baseURL}/api/instance/status`))
+            expect(claimedStatus.status).toBe(200)
+            expect(await claimedStatus.json()).toEqual({ setupAvailable: false })
+
             const response = await app.handle(new Request(`${baseURL}/openapi/json`))
             expect(response.status).toBe(200)
             const specification = (await response.json()) as {
@@ -177,12 +293,20 @@ describe('access HTTP routes', () => {
             }
             expect(Object.keys(specification.paths)).toEqual(
                 expect.arrayContaining([
+                    '/api/instance/status',
+                    '/api/access/invitations/{token}',
                     '/api/access',
                     '/api/access/members',
                     '/api/access/invitations',
                     '/api/access/invitations/{invitationId}',
                     '/api/access/invitations/accept',
                 ])
+            )
+            expect(specification.paths['/api/instance/status']?.get?.operationId).toBe(
+                'getInstanceSetupStatus'
+            )
+            expect(specification.paths['/api/access/invitations/{token}']?.get?.operationId).toBe(
+                'getAccessInvitationPreview'
             )
             expect(specification.paths['/api/access']?.get?.operationId).toBe(
                 'getCurrentInstanceAccess'
@@ -216,8 +340,22 @@ describe('access HTTP routes', () => {
         }
     })
 
-    it('requires an instance admin and forbids project API keys on instance routes', async () => {
-        const { access, app, auth, database } = createFixture()
+    it('keeps setup discoverable for isolated E2E accounts without changing production defaults', async () => {
+        const { app, database } = createFixture({ allowAdditionalSignups: true })
+
+        try {
+            await signUp(app, 'e2e-bootstrap@herald.local')
+            const status = await app.handle(new Request(`${baseURL}/api/instance/status`))
+
+            expect(status.status).toBe(200)
+            expect(await status.json()).toEqual({ setupAvailable: true })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('requires an instance admin and forbids user API keys on instance routes', async () => {
+        const { access, app, database } = createFixture()
 
         try {
             const adminCookie = await signUp(app, 'admin@herald.local')
@@ -253,27 +391,22 @@ describe('access HTTP routes', () => {
             })
             expect(project.status).toBe(201)
             const projectBody = (await project.json()) as { project: { id: string } }
-            const organization = database.$client
-                .query<{ readonly id: string }, [string]>(
-                    'select organization_id as id from projects where id = ?1'
-                )
-                .get(projectBody.project.id)
-            if (organization === null) throw new Error('The project organization was not created')
-            const token = await auth.api.createApiKey({
-                body: {
+            const tokenResponse = await jsonRequest(app, '/api/api-keys', adminCookie, {
+                method: 'POST',
+                body: JSON.stringify({
                     name: 'instance-route-test',
-                    organizationId: organization.id,
-                    userId: adminId,
-                    metadata: { heraldProjectId: projectBody.project.id },
-                },
-                headers: new Headers({ cookie: adminCookie }),
+                    projectIds: [projectBody.project.id],
+                }),
             })
+            expect(tokenResponse.status).toBe(201)
+            const token = (await tokenResponse.json()) as { token: string }
 
-            expect((await bearerRequest(app, '/api/access', token.key)).status).toBe(403)
+            expect((await bearerRequest(app, '/api/access', token.token)).status).toBe(403)
             expect(
-                (await bearerRequest(app, '/api/settings/provider-applications', token.key)).status
+                (await bearerRequest(app, '/api/settings/provider-applications', token.token))
+                    .status
             ).toBe(403)
-            expect((await bearerRequest(app, '/api/categories', token.key)).status).toBe(403)
+            expect((await bearerRequest(app, '/api/categories', token.token)).status).toBe(403)
         } finally {
             closeDatabase(database)
         }
@@ -349,26 +482,20 @@ describe('access HTTP routes', () => {
             })
             expect(projectResponse.status).toBe(201)
             const project = (await projectResponse.json()) as { project: { id: string } }
-            const organization = database.$client
-                .query<{ readonly id: string }, [string]>(
-                    'select organization_id as id from projects where id = ?1'
-                )
-                .get(project.project.id)
-            if (organization === null) throw new Error('The project organization was not created')
-            const token = await auth.api.createApiKey({
-                body: {
+            const tokenResponse = await jsonRequest(app, '/api/api-keys', adminCookie, {
+                method: 'POST',
+                body: JSON.stringify({
                     name: 'member-administration-test',
-                    organizationId: organization.id,
-                    userId: adminId,
-                    metadata: { heraldProjectId: project.project.id },
-                },
-                headers: new Headers({ cookie: adminCookie }),
+                    projectIds: [project.project.id],
+                }),
             })
+            expect(tokenResponse.status).toBe(201)
+            const token = (await tokenResponse.json()) as { token: string }
 
-            expect((await bearerRequest(app, '/api/access/members', token.key)).status).toBe(403)
+            expect((await bearerRequest(app, '/api/access/members', token.token)).status).toBe(403)
             expect(
                 (
-                    await bearerJsonRequest(app, `/api/access/members/${memberId}`, token.key, {
+                    await bearerJsonRequest(app, `/api/access/members/${memberId}`, token.token, {
                         method: 'PATCH',
                         body: JSON.stringify({ role: 'admin' }),
                     })
@@ -514,6 +641,15 @@ describe('access HTTP routes', () => {
             expect(created.invitation.targetEmail).toBe('member@herald.local')
             expect(created.token).toBeString()
 
+            const previewResponse = await app.handle(
+                new Request(`${baseURL}/api/access/invitations/${created.token}`)
+            )
+            expect(previewResponse.status).toBe(200)
+            expect(await previewResponse.json()).toEqual({
+                targetEmail: 'member@herald.local',
+                expiresAt: now + 7 * 24 * 60 * 60 * 1_000,
+            })
+
             const listResponse = await jsonRequest(app, '/api/access/invitations', adminCookie)
             expect(listResponse.status).toBe(200)
             const listed = await listResponse.json()
@@ -546,6 +682,10 @@ describe('access HTTP routes', () => {
                 invitation: { id: created.invitation.id, state: 'accepted' },
                 instanceMembership: { userId: memberId, role: 'member', state: 'enabled' },
             })
+            const consumedPreviewResponse = await app.handle(
+                new Request(`${baseURL}/api/access/invitations/${created.token}`)
+            )
+            expect(consumedPreviewResponse.status).toBe(404)
 
             const summaryResponse = await jsonRequest(app, '/api/access', memberCookie)
             expect(summaryResponse.status).toBe(200)
@@ -564,6 +704,12 @@ describe('access HTTP routes', () => {
 
         try {
             const adminCookie = await signUp(app, 'admin@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', adminCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Shared workspace project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const project = (await projectResponse.json()) as { project: { id: string } }
             const targetEmail = 'new-invitee@herald.local'
             const createResponse = await jsonRequest(app, '/api/access/invitations', adminCookie, {
                 method: 'POST',
@@ -596,6 +742,327 @@ describe('access HTTP routes', () => {
                 },
             })
             expect(access.hasPendingInvitationForEmail(targetEmail)).toBe(false)
+
+            const projectsResponse = await jsonRequest(app, '/api/projects', inviteeCookie)
+            expect(projectsResponse.status).toBe(200)
+            expect(await projectsResponse.json()).toMatchObject({
+                projects: [expect.objectContaining({ id: project.project.id })],
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('invites and accepts a workspace group member through Better Auth', async () => {
+        const { access, app, database } = createFixture()
+
+        try {
+            const adminCookie = await signUp(app, 'admin@herald.local')
+            const workspace = access.getDefaultWorkspace()
+            expect(workspace).not.toBeNull()
+            if (workspace === null) throw new Error('The default workspace was not created')
+
+            const workspaceResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}`,
+                adminCookie
+            )
+            expect(workspaceResponse.status).toBe(200)
+            const workspaceBody = (await workspaceResponse.json()) as {
+                membership: { role: string }
+                teams: Array<{ id: string; name: string }>
+            }
+            expect(workspaceBody.membership).toEqual({ role: 'owner' })
+            const editors = workspaceBody.teams.find(team => team.name === 'Editors')
+            expect(editors).toBeDefined()
+            if (editors === undefined) throw new Error('The default Editors group was not created')
+
+            const createTeamResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams`,
+                adminCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Writers' }),
+                }
+            )
+            expect(createTeamResponse.status).toBe(201)
+            const createdTeamBody = (await createTeamResponse.json()) as {
+                team: { id: string; name: string; isDefault: boolean; memberCount: number }
+            }
+            expect(createdTeamBody.team).toMatchObject({
+                name: 'Writers',
+                isDefault: false,
+                memberCount: 0,
+            })
+
+            const renameTeamResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${createdTeamBody.team.id}`,
+                adminCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ name: 'Content writers' }),
+                }
+            )
+            expect(renameTeamResponse.status).toBe(200)
+            expect(await renameTeamResponse.json()).toMatchObject({
+                team: {
+                    id: createdTeamBody.team.id,
+                    name: 'Content writers',
+                    isDefault: false,
+                },
+            })
+
+            const targetEmail = 'workspace-invitee@herald.local'
+            const createResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/invitations`,
+                adminCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ email: targetEmail, teamId: editors.id }),
+                }
+            )
+            expect(createResponse.status).toBe(201)
+            const created = (await createResponse.json()) as {
+                invitation: { id: string; teamId?: string; status: string }
+            }
+            expect(created.invitation).toMatchObject({ teamId: editors.id, status: 'pending' })
+
+            const inviteeCookie = await signUp(app, targetEmail)
+            const inviteeId = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get(targetEmail)
+            expect(inviteeId).not.toBeNull()
+
+            const acceptResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/invitations/${created.invitation.id}/accept`,
+                inviteeCookie,
+                { method: 'POST' }
+            )
+            expect(acceptResponse.status).toBe(200)
+            expect(await acceptResponse.json()).toMatchObject({
+                membership: { role: 'member' },
+                invitation: { id: created.invitation.id, status: 'accepted' },
+            })
+            expect(access.getInstanceMembership(inviteeId?.id ?? '')).toMatchObject({
+                role: 'member',
+                state: 'enabled',
+            })
+
+            const teamMembership = database.$client
+                .query<{ readonly count: number }, [string, string]>(
+                    'select count(*) as count from team_member where team_id = ?1 and user_id = ?2'
+                )
+                .get(editors.id, inviteeId?.id ?? '')
+            expect(teamMembership).toEqual({ count: 1 })
+
+            const addTeamMemberResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${createdTeamBody.team.id}/members`,
+                adminCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: inviteeId?.id }),
+                }
+            )
+            expect(addTeamMemberResponse.status).toBe(200)
+            expect(await addTeamMemberResponse.json()).toMatchObject({
+                member: {
+                    teamId: createdTeamBody.team.id,
+                    userId: inviteeId?.id,
+                },
+            })
+
+            const teamMembersResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${createdTeamBody.team.id}/members`,
+                adminCookie
+            )
+            expect(teamMembersResponse.status).toBe(200)
+            expect(await teamMembersResponse.json()).toEqual({
+                members: [expect.objectContaining({ userId: inviteeId?.id })],
+            })
+            const removeTeamMemberResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${createdTeamBody.team.id}/members/${inviteeId?.id}`,
+                adminCookie,
+                { method: 'DELETE' }
+            )
+            expect(removeTeamMemberResponse.status).toBe(200)
+            expect(await removeTeamMemberResponse.json()).toEqual({ removed: true })
+
+            const memberReadAfterRemovalResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${createdTeamBody.team.id}/members`,
+                inviteeCookie
+            )
+            expect(memberReadAfterRemovalResponse.status).toBe(200)
+            expect(await memberReadAfterRemovalResponse.json()).toEqual({ members: [] })
+
+            const forbiddenTeamCreate = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams`,
+                inviteeCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Member-created group' }),
+                }
+            )
+            expect(forbiddenTeamCreate.status).toBe(403)
+
+            const forbiddenWorkspaceCreate = await jsonRequest(
+                app,
+                '/api/workspaces',
+                inviteeCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Member workspace' }),
+                }
+            )
+            expect(forbiddenWorkspaceCreate.status).toBe(403)
+
+            const memberWorkspaceResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}`,
+                inviteeCookie
+            )
+            expect(memberWorkspaceResponse.status).toBe(200)
+            const memberWorkspaceBody = (await memberWorkspaceResponse.json()) as {
+                members: Array<{ id: string; userId: string; role: string }>
+            }
+            const workspaceMember = memberWorkspaceBody.members.find(
+                member => member.userId === inviteeId?.id
+            )
+            expect(memberWorkspaceBody).toMatchObject({
+                membership: { role: 'member' },
+                members: expect.arrayContaining([expect.objectContaining({ email: targetEmail })]),
+            })
+            expect(workspaceMember).toBeDefined()
+            if (workspaceMember === undefined) {
+                throw new Error('The workspace member record was not returned')
+            }
+
+            const promoteMemberResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/members/${workspaceMember.id}`,
+                adminCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'admin' }),
+                }
+            )
+            expect(promoteMemberResponse.status).toBe(200)
+            expect(await promoteMemberResponse.json()).toMatchObject({
+                member: { id: workspaceMember.id, role: 'admin' },
+            })
+
+            const selfRoleUpdateResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/members/${workspaceMember.id}`,
+                inviteeCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'member' }),
+                }
+            )
+            expect(selfRoleUpdateResponse.status).toBe(409)
+            expect(await selfRoleUpdateResponse.json()).toMatchObject({
+                error: { code: 'workspace_self_update' },
+            })
+
+            const removeMemberResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/members/${workspaceMember.id}`,
+                adminCookie,
+                { method: 'DELETE' }
+            )
+            expect(removeMemberResponse.status).toBe(200)
+            expect(await removeMemberResponse.json()).toEqual({ removed: true })
+
+            const removedWorkspaceResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}`,
+                inviteeCookie
+            )
+            expect(removedWorkspaceResponse.status).toBe(403)
+
+            const forbiddenInvite = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/invitations`,
+                inviteeCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ email: 'another@herald.local' }),
+                }
+            )
+            expect(forbiddenInvite.status).toBe(403)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('lets an instance administrator create a workspace with its default groups', async () => {
+        const { access, app, database } = createFixture()
+
+        try {
+            const adminCookie = await signUp(app, 'workspace-owner@herald.local')
+            const listBefore = await jsonRequest(app, '/api/workspaces', adminCookie)
+            expect(listBefore.status).toBe(200)
+            expect(await listBefore.json()).toMatchObject({
+                canCreateWorkspace: true,
+                workspaces: [expect.objectContaining({ name: 'My workspace', role: 'owner' })],
+            })
+
+            const createResponse = await jsonRequest(app, '/api/workspaces', adminCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Editorial workspace' }),
+            })
+            expect(createResponse.status).toBe(201)
+            const created = (await createResponse.json()) as {
+                workspace: {
+                    id: string
+                    name: string
+                    slug: string
+                    isDefault: boolean
+                    role: string
+                }
+            }
+            expect(created.workspace).toMatchObject({
+                name: 'Editorial workspace',
+                isDefault: false,
+                role: 'owner',
+            })
+
+            const workspace = access.getWorkspace(created.workspace.id)
+            expect(workspace).toMatchObject({
+                name: 'Editorial workspace',
+                slug: created.workspace.slug,
+                isDefault: false,
+            })
+            const teams = database.$client
+                .query<{ readonly name: string; readonly memberCount: number }, [string]>(
+                    `select name, member_count as memberCount
+                     from team where organization_id = ?1 order by name`
+                )
+                .all(workspace?.organizationId ?? '')
+            expect(teams).toEqual([
+                { name: 'Administrators', memberCount: 1 },
+                { name: 'Editors', memberCount: 0 },
+                { name: 'Reviewers', memberCount: 0 },
+                { name: 'Viewers', memberCount: 0 },
+            ])
+
+            const listAfter = await jsonRequest(app, '/api/workspaces', adminCookie)
+            expect(listAfter.status).toBe(200)
+            expect(await listAfter.json()).toMatchObject({
+                canCreateWorkspace: true,
+                workspaces: expect.arrayContaining([
+                    expect.objectContaining({ id: created.workspace.id, role: 'owner' }),
+                ]),
+            })
         } finally {
             closeDatabase(database)
         }

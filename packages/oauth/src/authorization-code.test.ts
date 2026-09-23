@@ -8,6 +8,7 @@ import {
     refreshAccessToken,
     validateAuthorizationResponse,
     validateReturnPath,
+    isAuthorizationDeniedError,
     type OAuthAuthorizationServer,
 } from './index'
 
@@ -120,6 +121,58 @@ describe('OAuth authorization code mechanics', () => {
                 expectedState: request.state,
             })
         ).toThrow()
+    })
+
+    it('distinguishes an explicit authorization refusal from other callback failures', async () => {
+        const request = await createAuthorizationRequest({
+            authorizationServer,
+            clientId: 'client-1',
+            callbackUri: 'https://herald.example.com/callback',
+            scopes: ['openid'],
+        })
+
+        let deniedError: unknown
+        try {
+            validateAuthorizationResponse({
+                authorizationServer,
+                clientId: 'client-1',
+                parameters: new URLSearchParams({
+                    error: 'access_denied',
+                    error_description: 'The user declined access',
+                    state: request.state,
+                }),
+                expectedState: request.state,
+            })
+        } catch (error) {
+            deniedError = error
+        }
+
+        expect(isAuthorizationDeniedError(deniedError)).toBe(true)
+        expect(
+            isAuthorizationDeniedError(
+                Object.assign(new Error('OAuth callback error'), {
+                    params: new URLSearchParams({ error: 'access_denied' }),
+                })
+            )
+        ).toBe(true)
+
+        let providerError: unknown
+        try {
+            validateAuthorizationResponse({
+                authorizationServer,
+                clientId: 'client-1',
+                parameters: new URLSearchParams({
+                    error: 'temporarily_unavailable',
+                    state: request.state,
+                }),
+                expectedState: request.state,
+            })
+        } catch (error) {
+            providerError = error
+        }
+
+        expect(isAuthorizationDeniedError(providerError)).toBe(false)
+        expect(isAuthorizationDeniedError(new Error('network failure'))).toBe(false)
     })
 
     it('exchanges a validated code with client-secret-post against a fake provider', async () => {

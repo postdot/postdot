@@ -1,6 +1,5 @@
 import { Button } from '@herald/ui/components/button'
 import { Field as UiField, FieldLabel } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
 import {
     Select,
     SelectContent,
@@ -9,10 +8,11 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
-import { CloseIcon } from '@solar-icons/react/bold/close'
+import { CloseIcon } from '@solar-icons/react/linear/close'
 import { Link } from '@tanstack/react-router'
-import type { Dispatch, ReactNode, SetStateAction } from 'react'
+import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 
+import { DateTimePicker } from '@/components/date-time-picker'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import type { Channel, PublisherConnection } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
@@ -48,7 +48,12 @@ export function PublicationChannelRail({
     const allChannelsSelected = selectedChannelIds === undefined
 
     return (
-        <div data-publication-channel-selection="true" className="flex min-w-0 items-center gap-3">
+        <div
+            data-publication-channel-selection="true"
+            className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl bg-surface-inset/55 px-3 py-2 shadow-surface sm:px-4">
+            <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+                {m.publication_new_destinations()}
+            </span>
             {onSharedChange ? (
                 <Button
                     type="button"
@@ -64,7 +69,7 @@ export function PublicationChannelRail({
                 </Button>
             ) : null}
             <div
-                className="flex min-w-0 items-center gap-2 overflow-x-auto p-1"
+                className="flex min-w-0 flex-1 flex-wrap items-center gap-2 p-0.5"
                 role="group"
                 aria-label={m.publication_new_destinations()}>
                 {channels.map(channel => {
@@ -82,10 +87,10 @@ export function PublicationChannelRail({
                                         data-active-channel={active || undefined}
                                         disabled={disabled}
                                         onClick={() => onActiveChannelChange(channel.id)}
-                                        className={`relative h-11 shrink-0 gap-2 rounded-xl px-2 ${active ? 'bg-primary/10 text-primary shadow-control' : selected ? '' : 'opacity-40 grayscale hover:opacity-80 hover:grayscale-0'}`}>
+                                        className={`relative h-11 min-w-0 max-w-full shrink-0 gap-2 rounded-xl px-2 ${active ? 'bg-primary/10 text-primary shadow-control' : selected ? '' : 'opacity-40 grayscale hover:opacity-80 hover:grayscale-0'}`}>
                                         <ChannelAvatar channel={channel} size="md" />
                                         {active ? (
-                                            <span className="max-w-32 truncate text-sm">
+                                            <span className="min-w-0 max-w-32 truncate text-sm">
                                                 {channel.name}
                                             </span>
                                         ) : null}
@@ -113,6 +118,7 @@ export interface PublicationChannelTabsProps {
     readonly disabled: boolean
     readonly onActiveTargetChange: (targetId: string) => void
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
+    readonly onDefaultDeliveryModeChange?: (deliveryMode: DeliveryMode) => void
     readonly projectId: string
     readonly targets: readonly PublicationTargetDraft[]
     readonly timeZone: string
@@ -126,20 +132,35 @@ export function PublicationChannelTabs({
     disabled,
     onActiveTargetChange,
     onChange,
+    onDefaultDeliveryModeChange,
     projectId,
     targets,
     timeZone,
 }: PublicationChannelTabsProps) {
     useLanguage()
     function activateChannel(channelId: string) {
+        const channel = channels.find(item => item.id === channelId)
         const existing = targets.find(target => target.channelId === channelId)
+        const deliveryMode = supportsAutomaticDelivery(channel) ? defaultDeliveryMode : 'manual'
+
+        if (deliveryMode !== defaultDeliveryMode) {
+            onDefaultDeliveryModeChange?.(deliveryMode)
+        }
+
         if (existing) {
+            if (existing.deliveryMode !== deliveryMode) {
+                onChange(current =>
+                    current.map(target =>
+                        target.id === existing.id ? { ...target, deliveryMode } : target
+                    )
+                )
+            }
             onActiveTargetChange(existing.id)
             return
         }
         const nextTarget = {
             ...createPublicationTarget(channelId, timeZone),
-            deliveryMode: defaultDeliveryMode,
+            deliveryMode,
             scheduledAt: defaultScheduledAt,
         }
         onChange(current => [...current.filter(target => target.channelId !== ''), nextTarget])
@@ -214,7 +235,7 @@ export function PublicationChannelSettings({
     targets,
     timeZone,
 }: PublicationChannelSettingsProps) {
-    useLanguage()
+    const { locale } = useLanguage()
     const activeTarget = targets.find(target => target.id === activeTargetId)
     const activeChannel = channels.find(channel => channel.id === activeTarget?.channelId)
     const activeConnection = connections.find(
@@ -224,6 +245,19 @@ export function PublicationChannelSettings({
         activeTarget === undefined || activeChannel === undefined
             ? null
             : resolveConnectionStatus(activeChannel, activeConnection, activeTarget.deliveryMode)
+    const automaticConnectionNeedsSetup =
+        activeChannel !== undefined &&
+        activeChannel.profileId !== 'manual-message' &&
+        activeConnection?.state !== 'active'
+    const [deliveryDetailsOpen, setDeliveryDetailsOpen] = useState(automaticConnectionNeedsSetup)
+
+    useEffect(() => {
+        setDeliveryDetailsOpen(automaticConnectionNeedsSetup)
+    }, [activeTarget?.id, automaticConnectionNeedsSetup])
+    const automaticDeliveryAllowedForDefaults = targets.every(target =>
+        supportsAutomaticDelivery(channels.find(channel => channel.id === target.channelId))
+    )
+    const automaticDeliveryAllowedForActiveTarget = supportsAutomaticDelivery(activeChannel)
 
     function updateTarget(id: string, patch: Partial<PublicationTargetDraft>) {
         onChange(currentTargets =>
@@ -248,7 +282,9 @@ export function PublicationChannelSettings({
                         <Select
                             items={{
                                 manual: m.publication_new_manual_publication(),
-                                automatic: m.publication_new_automatic_publication(),
+                                ...(automaticDeliveryAllowedForDefaults
+                                    ? { automatic: m.publication_new_automatic_publication() }
+                                    : {}),
                             }}
                             value={defaultDeliveryMode}
                             onValueChange={value =>
@@ -262,30 +298,53 @@ export function PublicationChannelSettings({
                                 <SelectItem value="manual">
                                     {m.publication_new_manual_publication()}
                                 </SelectItem>
-                                <SelectItem value="automatic">
-                                    {m.publication_new_automatic_publication()}
-                                </SelectItem>
+                                {automaticDeliveryAllowedForDefaults ? (
+                                    <SelectItem value="automatic">
+                                        {m.publication_new_automatic_publication()}
+                                    </SelectItem>
+                                ) : null}
                             </SelectContent>
                         </Select>
                     </TargetField>
                     <TargetField
                         htmlFor="publication-default-schedule"
                         label={m.publication_new_default_schedule()}>
-                        <Input
+                        <DateTimePicker
                             id="publication-default-schedule"
-                            type="datetime-local"
                             value={defaultScheduledAt}
                             disabled={disabled}
-                            onChange={event => onDefaultScheduledAtChange(event.target.value)}
+                            onChange={onDefaultScheduledAtChange}
+                            clearLabel={m.common_clear()}
+                            dateLabel={m.date_time_picker_date()}
+                            locale={locale}
+                            placeholder={m.date_time_picker_placeholder()}
+                            timeLabel={m.date_time_picker_time()}
+                            timeZone={timeZone}
                         />
                     </TargetField>
                 </div>
             </section>
 
+            {automaticConnectionNeedsSetup ? (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-state-attention/10 px-3 py-2.5 text-xs">
+                    <span className="text-state-attention">
+                        {m.publication_new_automatic_connection_required()}
+                    </span>
+                    <Link
+                        className="shrink-0 font-medium text-foreground underline-offset-4 hover:underline"
+                        params={{ projectId }}
+                        to="/dashboard/projects/$projectId/channels">
+                        {m.publication_new_manage_connection()}
+                    </Link>
+                </div>
+            ) : null}
+
             {activeChannel !== undefined && activeTarget !== undefined ? (
                 <details
                     data-publication-active-channel-settings="true"
-                    className="mt-3 rounded-lg bg-surface-raised/70 p-3">
+                    className="mt-3 rounded-lg bg-surface-raised/70 p-3"
+                    open={deliveryDetailsOpen}
+                    onToggle={event => setDeliveryDetailsOpen(event.currentTarget.open)}>
                     <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
                         {m.publication_new_customize_delivery()}
                     </summary>
@@ -299,7 +358,8 @@ export function PublicationChannelSettings({
                                         <span className={activeStatus.className}>
                                             {activeStatus.label}
                                         </span>
-                                        {activeStatus.requiresConnection ? (
+                                        {activeStatus.requiresConnection &&
+                                        !automaticConnectionNeedsSetup ? (
                                             <Link
                                                 className="text-primary underline-offset-4 hover:underline"
                                                 params={{ projectId }}
@@ -342,7 +402,12 @@ export function PublicationChannelSettings({
                                 <Select
                                     items={{
                                         manual: m.publication_new_manual_publication(),
-                                        automatic: m.publication_new_automatic_publication(),
+                                        ...(automaticDeliveryAllowedForActiveTarget
+                                            ? {
+                                                  automatic:
+                                                      m.publication_new_automatic_publication(),
+                                              }
+                                            : {}),
                                     }}
                                     value={activeTarget.deliveryMode}
                                     onValueChange={value =>
@@ -359,26 +424,31 @@ export function PublicationChannelSettings({
                                         <SelectItem value="manual">
                                             {m.publication_new_manual_publication()}
                                         </SelectItem>
-                                        <SelectItem value="automatic">
-                                            {m.publication_new_automatic_publication()}
-                                        </SelectItem>
+                                        {automaticDeliveryAllowedForActiveTarget ? (
+                                            <SelectItem value="automatic">
+                                                {m.publication_new_automatic_publication()}
+                                            </SelectItem>
+                                        ) : null}
                                     </SelectContent>
                                 </Select>
                             </TargetField>
                             <TargetField
                                 htmlFor={`publication-target-${activeTarget.id}-schedule`}
                                 label={m.publication_new_scheduled_for()}>
-                                <Input
+                                <DateTimePicker
                                     id={`publication-target-${activeTarget.id}-schedule`}
                                     required
-                                    type="datetime-local"
                                     value={activeTarget.scheduledAt}
                                     disabled={disabled}
-                                    onChange={event =>
-                                        updateTarget(activeTarget.id, {
-                                            scheduledAt: event.target.value,
-                                        })
+                                    onChange={scheduledAt =>
+                                        updateTarget(activeTarget.id, { scheduledAt })
                                     }
+                                    clearLabel={m.common_clear()}
+                                    dateLabel={m.date_time_picker_date()}
+                                    locale={locale}
+                                    placeholder={m.date_time_picker_placeholder()}
+                                    timeLabel={m.date_time_picker_time()}
+                                    timeZone={timeZone}
                                 />
                             </TargetField>
                             <div className="sm:col-span-2 flex justify-end">
@@ -459,6 +529,10 @@ function resolveConnectionStatus(
         label: m.channel_needs_connection(),
         requiresConnection: true,
     }
+}
+
+function supportsAutomaticDelivery(channel: Channel | undefined) {
+    return channel?.profileId !== 'manual-message'
 }
 
 function TargetField({

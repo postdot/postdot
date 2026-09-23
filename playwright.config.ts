@@ -42,7 +42,10 @@ export default defineConfig({
     fullyParallel: false,
     forbidOnly: Boolean(process.env.CI),
     retries: 0,
-    workers: process.env.CI ? 1 : undefined,
+    // All specs share one isolated API/database runtime; parallel workers can
+    // mutate the instance bootstrap state and make otherwise independent flows
+    // observe another test's project or session.
+    workers: 1,
     reporter: process.env.CI ? 'github' : 'list',
     globalTeardown: './e2e/global-teardown.ts',
     use: {

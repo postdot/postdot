@@ -25,6 +25,7 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
         state: 'ready' as const,
         targetContent: { body: 'A publication waiting for a human confirmation.' },
     }
+    await createTestChannel(page, projectId, `E2E-122 overview channel ${suffix}`)
 
     await page.route(
         new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
@@ -44,7 +45,7 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
                 body: JSON.stringify({
                     publications,
                     nextCursor: null,
-                    summary: { total: 8, manual: 4, automatic: 4, scheduled: 4 },
+                    summary: { total: 8, manual: 4, automatic: 4, scheduled: 3 },
                 }),
             })
         }
@@ -417,8 +418,12 @@ test('supports dense events and slot creation in the ReUI week view', async ({ p
     expect(newPublicationUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(newPublicationUrl.searchParams.get('time')).toBe('00:00')
     await expect(page.locator('[data-new-publication-editor="true"]')).toBeVisible()
-    await expect(page.locator('input[type="datetime-local"]').first()).toHaveValue(
-        `${newPublicationUrl.searchParams.get('date')}T00:00`
+    const expectedScheduleDate = new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeZone: 'UTC',
+    }).format(new Date(`${newPublicationUrl.searchParams.get('date')}T00:00:00.000Z`))
+    await expect(page.getByLabel('Schedule', { exact: true }).first()).toContainText(
+        expectedScheduleDate
     )
 })
 
@@ -520,6 +525,7 @@ async function createDenseCalendarProject(page: Page): Promise<{
     const projectId = await createAccountAndProject(page, suffix)
     const scheduledAt = currentMonthAt(23, 30)
     const channelName = 'Calendar review destination channel with a deliberately long name'
+    await createTestChannel(page, projectId, channelName)
     const publications = Array.from({ length: 6 }, (_, index) =>
         publicationFixture({
             channelName,
@@ -609,6 +615,13 @@ function publicationFixture(input: {
     }
 }
 
+async function createTestChannel(page: Page, projectId: string, name: string): Promise<void> {
+    const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name, profile: 'manual-message' },
+    })
+    expect(response.status()).toBe(201)
+}
+
 async function visibleCalendarTimes(scrollSurface: ReturnType<Page['locator']>): Promise<string[]> {
     return scrollSurface.evaluate(element => {
         const container = element.getBoundingClientRect()
@@ -649,19 +662,27 @@ function currentMonthAt(hour: number, minute = 0) {
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Need an account?' }).click()
+    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-122 populated ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-122-populated-${suffix}@herald.local`)
-    await page.getByLabel('Password').fill('e2e-122-password')
-    await page.getByRole('button', { name: 'Create account', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await page.getByLabel('Password', { exact: true }).fill('e2e-122-password')
+    await Promise.all([
+        page.waitForResponse(
+            response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+        ),
+        page.getByRole('button', { name: 'Create account', exact: true }).click(),
+    ])
+    await page.goto('/dashboard?projectId=none')
+    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
-    await page.getByRole('option', { name: 'Create project', exact: true }).click()
-    await page.locator('#new-project').fill(`E2E-122 populated project ${suffix}`)
+    await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
+    await page
+        .getByRole('textbox', { name: 'New project', exact: true })
+        .fill(`E2E-122 populated project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.locator('#new-project') })
+        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
         .getByRole('button', { name: 'Add project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createAuth } from '@herald/auth'
-import { createManualStore, closeDatabase, createDatabase, runMigrations } from '@herald/db'
+import {
+    closeDatabase,
+    createAccessStore,
+    createDatabase,
+    createManualStore,
+    runMigrations,
+} from '@herald/db'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -116,19 +122,18 @@ describe('provider analytics routes', () => {
             if (user === null || user === undefined) throw new Error('The auth user is missing')
 
             const manual = createManualStore(database, { now: () => now })
-            const organization = await auth.api.createOrganization({
-                body: {
-                    name: 'Provider analytics',
-                    slug: 'provider-analytics-test',
-                    userId: user.id,
-                    metadata: { heraldResource: 'project' },
-                },
-            })
+            const access = createAccessStore(database, { now: () => now })
+            const workspace = access.getDefaultWorkspaceForUser(user.id)
+            if (workspace === null) throw new Error('The analytics workspace is missing')
             const project = manual.createProject({
                 name: 'Provider analytics',
                 subjectId: user.id,
                 displayName: 'Analytics operator',
-                organizationId: organization.id,
+                workspaceId: workspace.id,
+            })
+            access.ensureProjectOwnerMembership({
+                projectId: project.project.id,
+                userId: user.id,
             })
             const channel = manual.createChannel({
                 projectId: project.project.id,

@@ -157,6 +157,18 @@ describe('project realtime event source', () => {
         source.close()
     })
 
+    test('stops the user stream when the server revokes every project access', () => {
+        const fake = new FakeEventSource()
+        const signals: unknown[] = []
+        const source = createUserRealtimeClient(() => fake)
+        source.subscribe(signal => signals.push(signal))
+
+        fake.emit('user.access-revoked', JSON.stringify({ reason: 'access_revoked' }))
+
+        expect(signals).toEqual([{ kind: 'access-revoked' }])
+        expect(fake.closed).toBe(true)
+    })
+
     test('stops a project stream when the server revokes project access', () => {
         const fake = new FakeEventSource()
         const signals: unknown[] = []

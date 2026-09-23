@@ -10,8 +10,8 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { Textarea } from '@herald/ui/components/textarea'
-import { AddIcon } from '@solar-icons/react/bold/add'
-import { CloseIcon } from '@solar-icons/react/bold/close'
+import { AddIcon } from '@solar-icons/react/linear/add'
+import { CloseIcon } from '@solar-icons/react/linear/close'
 import { useEffect, useState } from 'react'
 
 import { formatNumber } from '@/lib/format'
@@ -30,6 +30,7 @@ interface TargetFieldControlProps {
     readonly fieldId: string
     readonly value: unknown
     readonly disabled: boolean
+    readonly compact?: boolean
     readonly onChange: (value: unknown | undefined) => void
 }
 
@@ -38,10 +39,14 @@ export function TargetFieldControl({
     fieldId,
     value,
     disabled,
+    compact = false,
     onChange,
 }: TargetFieldControlProps) {
     const { locale } = useLanguage()
-    const description = fieldDescription(field, locale)
+    const description =
+        compact && field.kind !== 'unsupported' && field.kind !== 'readonly'
+            ? null
+            : fieldDescription(field, locale)
 
     if (field.kind === 'media') {
         const count = Array.isArray(value) ? value.length : 0

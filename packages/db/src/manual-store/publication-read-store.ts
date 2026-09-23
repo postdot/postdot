@@ -2,6 +2,7 @@ import {
     createPublicationTagFilter,
     DomainInvariantError,
     requireNonBlank,
+    type Publication,
     type PublicationTagFilter,
 } from '@herald/core'
 
@@ -66,17 +67,30 @@ export interface PublicationSummaryPageOptions {
     readonly filter?: PublicationTagFilter
     readonly cursor?: string | null
     readonly limit?: number
+    readonly sort?: PublicationListSort
+    readonly state?: PublicationListState
     /** Inclusive UTC timestamp lower bound for scheduled publications. */
     readonly from?: number | null
     /** Exclusive UTC timestamp upper bound for scheduled publications. */
     readonly to?: number | null
 }
 
+export type PublicationListState = Extract<Publication['state'], 'draft' | 'scheduled'>
+export type PublicationListSort =
+    | 'queue'
+    | 'updated_desc'
+    | 'updated_asc'
+    | 'created_desc'
+    | 'created_asc'
+    | 'scheduled_desc'
+    | 'scheduled_asc'
+
 export interface PublicationSummaryCounts {
     readonly total: number
     readonly manual: number
     readonly automatic: number
     readonly scheduled: number
+    readonly draft: number
 }
 
 export interface PublicationSummaryPage {
@@ -166,6 +180,7 @@ export function createPublicationReadStore(
             cursorId: string | null,
             from: number | null,
             to: number | null,
+            state: PublicationListState | null,
             limit: number,
         ]
     >(`
@@ -184,11 +199,14 @@ export function createPublicationReadStore(
         )
         select ${publicationColumns},
                posts.title as postTitle,
+               posts.source_content as sourceContentJson,
+               posts.updated_at as postUpdatedAt,
                channels.name as channelName,
                working_drafts.revision as draftRevision,
                working_drafts.review_state as draftReviewState,
                working_drafts.source_revision as draftSourceRevision,
                working_drafts.content_json as draftContentJson,
+               working_drafts.updated_at as draftUpdatedAt,
                target_revisions.source_revision as targetSourceRevision,
                target_revisions.content_json as targetContentJson,
                coalesce((
@@ -260,12 +278,321 @@ export function createPublicationReadStore(
           )
           and (?7 is null or publications.scheduled_at >= ?7)
           and (?8 is null or publications.scheduled_at < ?8)
+          and (?9 is null or publications.state = ?9)
         order by
             case when publications.scheduled_at is null then 1 else 0 end,
             publications.scheduled_at,
             publications.updated_at desc,
             publications.id
-        limit ?9
+        limit ?10
+    `)
+
+    const publicationSummaryCommonCtes = `
+        with selected_tag_ids as (
+            select value as tagId
+            from json_each(?2)
+        ),
+        matching_publications as (
+            select assignments.publication_id as publicationId
+            from publication_tags as assignments
+            inner join selected_tag_ids
+                on selected_tag_ids.tagId = assignments.tag_id
+            where assignments.project_id = ?1
+            group by assignments.publication_id
+            having count(distinct assignments.tag_id) = (select count(*) from selected_tag_ids)
+        )
+    `
+    const publicationSummaryCommonSelect = `
+        select ${publicationColumns},
+               posts.title as postTitle,
+               posts.source_content as sourceContentJson,
+               posts.updated_at as postUpdatedAt,
+               channels.name as channelName,
+               working_drafts.revision as draftRevision,
+               working_drafts.review_state as draftReviewState,
+               working_drafts.source_revision as draftSourceRevision,
+               working_drafts.content_json as draftContentJson,
+               working_drafts.updated_at as draftUpdatedAt,
+               target_revisions.source_revision as targetSourceRevision,
+               target_revisions.content_json as targetContentJson,
+               coalesce((
+                   select json_group_array(ordered_tags.tagId)
+                   from (
+                       select assignments.tag_id as tagId
+                       from publication_tags as assignments
+                       inner join project_tags as tags
+                           on tags.project_id = assignments.project_id
+                          and tags.id = assignments.tag_id
+                       where assignments.project_id = publications.project_id
+                         and assignments.publication_id = publications.id
+                       order by tags.normalized_name, tags.id
+                   ) as ordered_tags
+               ), '[]') as tagIdsJson
+    `
+    const publicationSummaryCommonJoins = `
+        from publications
+        inner join posts
+            on posts.project_id = publications.project_id
+           and posts.id = publications.post_id
+        inner join channels
+            on channels.project_id = publications.project_id
+           and channels.id = publications.channel_id
+        inner join publication_working_drafts as working_drafts
+            on working_drafts.project_id = publications.project_id
+           and working_drafts.publication_id = publications.id
+        left join publication_target_revisions as target_revisions
+            on target_revisions.project_id = publications.project_id
+           and target_revisions.id = publications.target_revision_id
+           and target_revisions.publication_id = publications.id
+    `
+    const publicationSummaryCommonFilter = `
+        where publications.project_id = ?1
+          and (
+              not exists (select 1 from selected_tag_ids)
+              or exists (
+                  select 1
+                  from matching_publications
+                  where matching_publications.publicationId = publications.id
+              )
+          )
+    `
+    const listPublicationSummaryUpdatedDescStatement = client.query<
+        PublicationSummaryRow,
+        [
+            projectId: string,
+            tagIdsJson: string,
+            cursorUpdatedAt: number | null,
+            cursorId: string | null,
+            from: number | null,
+            to: number | null,
+            state: PublicationListState | null,
+            limit: number,
+        ]
+    >(`
+        ${publicationSummaryCommonCtes}
+        ${publicationSummaryCommonSelect}
+        ${publicationSummaryCommonJoins}
+        ${publicationSummaryCommonFilter}
+          and (
+              ?3 is null
+              or max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?3
+              or (
+                  max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?3
+                  and publications.id > ?4
+              )
+          )
+          and (?5 is null or publications.scheduled_at >= ?5)
+          and (?6 is null or publications.scheduled_at < ?6)
+          and (?7 is null or publications.state = ?7)
+        order by max(publications.updated_at, posts.updated_at, working_drafts.updated_at) desc,
+                 publications.id
+        limit ?8
+    `)
+    const listPublicationSummaryUpdatedAscStatement = client.query<
+        PublicationSummaryRow,
+        [
+            projectId: string,
+            tagIdsJson: string,
+            cursorUpdatedAt: number | null,
+            cursorId: string | null,
+            from: number | null,
+            to: number | null,
+            state: PublicationListState | null,
+            limit: number,
+        ]
+    >(`
+        ${publicationSummaryCommonCtes}
+        ${publicationSummaryCommonSelect}
+        ${publicationSummaryCommonJoins}
+        ${publicationSummaryCommonFilter}
+          and (
+              ?3 is null
+              or max(publications.updated_at, posts.updated_at, working_drafts.updated_at) > ?3
+              or (
+                  max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?3
+                  and publications.id > ?4
+              )
+          )
+          and (?5 is null or publications.scheduled_at >= ?5)
+          and (?6 is null or publications.scheduled_at < ?6)
+          and (?7 is null or publications.state = ?7)
+        order by max(publications.updated_at, posts.updated_at, working_drafts.updated_at),
+                 publications.id
+        limit ?8
+    `)
+    const listPublicationSummaryCreatedDescStatement = client.query<
+        PublicationSummaryRow,
+        [
+            projectId: string,
+            tagIdsJson: string,
+            cursorCreatedAt: number | null,
+            cursorId: string | null,
+            from: number | null,
+            to: number | null,
+            state: PublicationListState | null,
+            limit: number,
+        ]
+    >(`
+        ${publicationSummaryCommonCtes}
+        ${publicationSummaryCommonSelect}
+        ${publicationSummaryCommonJoins}
+        ${publicationSummaryCommonFilter}
+          and (
+              ?3 is null
+              or publications.created_at < ?3
+              or (publications.created_at = ?3 and publications.id > ?4)
+          )
+          and (?5 is null or publications.scheduled_at >= ?5)
+          and (?6 is null or publications.scheduled_at < ?6)
+          and (?7 is null or publications.state = ?7)
+        order by publications.created_at desc, publications.id
+        limit ?8
+    `)
+    const listPublicationSummaryCreatedAscStatement = client.query<
+        PublicationSummaryRow,
+        [
+            projectId: string,
+            tagIdsJson: string,
+            cursorCreatedAt: number | null,
+            cursorId: string | null,
+            from: number | null,
+            to: number | null,
+            state: PublicationListState | null,
+            limit: number,
+        ]
+    >(`
+        ${publicationSummaryCommonCtes}
+        ${publicationSummaryCommonSelect}
+        ${publicationSummaryCommonJoins}
+        ${publicationSummaryCommonFilter}
+          and (
+              ?3 is null
+              or publications.created_at > ?3
+              or (publications.created_at = ?3 and publications.id > ?4)
+          )
+          and (?5 is null or publications.scheduled_at >= ?5)
+          and (?6 is null or publications.scheduled_at < ?6)
+          and (?7 is null or publications.state = ?7)
+        order by publications.created_at, publications.id
+        limit ?8
+    `)
+    const listPublicationSummaryScheduledAscStatement = client.query<
+        PublicationSummaryRow,
+        [
+            projectId: string,
+            tagIdsJson: string,
+            cursorBucket: number | null,
+            cursorScheduledAt: number | null,
+            cursorUpdatedAt: number | null,
+            cursorId: string | null,
+            from: number | null,
+            to: number | null,
+            state: PublicationListState | null,
+            limit: number,
+        ]
+    >(`
+        ${publicationSummaryCommonCtes}
+        ${publicationSummaryCommonSelect}
+        ${publicationSummaryCommonJoins}
+        ${publicationSummaryCommonFilter}
+          and (
+              ?3 is null
+              or (
+                  ?3 = 0
+                  and (
+                      publications.scheduled_at is null
+                      or publications.scheduled_at > ?4
+                      or (
+                          publications.scheduled_at = ?4
+                          and (
+                              max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?5
+                              or (
+                                  max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?5
+                                  and publications.id > ?6
+                              )
+                          )
+                      )
+                  )
+              )
+              or (
+                  ?3 = 1
+                  and publications.scheduled_at is null
+                  and (
+                      max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?5
+                      or (
+                          max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?5
+                          and publications.id > ?6
+                      )
+                  )
+              )
+          )
+          and (?7 is null or publications.scheduled_at >= ?7)
+          and (?8 is null or publications.scheduled_at < ?8)
+          and (?9 is null or publications.state = ?9)
+        order by case when publications.scheduled_at is null then 1 else 0 end,
+                 publications.scheduled_at,
+                 max(publications.updated_at, posts.updated_at, working_drafts.updated_at) desc,
+                 publications.id
+        limit ?10
+    `)
+    const listPublicationSummaryScheduledDescStatement = client.query<
+        PublicationSummaryRow,
+        [
+            projectId: string,
+            tagIdsJson: string,
+            cursorBucket: number | null,
+            cursorScheduledAt: number | null,
+            cursorUpdatedAt: number | null,
+            cursorId: string | null,
+            from: number | null,
+            to: number | null,
+            state: PublicationListState | null,
+            limit: number,
+        ]
+    >(`
+        ${publicationSummaryCommonCtes}
+        ${publicationSummaryCommonSelect}
+        ${publicationSummaryCommonJoins}
+        ${publicationSummaryCommonFilter}
+          and (
+              ?3 is null
+              or (
+                  ?3 = 0
+                  and (
+                      publications.scheduled_at is null
+                      or publications.scheduled_at < ?4
+                      or (
+                          publications.scheduled_at = ?4
+                          and (
+                              max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?5
+                              or (
+                                  max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?5
+                                  and publications.id > ?6
+                              )
+                          )
+                      )
+                  )
+              )
+              or (
+                  ?3 = 1
+                  and publications.scheduled_at is null
+                  and (
+                      max(publications.updated_at, posts.updated_at, working_drafts.updated_at) < ?5
+                      or (
+                          max(publications.updated_at, posts.updated_at, working_drafts.updated_at) = ?5
+                          and publications.id > ?6
+                      )
+                  )
+              )
+          )
+          and (?7 is null or publications.scheduled_at >= ?7)
+          and (?8 is null or publications.scheduled_at < ?8)
+          and (?9 is null or publications.state = ?9)
+        order by case when publications.scheduled_at is null then 1 else 0 end,
+                 publications.scheduled_at desc,
+                 max(publications.updated_at, posts.updated_at, working_drafts.updated_at) desc,
+                 publications.id
+        limit ?10
     `)
     const listPublicationSummaryCountsStatement = client.query<
         PublicationSummaryCounts,
@@ -287,7 +614,8 @@ export function createPublicationReadStore(
         visible_publications as (
             select publications.id,
                    publications.delivery_mode,
-                   publications.scheduled_at
+                   publications.scheduled_at,
+                   publications.state
             from publications
             inner join posts
                 on posts.project_id = publications.project_id
@@ -313,7 +641,8 @@ export function createPublicationReadStore(
         select count(*) as total,
                coalesce(sum(case when delivery_mode = 'manual' then 1 else 0 end), 0) as manual,
                coalesce(sum(case when delivery_mode = 'automatic' then 1 else 0 end), 0) as automatic,
-               coalesce(sum(case when scheduled_at is not null then 1 else 0 end), 0) as scheduled
+               coalesce(sum(case when state = 'scheduled' then 1 else 0 end), 0) as scheduled,
+               coalesce(sum(case when state = 'draft' then 1 else 0 end), 0) as draft
         from visible_publications
     `)
 
@@ -346,20 +675,109 @@ export function createPublicationReadStore(
             )
         }
 
+        const sort = pageOptions.sort ?? 'queue'
+        const state = pageOptions.state ?? null
         const cursor = parsePublicationCursor(pageOptions.cursor)
+        if (cursor !== null && cursor.sort !== sort) {
+            throw new DomainInvariantError(
+                'invalid_input',
+                'publication cursor does not match the requested sort'
+            )
+        }
         const normalizedFilter = createPublicationTagFilter(pageOptions.filter?.tagIds ?? [])
         const tagIdsJson = JSON.stringify(normalizedFilter.tagIds)
-        const rows = listPublicationSummaryPageStatement.all(
-            normalizedProjectId,
-            tagIdsJson,
-            cursor?.scheduledAt === null ? 1 : cursor === null ? null : 0,
-            cursor?.scheduledAt ?? null,
-            cursor?.updatedAt ?? null,
-            cursor?.id ?? null,
-            from,
-            to,
-            limit + 1
-        )
+        let rows: PublicationSummaryRow[]
+        if (sort === 'queue') {
+            const queueCursor = cursor?.sort === 'queue' ? cursor : null
+            rows = listPublicationSummaryPageStatement.all(
+                normalizedProjectId,
+                tagIdsJson,
+                queueCursor?.scheduledAt === null ? 1 : queueCursor === null ? null : 0,
+                queueCursor?.scheduledAt ?? null,
+                queueCursor?.updatedAt ?? null,
+                queueCursor?.id ?? null,
+                from,
+                to,
+                state,
+                limit + 1
+            )
+        } else if (sort === 'updated_desc') {
+            const sortedCursor = cursor?.sort === sort ? cursor : null
+            rows = listPublicationSummaryUpdatedDescStatement.all(
+                normalizedProjectId,
+                tagIdsJson,
+                sortedCursor?.primary ?? null,
+                sortedCursor?.id ?? null,
+                from,
+                to,
+                state,
+                limit + 1
+            )
+        } else if (sort === 'updated_asc') {
+            const sortedCursor = cursor?.sort === sort ? cursor : null
+            rows = listPublicationSummaryUpdatedAscStatement.all(
+                normalizedProjectId,
+                tagIdsJson,
+                sortedCursor?.primary ?? null,
+                sortedCursor?.id ?? null,
+                from,
+                to,
+                state,
+                limit + 1
+            )
+        } else if (sort === 'created_desc') {
+            const sortedCursor = cursor?.sort === sort ? cursor : null
+            rows = listPublicationSummaryCreatedDescStatement.all(
+                normalizedProjectId,
+                tagIdsJson,
+                sortedCursor?.primary ?? null,
+                sortedCursor?.id ?? null,
+                from,
+                to,
+                state,
+                limit + 1
+            )
+        } else if (sort === 'created_asc') {
+            const sortedCursor = cursor?.sort === sort ? cursor : null
+            rows = listPublicationSummaryCreatedAscStatement.all(
+                normalizedProjectId,
+                tagIdsJson,
+                sortedCursor?.primary ?? null,
+                sortedCursor?.id ?? null,
+                from,
+                to,
+                state,
+                limit + 1
+            )
+        } else if (sort === 'scheduled_asc') {
+            const scheduledCursor = cursor?.sort === sort ? cursor : null
+            rows = listPublicationSummaryScheduledAscStatement.all(
+                normalizedProjectId,
+                tagIdsJson,
+                scheduledCursor === null ? null : scheduledCursor.bucket,
+                scheduledCursor?.scheduledAt ?? null,
+                scheduledCursor?.updatedAt ?? null,
+                scheduledCursor?.id ?? null,
+                from,
+                to,
+                state,
+                limit + 1
+            )
+        } else {
+            const scheduledCursor = cursor?.sort === sort ? cursor : null
+            rows = listPublicationSummaryScheduledDescStatement.all(
+                normalizedProjectId,
+                tagIdsJson,
+                scheduledCursor === null ? null : scheduledCursor.bucket,
+                scheduledCursor?.scheduledAt ?? null,
+                scheduledCursor?.updatedAt ?? null,
+                scheduledCursor?.id ?? null,
+                from,
+                to,
+                state,
+                limit + 1
+            )
+        }
         const summary = listPublicationSummaryCountsStatement.get(
             normalizedProjectId,
             tagIdsJson,
@@ -375,17 +793,15 @@ export function createPublicationReadStore(
         const hasMore = rows.length > limit
         const pageRows = rows.slice(0, limit)
         const lastRow = hasMore ? pageRows.at(-1) : undefined
+        const publications = pageRows.map(toPublicationSummary)
+        const lastPublication = publications.at(-1)
 
         return {
-            publications: pageRows.map(toPublicationSummary),
+            publications,
             nextCursor:
-                lastRow === undefined
+                lastRow === undefined || lastPublication === undefined
                     ? null
-                    : encodePublicationCursor({
-                          scheduledAt: lastRow.scheduledAt,
-                          updatedAt: lastRow.updatedAt,
-                          id: lastRow.id,
-                      }),
+                    : encodeNextPublicationCursor(sort, lastRow, lastPublication),
             summary,
         }
     }
@@ -501,47 +917,171 @@ export function createPublicationReadStore(
     }
 }
 
-interface PublicationCursor {
+interface QueuePublicationCursor {
+    readonly sort: 'queue'
     readonly scheduledAt: number | null
     readonly updatedAt: number
     readonly id: string
 }
 
+interface DatePublicationCursor {
+    readonly sort: 'updated_desc' | 'updated_asc' | 'created_desc' | 'created_asc'
+    readonly primary: number
+    readonly id: string
+}
+
+interface ScheduledPublicationCursor {
+    readonly sort: 'scheduled_desc' | 'scheduled_asc'
+    readonly bucket: 0 | 1
+    readonly scheduledAt: number | null
+    readonly updatedAt: number
+    readonly id: string
+}
+
+type PublicationCursor = QueuePublicationCursor | DatePublicationCursor | ScheduledPublicationCursor
+
 const publicationCursorPrefix = 'publication-v1:'
+const sortedPublicationCursorPrefix = 'publication-v2:'
 
 function encodePublicationCursor(cursor: PublicationCursor): string {
-    return `${publicationCursorPrefix}${cursor.scheduledAt === null ? 'null' : cursor.scheduledAt}:${cursor.updatedAt}:${encodeURIComponent(cursor.id)}`
+    if (cursor.sort === 'queue') {
+        return `${publicationCursorPrefix}${cursor.scheduledAt === null ? 'null' : cursor.scheduledAt}:${cursor.updatedAt}:${encodeURIComponent(cursor.id)}`
+    }
+    return `${sortedPublicationCursorPrefix}${encodeURIComponent(JSON.stringify(cursor))}`
 }
 
 function parsePublicationCursor(cursor: string | null | undefined): PublicationCursor | null {
     if (cursor === null || cursor === undefined) return null
-    if (!cursor.startsWith(publicationCursorPrefix)) {
+    if (cursor.startsWith(publicationCursorPrefix)) {
+        const parts = cursor.slice(publicationCursorPrefix.length).split(':')
+        if (parts.length !== 3) {
+            throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+        }
+
+        const scheduledAt =
+            parts[0] === 'null' ? null : parseCursorTimestamp(parts[0], 'publication cursor')
+        const updatedAt = parseCursorTimestamp(parts[1], 'publication cursor')
+        let id: string
+        try {
+            id = decodeURIComponent(parts[2] ?? '')
+        } catch {
+            throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+        }
+        if (id.length === 0) {
+            throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+        }
+
+        const parsed: QueuePublicationCursor = { sort: 'queue', scheduledAt, updatedAt, id }
+        if (encodePublicationCursor(parsed) !== cursor) {
+            throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+        }
+        return parsed
+    }
+
+    if (!cursor.startsWith(sortedPublicationCursorPrefix)) {
         throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
     }
 
-    const parts = cursor.slice(publicationCursorPrefix.length).split(':')
-    if (parts.length !== 3) {
-        throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
-    }
-
-    const scheduledAt =
-        parts[0] === 'null' ? null : parseCursorTimestamp(parts[0], 'publication cursor')
-    const updatedAt = parseCursorTimestamp(parts[1], 'publication cursor')
-    let id: string
+    let parsedValue: unknown
     try {
-        id = decodeURIComponent(parts[2] ?? '')
+        parsedValue = JSON.parse(
+            decodeURIComponent(cursor.slice(sortedPublicationCursorPrefix.length))
+        )
     } catch {
         throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
     }
-    if (id.length === 0) {
+    if (!isRecord(parsedValue) || !isPublicationListSort(parsedValue.sort)) {
         throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
     }
 
-    const parsed = { scheduledAt, updatedAt, id }
-    if (encodePublicationCursor(parsed) !== cursor) {
+    let parsed: PublicationCursor | null = null
+    if (
+        parsedValue.sort === 'updated_desc' ||
+        parsedValue.sort === 'updated_asc' ||
+        parsedValue.sort === 'created_desc' ||
+        parsedValue.sort === 'created_asc'
+    ) {
+        parsed = {
+            sort: parsedValue.sort,
+            primary: parseCursorValue(parsedValue.primary),
+            id: parseCursorId(parsedValue.id),
+        }
+    } else if (parsedValue.sort === 'scheduled_desc' || parsedValue.sort === 'scheduled_asc') {
+        const bucket = parsedValue.bucket
+        if (bucket !== 0 && bucket !== 1) {
+            throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+        }
+        parsed = {
+            sort: parsedValue.sort,
+            bucket,
+            scheduledAt:
+                parsedValue.scheduledAt === null ? null : parseCursorValue(parsedValue.scheduledAt),
+            updatedAt: parseCursorValue(parsedValue.updatedAt),
+            id: parseCursorId(parsedValue.id),
+        }
+    }
+    if (parsed === null || encodePublicationCursor(parsed) !== cursor) {
         throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
     }
     return parsed
+}
+
+function encodeNextPublicationCursor(
+    sort: PublicationListSort,
+    row: PublicationSummaryRow,
+    publication: PublicationSummary
+): string {
+    if (sort === 'queue') {
+        return encodePublicationCursor({
+            sort,
+            scheduledAt: row.scheduledAt,
+            updatedAt: row.updatedAt,
+            id: row.id,
+        })
+    }
+    if (sort === 'updated_desc' || sort === 'updated_asc') {
+        return encodePublicationCursor({ sort, primary: publication.lastEditedAt, id: row.id })
+    }
+    if (sort === 'created_desc' || sort === 'created_asc') {
+        return encodePublicationCursor({ sort, primary: publication.createdAt, id: row.id })
+    }
+    return encodePublicationCursor({
+        sort,
+        bucket: row.scheduledAt === null ? 1 : 0,
+        scheduledAt: row.scheduledAt,
+        updatedAt: publication.lastEditedAt,
+        id: row.id,
+    })
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isPublicationListSort(value: unknown): value is PublicationListSort {
+    return (
+        value === 'queue' ||
+        value === 'updated_desc' ||
+        value === 'updated_asc' ||
+        value === 'created_desc' ||
+        value === 'created_asc' ||
+        value === 'scheduled_desc' ||
+        value === 'scheduled_asc'
+    )
+}
+
+function parseCursorValue(value: unknown): number {
+    if (typeof value !== 'number') {
+        throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+    }
+    return parseCursorTimestamp(`${value}`, 'publication cursor')
+}
+
+function parseCursorId(value: unknown): string {
+    if (typeof value !== 'string' || value.length === 0) {
+        throw new DomainInvariantError('invalid_input', 'publication cursor is invalid')
+    }
+    return value
 }
 
 function normalizeOptionalTimestamp(value: number | null | undefined, name: string): number | null {

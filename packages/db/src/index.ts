@@ -110,7 +110,6 @@ export {
     providerApplicationOAuthModes,
     providerApplicationStates,
 } from './provider-application-store'
-export { createProjectApiKeyActorStore } from './project-api-key-actor-store'
 export { createTaxonomyStore } from './taxonomy-store'
 export {
     accessInstanceId,
@@ -123,6 +122,7 @@ export {
     maximumInvitationTtlMs,
     projectMembershipStates,
     projectRoles,
+    workspaceRoles,
 } from './access-store'
 export {
     createAuthorizationAttemptStore,
@@ -187,8 +187,14 @@ export type {
     AccessProjectMembership,
     AccessProjectMembershipState,
     AccessProjectRole,
+    AccessProjectTeamGrant,
+    AccessProjectUserGrant,
     AccessStore,
     AccessStoreOptions,
+    AccessWorkspace,
+    AccessWorkspaceMembership,
+    AccessWorkspaceTeamMember,
+    AccessWorkspaceRole,
     BootstrapFirstAccountInput,
     BootstrapFirstAccountResult,
     CreateAccessInvitationInput,
@@ -204,11 +210,6 @@ export type {
     CreateAuthorizationAttemptInput,
     CreateAuthorizationAttemptResult,
 } from './oauth-authorization-attempt-store'
-export type {
-    CreateProjectApiKeyActorInput,
-    ProjectApiKeyActor,
-    ProjectApiKeyActorStore,
-} from './project-api-key-actor-store'
 export type {
     CreateProjectCategoryInput,
     CreateProjectTagInput,
@@ -238,6 +239,8 @@ export type {
     CreateProjectInput,
     CreatedPost,
     CreatedProject,
+    DeleteDraftPublicationInput,
+    DeleteDraftPublicationResult,
     DeleteChannelInput,
     DeleteChannelResult,
     DueManualPublication,
@@ -254,10 +257,20 @@ export type {
     PublicationSummaryCounts,
     PublicationSummaryPage,
     PublicationSummaryPageOptions,
+    PublicationListState,
+    PublicationListSort,
+    PublicationComposerDraft,
+    PublicationComposerDraftContent,
+    SavePublicationComposerDraftInput,
+    DeletePublicationComposerDraftInput,
+    DuplicateDraftPublicationInput,
+    DuplicateDraftPublicationResult,
     PublicationTargetRevision,
     SavePublicationDraftInput,
     RebasePublicationDraftInput,
     RestoreChannelInput,
+    RetryFailedPublicationInput,
+    RetryFailedPublicationResult,
 } from './manual-store'
 export type {
     FinalizeMediaUploadInput,

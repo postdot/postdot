@@ -7,13 +7,11 @@ test('an owner can invite, update, and remove project members', async ({ page })
 
     const suffix = randomUUID().slice(0, 8)
     const owner = await createAccountAndProject(page, suffix)
-    await page.goto(`/dashboard/projects/${owner.projectId}/access`)
+    await page.goto(`/dashboard/projects/${owner.projectId}/invitations`)
 
-    await expect(page.getByRole('heading', { name: 'Project access', exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
-    await expect(page.getByText(owner.email, { exact: true })).toBeVisible()
-    await expect(page.getByText('Owner', { exact: true })).toBeVisible()
-
+    await expect(
+        page.getByRole('heading', { name: 'Project invitations', exact: true }).first()
+    ).toBeVisible()
     const memberContext = await page.context().browser()?.newContext()
     expect(memberContext).toBeDefined()
     if (memberContext === undefined) throw new Error('The member browser context was not created')
@@ -27,10 +25,12 @@ test('an owner can invite, update, and remove project members', async ({ page })
 
         const initialInvitationLink = await page
             .locator('code')
-            .filter({ hasText: 'organizationInvitation=' })
+            .filter({ hasText: 'invitationId=' })
             .textContent()
-        expect(initialInvitationLink).toContain(
-            `/dashboard/settings/access?projectId=${owner.projectId}&organizationInvitation=`
+        expect(initialInvitationLink).toMatch(
+            new RegExp(
+                `/invite\\?invitationId=[^&]+&organizationId=[^&]+&projectId=${owner.projectId}`
+            )
         )
         if (initialInvitationLink === null)
             throw new Error('The project invitation link was not rendered')
@@ -39,10 +39,12 @@ test('an owner can invite, update, and remove project members', async ({ page })
         await expect(page.getByText('Invitation resent.', { exact: true })).toBeVisible()
         const invitationLink = await page
             .locator('code')
-            .filter({ hasText: 'organizationInvitation=' })
+            .filter({ hasText: 'invitationId=' })
             .textContent()
-        expect(invitationLink).toContain(
-            `/dashboard/settings/access?projectId=${owner.projectId}&organizationInvitation=`
+        expect(invitationLink).toMatch(
+            new RegExp(
+                `/invite\\?invitationId=[^&]+&organizationId=[^&]+&projectId=${owner.projectId}`
+            )
         )
         expect(invitationLink).not.toBe(initialInvitationLink)
         if (invitationLink === null)
@@ -50,17 +52,22 @@ test('an owner can invite, update, and remove project members', async ({ page })
 
         await memberPage.goto(invitationLink)
         await expect(memberPage).toHaveURL(/\/login\?continue=/)
-        await memberPage.getByRole('button', { name: 'Need an account?' }).click()
-        await memberPage.getByLabel('Name').fill(`E2E-134 member ${suffix}`)
-        await memberPage.getByLabel('Email').fill(memberEmail)
-        await memberPage.getByLabel('Password').fill('e2e-134-member-password')
-        await memberPage.getByRole('button', { name: 'Create account', exact: true }).click()
-        await expect(memberPage).toHaveURL(/\/dashboard\/settings\/access\?/, {
+        await memberPage.getByRole('button', { name: 'Create an account instead' }).click()
+        await memberPage.getByLabel('Name', { exact: true }).fill(`E2E-134 member ${suffix}`)
+        await memberPage.getByLabel('Email', { exact: true }).fill(memberEmail)
+        await memberPage.getByLabel('Password', { exact: true }).fill('e2e-134-member-password')
+        await Promise.all([
+            memberPage.waitForResponse(
+                response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+            ),
+            memberPage.getByRole('button', { name: 'Create account', exact: true }).click(),
+        ])
+        await expect(memberPage).toHaveURL(/\/invite\?/, {
             timeout: 15_000,
         })
         const invitationUrl = new URL(memberPage.url())
         expect(invitationUrl.searchParams.get('projectId')).toBe(owner.projectId)
-        expect(invitationUrl.searchParams.get('organizationInvitation')).toEqual(expect.any(String))
+        expect(invitationUrl.searchParams.get('invitationId')).toEqual(expect.any(String))
         await expect(
             memberPage.getByRole('heading', { name: 'Project invitation', exact: true })
         ).toBeVisible({ timeout: 15_000 })
@@ -72,8 +79,9 @@ test('an owner can invite, update, and remove project members', async ({ page })
             memberPage.getByRole('heading', { name: 'Overview', exact: true })
         ).toBeVisible()
 
+        await page.goto(`/dashboard/projects/${owner.projectId}/access`)
         await page.reload()
-        await expect(page.getByText(memberEmail, { exact: true })).toBeVisible()
+        await expect(page.getByText(memberEmail, { exact: true }).first()).toBeVisible()
         const memberRole = page.getByRole('combobox', { name: `Role for ${memberEmail}` })
         await expect(memberRole).toHaveText('Editor')
         await memberRole.click()
@@ -84,7 +92,7 @@ test('an owner can invite, update, and remove project members', async ({ page })
         await expect(
             page.getByRole('heading', { name: 'Remove this member?', exact: true })
         ).toBeVisible()
-        await page.getByRole('button', { name: 'Remove member', exact: true }).click()
+        await page.getByRole('button', { name: 'Remove access', exact: true }).click()
         await expect(page.getByText(memberEmail, { exact: true })).toHaveCount(0)
     } finally {
         await memberContext.close()
@@ -94,21 +102,28 @@ test('an owner can invite, update, and remove project members', async ({ page })
 async function createAccountAndProject(page: Page, suffix: string) {
     const email = `e2e-134-owner-${suffix}@herald.local`
 
-    await page.goto('/')
-    await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Need an account?' }).click()
-    await page.getByLabel('Name').fill(`E2E-134 owner ${suffix}`)
-    await page.getByLabel('Email').fill(email)
-    await page.getByLabel('Password').fill('e2e-134-owner-password')
-    await page.getByRole('button', { name: 'Create account', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await page.goto('/setup')
+    await expect(page).toHaveURL(/\/setup$/)
+    await page.getByLabel('Name', { exact: true }).fill(`E2E-134 owner ${suffix}`)
+    await page.getByLabel('Email', { exact: true }).fill(email)
+    await page.getByLabel('Password', { exact: true }).fill('e2e-134-owner-password')
+    await Promise.all([
+        page.waitForResponse(
+            response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+        ),
+        page.getByRole('button', { name: 'Create account', exact: true }).click(),
+    ])
+    await page.goto('/dashboard?projectId=none')
+    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
-    await page.getByRole('option', { name: 'Create project', exact: true }).click()
-    await page.locator('#new-project').fill(`E2E-134 project ${suffix}`)
+    await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
+    await page
+        .getByRole('textbox', { name: 'New project', exact: true })
+        .fill(`E2E-134 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.locator('#new-project') })
+        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
         .getByRole('button', { name: 'Add project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)

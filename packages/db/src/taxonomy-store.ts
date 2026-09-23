@@ -160,6 +160,7 @@ export function createTaxonomyStore(database: HeraldDatabase, options: TaxonomyS
         select id,
                name,
                time_zone as timeZone,
+               workspace_id as workspaceId,
                primary_category_id as primaryCategoryId,
                created_at as createdAt,
                updated_at as updatedAt

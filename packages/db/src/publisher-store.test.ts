@@ -359,6 +359,13 @@ describe('publisher connection store', () => {
                 )
             ).toHaveLength(1)
             expect(
+                fixture.publisherStore.getPublisherConnection(
+                    fixture.project.project.id,
+                    fixture.channel.id,
+                    'user-1'
+                )
+            ).toMatchObject({ state: 'active', channelId: fixture.channel.id })
+            expect(
                 fixture.publisherStore.listPublisherConnections(
                     fixture.project.project.id,
                     'user-2'
@@ -391,6 +398,78 @@ describe('publisher connection store', () => {
                     credential.id
                 )
             ).resolves.toBeNull()
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
+    it('replaces a stale connection while keeping active connections protected', async () => {
+        const fixture = await createFixture()
+
+        try {
+            const staleCredential = await createCredential(fixture)
+            const initial = fixture.publisherStore.createPublisherConnection({
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
+                subjectId: 'user-1',
+                kind: 'linkedin',
+                credentialId: staleCredential.id,
+            })
+            expect(initial.kind).toBe('created')
+
+            const replacementCredential = await createCredential(fixture, {
+                id: 'replacement',
+                externalAccountId: 'member-43',
+            })
+            expect(
+                fixture.publisherStore.createPublisherConnection({
+                    projectId: fixture.project.project.id,
+                    channelId: fixture.channel.id,
+                    subjectId: 'user-1',
+                    kind: 'linkedin',
+                    credentialId: replacementCredential.id,
+                    replaceNonActiveConnection: {
+                        id: initial.kind === 'created' ? initial.connection.id : 'missing',
+                        state: 'reconnect_required',
+                    },
+                })
+            ).toEqual({ kind: 'publisher_exists' })
+
+            fixture.credentialStore.markPublisherCredentialReconnectRequired(
+                fixture.project.project.id,
+                staleCredential.id
+            )
+            const replaced = fixture.publisherStore.createPublisherConnection({
+                projectId: fixture.project.project.id,
+                channelId: fixture.channel.id,
+                subjectId: 'user-1',
+                kind: 'linkedin',
+                credentialId: replacementCredential.id,
+                replaceNonActiveConnection: {
+                    id: initial.kind === 'created' ? initial.connection.id : 'missing',
+                    state: 'reconnect_required',
+                },
+            })
+            expect(replaced.kind).toBe('created')
+            if (replaced.kind !== 'created') return
+
+            expect(replaced.connection).toMatchObject({
+                credentialId: replacementCredential.id,
+                externalAccountId: 'member-43',
+                state: 'active',
+            })
+            expect(fixture.database.select().from(publishers).all()).toHaveLength(1)
+            expect(fixture.database.select().from(publisherConnections).all()).toHaveLength(1)
+            expect(
+                fixture.database
+                    .select({ id: publisherCredentials.id, state: publisherCredentials.state })
+                    .from(publisherCredentials)
+                    .all()
+                    .sort((left, right) => left.state.localeCompare(right.state))
+            ).toEqual([
+                { id: replacementCredential.id, state: 'active' },
+                { id: staleCredential.id, state: 'revoked' },
+            ])
         } finally {
             closeDatabase(fixture.database)
         }

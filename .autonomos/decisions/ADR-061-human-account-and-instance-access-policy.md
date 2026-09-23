@@ -17,6 +17,8 @@
   implementation of project membership, invitations, and machine-key lifecycle;
   the bootstrap and instance-policy decisions remain active. ADR-064 supersedes
   the migration and compatibility portions for the private development baseline.
+  [ADR-075](ADR-075-user-owned-api-keys.md) supersedes the API-key ownership,
+  scope, and compatibility portions.
 
 ## Context
 

@@ -66,7 +66,7 @@ function createFixture(discordFetcher?: DiscordFetcher) {
         notifications,
         ...(discordFetcher === undefined ? {} : { discordFetcher }),
     })
-    return { app, database }
+    return { app, database, publisher }
 }
 
 async function signUp(app: ReturnType<typeof createApp>, email: string) {
@@ -208,6 +208,53 @@ describe('Discord publisher connection routes', () => {
             expect(await response.json()).toMatchObject({
                 error: { code: 'invalid_token' },
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('reconnects a channel after its credential requires reconnection', async () => {
+        const discord = createDiscordFetcher([
+            botUserResponse(),
+            channelResponse(),
+            botUserResponse(),
+            channelResponse(),
+        ])
+        const { app, database, publisher } = createFixture(discord.fetcher)
+
+        try {
+            const cookie = await signUp(app, 'discord-reconnect@herald.local')
+            const { projectId, channelId: heraldChannelId } = await createDiscordChannel(
+                app,
+                cookie,
+                'Discord reconnect project'
+            )
+            const initial = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+                botToken,
+                channelId,
+            })
+            expect(initial.status).toBe(200)
+            const initialBody = (await initial.json()) as {
+                connection: { credentialId: string }
+            }
+
+            publisher.credentialStore.markPublisherCredentialReconnectRequired(
+                projectId,
+                initialBody.connection.credentialId
+            )
+
+            const reconnected = await connectDiscord(app, cookie, projectId, heraldChannelId, {
+                botToken,
+                channelId,
+            })
+            expect(reconnected.status).toBe(200)
+            expect(await reconnected.json()).toMatchObject({
+                connection: {
+                    kind: 'discord',
+                    state: 'active',
+                },
+            })
+            expect(discord.calls).toBe(4)
         } finally {
             closeDatabase(database)
         }

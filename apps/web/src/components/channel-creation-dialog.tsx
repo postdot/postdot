@@ -17,11 +17,13 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { Textarea } from '@herald/ui/components/textarea'
-import { AddIcon } from '@solar-icons/react/bold/add'
-import { CodeFileIcon } from '@solar-icons/react/bold/code-file'
+import { AddIcon } from '@solar-icons/react/linear/add'
+import { CheckIcon } from '@solar-icons/react/linear/check'
+import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
+import { ChannelAvatar } from '@/components/identity-visuals'
 import { api, type ChannelCreationProfile, type RuntimeChannelProfile } from '@/lib/api'
 import {
     builtInChannelProfileTemplatePrefix,
@@ -92,6 +94,14 @@ export function ChannelCreationDialog({
         setValidationError(null)
     }
 
+    function selectProfile(nextChoice: ProfileChoice) {
+        setChoice(nextChoice)
+        if (nextChoice === 'custom' && profileText === '') {
+            const profile = profileForTemplate(templateId, templates)
+            if (profile !== undefined) setProfileText(JSON.stringify(profile, null, 2))
+        }
+    }
+
     async function submit() {
         const trimmedName = name.trim()
         if (trimmedName === '') {
@@ -122,9 +132,23 @@ export function ChannelCreationDialog({
         }
     }
 
+    const profileChoices: readonly { value: ProfileChoice; label: string }[] = [
+        { value: 'manual-message', label: m.channel_manual_profile() },
+        { value: 'linkedin', label: m.channel_linkedin_profile() },
+        { value: 'bluesky', label: m.channel_bluesky_profile() },
+        { value: 'mastodon', label: m.channel_mastodon_profile() },
+        { value: 'discord', label: m.channel_discord_profile() },
+        { value: 'devto', label: m.channel_devto_profile() },
+        { value: 'custom', label: m.channel_custom_profile() },
+    ]
+
     return (
         <>
-            <Button onClick={() => setOpen(true)}>
+            <Button
+                onClick={() => {
+                    reset()
+                    setOpen(true)
+                }}>
                 <AddIcon aria-hidden="true" />
                 {m.channel_add()}
             </Button>
@@ -134,7 +158,7 @@ export function ChannelCreationDialog({
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-h-[min(42rem,calc(100vh-2rem))] max-w-2xl overflow-y-auto">
+                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-2xl overflow-x-hidden overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{m.channel_create_title()}</DialogTitle>
                         <DialogDescription>
@@ -155,56 +179,21 @@ export function ChannelCreationDialog({
                         </Field>
 
                         <Field className="gap-1.5">
-                            <FieldLabel htmlFor="new-channel-profile">
-                                {m.channel_profile()}
-                            </FieldLabel>
-                            <Select
-                                items={{
-                                    'manual-message': m.channel_manual_profile(),
-                                    linkedin: m.channel_linkedin_profile(),
-                                    bluesky: m.channel_bluesky_profile(),
-                                    mastodon: m.channel_mastodon_profile(),
-                                    discord: m.channel_discord_profile(),
-                                    devto: m.channel_devto_profile(),
-                                    custom: m.channel_custom_profile(),
-                                }}
-                                value={choice}
-                                onValueChange={value => {
-                                    const nextChoice = value as ProfileChoice
-                                    setChoice(nextChoice)
-                                    if (nextChoice === 'custom' && profileText === '') {
-                                        const profile = profileForTemplate(templateId, templates)
-                                        if (profile !== undefined)
-                                            setProfileText(JSON.stringify(profile, null, 2))
-                                    }
-                                }}>
-                                <SelectTrigger id="new-channel-profile">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent align="start">
-                                    <SelectItem value="manual-message">
-                                        {m.channel_manual_profile()}
-                                    </SelectItem>
-                                    <SelectItem value="linkedin">
-                                        {m.channel_linkedin_profile()}
-                                    </SelectItem>
-                                    <SelectItem value="bluesky">
-                                        {m.channel_bluesky_profile()}
-                                    </SelectItem>
-                                    <SelectItem value="mastodon">
-                                        {m.channel_mastodon_profile()}
-                                    </SelectItem>
-                                    <SelectItem value="discord">
-                                        {m.channel_discord_profile()}
-                                    </SelectItem>
-                                    <SelectItem value="devto">
-                                        {m.channel_devto_profile()}
-                                    </SelectItem>
-                                    <SelectItem value="custom">
-                                        {m.channel_custom_profile()}
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <FieldLabel>{m.channel_profile()}</FieldLabel>
+                            <div
+                                className="grid gap-2 sm:grid-cols-2"
+                                role="radiogroup"
+                                aria-label={m.channel_profile()}>
+                                {profileChoices.map(profile => (
+                                    <ProfileChoiceButton
+                                        key={profile.value}
+                                        label={profile.label}
+                                        selected={choice === profile.value}
+                                        value={profile.value}
+                                        onSelect={() => selectProfile(profile.value)}
+                                    />
+                                ))}
+                            </div>
                         </Field>
 
                         {choice === 'custom' ? (
@@ -271,7 +260,10 @@ export function ChannelCreationDialog({
                         <Button
                             type="button"
                             variant="ghost"
-                            onClick={() => setOpen(false)}
+                            onClick={() => {
+                                reset()
+                                setOpen(false)
+                            }}
                             disabled={pending}>
                             {m.common_cancel()}
                         </Button>
@@ -283,6 +275,41 @@ export function ChannelCreationDialog({
                 </DialogContent>
             </Dialog>
         </>
+    )
+}
+
+function ProfileChoiceButton({
+    label,
+    selected,
+    value,
+    onSelect,
+}: {
+    readonly label: string
+    readonly selected: boolean
+    readonly value: ProfileChoice
+    readonly onSelect: () => void
+}) {
+    return (
+        <Button
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            variant="ghost"
+            className={`h-auto min-h-10 min-w-0 justify-start overflow-hidden px-3 py-2 text-left ${
+                selected
+                    ? 'bg-surface-inset text-foreground shadow-field hover:bg-surface-inset'
+                    : 'bg-surface-control/70 hover:bg-surface-control'
+            }`}
+            onClick={onSelect}>
+            <ChannelAvatar
+                channel={{ id: `profile:${value}`, name: label, profileId: value }}
+                size="sm"
+            />
+            <span className="min-w-0 truncate">{label}</span>
+            {selected ? (
+                <CheckIcon aria-hidden="true" className="ml-auto shrink-0 text-primary" />
+            ) : null}
+        </Button>
     )
 }
 

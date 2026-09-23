@@ -14,9 +14,7 @@ export function DashboardSectionHeading({
     return (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
             <div className="min-w-0">
-                <h2 className="font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em]">
-                    {title}
-                </h2>
+                <h2 className="font-heading text-xl font-[580] leading-[1.03]">{title}</h2>
                 {description ? (
                     <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
                         {description}

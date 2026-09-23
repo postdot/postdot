@@ -12,7 +12,7 @@ import {
     TooltipTrigger,
 } from '@herald/ui/components/tooltip'
 import { cn } from '@herald/ui/lib/utils'
-import { RepeatIcon } from '@solar-icons/react/bold/repeat'
+import { RepeatIcon } from '@solar-icons/react/linear/repeat'
 import { addDays, format } from 'date-fns'
 import { createContext, useContext, useMemo, type CSSProperties, type ReactNode } from 'react'
 

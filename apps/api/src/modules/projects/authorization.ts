@@ -12,20 +12,12 @@ interface ProjectRoleCheck {
     readonly userId: string
 }
 
-/**
- * Project API keys are scoped to one project. They represent a machine actor
- * rather than a Better Auth project member, so the key scope grants ordinary
- * project operations but never instance or membership-owner operations.
- * Human sessions continue to use the project's explicit role.
- */
 export function canAccessProjectRole({
     access,
-    authMethod,
     minimumRole,
     projectId,
     userId,
 }: ProjectRoleCheck): boolean {
-    if (authMethod === 'project_token') return minimumRole !== 'owner'
     return access.canAccessProject(projectId, userId, minimumRole)
 }
 

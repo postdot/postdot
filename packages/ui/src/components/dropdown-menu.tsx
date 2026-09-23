@@ -1,6 +1,6 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu'
-import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
+import { CheckIcon } from '@solar-icons/react/linear/check'
 import * as React from 'react'
 
 import { cn } from '../lib/utils'
@@ -168,7 +168,7 @@ function DropdownMenuCheckboxItem({
                 className="pointer-events-none absolute right-2 flex items-center justify-center"
                 data-slot="dropdown-menu-checkbox-item-indicator">
                 <MenuPrimitive.CheckboxItemIndicator>
-                    <CheckReadIcon aria-hidden="true" />
+                    <CheckIcon aria-hidden="true" />
                 </MenuPrimitive.CheckboxItemIndicator>
             </span>
             {children}
@@ -201,7 +201,7 @@ function DropdownMenuRadioItem({
                 className="pointer-events-none absolute right-2 flex items-center justify-center"
                 data-slot="dropdown-menu-radio-item-indicator">
                 <MenuPrimitive.RadioItemIndicator>
-                    <CheckReadIcon aria-hidden="true" />
+                    <CheckIcon aria-hidden="true" />
                 </MenuPrimitive.RadioItemIndicator>
             </span>
             {children}
@@ -224,7 +224,7 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<'spa
         <span
             data-slot="dropdown-menu-shortcut"
             className={cn(
-                'ml-auto text-xs tracking-widest text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground',
+                'ml-auto text-xs text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground',
                 className
             )}
             {...props}

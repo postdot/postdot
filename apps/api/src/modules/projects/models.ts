@@ -12,6 +12,7 @@ import type {
     ChannelProfileVersion,
     AuditEvent,
     PublicationEditorState,
+    PublicationComposerDraft,
     PublicationSummary,
     PublicationTargetRevision,
     PublicationWorkingDraft,
@@ -35,9 +36,7 @@ function createElysiaSelectSchema<const TableType extends Table>(table: TableTyp
     return Type.Unsafe<TableType['$inferSelect']>(schema)
 }
 
-export const projectSchema = Type.Unsafe<Omit<typeof projects.$inferSelect, 'organizationId'>>(
-    Type.Omit(createElysiaSelectSchema(projects), ['organizationId'])
-)
+export const projectSchema = createElysiaSelectSchema(projects)
 const taxonomyStateSchema = Type.Union([Type.Literal('active'), Type.Literal('archived')])
 export const projectCategorySchema = Type.Object({
     id: Type.String({ minLength: 1 }),
@@ -96,17 +95,6 @@ export const auditEventSchema = Type.Unsafe<AuditEvent>(
     ])
 )
 
-export const projectAccessTokenSchema = Type.Object({
-    id: Type.String({ minLength: 1 }),
-    projectId: Type.String({ minLength: 1 }),
-    name: Type.String({ minLength: 1, maxLength: 100 }),
-    tokenPrefix: Type.String({ minLength: 1 }),
-    expiresAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
-    revokedAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
-    createdAt: Type.Integer({ minimum: 0 }),
-    updatedAt: Type.Integer({ minimum: 0 }),
-})
-
 export const projectMemberSchema = Type.Object({
     id: Type.String({ minLength: 1 }),
     projectId: Type.String({ minLength: 1 }),
@@ -141,6 +129,10 @@ export const projectMembersSchema = Type.Object({
     total: Type.Integer({ minimum: 0 }),
 })
 
+export const projectMembershipResponseSchema = Type.Object({
+    membership: projectMemberSchema,
+})
+
 export const projectInvitationsSchema = Type.Object({
     invitations: Type.Array(projectInvitationSchema),
 })
@@ -155,6 +147,69 @@ export const projectMemberResponseSchema = Type.Object({
 
 export const projectMemberRemovedSchema = Type.Object({
     removed: Type.Literal(true),
+})
+
+export const projectTeamGrantSchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    projectId: Type.String({ minLength: 1 }),
+    teamId: Type.String({ minLength: 1 }),
+    teamName: Type.String({ minLength: 1 }),
+    role: Type.Union([Type.Literal('owner'), Type.Literal('editor'), Type.Literal('viewer')]),
+    createdAt: Type.Integer({ minimum: 0 }),
+    updatedAt: Type.Integer({ minimum: 0 }),
+})
+
+export const projectTeamGrantsSchema = Type.Object({
+    grants: Type.Array(projectTeamGrantSchema),
+})
+
+export const projectTeamGrantResponseSchema = Type.Object({
+    grant: projectTeamGrantSchema,
+})
+
+export const projectTeamGrantParams = Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    teamId: Type.String({ minLength: 1 }),
+})
+
+export const projectTeamGrantBody = Type.Object({
+    teamId: Type.String({ minLength: 1 }),
+    role: Type.Union([Type.Literal('editor'), Type.Literal('viewer')]),
+})
+
+export const updateProjectTeamGrantBody = Type.Object({
+    role: Type.Union([Type.Literal('editor'), Type.Literal('viewer')]),
+})
+
+export const projectUserGrantSchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    projectId: Type.String({ minLength: 1 }),
+    userId: Type.String({ minLength: 1 }),
+    role: Type.Union([Type.Literal('owner'), Type.Literal('editor'), Type.Literal('viewer')]),
+    createdAt: Type.Integer({ minimum: 0 }),
+    updatedAt: Type.Integer({ minimum: 0 }),
+})
+
+export const projectUserGrantsSchema = Type.Object({
+    grants: Type.Array(projectUserGrantSchema),
+})
+
+export const projectUserGrantResponseSchema = Type.Object({
+    grant: projectUserGrantSchema,
+})
+
+export const projectUserGrantBody = Type.Object({
+    userId: Type.String({ minLength: 1 }),
+    role: Type.Union([Type.Literal('editor'), Type.Literal('viewer')]),
+})
+
+export const updateProjectUserGrantBody = Type.Object({
+    role: Type.Union([Type.Literal('editor'), Type.Literal('viewer')]),
+})
+
+export const projectUserGrantParams = Type.Object({
+    projectId: Type.String({ minLength: 1 }),
+    userId: Type.String({ minLength: 1 }),
 })
 
 const profileVersionStateSchema = Type.Union([
@@ -345,6 +400,10 @@ export const publicationSummarySchema = Type.Unsafe<PublicationSummary>(
         publicationSchema,
         Type.Object({
             postTitle: Type.Union([Type.String(), Type.Null()]),
+            sourceExcerpt: Type.Union([Type.String(), Type.Null()]),
+            mediaAssetIds: Type.Array(Type.String({ minLength: 1 }), { maxItems: 3 }),
+            mediaCount: Type.Integer({ minimum: 0 }),
+            lastEditedAt: Type.Integer({ minimum: 0 }),
             channelName: Type.String(),
             draftRevision: Type.Integer({ minimum: 1 }),
             draftReviewState: Type.Union([
@@ -365,7 +424,59 @@ export const publicationSummaryPageSchema = Type.Object({
         manual: Type.Integer({ minimum: 0 }),
         automatic: Type.Integer({ minimum: 0 }),
         scheduled: Type.Integer({ minimum: 0 }),
+        draft: Type.Integer({ minimum: 0 }),
     }),
+})
+
+export const deleteDraftPublicationResponseSchema = Type.Object({
+    deleted: Type.Literal(true),
+    postDeleted: Type.Boolean(),
+})
+
+export const duplicateDraftPublicationResponseSchema = Type.Object({
+    post: postSchema,
+    publication: publicationSchema,
+})
+
+const publicationComposerMediaSelectionSchema = Type.Object({
+    assetId: Type.String({ minLength: 1 }),
+    accessibilityText: Type.Optional(Type.String()),
+})
+
+const publicationComposerTargetSchema = Type.Object({
+    id: Type.String({ minLength: 1 }),
+    channelId: Type.String(),
+    content: Type.String(),
+    deliveryMode: Type.Union([Type.Literal('manual'), Type.Literal('automatic')]),
+    scheduledAt: Type.String(),
+})
+
+export const publicationComposerDraftContentSchema = Type.Object({
+    postTitle: Type.String(),
+    postContent: Type.String(),
+    sourceMedia: Type.Array(publicationComposerMediaSelectionSchema),
+    publicationTargets: Type.Array(publicationComposerTargetSchema),
+    publicationTagIds: Type.Array(Type.String()),
+    defaultDeliveryMode: Type.Union([Type.Literal('manual'), Type.Literal('automatic')]),
+    defaultScheduledAt: Type.String(),
+    customizedTargetIds: Type.Array(Type.String()),
+    customizedContentTargetIds: Type.Array(Type.String()),
+    activePublicationTabId: Type.String(),
+})
+
+export const publicationComposerDraftSchema = Type.Unsafe<PublicationComposerDraft>(
+    Type.Object({
+        id: Type.String({ minLength: 1 }),
+        projectId: Type.String({ minLength: 1 }),
+        content: publicationComposerDraftContentSchema,
+        revision: Type.Integer({ minimum: 1 }),
+        createdAt: Type.Integer({ minimum: 0 }),
+        updatedAt: Type.Integer({ minimum: 0 }),
+    })
+)
+
+export const publicationComposerDraftResponseSchema = Type.Object({
+    draft: Type.Union([publicationComposerDraftSchema, Type.Null()]),
 })
 
 export type ProjectResponse = Static<typeof projectSchema>
@@ -383,7 +494,6 @@ export type PublicationEditorStateResponse = Static<typeof publicationEditorStat
 export type PublicationSummaryResponse = Static<typeof publicationSummarySchema>
 export type PublicationSummaryPageResponse = Static<typeof publicationSummaryPageSchema>
 export type AuditEventResponse = Static<typeof auditEventSchema>
-export type ProjectAccessTokenResponse = Static<typeof projectAccessTokenSchema>
 export type ProjectMemberResponse = Static<typeof projectMemberSchema>
 export type ProjectInvitationResponse = Static<typeof projectInvitationSchema>
 
@@ -398,11 +508,6 @@ export const categoryParams = Type.Object({
 export const tagParams = Type.Object({
     projectId: Type.String({ minLength: 1 }),
     tagId: Type.String({ minLength: 1 }),
-})
-
-export const projectAccessTokenParams = Type.Object({
-    projectId: Type.String({ minLength: 1 }),
-    tokenId: Type.String({ minLength: 1 }),
 })
 
 export const projectMemberParams = Type.Object({
@@ -438,6 +543,18 @@ export const publicationListQuery = Type.Object({
     ),
     cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    state: Type.Optional(Type.Union([Type.Literal('draft'), Type.Literal('scheduled')])),
+    sort: Type.Optional(
+        Type.Union([
+            Type.Literal('queue'),
+            Type.Literal('updated_desc'),
+            Type.Literal('updated_asc'),
+            Type.Literal('created_desc'),
+            Type.Literal('created_asc'),
+            Type.Literal('scheduled_desc'),
+            Type.Literal('scheduled_asc'),
+        ])
+    ),
     from: Type.Optional(Type.Integer({ minimum: 0 })),
     to: Type.Optional(Type.Integer({ minimum: 0 })),
 })
@@ -463,6 +580,7 @@ export const channelProfileVersionParams = Type.Object({
 export const createProjectBody = Type.Object({
     name: Type.String({ minLength: 1 }),
     timeZone: Type.Optional(Type.String({ minLength: 1 })),
+    workspaceId: Type.Optional(Type.String({ minLength: 1 })),
 })
 
 export const updateProjectBody = Type.Object({
@@ -489,11 +607,6 @@ export const replacePublicationTagsBody = Type.Object({
     tagIds: Type.Array(Type.String({ minLength: 1 })),
 })
 
-export const createProjectAccessTokenBody = Type.Object({
-    name: Type.String({ minLength: 1, maxLength: 100 }),
-    expiresAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
-})
-
 export const createProjectInvitationBody = Type.Object({
     email: Type.String({ minLength: 1, maxLength: 320 }),
     role: Type.Union([Type.Literal('editor'), Type.Literal('viewer')]),
@@ -502,21 +615,6 @@ export const createProjectInvitationBody = Type.Object({
 export const updateProjectMemberBody = Type.Object({
     role: Type.Union([Type.Literal('editor'), Type.Literal('viewer')]),
 })
-
-export const createdProjectAccessTokenSchema = Type.Object({
-    accessToken: projectAccessTokenSchema,
-    token: Type.String({
-        minLength: 1,
-        description: 'The plaintext token. It is returned only once when the token is created.',
-    }),
-})
-
-export const projectAccessTokensSchema = Type.Object({
-    accessTokens: Type.Array(projectAccessTokenSchema),
-})
-
-export type CreatedProjectAccessTokenResponse = Static<typeof createdProjectAccessTokenSchema>
-export type ProjectAccessTokensResponse = Static<typeof projectAccessTokensSchema>
 
 export const createChannelBody = Type.Object({
     name: Type.String({ minLength: 1 }),
@@ -565,6 +663,11 @@ export const createPostBody = Type.Object({
         }),
         { minItems: 1 }
     ),
+})
+
+export const savePublicationComposerDraftBody = Type.Object({
+    expectedRevision: Type.Integer({ minimum: 0 }),
+    content: publicationComposerDraftContentSchema,
 })
 
 export const savePublicationDraftBody = Type.Object({

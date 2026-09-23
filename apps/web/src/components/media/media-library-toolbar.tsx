@@ -15,10 +15,10 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@herald/ui/components/tooltip'
-import { GalleryIcon } from '@solar-icons/react/bold/gallery'
-import { ListIcon } from '@solar-icons/react/bold/list'
-import { MagnifierIcon } from '@solar-icons/react/bold/magnifier'
-import { Widget2Icon } from '@solar-icons/react/bold/widget-2'
+import { GalleryIcon } from '@solar-icons/react/linear/gallery'
+import { ListIcon } from '@solar-icons/react/linear/list'
+import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
+import { Widget2Icon } from '@solar-icons/react/linear/widget-2'
 import type { RegisterableHotkey } from '@tanstack/hotkeys'
 import { useHotkeys } from '@tanstack/react-hotkeys'
 

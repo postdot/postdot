@@ -8,12 +8,10 @@ import {
     createNotificationStore,
     createProviderAnalyticsStore,
     createAccessStore,
-    createProjectApiKeyActorStore,
     createTaxonomyStore,
     type HeraldDatabase,
     type ManualStoreOptions,
     type MediaAssetStore,
-    type ProjectApiKeyActorStore,
     type NotificationStore,
     type AnalyticsStore,
     type AccessStore,
@@ -25,6 +23,7 @@ import type { DiscordFetcher } from '@herald/discord'
 import { Elysia } from 'elysia'
 
 import type { HeraldLoggingConfig } from './config'
+import { createPublicInstanceRoutes } from './modules/access/public-routes'
 import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/routes'
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
@@ -47,10 +46,11 @@ export interface HeraldAppOptions {
     readonly manualStore?: ManualStoreOptions
     readonly logging?: HeraldLoggingConfig
     readonly onWorkScheduled?: () => void
+    /** Test-only escape hatch for independent browser fixtures. */
+    readonly allowAdditionalSignups?: boolean
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly runtime?: HealthRoutesOptions['runtime']
-    readonly apiKeyActors?: ProjectApiKeyActorStore
     /** The shared Herald instance access store. */
     readonly access?: AccessStore
     readonly notifications?: NotificationStore
@@ -74,8 +74,8 @@ function createDomainApp({
     manualStore: manualStoreOptions,
     logging,
     onWorkScheduled,
+    allowAdditionalSignups,
     runtime,
-    apiKeyActors,
     access,
     notifications,
     analytics,
@@ -90,7 +90,6 @@ function createDomainApp({
     devtoFetcher,
 }: HeraldAppOptions) {
     const accessStore = access ?? createAccessStore(database)
-    const apiKeyActorStore = apiKeyActors ?? createProjectApiKeyActorStore(database)
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
         media,
@@ -131,9 +130,9 @@ function createDomainApp({
                             bearerAuth: {
                                 type: 'http',
                                 scheme: 'bearer',
-                                bearerFormat: 'Herald project access token',
+                                bearerFormat: 'Herald API key',
                                 description:
-                                    'A project-scoped machine token sent as Authorization: Bearer <token>.',
+                                    'A user-owned Herald API key sent as Authorization: Bearer <token>. Its project scope is limited by the creator’s current access.',
                             },
                             sessionCookie: {
                                 type: 'apiKey',
@@ -183,6 +182,7 @@ function createDomainApp({
         )
         .use(createErrorHandler())
         .use(createHealthRoutes({ database, runtime }))
+        .use(createPublicInstanceRoutes(accessStore, { allowAdditionalSignups }))
         .use(
             createProjectModule({
                 auth,
@@ -195,7 +195,6 @@ function createDomainApp({
                 now: manualStoreOptions?.now,
                 discordFetcher,
                 devtoFetcher,
-                apiKeyActors: apiKeyActorStore,
                 access: accessStore,
                 notifications: notificationStore,
                 analytics: analyticsStore,
@@ -229,8 +228,8 @@ export function createApp({
     manualStore: manualStoreOptions,
     logging,
     onWorkScheduled,
+    allowAdditionalSignups,
     runtime,
-    apiKeyActors,
     access,
     notifications,
     analytics,
@@ -254,8 +253,8 @@ export function createApp({
         manualStore: manualStoreOptions,
         logging,
         onWorkScheduled,
+        allowAdditionalSignups,
         runtime,
-        apiKeyActors,
         access,
         notifications,
         analytics,

@@ -32,8 +32,8 @@ export function PublicationComposer({
 
             <div
                 className={cn(
-                    'grid min-w-0 items-start gap-6',
-                    preview ? 'lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]' : 'grid-cols-1'
+                    'grid min-w-0 items-start gap-5',
+                    preview ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(17rem,0.8fr)]' : 'grid-cols-1'
                 )}>
                 <div className="min-w-0">{editor}</div>
                 {preview ? <aside className="min-w-0 lg:sticky lg:top-6">{preview}</aside> : null}

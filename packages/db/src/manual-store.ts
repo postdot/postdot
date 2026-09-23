@@ -24,13 +24,16 @@ import { toAuditEvent, toProfileVersion, toPublication, toPublisher } from './ma
 import { createProjectChannelStore } from './manual-store/project-channel-store'
 import { createPublicationAuthoringStore } from './manual-store/publication-authoring-store'
 import { createPublicationCancellationStore } from './manual-store/publication-cancellation-store'
+import { createPublicationComposerDraftStore } from './manual-store/publication-composer-draft-store'
 import { createPublicationCreationStore } from './manual-store/publication-creation-store'
+import { createPublicationDraftLifecycleStore } from './manual-store/publication-draft-lifecycle-store'
 import {
     assessPinnedTargetMedia,
     assessWorkingDraftMedia,
     resolveTargetMedia,
 } from './manual-store/publication-media'
 import { createPublicationOutcomeStore } from './manual-store/publication-outcome-store'
+import { createPublicationRetryStore } from './manual-store/publication-retry-store'
 import { createPublicationSchedulingStore } from './manual-store/publication-scheduling-store'
 import type {
     ActorRow,
@@ -53,6 +56,8 @@ export type {
     RestoreChannelInput,
 } from './manual-store/channel-lifecycle-store'
 export type {
+    PublicationListState,
+    PublicationListSort,
     PublicationSummaryCounts,
     PublicationSummaryPage,
     PublicationSummaryPageOptions,
@@ -63,6 +68,18 @@ export type {
     CreatedProject,
     UpdateProjectTimeZoneInput,
 } from './manual-store/project-channel-store'
+export type {
+    DeletePublicationComposerDraftInput,
+    PublicationComposerDraft,
+    PublicationComposerDraftContent,
+    SavePublicationComposerDraftInput,
+} from './manual-store/publication-composer-draft-store'
+export type {
+    DeleteDraftPublicationInput,
+    DeleteDraftPublicationResult,
+    DuplicateDraftPublicationInput,
+    DuplicateDraftPublicationResult,
+} from './manual-store/publication-draft-lifecycle-store'
 
 export interface ManualStoreOptions {
     readonly now?: () => number
@@ -122,6 +139,7 @@ export interface CreatePostPublicationInput {
     readonly targetContent?: TargetContent
     readonly deliveryMode?: DeliveryMode
     readonly scheduledAt?: Timestamp | null
+    readonly tagIds?: readonly string[]
 }
 
 export interface CreatePostInput {
@@ -187,6 +205,12 @@ export interface ReconcileAmbiguousPublicationInput {
     readonly errorMessage?: string
 }
 
+export interface RetryFailedPublicationInput {
+    readonly projectId: string
+    readonly publicationId: string
+    readonly subjectId: string
+}
+
 export interface CreatedPost {
     readonly post: Post
     readonly publications: readonly Publication[]
@@ -196,6 +220,11 @@ export type ReconcileAmbiguousPublicationResult =
     | { readonly kind: 'reconciled'; readonly publication: Publication }
     | { readonly kind: 'not_found' }
     | { readonly kind: 'not_ambiguous' }
+
+export type RetryFailedPublicationResult =
+    | { readonly kind: 'retried'; readonly publication: Publication }
+    | { readonly kind: 'not_found' }
+    | { readonly kind: 'not_retryable' }
 
 export interface DueManualPublication extends Publication {
     readonly postTitle: string | null
@@ -240,6 +269,10 @@ export interface PublicationTargetRevision {
 
 export interface PublicationSummary extends Publication {
     readonly postTitle: string | null
+    readonly sourceExcerpt: string | null
+    readonly mediaAssetIds: readonly string[]
+    readonly mediaCount: number
+    readonly lastEditedAt: number
     readonly channelName: string
     readonly draftRevision: number
     readonly draftReviewState: PublicationReviewState
@@ -814,6 +847,27 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         },
     })
 
+    const publicationRetryStore = createPublicationRetryStore(database, {
+        now,
+        createId,
+        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+        loadPublication: (projectId, publicationId) =>
+            loadPublicationByIdStatement.get(projectId, publicationId),
+        insertAuditEvent: input => {
+            recordDatabaseCommitProject(database, input.projectId)
+            return insertAuditEventStatement.run(
+                input.id,
+                input.projectId,
+                input.actorId,
+                input.action,
+                input.entityType,
+                input.entityId,
+                input.metadataJson,
+                input.createdAt
+            )
+        },
+    })
+
     const publicationCreationStore = createPublicationCreationStore(database, {
         now,
         createId,
@@ -862,6 +916,40 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         },
     })
 
+    const publicationComposerDraftStore = createPublicationComposerDraftStore(database, {
+        now,
+        createId,
+        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+    })
+
+    const publicationDraftLifecycleStore = createPublicationDraftLifecycleStore(database, {
+        now,
+        createId,
+        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+        loadPublication: (projectId, publicationId) =>
+            loadPublicationByIdStatement.get(projectId, publicationId),
+        getPublicationEditorState: (projectId, publicationId, subjectId) =>
+            publicationAuthoringStore.getPublicationEditorState(
+                projectId,
+                publicationId,
+                subjectId
+            ),
+        createPost: input => publicationCreationStore.createPost(input),
+        insertAuditEvent: input => {
+            recordDatabaseCommitProject(database, input.projectId)
+            insertAuditEventStatement.run(
+                input.id,
+                input.projectId,
+                input.actorId,
+                input.action,
+                input.entityType,
+                input.entityId,
+                input.metadataJson,
+                input.createdAt
+            )
+        },
+    })
+
     return {
         ...projectChannelStore,
         ...channelLifecycleStore,
@@ -871,6 +959,9 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         ...publicationSchedulingStore,
         ...publicationCancellationStore,
         ...publicationOutcomeStore,
+        ...publicationRetryStore,
+        ...publicationComposerDraftStore,
+        ...publicationDraftLifecycleStore,
 
         listAuditEvents(projectId: string, subjectId: string, limit = 100): AuditEvent[] | null {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')

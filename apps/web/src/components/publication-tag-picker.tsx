@@ -8,7 +8,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuTrigger,
 } from '@herald/ui/components/dropdown-menu'
-import { TagIcon } from '@solar-icons/react/bold/tag'
+import { TagIcon } from '@solar-icons/react/linear/tag'
 
 export interface PublicationTagPickerProps {
     readonly tags: readonly ProjectTag[]

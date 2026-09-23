@@ -15,7 +15,7 @@ export function DashboardPageHeader({
     return (
         <header className="flex flex-col justify-between gap-4 pb-6 sm:flex-row sm:items-end">
             <div className="min-w-0">
-                <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
+                <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
                     {title}
                 </h1>
                 {description ? (

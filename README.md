@@ -164,24 +164,25 @@ bun run herald publications due --project <project-id> --json
 Use `bun run herald --help` for the available project, channel, publication, and
 audit commands. Set `HERALD_URL` or pass `--base-url` when the API is not local.
 
-Project access keys are created and revoked through a project owner's human session.
-New projects use Better Auth's organization-owned API Key plugin: keys expire after
-180 days by default, and the full secret is printed only by the create command. Copy
-it into a secret manager before leaving the command output:
+User-owned API keys are created and revoked through the human session of the user
+who owns them. A key authenticates as that user and can either follow all of their
+current project access or be narrowed to a selected project subset. The full secret
+is printed only by the create command; copy it into a secret manager before leaving
+the command output:
 
 ```sh
-bun run herald access-tokens create --project <project-id> --name release-agent
-bun run herald access-tokens list --project <project-id> --json
-bun run herald access-tokens revoke --project <project-id> --token-id <token-id>
+bun run herald api-keys create --name release-agent --projects <project-id>
+bun run herald api-keys list --json
+bun run herald api-keys revoke --key-id <key-id>
 ```
 
-Use a project key for ordinary machine operations through `HERALD_PROJECT_TOKEN` or
-`--token`. Project keys cannot create projects, manage keys, or start interactive
-publisher OAuth flows. The key lifecycle is provided by Better Auth and Herald keeps
-only the project binding and actor attribution needed by its domain routes.
+Use a user key for ordinary machine operations through `HERALD_API_KEY` or `--token`.
+It can never exceed the creator's current access, and selected projects only narrow
+that access. Keys cannot create projects, manage keys, or start interactive publisher
+OAuth flows.
 
 ```sh
-export HERALD_PROJECT_TOKEN='paste-the-token-once'
+export HERALD_API_KEY='paste-the-token-once'
 bun run herald projects list --json
 bun run herald publications due --project <project-id> --json
 ```
@@ -227,13 +228,17 @@ part of `bun run check` and must only be run with an operator-owned test account
    not publish a second copy; inspect LinkedIn first and use the explicit
    `publications reconcile` command to resolve the existing publication.
 
-The provider currently targets text and single-image member posts through the
+The provider currently targets text and single-image posts for LinkedIn members
+and organizations through the
 versioned [LinkedIn Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api),
 using the [LinkedIn Images API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api)
 for verified JPEG and PNG uploads. The opt-in smoke-test procedure above remains
-text-only until a disposable image test is explicitly approved.
-Better Auth owns human identity and sessions, global administration, project
-organizations/memberships, invitations, and new project API keys. Publisher access
+member-only and text-only until a disposable image or organization test is
+explicitly approved. Organization destinations use the OAuth member's delegated
+organization permissions; they do not change the identity of the connected
+publisher account.
+Better Auth owns human identity and sessions, global administration, workspace
+organizations/memberships, invitations, and new user-owned API keys. Publisher access
 and refresh tokens remain project-owned and encrypted at rest using the required
 `HERALD_PUBLISHER_ENCRYPTION_KEY`; token material must not be copied into the
 environment file or passed to the dashboard, CLI, or provider adapter by an
@@ -365,6 +370,11 @@ The current workspace contains:
 - `packages/custom-http`: bounded webhook and mapped HTTP delivery for custom channels;
 - `packages/db`: Drizzle ORM schema, Bun SQLite client, and migrations;
 - `packages/email`: React Email transactional templates and HTML/text renderers;
+- `packages/bluesky`: Bluesky OAuth and publication adapter;
+- `packages/devto`: DEV Community publication adapter;
+- `packages/discord`: Discord webhook publication adapter;
 - `packages/linkedin`: LinkedIn OAuth profile and publication adapter;
+- `packages/mastodon`: Mastodon OAuth and publication adapter;
 - `packages/media`: local and S3-compatible media storage contracts and adapters;
 - `packages/oauth`: OAuth authorization-code and PKCE protocol mechanics;
+- `packages/x`: X OAuth and publication adapter;

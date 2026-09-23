@@ -27,7 +27,7 @@
 - Web format, lint, typecheck, i18n coverage, and unit tests passed.
 - i18n coverage: 777/777 messages in English and French.
 - Browser verification on the authenticated local app:
-  - global settings shows `Réglages de l’instance` and only the `Instance`
+  - global settings shows `Instance settings` and only the `Instance`
     navigation group;
   - project overview still shows Work, Project, Channels, counters, and the
     project breadcrumb.

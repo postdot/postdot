@@ -1,6 +1,3 @@
-import { randomUUID } from 'node:crypto'
-
-import type { HeraldAuth } from '@herald/auth'
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
@@ -18,8 +15,7 @@ import type { ManualStore } from './types'
 export function registerProjectRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     manualStore: ManualStore,
-    access: AccessStore,
-    auth: HeraldAuth
+    access: AccessStore
 ) {
     return app
         .get(
@@ -36,22 +32,33 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     tags: ['Projects'],
                 },
             },
-            ({ authMethod, projectTokenProjectId, user }) => {
-                const projects = manualStore
+            ({ apiKeyProjectIds, user }) => {
+                const isAllowedByApiKeyScope = (projectId: string) =>
+                    apiKeyProjectIds === undefined ||
+                    apiKeyProjectIds === null ||
+                    apiKeyProjectIds.includes(projectId)
+                const actorProjects = manualStore
                     .listProjects(user.id)
-                    .filter(
-                        project =>
-                            projectTokenProjectId === undefined ||
-                            project.id === projectTokenProjectId
-                    )
+                    .filter(project => isAllowedByApiKeyScope(project.id))
 
-                if (authMethod !== 'session') return { projects }
+                const projectsById = new Map(actorProjects.map(project => [project.id, project]))
+                for (const workspace of access.listWorkspacesForUser(user.id)) {
+                    if (workspace.role !== 'owner' && workspace.role !== 'admin') continue
+                    for (const project of manualStore.listProjectsForWorkspace(workspace.id)) {
+                        if (isAllowedByApiKeyScope(project.id)) {
+                            projectsById.set(project.id, project)
+                        }
+                    }
+                }
 
                 return {
-                    projects: projects.filter(project => {
+                    projects: [...projectsById.values()].filter(project => {
+                        const workspaceId = access.getProjectWorkspaceId(project.id)
                         return (
-                            access.getProjectOrganizationId(project.id) !== null &&
-                            access.canAccessProject(project.id, user.id)
+                            workspaceId !== null &&
+                            (access.canAccessProject(project.id, user.id) ||
+                                (workspaceId !== null &&
+                                    access.canManageWorkspace(workspaceId, user.id)))
                         )
                     }),
                 }
@@ -76,7 +83,7 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, request, status, user }) => {
+            async ({ authMethod, body, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, {
                         error: {
@@ -86,57 +93,35 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                     })
                 }
 
-                if (access.getInstanceMembership(user.id)?.state !== 'enabled') {
+                const workspace =
+                    body.workspaceId === undefined
+                        ? access.getDefaultWorkspaceForUser(user.id)
+                        : access.getWorkspace(body.workspaceId)
+                if (workspace === null || !access.canManageWorkspace(workspace.id, user.id)) {
                     return status(403, {
                         error: {
                             code: 'forbidden',
                             message:
-                                'An enabled instance membership is required to create a project',
+                                'A workspace owner or administrator is required to create a project',
                         },
                     })
                 }
 
-                // Better Auth owns the organization and member records used by
-                // invitations, project-scoped API keys, and access control. The
-                // Herald project keeps the generated organization id as its
-                // durable bridge; the organization endpoint is called server-side
-                // so users cannot create unrelated organizations directly.
-                const organization = await auth.api.createOrganization({
-                    body: {
-                        name: body.name,
-                        slug: `herald-${randomUUID()}`,
-                        userId: user.id,
-                        metadata: { heraldResource: 'project' },
-                    },
+                const created = manualStore.createProject({
+                    name: body.name,
+                    subjectId: user.id,
+                    displayName: user.name,
+                    workspaceId: workspace.id,
+                    timeZone: body.timeZone,
                 })
-
-                try {
-                    const created = manualStore.createProject({
-                        name: body.name,
-                        subjectId: user.id,
-                        displayName: user.name,
-                        organizationId: organization.id,
-                        timeZone: body.timeZone,
-                    })
-                    const ownerMembership = access.ensureProjectOwnerMembership({
-                        projectId: created.project.id,
-                        userId: user.id,
-                    })
-                    if (ownerMembership === null) {
-                        throw new Error('The project owner membership could not be created')
-                    }
-                    return status(201, { project: created.project })
-                } catch (error) {
-                    // Do not leave an organization behind when the domain
-                    // transaction or its Better Auth owner membership fails.
-                    await auth.api
-                        .deleteOrganization({
-                            body: { organizationId: organization.id },
-                            headers: request.headers,
-                        })
-                        .catch(() => undefined)
-                    throw error
+                const ownerMembership = access.ensureProjectOwnerMembership({
+                    projectId: created.project.id,
+                    userId: user.id,
+                })
+                if (ownerMembership === null) {
+                    throw new Error('The project owner membership could not be created')
                 }
+                return status(201, { project: created.project })
             }
         )
         .patch(

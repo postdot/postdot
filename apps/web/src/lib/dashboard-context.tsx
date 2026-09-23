@@ -17,12 +17,14 @@ import {
     type DuePublication,
     type LinkedInConnectionDestination,
     type Project,
+    type ProjectMemberRole,
     type ProjectCategory,
     type ProjectTag,
     type PublisherConnection,
     type Publication,
     type PublicationSummaryPage,
     type PublicationSummary,
+    type WorkspaceListItem,
     formatApiError,
 } from '@/lib/api'
 import {
@@ -43,17 +45,25 @@ export interface ProjectData {
     readonly publicationsNextCursor: string | null
     readonly publicationSummary: PublicationSummaryPage['summary']
     readonly projectTags: ProjectTag[]
+    readonly projectRole: ProjectMemberRole
 }
 
 export async function loadProjectData(projectId: string): Promise<ProjectData> {
-    const [channelResponse, dueResponse, publisherResponse, publicationResponse, tagResponse] =
-        await Promise.all([
-            api.listChannels(projectId),
-            api.listDuePublications(projectId),
-            api.listPublisherConnections(projectId),
-            api.listPublications(projectId),
-            api.listProjectTags(projectId),
-        ])
+    const [
+        channelResponse,
+        dueResponse,
+        publisherResponse,
+        publicationResponse,
+        tagResponse,
+        membershipResponse,
+    ] = await Promise.all([
+        api.listChannels(projectId),
+        api.listDuePublications(projectId),
+        api.listPublisherConnections(projectId),
+        api.listPublications(projectId),
+        api.listProjectTags(projectId),
+        api.getProjectMembership(projectId),
+    ])
 
     return {
         channels: channelResponse.channels,
@@ -63,20 +73,28 @@ export async function loadProjectData(projectId: string): Promise<ProjectData> {
         publicationsNextCursor: publicationResponse.nextCursor,
         publicationSummary: publicationResponse.summary,
         projectTags: tagResponse.tags,
+        projectRole: membershipResponse.membership.role,
     }
 }
 
 export interface DashboardGlobalContextValue {
+    readonly canCreateWorkspace: boolean
     readonly categories: readonly ProjectCategory[]
     readonly error: string | null
+    readonly isInstanceAdmin: boolean
     readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
+    readonly onCreateWorkspace: (event: FormEvent<HTMLFormElement>) => void
     readonly onProjectChange: (projectId: string | null) => void
     readonly onProjectCategoryChange: (projectId: string, categoryId: string | null) => void
     readonly onProjectNameChange: (value: string) => void
+    readonly onWorkspaceChange: (workspaceId: string) => void
+    readonly onWorkspaceNameChange: (value: string) => void
     readonly onSignOut: () => void
     readonly pending: boolean
     readonly projectName: string
+    readonly workspaceName: string
     readonly projects: readonly Project[]
+    readonly selectedWorkspaceId: string | null
     readonly session: {
         readonly user: {
             readonly id: string
@@ -87,6 +105,7 @@ export interface DashboardGlobalContextValue {
             readonly id: string
         }
     }
+    readonly workspaces: readonly WorkspaceListItem[]
 }
 
 const DashboardGlobalContext = createContext<DashboardGlobalContextValue | null>(null)
@@ -129,6 +148,8 @@ export interface ProjectDashboardContextValue extends ProjectData {
         mode?: PublicationCreationMode
     ) => Promise<Publication[] | null>
     readonly onDeleteChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
+    readonly onDeleteDraftPublication: (publicationId: string) => Promise<boolean>
+    readonly onDuplicateDraftPublication: (publicationId: string) => Promise<Publication | null>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
     readonly onRefreshProject: () => Promise<void>
     readonly onRenameChannel: (
@@ -159,6 +180,7 @@ export interface ProjectDashboardContextValue extends ProjectData {
     ) => Promise<boolean>
     readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
     readonly onPublish: (publicationId: string) => Promise<boolean>
+    readonly onRetryPublication: (publicationId: string) => Promise<boolean>
     readonly onCancelPublications: (publicationIds: readonly string[]) => Promise<boolean>
     readonly onReschedulePublications: (
         publicationIds: readonly string[],
@@ -286,6 +308,10 @@ export function ProjectDashboardProvider({
                     if (typeof parsedSchedule === 'string') scheduleError = parsedSchedule
                     return null
                 }
+                if (parsedSchedule < Date.now()) {
+                    scheduleError = 'past'
+                    return null
+                }
                 scheduledTimestamp = parsedSchedule
             }
 
@@ -379,6 +405,32 @@ export function ProjectDashboardProvider({
             await api.publishManualPublication(project.id, publicationId)
             await refreshProject()
         })
+    }
+
+    async function handleRetryPublication(publicationId: string): Promise<boolean> {
+        return runAction(async () => {
+            await api.retryFailedPublication(project.id, publicationId)
+            await refreshProject()
+        })
+    }
+
+    async function handleDeleteDraftPublication(publicationId: string): Promise<boolean> {
+        return runAction(async () => {
+            await api.deleteDraftPublication(project.id, publicationId)
+            await refreshProject()
+        })
+    }
+
+    async function handleDuplicateDraftPublication(
+        publicationId: string
+    ): Promise<Publication | null> {
+        let duplicatedPublication: Publication | null = null
+        const succeeded = await runAction(async () => {
+            const response = await api.duplicateDraftPublication(project.id, publicationId)
+            duplicatedPublication = response.publication
+            await refreshProject()
+        })
+        return succeeded ? duplicatedPublication : null
     }
 
     async function handleReschedulePublications(
@@ -591,6 +643,10 @@ export function ProjectDashboardProvider({
 
     async function refreshProject() {
         const result = await projectDataQuery.refetch()
+        await queryClient.invalidateQueries({
+            queryKey: projectQueryKeys.publicationQueues(project.id),
+            refetchType: 'active',
+        })
         const nextData = result.data ?? initialData
         setPublicationTargets(current => {
             const nextActiveChannelId = nextData.channels.find(
@@ -638,6 +694,8 @@ export function ProjectDashboardProvider({
         onCreateChannel: handleCreateChannel,
         onCreatePost: handleCreatePost,
         onDeleteChannel: handleDeleteChannel,
+        onDeleteDraftPublication: handleDeleteDraftPublication,
+        onDuplicateDraftPublication: handleDuplicateDraftPublication,
         onDisconnectPublisher: handleDisconnectPublisher,
         onRefreshProject: refreshProject,
         onRenameChannel: handleRenameChannel,
@@ -653,6 +711,7 @@ export function ProjectDashboardProvider({
         onConnectDiscordPublisher: handleConnectDiscordPublisher,
         onConnectDevtoPublisher: handleConnectDevtoPublisher,
         onPublish: handlePublish,
+        onRetryPublication: handleRetryPublication,
         onCancelPublications: handleCancelPublications,
         onReschedulePublications: handleReschedulePublications,
         onLoadMorePublications: handleLoadMorePublications,

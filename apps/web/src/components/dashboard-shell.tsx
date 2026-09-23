@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { SidebarInset, SidebarProvider } from '@herald/ui/components/sidebar'
 import { useLocation } from '@tanstack/react-router'
-import { useEffect, useRef, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 
 import { DashboardHeader } from '@/components/dashboard-header'
 import {
@@ -9,7 +9,7 @@ import {
     workspaceSection,
     workspaceSectionLabel,
 } from '@/components/dashboard-sidebar'
-import type { Channel, Project, PublisherConnection, Session } from '@/lib/api'
+import type { Channel, Project, ProjectMemberRole, PublisherConnection, Session } from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -26,7 +26,10 @@ interface DashboardShellProps {
     readonly projectName: string
     readonly projects: readonly Project[]
     readonly publisherConnections: readonly PublisherConnection[]
+    readonly projectRole: ProjectMemberRole | null
     readonly selectedProject: Project | null
+    readonly scopeLabel?: string
+    readonly sectionLabel?: string
     readonly session: Session
     readonly publicationsCount: number
     readonly onProjectNameChange: (value: string) => void
@@ -44,7 +47,10 @@ export function DashboardShell({
     projectName,
     projects,
     publisherConnections,
+    projectRole,
     selectedProject,
+    scopeLabel,
+    sectionLabel,
     session,
     publicationsCount,
     onProjectNameChange,
@@ -55,52 +61,89 @@ export function DashboardShell({
     const isPublicationRoute =
         pathname.includes('/publications/') && !pathname.endsWith('/publications/new')
     const activeSection = workspaceSection(pathname)
+    const isUserPreferences =
+        activeSection === 'preferences' || activeSection === 'preferences-api-keys'
+    const isProjectSettings = activeSection === 'access' || activeSection === 'invitations'
+    const isWorkspaceSettings = activeSection === 'settings-workspace'
+    const isInstanceSettings =
+        activeSection === 'settings' ||
+        activeSection === 'settings-access' ||
+        activeSection === 'settings-provider-applications'
     const global = useDashboardGlobal()
     const selectedProjectId = selectedProject?.id ?? null
     const selectedProjectName = selectedProject?.name ?? m.nav_no_project_selected()
+    const selectedWorkspaceId = selectedProject?.workspaceId ?? global.selectedWorkspaceId
+    const shellProjects =
+        selectedProject !== null && !projects.some(project => project.id === selectedProject.id)
+            ? [...projects, selectedProject]
+            : projects
+    const resolvedScopeLabel =
+        scopeLabel ?? (isProjectSettings ? m.nav_project_configuration() : undefined)
+    const resolvedSectionLabel =
+        sectionLabel ??
+        (isInstanceSettings && activeSection === 'settings'
+            ? m.nav_instance()
+            : isWorkspaceSettings && activeSection === 'settings-workspace'
+              ? m.nav_workspace()
+              : workspaceSectionLabel(activeSection))
 
     useEffect(() => {
         scrollRegionRef.current?.scrollTo({ behavior: 'auto', left: 0, top: 0 })
     }, [pathname])
 
     return (
-        <SidebarProvider className="herald-dashboard h-svh min-h-0 overflow-hidden !bg-surface-canvas">
+        <SidebarProvider
+            className="herald-dashboard h-svh min-h-0 overflow-hidden !bg-surface-canvas"
+            style={{ '--sidebar-width-icon': '2rem' } as CSSProperties}>
             <DashboardSidebar
                 activeSection={activeSection}
                 channels={channels}
+                canCreateWorkspace={global.canCreateWorkspace}
                 dueCount={dueCount}
-                isInstanceSettings={
-                    activeSection === 'settings' || activeSection === 'settings-access'
-                }
+                isInstanceAdmin={global.isInstanceAdmin}
+                isInstanceSettings={isInstanceSettings}
+                isProjectSettings={isProjectSettings}
+                isWorkspaceSettings={isWorkspaceSettings}
+                isUserPreferences={isUserPreferences}
                 isPublicationRoute={isPublicationRoute}
                 onCreateProject={onCreateProject}
+                onCreateWorkspace={global.onCreateWorkspace}
                 onProjectChange={onProjectChange}
                 onProjectCategoryChange={global.onProjectCategoryChange}
                 onProjectNameChange={onProjectNameChange}
+                onWorkspaceChange={global.onWorkspaceChange}
+                onWorkspaceNameChange={global.onWorkspaceNameChange}
                 onSignOut={onSignOut}
                 pending={pending}
                 projectName={projectName}
-                projects={projects}
+                workspaceName={global.workspaceName}
+                projects={shellProjects}
                 categories={global.categories}
                 publisherConnections={publisherConnections}
                 publicationsCount={publicationsCount}
+                projectRole={projectRole}
                 selectedProjectId={selectedProjectId}
+                selectedWorkspaceId={selectedWorkspaceId}
+                workspaces={global.workspaces}
             />
 
             <SidebarInset className="!m-0 !rounded-none !bg-surface-canvas !shadow-none">
                 <div className="flex min-h-0 flex-1 flex-col bg-surface-canvas">
                     <DashboardHeader
-                        isInstanceSettings={
-                            activeSection === 'settings' || activeSection === 'settings-access'
-                        }
+                        isInstanceSettings={isInstanceSettings}
+                        isProjectSettings={isProjectSettings}
+                        isWorkspaceSettings={isWorkspaceSettings}
+                        isUserPreferences={isUserPreferences}
                         isPublicationRoute={isPublicationRoute}
                         onSignOut={onSignOut}
                         pending={pending}
                         projectId={selectedProjectId}
                         projectName={selectedProjectName}
-                        projects={projects}
-                        sectionLabel={workspaceSectionLabel(activeSection)}
+                        projects={shellProjects}
+                        scopeLabel={resolvedScopeLabel}
+                        sectionLabel={resolvedSectionLabel}
                         session={session}
+                        workspaceId={selectedWorkspaceId}
                     />
                     <div
                         key={pathname}

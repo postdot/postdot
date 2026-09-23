@@ -40,6 +40,7 @@ const publicationEventActions = {
     ready: 'publication.ready',
     published: 'publication.published',
     reconciled: 'publication.reconciled',
+    retryRequested: 'publication.retry_requested',
     cancelled: 'publication.cancelled',
 } as const
 
@@ -858,6 +859,11 @@ function buildHistoricalMetrics(
                 break
             case publicationEventActions.reconciled:
                 recordReconciliation(accumulator, row, metadata, dimension, included, timeZone)
+                break
+            case publicationEventActions.retryRequested:
+                // This is an operator command, not a new publication lifecycle state
+                // or an execution outcome. It remains a supported fact so coverage
+                // stays honest without inflating lifecycle or retry metrics.
                 break
             case publicationEventActions.cancelled: {
                 const toState = readState(metadata.toState)

@@ -12,7 +12,7 @@ function listTables(database: ReturnType<typeof createDatabase>): string[] {
         .map(row => row.name)
 }
 
-describe('database baseline migrations', () => {
+describe('database migrations', () => {
     it('creates the current schema and seeds a claimable instance', () => {
         const database = createDatabase(':memory:')
 
@@ -24,6 +24,9 @@ describe('database baseline migrations', () => {
             expect(tables).toContain('instance_access_invitations')
             expect(tables).toContain('organization')
             expect(tables).toContain('member')
+            expect(tables).toContain('team')
+            expect(tables).toContain('team_member')
+            expect(tables).toContain('workspaces')
             expect(tables).toContain('apikey')
             expect(tables).not.toContain('project_memberships')
             expect(tables).not.toContain('access_invitations')
@@ -44,7 +47,7 @@ describe('database baseline migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 1 })
+            ).toEqual({ count: 6 })
         } finally {
             closeDatabase(database)
         }
@@ -68,15 +71,17 @@ describe('database baseline migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 1 })
+            ).toEqual({ count: 6 })
         } finally {
             closeDatabase(database)
         }
     })
 
-    it('keeps the committed migration folder as one generated baseline', () => {
-        const files = [...new Bun.Glob('*.sql').scanSync({ cwd: defaultMigrationsFolder })]
-        expect(files).toHaveLength(1)
+    it('keeps the committed migration folder in generated order', () => {
+        const files = [...new Bun.Glob('*.sql').scanSync({ cwd: defaultMigrationsFolder })].sort()
+        expect(files).toHaveLength(6)
         expect(files[0]).toMatch(/^0000_.+\.sql$/)
+        expect(files[1]).toMatch(/^0001_.+\.sql$/)
+        expect(files[2]).toMatch(/^0002_.+\.sql$/)
     })
 })

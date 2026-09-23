@@ -179,6 +179,23 @@ export function validateAuthorizationResponse(
     )
 }
 
+/**
+ * Detect an explicit authorization refusal without treating it as a provider outage.
+ *
+ * The standard OAuth adapter exposes the response as AuthorizationResponseError. Provider
+ * adapters may wrap the same callback parameters in their own error type, so preserve the
+ * classification through a small structural fallback as well.
+ */
+export function isAuthorizationDeniedError(error: unknown): boolean {
+    if (error instanceof oauth.AuthorizationResponseError) {
+        return error.error === 'access_denied'
+    }
+
+    if (!(error instanceof Error)) return false
+    const parameters = (error as { readonly params?: unknown }).params
+    return parameters instanceof URLSearchParams && parameters.get('error') === 'access_denied'
+}
+
 export async function exchangeAuthorizationCode(
     input: ExchangeAuthorizationCodeInput
 ): Promise<OAuthTokenSet> {

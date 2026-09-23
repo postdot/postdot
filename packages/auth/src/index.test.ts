@@ -10,6 +10,7 @@ import {
 
 import {
     createAuth,
+    heraldUserApiKeyConfigId,
     type HeraldAuthRuntimeOptions,
     type HeraldAuthVerificationEmail,
     type HeraldOrganizationInvitationEmail,
@@ -117,7 +118,7 @@ describe('Herald authentication', () => {
         }
     })
 
-    it('gives the bootstrap account admin capabilities and supports organization API keys', async () => {
+    it('gives the bootstrap account admin capabilities and supports user API keys', async () => {
         const { auth, database } = createFixture()
         const headers = {
             'content-type': 'application/json',
@@ -200,19 +201,16 @@ describe('Herald authentication', () => {
             )
             expect(unguardedOrganizationMutation.status).toBe(403)
 
-            const organization = await auth.api.createOrganization({
-                body: {
-                    name: 'Herald Project',
-                    slug: 'herald-project-test',
-                    userId: signUpBody.user.id,
-                },
-            })
             const createdKey = await auth.api.createApiKey({
                 body: {
                     name: 'CI key',
-                    organizationId: organization.id,
+                    configId: heraldUserApiKeyConfigId,
                     userId: signUpBody.user.id,
                     expiresIn: 24 * 60 * 60,
+                    metadata: {
+                        heraldApiKeyVersion: 2,
+                        heraldProjectAccess: 'all',
+                    },
                 },
             })
             expect(createdKey.key).toMatch(/^herald_pat_/)
@@ -221,18 +219,18 @@ describe('Herald authentication', () => {
             const verified = await auth.api.verifyApiKey({ body: { key: createdKey.key } })
             expect(verified).toMatchObject({
                 valid: true,
-                key: { referenceId: organization.id },
+                key: { configId: heraldUserApiKeyConfigId, referenceId: signUpBody.user.id },
             })
 
             const listed = await auth.api.listApiKeys({
-                query: { organizationId: organization.id },
+                query: { configId: heraldUserApiKeyConfigId },
                 headers: new Headers({ cookie: sessionCookie ?? '' }),
             })
             expect(listed.total).toBe(1)
             expect(listed.apiKeys[0]).toMatchObject({
                 id: createdKey.id,
                 name: 'CI key',
-                referenceId: organization.id,
+                referenceId: signUpBody.user.id,
             })
         } finally {
             closeDatabase(database)
@@ -462,7 +460,7 @@ describe('Herald authentication', () => {
         }
     })
 
-    it('keeps the Herald project projection aligned with native organization membership changes', async () => {
+    it('turns a workspace project invitation into a Herald project grant', async () => {
         const { access, auth, database, manualStore } = createFixture({
             allowAdditionalSignups: true,
         })
@@ -477,8 +475,8 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'native-organization-owner@herald.local',
-                        name: 'Native Organization Owner',
+                        email: 'workspace-invitation-owner@herald.local',
+                        name: 'Workspace Invitation Owner',
                         password: 'correct-horse-battery-staple',
                     }),
                 })
@@ -488,8 +486,8 @@ describe('Herald authentication', () => {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
-                        email: 'native-organization-member@herald.local',
-                        name: 'Native Organization Member',
+                        email: 'workspace-invitation-member@herald.local',
+                        name: 'Workspace Invitation Member',
                         password: 'correct-horse-battery-staple',
                     }),
                 })
@@ -501,18 +499,14 @@ describe('Herald authentication', () => {
             const member = (await memberSignup.json()) as { user: { id: string } }
             const ownerCookie = ownerSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
             const memberCookie = memberSignup.headers.get('set-cookie')?.split(';', 1)[0] ?? ''
-            const organization = await auth.api.createOrganization({
-                body: {
-                    name: 'Native Organization Project',
-                    slug: 'native-organization-project-test',
-                    userId: owner.user.id,
-                },
-            })
+            const workspace = access.getDefaultWorkspace()
+            expect(workspace).not.toBeNull()
+            if (workspace === null) throw new Error('The default workspace was not created')
             const project = manualStore.createProject({
-                name: 'Native organization project',
+                name: 'Workspace invitation project',
                 subjectId: owner.user.id,
-                displayName: 'Native Organization Owner',
-                organizationId: organization.id,
+                displayName: 'Workspace Invitation Owner',
+                workspaceId: workspace.id,
             })
             expect(
                 access.ensureProjectOwnerMembership({
@@ -521,60 +515,43 @@ describe('Herald authentication', () => {
                 })
             ).not.toBeNull()
 
-            const added = await auth.api.addMember({
+            // The additional-signup fixture gives the second account a
+            // default workspace membership. Remove it so this test exercises
+            // the real invitation acceptance path.
+            database.$client
+                .query('delete from member where organization_id = ?1 and user_id = ?2')
+                .run(workspace.organizationId, member.user.id)
+
+            const invitation = await auth.api.createInvitation({
                 body: {
-                    userId: member.user.id,
-                    role: 'editor',
-                    organizationId: organization.id,
+                    email: 'workspace-invitation-member@herald.local',
+                    role: 'member',
+                    organizationId: workspace.organizationId,
+                    projectId: project.project.id,
+                    projectRole: 'editor',
                 },
+                headers: new Headers({ cookie: ownerCookie }),
             })
-            expect(added).toMatchObject({
-                organizationId: organization.id,
+            const accepted = await auth.api.acceptInvitation({
+                body: { invitationId: invitation.id },
+                headers: new Headers({ cookie: memberCookie }),
+            })
+            expect(accepted.member).toMatchObject({
+                organizationId: workspace.organizationId,
                 userId: member.user.id,
-                role: 'editor',
+                role: 'member',
             })
             expect(access.canAccessProject(project.project.id, member.user.id, 'editor')).toBe(true)
             expect(manualStore.listProjects(member.user.id)).toEqual([
                 expect.objectContaining({ id: project.project.id }),
             ])
 
-            await auth.api.updateMemberRole({
-                body: {
-                    memberId: added.id,
-                    role: 'viewer',
-                    organizationId: organization.id,
-                },
-                headers: new Headers({ cookie: ownerCookie }),
-            })
-            expect(access.canAccessProject(project.project.id, member.user.id, 'editor')).toBe(
-                false
-            )
-            expect(access.canAccessProject(project.project.id, member.user.id, 'viewer')).toBe(true)
-
-            await auth.api.removeMember({
-                body: {
-                    memberIdOrEmail: added.id,
-                    organizationId: organization.id,
-                },
-                headers: new Headers({ cookie: ownerCookie }),
-            })
-            expect(access.canAccessProject(project.project.id, member.user.id)).toBe(false)
-            expect(access.getProjectMembership(project.project.id, member.user.id)).toBeNull()
-
-            const readded = await auth.api.addMember({
-                body: {
-                    userId: member.user.id,
-                    role: 'viewer',
-                    organizationId: organization.id,
-                },
-            })
             await auth.api.leaveOrganization({
-                body: { organizationId: organization.id },
+                body: { organizationId: workspace.organizationId },
                 headers: new Headers({ cookie: memberCookie }),
             })
-            expect(readded.userId).toBe(member.user.id)
-            // `leaveOrganization` has no projection hook in Better Auth 1.7;
-            // access still follows the deleted Better Auth member row.
+            // The Herald grant remains stored, but project access is scoped to
+            // current workspace membership and therefore becomes unavailable.
             expect(access.canAccessProject(project.project.id, member.user.id)).toBe(false)
         } finally {
             closeDatabase(database)

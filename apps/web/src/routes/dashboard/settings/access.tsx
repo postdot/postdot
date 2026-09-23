@@ -12,6 +12,10 @@ export const Route = createFileRoute('/dashboard/settings/access')({
             typeof search.projectId === 'string' && search.projectId.length > 0
                 ? search.projectId
                 : undefined,
+        workspaceId:
+            typeof search.workspaceId === 'string' && search.workspaceId.length > 0
+                ? search.workspaceId
+                : undefined,
         organizationInvitation:
             typeof search.organizationInvitation === 'string' &&
             search.organizationInvitation.length > 0
@@ -29,6 +33,7 @@ function InstanceAccessRoute() {
     return (
         <InstanceAccessSettingsPage
             organizationInvitationId={search.organizationInvitation}
+            organizationInvitationProjectId={search.projectId}
             invitationToken={search.invitation}
             onInvitationHandled={async () => {
                 if (search.organizationInvitation !== undefined && search.projectId !== undefined) {
@@ -45,12 +50,21 @@ function InstanceAccessRoute() {
                     return
                 }
 
+                if (search.organizationInvitation !== undefined) {
+                    // A workspace invitation can unlock several projects at
+                    // once through its group. Refresh the dashboard loader
+                    // before returning to settings so the project switcher
+                    // does not retain the pre-acceptance snapshot.
+                    await router.invalidate()
+                }
+
                 await navigate({
                     to: '/dashboard/settings/access',
                     search: previous => ({
                         invitation: undefined,
                         organizationInvitation: undefined,
                         projectId: previous.projectId,
+                        workspaceId: previous.workspaceId,
                     }),
                     replace: true,
                 })

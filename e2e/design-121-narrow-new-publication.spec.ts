@@ -13,18 +13,17 @@ test('keeps narrow new-publication flow and queue usable with long channel names
 
     await createAccountAndProject(page, suffix)
 
-    await page.locator('a[href$="/publications/new"]').click()
-    await expect(page.locator('[data-publication-draft-preview="true"]')).toHaveCount(0)
-    await expect(
-        page.getByText('Add a channel before scheduling a publication.', { exact: true })
-    ).toBeVisible()
-
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
     await createChannel(page, firstChannelName)
     await createChannel(page, secondChannelName)
 
-    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await page.getByRole('link', { name: 'New publication', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
+    await expect(page.getByRole('link', { name: 'New publication', exact: true })).toHaveAttribute(
+        'aria-current',
+        'page'
+    )
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoHorizontalOverflow(page)
@@ -105,16 +104,19 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/queue$/)
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await expectNoHorizontalOverflow(page)
-    await expect(
-        page.locator('a[href*="/publications/"]').filter({ hasText: 'Untitled' })
-    ).toHaveCount(2)
+    const publicationLinks = page.locator('a[data-publication-edit-link="true"]')
+    await expect(publicationLinks).toHaveCount(2)
+    await expect(publicationLinks.nth(0)).toContainText('E2E-121 narrow new publication content')
 
     await page.setViewportSize({ width: 768, height: 900 })
     await expectNoHorizontalOverflow(page)
 })
 
 async function createChannel(page: Page, name: string): Promise<void> {
-    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    const addChannelButton = page.getByRole('button', { name: 'Add channel', exact: true })
+    await expect(addChannelButton).toBeEnabled()
+    await addChannelButton.click()
+    await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByLabel('Channel name').fill(name)
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(page.getByRole('paragraph').filter({ hasText: name }).first()).toBeVisible()
@@ -123,22 +125,31 @@ async function createChannel(page: Page, name: string): Promise<void> {
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Need an account?' }).click()
+    await page.getByRole('button', { name: 'Set up Herald', exact: true }).click()
     await page.getByLabel('Name').fill(`E2E-121 ${suffix}`)
     await page.getByLabel('Email').fill(`e2e-121-${suffix}@herald.local`)
-    await page.getByLabel('Password').fill('e2e-121-password')
-    await page.getByRole('button', { name: 'Create account', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+    await page.getByLabel('Password', { exact: true }).fill('e2e-121-password')
+    await Promise.all([
+        page.waitForResponse(
+            response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+        ),
+        page.getByRole('button', { name: 'Create account', exact: true }).click(),
+    ])
+    await page.goto('/dashboard?projectId=none')
+    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
-    await page.getByRole('option', { name: 'Create project', exact: true }).click()
-    await page.locator('#new-project').fill(`E2E-121 project ${suffix}`)
+    await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
+    await page
+        .getByRole('textbox', { name: 'New project', exact: true })
+        .fill(`E2E-121 project ${suffix}`)
     await page
         .locator('form')
-        .filter({ has: page.locator('#new-project') })
+        .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
         .getByRole('button', { name: 'Add project', exact: true })
         .click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {

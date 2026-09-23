@@ -1,7 +1,7 @@
 'use client'
 
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
-import { CloseIcon } from '@solar-icons/react/bold/close'
+import { CloseIcon } from '@solar-icons/react/linear/close'
 import * as React from 'react'
 
 import { cn } from '../lib/utils'
@@ -96,7 +96,7 @@ function DialogFooter({
         <div
             data-slot="dialog-footer"
             className={cn(
-                '-mx-5 -mb-5 flex flex-col-reverse gap-2 rounded-b-lg border-t border-border/60 bg-muted p-4 sm:flex-row sm:justify-end',
+                '-mx-5 -mb-5 flex flex-col-reverse gap-2 rounded-b-lg bg-surface-inset/75 p-4 sm:flex-row sm:justify-end',
                 className
             )}
             {...props}>

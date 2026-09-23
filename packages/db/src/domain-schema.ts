@@ -37,7 +37,7 @@ import {
     uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 
-import { organization, user } from './auth-schema'
+import { organization, team, user } from './auth-schema'
 
 const epochMilliseconds = sql`(cast(unixepoch('subsecond') * 1000 as integer))`
 const oauthAuthorizationAttemptStatuses = ['pending', 'consumed', 'expired'] as const
@@ -57,6 +57,7 @@ const instanceStates = ['claimable', 'claimed'] as const
 const instanceMembershipStates = ['enabled', 'disabled'] as const
 const instanceRoles = ['admin', 'member'] as const
 const invitationStates = ['pending', 'accepted', 'revoked', 'expired'] as const
+const projectAccessRoles = ['owner', 'editor', 'viewer'] as const
 
 const timestamps = () => ({
     createdAt: integer('created_at').default(epochMilliseconds).notNull(),
@@ -93,13 +94,38 @@ export const projectCategories = sqliteTable(
     ]
 )
 
+/**
+ * Herald's user-facing workspace boundary. Better Auth owns the organization
+ * and member rows referenced here; this projection gives the domain model a
+ * stable name for the boundary without making projects organizations.
+ */
+export const workspaces = sqliteTable(
+    'workspaces',
+    {
+        id: text('id').primaryKey(),
+        organizationId: text('organization_id')
+            .notNull()
+            .references(() => organization.id, { onDelete: 'restrict' }),
+        name: text('name').notNull(),
+        slug: text('slug').notNull(),
+        isDefault: integer('is_default', { mode: 'boolean' }).default(false).notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('workspaces_organization_id_uidx').on(table.organizationId),
+        uniqueIndex('workspaces_slug_uidx').on(table.slug),
+        check('workspaces_name_nonblank', sql`length(trim(${table.name})) > 0`),
+        check('workspaces_slug_nonblank', sql`length(trim(${table.slug})) > 0`),
+    ]
+)
+
 export const projects = sqliteTable(
     'projects',
     {
         id: text('id').primaryKey(),
         name: text('name').notNull(),
         timeZone: text('time_zone').notNull().default('UTC'),
-        organizationId: text('organization_id').references(() => organization.id, {
+        workspaceId: text('workspace_id').references(() => workspaces.id, {
             onDelete: 'restrict',
         }),
         primaryCategoryId: text('primary_category_id').references(() => projectCategories.id, {
@@ -107,9 +133,61 @@ export const projects = sqliteTable(
         }),
         ...timestamps(),
     },
+    table => [check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`)]
+)
+
+/**
+ * Direct Herald project access. Better Auth owns identity and workspace
+ * membership; this table owns the project-specific role for an individual.
+ */
+export const projectUserGrants = sqliteTable(
+    'project_user_grants',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
+        role: text('role', { enum: projectAccessRoles }).notNull(),
+        ...timestamps(),
+    },
     table => [
-        uniqueIndex('projects_organization_id_uidx').on(table.organizationId),
-        check('projects_name_nonblank', sql`length(trim(${table.name})) > 0`),
+        uniqueIndex('project_user_grants_project_user_uidx').on(table.projectId, table.userId),
+        index('project_user_grants_user_project_idx').on(table.userId, table.projectId),
+        check(
+            'project_user_grants_role_valid',
+            sql`${table.role} in ('owner', 'editor', 'viewer')`
+        ),
+    ]
+)
+
+/**
+ * Workspace-team project access. The team must belong to the project's
+ * workspace; that cross-table invariant is checked by AccessStore because
+ * the Better Auth team table is intentionally outside the domain schema.
+ */
+export const projectTeamGrants = sqliteTable(
+    'project_team_grants',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        teamId: text('team_id')
+            .notNull()
+            .references(() => team.id, { onDelete: 'cascade' }),
+        role: text('role', { enum: projectAccessRoles }).notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('project_team_grants_project_team_uidx').on(table.projectId, table.teamId),
+        index('project_team_grants_team_project_idx').on(table.teamId, table.projectId),
+        check(
+            'project_team_grants_role_valid',
+            sql`${table.role} in ('owner', 'editor', 'viewer')`
+        ),
     ]
 )
 
@@ -151,6 +229,9 @@ export const instanceState = sqliteTable(
         claimedByUserId: text('claimed_by_user_id').references(() => user.id, {
             onDelete: 'restrict',
         }),
+        defaultWorkspaceId: text('default_workspace_id').references(() => workspaces.id, {
+            onDelete: 'restrict',
+        }),
         claimedAt: integer('claimed_at'),
         ...timestamps(),
     },
@@ -189,8 +270,9 @@ export const instanceMemberships = sqliteTable(
 
 /**
  * Instance invitations are Herald-owned because the instance itself is not a
- * Better Auth organization. Project invitations use the Better Auth
- * Organization plugin and therefore have no duplicate Herald table.
+ * Better Auth organization. Project invitations use Better Auth workspace
+ * invitations with custom project fields and therefore have no duplicate
+ * Herald invitation table.
  */
 export const instanceAccessInvitations = sqliteTable(
     'instance_access_invitations',
@@ -867,6 +949,44 @@ export const posts = sqliteTable(
             sql`json_valid(${table.sourceContent}) and json_type(${table.sourceContent}) = 'object'`
         ),
         check('posts_source_revision_positive', sql`${table.sourceRevision} > 0`),
+    ]
+)
+
+/**
+ * A composer draft is deliberately separate from a publication draft. It is
+ * the durable, pre-publication recovery point for the new-publication screen;
+ * it must not appear in the delivery queue until the operator explicitly
+ * saves or schedules the publication.
+ */
+export const publicationComposerDrafts = sqliteTable(
+    'publication_composer_drafts',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        ownerActorId: text('owner_actor_id').notNull(),
+        contentJson: text('content_json', { mode: 'json' })
+            .$type<Readonly<Record<string, unknown>>>()
+            .notNull(),
+        revision: integer('revision').default(1).notNull(),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('publication_composer_drafts_project_actor_uidx').on(
+            table.projectId,
+            table.ownerActorId
+        ),
+        foreignKey({
+            name: 'publication_composer_drafts_project_actor_fk',
+            columns: [table.projectId, table.ownerActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'publication_composer_drafts_content_object',
+            sql`json_valid(${table.contentJson}) and json_type(${table.contentJson}) = 'object'`
+        ),
+        check('publication_composer_drafts_revision_positive', sql`${table.revision} > 0`),
     ]
 )
 

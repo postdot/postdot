@@ -1,18 +1,11 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
-import {
-    Empty,
-    EmptyDescription,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-} from '@herald/ui/components/empty'
-import { AddIcon } from '@solar-icons/react/bold/add'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
-import { SettingsIcon } from '@solar-icons/react/bold/settings'
+import { AddIcon } from '@solar-icons/react/linear/add'
+import { CheckIcon } from '@solar-icons/react/linear/check'
+import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import {
     ProviderApplicationForm,
     newProviderApplicationForm,
@@ -29,7 +22,7 @@ export function ProviderApplicationSettingsPage() {
     const [applications, setApplications] = useState<ProviderApplication[] | null>(null)
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form, setForm] = useState<ProviderApplicationFormState>(newProviderApplicationForm)
-    const [formOpen, setFormOpen] = useState(true)
+    const [formOpen, setFormOpen] = useState(false)
     const [pending, setPending] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
@@ -44,7 +37,7 @@ export function ProviderApplicationSettingsPage() {
             .then(response => {
                 if (!cancelled) {
                     setApplications(response.applications)
-                    setFormOpen(response.applications.length === 0)
+                    setFormOpen(false)
                 }
             })
             .catch(caughtError => {
@@ -154,19 +147,28 @@ export function ProviderApplicationSettingsPage() {
 
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <div className="mx-auto max-w-6xl">
+            <div className="w-full">
                 <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                     <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                            <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
+                            <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
                                 {m.provider_apps_title()}
                             </h1>
-                            <Badge variant="secondary">{m.nav_instance_settings()}</Badge>
                         </div>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                             {m.provider_apps_description()}
                         </p>
                     </div>
+                    {applications?.length ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            aria-expanded={formOpen || editingId !== null}
+                            onClick={() => setFormOpen(current => !current)}>
+                            <AddIcon aria-hidden="true" />
+                            {m.provider_apps_new()}
+                        </Button>
+                    ) : null}
                 </header>
 
                 {error ? (
@@ -179,28 +181,15 @@ export function ProviderApplicationSettingsPage() {
                     <div
                         className="mt-6 flex items-center gap-2 text-sm text-state-success"
                         role="status">
-                        <CheckReadIcon aria-hidden="true" className="size-4" />
+                        <CheckIcon aria-hidden="true" className="size-4" />
                         <span>{notice}</span>
                     </div>
                 ) : null}
 
-                <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+                <div className="mt-8 grid gap-8">
                     <div className="min-w-0">
-                        {applications?.length && editingId === null ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                aria-expanded={formOpen || editingId !== null}
-                                onClick={() => setFormOpen(current => !current)}>
-                                <AddIcon aria-hidden="true" />
-                                {m.provider_apps_new()}
-                            </Button>
-                        ) : null}
-                        {applications === null ||
-                        applications.length === 0 ||
-                        formOpen ||
-                        editingId !== null ? (
-                            <div className={applications?.length ? 'mt-3' : undefined}>
+                        {applications !== null && (formOpen || editingId !== null) ? (
+                            <div>
                                 <ProviderApplicationForm
                                     editingApplication={editingApplication}
                                     editingId={editingId}
@@ -227,19 +216,21 @@ export function ProviderApplicationSettingsPage() {
                             <p className="mt-4 text-sm text-muted-foreground" role="status">
                                 {m.provider_apps_loading()}
                             </p>
-                        ) : applications.length === 0 ? (
-                            <Empty className="mt-4 min-h-0 flex-row items-center justify-start gap-3 rounded-lg border border-dashed border-border/80 bg-muted/40 px-4 py-3 text-left">
-                                <EmptyMedia className="mb-0 size-7" variant="icon">
-                                    <SettingsIcon aria-hidden="true" />
-                                </EmptyMedia>
-                                <EmptyHeader className="items-start gap-0.5">
-                                    <EmptyTitle>{m.provider_apps_empty()}</EmptyTitle>
-                                    <EmptyDescription className="text-left text-xs/5">
-                                        {m.provider_apps_empty_description()}
-                                    </EmptyDescription>
-                                </EmptyHeader>
-                            </Empty>
-                        ) : (
+                        ) : applications.length === 0 && !formOpen ? (
+                            <EmptyState
+                                action={
+                                    <Button type="button" onClick={() => setFormOpen(true)}>
+                                        <AddIcon aria-hidden="true" />
+                                        {m.provider_apps_new()}
+                                    </Button>
+                                }
+                                className="mt-4"
+                                description={m.provider_apps_empty_description()}
+                                icon={<SettingsIcon aria-hidden="true" />}
+                                layout="compact"
+                                title={m.provider_apps_empty()}
+                            />
+                        ) : applications.length === 0 ? null : (
                             <div className="mt-4 space-y-3">
                                 {applications.map(application => (
                                     <ProviderApplicationRow

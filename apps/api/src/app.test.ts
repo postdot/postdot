@@ -628,22 +628,41 @@ describe('Herald API', () => {
             expect(Object.keys(specification.paths)).toEqual([
                 '/health',
                 '/ready',
+                '/api/instance/status',
+                '/api/access/invitations/{token}',
                 '/api/access',
                 '/api/access/members',
                 '/api/access/members/{userId}',
                 '/api/access/invitations',
                 '/api/access/invitations/{invitationId}',
                 '/api/access/invitations/accept',
+                '/api/api-keys',
+                '/api/api-keys/{keyId}',
+                '/api/workspaces',
+                '/api/workspaces/{workspaceId}',
+                '/api/workspaces/{workspaceId}/members/{memberId}',
+                '/api/workspaces/{workspaceId}/teams',
+                '/api/workspaces/{workspaceId}/teams/{teamId}',
+                '/api/workspaces/{workspaceId}/teams/{teamId}/members',
+                '/api/workspaces/{workspaceId}/teams/{teamId}/members/{userId}',
+                '/api/workspaces/{workspaceId}/invitations',
+                '/api/workspaces/{workspaceId}/invitations/{invitationId}',
+                '/api/workspaces/{workspaceId}/invitations/{invitationId}/accept',
                 '/api/settings/provider-applications',
                 '/api/settings/provider-applications/{applicationId}',
                 '/api/channel-profile-presets',
                 '/api/projects',
                 '/api/projects/{projectId}',
+                '/api/projects/{projectId}/membership',
                 '/api/projects/{projectId}/members',
                 '/api/projects/{projectId}/invitations',
                 '/api/projects/{projectId}/invitations/{invitationId}',
                 '/api/projects/{projectId}/invitations/{invitationId}/resend',
                 '/api/projects/{projectId}/members/{memberId}',
+                '/api/projects/{projectId}/user-grants',
+                '/api/projects/{projectId}/user-grants/{userId}',
+                '/api/projects/{projectId}/team-grants',
+                '/api/projects/{projectId}/team-grants/{teamId}',
                 '/api/categories',
                 '/api/categories/{categoryId}',
                 '/api/categories/{categoryId}/archive',
@@ -654,8 +673,6 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/tags/{tagId}/archive',
                 '/api/projects/{projectId}/tags/{tagId}/restore',
                 '/api/projects/{projectId}/publications/{publicationId}/tags',
-                '/api/projects/{projectId}/access-tokens',
-                '/api/projects/{projectId}/access-tokens/{tokenId}',
                 '/api/projects/{projectId}/channels',
                 '/api/projects/{projectId}/channels/{channelId}',
                 '/api/projects/{projectId}/channels/{channelId}/archive',
@@ -678,15 +695,19 @@ describe('Herald API', () => {
                 '/api/oauth/x/callback',
                 '/api/projects/{projectId}/channels/{channelId}/publisher',
                 '/api/projects/{projectId}/posts',
+                '/api/projects/{projectId}/publication-composer-draft',
                 '/api/projects/{projectId}/publications',
                 '/api/projects/{projectId}/publications/due',
                 '/api/projects/{projectId}/publications/schedule',
                 '/api/projects/{projectId}/publications/cancel',
+                '/api/projects/{projectId}/publications/{publicationId}',
+                '/api/projects/{projectId}/publications/{publicationId}/duplicate',
                 '/api/projects/{projectId}/publications/{publicationId}/editor',
                 '/api/projects/{projectId}/publications/{publicationId}/draft',
                 '/api/projects/{projectId}/publications/{publicationId}/draft/rebase',
                 '/api/projects/{projectId}/publications/{publicationId}/draft/promote',
                 '/api/projects/{projectId}/publications/{publicationId}/publish',
+                '/api/projects/{projectId}/publications/{publicationId}/retry',
                 '/api/projects/{projectId}/publications/{publicationId}/reconcile',
                 '/api/projects/{projectId}/media/uploads',
                 '/api/projects/{projectId}/media/uploads/{intentId}',
@@ -739,11 +760,24 @@ describe('Herald API', () => {
                 specification.paths['/api/projects/{projectId}/publications/cancel']?.patch
                     ?.operationId
             ).toBe('cancelPublications')
+            expect(
+                specification.paths['/api/projects/{projectId}/publications/{publicationId}/retry']
+                    ?.post?.operationId
+            ).toBe('retryFailedPublication')
+            expect(
+                specification.paths['/api/projects/{projectId}/publications/{publicationId}']
+                    ?.delete?.operationId
+            ).toBe('deleteDraftPublication')
+            expect(
+                specification.paths[
+                    '/api/projects/{projectId}/publications/{publicationId}/duplicate'
+                ]?.post?.operationId
+            ).toBe('duplicateDraftPublication')
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
-                    bearerFormat: 'Herald project access token',
+                    bearerFormat: 'Herald API key',
                     description:
-                        'A project-scoped machine token sent as Authorization: Bearer <token>.',
+                        'A user-owned Herald API key sent as Authorization: Bearer <token>. Its project scope is limited by the creator’s current access.',
                     scheme: 'bearer',
                     type: 'http',
                 },
@@ -758,18 +792,9 @@ describe('Herald API', () => {
             expect(specification.security).toEqual([{ bearerAuth: [] }, { sessionCookie: [] }])
             expect(specification.paths['/health']?.get?.security).toEqual([])
             expect(specification.paths['/api/projects']?.get?.security).toBeUndefined()
-            expect(
-                specification.paths['/api/projects/{projectId}/access-tokens']?.post?.security
-            ).toEqual([{ sessionCookie: [] }])
             expect(specification.paths['/api/projects/{projectId}/events']?.get?.security).toEqual([
                 { sessionCookie: [] },
             ])
-            expect(
-                Object.keys(
-                    specification.paths['/api/projects/{projectId}/access-tokens']?.post
-                        ?.responses ?? {}
-                )
-            ).toEqual(expect.arrayContaining(['201', '400', '401', '403', '404', '422']))
             expect(Object.keys(specification.paths['/ready']?.get?.responses ?? {})).toEqual([
                 '200',
                 '503',
@@ -998,7 +1023,7 @@ describe('Herald API', () => {
                     }),
                 ],
                 nextCursor: null,
-                summary: { total: 1, manual: 1, automatic: 0, scheduled: 0 },
+                summary: { total: 1, manual: 1, automatic: 0, scheduled: 0, draft: 1 },
             })
 
             const repeatedFilterResponse = await jsonRequest(
@@ -1051,7 +1076,7 @@ describe('Herald API', () => {
             expect(await foreignFilterResponse.json()).toEqual({
                 publications: [],
                 nextCursor: null,
-                summary: { total: 0, manual: 0, automatic: 0, scheduled: 0 },
+                summary: { total: 0, manual: 0, automatic: 0, scheduled: 0, draft: 0 },
             })
 
             const firstTagsResponse = await jsonRequest(
@@ -1524,17 +1549,15 @@ describe('Herald API', () => {
             )
             expect(crossProjectResponse.status).toBe(404)
 
-            const tokenResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectId}/access-tokens`,
-                cookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ name: 'Realtime machine token' }),
-                }
-            )
-            expect(tokenResponse.status).toBe(201)
-            const tokenBody = (await tokenResponse.json()) as { token: string }
+            const apiKeyResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Realtime machine key',
+                    projectIds: [projectId],
+                }),
+            })
+            expect(apiKeyResponse.status).toBe(201)
+            const tokenBody = (await apiKeyResponse.json()) as { token: string }
             const bearerResponse = await bearerRequest(
                 app,
                 `/api/projects/${projectId}/events`,
@@ -1625,10 +1648,9 @@ describe('Herald API', () => {
             expect(
                 database.$client
                     .query<{ readonly role: string; readonly state: string }, [string, string]>(
-                        `select member.role, 'active' as state
-                         from member
-                         inner join projects on projects.organization_id = member.organization_id
-                         where projects.id = ?1 and member.user_id = ?2`
+                        `select role, 'active' as state
+                         from project_user_grants
+                         where project_id = ?1 and user_id = ?2`
                     )
                     .get(ownerProject.project.id, owner?.userId ?? '')
             ).toEqual({ role: 'owner', state: 'active' })
@@ -1668,32 +1690,23 @@ describe('Herald API', () => {
             expect(
                 database.$client
                     .query<{ readonly role: string; readonly state: string }, [string, string]>(
-                        `select member.role, 'active' as state
-                         from member
-                         inner join projects on projects.organization_id = member.organization_id
-                         where projects.id = ?1 and member.user_id = ?2`
+                        `select role, 'active' as state
+                         from project_user_grants
+                         where project_id = ?1 and user_id = ?2`
                     )
                     .get(memberProject.project.id, member?.userId ?? '')
             ).toEqual({ role: 'owner', state: 'active' })
 
-            const ownerOrganizationForInvitation = database.$client
-                .query<{ readonly id: string }, [string]>(
-                    `select organization_id as id from projects where id = ?1`
-                )
-                .get(ownerProject.project.id)
-            const invitation = await auth.api.createInvitation({
-                body: {
-                    email: memberEmail,
-                    organizationId: ownerOrganizationForInvitation?.id ?? '',
-                    role: 'viewer',
-                },
-                headers: new Headers({ cookie: ownerCookie }),
-            })
-            expect(invitation.status).toBe('pending')
-            await auth.api.acceptInvitation({
-                body: { invitationId: invitation.id },
-                headers: new Headers({ cookie: memberCookie }),
-            })
+            const viewerGrantResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/user-grants`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: member.userId, role: 'viewer' }),
+                }
+            )
+            expect(viewerGrantResponse.status).toBe(201)
 
             const viewerListResponse = await jsonRequest(
                 app,
@@ -1701,6 +1714,20 @@ describe('Herald API', () => {
                 memberCookie
             )
             expect(viewerListResponse.status).toBe(200)
+
+            const viewerMembershipResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/membership`,
+                memberCookie
+            )
+            expect(viewerMembershipResponse.status).toBe(200)
+            expect(await viewerMembershipResponse.json()).toEqual({
+                membership: expect.objectContaining({
+                    userId: member.userId,
+                    role: 'viewer',
+                    state: 'active',
+                }),
+            })
 
             const viewerCreateChannelResponse = await jsonRequest(
                 app,
@@ -1747,25 +1774,16 @@ describe('Herald API', () => {
             )
             expect(viewerUpdateResponse.status).toBe(403)
 
-            const ownerOrganization = database.$client
-                .query<{ readonly id: string }, [string]>(
-                    `select organization_id as id from projects where id = ?1`
-                )
-                .get(ownerProject.project.id)
-            const organizationMember = database.$client
-                .query<{ readonly id: string }, [string, string]>(
-                    `select id from member where organization_id = ?1 and user_id = ?2`
-                )
-                .get(ownerOrganization?.id ?? '', member.userId)
-            expect(organizationMember).not.toBeNull()
-            await auth.api.updateMemberRole({
-                body: {
-                    memberId: organizationMember?.id ?? '',
-                    role: 'editor',
-                    organizationId: ownerOrganization?.id ?? '',
-                },
-                headers: new Headers({ cookie: ownerCookie }),
-            })
+            const editorGrantResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/user-grants/${member.userId}`,
+                ownerCookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ role: 'editor' }),
+                }
+            )
+            expect(editorGrantResponse.status).toBe(200)
             const editorUpdateResponse = await jsonRequest(
                 app,
                 `/api/projects/${ownerProject.project.id}`,
@@ -1776,6 +1794,20 @@ describe('Herald API', () => {
                 }
             )
             expect(editorUpdateResponse.status).toBe(200)
+
+            const editorMembershipResponse = await jsonRequest(
+                app,
+                `/api/projects/${ownerProject.project.id}/membership`,
+                memberCookie
+            )
+            expect(editorMembershipResponse.status).toBe(200)
+            expect(await editorMembershipResponse.json()).toEqual({
+                membership: expect.objectContaining({
+                    userId: member.userId,
+                    role: 'editor',
+                    state: 'active',
+                }),
+            })
 
             const editorCreatePostResponse = await jsonRequest(
                 app,
@@ -1800,24 +1832,13 @@ describe('Herald API', () => {
             )
             expect(editorCreatePostResponse.status).toBe(201)
 
-            const editorTokenResponse = await jsonRequest(
+            const removeGrantResponse = await jsonRequest(
                 app,
-                `/api/projects/${ownerProject.project.id}/access-tokens`,
-                memberCookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ name: 'Editor token must be rejected' }),
-                }
+                `/api/projects/${ownerProject.project.id}/user-grants/${member.userId}`,
+                ownerCookie,
+                { method: 'DELETE' }
             )
-            expect(editorTokenResponse.status).toBe(403)
-
-            await auth.api.removeMember({
-                body: {
-                    memberIdOrEmail: organizationMember?.id ?? '',
-                    organizationId: ownerOrganization?.id ?? '',
-                },
-                headers: new Headers({ cookie: ownerCookie }),
-            })
+            expect(removeGrantResponse.status).toBe(200)
             const removedMemberResponse = await jsonRequest(
                 app,
                 `/api/projects/${ownerProject.project.id}/channels`,
@@ -1853,17 +1874,15 @@ describe('Herald API', () => {
             })
             expect(disabledCreateResponse.status).toBe(403)
 
-            const tokenResponse = await jsonRequest(
-                app,
-                `/api/projects/${ownerProject.project.id}/access-tokens`,
-                ownerCookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ name: 'Lifecycle token' }),
-                }
-            )
-            expect(tokenResponse.status).toBe(201)
-            const tokenBody = (await tokenResponse.json()) as { token: string }
+            const apiKeyResponse = await jsonRequest(app, '/api/api-keys', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Lifecycle API key',
+                    projectIds: [ownerProject.project.id],
+                }),
+            })
+            expect(apiKeyResponse.status).toBe(201)
+            const tokenBody = (await apiKeyResponse.json()) as { token: string }
             const bearerUpdateResponse = await bearerRequest(
                 app,
                 `/api/projects/${ownerProject.project.id}`,
@@ -2265,78 +2284,56 @@ describe('Herald API', () => {
         }
     })
 
-    it('creates and authenticates project tokens without impersonating their creator', async () => {
-        const { app, auth, database } = createFixture()
+    it('creates and authenticates user-owned API keys within their project scope', async () => {
+        const { app, database } = createFixture()
 
         try {
-            const cookie = await signUp(app, 'access-token-operator@herald.local')
+            const cookie = await signUp(app, 'api-key-operator@herald.local')
             const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
                 method: 'POST',
                 body: JSON.stringify({ name: 'Machine access project' }),
             })
             const projectBody = (await projectResponse.json()) as { project: { id: string } }
             const projectId = projectBody.project.id
-            const projectOrganization = database.$client
-                .query<{ readonly organizationId: string | null }, [string]>(
-                    'select organization_id as organizationId from projects where id = ?1'
-                )
-                .get(projectId)
-            const operator = database.$client
-                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
-                .get('access-token-operator@herald.local')
-            expect(projectOrganization?.organizationId).toBeString()
-            expect(
-                database.$client
-                    .query<{ readonly role: string }, [string, string]>(
-                        `select role from member
-                         where organization_id = ?1 and user_id = ?2`
-                    )
-                    .get(projectOrganization?.organizationId ?? '', operator?.id ?? '')
-            ).toEqual({ role: 'owner' })
-
-            const createTokenResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectId}/access-tokens`,
-                cookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ name: 'Release agent' }),
+            const createKeyResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Release agent',
+                    projectIds: [projectId],
+                }),
+            })
+            expect(createKeyResponse.status).toBe(201)
+            const createdBody = (await createKeyResponse.json()) as {
+                key: {
+                    id: string
+                    name: string
+                    tokenPrefix: string
+                    projectAccess: readonly string[] | 'all'
+                    expiresAt: number | null
                 }
-            )
-            expect(createTokenResponse.status).toBe(201)
-            const createdBody = (await createTokenResponse.json()) as {
-                accessToken: { id: string; name: string; tokenPrefix: string; expiresAt: number }
                 token: string
             }
-            expect(createdBody.accessToken).toMatchObject({
+            expect(createdBody.key).toMatchObject({
                 name: 'Release agent',
                 tokenPrefix: 'herald_pat_',
+                projectAccess: [projectId],
             })
-            expect(createdBody.accessToken.expiresAt).toBeGreaterThan(now)
             expect(createdBody.token.length).toBeGreaterThan(40)
 
-            const listedResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectId}/access-tokens`,
-                cookie
-            )
+            const listedResponse = await jsonRequest(app, '/api/api-keys', cookie)
             expect(listedResponse.status).toBe(200)
             const listedBody = await listedResponse.json()
             expect(listedBody).toEqual({
-                accessTokens: [
+                keys: [
                     expect.objectContaining({
-                        id: createdBody.accessToken.id,
+                        id: createdBody.key.id,
                         name: 'Release agent',
-                        tokenPrefix: createdBody.accessToken.tokenPrefix,
-                        revokedAt: null,
+                        tokenPrefix: createdBody.key.tokenPrefix,
+                        projectAccess: [projectId],
                     }),
                 ],
             })
             expect(JSON.stringify(listedBody)).not.toContain(createdBody.token)
-
-            const authentication = {
-                actorId: `api-key:${createdBody.accessToken.id}`,
-            }
 
             const projectListResponse = await bearerRequest(app, '/api/projects', createdBody.token)
             expect(projectListResponse.status).toBe(200)
@@ -2364,16 +2361,18 @@ describe('Herald API', () => {
             const auditBody = (await auditResponse.json()) as {
                 events: Array<{ action: string; actorId: string }>
             }
+            const humanActor = database.$client
+                .query<{ readonly id: string }, [string]>(
+                    `select id from actors where project_id = ?1 and kind = 'human'`
+                )
+                .get(projectId)
+            expect(humanActor).not.toBeNull()
             expect(
                 auditBody.events.find(event => event.action === 'channel.created')?.actorId
-            ).toBe(authentication?.actorId)
+            ).toBe(humanActor?.id)
 
-            const tokenListResponse = await bearerRequest(
-                app,
-                `/api/projects/${projectId}/access-tokens`,
-                createdBody.token
-            )
-            expect(tokenListResponse.status).toBe(403)
+            const keyListResponse = await bearerRequest(app, '/api/api-keys', createdBody.token)
+            expect(keyListResponse.status).toBe(403)
 
             const notificationResponse = await bearerRequest(
                 app,
@@ -2388,7 +2387,7 @@ describe('Herald API', () => {
                 createdBody.token,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ name: 'Should not be created by a token' }),
+                    body: JSON.stringify({ name: 'Should not be created by an API key' }),
                 }
             )
             expect(projectCreationResponse.status).toBe(403)
@@ -2405,18 +2404,12 @@ describe('Herald API', () => {
 
             const revokeResponse = await jsonRequest(
                 app,
-                `/api/projects/${projectId}/access-tokens/${createdBody.accessToken.id}`,
+                `/api/api-keys/${createdBody.key.id}`,
                 cookie,
                 { method: 'DELETE' }
             )
             expect(revokeResponse.status).toBe(200)
-            expect(
-                (await revokeResponse.json()) as {
-                    accessToken: { revokedAt: number | null }
-                }
-            ).toEqual({ accessToken: expect.objectContaining({ revokedAt: now }) })
-            const revokedToken = await auth.api.verifyApiKey({ body: { key: createdBody.token } })
-            expect(revokedToken.valid).toBe(false)
+            expect(await revokeResponse.json()).toEqual({ deleted: true })
 
             const revokedResponse = await bearerRequest(app, '/api/projects', createdBody.token)
             expect(revokedResponse.status).toBe(401)
@@ -2462,11 +2455,33 @@ describe('Herald API', () => {
             expect(await initialInvitationsResponse.json()).toEqual({ invitations: [] })
 
             const memberEmail = 'project-access-member@herald.local'
-            const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
+            const outsiderCookie = await signUpFixtureAdditionalUser(
+                app,
+                'project-access-outsider@herald.local'
+            )
+            const outsider = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get('project-access-outsider@herald.local')
+            const outsiderWorkspace = access.getDefaultWorkspace()
+            expect(outsider).not.toBeNull()
+            expect(outsiderWorkspace).not.toBeNull()
+            if (outsider === null || outsiderWorkspace === null) {
+                throw new Error('The project access outsider fixture is incomplete')
+            }
+            // Additional-signup fixtures are workspace owners by default. This
+            // account represents an ordinary workspace member with no project
+            // grant, so it must remain hidden from the project access surface.
+            database.$client
+                .query(
+                    `update member
+                     set role = 'member'
+                     where organization_id = ?1 and user_id = ?2`
+                )
+                .run(outsiderWorkspace.organizationId, outsider.id)
             const beforeInviteResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectId}/members`,
-                memberCookie
+                outsiderCookie
             )
             // Project routes deliberately hide projects from users who are not
             // members, so the auth macro returns the same 404 as any unknown
@@ -2493,6 +2508,23 @@ describe('Herald API', () => {
                     status: 'pending',
                 })
             )
+
+            const memberCookie = await signUpFixtureAdditionalUser(app, memberEmail)
+            const member = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get(memberEmail)
+            const workspace = access.getDefaultWorkspace()
+            expect(member).not.toBeNull()
+            expect(workspace).not.toBeNull()
+            if (member === null || workspace === null) {
+                throw new Error('The project invitation user fixture is incomplete')
+            }
+            // The additional-signup fixture normally provisions a default
+            // workspace for independent browser tests. Remove that fixture
+            // membership so this test exercises the real invitation path.
+            database.$client
+                .query('delete from member where organization_id = ?1 and user_id = ?2')
+                .run(workspace.organizationId, member.id)
 
             const pendingInvitationsResponse = await jsonRequest(
                 app,
@@ -2685,7 +2717,454 @@ describe('Herald API', () => {
         }
     })
 
-    it('projects Better Auth organization invitations into Herald project access', async () => {
+    it('manages workspace group grants without making workspace membership project access', async () => {
+        const { access, app, auth, database } = createFixture({ allowAdditionalSignups: true })
+
+        try {
+            const ownerCookie = await signUp(app, 'group-grant-owner@herald.local')
+            const memberCookie = await signUp(app, 'group-grant-member@herald.local')
+            const workspaceAdminCookie = await signUp(
+                app,
+                'group-grant-workspace-admin@herald.local'
+            )
+            const member = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get('group-grant-member@herald.local')
+            expect(member).not.toBeNull()
+            if (member === null) throw new Error('The group grant member was not created')
+
+            const workspace = access.getDefaultWorkspace()
+            expect(workspace).not.toBeNull()
+            if (workspace === null) throw new Error('The default workspace was not created')
+            const editorsTeamId = `herald-workspace-team:${workspace.id}:editors`
+            await auth.api.addTeamMember({
+                body: {
+                    organizationId: workspace.organizationId,
+                    teamId: editorsTeamId,
+                    userId: member.id,
+                },
+                headers: new Headers({ cookie: ownerCookie }),
+            })
+
+            const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Group grant project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const project = (await projectResponse.json()) as { project: { id: string } }
+            const projectId = project.project.id
+
+            const workspaceAdminProjects = await jsonRequest(
+                app,
+                '/api/projects',
+                workspaceAdminCookie
+            )
+            expect(workspaceAdminProjects.status).toBe(200)
+            expect(await workspaceAdminProjects.json()).toEqual({
+                projects: [expect.objectContaining({ id: projectId })],
+            })
+
+            const workspaceAdminMembers = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members`,
+                workspaceAdminCookie
+            )
+            expect(workspaceAdminMembers.status).toBe(200)
+            const workspaceAdminTeamGrants = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/team-grants`,
+                workspaceAdminCookie
+            )
+            expect(workspaceAdminTeamGrants.status).toBe(200)
+
+            // The test signup helper creates an independent workspace owner so
+            // browser fixtures can coexist. Model the invited project member
+            // explicitly before checking that workspace membership alone does
+            // not grant project access or workspace administration rights.
+            database.$client
+                .query(
+                    `update member
+                     set role = 'member'
+                     where organization_id = ?1
+                       and user_id = ?2`
+                )
+                .run(workspace.organizationId, member.id)
+
+            const beforeGrantProjects = await jsonRequest(app, '/api/projects', memberCookie)
+            expect(beforeGrantProjects.status).toBe(200)
+            expect(await beforeGrantProjects.json()).toEqual({ projects: [] })
+
+            const grantResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/team-grants`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ teamId: editorsTeamId, role: 'editor' }),
+                }
+            )
+            expect(grantResponse.status).toBe(201)
+            expect(await grantResponse.json()).toEqual({
+                grant: expect.objectContaining({
+                    projectId,
+                    teamId: editorsTeamId,
+                    teamName: 'Editors',
+                    role: 'editor',
+                }),
+            })
+
+            const memberProjects = await jsonRequest(app, '/api/projects', memberCookie)
+            expect(memberProjects.status).toBe(200)
+            expect(await memberProjects.json()).toEqual({
+                projects: [expect.objectContaining({ id: projectId })],
+            })
+
+            const directGrantResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/user-grants`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: member.id, role: 'viewer' }),
+                }
+            )
+            expect(directGrantResponse.status).toBe(201)
+            expect(await directGrantResponse.json()).toEqual({
+                grant: expect.objectContaining({
+                    projectId,
+                    userId: member.id,
+                    role: 'viewer',
+                }),
+            })
+
+            const directGrantRemoved = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/user-grants/${member.id}`,
+                ownerCookie,
+                { method: 'DELETE' }
+            )
+            expect(directGrantRemoved.status).toBe(200)
+            expect(await directGrantRemoved.json()).toEqual({ removed: true })
+            expect(access.canAccessProject(projectId, member.id, 'editor')).toBe(true)
+
+            const forbiddenGrant = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/team-grants`,
+                memberCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ teamId: editorsTeamId, role: 'viewer' }),
+                }
+            )
+            expect(forbiddenGrant.status).toBe(403)
+
+            const removed = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/team-grants/${editorsTeamId}`,
+                ownerCookie,
+                { method: 'DELETE' }
+            )
+            expect(removed.status).toBe(200)
+            expect(await removed.json()).toEqual({ removed: true })
+            expect(access.canAccessProject(projectId, member.id)).toBe(false)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('completes a workspace invitation through group-based project access', async () => {
+        const { access, app, database } = createFixture()
+
+        try {
+            const ownerCookie = await signUp(app, 'workspace-flow-owner@herald.local')
+            const workspace = access.getDefaultWorkspace()
+            expect(workspace).not.toBeNull()
+            if (workspace === null) throw new Error('The default workspace was not created')
+
+            const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Invitation flow project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const projectId = projectBody.project.id
+
+            const teamResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Content team' }),
+                }
+            )
+            expect(teamResponse.status).toBe(201)
+            const teamBody = (await teamResponse.json()) as { team: { id: string; name: string } }
+            expect(teamBody.team.name).toBe('Content team')
+
+            const targetEmail = 'workspace-flow-member@herald.local'
+            const invitationResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/invitations`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ email: targetEmail, teamId: teamBody.team.id }),
+                }
+            )
+            expect(invitationResponse.status).toBe(201)
+            const invitationBody = (await invitationResponse.json()) as {
+                invitation: { id: string; teamId?: string; status: string }
+            }
+            expect(invitationBody.invitation).toMatchObject({
+                teamId: teamBody.team.id,
+                status: 'pending',
+            })
+
+            const memberCookie = await signUpFixtureAdditionalUser(app, targetEmail)
+            const member = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get(targetEmail)
+            expect(member).not.toBeNull()
+            if (member === null) throw new Error('The invited workspace member was not created')
+
+            const acceptResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/invitations/${invitationBody.invitation.id}/accept`,
+                memberCookie,
+                { method: 'POST' }
+            )
+            expect(acceptResponse.status).toBe(200)
+            expect(await acceptResponse.json()).toMatchObject({
+                membership: { role: 'member' },
+                invitation: { id: invitationBody.invitation.id, status: 'accepted' },
+            })
+
+            const teamMembersResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${teamBody.team.id}/members`,
+                memberCookie
+            )
+            expect(teamMembersResponse.status).toBe(200)
+            expect(await teamMembersResponse.json()).toEqual({
+                members: [expect.objectContaining({ userId: member.id })],
+            })
+
+            const beforeGrantResponse = await jsonRequest(app, '/api/projects', memberCookie)
+            expect(beforeGrantResponse.status).toBe(200)
+            expect(await beforeGrantResponse.json()).toEqual({ projects: [] })
+
+            const grantResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/team-grants`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ teamId: teamBody.team.id, role: 'editor' }),
+                }
+            )
+            expect(grantResponse.status).toBe(201)
+            expect(await grantResponse.json()).toEqual({
+                grant: expect.objectContaining({
+                    projectId,
+                    teamId: teamBody.team.id,
+                    teamName: 'Content team',
+                    role: 'editor',
+                }),
+            })
+
+            const afterGrantResponse = await jsonRequest(app, '/api/projects', memberCookie)
+            expect(afterGrantResponse.status).toBe(200)
+            expect(await afterGrantResponse.json()).toEqual({
+                projects: [expect.objectContaining({ id: projectId })],
+            })
+
+            const projectMembersResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/members`,
+                memberCookie
+            )
+            expect(projectMembersResponse.status).toBe(200)
+            expect(await projectMembersResponse.json()).toMatchObject({
+                members: expect.arrayContaining([
+                    expect.objectContaining({ userId: member.id, role: 'editor' }),
+                ]),
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('limits project visibility to a member group and revokes it when membership is removed', async () => {
+        const { access, app, database } = createFixture({ allowAdditionalSignups: true })
+
+        try {
+            const ownerCookie = await signUp(app, 'group-visibility-owner@herald.local')
+            const memberCookie = await signUp(app, 'group-visibility-member@herald.local')
+            const member = database.$client
+                .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
+                .get('group-visibility-member@herald.local')
+            const workspace = access.getDefaultWorkspace()
+            expect(member).not.toBeNull()
+            expect(workspace).not.toBeNull()
+            if (member === null || workspace === null) {
+                throw new Error('The group visibility fixture is incomplete')
+            }
+
+            database.$client
+                .query(
+                    `update member
+                     set role = 'member'
+                     where organization_id = ?1
+                       and user_id = ?2`
+                )
+                .run(workspace.organizationId, member.id)
+
+            const firstProjectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Editors project' }),
+            })
+            const secondProjectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Reviewers project' }),
+            })
+            expect(firstProjectResponse.status).toBe(201)
+            expect(secondProjectResponse.status).toBe(201)
+            const firstProject = (await firstProjectResponse.json()) as {
+                project: { id: string }
+            }
+            const secondProject = (await secondProjectResponse.json()) as {
+                project: { id: string }
+            }
+
+            const editorsTeamId = `herald-workspace-team:${workspace.id}:editors`
+            const reviewersTeamId = `herald-workspace-team:${workspace.id}:reviewers`
+            const addMemberResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${editorsTeamId}/members`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: member.id }),
+                }
+            )
+            expect(addMemberResponse.status).toBe(200)
+
+            const firstGrantResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/team-grants`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ teamId: editorsTeamId, role: 'editor' }),
+                }
+            )
+            const secondGrantResponse = await jsonRequest(
+                app,
+                `/api/projects/${secondProject.project.id}/team-grants`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ teamId: reviewersTeamId, role: 'viewer' }),
+                }
+            )
+            expect(firstGrantResponse.status).toBe(201)
+            expect(secondGrantResponse.status).toBe(201)
+
+            const visibleProjectsResponse = await jsonRequest(app, '/api/projects', memberCookie)
+            expect(visibleProjectsResponse.status).toBe(200)
+            expect(await visibleProjectsResponse.json()).toEqual({
+                projects: [expect.objectContaining({ id: firstProject.project.id })],
+            })
+
+            const visibleProjectMembersResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/members`,
+                memberCookie
+            )
+            expect(visibleProjectMembersResponse.status).toBe(200)
+
+            const hiddenProjectMembersResponse = await jsonRequest(
+                app,
+                `/api/projects/${secondProject.project.id}/members`,
+                memberCookie
+            )
+            expect(hiddenProjectMembersResponse.status).toBe(404)
+
+            const addReviewerResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${reviewersTeamId}/members`,
+                ownerCookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ userId: member.id }),
+                }
+            )
+            expect(addReviewerResponse.status).toBe(200)
+
+            const visibleProjectsForBothGroupsResponse = await jsonRequest(
+                app,
+                '/api/projects',
+                memberCookie
+            )
+            expect(visibleProjectsForBothGroupsResponse.status).toBe(200)
+            expect(await visibleProjectsForBothGroupsResponse.json()).toEqual({
+                projects: expect.arrayContaining([
+                    expect.objectContaining({ id: firstProject.project.id }),
+                    expect.objectContaining({ id: secondProject.project.id }),
+                ]),
+            })
+
+            const removeEditorsResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${editorsTeamId}/members/${member.id}`,
+                ownerCookie,
+                { method: 'DELETE' }
+            )
+            expect(removeEditorsResponse.status).toBe(200)
+            expect(await removeEditorsResponse.json()).toEqual({ removed: true })
+
+            const projectsAfterEditorsRemovalResponse = await jsonRequest(
+                app,
+                '/api/projects',
+                memberCookie
+            )
+            expect(projectsAfterEditorsRemovalResponse.status).toBe(200)
+            expect(await projectsAfterEditorsRemovalResponse.json()).toEqual({
+                projects: [expect.objectContaining({ id: secondProject.project.id })],
+            })
+            expect(access.canAccessProject(firstProject.project.id, member.id)).toBe(false)
+            expect(access.canAccessProject(secondProject.project.id, member.id)).toBe(true)
+
+            const removedProjectMembersResponse = await jsonRequest(
+                app,
+                `/api/projects/${firstProject.project.id}/members`,
+                memberCookie
+            )
+            expect(removedProjectMembersResponse.status).toBe(404)
+
+            const removeReviewersResponse = await jsonRequest(
+                app,
+                `/api/workspaces/${workspace.id}/teams/${reviewersTeamId}/members/${member.id}`,
+                ownerCookie,
+                { method: 'DELETE' }
+            )
+            expect(removeReviewersResponse.status).toBe(200)
+
+            const projectsAfterAllRemovalsResponse = await jsonRequest(
+                app,
+                '/api/projects',
+                memberCookie
+            )
+            expect(projectsAfterAllRemovalsResponse.status).toBe(200)
+            expect(await projectsAfterAllRemovalsResponse.json()).toEqual({ projects: [] })
+            expect(access.canAccessProject(secondProject.project.id, member.id)).toBe(false)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('does not project legacy Better Auth organization invitations into Herald access', async () => {
         const { access, app, auth, database } = createFixture()
 
         try {
@@ -2697,18 +3176,26 @@ describe('Herald API', () => {
             expect(projectResponse.status).toBe(201)
             const projectBody = (await projectResponse.json()) as { project: { id: string } }
             const projectId = projectBody.project.id
-            const organization = database.$client
-                .query<{ readonly id: string }, [string]>(
-                    'select organization_id as id from projects where id = ?1'
-                )
-                .get(projectId)
-            expect(organization?.id).toBeString()
+
+            const legacyOrganization = await auth.api.createOrganization({
+                body: {
+                    name: 'Legacy organization',
+                    slug: 'legacy-organization-test',
+                    userId: (
+                        database.$client
+                            .query<{ readonly id: string }, [string]>(
+                                'select id from user where email = ?1'
+                            )
+                            .get('organization-owner@herald.local') ?? { id: '' }
+                    ).id,
+                },
+            })
 
             const invitation = await auth.api.createInvitation({
                 body: {
                     email: 'organization-member@herald.local',
                     role: 'editor',
-                    organizationId: organization?.id ?? '',
+                    organizationId: legacyOrganization.id,
                 },
                 headers: new Headers({ cookie: ownerCookie }),
             })
@@ -2723,16 +3210,14 @@ describe('Herald API', () => {
                 .query<{ readonly id: string }, [string]>('select id from user where email = ?1')
                 .get('organization-member@herald.local')
             expect(member).not.toBeNull()
-            expect(access.canAccessProject(projectId, member?.id ?? '')).toBe(true)
+            expect(access.canAccessProject(projectId, member?.id ?? '')).toBe(false)
 
             const projectsResponse = await jsonRequest(app, '/api/projects', memberCookie)
             expect(projectsResponse.status).toBe(200)
-            expect(await projectsResponse.json()).toEqual({
-                projects: [expect.objectContaining({ id: projectId })],
-            })
+            expect(await projectsResponse.json()).toEqual({ projects: [] })
 
             await auth.api.leaveOrganization({
-                body: { organizationId: organization?.id ?? '' },
+                body: { organizationId: legacyOrganization.id },
                 headers: new Headers({ cookie: memberCookie }),
             })
             const projectsAfterLeave = await jsonRequest(app, '/api/projects', memberCookie)
@@ -2782,7 +3267,6 @@ describe('Herald API', () => {
             const channelBody = (await channelResponse.json()) as {
                 channel: { id: string }
             }
-
             const secondChannelResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/channels`,
@@ -2840,6 +3324,15 @@ describe('Herald API', () => {
             const secondPublicationId = postBody.publications[1]?.id
             expect(publicationId).toBeString()
             expect(secondPublicationId).toBeString()
+
+            const invalidRetryResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${publicationId}/retry`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({}) }
+            )
+            expect(invalidRetryResponse.status).toBe(409)
+
             const editorResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/publications/${publicationId}/editor`,
@@ -3104,6 +3597,64 @@ describe('Herald API', () => {
                 'publication.draft.rebased'
             )
 
+            const duplicateDraftResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${secondPublicationId}/duplicate`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({}) }
+            )
+            expect(duplicateDraftResponse.status).toBe(201)
+            const duplicateDraftBody = (await duplicateDraftResponse.json()) as {
+                post: { id: string; title: string | null }
+                publication: { id: string; postId: string; state: string }
+            }
+            expect(duplicateDraftBody).toMatchObject({
+                post: { title: 'Herald is ready' },
+                publication: { state: 'draft' },
+            })
+            expect(duplicateDraftBody.publication.id).not.toBe(secondPublicationId)
+            expect(duplicateDraftBody.publication.postId).toBe(duplicateDraftBody.post.id)
+
+            const deleteDraftResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${secondPublicationId}`,
+                cookie,
+                { method: 'DELETE' }
+            )
+            expect(deleteDraftResponse.status).toBe(200)
+            expect(await deleteDraftResponse.json()).toEqual({
+                deleted: true,
+                postDeleted: false,
+            })
+
+            const deleteDuplicatedDraftResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${duplicateDraftBody.publication.id}`,
+                cookie,
+                { method: 'DELETE' }
+            )
+            expect(deleteDuplicatedDraftResponse.status).toBe(200)
+            expect(await deleteDuplicatedDraftResponse.json()).toEqual({
+                deleted: true,
+                postDeleted: true,
+            })
+
+            const deletePublishedResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${publicationId}`,
+                cookie,
+                { method: 'DELETE' }
+            )
+            expect(deletePublishedResponse.status).toBe(409)
+
+            const duplicatePublishedResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publications/${publicationId}/duplicate`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({}) }
+            )
+            expect(duplicatePublishedResponse.status).toBe(409)
+
             notificationProjection.runNow()
             const notificationResponse = await jsonRequest(
                 app,
@@ -3121,6 +3672,110 @@ describe('Herald API', () => {
                     },
                 ],
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('persists and clears the new-publication composer recovery point', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const unauthenticatedResponse = await app.handle(
+                new Request(`${baseURL}/api/projects/missing/publication-composer-draft`)
+            )
+            expect(unauthenticatedResponse.status).toBe(401)
+
+            const cookie = await signUp(app, 'composer-recovery@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Composer recovery project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const path = `/api/projects/${projectBody.project.id}/publication-composer-draft`
+            const content = {
+                activePublicationTabId: 'shared',
+                customizedContentTargetIds: [],
+                customizedTargetIds: [],
+                defaultDeliveryMode: 'manual',
+                defaultScheduledAt: '',
+                postContent: 'A durable recovery copy.',
+                postTitle: '',
+                publicationTagIds: [],
+                publicationTargets: [
+                    {
+                        channelId: 'channel-1',
+                        content: '',
+                        deliveryMode: 'manual',
+                        id: 'target-1',
+                        scheduledAt: '',
+                    },
+                ],
+                sourceMedia: [],
+            }
+
+            const emptyResponse = await jsonRequest(app, path, cookie)
+            expect(emptyResponse.status).toBe(200)
+            expect(await emptyResponse.json()).toEqual({ draft: null })
+
+            const saveResponse = await jsonRequest(app, path, cookie, {
+                method: 'PUT',
+                body: JSON.stringify({ expectedRevision: 0, content }),
+            })
+            expect(saveResponse.status).toBe(200)
+            const savedBody = (await saveResponse.json()) as {
+                draft: { revision: number; content: Record<string, unknown> }
+            }
+            expect(savedBody.draft).toMatchObject({ revision: 1, content })
+
+            const unchangedResponse = await jsonRequest(app, path, cookie, {
+                method: 'PUT',
+                body: JSON.stringify({ expectedRevision: 1, content }),
+            })
+            expect(unchangedResponse.status).toBe(200)
+            expect(
+                ((await unchangedResponse.json()) as { draft: { revision: number } }).draft.revision
+            ).toBe(1)
+
+            const updatedContent = { ...content, postContent: 'The updated recovery copy.' }
+            const updateResponse = await jsonRequest(app, path, cookie, {
+                method: 'PUT',
+                body: JSON.stringify({ expectedRevision: 1, content: updatedContent }),
+            })
+            expect(updateResponse.status).toBe(200)
+            expect(
+                ((await updateResponse.json()) as { draft: { revision: number } }).draft.revision
+            ).toBe(2)
+
+            const staleResponse = await jsonRequest(app, path, cookie, {
+                method: 'PUT',
+                body: JSON.stringify({ expectedRevision: 1, content }),
+            })
+            expect(staleResponse.status).toBe(409)
+
+            const invalidResponse = await jsonRequest(app, path, cookie, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    expectedRevision: 2,
+                    content: { ...updatedContent, postContent: '' },
+                }),
+            })
+            expect(invalidResponse.status).toBe(400)
+
+            const deleteResponse = await jsonRequest(app, path, cookie, { method: 'DELETE' })
+            expect(deleteResponse.status).toBe(200)
+            expect(await deleteResponse.json()).toEqual({ deleted: true })
+
+            const afterDeleteResponse = await jsonRequest(app, path, cookie)
+            expect(afterDeleteResponse.status).toBe(200)
+            expect(await afterDeleteResponse.json()).toEqual({ draft: null })
+
+            const idempotentDeleteResponse = await jsonRequest(app, path, cookie, {
+                method: 'DELETE',
+            })
+            expect(idempotentDeleteResponse.status).toBe(200)
+            expect(await idempotentDeleteResponse.json()).toEqual({ deleted: false })
         } finally {
             closeDatabase(database)
         }
@@ -3428,18 +4083,17 @@ describe('Herald API', () => {
             const channelBody = (await channelResponse.json()) as {
                 channel: { id: string }
             }
+            const channelLocation = `http://localhost:5173/dashboard/projects/${projectBody.project.id}/channels?publisher_channel=${channelBody.channel.id}`
 
-            const accessTokenResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectBody.project.id}/access-tokens`,
-                cookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ name: 'LinkedIn automation agent' }),
-                }
-            )
-            expect(accessTokenResponse.status).toBe(201)
-            const accessTokenBody = (await accessTokenResponse.json()) as { token: string }
+            const apiKeyResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'LinkedIn automation agent',
+                    projectIds: [projectBody.project.id],
+                }),
+            })
+            expect(apiKeyResponse.status).toBe(201)
+            const accessTokenBody = (await apiKeyResponse.json()) as { token: string }
             const verifiedToken = await auth.api.verifyApiKey({
                 body: { key: accessTokenBody.token },
             })
@@ -3500,7 +4154,7 @@ describe('Herald API', () => {
             )
             expect(callbackResponse.status).toBe(303)
             expect(callbackResponse.headers.get('location')).toBe(
-                'http://localhost:5173/dashboard?publisher=connected'
+                `${channelLocation}&publisher=connected`
             )
 
             const storedAttempt = database.$client
@@ -3641,6 +4295,7 @@ describe('Herald API', () => {
                 }
             )
             const channelBody = (await channelResponse.json()) as { channel: { id: string } }
+            const channelLocation = `http://localhost:5173/dashboard/projects/${projectBody.project.id}/channels?publisher_channel=${channelBody.channel.id}`
 
             const startResponse = await jsonRequest(
                 app,
@@ -3679,7 +4334,7 @@ describe('Herald API', () => {
             )
             expect(callbackResponse.status).toBe(303)
             expect(callbackResponse.headers.get('location')).toBe(
-                'http://localhost:5173/dashboard?publisher=connected'
+                `${channelLocation}&publisher=connected`
             )
 
             const listResponse = await jsonRequest(
@@ -3706,7 +4361,7 @@ describe('Herald API', () => {
         }
     })
 
-    it('completes X OAuth into a project-owned credential and connection', async () => {
+    it('completes X OAuth and reconnects a revoked project-owned connection', async () => {
         const tokenRequests: Array<Record<string, string | null>> = []
         const provider = Bun.serve({
             port: 0,
@@ -3740,7 +4395,7 @@ describe('Herald API', () => {
             tokenEndpoint: new URL('/token', provider.url).toString(),
         }
         const seenProfileTokens: string[] = []
-        const { app, database } = createFixture({
+        const { app, database, publisher } = createFixture({
             x: {
                 clientId: 'x-client-id',
                 clientSecret: 'x-client-secret',
@@ -3792,18 +4447,17 @@ describe('Herald API', () => {
             const channelBody = (await channelResponse.json()) as {
                 channel: { id: string }
             }
+            const channelLocation = `http://localhost:5173/dashboard/projects/${projectBody.project.id}/channels?publisher_channel=${channelBody.channel.id}`
 
-            const accessTokenResponse = await jsonRequest(
-                app,
-                `/api/projects/${projectBody.project.id}/access-tokens`,
-                cookie,
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ name: 'X automation agent' }),
-                }
-            )
-            expect(accessTokenResponse.status).toBe(201)
-            const accessTokenBody = (await accessTokenResponse.json()) as { token: string }
+            const apiKeyResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'X automation agent',
+                    projectIds: [projectBody.project.id],
+                }),
+            })
+            expect(apiKeyResponse.status).toBe(201)
+            const accessTokenBody = (await apiKeyResponse.json()) as { token: string }
 
             const tokenConnectionStartResponse = await bearerRequest(
                 app,
@@ -3881,7 +4535,7 @@ describe('Herald API', () => {
             )
             expect(callbackResponse.status).toBe(303)
             expect(callbackResponse.headers.get('location')).toBe(
-                'http://localhost:5173/dashboard?publisher=connected'
+                `${channelLocation}&publisher=connected`
             )
 
             // The token endpoint received the PKCE verifier and callback URI.
@@ -3937,6 +4591,77 @@ describe('Herald API', () => {
             })
             expect(listBody.connections[0]).not.toHaveProperty('accessToken')
             expect(listBody.connections[0]).not.toHaveProperty('refreshToken')
+
+            const initialConnection = listBody.connections[0]
+            const initialCredentialId = initialConnection?.credentialId
+            expect(initialCredentialId).toBeString()
+            if (typeof initialCredentialId !== 'string') {
+                throw new Error('The initial X connection credential was not persisted')
+            }
+
+            // A revoked credential keeps the connection discoverable so the UI can offer recovery,
+            // while removing secret usability until the user completes OAuth again.
+            const revokedCredential = publisher.credentialStore.revokePublisherCredential(
+                projectBody.project.id,
+                initialCredentialId
+            )
+            expect(revokedCredential?.state).toBe('revoked')
+
+            const revokedListResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publishers`,
+                cookie
+            )
+            expect(revokedListResponse.status).toBe(200)
+            const revokedListBody = (await revokedListResponse.json()) as {
+                connections: Array<Record<string, unknown>>
+            }
+            expect(revokedListBody.connections).toHaveLength(1)
+            expect(revokedListBody.connections[0]).toMatchObject({
+                credentialId: initialCredentialId,
+                state: 'revoked',
+            })
+
+            const reconnectStartResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels/${channelBody.channel.id}/publisher/x/connect`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(reconnectStartResponse.status).toBe(200)
+            const reconnectStartBody = (await reconnectStartResponse.json()) as {
+                authorizationUrl: string
+            }
+            const reconnectState = new URL(reconnectStartBody.authorizationUrl).searchParams.get(
+                'state'
+            )
+            expect(reconnectState).toBeString()
+            const reconnectResponse = await app.handle(
+                new Request(
+                    `${baseURL}/api/oauth/x/callback?code=authorization-code-reconnect&state=${encodeURIComponent(reconnectState ?? '')}`,
+                    { headers: { cookie } }
+                )
+            )
+            expect(reconnectResponse.status).toBe(303)
+            expect(reconnectResponse.headers.get('location')).toBe(
+                `${channelLocation}&publisher=connected`
+            )
+
+            const reconnectedListResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/publishers`,
+                cookie
+            )
+            expect(reconnectedListResponse.status).toBe(200)
+            const reconnectedListBody = (await reconnectedListResponse.json()) as {
+                connections: Array<Record<string, unknown>>
+            }
+            expect(reconnectedListBody.connections).toHaveLength(1)
+            expect(reconnectedListBody.connections[0]).toMatchObject({
+                credentialId: initialCredentialId,
+                externalAccountId: '2244994945',
+                state: 'active',
+            })
 
             // Tokens never leak into API responses or stored ciphertext.
             expect(JSON.stringify(connectionStartBody)).not.toContain('x-access-token-1')
@@ -4004,7 +4729,7 @@ describe('Herald API', () => {
         }
     })
 
-    it('rejects X OAuth state misuse and provider errors', async () => {
+    it('rejects X OAuth state misuse, authorization denial, and provider errors', async () => {
         let tokenBehavior: 'ok' | 'error' = 'ok'
         const provider = Bun.serve({
             port: 0,
@@ -4102,6 +4827,7 @@ describe('Herald API', () => {
 
             const firstChannel = await createChannel('X first channel')
             const firstState = await startConnection(firstChannel.channel.id)
+            const firstChannelLocation = `http://localhost:5173/dashboard/projects/${projectBody.project.id}/channels?publisher_channel=${firstChannel.channel.id}`
 
             const unknownStateResponse = await callback(
                 'authorization-code',
@@ -4124,19 +4850,32 @@ describe('Herald API', () => {
             )
             expect(mismatchedResponse.status).toBe(303)
             expect(mismatchedResponse.headers.get('location')).toBe(
-                'http://localhost:5173/dashboard?publisher=invalid_callback'
+                `${firstChannelLocation}&publisher=invalid_callback`
             )
 
             const successResponse = await callback('authorization-code', firstState, cookie)
             expect(successResponse.status).toBe(303)
             expect(successResponse.headers.get('location')).toBe(
-                'http://localhost:5173/dashboard?publisher=connected'
+                `${firstChannelLocation}&publisher=connected`
             )
 
             const replayedResponse = await callback('authorization-code', firstState, cookie)
             expect(replayedResponse.status).toBe(303)
             expect(replayedResponse.headers.get('location')).toBe(
-                'http://localhost:5173/dashboard?publisher=already_used'
+                `${firstChannelLocation}&publisher=already_used`
+            )
+
+            const deniedChannel = await createChannel('X denied channel')
+            const deniedState = await startConnection(deniedChannel.channel.id)
+            const deniedResponse = await app.handle(
+                new Request(
+                    `${baseURL}/api/oauth/x/callback?error=access_denied&error_description=${encodeURIComponent('The user declined access')}&state=${encodeURIComponent(deniedState)}`,
+                    { headers: { cookie } }
+                )
+            )
+            expect(deniedResponse.status).toBe(303)
+            expect(deniedResponse.headers.get('location')).toBe(
+                `http://localhost:5173/dashboard/projects/${projectBody.project.id}/channels?publisher_channel=${deniedChannel.channel.id}&publisher=authorization_denied`
             )
 
             const secondChannel = await createChannel('X second channel')
@@ -4145,7 +4884,7 @@ describe('Herald API', () => {
             const providerErrorResponse = await callback('expired-code', secondState, cookie)
             expect(providerErrorResponse.status).toBe(303)
             expect(providerErrorResponse.headers.get('location')).toBe(
-                'http://localhost:5173/dashboard?publisher=provider_unavailable'
+                `http://localhost:5173/dashboard/projects/${projectBody.project.id}/channels?publisher_channel=${secondChannel.channel.id}&publisher=provider_unavailable`
             )
 
             const listResponse = await jsonRequest(

@@ -1,4 +1,4 @@
-import type { HeraldAuth } from '@herald/auth'
+import { heraldUserApiKeyConfigId, type HeraldAuth } from '@herald/auth'
 import type { BlueskyFetcher } from '@herald/bluesky'
 import type {
     AnalyticsStore,
@@ -7,7 +7,6 @@ import type {
     MediaAssetStore,
     NotificationStore,
     ProviderAnalyticsStore,
-    ProjectApiKeyActorStore,
     TaxonomyStore,
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
@@ -15,11 +14,13 @@ import type { DiscordFetcher } from '@herald/discord'
 import type { Logger } from 'pino'
 
 import { createAuthenticatedElysia } from '../../plugins/auth'
+import { readUserApiKeyMetadata, registerUserApiKeyRoutes } from '../access/api-key-routes'
 import { registerAccessRoutes } from '../access/routes'
+import { registerWorkspaceRoutes } from '../access/workspace-routes'
 import { registerMediaRoutes } from '../media/routes'
 import type { MediaUrlImporter } from '../media/url-import'
 import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
-import { registerProjectAccessTokenRoutes } from './access-token-routes'
+import { registerProjectAccessGrantRoutes } from './access-grant-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
 import { registerAuditEventRoutes } from './audit-event-routes'
 import { createBlueskyAnalyticsService } from './bluesky-analytics-service'
@@ -38,6 +39,14 @@ import { registerProjectRoutes } from './routes'
 import { registerTaxonomyRoutes } from './taxonomy-routes'
 import type { ManualStore, PublisherRuntime } from './types'
 
+function isProjectAccessPath(projectId: string, requestPath: string): boolean {
+    const basePath = `/api/projects/${projectId}/`
+    return ['members', 'user-grants', 'team-grants', 'invitations'].some(segment => {
+        const path = `${basePath}${segment}`
+        return requestPath === path || requestPath.startsWith(`${path}/`)
+    })
+}
+
 export interface ProjectModuleOptions {
     readonly auth: HeraldAuth
     readonly manualStore: ManualStore
@@ -49,7 +58,6 @@ export interface ProjectModuleOptions {
     readonly now?: () => number
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
-    readonly apiKeyActors: ProjectApiKeyActorStore
     readonly access: AccessStore
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
@@ -69,37 +77,44 @@ export function createProjectModule(options: ProjectModuleOptions) {
             if (!token.startsWith('herald_pat_')) return null
 
             try {
-                const verified = await options.auth.api.verifyApiKey({ body: { key: token } })
-                if (!verified.valid || verified.key === null) return null
-
-                const metadata = verified.key.metadata
-                if (typeof metadata !== 'object' || metadata === null) return null
-                const projectId = (metadata as { heraldProjectId?: unknown }).heraldProjectId
-                if (typeof projectId !== 'string' || projectId.length === 0) return null
-
-                const organizationId = options.access.getProjectOrganizationId(projectId)
-                if (organizationId === null || organizationId !== verified.key.referenceId) {
-                    return null
+                const userVerified = await options.auth.api.verifyApiKey({
+                    body: { configId: heraldUserApiKeyConfigId, key: token },
+                })
+                if (userVerified.valid && userVerified.key !== null) {
+                    const metadata = readUserApiKeyMetadata(userVerified.key.metadata)
+                    if (metadata !== null) {
+                        return {
+                            projectIds:
+                                metadata.heraldProjectAccess === 'all'
+                                    ? null
+                                    : (metadata.heraldProjectIds ?? []),
+                            ownerUserId: userVerified.key.referenceId,
+                            displayName: `API key: ${userVerified.key.name ?? userVerified.key.id}`,
+                        }
+                    }
                 }
-
-                return {
-                    id: verified.key.id,
-                    projectId,
-                    actorId: `api-key:${verified.key.id}`,
-                    subjectId: `api-key:${verified.key.id}`,
-                    displayName: `API key: ${verified.key.name ?? verified.key.id}`,
-                }
+                return null
             } catch {
                 return null
             }
         },
-        authorizeProjectSessionAccess: (projectId, userId) => {
-            return options.access.canAccessProject(projectId, userId)
+        authorizeProjectSessionAccess: (projectId, userId, requestPath) => {
+            if (options.access.canAccessProject(projectId, userId)) return true
+            if (!isProjectAccessPath(projectId, requestPath)) return false
+            const workspaceId = options.access.getProjectWorkspaceId(projectId)
+            return workspaceId !== null && options.access.canManageWorkspace(workspaceId, userId)
         },
     })
     const accessRoutes = registerAccessRoutes(authenticated, options.access, options.auth)
-    const providerApplicationRoutes = registerProviderApplicationRoutes(
+    const userApiKeyRoutes = registerUserApiKeyRoutes(
         accessRoutes,
+        options.auth,
+        options.access,
+        options.now
+    )
+    const workspaceRoutes = registerWorkspaceRoutes(userApiKeyRoutes, options.auth, options.access)
+    const providerApplicationRoutes = registerProviderApplicationRoutes(
+        workspaceRoutes,
         options.publisher,
         options.access
     )
@@ -107,31 +122,23 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const projectRoutes = registerProjectRoutes(
         channelProfilePresetRoutes,
         options.manualStore,
-        options.access,
-        options.auth
+        options.access
     )
     const projectMemberRoutes = registerProjectMemberRoutes(
         projectRoutes,
         options.auth,
         options.access
     )
-    const taxonomyRoutes = registerTaxonomyRoutes(
+    const projectAccessGrantRoutes = registerProjectAccessGrantRoutes(
         projectMemberRoutes,
+        options.access
+    )
+    const taxonomyRoutes = registerTaxonomyRoutes(
+        projectAccessGrantRoutes,
         options.taxonomy,
         options.access
     )
-    const accessTokenRoutes = registerProjectAccessTokenRoutes(
-        taxonomyRoutes,
-        options.auth,
-        options.access,
-        options.apiKeyActors,
-        options.now
-    )
-    const channelRoutes = registerChannelRoutes(
-        accessTokenRoutes,
-        options.manualStore,
-        options.access
-    )
+    const channelRoutes = registerChannelRoutes(taxonomyRoutes, options.manualStore, options.access)
     const channelProfileRoutes = registerChannelProfileRoutes(
         channelRoutes,
         options.manualStore,

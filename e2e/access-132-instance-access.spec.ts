@@ -9,9 +9,12 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     const account = await createAccountAndProject(page, suffix)
     await page.goto(`/dashboard/settings/access?projectId=${account.projectId}`)
 
-    await expect(page.getByRole('heading', { name: 'Instance access', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Members & invitations', exact: true }).first()
+    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Your access', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Herald users', exact: true })).toBeVisible()
     await expect(page.getByText('Administrator', { exact: true }).first()).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Members', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
     await expect(page.getByText(account.email, { exact: true }).first()).toBeVisible()
     await expect(page.getByRole('combobox', { name: `Role for ${account.email}` })).toBeDisabled()
@@ -23,7 +26,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     await expect(page.getByText(`Invitation for ${pendingEmail}`, { exact: true })).toBeVisible()
 
     const pendingLink = await readInvitationLink(page)
-    expect(pendingLink).toContain('/dashboard/settings/access?invitation=')
+    expect(pendingLink).toContain('/invite?token=')
     await page.getByRole('button', { name: 'Copy invitation link', exact: true }).click()
 
     const pendingInvitation = page.locator('li').filter({ hasText: pendingEmail })
@@ -40,11 +43,10 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
         page.getByRole('heading', { name: 'Accept invitation', exact: true })
     ).toBeVisible()
     await page.getByRole('button', { name: 'Accept invitation', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard\/settings\/access(?:\?projectId=.*)?$/)
-    await expect(page.getByText('Invitation accepted.', { exact: true })).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${account.projectId}/overview$`))
 })
 
-test('a member sees their membership without admin invitation controls', async ({ page }) => {
+test('a member cannot enter instance administration', async ({ page }) => {
     test.setTimeout(45_000)
 
     const suffix = randomUUID().slice(0, 8)
@@ -84,44 +86,61 @@ test('a member sees their membership without admin invitation controls', async (
     })
 
     await page.goto(`/dashboard/settings/access?projectId=${account.projectId}`)
-    await expect(page.getByRole('heading', { name: 'Instance access', exact: true })).toBeVisible()
-    await expect(page.getByText('Member', { exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0)
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${account.projectId}/overview$`))
     await expect(
         page.getByRole('heading', { name: 'Members & invitations', exact: true })
     ).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0)
 })
 
 async function readInvitationLink(page: Page) {
-    const link = await page
-        .locator('code')
-        .filter({ hasText: '/dashboard/settings/access?invitation=' })
-        .textContent()
+    const link = await page.locator('code').filter({ hasText: '/invite?token=' }).textContent()
     if (link === null) throw new Error('The invitation link was not rendered')
     return link
 }
 
 async function createAccountAndProject(page: Page, suffix: string) {
     const email = `e2e-132-admin-${suffix}@herald.local`
-
-    await page.goto('/')
-    await expect(page).toHaveURL(/\/login$/)
-    await page.getByRole('button', { name: 'Need an account?' }).click()
-    await page.getByLabel('Name').fill(`E2E-132 admin ${suffix}`)
-    await page.getByLabel('Email').fill(email)
-    await page.getByLabel('Password').fill('e2e-132-admin-password')
-    await page.getByRole('button', { name: 'Create account', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
-
-    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
-    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     const projectName = `E2E-132 access project ${suffix}`
-    await page.locator('#new-project').fill(projectName)
-    await page
-        .locator('form')
-        .filter({ has: page.locator('#new-project') })
-        .getByRole('button', { name: 'Add project', exact: true })
-        .click()
+
+    await page.goto('/setup')
+    if (page.url().endsWith('/setup')) {
+        await page.getByLabel('Name', { exact: true }).fill(`E2E-132 admin ${suffix}`)
+        await page.getByLabel('Email', { exact: true }).fill(email)
+        await page.getByLabel('Password', { exact: true }).fill('e2e-132-admin-password')
+        await Promise.all([
+            page.waitForResponse(
+                response => response.url().includes('/api/auth/sign-up/email') && response.ok()
+            ),
+            page.getByRole('button', { name: 'Create account', exact: true }).click(),
+        ])
+        await page.goto('/dashboard?projectId=none')
+        await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
+
+        await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+        await page.getByRole('button', { name: 'Create project', exact: true }).last().click()
+        await page.getByRole('textbox', { name: 'New project', exact: true }).fill(projectName)
+        await page
+            .locator('form')
+            .filter({ has: page.getByRole('textbox', { name: 'New project', exact: true }) })
+            .getByRole('button', { name: 'Add project', exact: true })
+            .click()
+    } else {
+        const response = await page.request.post('/api/auth/sign-up/email', {
+            data: {
+                email,
+                name: `E2E-132 admin ${suffix}`,
+                password: 'e2e-132-admin-password',
+            },
+        })
+        expect(response.status()).toBe(200)
+        const projectResponse = await page.request.post('/api/projects', {
+            data: { name: projectName },
+        })
+        expect(projectResponse.status()).toBe(201)
+        const projectBody = (await projectResponse.json()) as { project: { id: string } }
+        await page.goto(`/dashboard/projects/${projectBody.project.id}/overview`)
+    }
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
 
     const match = new URL(page.url()).pathname.match(/^\/dashboard\/projects\/([^/]+)/)

@@ -1,13 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
-import {
-    Empty,
-    EmptyDescription,
-    EmptyHeader,
-    EmptyMedia,
-    EmptyTitle,
-} from '@herald/ui/components/empty'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import {
@@ -17,13 +10,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@herald/ui/components/select'
-import { AddIcon } from '@solar-icons/react/bold/add'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
-import { CopyIcon } from '@solar-icons/react/bold/copy'
-import { KeyMinimalisticIcon } from '@solar-icons/react/bold/key-minimalistic'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { AddIcon } from '@solar-icons/react/linear/add'
+import { CheckIcon } from '@solar-icons/react/linear/check'
+import { CopyIcon } from '@solar-icons/react/linear/copy'
+import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
+import { RefreshIcon } from '@solar-icons/react/linear/refresh'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
+import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded'
+import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import {
     api,
     ApiError,
@@ -42,6 +39,7 @@ import * as m from '@/paraglide/messages.js'
 interface InstanceAccessSettingsPageProps {
     readonly invitationToken?: string
     readonly organizationInvitationId?: string
+    readonly organizationInvitationProjectId?: string
     readonly onInvitationHandled: () => Promise<void>
 }
 
@@ -53,6 +51,7 @@ interface CreatedInvitationView {
 export function InstanceAccessSettingsPage({
     invitationToken,
     organizationInvitationId,
+    organizationInvitationProjectId,
     onInvitationHandled,
 }: InstanceAccessSettingsPageProps) {
     const { locale } = useLanguage()
@@ -67,15 +66,19 @@ export function InstanceAccessSettingsPage({
     const [pendingAction, setPendingAction] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [reloadVersion, setReloadVersion] = useState(0)
 
     useEffect(() => {
         let cancelled = false
 
         async function load() {
+            setLoading(true)
             setAccess(null)
             setMembers(null)
             setInvitations(null)
             setError(null)
+            setNotice(null)
             try {
                 const summary = await api.getInstanceAccess()
                 if (cancelled) return
@@ -94,7 +97,14 @@ export function InstanceAccessSettingsPage({
                     setInvitations([])
                 }
             } catch (caughtError) {
-                if (!cancelled) setError(accessErrorMessage(caughtError))
+                if (!cancelled) {
+                    setAccess(null)
+                    setMembers(null)
+                    setInvitations(null)
+                    setError(accessErrorMessage(caughtError))
+                }
+            } finally {
+                if (!cancelled) setLoading(false)
             }
         }
 
@@ -102,7 +112,7 @@ export function InstanceAccessSettingsPage({
         return () => {
             cancelled = true
         }
-    }, [])
+    }, [reloadVersion])
 
     const pendingInvitations =
         invitations?.filter(invitation => invitation.state === 'pending') ?? []
@@ -114,8 +124,8 @@ export function InstanceAccessSettingsPage({
 
         await runAction('create', async () => {
             const response = await api.createAccessInvitation(targetEmail)
-            const url = new URL('/dashboard/settings/access', window.location.origin)
-            url.searchParams.set('invitation', response.token)
+            const url = new URL('/invite', window.location.origin)
+            url.searchParams.set('token', response.token)
             setCreatedInvitation({ invitation: response.invitation, link: url.toString() })
             setCopied(false)
             setCopyError(false)
@@ -189,8 +199,12 @@ export function InstanceAccessSettingsPage({
         if (organizationInvitationId === undefined || pendingAction !== null) return
 
         await runAction('accept-project', async () => {
-            await api.acceptProjectInvitation(organizationInvitationId)
-            setNotice(m.access_project_invitation_accepted())
+            await api.acceptOrganizationInvitation(organizationInvitationId)
+            setNotice(
+                organizationInvitationProjectId === undefined
+                    ? m.access_workspace_invitation_accepted()
+                    : m.access_project_invitation_accepted()
+            )
             await onInvitationHandled()
         })
     }
@@ -210,14 +224,14 @@ export function InstanceAccessSettingsPage({
 
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <div className="mx-auto max-w-5xl">
+            <div className="w-full">
                 <header className="flex items-start gap-3">
-                    <KeyMinimalisticIcon
+                    <UsersGroupTwoRoundedIcon
                         className="mt-1 size-5 shrink-0 text-primary"
                         aria-hidden="true"
                     />
                     <div className="min-w-0">
-                        <h1 className="font-heading text-3xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-4xl">
+                        <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
                             {m.access_instance_title()}
                         </h1>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -229,377 +243,422 @@ export function InstanceAccessSettingsPage({
                 {error ? (
                     <Alert className="mt-6" variant="destructive">
                         <AlertTitle>{m.access_action_failed()}</AlertTitle>
-                        <AlertDescription>{error}</AlertDescription>
+                        <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                            <span>{error}</span>
+                            <Button
+                                className="shrink-0"
+                                disabled={loading}
+                                onClick={() => setReloadVersion(current => current + 1)}
+                                size="sm"
+                                type="button"
+                                variant="ghost">
+                                <RefreshIcon aria-hidden="true" />
+                                {m.common_retry()}
+                            </Button>
+                        </AlertDescription>
                     </Alert>
                 ) : null}
                 {notice ? (
                     <div
                         className="mt-6 flex items-center gap-2 text-sm text-state-success"
                         role="status">
-                        <CheckReadIcon aria-hidden="true" className="size-4" />
+                        <CheckIcon aria-hidden="true" className="size-4" />
                         <span>{notice}</span>
                     </div>
                 ) : null}
 
-                {invitationToken ? (
-                    <section
-                        aria-labelledby="accept-invitation-title"
-                        className="mt-8 bg-primary/10 p-5 shadow-surface sm:p-6">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h2
-                                    id="accept-invitation-title"
-                                    className="font-heading text-base font-medium">
-                                    {m.access_accept_invitation_title()}
-                                </h2>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {m.access_accept_invitation_description()}
-                                </p>
-                            </div>
-                            <Button
-                                type="button"
-                                disabled={pendingAction !== null || access === null}
-                                onClick={() => void handleAcceptInvitation()}>
-                                {m.access_accept_invitation_button()}
-                            </Button>
-                        </div>
+                {loading ? (
+                    <section className="mt-8 bg-surface-raised p-5 shadow-surface sm:p-6">
+                        <p className="text-sm text-muted-foreground" role="status">
+                            {m.access_instance_loading()}
+                        </p>
                     </section>
-                ) : null}
-
-                {organizationInvitationId ? (
-                    <section
-                        aria-labelledby="accept-project-invitation-title"
-                        className="mt-8 bg-primary/10 p-5 shadow-surface sm:p-6">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h2
-                                    id="accept-project-invitation-title"
-                                    className="font-heading text-base font-medium">
-                                    {m.access_project_invitation_accept_title()}
-                                </h2>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {m.access_project_invitation_accept_description()}
-                                </p>
-                            </div>
-                            <Button
-                                type="button"
-                                disabled={pendingAction !== null}
-                                onClick={() => void handleAcceptOrganizationInvitation()}>
-                                {m.access_project_invitation_accept_button()}
-                            </Button>
-                        </div>
-                    </section>
-                ) : null}
-
-                <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-                    <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
-                        <div className="flex items-start justify-between gap-3">
-                            <div>
-                                <h2 className="font-heading text-base font-medium">
-                                    {m.access_membership_title()}
-                                </h2>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {global.session.user.email}
-                                </p>
-                            </div>
-                            {access ? (
-                                <Badge variant="secondary">
-                                    {access.instance.state === 'claimed'
-                                        ? m.access_instance_claimed()
-                                        : m.access_instance_claimable()}
-                                </Badge>
-                            ) : null}
-                        </div>
-
-                        {access === null ? (
-                            <p className="mt-6 text-sm text-muted-foreground" role="status">
-                                {m.access_instance_loading()}
-                            </p>
-                        ) : access.membership === null ? (
-                            <Empty className="mt-6 min-h-36 bg-muted/50 p-4">
-                                <EmptyHeader>
-                                    <EmptyMedia variant="icon">
-                                        <KeyMinimalisticIcon aria-hidden="true" />
-                                    </EmptyMedia>
-                                    <EmptyTitle>{m.access_no_membership()}</EmptyTitle>
-                                    <EmptyDescription>
-                                        {m.access_no_membership_description()}
-                                    </EmptyDescription>
-                                </EmptyHeader>
-                            </Empty>
-                        ) : (
-                            <div className="mt-6 flex items-center justify-between gap-3 bg-muted/60 p-3 shadow-field">
-                                <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium">
-                                        {access.membership.name}
-                                    </p>
-                                    <p className="truncate text-xs text-muted-foreground">
-                                        {access.membership.email}
-                                    </p>
-                                </div>
-                                <Badge
-                                    variant={
-                                        access.membership.role === 'admin' ? 'default' : 'secondary'
-                                    }>
-                                    {instanceRoleLabel(access.membership.role)}
-                                </Badge>
-                            </div>
-                        )}
-                    </section>
-
-                    {access?.isAdmin ? (
-                        <section className="min-w-0 bg-surface-raised p-5 shadow-surface sm:p-6">
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <h2 className="font-heading text-base font-medium">
-                                        {m.access_admin_title()}
-                                    </h2>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        {m.access_admin_summary()}
-                                    </p>
-                                </div>
-                                <Badge variant="secondary">{m.access_role_admin()}</Badge>
-                            </div>
-
-                            <div className="mt-6">
-                                <div className="flex items-center justify-between gap-3">
-                                    <h3 className="text-sm font-medium">
-                                        {m.access_members_title()}
-                                    </h3>
-                                    {members ? (
-                                        <span className="text-xs text-muted-foreground">
-                                            {members.length}
-                                        </span>
-                                    ) : null}
-                                </div>
-
-                                {members === null ? (
-                                    <p className="mt-4 text-sm text-muted-foreground" role="status">
-                                        {m.access_instance_loading()}
-                                    </p>
-                                ) : members.length === 0 ? (
-                                    <p className="mt-4 text-sm text-muted-foreground">
-                                        {m.access_members_empty()}
-                                    </p>
-                                ) : (
-                                    <ul
-                                        className="mt-3 grid gap-2"
-                                        aria-label={m.access_members_title()}>
-                                        {members.map(member => {
-                                            const isCurrent =
-                                                member.userId === access.membership?.userId
-                                            const isPending =
-                                                pendingAction === `member:${member.userId}`
-
-                                            return (
-                                                <li
-                                                    className="flex flex-col gap-3 bg-muted/60 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between"
-                                                    key={member.userId}
-                                                    aria-busy={isPending}>
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="truncate text-sm font-medium">
-                                                                {member.name}
-                                                            </p>
-                                                            {isCurrent ? (
-                                                                <Badge variant="outline">
-                                                                    {m.access_current_member()}
-                                                                </Badge>
-                                                            ) : null}
-                                                        </div>
-                                                        <p className="truncate text-xs text-muted-foreground">
-                                                            {member.email}
-                                                        </p>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
-                                                        <Select
-                                                            value={member.role}
-                                                            onValueChange={value => {
-                                                                if (value !== null)
-                                                                    void handleUpdateMember(
-                                                                        member.userId,
-                                                                        {
-                                                                            role: value as AccessInstanceRole,
-                                                                        }
-                                                                    )
-                                                            }}>
-                                                            <SelectTrigger
-                                                                aria-label={m.access_member_role_label(
-                                                                    {
-                                                                        email: member.email,
-                                                                    }
-                                                                )}
-                                                                className="min-w-32"
-                                                                disabled={
-                                                                    isCurrent ||
-                                                                    pendingAction !== null
-                                                                }
-                                                                size="sm">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent align="start">
-                                                                <SelectItem value="admin">
-                                                                    {m.access_role_admin()}
-                                                                </SelectItem>
-                                                                <SelectItem value="member">
-                                                                    {m.access_role_member()}
-                                                                </SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <Select
-                                                            value={member.state}
-                                                            onValueChange={value => {
-                                                                if (value !== null)
-                                                                    void handleUpdateMember(
-                                                                        member.userId,
-                                                                        {
-                                                                            state: value as AccessInstanceMembershipState,
-                                                                        }
-                                                                    )
-                                                            }}>
-                                                            <SelectTrigger
-                                                                aria-label={m.access_member_state_label(
-                                                                    {
-                                                                        email: member.email,
-                                                                    }
-                                                                )}
-                                                                className="min-w-32"
-                                                                disabled={
-                                                                    isCurrent ||
-                                                                    pendingAction !== null
-                                                                }
-                                                                size="sm">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent align="start">
-                                                                <SelectItem value="enabled">
-                                                                    {m.access_state_enabled()}
-                                                                </SelectItem>
-                                                                <SelectItem value="disabled">
-                                                                    {m.access_state_disabled()}
-                                                                </SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </li>
-                                            )
-                                        })}
-                                    </ul>
-                                )}
-                            </div>
-
-                            <form
-                                className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
-                                onSubmit={handleCreateInvitation}>
-                                <Field className="min-w-0 flex-1 gap-1.5">
-                                    <FieldLabel htmlFor="instance-access-email">
-                                        {m.access_invite_email()}
-                                    </FieldLabel>
-                                    <Input
-                                        id="instance-access-email"
-                                        type="email"
-                                        required
-                                        value={email}
-                                        onChange={event => setEmail(event.target.value)}
-                                        placeholder={m.access_invite_email_placeholder()}
-                                    />
-                                </Field>
-                                <Button type="submit" disabled={pendingAction !== null}>
-                                    <AddIcon aria-hidden="true" />
-                                    {m.access_invite_button()}
-                                </Button>
-                            </form>
-
-                            {createdInvitation ? (
-                                <div className="mt-5 bg-primary/10 p-4 shadow-surface">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-medium">
-                                                {m.access_invitation_created_for({
-                                                    email: createdInvitation.invitation.targetEmail,
-                                                })}
-                                            </p>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {m.access_invitation_copy_once()}
-                                            </p>
-                                        </div>
-                                        <Badge variant="default">{m.access_pending()}</Badge>
-                                    </div>
-                                    <code className="mt-3 block overflow-x-auto bg-background px-3 py-2 text-xs leading-5 text-foreground shadow-field">
-                                        {createdInvitation.link}
-                                    </code>
-                                    {copyError ? (
-                                        <p className="mt-2 text-xs text-state-failed" role="alert">
-                                            {m.access_copy_link_unavailable()}
+                ) : error !== null ? null : (
+                    <>
+                        {invitationToken ? (
+                            <section
+                                aria-labelledby="accept-invitation-title"
+                                className="mt-8 bg-primary/10 p-5 shadow-surface sm:p-6">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <h2
+                                            id="accept-invitation-title"
+                                            className="font-heading text-base font-medium">
+                                            {m.access_accept_invitation_title()}
+                                        </h2>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {m.access_accept_invitation_description()}
                                         </p>
-                                    ) : null}
+                                    </div>
                                     <Button
                                         type="button"
-                                        className="mt-3"
-                                        size="sm"
-                                        onClick={() => void handleCopyInvitation()}>
-                                        <CopyIcon aria-hidden="true" />
-                                        {copied ? m.access_copied() : m.access_copy_link()}
+                                        disabled={pendingAction !== null || access === null}
+                                        onClick={() => void handleAcceptInvitation()}>
+                                        {m.access_accept_invitation_button()}
                                     </Button>
                                 </div>
-                            ) : null}
+                            </section>
+                        ) : null}
 
-                            <div className="mt-6">
-                                <div className="flex items-center justify-between gap-3">
-                                    <h3 className="text-sm font-medium">
-                                        {m.access_pending_title()}
-                                    </h3>
-                                    <span className="text-xs text-muted-foreground">
-                                        {pendingInvitations.length}
-                                    </span>
+                        {organizationInvitationId ? (
+                            <section
+                                aria-labelledby="accept-organization-invitation-title"
+                                className="mt-8 bg-primary/10 p-5 shadow-surface sm:p-6">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <h2
+                                            id="accept-organization-invitation-title"
+                                            className="font-heading text-base font-medium">
+                                            {organizationInvitationProjectId === undefined
+                                                ? m.access_workspace_invitation_accept_title()
+                                                : m.access_project_invitation_accept_title()}
+                                        </h2>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {organizationInvitationProjectId === undefined
+                                                ? m.access_workspace_invitation_accept_description()
+                                                : m.access_project_invitation_accept_description()}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        disabled={pendingAction !== null}
+                                        onClick={() => void handleAcceptOrganizationInvitation()}>
+                                        {organizationInvitationProjectId === undefined
+                                            ? m.access_workspace_invitation_accept_button()
+                                            : m.access_project_invitation_accept_button()}
+                                    </Button>
+                                </div>
+                            </section>
+                        ) : null}
+
+                        <div className="mt-8 grid gap-8">
+                            <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h2 className="font-heading text-base font-medium">
+                                            {m.access_membership_title()}
+                                        </h2>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            {global.session.user.email}
+                                        </p>
+                                    </div>
+                                    {access ? (
+                                        <Badge variant="secondary">
+                                            {access.instance.state === 'claimed'
+                                                ? m.access_instance_claimed()
+                                                : m.access_instance_claimable()}
+                                        </Badge>
+                                    ) : null}
                                 </div>
 
-                                {invitations === null ? (
-                                    <p className="mt-4 text-sm text-muted-foreground" role="status">
+                                {access === null ? (
+                                    <p className="mt-6 text-sm text-muted-foreground" role="status">
                                         {m.access_instance_loading()}
                                     </p>
-                                ) : pendingInvitations.length === 0 ? (
-                                    <p className="mt-4 text-sm text-muted-foreground">
-                                        {m.access_pending_empty()}
-                                    </p>
+                                ) : access.membership === null ? (
+                                    <EmptyState
+                                        className="mt-6"
+                                        description={m.access_no_membership_description()}
+                                        icon={<KeyMinimalisticIcon aria-hidden="true" />}
+                                        layout="compact"
+                                        title={m.access_no_membership()}
+                                    />
                                 ) : (
-                                    <ul
-                                        className="mt-3 grid gap-2"
-                                        aria-label={m.access_pending_title()}>
-                                        {pendingInvitations.map(invitation => (
-                                            <li
-                                                className="flex flex-col gap-3 bg-muted/60 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between"
-                                                key={invitation.id}>
+                                    <div className="mt-6 flex items-center justify-between gap-3 bg-muted/60 p-3 shadow-field">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-medium">
+                                                {access.membership.name}
+                                            </p>
+                                            <p className="truncate text-xs text-muted-foreground">
+                                                {access.membership.email}
+                                            </p>
+                                        </div>
+                                        <Badge
+                                            variant={
+                                                access.membership.role === 'admin'
+                                                    ? 'default'
+                                                    : 'secondary'
+                                            }>
+                                            {instanceRoleLabel(access.membership.role)}
+                                        </Badge>
+                                    </div>
+                                )}
+                            </section>
+
+                            {access?.isAdmin ? (
+                                <section className="min-w-0 bg-surface-raised p-5 shadow-surface sm:p-6">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h2 className="font-heading text-base font-medium">
+                                                {m.access_admin_title()}
+                                            </h2>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                {m.access_admin_summary()}
+                                            </p>
+                                        </div>
+                                        <Badge variant="secondary">{m.access_role_admin()}</Badge>
+                                    </div>
+
+                                    <div className="mt-6">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <h3 className="text-sm font-medium">
+                                                {m.access_members_title()}
+                                            </h3>
+                                            {members ? (
+                                                <span className="text-xs text-muted-foreground">
+                                                    {members.length}
+                                                </span>
+                                            ) : null}
+                                        </div>
+
+                                        {members === null ? (
+                                            <p
+                                                className="mt-4 text-sm text-muted-foreground"
+                                                role="status">
+                                                {m.access_instance_loading()}
+                                            </p>
+                                        ) : members.length === 0 ? (
+                                            <EmptyState
+                                                className="mt-4"
+                                                icon={
+                                                    <UsersGroupTwoRoundedIcon aria-hidden="true" />
+                                                }
+                                                layout="compact"
+                                                title={m.access_members_empty()}
+                                            />
+                                        ) : (
+                                            <ul
+                                                className="mt-3 grid gap-2"
+                                                aria-label={m.access_members_title()}>
+                                                {members.map(member => {
+                                                    const isCurrent =
+                                                        member.userId === access.membership?.userId
+                                                    const isPending =
+                                                        pendingAction === `member:${member.userId}`
+
+                                                    return (
+                                                        <li
+                                                            className="flex flex-col gap-3 bg-muted/60 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between"
+                                                            key={member.userId}
+                                                            aria-busy={isPending}>
+                                                            <div className="min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="truncate text-sm font-medium">
+                                                                        {member.name}
+                                                                    </p>
+                                                                    {isCurrent ? (
+                                                                        <Badge variant="outline">
+                                                                            {m.access_current_member()}
+                                                                        </Badge>
+                                                                    ) : null}
+                                                                </div>
+                                                                <p className="truncate text-xs text-muted-foreground">
+                                                                    {member.email}
+                                                                </p>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                                                                <Select
+                                                                    value={member.role}
+                                                                    onValueChange={value => {
+                                                                        if (value !== null)
+                                                                            void handleUpdateMember(
+                                                                                member.userId,
+                                                                                {
+                                                                                    role: value as AccessInstanceRole,
+                                                                                }
+                                                                            )
+                                                                    }}>
+                                                                    <SelectTrigger
+                                                                        aria-label={m.access_member_role_label(
+                                                                            {
+                                                                                email: member.email,
+                                                                            }
+                                                                        )}
+                                                                        className="min-w-32"
+                                                                        disabled={
+                                                                            isCurrent ||
+                                                                            pendingAction !== null
+                                                                        }
+                                                                        size="sm">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent align="start">
+                                                                        <SelectItem value="admin">
+                                                                            {m.access_role_admin()}
+                                                                        </SelectItem>
+                                                                        <SelectItem value="member">
+                                                                            {m.access_role_member()}
+                                                                        </SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <Select
+                                                                    value={member.state}
+                                                                    onValueChange={value => {
+                                                                        if (value !== null)
+                                                                            void handleUpdateMember(
+                                                                                member.userId,
+                                                                                {
+                                                                                    state: value as AccessInstanceMembershipState,
+                                                                                }
+                                                                            )
+                                                                    }}>
+                                                                    <SelectTrigger
+                                                                        aria-label={m.access_member_state_label(
+                                                                            {
+                                                                                email: member.email,
+                                                                            }
+                                                                        )}
+                                                                        className="min-w-32"
+                                                                        disabled={
+                                                                            isCurrent ||
+                                                                            pendingAction !== null
+                                                                        }
+                                                                        size="sm">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent align="start">
+                                                                        <SelectItem value="enabled">
+                                                                            {m.access_state_enabled()}
+                                                                        </SelectItem>
+                                                                        <SelectItem value="disabled">
+                                                                            {m.access_state_disabled()}
+                                                                        </SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                        </li>
+                                                    )
+                                                })}
+                                            </ul>
+                                        )}
+                                    </div>
+
+                                    <form
+                                        className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
+                                        onSubmit={handleCreateInvitation}>
+                                        <Field className="min-w-0 flex-1 gap-1.5">
+                                            <FieldLabel htmlFor="instance-access-email">
+                                                {m.access_invite_email()}
+                                            </FieldLabel>
+                                            <Input
+                                                id="instance-access-email"
+                                                type="email"
+                                                required
+                                                value={email}
+                                                onChange={event => setEmail(event.target.value)}
+                                                placeholder={m.access_invite_email_placeholder()}
+                                            />
+                                        </Field>
+                                        <Button type="submit" disabled={pendingAction !== null}>
+                                            <AddIcon aria-hidden="true" />
+                                            {m.access_invite_button()}
+                                        </Button>
+                                    </form>
+
+                                    {createdInvitation ? (
+                                        <div className="mt-5 bg-primary/10 p-4 shadow-surface">
+                                            <div className="flex items-start justify-between gap-3">
                                                 <div className="min-w-0">
-                                                    <p className="truncate text-sm font-medium">
-                                                        {invitation.targetEmail}
+                                                    <p className="text-sm font-medium">
+                                                        {m.access_invitation_created_for({
+                                                            email: createdInvitation.invitation
+                                                                .targetEmail,
+                                                        })}
                                                     </p>
                                                     <p className="mt-1 text-xs text-muted-foreground">
-                                                        {formatInvitationExpiry(
-                                                            invitation.expiresAt,
-                                                            locale
-                                                        )}
+                                                        {m.access_invitation_copy_once()}
                                                     </p>
                                                 </div>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    disabled={pendingAction !== null}
-                                                    onClick={() =>
-                                                        void handleRevokeInvitation(invitation.id)
-                                                    }>
-                                                    <TrashBinMinimalisticIcon aria-hidden="true" />
-                                                    {m.access_revoke_invitation()}
-                                                </Button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-                        </section>
-                    ) : null}
-                </div>
+                                                <Badge variant="default">
+                                                    {m.access_pending()}
+                                                </Badge>
+                                            </div>
+                                            <code className="mt-3 block overflow-x-auto bg-background px-3 py-2 text-xs leading-5 text-foreground shadow-field">
+                                                {createdInvitation.link}
+                                            </code>
+                                            {copyError ? (
+                                                <p
+                                                    className="mt-2 text-xs text-state-failed"
+                                                    role="alert">
+                                                    {m.access_copy_link_unavailable()}
+                                                </p>
+                                            ) : null}
+                                            <Button
+                                                type="button"
+                                                className="mt-3"
+                                                size="sm"
+                                                onClick={() => void handleCopyInvitation()}>
+                                                <CopyIcon aria-hidden="true" />
+                                                {copied ? m.access_copied() : m.access_copy_link()}
+                                            </Button>
+                                        </div>
+                                    ) : null}
+
+                                    <div className="mt-6">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <h3 className="text-sm font-medium">
+                                                {m.access_pending_title()}
+                                            </h3>
+                                            <span className="text-xs text-muted-foreground">
+                                                {pendingInvitations.length}
+                                            </span>
+                                        </div>
+
+                                        {invitations === null ? (
+                                            <p
+                                                className="mt-4 text-sm text-muted-foreground"
+                                                role="status">
+                                                {m.access_instance_loading()}
+                                            </p>
+                                        ) : pendingInvitations.length === 0 ? (
+                                            <EmptyState
+                                                className="mt-4"
+                                                icon={<UserPlusRoundedIcon aria-hidden="true" />}
+                                                layout="compact"
+                                                title={m.access_pending_empty()}
+                                            />
+                                        ) : (
+                                            <ul
+                                                className="mt-3 grid gap-2"
+                                                aria-label={m.access_pending_title()}>
+                                                {pendingInvitations.map(invitation => (
+                                                    <li
+                                                        className="flex flex-col gap-3 bg-muted/60 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between"
+                                                        key={invitation.id}>
+                                                        <div className="min-w-0">
+                                                            <p className="truncate text-sm font-medium">
+                                                                {invitation.targetEmail}
+                                                            </p>
+                                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                                {formatInvitationExpiry(
+                                                                    invitation.expiresAt,
+                                                                    locale
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            disabled={pendingAction !== null}
+                                                            onClick={() =>
+                                                                void handleRevokeInvitation(
+                                                                    invitation.id
+                                                                )
+                                                            }>
+                                                            <TrashBinMinimalisticIcon aria-hidden="true" />
+                                                            {m.access_revoke_invitation()}
+                                                        </Button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </section>
+                            ) : null}
+                        </div>
+                    </>
+                )}
             </div>
         </main>
     )

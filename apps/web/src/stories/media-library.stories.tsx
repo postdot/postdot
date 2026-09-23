@@ -154,9 +154,7 @@ function AttachmentDialogExample({
                     <div className="mx-auto max-w-6xl space-y-6">
                         <div>
                             <p className="text-sm text-muted-foreground">Publications</p>
-                            <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-                                New publication
-                            </h1>
+                            <h1 className="mt-1 text-3xl font-semibold">New publication</h1>
                         </div>
                         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.7fr)]">
                             <section className="rounded-lg bg-muted/70 p-5">

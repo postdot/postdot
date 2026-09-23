@@ -14,7 +14,7 @@ application-specific page composition.
 - Use Base UI primitives and the repository's `base-nova` shadcn style.
 - Do not add Radix UI dependencies or Radix-only APIs such as `asChild`.
 - Use Base UI's `render` prop when a component needs a different element.
-- Use `@solar-icons/react` version 2 with the `bold` icon set for shared icon
+- Use `@solar-icons/react` version 2 with the `linear` icon set for shared icon
   examples and defaults.
 - Keep Tailwind class candidates statically discoverable.
 - Prefer direct public subpath imports such as

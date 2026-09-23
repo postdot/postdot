@@ -78,7 +78,7 @@ export function PublicationDraftPreview({
                         social && !linkedIn ? 'pl-16 pr-4' : 'px-4'
                     )}>
                     {preview.showTitle && preview.title !== '' ? (
-                        <h4 className="font-heading text-base font-medium leading-snug tracking-[-0.02em]">
+                        <h4 className="font-heading text-base font-medium leading-snug">
                             {preview.title}
                         </h4>
                     ) : null}

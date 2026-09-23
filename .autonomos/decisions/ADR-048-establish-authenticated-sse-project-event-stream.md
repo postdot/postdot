@@ -28,7 +28,7 @@ stream.
 
 ### Authentication and project isolation
 
-- The endpoint requires a Better Auth session. Project access tokens receive a
+- The endpoint requires a Better Auth session. User API keys receive a
   forbidden response; this first browser transport is not a machine-token API.
 - The session user must have a current human actor in the requested project. The
   existing notification access lookup is reused for this check, so a missing

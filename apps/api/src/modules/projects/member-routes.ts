@@ -1,13 +1,18 @@
-import type { HeraldAuth } from '@herald/auth'
-import type { AccessStore } from '@herald/db'
+import type { HeraldAuth, HeraldOrganizationInvitation } from '@herald/auth'
+import type { AccessProjectMembership, AccessStore } from '@herald/db'
 
-import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import {
+    sessionSecurity,
+    type AuthenticatedElysia,
+    type HeraldAuthenticationMethod,
+} from '../../plugins/auth'
 import {
     createProjectInvitationBody,
     errorResponse,
     projectInvitationParams,
     projectInvitationResponseSchema,
     projectInvitationsSchema,
+    projectMembershipResponseSchema,
     projectMemberParams,
     projectMemberRemovedSchema,
     projectMemberResponseSchema,
@@ -16,13 +21,13 @@ import {
     updateProjectMemberBody,
 } from './models'
 
-const projectInvitationResponse = projectInvitationResponseSchema
+type ProjectRole = 'owner' | 'editor' | 'viewer'
 
 const projectOwnerForbiddenResponse = () =>
     ({
         error: {
             code: 'forbidden',
-            message: 'A project owner session is required to manage project members',
+            message: 'A project owner session is required to manage project access',
         },
     }) as const
 
@@ -31,6 +36,14 @@ const projectMemberForbiddenResponse = () =>
         error: {
             code: 'forbidden',
             message: 'An active project membership is required to view project members',
+        },
+    }) as const
+
+const workspaceAdminForbiddenResponse = () =>
+    ({
+        error: {
+            code: 'forbidden',
+            message: 'A workspace owner or administrator session is required to send invitations',
         },
     }) as const
 
@@ -50,6 +63,14 @@ const ownerMembershipResponse = () =>
         },
     }) as const
 
+const inheritedMembershipResponse = () =>
+    ({
+        error: {
+            code: 'inherited_membership',
+            message: 'This project access is inherited from a workspace group',
+        },
+    }) as const
+
 const organizationOperationFailedResponse = () =>
     ({
         error: {
@@ -66,21 +87,59 @@ const organizationReadFailedResponse = () =>
         },
     }) as const
 
-type ProjectRole = 'owner' | 'editor' | 'viewer'
-type ProjectInvitationStatus = 'pending' | 'accepted' | 'rejected' | 'canceled'
-
-function normalizeProjectRole(role: string): ProjectRole {
-    const rank: Record<ProjectRole, number> = { viewer: 1, editor: 2, owner: 3 }
-    let selected: ProjectRole | null = null
-    for (const candidate of role.split(',').map(value => value.trim())) {
-        if (candidate !== 'owner' && candidate !== 'editor' && candidate !== 'viewer') continue
-        if (selected === null || rank[candidate] > rank[selected]) selected = candidate
-    }
-    if (selected === null) throw new Error(`Unsupported Better Auth project role: ${role}`)
-    return selected
+function projectExists(projectId: string, access: AccessStore): boolean {
+    return access.getProjectWorkspaceId(projectId) !== null
 }
 
-function normalizeInvitationStatus(status: string): ProjectInvitationStatus {
+function getProjectWorkspace(projectId: string, access: AccessStore) {
+    const workspaceId = access.getProjectWorkspaceId(projectId)
+    return workspaceId === null ? null : access.getWorkspace(workspaceId)
+}
+
+function canManageProject(
+    projectId: string,
+    access: AccessStore,
+    authMethod: HeraldAuthenticationMethod,
+    userId: string
+): boolean {
+    return authMethod === 'session' && access.canAccessProject(projectId, userId, 'owner')
+}
+
+function canManageProjectInvitations(
+    projectId: string,
+    access: AccessStore,
+    authMethod: HeraldAuthenticationMethod,
+    userId: string
+): boolean {
+    const workspace = getProjectWorkspace(projectId, access)
+    return (
+        authMethod === 'session' &&
+        workspace !== null &&
+        access.canManageWorkspace(workspace.id, userId)
+    )
+}
+
+function canViewProjectAccess(
+    projectId: string,
+    access: AccessStore,
+    authMethod: HeraldAuthenticationMethod,
+    userId: string
+): boolean {
+    if (authMethod !== 'session') return false
+    if (access.canAccessProject(projectId, userId, 'viewer')) return true
+
+    const workspaceId = access.getProjectWorkspaceId(projectId)
+    return workspaceId !== null && access.canManageWorkspace(workspaceId, userId)
+}
+
+function normalizeProjectInvitationRole(value: string | null | undefined): ProjectRole {
+    if (value === 'owner' || value === 'editor' || value === 'viewer') return value
+    throw new Error(`Unsupported project invitation role: ${value ?? 'missing'}`)
+}
+
+function normalizeInvitationStatus(
+    status: string
+): 'pending' | 'accepted' | 'rejected' | 'canceled' {
     if (
         status === 'pending' ||
         status === 'accepted' ||
@@ -89,56 +148,29 @@ function normalizeInvitationStatus(status: string): ProjectInvitationStatus {
     ) {
         return status
     }
-    throw new Error(`Unsupported Better Auth invitation status: ${status}`)
+    throw new Error(`Unsupported invitation status: ${status}`)
 }
 
-function toProjectMember(
-    projectId: string,
-    member: {
-        readonly id: string
-        readonly userId: string
-        readonly role: string
-        readonly createdAt: Date
-        readonly user: {
-            readonly id: string
-            readonly email: string
-            readonly name: string
-            readonly image?: string | null
-        }
-    }
-) {
-    const createdAt = member.createdAt.getTime()
+function toProjectMember(member: AccessProjectMembership) {
     return {
         id: member.id,
-        projectId,
+        projectId: member.projectId,
         userId: member.userId,
-        email: member.user.email,
-        name: member.user.name.trim() || member.user.email,
-        image: member.user.image?.trim() || null,
-        role: normalizeProjectRole(member.role),
-        state: 'active' as const,
-        createdAt,
-        // Better Auth's member record has no updatedAt field. The member row is
-        // replaced on role changes, so its creation timestamp is the only
-        // durable membership timestamp available to this public projection.
-        updatedAt: createdAt,
+        email: member.email,
+        name: member.name.trim() || member.email,
+        image: null,
+        role: member.role,
+        state: member.state,
+        createdAt: member.createdAt,
+        updatedAt: member.updatedAt,
     }
 }
 
-function toProjectInvitation(invitation: {
-    readonly id: string
-    readonly email: string
-    readonly role: string
-    readonly organizationId: string
-    readonly inviterId: string
-    readonly status: string
-    readonly expiresAt: Date
-    readonly createdAt: Date
-}) {
+function toProjectInvitation(invitation: HeraldOrganizationInvitation) {
     return {
         id: invitation.id,
         email: invitation.email,
-        role: normalizeProjectRole(invitation.role),
+        role: normalizeProjectInvitationRole(invitation.projectRole),
         organizationId: invitation.organizationId,
         inviterId: invitation.inviterId,
         status: normalizeInvitationStatus(invitation.status),
@@ -147,36 +179,21 @@ function toProjectInvitation(invitation: {
     }
 }
 
-async function listOrganizationMembers(auth: HeraldAuth, organizationId: string, headers: Headers) {
-    return auth.api.listMembers({
-        query: { organizationId, limit: 1_000 },
+async function listWorkspaceInvitations(
+    auth: HeraldAuth,
+    workspaceOrganizationId: string,
+    headers: Headers
+) {
+    return auth.api.listInvitations({
+        query: { organizationId: workspaceOrganizationId },
         headers,
     })
 }
 
-async function findOrganizationMember(
-    auth: HeraldAuth,
-    organizationId: string,
-    memberId: string,
-    headers: Headers
-) {
-    const listed = await listOrganizationMembers(auth, organizationId, headers)
-    return listed.members.find(member => member.id === memberId) ?? null
-}
-
-function getProjectOrganizationId(
-    projectId: string,
-    access: AccessStore,
-    authMethod: 'session' | 'project_token',
-    userId: string,
-    minimumRole: ProjectRole
-) {
-    if (authMethod !== 'session') return null
-    const organizationId = access.getProjectOrganizationId(projectId)
-    if (organizationId === null || !access.canAccessProject(projectId, userId, minimumRole)) {
-        return null
-    }
-    return organizationId
+function findProjectMember(access: AccessStore, projectId: string, memberId: string) {
+    return access
+        .listProjectMemberships(projectId)
+        .find(member => member.id === memberId || member.userId === memberId)
 }
 
 export function registerProjectMemberRoutes<const Routes extends Record<string, unknown>>(
@@ -185,6 +202,43 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
     access: AccessStore
 ) {
     return app
+        .get(
+            '/api/projects/:projectId/membership',
+            {
+                auth: true,
+                params: projectParams,
+                response: {
+                    200: projectMembershipResponseSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'getProjectMembership',
+                    summary: 'Read the current user project membership',
+                    tags: ['Projects'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (authMethod !== 'session') {
+                    return status(403, projectMemberForbiddenResponse())
+                }
+                if (!projectExists(params.projectId, access)) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                const membership = access.getProjectMembership(params.projectId, user.id)
+                if (membership === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project membership not found' },
+                    })
+                }
+                return { membership: toProjectMember(membership) }
+            }
+        )
         .get(
             '/api/projects/:projectId/members',
             {
@@ -196,48 +250,25 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     403: errorResponse,
                     404: errorResponse,
                     422: errorResponse,
-                    503: errorResponse,
                 },
                 detail: {
                     operationId: 'listProjectMembers',
-                    summary: 'List members of a project',
+                    summary: 'List effective members of a project',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
-                const organizationId = getProjectOrganizationId(
-                    params.projectId,
-                    access,
-                    authMethod,
-                    user.id,
-                    'viewer'
-                )
-                if (authMethod !== 'session') {
-                    return status(403, projectMemberForbiddenResponse())
-                }
-                if (access.getProjectOrganizationId(params.projectId) === null) {
+            ({ authMethod, params, status, user }) => {
+                if (!projectExists(params.projectId, access)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (organizationId === null) return status(403, projectMemberForbiddenResponse())
-
-                try {
-                    const listed = await listOrganizationMembers(
-                        auth,
-                        organizationId,
-                        request.headers
-                    )
-                    return {
-                        members: listed.members.map(member =>
-                            toProjectMember(params.projectId, member)
-                        ),
-                        total: listed.total,
-                    }
-                } catch {
-                    return status(503, organizationReadFailedResponse())
+                if (!canViewProjectAccess(params.projectId, access, authMethod, user.id)) {
+                    return status(403, projectMemberForbiddenResponse())
                 }
+                const members = access.listProjectMemberships(params.projectId).map(toProjectMember)
+                return { members, total: members.length }
             }
         )
         .get(
@@ -255,34 +286,33 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
                 detail: {
                     operationId: 'listProjectInvitations',
-                    summary: 'List project invitations',
+                    summary: 'List project access invitations',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },
             },
             async ({ authMethod, params, request, status, user }) => {
-                const organizationId = getProjectOrganizationId(
-                    params.projectId,
-                    access,
-                    authMethod,
-                    user.id,
-                    'owner'
-                )
-                if (authMethod !== 'session') return status(403, projectOwnerForbiddenResponse())
-                if (access.getProjectOrganizationId(params.projectId) === null) {
+                if (!projectExists(params.projectId, access)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (organizationId === null) return status(403, projectOwnerForbiddenResponse())
+                if (!canManageProjectInvitations(params.projectId, access, authMethod, user.id)) {
+                    return status(403, workspaceAdminForbiddenResponse())
+                }
+                const workspace = getProjectWorkspace(params.projectId, access)
+                if (workspace === null) return status(503, organizationReadFailedResponse())
 
                 try {
-                    const invitations = await auth.api.listInvitations({
-                        query: { organizationId },
-                        headers: request.headers,
-                    })
+                    const invitations = await listWorkspaceInvitations(
+                        auth,
+                        workspace.organizationId,
+                        request.headers
+                    )
                     return {
-                        invitations: invitations.map(toProjectInvitation),
+                        invitations: invitations
+                            .filter(invitation => invitation.projectId === params.projectId)
+                            .map(toProjectInvitation),
                     }
                 } catch {
                     return status(503, organizationReadFailedResponse())
@@ -296,7 +326,7 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 body: createProjectInvitationBody,
                 params: projectParams,
                 response: {
-                    201: projectInvitationResponse,
+                    201: projectInvitationResponseSchema,
                     400: errorResponse,
                     401: errorResponse,
                     403: errorResponse,
@@ -307,33 +337,46 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
                 detail: {
                     operationId: 'createProjectInvitation',
-                    summary: 'Invite a member to a project',
+                    summary: 'Invite a member to a project workspace',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },
             },
             async ({ authMethod, body, params, request, status, user }) => {
-                const organizationId = getProjectOrganizationId(
-                    params.projectId,
-                    access,
-                    authMethod,
-                    user.id,
-                    'owner'
-                )
-                if (authMethod !== 'session') return status(403, projectOwnerForbiddenResponse())
-                if (access.getProjectOrganizationId(params.projectId) === null) {
+                if (!projectExists(params.projectId, access)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (organizationId === null) return status(403, projectOwnerForbiddenResponse())
+                if (!canManageProjectInvitations(params.projectId, access, authMethod, user.id)) {
+                    return status(403, workspaceAdminForbiddenResponse())
+                }
+                const workspace = getProjectWorkspace(params.projectId, access)
+                if (workspace === null) return status(503, organizationOperationFailedResponse())
 
                 try {
+                    const email = body.email.trim().toLowerCase()
+                    const members = await auth.api.listMembers({
+                        query: { organizationId: workspace.organizationId, limit: 1_000 },
+                        headers: request.headers,
+                    })
+                    if (members.members.some(member => member.user.email.toLowerCase() === email)) {
+                        return status(409, {
+                            error: {
+                                code: 'workspace_member_requires_grant',
+                                message:
+                                    'This user already belongs to the workspace; grant project access directly',
+                            },
+                        })
+                    }
+
                     const invitation = await auth.api.createInvitation({
                         body: {
-                            email: body.email.trim().toLowerCase(),
-                            role: body.role,
-                            organizationId,
+                            email,
+                            role: 'member',
+                            organizationId: workspace.organizationId,
+                            projectId: params.projectId,
+                            projectRole: body.role,
                         },
                         headers: request.headers,
                     })
@@ -349,7 +392,7 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 auth: true,
                 params: projectInvitationParams,
                 response: {
-                    200: projectInvitationResponse,
+                    200: projectInvitationResponseSchema,
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
@@ -359,34 +402,33 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
                 detail: {
                     operationId: 'cancelProjectInvitation',
-                    summary: 'Cancel a project invitation',
+                    summary: 'Cancel a project access invitation',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },
             },
             async ({ authMethod, params, request, status, user }) => {
-                const organizationId = getProjectOrganizationId(
-                    params.projectId,
-                    access,
-                    authMethod,
-                    user.id,
-                    'owner'
-                )
-                if (authMethod !== 'session') return status(403, projectOwnerForbiddenResponse())
-                if (access.getProjectOrganizationId(params.projectId) === null) {
+                if (!projectExists(params.projectId, access)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (organizationId === null) return status(403, projectOwnerForbiddenResponse())
+                if (!canManageProjectInvitations(params.projectId, access, authMethod, user.id)) {
+                    return status(403, workspaceAdminForbiddenResponse())
+                }
+                const workspace = getProjectWorkspace(params.projectId, access)
+                if (workspace === null) return status(503, organizationOperationFailedResponse())
 
                 try {
-                    const invitations = await auth.api.listInvitations({
-                        query: { organizationId },
-                        headers: request.headers,
-                    })
+                    const invitations = await listWorkspaceInvitations(
+                        auth,
+                        workspace.organizationId,
+                        request.headers
+                    )
                     const existing = invitations.find(
-                        invitation => invitation.id === params.invitationId
+                        invitation =>
+                            invitation.id === params.invitationId &&
+                            invitation.projectId === params.projectId
                     )
                     if (existing === undefined) {
                         return status(404, {
@@ -417,7 +459,7 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 auth: true,
                 params: projectInvitationParams,
                 response: {
-                    200: projectInvitationResponse,
+                    200: projectInvitationResponseSchema,
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
@@ -427,34 +469,33 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
                 detail: {
                     operationId: 'resendProjectInvitation',
-                    summary: 'Resend a project invitation',
+                    summary: 'Resend a project access invitation',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },
             },
             async ({ authMethod, params, request, status, user }) => {
-                const organizationId = getProjectOrganizationId(
-                    params.projectId,
-                    access,
-                    authMethod,
-                    user.id,
-                    'owner'
-                )
-                if (authMethod !== 'session') return status(403, projectOwnerForbiddenResponse())
-                if (access.getProjectOrganizationId(params.projectId) === null) {
+                if (!projectExists(params.projectId, access)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (organizationId === null) return status(403, projectOwnerForbiddenResponse())
+                if (!canManageProjectInvitations(params.projectId, access, authMethod, user.id)) {
+                    return status(403, workspaceAdminForbiddenResponse())
+                }
+                const workspace = getProjectWorkspace(params.projectId, access)
+                if (workspace === null) return status(503, organizationOperationFailedResponse())
 
                 try {
-                    const invitations = await auth.api.listInvitations({
-                        query: { organizationId },
-                        headers: request.headers,
-                    })
+                    const invitations = await listWorkspaceInvitations(
+                        auth,
+                        workspace.organizationId,
+                        request.headers
+                    )
                     const existing = invitations.find(
-                        invitation => invitation.id === params.invitationId
+                        invitation =>
+                            invitation.id === params.invitationId &&
+                            invitation.projectId === params.projectId
                     )
                     if (existing === undefined) {
                         return status(404, {
@@ -470,14 +511,10 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                         })
                     }
 
-                    // Better Auth's `resend` option keeps the same invitation ID.
-                    // Herald deliberately rotates it so an old copied link stops
-                    // working as soon as the owner asks for a new one. Cancel every
-                    // pending duplicate as a repair guard for development databases
-                    // created before the one-active-invitation policy.
                     for (const invitation of invitations) {
                         if (
                             invitation.status === 'pending' &&
+                            invitation.projectId === params.projectId &&
                             invitation.email.toLowerCase() === existing.email.toLowerCase()
                         ) {
                             await auth.api.cancelInvitation({
@@ -490,8 +527,10 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                     const invitation = await auth.api.createInvitation({
                         body: {
                             email: existing.email,
-                            role: existing.role,
-                            organizationId,
+                            role: 'member',
+                            organizationId: workspace.organizationId,
+                            projectId: params.projectId,
+                            projectRole: normalizeProjectInvitationRole(existing.projectRole),
                         },
                         headers: request.headers,
                     })
@@ -518,67 +557,38 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
                 detail: {
                     operationId: 'updateProjectMemberRole',
-                    summary: 'Update a project member role',
+                    summary: 'Update a direct project member grant',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, params, request, status, user }) => {
-                const organizationId = getProjectOrganizationId(
-                    params.projectId,
-                    access,
-                    authMethod,
-                    user.id,
-                    'owner'
-                )
-                if (authMethod !== 'session') return status(403, projectOwnerForbiddenResponse())
-                if (access.getProjectOrganizationId(params.projectId) === null) {
+            ({ authMethod, body, params, status, user }) => {
+                if (!projectExists(params.projectId, access)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (organizationId === null) return status(403, projectOwnerForbiddenResponse())
-
-                try {
-                    const existing = await findOrganizationMember(
-                        auth,
-                        organizationId,
-                        params.memberId,
-                        request.headers
-                    )
-                    if (existing === null) {
-                        return status(404, {
-                            error: { code: 'not_found', message: 'Project member not found' },
-                        })
-                    }
-                    if (existing.userId === user.id) return status(409, selfMembershipResponse())
-                    if (normalizeProjectRole(existing.role) === 'owner') {
-                        return status(409, ownerMembershipResponse())
-                    }
-
-                    await auth.api.updateMemberRole({
-                        body: {
-                            memberId: params.memberId,
-                            role: body.role,
-                            organizationId,
-                        },
-                        headers: request.headers,
-                    })
-                    const updated = await findOrganizationMember(
-                        auth,
-                        organizationId,
-                        params.memberId,
-                        request.headers
-                    )
-                    if (updated === null) {
-                        return status(404, {
-                            error: { code: 'not_found', message: 'Project member not found' },
-                        })
-                    }
-                    return { membership: toProjectMember(params.projectId, updated) }
-                } catch {
-                    return status(503, organizationOperationFailedResponse())
+                if (!canManageProject(params.projectId, access, authMethod, user.id)) {
+                    return status(403, projectOwnerForbiddenResponse())
                 }
+                const existing = findProjectMember(access, params.projectId, params.memberId)
+                if (existing === undefined) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project member not found' },
+                    })
+                }
+                if (existing.userId === user.id) return status(409, selfMembershipResponse())
+                if (existing.role === 'owner') return status(409, ownerMembershipResponse())
+
+                const grant = access.grantProjectUserAccess({
+                    projectId: params.projectId,
+                    userId: existing.userId,
+                    role: body.role,
+                })
+                if (grant === null) return status(409, organizationOperationFailedResponse())
+                const updated = access.getProjectMembership(params.projectId, existing.userId)
+                if (updated === null) return status(503, organizationOperationFailedResponse())
+                return { membership: toProjectMember(updated) }
             }
         )
         .delete(
@@ -597,55 +607,40 @@ export function registerProjectMemberRoutes<const Routes extends Record<string, 
                 },
                 detail: {
                     operationId: 'removeProjectMember',
-                    summary: 'Remove a member from a project',
+                    summary: 'Remove direct project access',
                     tags: ['Projects'],
                     security: sessionSecurity,
                 },
             },
-            async ({ authMethod, params, request, status, user }) => {
-                const organizationId = getProjectOrganizationId(
-                    params.projectId,
-                    access,
-                    authMethod,
-                    user.id,
-                    'owner'
-                )
-                if (authMethod !== 'session') return status(403, projectOwnerForbiddenResponse())
-                if (access.getProjectOrganizationId(params.projectId) === null) {
+            async ({ authMethod, params, status, user }) => {
+                if (!projectExists(params.projectId, access)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                if (organizationId === null) return status(403, projectOwnerForbiddenResponse())
-
-                try {
-                    const existing = await findOrganizationMember(
-                        auth,
-                        organizationId,
-                        params.memberId,
-                        request.headers
-                    )
-                    if (existing === null) {
-                        return status(404, {
-                            error: { code: 'not_found', message: 'Project member not found' },
-                        })
-                    }
-                    if (existing.userId === user.id) return status(409, selfMembershipResponse())
-                    if (normalizeProjectRole(existing.role) === 'owner') {
-                        return status(409, ownerMembershipResponse())
-                    }
-
-                    await auth.api.removeMember({
-                        body: {
-                            memberIdOrEmail: params.memberId,
-                            organizationId,
-                        },
-                        headers: request.headers,
-                    })
-                    return { removed: true as const }
-                } catch {
-                    return status(503, organizationOperationFailedResponse())
+                if (!canManageProject(params.projectId, access, authMethod, user.id)) {
+                    return status(403, projectOwnerForbiddenResponse())
                 }
+                const existing = findProjectMember(access, params.projectId, params.memberId)
+                if (existing === undefined) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project member not found' },
+                    })
+                }
+                if (existing.userId === user.id) return status(409, selfMembershipResponse())
+                if (existing.role === 'owner') return status(409, ownerMembershipResponse())
+
+                if (existing.id.startsWith('project-team-grant:')) {
+                    return status(409, inheritedMembershipResponse())
+                }
+
+                if (access.removeProjectUserAccess(params.projectId, existing.userId)) {
+                    return { removed: true as const }
+                }
+
+                return status(404, {
+                    error: { code: 'not_found', message: 'Project member not found' },
+                })
             }
         )
 }

@@ -34,6 +34,7 @@ const supportedProjectEventSubjects = {
     'publication.ready': 'publication',
     'publication.published': 'publication',
     'publication.reconciled': 'publication',
+    'publication.retry_requested': 'publication',
     'publication.rescheduled': 'publication',
     'publication.cancelled': 'publication',
     'publication.execution.claimed': 'publication',
@@ -92,6 +93,7 @@ interface UserEventStreamInput {
     readonly journal: Pick<EventJournalStore, 'readAllAfter'>
     readonly after: EventJournalCursor | null
     readonly userChanges?: UserRealtimeHub
+    readonly isAuthorized?: () => boolean | Promise<boolean>
     readonly options?: ProjectEventStreamOptions
 }
 
@@ -269,6 +271,13 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                     journal,
                     after,
                     userChanges,
+                    isAuthorized: async () => {
+                        const session = await auth.api.getSession({ headers: request.headers })
+                        return (
+                            session?.user.id === user.id &&
+                            notifications.listProjectIdsForUser(user.id).length > 0
+                        )
+                    },
                 }),
                 {
                     headers: {
@@ -492,6 +501,7 @@ export function createUserEventStream({
     journal,
     after,
     userChanges,
+    isAuthorized,
     options,
 }: UserEventStreamInput): ReadableStream<Uint8Array> {
     const streamOptions = normalizeStreamOptions(options)
@@ -534,6 +544,23 @@ export function createUserEventStream({
         }
     }
 
+    function closeWithAccessRevoked(controller: ReadableStreamDefaultController<Uint8Array>) {
+        if (closed) return
+        closed = true
+        releaseWait?.()
+        releaseWait = undefined
+        try {
+            controller.enqueue(
+                encoder.encode(
+                    `event: user.access-revoked\ndata: ${JSON.stringify({ reason: 'access_revoked' })}\n\n`
+                )
+            )
+            controller.close()
+        } catch {
+            // The reader may already have cancelled the stream.
+        }
+    }
+
     return new ReadableStream<Uint8Array>({
         async pull(controller) {
             if (closed) return
@@ -541,6 +568,10 @@ export function createUserEventStream({
             while (!closed) {
                 if (request.signal.aborted) {
                     close(controller)
+                    return
+                }
+                if (isAuthorized !== undefined && !(await isAuthorized())) {
+                    closeWithAccessRevoked(controller)
                     return
                 }
 
@@ -556,6 +587,10 @@ export function createUserEventStream({
                 }
 
                 const projectIds = new Set(listProjectIds())
+                if (projectIds.size === 0) {
+                    closeWithAccessRevoked(controller)
+                    return
+                }
                 const frames: string[] = []
                 for (const entry of entries) {
                     let sequence: number

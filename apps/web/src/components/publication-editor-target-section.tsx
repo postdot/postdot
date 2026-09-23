@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Badge } from '@herald/ui/components/badge'
-import { Card, CardContent } from '@herald/ui/components/card'
+import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import type { PublicationEditorState } from '@/lib/api'
@@ -17,6 +17,9 @@ interface PublicationEditorTargetSectionProps {
     readonly target: Record<string, unknown> | null
     readonly targetText: string
     readonly disabled: boolean
+    readonly readOnly?: boolean
+    readonly open?: boolean
+    readonly onOpenChange?: (open: boolean) => void
     readonly onTargetChange: (target: Record<string, unknown>) => void
     readonly onRawTextChange: (value: string) => void
     readonly targetError: string | null
@@ -31,6 +34,9 @@ export function PublicationEditorTargetSection({
     target,
     targetText,
     disabled,
+    readOnly = false,
+    open,
+    onOpenChange,
     onTargetChange,
     onRawTextChange,
     targetError,
@@ -40,20 +46,18 @@ export function PublicationEditorTargetSection({
     useLanguage()
     return (
         <section className="min-w-0">
-            <Card>
-                <CardContent className="p-6 sm:p-7">
-                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                        <div>
-                            <p className="text-xs font-medium text-muted-foreground">
-                                {m.editor_target_title()}
-                            </p>
-                            <h2 className="mt-2 font-heading text-2xl font-[580] leading-[1.03] tracking-[-0.05em]">
-                                {m.editor_target_structured_payload()}
-                            </h2>
-                            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                                {m.editor_target_profile_owns_shape()}
-                            </p>
-                        </div>
+            <details
+                className="group rounded-xl bg-surface-inset/35 p-1 shadow-surface"
+                open={open}
+                onToggle={event => onOpenChange?.(event.currentTarget.open)}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-3 [&::-webkit-details-marker]:hidden">
+                    <span className="min-w-0">
+                        <span className="block font-medium">{m.editor_channel_details()}</span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {m.editor_channel_details_hint()}
+                        </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-3">
                         <Badge
                             variant="outline"
                             className={
@@ -66,8 +70,13 @@ export function PublicationEditorTargetSection({
                                 ? m.editor_target_compatible()
                                 : m.editor_target_review_required()}
                         </Badge>
-                    </div>
-
+                        <AltArrowDownIcon
+                            aria-hidden="true"
+                            className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+                        />
+                    </span>
+                </summary>
+                <div className="mt-1 px-3 pb-3 sm:px-4 sm:pb-4">
                     <PublicationTargetEditor
                         profile={profile}
                         target={target}
@@ -75,6 +84,8 @@ export function PublicationEditorTargetSection({
                         onTargetChange={onTargetChange}
                         onRawTextChange={onRawTextChange}
                         disabled={disabled}
+                        readOnly={readOnly}
+                        compact
                     />
                     {targetError ? (
                         <Alert variant="destructive" className="mt-4 rounded-md">
@@ -96,8 +107,8 @@ export function PublicationEditorTargetSection({
                             </AlertDescription>
                         </Alert>
                     ) : null}
-                </CardContent>
-            </Card>
+                </div>
+            </details>
         </section>
     )
 }

@@ -1,7 +1,7 @@
 import { Button } from '@herald/ui/components/button'
-import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
-import { RestartIcon } from '@solar-icons/react/bold/restart'
-import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
+import { CheckIcon } from '@solar-icons/react/linear/check'
+import { RestartIcon } from '@solar-icons/react/linear/restart'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 
 import { formatSchedule, PublicationStatus } from '@/components/dashboard-publication-parts'
 import type { Publication } from '@/lib/api'
@@ -22,7 +22,7 @@ export function PublicationLifecyclePanel({
     readonly cancelDisabled?: boolean
     readonly onCancel?: () => void
     readonly onPublish?: () => Promise<boolean>
-    readonly onRetry?: () => void
+    readonly onRetry?: () => void | Promise<unknown>
     readonly pending?: boolean
     readonly publication: Publication
     readonly retryDisabled?: boolean
@@ -33,19 +33,27 @@ export function PublicationLifecyclePanel({
     const due = isManualPublicationDue(publication)
     const showManualAction = due && onPublish !== undefined
     const showCancelAction = publication.state === 'scheduled' && onCancel !== undefined
-    const showRetryAction = publication.state === 'failed' && onRetry !== undefined
+    const showRetryAction =
+        publication.state === 'failed' &&
+        publication.deliveryMode === 'automatic' &&
+        onRetry !== undefined
 
     return (
         <>
             <div
                 data-publication-lifecycle="true"
-                className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-inset/70 px-4 py-3 shadow-surface">
+                className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-inset/70 px-4 py-3 shadow-surface">
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                         <PublicationStatus due={due} state={publication.state} />
                         <span className="text-xs text-muted-foreground">
                             {formatSchedule(publication.scheduledAt, timeZone, locale)}
                         </span>
+                        {!editable && publication.state !== 'ambiguous' ? (
+                            <span className="text-xs text-muted-foreground">
+                                · {m.editor_lifecycle_read_only_title()}
+                            </span>
+                        ) : null}
                     </div>
                     {publication.state === 'failed' && publication.errorMessage ? (
                         <p
@@ -74,7 +82,7 @@ export function PublicationLifecyclePanel({
                                 onClick={() => void onPublish()}
                                 size="sm"
                                 variant="secondary">
-                                <CheckSquareIcon aria-hidden="true" />
+                                <CheckIcon aria-hidden="true" />
                                 {m.publication_record_published()}
                             </Button>
                         ) : null}
@@ -92,19 +100,6 @@ export function PublicationLifecyclePanel({
                     </div>
                 ) : null}
             </div>
-
-            {!editable && publication.state !== 'ambiguous' ? (
-                <div
-                    aria-live="polite"
-                    className="mb-5 rounded-lg bg-surface-inset/70 px-4 py-3 shadow-surface"
-                    data-publication-read-only="true"
-                    role="status">
-                    <p className="text-sm font-medium">{m.editor_lifecycle_read_only_title()}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        {m.editor_lifecycle_read_only()}
-                    </p>
-                </div>
-            ) : null}
         </>
     )
 }

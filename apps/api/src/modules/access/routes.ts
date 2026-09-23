@@ -2,7 +2,11 @@ import type { HeraldAuth } from '@herald/auth'
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
-import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import {
+    sessionSecurity,
+    type AuthenticatedElysia,
+    type HeraldAuthenticationMethod,
+} from '../../plugins/auth'
 
 const errorResponse = Type.Object({
     error: Type.Object({
@@ -18,6 +22,7 @@ const instanceStateSchema = Type.Object({
     bootstrapBlocked: Type.Boolean(),
     claimedByUserId: nullableString,
     claimedAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+    defaultWorkspaceId: nullableString,
     createdAt: Type.Integer({ minimum: 0 }),
     updatedAt: Type.Integer({ minimum: 0 }),
 })
@@ -103,7 +108,7 @@ const adminSyncFailedResponse = () => ({
 })
 
 function isInstanceAdmin(
-    authMethod: 'session' | 'project_token',
+    authMethod: HeraldAuthenticationMethod,
     userId: string,
     access: AccessStore
 ): boolean {

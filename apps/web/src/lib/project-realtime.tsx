@@ -5,6 +5,7 @@ export const projectQueryKeys = {
     data: (projectId: string) => ['project', projectId, 'data'] as const,
     calendarPublications: (projectId: string) =>
         ['project', projectId, 'calendar-publications'] as const,
+    publicationQueues: (projectId: string) => ['project', projectId, 'publication-queues'] as const,
     publicationEditors: (projectId: string) =>
         ['project', projectId, 'publication-editor'] as const,
     publicationEditor: (projectId: string, publicationId: string) =>
@@ -34,6 +35,7 @@ const projectRealtimeEventTypes = [
     'publication.ready',
     'publication.published',
     'publication.reconciled',
+    'publication.retry_requested',
     'publication.rescheduled',
     'publication.cancelled',
     'publication.execution.claimed',
@@ -95,6 +97,7 @@ export type UserRealtimeEvent = ProjectRealtimeEvent
 export type UserRealtimeSignal =
     | { readonly kind: 'update'; readonly event: UserRealtimeEvent }
     | { readonly kind: 'resync-required'; readonly reason: string }
+    | { readonly kind: 'access-revoked' }
 
 export interface UserRealtimeEventSource {
     subscribe(
@@ -246,6 +249,12 @@ class BrowserUserRealtimeEventSource implements UserRealtimeEventSource {
             const reason = typeof value?.reason === 'string' ? value.reason : 'unknown'
             for (const listener of this.listeners) listener({ kind: 'resync-required', reason })
         })
+        this.eventSource.addEventListener('user.access-revoked', event => {
+            const value = parseJsonObject(event.data)
+            if (value?.reason !== 'access_revoked') return
+            for (const listener of this.listeners) listener({ kind: 'access-revoked' })
+            this.close()
+        })
     }
 
     subscribe(
@@ -365,6 +374,10 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                             }),
                             queryClient.invalidateQueries({
                                 queryKey: projectQueryKeys.calendarPublications(projectId),
+                                refetchType: full ? 'all' : 'active',
+                            }),
+                            queryClient.invalidateQueries({
+                                queryKey: projectQueryKeys.publicationQueues(projectId),
                                 refetchType: full ? 'all' : 'active',
                             }),
                         ]

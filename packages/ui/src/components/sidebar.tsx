@@ -1,6 +1,6 @@
 import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
-import { SidebarIcon } from '@solar-icons/react/bold/sidebar'
+import { SidebarMinimalisticIcon } from '@solar-icons/react/linear/sidebar-minimalistic'
 import { cva, type VariantProps } from 'class-variance-authority'
 import * as React from 'react'
 
@@ -17,8 +17,21 @@ const SIDEBAR_COOKIE_NAME = 'sidebar_state'
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = '15rem'
 const SIDEBAR_WIDTH_MOBILE = '18rem'
-const SIDEBAR_WIDTH_ICON = '3rem'
+const SIDEBAR_WIDTH_ICON = '2rem'
 const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
+
+function readSidebarState(defaultOpen: boolean) {
+    if (typeof document === 'undefined') return defaultOpen
+
+    const storedState = document.cookie
+        .split('; ')
+        .find(cookie => cookie.startsWith(`${SIDEBAR_COOKIE_NAME}=`))
+        ?.slice(SIDEBAR_COOKIE_NAME.length + 1)
+
+    if (storedState === 'true') return true
+    if (storedState === 'false') return false
+    return defaultOpen
+}
 
 type SidebarContextProps = {
     state: 'expanded' | 'collapsed'
@@ -59,7 +72,7 @@ function SidebarProvider({
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
-    const [_open, _setOpen] = React.useState(defaultOpen)
+    const [_open, _setOpen] = React.useState(() => readSidebarState(defaultOpen))
     const open = openProp ?? _open
     const setOpen = React.useCallback(
         (value: boolean | ((value: boolean) => boolean)) => {
@@ -152,7 +165,7 @@ function Sidebar({
 
     if (collapsible === 'none') {
         return (
-            <div
+            <aside
                 data-slot="sidebar"
                 className={cn(
                     'flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground',
@@ -160,7 +173,7 @@ function Sidebar({
                 )}
                 {...props}>
                 {children}
-            </div>
+            </aside>
         )
     }
 
@@ -213,7 +226,7 @@ function Sidebar({
                         : 'group-data-[collapsible=icon]:w-(--sidebar-width-icon)'
                 )}
             />
-            <div
+            <aside
                 data-slot="sidebar-container"
                 data-side={side}
                 className={cn(
@@ -231,7 +244,7 @@ function Sidebar({
                     className="flex size-full flex-col bg-sidebar shadow-surface group-data-[variant=floating]:rounded-lg">
                     {children}
                 </div>
-            </div>
+            </aside>
         </div>
     )
 }
@@ -251,7 +264,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
                 toggleSidebar()
             }}
             {...props}>
-            <SidebarIcon aria-hidden="true" />
+            <SidebarMinimalisticIcon className="rotate-180" aria-hidden="true" />
             <span className="sr-only">Toggle Sidebar</span>
         </Button>
     )
@@ -282,9 +295,9 @@ function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
     )
 }
 
-function SidebarInset({ className, ...props }: React.ComponentProps<'main'>) {
+function SidebarInset({ className, ...props }: React.ComponentProps<'div'>) {
     return (
-        <main
+        <div
             data-slot="sidebar-inset"
             className={cn(
                 'relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-lg md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2',
@@ -439,14 +452,17 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<'li'>) {
         <li
             data-slot="sidebar-menu-item"
             data-sidebar="menu-item"
-            className={cn('group/menu-item relative', className)}
+            className={cn(
+                'group/menu-item relative group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center',
+                className
+            )}
             {...props}
         />
     )
 }
 
 const sidebarMenuButtonVariants = cva(
-    'peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 has-data-[slot=sidebar-menu-badge]:pr-32 group-data-[collapsible=icon]:h-8! group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
+    'peer/menu-button group/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm ring-sidebar-ring outline-hidden transition-[width,height,padding] group-has-data-[sidebar=menu-action]/menu-item:pr-8 has-data-[slot=sidebar-menu-badge]:pr-32 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:font-medium data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate',
     {
         variants: {
             variant: {

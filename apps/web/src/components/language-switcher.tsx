@@ -5,7 +5,10 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@herald/ui/components/dropdown-menu'
-import { GlobeIcon } from '@solar-icons/react/bold/globe'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
+import flagFr from '@iconify-icons/flag/fr-4x3'
+import flagGb from '@iconify-icons/flag/gb-4x3'
+import { Icon } from '@iconify/react'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -16,6 +19,11 @@ const languageLabels: Record<Locale, () => string> = {
     fr: m.language_french,
 }
 
+const languageFlags = {
+    en: flagGb,
+    fr: flagFr,
+} as const
+
 export function LanguageSwitcher() {
     const { locale, setLocale } = useLanguage()
     const nextLocale = locale === 'en' ? 'fr' : 'en'
@@ -23,32 +31,46 @@ export function LanguageSwitcher() {
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger
-                render={
-                    <Button
-                        aria-label={label}
-                        className="gap-1.5 px-2"
-                        size="sm"
-                        title={label}
-                        variant="ghost"
+            <Tooltip>
+                <TooltipTrigger
+                    render={
+                        <DropdownMenuTrigger
+                            render={
+                                <Button
+                                    aria-label={label}
+                                    className="px-2"
+                                    data-slot="language-switcher-trigger"
+                                    size="icon-sm"
+                                    title={label}
+                                    variant="ghost"
+                                />
+                            }
+                        />
+                    }>
+                    <Icon
+                        aria-hidden="true"
+                        className="h-3.5 w-5 overflow-hidden rounded-[2px]"
+                        icon={languageFlags[locale]}
                     />
-                }>
-                <GlobeIcon aria-hidden="true" />
-                <span className="hidden text-xs font-semibold uppercase sm:inline">{locale}</span>
-            </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
             <DropdownMenuContent align="end" className="min-w-40">
-                <div className="px-1.5 py-1 text-xs font-medium text-muted-foreground">
-                    {m.language_menu_label()}
-                </div>
                 {locales.map(language => (
                     <DropdownMenuItem
                         key={language}
                         aria-current={locale === language ? 'true' : undefined}
+                        className="gap-2"
                         onClick={() => {
                             if (locale !== language && isLocale(language)) {
                                 void setLocale(language)
                             }
                         }}>
+                        <Icon
+                            aria-hidden="true"
+                            className="h-3.5 w-5 overflow-hidden rounded-[2px]"
+                            icon={languageFlags[language]}
+                        />
                         {languageLabels[language]()}
                     </DropdownMenuItem>
                 ))}

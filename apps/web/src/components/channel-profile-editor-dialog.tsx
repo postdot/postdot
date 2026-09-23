@@ -10,9 +10,9 @@ import {
 } from '@herald/ui/components/dialog'
 import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
 import { Textarea } from '@herald/ui/components/textarea'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
-import { CodeFileIcon } from '@solar-icons/react/bold/code-file'
-import { RefreshIcon } from '@solar-icons/react/bold/refresh'
+import { CheckIcon } from '@solar-icons/react/linear/check'
+import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
+import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useEffect, useState } from 'react'
 
 import { api, formatApiError, type Channel, type ChannelProfileAssessment } from '@/lib/api'
@@ -229,7 +229,7 @@ export function ChannelProfileEditorDialog({
                         type="button"
                         onClick={() => void activateDraft()}
                         disabled={busy || assessment === null || assessment.hasReviewRequired}>
-                        <CheckReadIcon aria-hidden="true" />
+                        <CheckIcon aria-hidden="true" />
                         {m.profile_activate()}
                     </Button>
                 </DialogFooter>

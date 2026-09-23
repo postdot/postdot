@@ -1,10 +1,10 @@
 import { Button } from '@herald/ui/components/button'
 import { Kbd } from '@herald/ui/components/kbd'
 import { cn } from '@herald/ui/lib/utils'
-import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
-import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
-import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
-import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
+import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
+import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
+import { CheckIcon } from '@solar-icons/react/linear/check'
 import type { RegisterableHotkey } from '@tanstack/hotkeys'
 import { useHotkeys } from '@tanstack/react-hotkeys'
 import { useNavigate } from '@tanstack/react-router'
@@ -414,7 +414,7 @@ function EventCalendarToolbar({
             </div>
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 sm:justify-end">
                 <h2
-                    className="min-w-0 flex-1 truncate font-heading text-xl font-[580] leading-[1.03] tracking-[-0.04em] sm:text-2xl"
+                    className="min-w-0 flex-1 truncate font-heading text-xl font-[580] leading-[1.03] sm:text-2xl"
                     id="calendar-title">
                     {title}
                 </h2>
@@ -423,7 +423,7 @@ function EventCalendarToolbar({
                     onClick={() => onSelectionModeChange(!selectionMode)}
                     size="sm"
                     variant={selectionMode ? 'secondary' : 'ghost'}>
-                    <CheckSquareIcon aria-hidden="true" />
+                    <CheckIcon aria-hidden="true" />
                     {selectionMode ? doneLabel : selectLabel}
                 </Button>
                 <div
@@ -720,55 +720,53 @@ function viewName(
 }
 
 function createCalendarI18n(locale: string, timeZone: string) {
-    const french = locale === 'fr'
+    const messageLocale = locale === 'fr' ? 'fr' : 'en'
+    const messageOptions = { locale: messageLocale } as const
     return {
         labels: {
-            addEvent: french ? 'Créer une publication' : 'Create publication',
-            allDay: french ? 'Toute la journée' : 'All day',
-            continues: french ? 'continue' : 'continues',
-            dropNotAllowed: french ? 'Publication impossible ici' : "Can't place here",
-            event: french ? 'publication' : 'publication',
+            addEvent: m.calendar_add_event({}, messageOptions),
+            allDay: m.calendar_all_day({}, messageOptions),
+            continues: m.calendar_continues({}, messageOptions),
+            dropNotAllowed: m.calendar_drop_not_allowed({}, messageOptions),
+            event: m.calendar_event({}, messageOptions),
             eventDetails: (title: string) => title,
-            events: (count: number) =>
-                french
-                    ? `${count} publication${count === 1 ? '' : 's'}`
-                    : `${count} publication${count === 1 ? '' : 's'}`,
-            goToDate: french ? 'Aller à la date' : 'Go to date',
-            loading: french ? 'Chargement' : 'Loading',
-            more: (count: number) => (french ? `+${count} autres` : `+${count} more`),
+            events: (count: number) => m.calendar_events({ count }, messageOptions),
+            goToDate: m.calendar_go_to_date({}, messageOptions),
+            loading: m.calendar_loading({}, messageOptions),
+            more: (count: number) => m.calendar_more({ count }, messageOptions),
             moreCompact: (count: number) => `+${count}`,
-            next: french ? 'Période suivante' : 'Next period',
-            noEvents: french ? 'Aucune publication' : 'No publications',
-            previous: french ? 'Période précédente' : 'Previous period',
-            resizeColumn: (day: string) =>
-                french ? `Redimensionner la colonne ${day}` : `Resize ${day} column`,
-            resources: french ? 'Ressources' : 'Resources',
-            selectView: french ? 'Choisir la vue' : 'Select view',
-            timeFrom: (time: string) => (french ? `À partir de ${time}` : `From ${time}`),
+            next: m.calendar_next({}, messageOptions),
+            noEvents: m.calendar_no_events({}, messageOptions),
+            previous: m.calendar_previous({}, messageOptions),
+            resizeColumn: (day: string) => m.calendar_resize_column({ day }, messageOptions),
+            resources: m.calendar_resources({}, messageOptions),
+            selectView: m.calendar_select_view({}, messageOptions),
+            timeFrom: (time: string) => m.calendar_time_from({ time }, messageOptions),
             timeRange: (from: string, to: string) => `${from} - ${to}`,
-            timeUntil: (time: string) => (french ? `Jusqu'à ${time}` : `Until ${time}`),
-            today: french ? 'Aujourd’hui' : 'Today',
+            timeUntil: (time: string) => m.calendar_time_until({ time }, messageOptions),
+            today: m.calendar_today({}, messageOptions),
             toggleDayEvents: (count: number) => `${count}`,
             viewShortcuts: {
                 ...CALENDAR_VIEW_SHORTCUTS,
             },
-            week: (weekNumber: number) => `S${weekNumber}`,
+            week: (weekNumber: number) => m.calendar_week_short({ weekNumber }, messageOptions),
         },
         viewNames: {
-            agenda: french ? 'Agenda' : 'Agenda',
-            day: french ? 'Jour' : 'Day',
-            days: (count: number) => (french ? `${count} jours` : `${count} days`),
-            month: french ? 'Mois' : 'Month',
-            resource: french ? 'Grille' : 'Time grid',
-            week: french ? 'Semaine' : 'Week',
+            agenda: m.calendar_view_agenda({}, messageOptions),
+            day: m.calendar_view_day({}, messageOptions),
+            days: (count: number) => m.calendar_view_days({ count }, messageOptions),
+            month: m.calendar_view_month({}, messageOptions),
+            resource: m.calendar_view_resource({}, messageOptions),
+            week: m.calendar_view_week({}, messageOptions),
         },
-        formats: french
-            ? {
-                  eventTime: 'HH:mm',
-                  timeGutter: 'HH:mm',
-                  timeGutterMinute: 'HH:mm',
-              }
-            : undefined,
+        formats:
+            messageLocale === 'fr'
+                ? {
+                      eventTime: 'HH:mm',
+                      timeGutter: 'HH:mm',
+                      timeGutterMinute: 'HH:mm',
+                  }
+                : undefined,
         functions: {
             formatEventTime: (start: Date) => formatTime(start.getTime(), timeZone, locale),
         },

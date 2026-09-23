@@ -1,7 +1,7 @@
 import { Select as SelectPrimitive } from '@base-ui/react/select'
-import { AltArrowDownIcon } from '@solar-icons/react/bold/alt-arrow-down'
-import { AltArrowUpIcon } from '@solar-icons/react/bold/alt-arrow-up'
-import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
+import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
+import { AltArrowUpIcon } from '@solar-icons/react/linear/alt-arrow-up'
+import { CheckIcon } from '@solar-icons/react/linear/check'
 import * as React from 'react'
 
 import { cn } from '../lib/utils'
@@ -124,7 +124,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
                 render={
                     <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
                 }>
-                <CheckSquareIcon aria-hidden="true" className="pointer-events-none" />
+                <CheckIcon aria-hidden="true" className="pointer-events-none" />
             </SelectPrimitive.ItemIndicator>
         </SelectPrimitive.Item>
     )

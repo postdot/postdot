@@ -78,9 +78,11 @@ export function PublicationEditorStatus({
 export function PublicationEditorSaveIndicator({
     state,
     revision,
+    showRevision = true,
 }: {
     readonly state: PublicationEditorSaveState
     readonly revision: number
+    readonly showRevision?: boolean
 }) {
     useLanguage()
     const label =
@@ -105,7 +107,8 @@ export function PublicationEditorSaveIndicator({
                 )}
                 aria-hidden="true"
             />
-            {label} · {m.editor_draft_revision({ revision })}
+            {label}
+            {showRevision ? ` · ${m.editor_draft_revision({ revision })}` : null}
         </div>
     )
 }
