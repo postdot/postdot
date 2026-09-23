@@ -19,3 +19,11 @@ html:has(.herald-dashboard) {
 body:has(.herald-dashboard) {
     overflow: hidden;
 }
+
+[data-calendar='reui'] [data-slot='event-calendar-month-cell'][data-outside] {
+    background-image: repeating-linear-gradient(
+        -45deg,
+        color-mix(in oklch, var(--foreground) 6%, transparent) 0 0.25rem,
+        transparent 0.25rem 0.5rem
+    );
+}

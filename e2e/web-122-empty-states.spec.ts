@@ -9,17 +9,28 @@ test('makes the calendar the first project view while keeping Queue focused', as
     await createAccountAndProject(page, suffix)
 
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
+    await expect(page.locator('[data-calendar="reui"]')).toBeVisible()
     await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
-    await expect(
-        page.getByText('Schedule a destination to make it appear on the project calendar.', {
-            exact: true,
-        })
-    ).toBeVisible()
     await expect(
         page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
     ).toHaveCount(1)
 
-    await page.goto(page.url().replace(/\/overview$/, '/queue'))
+    await page.setViewportSize({ width: 1280, height: 900 })
+    const calendar = page.locator('[data-calendar="reui"]')
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    const emptyWeek = calendar.locator('[data-calendar-view="week"]')
+    await expect(emptyWeek).toBeVisible()
+    await expect(emptyWeek.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
+    await expect(
+        emptyWeek.locator('[data-slot="event-calendar-time-slot"]').first()
+    ).toHaveAttribute('data-time', '00:00')
+    expect(
+        await emptyWeek
+            .locator('[data-slot="event-calendar-time-grid-scroll"]')
+            .evaluate(element => element.scrollTop)
+    ).toBe(0)
+
+    await page.goto(page.url().replace(/\/overview(?:\?.*)?$/, '/queue'))
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()
     await expect(
         page.getByText('Create a publication to add work here.', { exact: true })

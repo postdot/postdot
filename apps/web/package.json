@@ -19,6 +19,8 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
+        "@base-ui/react": "1.7.0",
+        "@date-fns/tz": "1.5.0",
         "@dicebear/core": "10.7.0",
         "@dicebear/styles": "10.6.0",
         "@herald/client": "workspace:*",
@@ -26,11 +28,14 @@
         "@iconify-icons/logos": "2.0.1",
         "@iconify/react": "6.0.2",
         "@solar-icons/react": "2.1.0",
+        "@tanstack/hotkeys": "0.8.0",
         "@tanstack/query-db-collection": "^1.2.12",
         "@tanstack/react-db": "^0.3.7",
+        "@tanstack/react-hotkeys": "^0.10.0",
         "@tanstack/react-query": "^5.102.8",
         "@tanstack/react-router": "1.170.32",
         "@wrksz/themes": "^2.0.0-beta.2",
+        "date-fns": "4.4.0",
         "react": "19.2.8",
         "react-dom": "19.2.8"
     },

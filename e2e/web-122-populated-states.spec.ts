@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 test('uses the calendar as the project overview and keeps Queue distinct', async ({ page }) => {
     test.setTimeout(30_000)
@@ -73,13 +73,10 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(overviewSummary).toContainText('4 scheduled')
     await expect(overviewSummary).toContainText('4 unscheduled')
     await expect(overviewSummary).toContainText('1 needs attention')
-    const overviewCalendar = page.locator('[data-calendar-view="month"]')
+    const overviewCalendar = page.locator('[data-calendar="reui"]')
     await expect(overviewCalendar).toBeVisible()
-    await expect(overviewCalendar.locator('a[href*="/publications/"]')).toHaveCount(3)
-    await expect(overviewCalendar.getByText('+1', { exact: true })).toBeVisible()
-    await expect(
-        overviewCalendar.getByText(`E2E-122 publication 7 ${suffix}`, { exact: true })
-    ).toHaveCount(0)
+    await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
+    await expect(overviewCalendar.locator('[data-slot="event-calendar-event"]')).toHaveCount(4)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
@@ -114,6 +111,406 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 8' })).toBeVisible()
 })
+
+test('keeps the populated ReUI calendar responsive and keyboard navigable', async ({ page }) => {
+    const { calendar, projectId } = await createDenseCalendarProject(page)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(calendar.locator('[data-calendar-view="agenda"]')).toBeVisible()
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toHaveCount(0)
+    const narrowAgendaLayout = await calendar
+        .locator('[data-calendar-view="agenda"]')
+        .evaluate(element => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            rows: Array.from(element.querySelectorAll('button')).map(button => {
+                const channel = button.children[2]
+                const channelStyle = channel === undefined ? null : getComputedStyle(channel)
+                return {
+                    buttonClientWidth: button.clientWidth,
+                    buttonScrollWidth: button.scrollWidth,
+                    channelOverflow: channelStyle?.overflow,
+                    channelTextOverflow: channelStyle?.textOverflow,
+                }
+            }),
+        }))
+    expect(narrowAgendaLayout.scrollWidth).toBeLessThanOrEqual(narrowAgendaLayout.clientWidth)
+    expect(
+        narrowAgendaLayout.rows.every(
+            row =>
+                row.buttonScrollWidth <= row.buttonClientWidth &&
+                row.channelOverflow === 'hidden' &&
+                row.channelTextOverflow === 'ellipsis'
+        )
+    ).toBe(true)
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+    const outsideMonthCell = calendar
+        .locator('[data-slot="event-calendar-month-cell"][data-outside]')
+        .first()
+    await expect(outsideMonthCell).toBeVisible()
+    await expect
+        .poll(() => outsideMonthCell.evaluate(element => getComputedStyle(element).backgroundImage))
+        .toContain('repeating-linear-gradient')
+
+    await calendar.getByRole('button', { name: 'Month', exact: true }).focus()
+    await page.keyboard.press('W')
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    const keyboardWeekUrl = new URL(page.url())
+    expect(keyboardWeekUrl.searchParams.get('view')).toBe('week')
+    expect(keyboardWeekUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    const keyboardWeekDate = keyboardWeekUrl.searchParams.get('date')
+    await page.keyboard.press(']')
+    await expect.poll(() => new URL(page.url()).searchParams.get('date')).not.toBe(keyboardWeekDate)
+    const keyboardNextDate = new URL(page.url()).searchParams.get('date')
+    await page.reload()
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('view')).toBe('week')
+    expect(new URL(page.url()).searchParams.get('date')).toBe(keyboardNextDate)
+
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(calendar.locator('[data-calendar-view="agenda"]')).toBeVisible()
+    await calendar.getByRole('button', { name: 'Month', exact: true }).click()
+    const narrowMonth = calendar.locator('[data-calendar-view="month"]')
+    await expect(narrowMonth).toBeVisible()
+    const monthScroll = await narrowMonth.evaluate(element => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+    }))
+    expect(monthScroll.scrollWidth).toBeGreaterThan(monthScroll.clientWidth)
+
+    await page.setViewportSize({ width: 768, height: 900 })
+    await expect(calendar.locator('[data-calendar-view="month"]')).toBeVisible()
+    await expect(calendar.locator('[data-calendar-view="agenda"]')).toHaveCount(0)
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+    await expect(calendar.locator('[data-slot="event-calendar-month-header"]').first()).toHaveCSS(
+        'column-gap',
+        '2px'
+    )
+    await expect(calendar.locator('[data-slot="event-calendar-month-row"]').first()).toHaveCSS(
+        'column-gap',
+        '2px'
+    )
+    await expect(calendar.locator('[data-slot="event-calendar-month-cell"]').first()).toHaveCSS(
+        'border-right-width',
+        '0px'
+    )
+})
+
+test('supports dense events and slot creation in the ReUI week view', async ({ page }) => {
+    const { calendar, projectId, suffix } = await createDenseCalendarProject(page)
+    await page.setViewportSize({ width: 1280, height: 900 })
+
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    const weekView = calendar.locator('[data-calendar-view="week"]')
+    await expect(weekView).toBeVisible()
+    const selectedWeekButton = calendar.getByRole('button', { name: 'Week', exact: true })
+    await expect(selectedWeekButton).toHaveAttribute('aria-pressed', 'true')
+    await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveText('W')
+    await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveCSS('height', '16px')
+    await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveClass(/bg-surface-field/)
+    const kbdBackground = await selectedWeekButton
+        .locator('[data-slot="kbd"]')
+        .evaluate(element => getComputedStyle(element).backgroundColor)
+    expect(kbdBackground).not.toBe('rgba(0, 0, 0, 0)')
+    await expect(calendar.locator('[data-slot="kbd"]')).toHaveText(['M', 'W', 'D', 'A'])
+    await expect(selectedWeekButton).toHaveClass(/bg-surface-raised/)
+    await expect(weekView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
+    await expect(weekView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await expect(
+        weekView
+            .locator('[data-slot="event-calendar-time-slot"]')
+            .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
+            .first()
+    ).toHaveAttribute('data-time', '23:00')
+    const weekScrollSurface = weekView.locator('[data-slot="event-calendar-time-grid-scroll"]')
+    await expect(weekScrollSurface).toHaveAttribute('data-scroll-mode', 'contained')
+    const weekScrollTop = await weekScrollSurface.evaluate(element => element.scrollTop)
+    expect(weekScrollTop).toBeGreaterThan(0)
+    const weekVisibleTimes = await visibleCalendarTimes(weekScrollSurface)
+    expect(weekVisibleTimes).not.toContain('00:00')
+    expect(weekVisibleTimes).toContain('23:00')
+    const firstWeekEventBox = await weekView
+        .locator('[data-slot="event-calendar-event"]')
+        .first()
+        .boundingBox()
+    const weekScrollBox = await weekScrollSurface.boundingBox()
+    expect(
+        (firstWeekEventBox?.y ?? Number.POSITIVE_INFINITY) + (firstWeekEventBox?.height ?? 0)
+    ).toBeGreaterThan(weekScrollBox?.y ?? 0)
+    expect(firstWeekEventBox?.y).toBeLessThan(
+        (weekScrollBox?.y ?? 0) + (weekScrollBox?.height ?? 0)
+    )
+    await page.reload()
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('view')).toBe('week')
+    await expect(
+        weekView.locator('[data-slot="event-calendar-time-grid-column-resize"]')
+    ).toHaveCount(6)
+    const dayColumnWidths = await weekView
+        .locator('[data-slot="event-calendar-time-grid-day-header"]')
+        .evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+    expect(dayColumnWidths.every(width => width >= 152)).toBe(true)
+    const columnResizeHandle = weekView
+        .locator('[data-slot="event-calendar-time-grid-column-resize"]')
+        .first()
+    await columnResizeHandle.focus()
+    await columnResizeHandle.press('ArrowRight')
+    const keyboardResizedWidths = await weekView
+        .locator('[data-slot="event-calendar-time-grid-day-header"]')
+        .evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+    expect(keyboardResizedWidths[0]).toBeGreaterThan(dayColumnWidths[0] ?? 0)
+    await columnResizeHandle.press('Home')
+    const handleBox = await columnResizeHandle.boundingBox()
+    if (handleBox === null) throw new Error('Column resize handle has no layout box')
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(
+        handleBox.x + handleBox.width / 2 + 24,
+        handleBox.y + handleBox.height / 2
+    )
+    await page.mouse.up()
+    const pointerResizedWidths = await weekView
+        .locator('[data-slot="event-calendar-time-grid-day-header"]')
+        .evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+    expect(pointerResizedWidths[0]).toBeGreaterThan(dayColumnWidths[0] ?? 0)
+    const resizedFirstColumnWidth = pointerResizedWidths[0] ?? 0
+    await calendar.getByRole('button', { name: 'Month', exact: true }).click()
+    await expect(calendar.locator('[data-calendar-view="month"]')).toBeVisible()
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    await expect(calendar.locator('[data-calendar-view="week"]')).toBeVisible()
+    const restoredColumnWidths = await weekView
+        .locator('[data-slot="event-calendar-time-grid-day-header"]')
+        .evaluateAll(elements => elements.map(element => element.getBoundingClientRect().width))
+    expect(restoredColumnWidths[0]).toBe(resizedFirstColumnWidth)
+    await columnResizeHandle.focus()
+    await columnResizeHandle.press('Home')
+    for (const index of Array.from({ length: 6 }, (_, item) => item + 1)) {
+        await expect(
+            weekView.getByText(`E2E-122 ReUI publication ${index} ${suffix}`, { exact: true })
+        ).toBeVisible()
+    }
+    const emptyTimeSlot = weekView
+        .locator('[data-slot="event-calendar-time-slot"][data-empty]')
+        .first()
+    const denseTimeSlot = weekView
+        .locator('[data-slot="event-calendar-time-slot"]')
+        .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
+        .first()
+    const denseSlotAdd = denseTimeSlot.locator('[data-slot="event-calendar-time-slot-add"]')
+    await expect(denseTimeSlot.locator('[data-slot="event-calendar-time-slot-frame"]')).toHaveCount(
+        0
+    )
+    await expect(denseSlotAdd).toHaveCSS('opacity', '0')
+    await expect(denseSlotAdd).toHaveCSS('pointer-events', 'none')
+    await expect(denseTimeSlot.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    const denseTimeSlotBeforeHoverBox = await denseTimeSlot.boundingBox()
+    await denseTimeSlot.hover()
+    await expect(denseSlotAdd).toHaveCSS('opacity', '1')
+    await expect(denseSlotAdd).toHaveCSS('pointer-events', 'auto')
+    const denseSlotAddBox = await denseSlotAdd.boundingBox()
+    const firstDenseEventBox = await denseTimeSlot
+        .locator('[data-slot="event-calendar-event"]')
+        .first()
+        .boundingBox()
+    const denseTimeSlotBox = await denseTimeSlot.boundingBox()
+    expect(denseSlotAddBox?.x).toBeGreaterThanOrEqual(denseTimeSlotBox?.x ?? 0)
+    expect((denseSlotAddBox?.x ?? 0) + (denseSlotAddBox?.width ?? 0)).toBeLessThanOrEqual(
+        (denseTimeSlotBox?.x ?? 0) + (denseTimeSlotBox?.width ?? 0)
+    )
+    expect(denseSlotAddBox?.y).toBeGreaterThanOrEqual(denseTimeSlotBox?.y ?? 0)
+    expect((denseSlotAddBox?.y ?? 0) + (denseSlotAddBox?.height ?? 0)).toBeLessThanOrEqual(
+        (denseTimeSlotBox?.y ?? 0) + (denseTimeSlotBox?.height ?? 0)
+    )
+    expect(denseSlotAddBox?.y).toBeLessThanOrEqual(
+        firstDenseEventBox?.y ?? Number.POSITIVE_INFINITY
+    )
+    const denseSlotStackZIndex = await denseTimeSlot
+        .locator('[data-slot="event-calendar-event"]')
+        .first()
+        .evaluate(element => getComputedStyle(element.parentElement ?? element).zIndex)
+    const denseSlotAddZIndex = await denseSlotAdd.evaluate(
+        element => getComputedStyle(element).zIndex
+    )
+    expect(Number(denseSlotAddZIndex)).toBeGreaterThan(Number(denseSlotStackZIndex))
+    expect(denseTimeSlotBox?.height).toBe(denseTimeSlotBeforeHoverBox?.height)
+    expect(denseTimeSlotBox?.width).toBe(denseTimeSlotBeforeHoverBox?.width)
+    await expect(
+        weekView.locator('[data-slot="event-calendar-time-slot"][data-empty]').first()
+    ).toHaveCount(1)
+    const emptySlotAdd = emptyTimeSlot.locator('[data-slot="event-calendar-time-slot-add"]')
+    await expect(emptyTimeSlot.locator('[data-slot="event-calendar-time-slot-frame"]')).toHaveCount(
+        0
+    )
+    await expect(emptySlotAdd).toHaveCSS('opacity', '0')
+    await emptyTimeSlot.hover()
+    await expect(emptySlotAdd).toHaveCSS('opacity', '1')
+    const emptyTimeSlotBox = await emptyTimeSlot.boundingBox()
+    expect(denseTimeSlotBox?.height).toBeGreaterThan(emptyTimeSlotBox?.height ?? 0)
+
+    await emptySlotAdd.click()
+    const composeUrl = new URL(page.url())
+    expect(composeUrl.pathname).toBe(`/dashboard/projects/${projectId}/compose`)
+    expect(composeUrl.searchParams.get('date')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(composeUrl.searchParams.get('time')).toBe('00:00')
+    await expect(page.getByRole('heading', { name: 'Compose', exact: true })).toBeVisible()
+    await expect(page.locator('input[type="datetime-local"]').first()).toHaveValue(
+        `${composeUrl.searchParams.get('date')}T00:00`
+    )
+})
+
+test('preserves day view and expands dense ReUI month cells in place', async ({ page }) => {
+    const { calendar, suffix } = await createDenseCalendarProject(page)
+
+    await calendar.getByRole('button', { name: 'Day', exact: true }).click()
+    const dayView = calendar.locator('[data-calendar-view="day"]')
+    await expect(dayView).toBeVisible()
+    await expect(dayView.locator('[data-slot="event-calendar-time-grid"]')).toBeVisible()
+    await expect(dayView.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    expect(new URL(page.url()).searchParams.get('view')).toBe('day')
+    await page.reload()
+    await expect(calendar.locator('[data-calendar-view="day"]')).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('view')).toBe('day')
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await calendar.getByRole('button', { name: 'Week', exact: true }).click()
+    const narrowWeek = calendar.locator('[data-calendar-view="week"]')
+    await expect(narrowWeek).toBeVisible()
+    const weekScroll = await narrowWeek
+        .locator('[data-slot="event-calendar-time-grid-scroll"] > div')
+        .evaluate(element => ({
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+        }))
+    expect(weekScroll.scrollWidth).toBeGreaterThan(weekScroll.clientWidth)
+    const narrowWeekScrollSurface = narrowWeek.locator(
+        '[data-slot="event-calendar-time-grid-scroll"]'
+    )
+    await narrowWeekScrollSurface.evaluate(element => {
+        element.scrollLeft = element.scrollWidth - element.clientWidth
+    })
+    await expect
+        .poll(() => narrowWeekScrollSurface.evaluate(element => element.scrollLeft))
+        .toBeGreaterThan(0)
+    const narrowScrollSurfaceBox = await narrowWeekScrollSurface.boundingBox()
+    const narrowTimeGutter = narrowWeek
+        .locator('[data-slot="event-calendar-time-gutter-slot"]')
+        .first()
+    await expect(narrowTimeGutter).toHaveCSS('position', 'sticky')
+    const narrowTimeGutterBox = await narrowTimeGutter.boundingBox()
+    expect(
+        Math.abs((narrowTimeGutterBox?.x ?? 0) - (narrowScrollSurfaceBox?.x ?? 0))
+    ).toBeLessThanOrEqual(1)
+    await narrowWeekScrollSurface.evaluate(element => {
+        element.scrollLeft = 0
+    })
+
+    await calendar.getByRole('button', { name: 'Day', exact: true }).click()
+    const narrowDay = calendar.locator('[data-calendar-view="day"]')
+    await expect(narrowDay).toBeVisible()
+    await expect(narrowDay.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await calendar.getByRole('button', { name: 'Month', exact: true }).click()
+    await expect(calendar.locator('[data-slot="event-calendar-month-view"]')).toBeVisible()
+
+    const denseCell = calendar
+        .locator('[data-slot="event-calendar-month-cell"]')
+        .filter({ hasText: `E2E-122 ReUI publication 1 ${suffix}` })
+        .first()
+    await expect(denseCell).toBeVisible()
+    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(5)
+    await expect(denseCell.getByText('+1 more', { exact: true })).toBeVisible()
+
+    const collapsedBox = await denseCell.boundingBox()
+    await denseCell.locator('[data-slot="event-calendar-month-day-number"]').click()
+    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
+    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await expect(denseCell.locator('[data-slot="event-calendar-more"]')).toHaveCount(0)
+    await expect(page.locator('[data-slot="publication-calendar-day-details"]')).toHaveCount(0)
+    const expandedBox = await denseCell.boundingBox()
+    expect(expandedBox?.height).toBeGreaterThan(collapsedBox?.height ?? 0)
+
+    await denseCell.locator('[data-slot="event-calendar-month-day-number"]').click()
+    await expect(denseCell).not.toHaveAttribute('data-expanded', 'true')
+    await expect(denseCell.getByText('+1 more', { exact: true })).toBeVisible()
+
+    await denseCell.getByText('+1 more', { exact: true }).click()
+    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
+    await expect(denseCell.locator('[data-slot="event-calendar-event"]')).toHaveCount(6)
+    await expect(calendar.locator('[data-slot="event-calendar-more-popover"]')).toHaveCount(0)
+
+    await denseCell.getByRole('button', { name: /E2E-122 ReUI publication 1/ }).click()
+    await expect(
+        page.getByRole('heading', { name: `E2E-122 ReUI publication 1 ${suffix}`, exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(denseCell).toHaveAttribute('data-expanded', 'true')
+})
+
+async function createDenseCalendarProject(page: Page): Promise<{
+    calendar: Locator
+    projectId: string
+    suffix: string
+}> {
+    const suffix = randomUUID().slice(0, 8)
+    const projectId = await createAccountAndProject(page, suffix)
+    const scheduledAt = currentMonthAt(23, 30)
+    const channelName = 'Calendar review destination channel with a deliberately long name'
+    const publications = Array.from({ length: 6 }, (_, index) =>
+        publicationFixture({
+            channelName,
+            deliveryMode: 'automatic',
+            id: `e2e-122-reui-publication-${index + 1}-${suffix}`,
+            postTitle: `E2E-122 ReUI publication ${index + 1} ${suffix}`,
+            projectId,
+            scheduledAt,
+            state: 'scheduled',
+        })
+    )
+
+    await page.route(
+        new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
+        async route => {
+            const requestUrl = new URL(route.request().url())
+            if (
+                route.request().method() !== 'GET' ||
+                requestUrl.pathname !== `/api/projects/${projectId}/publications`
+            ) {
+                await route.continue()
+                return
+            }
+
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    publications,
+                    nextCursor: null,
+                    summary: { total: 6, manual: 0, automatic: 6, scheduled: 6 },
+                }),
+            })
+        }
+    )
+    await page.route(`**/api/projects/${projectId}/publications/due`, async route => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ publications: [] }),
+        })
+    })
+
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
+    const calendar = page.locator('[data-calendar="reui"]')
+    await expect(calendar).toBeVisible()
+
+    return { calendar, projectId, suffix }
+}
 
 function publicationFixture(input: {
     readonly channelName: string
@@ -154,9 +551,41 @@ function publicationFixture(input: {
     }
 }
 
+async function visibleCalendarTimes(scrollSurface: ReturnType<Page['locator']>): Promise<string[]> {
+    return scrollSurface.evaluate(element => {
+        const container = element.getBoundingClientRect()
+        const header = element.querySelector<HTMLElement>(
+            '[data-slot="event-calendar-time-grid-header"]'
+        )
+        const contentTop = Math.max(
+            container.top,
+            header?.getBoundingClientRect().bottom ?? container.top
+        )
+        const visible = Array.from(
+            element.querySelectorAll<HTMLElement>('[data-slot="event-calendar-time-slot"]')
+        )
+            .filter(slot => {
+                const rect = slot.getBoundingClientRect()
+                return rect.bottom > contentTop && rect.top < container.bottom
+            })
+            .map(slot => slot.dataset.time ?? '')
+        return [...new Set(visible)]
+    })
+}
+
 function currentMonthNoon() {
+    return currentMonthAt(12)
+}
+
+function currentMonthAt(hour: number, minute = 0) {
     const now = new Date()
-    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), Math.min(now.getUTCDate(), 28), 12)
+    return Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        Math.min(now.getUTCDate(), 28),
+        hour,
+        minute
+    )
 }
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {

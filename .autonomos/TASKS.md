@@ -234,3 +234,58 @@ the central project reads and projection/realtime reliability.
 ## 🧭 Autonomos ledger reconciliation
 
 - [x] **[META-153]** Reconcile issue completion state with task evidence and isolate explicit follow-ups `Priority: 🟠` `Complexity: S` — [ISSUE-078]; completed accepted issues are resolved with concise evidence, while open worktree/MCP limitations and deliberately deferred UX, account-lifecycle, and analytics work remain visible as separate follow-ups.
+
+## 🧭 Calendar interaction and operational UX follow-up
+
+- [x] **[DESIGN-154]** Establish the Herald operational UX review skill and remove redundant contextual-surface affordances `Priority: 🔴` `Complexity: M` — [ISSUE-079]; reusable hierarchy, one-fact/one-marker, and one-dismissal rules are recorded in the project skill and applied to the calendar publication preview.
+- [x] **[WEB-155]** Separate calendar inspection from publication creation and make date overflow directly inspectable `Priority: 🔴` `Complexity: M` — [ISSUE-080]; day backgrounds and overflow expand the selected cell and its week row in the calendar, five publications remain visible before overflow, add controls create, event clicks preview, and the full publication path remains explicit without leaving the calendar unexpectedly.
+- [x] **[WEB-156]** Recompose the calendar for narrow widths and compare month versus agenda reading modes `Priority: 🟠` `Complexity: L` — [ISSUE-080]; the ReUI calendar is now the default project overview, defaults to a readable agenda below 48rem, keeps month view at wide and tablet widths, offers an intentional horizontally scrollable month view on narrow screens, and preserves dense-day context through view changes and preview dismissal. The previous implementation remains available explicitly with `?calendar=legacy` during review.
+
+## 🗓️ Calendar temporal reading modes
+
+- [x] **[WEB-157]** Add readable week and day calendar views `Priority: 🟠` `Complexity: M` — [ISSUE-081]; expose ReUI's week/day modes with a local, read-only time grid, preserve direct publication preview behavior, anchor the new modes on the current or selected day, and keep the week intentionally horizontally scrollable when its seven columns no longer fit.
+
+## 🗓️ Calendar density and creation follow-up
+
+- [x] **[WEB-158]** Make Week and Day readable with dense publication slots `Priority: 🔴` `Complexity: M` — [ISSUE-082]; replace fixed horizontal overlap columns with content-driven vertical stacking, keep every simultaneous publication individually inspectable, add empty-slot and hover-plus creation through Composer with date/time context, and preserve the intentional Week/Day scope boundary around drag and resize.
+
+## 🗓️ Calendar viewport density
+
+- [x] **[WEB-159]** Reclaim empty Week/Day space without hiding hours `Priority: 🔴` `Complexity: S` — [ISSUE-083]; compact empty slots, remove the duplicate inner minimum, tighten the time gutter and grid gaps, keep occupied slots content-driven, and verify dense content reaches the first viewport without changing the complete 24-hour range.
+
+## 🧱 Calendar column density and event treatment
+
+- [x] **[WEB-160]** Make calendar columns readable, resizable, and visually consistent across views `Priority: 🟠` `Complexity: M` — [ISSUE-084]; keep Week/Day columns above a readable minimum with bounded pointer/keyboard resizing persisted per project/view, align Month's gutters and compact cell rhythm with the time grid, and replace accent-tinted/ringed publication cards with neutral surfaces plus one semantic status marker.
+
+## 🧾 Calendar label containment follow-up
+
+- [x] **[WEB-161]** Keep long channel labels contained in compact calendar rows `Priority: 🟠` `Complexity: S` — [ISSUE-085]; make Agenda channel labels shrink and truncate without horizontal overflow, preserve the complete value for accessible and intentional hover access, and cover a realistic long destination name in the browser scenario.
+- [x] **[WEB-162]** Adapt the initial Week/Day time-grid anchor to visible publication data `Priority: 🟠` `Complexity: M` — [ISSUE-086]; position populated ranges near their earliest timed publication with a small context lead, keep empty ranges at `00:00`, preserve the complete timeline and manual scrolling, and cover both states with unit and browser evidence. The anchor is applied once per view/range and initial empty-to-timed transition, so ordinary renders and manual scrolling retain control.
+
+## 🧪 Adaptive calendar edge-case verification
+
+- [x] **[WEB-163]** Prove the adaptive Week/Day anchor across temporal edge cases `Priority: 🟠` `Complexity: S` — [ISSUE-087]; cover late-night data, non-UTC display timezones, and occurrences crossing the visible range boundary with deterministic unit evidence plus a populated browser check, without changing the existing timeline or viewport policy. Unit, browser, full gate, and integrated-browser evidence confirm the behavior.
+
+## 🧭 Calendar continuity and state persistence
+
+- [x] **[WEB-164]** Make the populated Week/Day anchor visibly effective and persist the selected calendar view `Priority: 🟠` `Complexity: M` — [ISSUE-088] [ISSUE-089]; give the time grid a real bounded scroll surface so data-aware positioning is observable without hiding hours, keep headers aligned with the scrolled columns, make `view` a validated overview query source of truth with responsive fallback when absent, and cover empty/populated anchor behavior plus reload persistence in unit and browser evidence. Full format, lint, typecheck/i18n, unit, browser, and package-build validation passed.
+
+## 🧭 Calendar context continuity
+
+- [x] **[WEB-165]** Persist the focused calendar date and apply the route history policy `Priority: 🟠` `Complexity: M` — [ISSUE-090]; validate a canonical `date=YYYY-MM-DD`, make Month/Week/Day/Agenda derive their context from it, use `replace` for reading-state changes, preserve other overview search values, and cover reload, view switching, period navigation, and explicit task navigation. Implemented with timezone-safe civil-date parsing and browser coverage.
+
+## 🎨 Calendar month context
+
+- [x] **[DESIGN-166]** Distinguish outside-month cells with a restrained surface treatment `Priority: 🔵` `Complexity: S` — [ISSUE-091]; keep adjacent-month dates interactive while adding one theme-aware diagonal hatch that respects the surface grammar and does not introduce borders, shadows, or disabled semantics. Implemented and visually verified in light and dark themes.
+
+## ⌨️ Calendar keyboard navigation pilot
+
+- [x] **[WEB-167]** Add focused calendar reading shortcuts with TanStack React Hotkeys `Priority: 🔵` `Complexity: M` — [ISSUE-092]; implement `T`, `M/W/D/A`, and `[/]` period commands only while the calendar owns focus, ignore editable controls and contextual surfaces, reuse existing view/date callbacks, add keyboard metadata, and cover keyboard behavior without creating a global shortcut layer. Implemented with scoped target registration and browser coverage.
+
+## 🧭 Calendar affordance disclosure follow-up
+
+- [x] **[DESIGN-168]** Make the selected calendar view and local reading shortcuts visibly discoverable `Priority: 🟠` `Complexity: S` — [ISSUE-093]; use an explicit filled active surface, add shared `Kbd` primitives to the view/navigation controls, keep disclosure local and responsive, and preserve the existing shortcut scope and URL behavior. Implemented with light/dark integrated-browser review and targeted accessibility assertions.
+- [x] **[WEB-169]** Put the Week/Day create action in a content-aware slot header `Priority: 🟠` `Complexity: M` — [ISSUE-094]; keep occupied-slot actions above stacked publications, keep empty slots compact, preserve separate inspect/create intent, and cover dense, empty, keyboard-focus, and narrow-width states. Implemented with six-publication dense-stack browser coverage and full repository validation.
+- [x] **[WEB-170]** Move the dense Week/Day action frame outside the cell `Priority: 🔴` `Complexity: S` — [ISSUE-095]; remove the inner padding/header surface, show a non-flowing outer envelope only on hover/focus, keep the publication stack’s geometry unchanged at rest, and verify the external create action remains usable without covering events. Implemented with direct publication children, an external top action band, and light/dark integrated-browser review.
+- [x] **[WEB-171]** Overlay Week/Day creation in the cell, slim shortcut disclosure, and pin the time gutter `Priority: 🔴` `Complexity: M` — [ISSUE-096]; keep the `+` inside the existing cell without layout shift or an external frame, remove the noisy navigation keycaps while retaining a compact view-group disclosure, make `Kbd` visibly distinct without shadow-only styling, and keep the hours gutter visible during horizontal scrolling. Implemented with in-cell z-order assertions, deterministic vertical-anchor coverage, horizontal sticky-gutter coverage, and light/dark integrated review.
+- [x] **[WEB-172]** Retire the reviewed calendar fallback and make ReUI canonical `Priority: 🟠` `Complexity: S` — [ISSUE-097]; remove the legacy overview query branch, delete the unreachable legacy month/agenda implementation, update browser coverage and user-facing references, then prove the canonical calendar still supports the existing route, view, date, creation, inspection, density, and responsive contracts. Implemented with canonical naming, dead-route removal, generated route/i18n refresh, focused calendar coverage, and the full repository gate.

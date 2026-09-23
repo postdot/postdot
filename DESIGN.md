@@ -92,6 +92,20 @@ future landing-page decisions remain explicit below.
   date grid. On narrow screens, replace the compressed seven-column grid with
   an agenda grouped by day. Manual and automatic destinations share the same
   calendar, while delivery state and due-human work remain visible as state.
+  In the experimental interaction model, an event opens an in-context
+  publication preview, the day add control is the create entry point, and a
+  day background or overflow affordance expands the selected cell and its week
+  row to reveal the complete date context in the calendar itself rather than
+  silently creating, opening a drawer, or nesting another inspection step.
+  Month and agenda are distinct reading
+  modes: month scans distribution, while agenda reads ordered work. The exact
+  responsive transition remains provisional until it is reviewed with dense
+  realistic data.
+  Week and Day use a data-aware initial vertical position: when timed work is
+  visible, the first frame opens near the earliest timed publication with a
+  small context lead; when no timed work is present, the existing `00:00`
+  baseline remains. This only chooses the initial position, never hides hours,
+  and must not repeatedly override manual scrolling.
 - Route job contract: Overview answers what deserves attention or what the
   operator should do next; Compose creates and reviews one source fan-out;
   Calendar scans time and provides a direct date-oriented entry into Compose;
@@ -103,7 +117,13 @@ future landing-page decisions remain explicit below.
   contextual detail, and meaningful iconography rather than removing capability.
   Keep required state, accessibility names, recovery guidance, and destructive
   action consequences available. Repeated explanation is optional; the next
-  meaningful action is not.
+  meaningful action is not. When invocation already establishes the context,
+  the contextual surface should lead with the invoked object instead of adding
+  a label that merely says what the surface is. A dismissible contextual
+  surface uses the primitive's close behavior and does not add a second close
+  action without a distinct task reason. One fact should have one visual
+  marker; a status component that owns its marker must not receive a second
+  decorative dot.
 - Sidebar menu buttons that render a trailing status badge reserve the badge's
   width before the channel label truncates. Collapsed icon mode overrides that
   reservation so the icon control remains centered in the rail.
@@ -289,6 +309,13 @@ building it; the current app contract must not silently decide those choices.
   surface corners, visible field borders, mismatched control heights, and
   alignment caused by uneven helper text. These are system rules, not isolated
   page exceptions.
+- Owner review note: 2026-09-12 — the owner rejected redundant preview labels,
+  duplicate dismissal affordances, and a second status marker. For the
+  project calendar, day inspection must remain in the calendar flow: the
+  selected cell grows with its week row and reveals all scheduled publications,
+  while the add control remains the singular create entry point. Mobile
+  density and the final month/agenda transition remain open for the WEB-156
+  checkpoint.
 - Accepted changes: 2026-09-01 — Cobalt accent, neutral surface-led
   foundation, purposeful lines, rare depth, and task-dependent density —
   accepted after H-10 owner review; 2026-09-02 — Graphite/Ash low-chroma

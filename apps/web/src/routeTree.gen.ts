@@ -16,7 +16,6 @@ import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboa
 import { Route as DashboardSettingsAccessRouteImport } from './routes/dashboard/settings/access'
 import { Route as DashboardSettingsProviderApplicationsRouteImport } from './routes/dashboard/settings/provider-applications'
 import { Route as DashboardProjectsProjectIdAccessRouteImport } from './routes/dashboard/projects/$projectId/access'
-import { Route as DashboardProjectsProjectIdCalendarRouteImport } from './routes/dashboard/projects/$projectId/calendar'
 import { Route as DashboardProjectsProjectIdChannelsRouteImport } from './routes/dashboard/projects/$projectId/channels'
 import { Route as DashboardProjectsProjectIdComposeRouteImport } from './routes/dashboard/projects/$projectId/compose'
 import { Route as DashboardProjectsProjectIdMediaRouteImport } from './routes/dashboard/projects/$projectId/media'
@@ -61,12 +60,6 @@ const DashboardProjectsProjectIdAccessRoute =
   DashboardProjectsProjectIdAccessRouteImport.update({
     id: '/access',
     path: '/access',
-    getParentRoute: () => DashboardProjectsProjectIdRoute,
-  } as any)
-const DashboardProjectsProjectIdCalendarRoute =
-  DashboardProjectsProjectIdCalendarRouteImport.update({
-    id: '/calendar',
-    path: '/calendar',
     getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
 const DashboardProjectsProjectIdChannelsRoute =
@@ -120,7 +113,6 @@ export interface FileRoutesByFullPath {
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
-  '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
   '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
@@ -137,7 +129,6 @@ export interface FileRoutesByTo {
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
-  '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
   '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
@@ -155,7 +146,6 @@ export interface FileRoutesById {
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
   '/dashboard/settings/provider-applications': typeof DashboardSettingsProviderApplicationsRoute
   '/dashboard/projects/$projectId/access': typeof DashboardProjectsProjectIdAccessRoute
-  '/dashboard/projects/$projectId/calendar': typeof DashboardProjectsProjectIdCalendarRoute
   '/dashboard/projects/$projectId/channels': typeof DashboardProjectsProjectIdChannelsRoute
   '/dashboard/projects/$projectId/compose': typeof DashboardProjectsProjectIdComposeRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
@@ -174,7 +164,6 @@ export interface FileRouteTypes {
     | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
-    | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
     | '/dashboard/projects/$projectId/compose'
     | '/dashboard/projects/$projectId/media'
@@ -191,7 +180,6 @@ export interface FileRouteTypes {
     | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
-    | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
     | '/dashboard/projects/$projectId/compose'
     | '/dashboard/projects/$projectId/media'
@@ -208,7 +196,6 @@ export interface FileRouteTypes {
     | '/dashboard/settings/access'
     | '/dashboard/settings/provider-applications'
     | '/dashboard/projects/$projectId/access'
-    | '/dashboard/projects/$projectId/calendar'
     | '/dashboard/projects/$projectId/channels'
     | '/dashboard/projects/$projectId/compose'
     | '/dashboard/projects/$projectId/media'
@@ -275,13 +262,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProjectsProjectIdAccessRouteImport
       parentRoute: typeof DashboardProjectsProjectIdRoute
     }
-    '/dashboard/projects/$projectId/calendar': {
-      id: '/dashboard/projects/$projectId/calendar'
-      path: '/calendar'
-      fullPath: '/dashboard/projects/$projectId/calendar'
-      preLoaderRoute: typeof DashboardProjectsProjectIdCalendarRouteImport
-      parentRoute: typeof DashboardProjectsProjectIdRoute
-    }
     '/dashboard/projects/$projectId/channels': {
       id: '/dashboard/projects/$projectId/channels'
       path: '/channels'
@@ -336,7 +316,6 @@ declare module '@tanstack/react-router' {
 
 interface DashboardProjectsProjectIdRouteChildren {
   DashboardProjectsProjectIdAccessRoute: typeof DashboardProjectsProjectIdAccessRoute
-  DashboardProjectsProjectIdCalendarRoute: typeof DashboardProjectsProjectIdCalendarRoute
   DashboardProjectsProjectIdChannelsRoute: typeof DashboardProjectsProjectIdChannelsRoute
   DashboardProjectsProjectIdComposeRoute: typeof DashboardProjectsProjectIdComposeRoute
   DashboardProjectsProjectIdMediaRoute: typeof DashboardProjectsProjectIdMediaRoute
@@ -350,8 +329,6 @@ const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteCh
   {
     DashboardProjectsProjectIdAccessRoute:
       DashboardProjectsProjectIdAccessRoute,
-    DashboardProjectsProjectIdCalendarRoute:
-      DashboardProjectsProjectIdCalendarRoute,
     DashboardProjectsProjectIdChannelsRoute:
       DashboardProjectsProjectIdChannelsRoute,
     DashboardProjectsProjectIdComposeRoute:

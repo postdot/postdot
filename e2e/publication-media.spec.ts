@@ -273,12 +273,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await expect(page.getByRole('heading', { name: 'Overview', level: 1 })).toBeVisible()
-    await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
-    await expect(
-        page.getByText('Schedule a destination to make it appear on the project calendar.', {
-            exact: true,
-        })
-    ).toBeVisible()
+    const overviewCalendar = page.locator('[data-calendar="reui"]')
+    await expect(overviewCalendar).toBeVisible()
+    await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
     const emptyCalendarNewPublication = page.getByRole('button', {
         name: 'New publication',
         exact: true,
@@ -431,22 +428,25 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('link', { name: 'Overview', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
-    const calendarMonth = page.locator('[data-calendar-view="month"]')
+    const calendar = page.locator('[data-calendar="reui"]')
+    const calendarMonth = calendar.locator('[data-calendar-view="month"]')
     await expect(calendarMonth).toBeVisible()
-    await expect(calendarMonth.getByRole('link').filter({ hasText: mixedTitle })).toHaveCount(2)
-    const emptyCalendarDay = calendarMonth
-        .getByRole('link', { name: /Create publication on/ })
-        .first()
+    await expect(
+        calendarMonth.locator('[data-slot="event-calendar-event"]').filter({ hasText: mixedTitle })
+    ).toHaveCount(2)
+    const emptyCalendarDay = calendarMonth.locator('[data-slot="event-calendar-day-add"]').first()
     await expect(emptyCalendarDay).toBeVisible()
     await emptyCalendarDay.click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose\?date=\d{4}-\d{2}-\d{2}$/)
     await expect(page.getByLabel('Default schedule', { exact: true })).toHaveValue(/T09:00$/)
     await page.goBack()
     await expect(calendarMonth).toBeVisible()
-    await page.getByRole('button', { name: 'Next month', exact: true }).click()
-    await expect(page.getByText(/Nothing is scheduled in /)).toBeVisible()
+    await page.getByRole('button', { name: 'Next period', exact: true }).click()
+    await expect(calendarMonth).toBeVisible()
     await page.getByRole('button', { name: 'Today', exact: true }).click()
-    await expect(calendarMonth.getByRole('link').filter({ hasText: mixedTitle })).toHaveCount(2)
+    await expect(
+        calendarMonth.locator('[data-slot="event-calendar-event"]').filter({ hasText: mixedTitle })
+    ).toHaveCount(2)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
