@@ -400,10 +400,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         page.getByRole('button', { name: 'Apply draft to target', exact: true })
     ).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
-    await page
-        .locator('[data-slot="sidebar"]')
-        .getByRole('button', { name: 'New publication', exact: true })
-        .click()
+    await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
 
     await page.locator('input[type="file"]').setInputFiles({
         name: mediaFilename,
@@ -813,7 +810,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
 })
 
 test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
-    test.setTimeout(60_000)
+    test.setTimeout(90_000)
     await mockWebcam(page)
 
     const suffix = randomUUID().slice(0, 8)
@@ -898,20 +895,24 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
     await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
     const mixedResult = (await (await mixedResponse).json()) as { publications: { id: string }[] }
+    const mixedPublicationId = mixedResult.publications[0]?.id
+    if (mixedPublicationId === undefined) throw new Error('Expected a mixed publication')
     const mixedSelector = mixedResult.publications
-        .map(item => `a[href$="/publications/${item.id}"]`)
+        .map(item => `a[data-publication-edit-link="true"][href$="/publications/${item.id}"]`)
         .join(',')
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const mixedPublications = page.locator(mixedSelector)
     await expect(mixedPublications).toHaveCount(2)
     await expect(mixedPublications.first()).toHaveAttribute('data-publication-edit-link', 'true')
-    await expect(mixedPublications.first().getByText('Edit', { exact: true })).toBeVisible()
+    await expect(
+        page
+            .locator('[data-publication-selection-card="true"]')
+            .first()
+            .getByRole('button', { name: 'Edit', exact: true })
+    ).toBeVisible()
 
-    await page
-        .locator('[data-slot="sidebar"]')
-        .getByRole('button', { name: 'New publication', exact: true })
-        .click()
+    await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const attachmentLibrary = page.locator('[data-media-library="true"]')
     await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')
@@ -1157,7 +1158,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mediaOnlyResult = (await (await mediaOnlyResponse).json()) as {
         publications: { id: string }[]
     }
-    const mediaOnlySelector = `a[href$="/publications/${mediaOnlyResult.publications[0]!.id}"]`
+    const mediaOnlySelector = `a[data-publication-edit-link="true"][href$="/publications/${mediaOnlyResult.publications[0]!.id}"]`
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const mediaOnlyPublication = page.locator(mediaOnlySelector).first()
@@ -1207,6 +1208,48 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.reload()
     await expect(page.locator(mixedSelector).first()).toBeVisible()
     await expect(page.locator(mediaOnlySelector).first()).toBeVisible()
+
+    await page.getByRole('link', { name: 'Overview', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    const calendarEditorEvent = page.locator(
+        `[data-calendar-view="month"] [data-slot="event-calendar-event"][data-event-id="${mixedPublicationId}"]`
+    )
+    await expect(calendarEditorEvent).toBeVisible()
+    await calendarEditorEvent.click()
+    await expect(
+        page.getByRole('heading', { name: 'Untitled publication', exact: true })
+    ).toBeVisible()
+    await expect(page.getByText(sourceText, { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Edit publication', exact: true }).click()
+    await expect(page).toHaveURL(
+        new RegExp(
+            `/dashboard/projects/[^/]+/publications/${mixedPublicationId}\\?date=\\d{4}-\\d{2}-\\d{2}&from=calendar&view=month$`
+        )
+    )
+    await expect(page.getByRole('link', { name: 'Back to calendar', exact: true })).toBeVisible()
+
+    const editedCalendarSource = `${sourceText} edited from calendar`
+    const calendarDraftResponse = page.waitForResponse(
+        response =>
+            response.url().endsWith(`/publications/${mixedPublicationId}/draft`) &&
+            response.request().method() === 'PATCH'
+    )
+    await page.locator('#source-body').fill(editedCalendarSource)
+    await expect((await calendarDraftResponse).status()).toBe(200)
+    await page.getByRole('link', { name: 'Back to calendar', exact: true }).click()
+    await expect(page).toHaveURL(
+        /\/dashboard\/projects\/[^/]+\/overview\?date=\d{4}-\d{2}-\d{2}&view=month$/
+    )
+
+    await calendarEditorEvent.click()
+    await expect(page.getByText(editedCalendarSource, { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Close', exact: true }).click()
+    await page.getByRole('link', { name: 'Queue', exact: true }).click()
+    await expect(
+        page.locator(
+            `a[data-publication-edit-link="true"][href$="/publications/${mixedPublicationId}"]`
+        )
+    ).toBeVisible()
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
     await expect(

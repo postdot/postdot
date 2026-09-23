@@ -1,8 +1,10 @@
 import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { type MediaSelection } from '@/components/media-attachment-picker'
+import { PublicationCancellationDialog } from '@/components/publication-cancellation-dialog'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
 import { PublicationEditorPromotionSection } from '@/components/publication-editor-promotion-section'
@@ -36,6 +38,8 @@ import {
 } from '@/lib/api'
 import { dateTimeLocalErrorMessage, parseDateTimeLocal, toDateTimeLocal } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import { projectQueryKeys } from '@/lib/project-realtime'
+import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
 import { updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
@@ -48,9 +52,14 @@ interface PublicationEditorProps {
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
     readonly initialPublicationTags: readonly ProjectTag[]
+    readonly onCancel?: () => Promise<boolean>
     readonly onPublish?: () => Promise<boolean>
     readonly projectTags: readonly ProjectTag[]
     readonly relatedPublications?: readonly PublicationSummary[]
+    readonly backToCalendar?: {
+        readonly date?: string
+        readonly view?: PublicationCalendarView
+    }
     readonly timeZone: string
 }
 
@@ -71,14 +80,17 @@ export function PublicationEditor({
     channels = [],
     initialEditor,
     initialPublicationTags,
+    onCancel,
     onPublish,
     projectId,
     projectTags,
     relatedPublications = [],
+    backToCalendar,
     timeZone,
 }: PublicationEditorProps) {
     useLanguage()
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const recoveryKey = useMemo(
         () => createRecoveryKey(projectId, initialEditor.publication.id),
         [projectId, initialEditor.publication.id]
@@ -155,6 +167,8 @@ export function PublicationEditor({
     const [tagError, setTagError] = useState<string | null>(null)
     const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
     const [manualPublishPending, setManualPublishPending] = useState(false)
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+    const [cancelPending, setCancelPending] = useState(false)
     const requestGeneration = useRef(0)
 
     const availableTags = useMemo(() => {
@@ -185,6 +199,15 @@ export function PublicationEditor({
         sourceConflict ||
         draftRequiresReview ||
         draftDiffersFromTarget
+    const promotionBlocked =
+        dirty ||
+        sourceConflict ||
+        draftRequiresReview ||
+        saveState !== 'saved' ||
+        targetResult.value === null ||
+        sourceIssue !== null
+    const cancellationBlocked =
+        cancelPending || hasLocalChanges || saveState !== 'saved' || isRebasing
     const editorChannels = useMemo(() => {
         const channelsById = new Map(channels.map(channel => [channel.id, channel]))
         const orderedChannelIds = [
@@ -219,6 +242,56 @@ export function PublicationEditor({
         () => getTargetPreviewText(targetResult.value) ?? sourceContent.body?.text ?? '',
         [sourceContent.body?.text, targetResult.value]
     )
+    const currentEditorFingerprint = publicationEditorFingerprint(editor)
+    const incomingEditorFingerprint = publicationEditorFingerprint(initialEditor)
+    const lastIncomingEditorFingerprint = useRef<string | null>(null)
+
+    useEffect(() => {
+        if (initialEditor.publication.id !== editor.publication.id) return
+        if (incomingEditorFingerprint === lastIncomingEditorFingerprint.current) return
+        lastIncomingEditorFingerprint.current = incomingEditorFingerprint
+        if (incomingEditorFingerprint === currentEditorFingerprint) return
+
+        requestGeneration.current += 1
+        if (hasLocalChanges) {
+            setSaveState(current => (current === 'saving' ? current : 'conflict'))
+            setMessage(m.editor_server_newer_local())
+            return
+        }
+
+        setEditor(initialEditor)
+        setSourceContent(initialEditor.post.sourceContent)
+        setTargetText(formatJson(initialEditor.draft.content))
+        setExpectedRevision(initialEditor.draft.revision)
+        setScheduleValue(toDateTimeLocal(initialEditor.publication.scheduledAt, timeZone))
+        setDirty(false)
+        setScheduleDirty(false)
+        setSaveState(
+            initialEditor.draft.sourceRevision !== initialEditor.post.sourceRevision
+                ? 'conflict'
+                : 'saved'
+        )
+        setMessage(m.editor_background_update())
+    }, [
+        currentEditorFingerprint,
+        editor.publication.id,
+        hasLocalChanges,
+        incomingEditorFingerprint,
+        initialEditor,
+        timeZone,
+    ])
+
+    function invalidatePublicationQueries() {
+        void Promise.all([
+            queryClient.invalidateQueries({ queryKey: projectQueryKeys.data(projectId) }),
+            queryClient.invalidateQueries({
+                queryKey: projectQueryKeys.calendarPublications(projectId),
+            }),
+            queryClient.invalidateQueries({
+                queryKey: projectQueryKeys.publicationEditors(projectId),
+            }),
+        ]).catch(() => undefined)
+    }
 
     async function handlePublicationTagIdsChange(nextTagIds: string[]) {
         if (!publicationEditable) return
@@ -233,6 +306,7 @@ export function PublicationEditor({
                 nextTagIds
             )
             setPublicationTagIds(response.tags.map(tag => tag.id))
+            invalidatePublicationQueries()
         } catch (caughtError) {
             setPublicationTagIds(previousTagIds)
             setTagError(formatApiError(caughtError))
@@ -248,6 +322,10 @@ export function PublicationEditor({
         void navigate({
             to: '/dashboard/projects/$projectId/publications/$publicationId',
             params: { projectId, publicationId: publication.id },
+            search:
+                backToCalendar === undefined
+                    ? undefined
+                    : { ...backToCalendar, from: 'calendar' as const },
         })
     }
 
@@ -302,6 +380,7 @@ export function PublicationEditor({
                     setSaveState('saved')
                     setMessage(null)
                     setRecoveryAvailable(false)
+                    invalidatePublicationQueries()
                 })
                 .catch(caughtError => {
                     if (generation !== requestGeneration.current) return
@@ -531,6 +610,7 @@ export function PublicationEditor({
                       ? m.editor_shared_source_rebased_local()
                       : m.editor_shared_source_rebased()
             )
+            invalidatePublicationQueries()
         } catch (caughtError) {
             if (generation !== requestGeneration.current) return
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
@@ -578,6 +658,7 @@ export function PublicationEditor({
             setSaveState('saved')
             setRecoveryAvailable(false)
             setMessage(m.editor_promoted())
+            invalidatePublicationQueries()
         } catch (caughtError) {
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                 setSaveState('conflict')
@@ -620,6 +701,7 @@ export function PublicationEditor({
             setRecoveryAvailable(false)
             removeRecovery(recoveryKey)
             setMessage(m.editor_manual_published())
+            invalidatePublicationQueries()
             return true
         } catch (caughtError) {
             setSaveState('error')
@@ -630,6 +712,48 @@ export function PublicationEditor({
         }
     }
 
+    async function cancelPublication(): Promise<boolean> {
+        if (
+            onCancel === undefined ||
+            editor.publication.state !== 'scheduled' ||
+            cancellationBlocked
+        ) {
+            return false
+        }
+
+        requestGeneration.current += 1
+        setCancelPending(true)
+        setMessage(null)
+        try {
+            const cancelled = await onCancel()
+            if (!cancelled) {
+                setMessage(m.editor_cancel_failed())
+                return false
+            }
+
+            const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            setEditor(response.editor)
+            setSourceContent(response.editor.post.sourceContent)
+            setTargetText(formatJson(response.editor.draft.content))
+            setExpectedRevision(response.editor.draft.revision)
+            setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt, timeZone))
+            setDirty(false)
+            setScheduleDirty(false)
+            setSaveState('saved')
+            setRecoveryAvailable(false)
+            removeRecovery(recoveryKey)
+            setMessage(m.editor_cancelled())
+            invalidatePublicationQueries()
+            return true
+        } catch (caughtError) {
+            setSaveState('error')
+            setMessage(errorMessage(caughtError))
+            return false
+        } finally {
+            setCancelPending(false)
+        }
+    }
+
     async function reconcilePublication(input: PublicationOutcomeResolutionInput) {
         const response = await api.reconcileAmbiguousPublication(
             projectId,
@@ -637,20 +761,32 @@ export function PublicationEditor({
             input
         )
         setEditor(current => ({ ...current, publication: response.publication }))
+        invalidatePublicationQueries()
     }
 
     return (
         <section className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <div className="flex flex-col justify-between gap-5 pb-7 sm:flex-row sm:items-end">
                 <div>
-                    <Link
-                        to="/dashboard/projects/$projectId/queue"
-                        params={{ projectId }}
-                        search={{ tagIds: undefined }}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-                        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                        {m.editor_back_to_queue()}
-                    </Link>
+                    {backToCalendar === undefined ? (
+                        <Link
+                            to="/dashboard/projects/$projectId/queue"
+                            params={{ projectId }}
+                            search={{ filter: undefined, tagIds: undefined }}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+                            <ArrowLeftIcon aria-hidden="true" className="size-4" />
+                            {m.editor_back_to_queue()}
+                        </Link>
+                    ) : (
+                        <Link
+                            to="/dashboard/projects/$projectId/overview"
+                            params={{ projectId }}
+                            search={backToCalendar}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+                            <ArrowLeftIcon aria-hidden="true" className="size-4" />
+                            {m.editor_back_to_calendar()}
+                        </Link>
+                    )}
                     <p className="mt-6 text-xs font-medium text-muted-foreground">
                         {m.editor_title()}
                     </p>
@@ -672,11 +808,26 @@ export function PublicationEditor({
             </div>
 
             <PublicationLifecyclePanel
+                cancelDisabled={cancellationBlocked}
+                onCancel={onCancel === undefined ? undefined : () => setCancelDialogOpen(true)}
                 onPublish={onPublish === undefined ? undefined : recordManualPublication}
-                pending={manualPublicationBlocked}
+                onRetry={
+                    editor.publication.state === 'failed' ? () => void promoteDraft() : undefined
+                }
+                pending={manualPublicationBlocked || cancelPending}
                 publication={editor.publication}
+                retryDisabled={promotionBlocked}
                 timeZone={timeZone}
             />
+
+            {onCancel !== undefined ? (
+                <PublicationCancellationDialog
+                    open={cancelDialogOpen}
+                    onCancel={cancelPublication}
+                    onOpenChange={setCancelDialogOpen}
+                    pending={cancelPending}
+                />
+            ) : null}
 
             <PublicationEditorStatus
                 isRebasing={isRebasing}
@@ -769,16 +920,10 @@ export function PublicationEditor({
 
                         {publicationEditable ? (
                             <PublicationEditorPromotionSection
+                                retry={editor.publication.state === 'failed'}
                                 timeZone={timeZone}
                                 scheduleValue={scheduleValue}
-                                disabled={
-                                    dirty ||
-                                    sourceConflict ||
-                                    draftRequiresReview ||
-                                    saveState !== 'saved' ||
-                                    targetResult.value === null ||
-                                    sourceIssue !== null
-                                }
+                                disabled={promotionBlocked}
                                 draftRequiresReview={draftRequiresReview}
                                 draftDiffersFromTarget={draftDiffersFromTarget}
                                 onScheduleChange={value => {
@@ -969,6 +1114,34 @@ function recoveryContentDiffers(
         formatJson(recovery.sourceContent) !== formatJson(current.post.sourceContent) ||
         recovery.targetText !== formatJson(current.draft.content)
     )
+}
+
+function publicationEditorFingerprint(editor: PublicationEditorState): string {
+    const publication = editor.publication
+    const draft = editor.draft
+    const target = editor.selectedTarget
+
+    return [
+        publication.id,
+        publication.state,
+        publication.updatedAt,
+        publication.scheduledAt ?? '',
+        publication.publishedAt ?? '',
+        publication.externalId ?? '',
+        publication.externalUrl ?? '',
+        publication.errorMessage ?? '',
+        publication.reviewState,
+        publication.targetRevisionId ?? '',
+        draft.id,
+        draft.revision,
+        draft.updatedAt,
+        draft.sourceRevision,
+        draft.profileVersionId,
+        draft.reviewState,
+        target?.id ?? '',
+        target?.sequence ?? '',
+        target?.sourceRevision ?? '',
+    ].join('|')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

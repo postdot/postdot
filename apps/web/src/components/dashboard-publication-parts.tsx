@@ -1,119 +1,428 @@
-import { Badge } from '@herald/ui/components/badge'
+import { Button } from '@herald/ui/components/button'
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@herald/ui/components/tooltip'
 import { cn } from '@herald/ui/lib/utils'
-import { ListIcon } from '@solar-icons/react/bold/list'
+import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
+import { ClipboardCheckIcon } from '@solar-icons/react/bold/clipboard-check'
+import { EyeIcon } from '@solar-icons/react/bold/eye'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { Link } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 import type { PublicationSummary } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import { canEditPublication } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
+
+import { PublicationEmptyState } from './publication-empty-state'
 
 export type PublicationState = PublicationSummary['state']
 
 export function PublicationList({
     emptyDescription,
     emptyAction,
+    emptyIllustration,
     emptyTitle,
+    allSelected = false,
     publications,
+    duePublicationIds,
+    onPublish,
+    onToggleAll,
+    pending = false,
+    onToggleSelection,
+    selectedPublicationIds,
     timeZone,
 }: {
-    readonly emptyDescription?: string
+    readonly emptyDescription?: string | null
     readonly emptyAction?: ReactNode
+    readonly emptyIllustration?: ReactNode
     readonly emptyTitle?: string
+    readonly allSelected?: boolean
     readonly publications: readonly PublicationSummary[]
+    readonly duePublicationIds?: ReadonlySet<string>
+    readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onToggleAll?: () => void
+    readonly pending?: boolean
+    readonly onToggleSelection?: (publication: PublicationSummary) => void
+    readonly selectedPublicationIds?: ReadonlySet<string>
     readonly timeZone: string
 }) {
     useLanguage()
     if (publications.length === 0) {
         return (
-            <div
-                aria-live="polite"
-                className="mt-4 flex min-w-0 flex-wrap items-center gap-3 border border-dashed border-border/70 bg-muted/35 px-4 py-4 text-left"
-                role="status">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
-                    <ListIcon aria-hidden="true" className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                    <p className="font-heading text-sm font-medium tracking-tight">
-                        {emptyTitle ?? m.publication_empty_title()}
-                    </p>
-                    <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
-                        {emptyDescription ?? m.publication_empty_description()}
-                    </p>
-                </div>
-                {emptyAction ? <div className="ml-auto shrink-0">{emptyAction}</div> : null}
-            </div>
+            <PublicationEmptyState
+                action={emptyAction}
+                description={
+                    emptyDescription === undefined
+                        ? m.publication_empty_description()
+                        : emptyDescription
+                }
+                illustration={emptyIllustration}
+                title={emptyTitle ?? m.publication_empty_title()}
+            />
         )
     }
 
+    const selectionEnabled = onToggleSelection !== undefined && selectedPublicationIds !== undefined
+    const selectedVisibleCount = selectionEnabled
+        ? publications.reduce(
+              (count, publication) => count + (selectedPublicationIds.has(publication.id) ? 1 : 0),
+              0
+          )
+        : 0
+    const resolvedAllSelected =
+        allSelected || (publications.length > 0 && selectedVisibleCount === publications.length)
+
     return (
-        <div className="mt-4 divide-y divide-border/70">
-            {publications.map(publication => (
-                <PublicationRow
-                    key={publication.id}
-                    publication={publication}
-                    timeZone={timeZone}
-                />
-            ))}
+        <TooltipProvider delay={450}>
+            <div
+                className="mt-4 overflow-hidden rounded-lg bg-surface-inset/55 p-1 shadow-surface"
+                data-publication-list="true">
+                {selectionEnabled ? (
+                    <PublicationTableHeader
+                        allSelected={resolvedAllSelected}
+                        disabled={pending || onToggleAll === undefined}
+                        indeterminate={selectedVisibleCount > 0 && !resolvedAllSelected}
+                        onToggleAll={onToggleAll}
+                    />
+                ) : null}
+                <div className="space-y-1">
+                    {publications.map(publication => {
+                        const selected = selectedPublicationIds?.has(publication.id) ?? false
+                        return (
+                            <PublicationListItem
+                                key={publication.id}
+                                due={duePublicationIds?.has(publication.id) ?? false}
+                                onPublish={onPublish}
+                                onToggleSelection={
+                                    selectionEnabled
+                                        ? () => onToggleSelection(publication)
+                                        : undefined
+                                }
+                                pending={pending}
+                                publication={publication}
+                                selected={selected}
+                                timeZone={timeZone}
+                            />
+                        )
+                    })}
+                </div>
+            </div>
+        </TooltipProvider>
+    )
+}
+
+function PublicationTableHeader({
+    allSelected,
+    disabled,
+    indeterminate,
+    onToggleAll,
+}: {
+    readonly allSelected: boolean
+    readonly disabled: boolean
+    readonly indeterminate: boolean
+    readonly onToggleAll?: () => void
+}) {
+    return (
+        <div
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 rounded-md bg-surface-field/35 px-2 py-2 sm:px-3"
+            data-publication-table-header="true">
+            <SelectionCheckbox
+                checked={allSelected}
+                dataQueueSelectAll
+                disabled={disabled}
+                indeterminate={indeterminate}
+                label={allSelected ? m.queue_clear_selection() : m.queue_select_all_visible()}
+                onChange={() => onToggleAll?.()}
+            />
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:gap-7">
+                <div className="min-w-0">
+                    <span className="block truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                        {m.queue_column_publication()}
+                    </span>
+                    <span className="mt-1 block truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground lg:hidden">
+                        {m.queue_column_destination()}
+                    </span>
+                </div>
+                <span className="hidden truncate text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground lg:block">
+                    {m.queue_column_destination()}
+                </span>
+                <span className="text-right text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                    {m.queue_column_action()}
+                </span>
+            </div>
         </div>
     )
 }
 
+function PublicationListItem({
+    due,
+    onPublish,
+    onToggleSelection,
+    pending,
+    publication,
+    selected,
+    timeZone,
+}: {
+    readonly due: boolean
+    readonly onPublish?: (publicationId: string) => Promise<boolean>
+    readonly onToggleSelection?: () => void
+    readonly pending: boolean
+    readonly publication: PublicationSummary
+    readonly selected: boolean
+    readonly timeZone: string
+}) {
+    const selectionEnabled = onToggleSelection !== undefined
+    const showManualAction = due && onPublish !== undefined
+    const editable = canEditPublication(publication.state)
+
+    return (
+        <div
+            data-publication-selection-card="true"
+            data-publication-selection-active={selected || undefined}
+            className={cn(
+                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55',
+                selected && 'bg-primary/[0.07]'
+            )}>
+            <div
+                className={cn(
+                    'grid min-w-0 items-start gap-x-2',
+                    selectionEnabled ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1'
+                )}>
+                {selectionEnabled ? (
+                    <SelectionCheckbox
+                        checked={selected}
+                        dataPublicationSelectionToggle
+                        label={
+                            selected
+                                ? m.queue_deselect_publication({
+                                      title: publication.postTitle ?? m.publication_untitled_post(),
+                                  })
+                                : m.queue_select_publication({
+                                      title: publication.postTitle ?? m.publication_untitled_post(),
+                                  })
+                        }
+                        className="mt-4 ml-2"
+                        onChange={() => onToggleSelection?.()}
+                    />
+                ) : null}
+                <PublicationRow
+                    action={
+                        showManualAction ? (
+                            <Tooltip>
+                                <TooltipTrigger
+                                    render={
+                                        <Button
+                                            aria-label={m.publication_record_published()}
+                                            data-publication-action="record-published"
+                                            disabled={pending}
+                                            onClick={() => void onPublish(publication.id)}
+                                            size="icon-sm"
+                                            type="button"
+                                            variant="secondary">
+                                            <CheckSquareIcon aria-hidden="true" />
+                                        </Button>
+                                    }
+                                />
+                                <TooltipContent>{m.publication_record_published()}</TooltipContent>
+                            </Tooltip>
+                        ) : (
+                            <Button
+                                aria-label={editable ? m.common_edit() : m.common_view()}
+                                className="text-muted-foreground hover:text-foreground"
+                                nativeButton={false}
+                                render={
+                                    <Link
+                                        params={{
+                                            projectId: publication.projectId,
+                                            publicationId: publication.id,
+                                        }}
+                                        to="/dashboard/projects/$projectId/publications/$publicationId"
+                                    />
+                                }
+                                size="sm"
+                                variant="ghost">
+                                {editable ? (
+                                    <PenIcon aria-hidden="true" className="size-4" />
+                                ) : (
+                                    <EyeIcon aria-hidden="true" className="size-4" />
+                                )}
+                                <span>{editable ? m.common_edit() : m.common_view()}</span>
+                            </Button>
+                        )
+                    }
+                    due={due}
+                    publication={publication}
+                    timeZone={timeZone}
+                />
+            </div>
+        </div>
+    )
+}
+
+function SelectionCheckbox({
+    checked,
+    className,
+    dataPublicationSelectionToggle = false,
+    dataQueueSelectAll = false,
+    disabled = false,
+    indeterminate = false,
+    label,
+    onChange,
+}: {
+    readonly checked: boolean
+    readonly className?: string
+    readonly dataPublicationSelectionToggle?: boolean
+    readonly dataQueueSelectAll?: boolean
+    readonly disabled?: boolean
+    readonly indeterminate?: boolean
+    readonly label: string
+    readonly onChange: (checked: boolean) => void
+}) {
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (inputRef.current !== null) inputRef.current.indeterminate = indeterminate
+    }, [indeterminate])
+
+    return (
+        <label
+            className={cn(
+                'flex size-6 shrink-0 cursor-pointer items-center justify-center',
+                className
+            )}
+            data-publication-selection-toggle={dataPublicationSelectionToggle ? 'true' : undefined}
+            data-queue-select-all={dataQueueSelectAll ? 'true' : undefined}>
+            <input
+                ref={inputRef}
+                aria-label={label}
+                checked={checked}
+                className="peer sr-only"
+                disabled={disabled}
+                onChange={event => onChange(event.currentTarget.checked)}
+                type="checkbox"
+            />
+            <span
+                aria-hidden="true"
+                className={cn(
+                    'flex size-5 items-center justify-center rounded-[5px] border border-muted-foreground/45 bg-transparent text-transparent transition-[background-color,border-color,box-shadow]',
+                    'peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background',
+                    'peer-disabled:cursor-not-allowed peer-disabled:opacity-50',
+                    (checked || indeterminate) &&
+                        'border-primary bg-primary text-primary-foreground shadow-control'
+                )}>
+                {checked ? (
+                    <CheckSquareIcon className="size-3.5" />
+                ) : indeterminate ? (
+                    <span className="h-0.5 w-2.5 rounded-full bg-current" />
+                ) : null}
+            </span>
+        </label>
+    )
+}
+
 export function PublicationRow({
+    action,
+    due = false,
     publication,
     timeZone,
 }: {
+    readonly action?: ReactNode
+    readonly due?: boolean
     readonly publication: PublicationSummary
     readonly timeZone: string
 }) {
     const { locale } = useLanguage()
     return (
-        <Link
-            to="/dashboard/projects/$projectId/publications/$publicationId"
-            params={{ projectId: publication.projectId, publicationId: publication.id }}
-            data-publication-edit-link="true"
-            className="group grid min-w-0 gap-4 rounded-md px-1 py-4 transition-[background-color] hover:bg-muted/35 sm:px-3 lg:grid-cols-[minmax(11rem,0.8fr)_minmax(0,1.3fr)_auto] lg:items-center lg:gap-7">
-            <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">{m.publication_source_post()}</p>
-                <h3 className="mt-1 truncate text-sm font-medium">
-                    {publication.postTitle ?? m.publication_untitled_post()}
-                </h3>
-            </div>
-            <div className="min-w-0 pl-0 lg:pl-3">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    <span
-                        className={cn(
-                            'size-2 shrink-0 rounded-full bg-current',
-                            channelMarkerClass(
-                                publication.deliveryMode === 'automatic'
-                                    ? 'automatic'
-                                    : 'manual-message'
-                            )
-                        )}
-                        aria-hidden="true"
-                    />
-                    <span className="truncate text-sm font-medium">{publication.channelName}</span>
-                    <span className="text-xs text-muted-foreground">
-                        {publication.deliveryMode === 'automatic'
-                            ? m.publication_automatic()
-                            : m.publication_manual()}
-                    </span>
-                    <PublicationStatus state={publication.state} />
+        <div
+            className={cn(
+                'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-2 py-3 sm:px-3',
+                action
+                    ? 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:gap-7'
+                    : 'lg:grid-cols-1'
+            )}>
+            <Link
+                to="/dashboard/projects/$projectId/publications/$publicationId"
+                params={{ projectId: publication.projectId, publicationId: publication.id }}
+                data-publication-edit-link="true"
+                className={cn(
+                    'col-start-1 group min-w-0',
+                    action
+                        ? 'lg:col-span-2 lg:grid lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)] lg:items-center lg:gap-7'
+                        : 'col-span-full'
+                )}>
+                <div className="min-w-0">
+                    <h3
+                        className="truncate text-sm font-medium"
+                        title={publication.postTitle ?? m.publication_untitled_post()}>
+                        {publication.postTitle ?? m.publication_untitled_post()}
+                    </h3>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                    {formatSchedule(publication.scheduledAt, timeZone, locale)}
-                    {publication.draftDiffersFromTarget
-                        ? ` · ${m.publication_draft_changes_pending()}`
-                        : ''}
-                </p>
-            </div>
-            <span className="hidden items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors group-hover:text-primary lg:flex">
-                <PenIcon aria-hidden="true" className="size-4" />
-                <span>{m.common_edit()}</span>
-            </span>
-        </Link>
+                <div className="min-w-0">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                        <span
+                            className={cn(
+                                'size-2 shrink-0 rounded-full bg-current',
+                                channelMarkerClass(
+                                    publication.deliveryMode === 'automatic'
+                                        ? 'automatic'
+                                        : 'manual-message'
+                                )
+                            )}
+                            aria-hidden="true"
+                        />
+                        <span
+                            className="truncate text-sm font-medium"
+                            title={publication.channelName}>
+                            {publication.channelName}
+                        </span>
+                        {due ? (
+                            <PublicationDueIndicator />
+                        ) : (
+                            <PublicationStatus state={publication.state} />
+                        )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        {formatSchedule(publication.scheduledAt, timeZone, locale)}
+                        {publication.draftDiffersFromTarget ? (
+                            <span className="text-state-attention">
+                                {' · '}
+                                {m.publication_draft_changes_pending()}
+                            </span>
+                        ) : null}
+                    </p>
+                </div>
+            </Link>
+            {action ? (
+                <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end lg:col-start-3">
+                    {action}
+                </div>
+            ) : null}
+        </div>
+    )
+}
+
+function PublicationDueIndicator() {
+    return (
+        <Tooltip>
+            <TooltipTrigger
+                render={
+                    <span
+                        aria-label={m.publication_due_manual()}
+                        className="inline-flex size-5 shrink-0 cursor-help items-center justify-center text-state-attention outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                        role="img"
+                        tabIndex={0}>
+                        <ClipboardCheckIcon aria-hidden="true" className="size-4" />
+                    </span>
+                }
+            />
+            <TooltipContent>{m.publication_due_manual()}</TooltipContent>
+        </Tooltip>
     )
 }
 
@@ -127,15 +436,14 @@ export function PublicationStatus({
     useLanguage()
     const label = due ? m.publication_due_manual() : publicationStateLabel(state)
     return (
-        <Badge
-            variant="outline"
+        <span
             className={cn(
-                'border-0 bg-transparent px-0',
+                'inline-flex items-center gap-1.5 text-xs font-medium',
                 due ? 'text-state-attention' : statusClass(state)
             )}>
             <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
             {label}
-        </Badge>
+        </span>
     )
 }
 

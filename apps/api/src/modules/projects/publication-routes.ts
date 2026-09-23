@@ -17,6 +17,8 @@ import {
     reconcilePublicationBody,
     promotePublicationDraftBody,
     rebasePublicationDraftBody,
+    cancelPublicationsBody,
+    reschedulePublicationsBody,
     savePublicationDraftBody,
 } from './models'
 import type { AuthenticatedElysia, ManualStore } from './types'
@@ -94,6 +96,103 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
+                return { publications }
+            }
+        )
+        .patch(
+            '/api/projects/:projectId/publications/schedule',
+            {
+                auth: true,
+                body: reschedulePublicationsBody,
+                params: projectParams,
+                response: {
+                    200: Type.Object({ publications: Type.Array(publicationSchema) }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'reschedulePublications',
+                    summary: 'Reschedule a group of queued publications',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const publications = manualStore.reschedulePublications({
+                    projectId: params.projectId,
+                    publicationIds: body.publicationIds,
+                    scheduledAt: body.scheduledAt,
+                    subjectId: user.id,
+                })
+                if (publications === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+
+                options.onWorkScheduled?.()
+                return { publications }
+            }
+        )
+        .patch(
+            '/api/projects/:projectId/publications/cancel',
+            {
+                auth: true,
+                body: cancelPublicationsBody,
+                params: projectParams,
+                response: {
+                    200: Type.Object({ publications: Type.Array(publicationSchema) }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'cancelPublications',
+                    summary: 'Cancel a group of queued publications',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const publications = manualStore.cancelPublications({
+                    projectId: params.projectId,
+                    publicationIds: body.publicationIds,
+                    subjectId: user.id,
+                })
+                if (publications === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+
+                options.onWorkScheduled?.()
                 return { publications }
             }
         )

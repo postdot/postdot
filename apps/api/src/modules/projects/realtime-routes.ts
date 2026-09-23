@@ -34,6 +34,8 @@ const supportedProjectEventSubjects = {
     'publication.ready': 'publication',
     'publication.published': 'publication',
     'publication.reconciled': 'publication',
+    'publication.rescheduled': 'publication',
+    'publication.cancelled': 'publication',
     'publication.execution.claimed': 'publication',
     'publication.execution.effect_started': 'publication',
     'publication.execution.succeeded': 'publication',

@@ -3,7 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { ChannelProfileDefinition, DeclarativeHttpExecutionContract } from '@herald/core'
+import type {
+    ChannelProfileDefinition,
+    DeclarativeHttpExecutionContract,
+    SchedulerTimers,
+} from '@herald/core'
 import { createCustomHttpTransport } from '@herald/custom-http'
 import {
     closeDatabase,
@@ -958,6 +962,194 @@ describe('publication worker', () => {
         }
     })
 
+    it('runs scheduled work through the worker scheduler and a local provider sandbox', async () => {
+        let currentTime = now
+        const attempts = new Map<string, number>()
+        const deliveries: Array<{
+            readonly label: string
+            readonly attempt: number
+            readonly status: number
+        }> = []
+        const receiver = Bun.serve({
+            port: 0,
+            async fetch(request) {
+                const envelope = (await request.json()) as {
+                    readonly content?: { readonly commentary?: string }
+                }
+                const label = envelope.content?.commentary ?? 'unknown'
+                const attempt = (attempts.get(label) ?? 0) + 1
+                attempts.set(label, attempt)
+
+                const status =
+                    label === 'retry'
+                        ? attempt === 1
+                            ? 429
+                            : 201
+                        : label === 'failed'
+                          ? 400
+                          : label === 'ambiguous'
+                            ? 500
+                            : 201
+                deliveries.push({ label, attempt, status })
+                return Response.json({ accepted: status === 201 }, { status })
+            },
+        })
+        const receiverPort = receiver.port
+        if (receiverPort === undefined) throw new Error('The provider sandbox has no port')
+        const timers = new WorkerFakeTimers()
+        const database = createDatabase(':memory:')
+
+        try {
+            runMigrations(database)
+            const manualStore = createManualStore(database, { now: () => currentTime })
+            const credentialStore = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => currentTime,
+            })
+            const publisherStore = createPublisherStore(database, {
+                credentialRevoker: credentialStore,
+                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
+                now: () => currentTime,
+            })
+            const project = manualStore.createProject({
+                name: 'Worker Scheduler Sandbox Project',
+                subjectId: 'user-1',
+                displayName: 'Herald Operator',
+            })
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Local Provider Sandbox',
+                profile: customWebhookProfile,
+            })
+            expect(channel).not.toBeNull()
+            if (channel === null) throw new Error('The provider sandbox channel was not created')
+
+            const credential = await credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'custom_http',
+                externalAccountId: 'worker-sandbox',
+                externalAccountName: 'Local Provider Sandbox',
+                scopes: [],
+                accessToken: 'worker-sandbox-secret-with-at-least-32-characters',
+                expiresAt: null,
+            })
+            expect(credential.kind).toBe('created')
+            if (credential.kind !== 'created')
+                throw new Error('The provider sandbox credential was not created')
+
+            const connection = publisherStore.createPublisherConnection({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                kind: 'custom_http',
+                credentialId: credential.credential.id,
+                endpointUrl: `http://127.0.0.1:${receiverPort}`,
+                authentication: { kind: 'none' },
+            })
+            expect(connection.kind).toBe('created')
+
+            const createSandboxPublication = (label: string, scheduledAt: number) => {
+                const created = manualStore.createPost({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    sourceContent: {
+                        body: { text: label, format: 'plain_text' },
+                        media: [],
+                    },
+                    publications: [
+                        { channelId: channel.id, deliveryMode: 'automatic', scheduledAt },
+                    ],
+                })
+                expect(created).not.toBeNull()
+                if (created === null || created.publications[0] === undefined) {
+                    throw new Error(`The ${label} sandbox publication was not created`)
+                }
+                return created.publications[0]
+            }
+
+            const successful = createSandboxPublication('success', now + 100)
+            const cancelled = createSandboxPublication('cancelled', now + 200)
+            const worker = createPublicationWorker({
+                database,
+                publisherStore,
+                publisherCredentialStore: credentialStore,
+                builtInProviderRegistry: createBuiltInProviderRegistry([]),
+                customHttpTransport: createCustomHttpTransport({
+                    now: () => currentTime,
+                    privateDestinations: [
+                        {
+                            kind: 'cidr',
+                            cidr: '127.0.0.0/8',
+                            port: receiverPort,
+                            schemes: ['http'],
+                        },
+                    ],
+                }),
+                now: () => currentTime,
+                retryPolicy: { nextRunAt: ({ failedAt }) => failedAt + 100 },
+                timers,
+                createClaimToken: (() => {
+                    let sequence = 0
+                    return () => `sandbox-claim-${++sequence}`
+                })(),
+            })
+
+            worker.start()
+            expect(worker.scheduler.scheduledAt).toBe(now + 100)
+            expect(
+                manualStore.cancelPublications({
+                    projectId: project.project.id,
+                    publicationIds: [cancelled.id],
+                    subjectId: 'user-1',
+                })
+            ).not.toBeNull()
+            worker.replan()
+            expect(worker.scheduler.scheduledAt).toBe(now + 100)
+
+            currentTime = now + 100
+            await timers.fireOnly()
+            expect(deliveries).toEqual([{ label: 'success', attempt: 1, status: 201 }])
+            expect(readPublicationState(database, successful.id)).toBe('published')
+            expect(readPublicationState(database, cancelled.id)).toBe('cancelled')
+
+            const retry = createSandboxPublication('retry', now + 200)
+            const failed = createSandboxPublication('failed', now + 200)
+            const ambiguous = createSandboxPublication('ambiguous', now + 200)
+            worker.replan()
+            expect(worker.scheduler.scheduledAt).toBe(now + 200)
+
+            currentTime = now + 200
+            await timers.fireOnly()
+            expect(deliveries).toHaveLength(4)
+            expect(deliveries).toEqual(
+                expect.arrayContaining([
+                    { label: 'success', attempt: 1, status: 201 },
+                    { label: 'retry', attempt: 1, status: 429 },
+                    { label: 'failed', attempt: 1, status: 400 },
+                    { label: 'ambiguous', attempt: 1, status: 500 },
+                ])
+            )
+            expect(readPublicationState(database, retry.id)).toBe('ready')
+            expect(readPublicationState(database, failed.id)).toBe('failed')
+            expect(readPublicationState(database, ambiguous.id)).toBe('ambiguous')
+            expect(worker.scheduler.scheduledAt).toBe(now + 300)
+
+            currentTime = now + 300
+            await timers.fireOnly()
+            expect(deliveries).toHaveLength(5)
+            expect(deliveries.at(-1)).toEqual({ label: 'retry', attempt: 2, status: 201 })
+            expect(readPublicationState(database, retry.id)).toBe('published')
+            expect(worker.scheduler.scheduledAt).toBeNull()
+
+            await worker.stop()
+        } finally {
+            receiver.stop()
+            closeDatabase(database)
+        }
+    })
+
     it('delivers signed public media URLs through a mapped custom HTTP channel', async () => {
         const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-public-media-'))
         let receivedBody: string | null = null
@@ -1451,4 +1643,43 @@ function createPostAt(
         },
         publications: [{ channelId, deliveryMode: 'automatic', scheduledAt }],
     })
+}
+
+class WorkerFakeTimers implements SchedulerTimers {
+    #nextId = 1
+    readonly active = new Map<
+        number,
+        { readonly callback: () => void | Promise<void>; readonly delay: number }
+    >()
+
+    set(callback: () => void | Promise<void>, delay: number): number {
+        const id = this.#nextId
+        this.#nextId += 1
+        this.active.set(id, { callback, delay })
+        return id
+    }
+
+    clear(handle: unknown): void {
+        this.active.delete(handle as number)
+    }
+
+    async fireOnly(): Promise<void> {
+        const entries = [...this.active.entries()]
+        if (entries.length !== 1) throw new Error(`Expected one timer, received ${entries.length}`)
+
+        const [id, timer] = entries[0]!
+        this.active.delete(id)
+        await timer.callback()
+    }
+}
+
+function readPublicationState(
+    database: ReturnType<typeof createDatabase>,
+    publicationId: string
+): string | undefined {
+    return database
+        .select({ state: publications.state })
+        .from(publications)
+        .where(eq(publications.id, publicationId))
+        .all()[0]?.state
 }

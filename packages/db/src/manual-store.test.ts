@@ -815,6 +815,240 @@ describe('manual workflow store', () => {
         }
     })
 
+    it('reschedules and cancels a publication group atomically with automatic jobs', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Bulk scheduling project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const firstChannel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'First channel',
+                profile: automaticTestProfile,
+            })
+            const secondChannel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Second channel',
+                profile: automaticTestProfile,
+            })
+            const draftChannel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Draft channel',
+                profile: automaticTestProfile,
+            })
+            if (firstChannel === null || secondChannel === null || draftChannel === null) {
+                throw new Error('The bulk scheduling channels were not created')
+            }
+
+            database
+                .insert(publishers)
+                .values([
+                    {
+                        id: 'bulk-scheduling-publisher-1',
+                        projectId: project.project.id,
+                        channelId: firstChannel.id,
+                        kind: 'future-provider',
+                    },
+                    {
+                        id: 'bulk-scheduling-publisher-2',
+                        projectId: project.project.id,
+                        channelId: secondChannel.id,
+                        kind: 'future-provider',
+                    },
+                    {
+                        id: 'bulk-scheduling-publisher-3',
+                        projectId: project.project.id,
+                        channelId: draftChannel.id,
+                        kind: 'future-provider',
+                    },
+                ])
+                .run()
+
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Bulk scheduling source'),
+                publications: [
+                    {
+                        channelId: firstChannel.id,
+                        deliveryMode: 'automatic',
+                        scheduledAt: now + 60_000,
+                    },
+                    {
+                        channelId: secondChannel.id,
+                        deliveryMode: 'automatic',
+                        scheduledAt: now + 60_000,
+                    },
+                    { channelId: draftChannel.id, deliveryMode: 'automatic' },
+                ],
+            })
+            if (created === null) throw new Error('The bulk scheduling post was not created')
+            const [firstPublication, secondPublication, draftPublication] = created.publications
+            if (
+                firstPublication === undefined ||
+                secondPublication === undefined ||
+                draftPublication === undefined
+            ) {
+                throw new Error('The bulk scheduling publications are missing')
+            }
+
+            const rescheduled = store.reschedulePublications({
+                projectId: project.project.id,
+                publicationIds: [firstPublication.id, secondPublication.id],
+                scheduledAt: now + 120_000,
+                subjectId: 'user-1',
+            })
+            expect(rescheduled).toMatchObject([
+                { id: firstPublication.id, state: 'scheduled', scheduledAt: now + 120_000 },
+                { id: secondPublication.id, state: 'scheduled', scheduledAt: now + 120_000 },
+            ])
+            expect(database.select().from(jobs).all()).toMatchObject([
+                { publicationId: firstPublication.id, runAt: now + 120_000 },
+                { publicationId: secondPublication.id, runAt: now + 120_000 },
+            ])
+            expect(
+                database
+                    .select({ action: auditEvents.action, entityId: auditEvents.entityId })
+                    .from(auditEvents)
+                    .where(eq(auditEvents.action, 'publication.rescheduled'))
+                    .all()
+            ).toEqual([
+                { action: 'publication.rescheduled', entityId: firstPublication.id },
+                { action: 'publication.rescheduled', entityId: secondPublication.id },
+            ])
+
+            expect(() =>
+                store.reschedulePublications({
+                    projectId: project.project.id,
+                    publicationIds: [firstPublication.id, draftPublication.id],
+                    scheduledAt: now + 180_000,
+                    subjectId: 'user-1',
+                })
+            ).toThrow('Cannot reschedule a draft publication')
+            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        id: firstPublication.id,
+                        scheduledAt: now + 120_000,
+                    }),
+                    expect.objectContaining({
+                        id: secondPublication.id,
+                        scheduledAt: now + 120_000,
+                    }),
+                    expect.objectContaining({
+                        id: draftPublication.id,
+                        state: 'draft',
+                        scheduledAt: null,
+                    }),
+                ])
+            )
+            expect(
+                database
+                    .select({ action: auditEvents.action })
+                    .from(auditEvents)
+                    .where(eq(auditEvents.action, 'publication.rescheduled'))
+                    .all()
+            ).toHaveLength(2)
+
+            const firstJob = database
+                .select()
+                .from(jobs)
+                .all()
+                .find(job => job.publicationId === firstPublication.id)
+            if (firstJob === undefined) throw new Error('The first bulk scheduling job is missing')
+            database
+                .update(jobs)
+                .set({
+                    state: 'running',
+                    claimToken: 'bulk-cancel-claim',
+                    claimedByActorId: project.actor.id,
+                    claimedAt: now,
+                    leaseExpiresAt: now + 60_000,
+                    startedAt: now,
+                })
+                .where(eq(jobs.id, firstJob.id))
+                .run()
+            expect(() =>
+                store.cancelPublications({
+                    projectId: project.project.id,
+                    publicationIds: [firstPublication.id, secondPublication.id],
+                    subjectId: 'user-1',
+                })
+            ).toThrow('while its job is running')
+            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ id: firstPublication.id, state: 'scheduled' }),
+                    expect.objectContaining({ id: secondPublication.id, state: 'scheduled' }),
+                ])
+            )
+            database
+                .update(jobs)
+                .set({
+                    state: 'pending',
+                    claimToken: null,
+                    claimedByActorId: null,
+                    claimedAt: null,
+                    leaseExpiresAt: null,
+                    effectStartedAt: null,
+                    startedAt: null,
+                    completedAt: null,
+                    errorMessage: null,
+                    updatedAt: now,
+                })
+                .where(eq(jobs.id, firstJob.id))
+                .run()
+
+            const cancelled = store.cancelPublications({
+                projectId: project.project.id,
+                publicationIds: [firstPublication.id, secondPublication.id],
+                subjectId: 'user-1',
+            })
+            expect(cancelled).toMatchObject([
+                { id: firstPublication.id, state: 'cancelled' },
+                { id: secondPublication.id, state: 'cancelled' },
+            ])
+            expect(database.select().from(jobs).all()).toMatchObject([
+                { publicationId: firstPublication.id, state: 'cancelled', completedAt: now },
+                { publicationId: secondPublication.id, state: 'cancelled', completedAt: now },
+            ])
+            const cancellationAudits = database
+                .select({ action: auditEvents.action, entityId: auditEvents.entityId })
+                .from(auditEvents)
+                .all()
+                .filter(
+                    event =>
+                        event.action === 'publication.cancelled' ||
+                        event.action === 'publication.execution.cancelled'
+                )
+            expect(cancellationAudits).toHaveLength(4)
+            expect(cancellationAudits).toEqual(
+                expect.arrayContaining([
+                    { action: 'publication.cancelled', entityId: firstPublication.id },
+                    { action: 'publication.cancelled', entityId: secondPublication.id },
+                    {
+                        action: 'publication.execution.cancelled',
+                        entityId: firstPublication.id,
+                    },
+                    {
+                        action: 'publication.execution.cancelled',
+                        entityId: secondPublication.id,
+                    },
+                ])
+            )
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('keeps the selected target stable until a draft is promoted', () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000

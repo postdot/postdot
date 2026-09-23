@@ -680,6 +680,8 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/posts',
                 '/api/projects/{projectId}/publications',
                 '/api/projects/{projectId}/publications/due',
+                '/api/projects/{projectId}/publications/schedule',
+                '/api/projects/{projectId}/publications/cancel',
                 '/api/projects/{projectId}/publications/{publicationId}/editor',
                 '/api/projects/{projectId}/publications/{publicationId}/draft',
                 '/api/projects/{projectId}/publications/{publicationId}/draft/rebase',
@@ -729,6 +731,14 @@ describe('Herald API', () => {
                 specification.paths['/api/projects/{projectId}/invitations/{invitationId}/resend']
                     ?.post?.operationId
             ).toBe('resendProjectInvitation')
+            expect(
+                specification.paths['/api/projects/{projectId}/publications/schedule']?.patch
+                    ?.operationId
+            ).toBe('reschedulePublications')
+            expect(
+                specification.paths['/api/projects/{projectId}/publications/cancel']?.patch
+                    ?.operationId
+            ).toBe('cancelPublications')
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
                     bearerFormat: 'Herald project access token',
@@ -3111,6 +3121,173 @@ describe('Herald API', () => {
                     },
                 ],
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('reschedules and cancels groups of queued publications through the project API', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'bulk-scheduling-operator@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Bulk scheduling project' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const projectId = projectBody.project.id
+
+            const firstChannelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'First destination' }),
+                }
+            )
+            const secondChannelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'Second destination' }),
+                }
+            )
+            expect(firstChannelResponse.status).toBe(201)
+            expect(secondChannelResponse.status).toBe(201)
+            const firstChannel = (await firstChannelResponse.json()) as {
+                channel: { id: string }
+            }
+            const secondChannel = (await secondChannelResponse.json()) as {
+                channel: { id: string }
+            }
+
+            const postResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent: {
+                            body: { text: 'Bulk scheduling source', format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: firstChannel.channel.id,
+                                targetContent: { body: 'First destination', media: [] },
+                                deliveryMode: 'manual',
+                                scheduledAt: now + 60_000,
+                            },
+                            {
+                                channelId: secondChannel.channel.id,
+                                targetContent: { body: 'Second destination', media: [] },
+                                deliveryMode: 'manual',
+                                scheduledAt: now + 60_000,
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(postResponse.status).toBe(201)
+            const postBody = (await postResponse.json()) as {
+                publications: Array<{ id: string; scheduledAt: number | null; state: string }>
+            }
+            const publicationIds = postBody.publications.map(publication => publication.id)
+            expect(postBody.publications).toMatchObject([
+                { scheduledAt: now + 60_000, state: 'scheduled' },
+                { scheduledAt: now + 60_000, state: 'scheduled' },
+            ])
+
+            const rescheduleResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/publications/schedule`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        publicationIds,
+                        scheduledAt: now + 120_000,
+                    }),
+                }
+            )
+            expect(rescheduleResponse.status).toBe(200)
+            expect(await rescheduleResponse.json()).toMatchObject({
+                publications: [
+                    { id: publicationIds[0], scheduledAt: now + 120_000, state: 'scheduled' },
+                    { id: publicationIds[1], scheduledAt: now + 120_000, state: 'scheduled' },
+                ],
+            })
+
+            const listResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/publications`,
+                cookie
+            )
+            expect(listResponse.status).toBe(200)
+            expect(await listResponse.json()).toEqual(
+                expect.objectContaining({
+                    publications: expect.arrayContaining([
+                        expect.objectContaining({
+                            id: publicationIds[0],
+                            scheduledAt: now + 120_000,
+                        }),
+                        expect.objectContaining({
+                            id: publicationIds[1],
+                            scheduledAt: now + 120_000,
+                        }),
+                    ]),
+                })
+            )
+
+            const duplicateResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/publications/schedule`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        publicationIds: [publicationIds[0], publicationIds[0]],
+                        scheduledAt: now + 180_000,
+                    }),
+                }
+            )
+            expect(duplicateResponse.status).toBe(422)
+
+            const cancelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/publications/cancel`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ publicationIds }),
+                }
+            )
+            expect(cancelResponse.status).toBe(200)
+            expect(await cancelResponse.json()).toMatchObject({
+                publications: [
+                    { id: publicationIds[0], state: 'cancelled' },
+                    { id: publicationIds[1], state: 'cancelled' },
+                ],
+            })
+
+            const duplicateCancelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/publications/cancel`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        publicationIds: [publicationIds[0], publicationIds[0]],
+                    }),
+                }
+            )
+            expect(duplicateCancelResponse.status).toBe(422)
         } finally {
             closeDatabase(database)
         }

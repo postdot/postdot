@@ -276,6 +276,15 @@ describe('project event stream', () => {
             entity: { type: 'publication', id: 'publication-1' },
             payload: {},
         })
+
+        const rescheduled = toProjectRealtimeEvent(
+            journalEntry({ id: 'rescheduled', name: 'publication.rescheduled', sequence: 3 })
+        )
+        const cancelled = toProjectRealtimeEvent(
+            journalEntry({ id: 'cancelled', name: 'publication.cancelled', sequence: 4 })
+        )
+        expect(rescheduled).toMatchObject({ type: 'publication.rescheduled' })
+        expect(cancelled).toMatchObject({ type: 'publication.cancelled' })
     })
 
     it('closes instead of emitting an entry returned for another project', async () => {

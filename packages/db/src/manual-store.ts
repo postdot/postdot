@@ -23,6 +23,7 @@ import { parseProfile } from './manual-store/content-codec'
 import { toAuditEvent, toProfileVersion, toPublication, toPublisher } from './manual-store/mappers'
 import { createProjectChannelStore } from './manual-store/project-channel-store'
 import { createPublicationAuthoringStore } from './manual-store/publication-authoring-store'
+import { createPublicationCancellationStore } from './manual-store/publication-cancellation-store'
 import { createPublicationCreationStore } from './manual-store/publication-creation-store'
 import {
     assessPinnedTargetMedia,
@@ -30,6 +31,7 @@ import {
     resolveTargetMedia,
 } from './manual-store/publication-media'
 import { createPublicationOutcomeStore } from './manual-store/publication-outcome-store'
+import { createPublicationSchedulingStore } from './manual-store/publication-scheduling-store'
 import type {
     ActorRow,
     AuditEventRow,
@@ -152,6 +154,19 @@ export interface PromotePublicationDraftInput {
     readonly subjectId: string
     readonly expectedRevision: number
     readonly scheduledAt?: Timestamp | null
+}
+
+export interface ReschedulePublicationsInput {
+    readonly projectId: string
+    readonly publicationIds: readonly string[]
+    readonly subjectId: string
+    readonly scheduledAt: Timestamp
+}
+
+export interface CancelPublicationsInput {
+    readonly projectId: string
+    readonly publicationIds: readonly string[]
+    readonly subjectId: string
 }
 
 export interface PublishManualPublicationInput {
@@ -339,10 +354,13 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
           and id = ?2
     `)
     const loadActiveJobStatement = client.query<
-        { id: string; state: 'pending' | 'running' },
+        { id: string; state: 'pending' | 'running'; runAt: number; attempts: number },
         [projectId: string, publicationId: string]
     >(`
-        select id, state
+        select id,
+               state,
+               run_at as runAt,
+               attempts
         from jobs
         where project_id = ?1
           and publication_id = ?2
@@ -723,6 +741,58 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         },
     })
 
+    const publicationSchedulingStore = createPublicationSchedulingStore(database, {
+        now,
+        createId,
+        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+        loadPublication: (projectId, publicationId) =>
+            loadPublicationByIdStatement.get(projectId, publicationId),
+        loadActiveJob: (projectId, publicationId) =>
+            loadActiveJobStatement.get(projectId, publicationId),
+        updatePendingJob: (projectId, jobId, runAt, updatedAt) =>
+            updatePendingJobStatement.run(runAt, updatedAt, projectId, jobId).changes === 1,
+        insertAuditEvent: input => {
+            recordDatabaseCommitProject(database, input.projectId)
+            return insertAuditEventStatement.run(
+                input.id,
+                input.projectId,
+                input.actorId,
+                input.action,
+                input.entityType,
+                input.entityId,
+                input.metadataJson,
+                input.createdAt
+            )
+        },
+    })
+
+    const publicationCancellationStore = createPublicationCancellationStore(database, {
+        now,
+        createId,
+        loadActor: (projectId, subjectId) => loadActorStatement.get(projectId, subjectId),
+        loadPublication: (projectId, publicationId) =>
+            loadPublicationByIdStatement.get(projectId, publicationId),
+        loadActiveJob: (projectId, publicationId) =>
+            loadActiveJobStatement.get(projectId, publicationId),
+        loadProvider: (projectId, channelId) =>
+            loadChannelStatement.get(projectId, channelId)?.publisherKind ?? null,
+        cancelPendingJob: (projectId, jobId, completedAt) =>
+            cancelPendingJobStatement.run(completedAt, projectId, jobId).changes === 1,
+        insertAuditEvent: input => {
+            recordDatabaseCommitProject(database, input.projectId)
+            return insertAuditEventStatement.run(
+                input.id,
+                input.projectId,
+                input.actorId,
+                input.action,
+                input.entityType,
+                input.entityId,
+                input.metadataJson,
+                input.createdAt
+            )
+        },
+    })
+
     const publicationOutcomeStore = createPublicationOutcomeStore(database, {
         now,
         createId,
@@ -798,6 +868,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         ...channelProfileStore,
         ...publicationCreationStore,
         ...publicationAuthoringStore,
+        ...publicationSchedulingStore,
+        ...publicationCancellationStore,
         ...publicationOutcomeStore,
 
         listAuditEvents(projectId: string, subjectId: string, limit = 100): AuditEvent[] | null {

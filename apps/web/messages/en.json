@@ -10,6 +10,7 @@
     "common_save": "Save",
     "common_delete": "Delete",
     "common_edit": "Edit",
+    "common_view": "View",
     "common_restore": "Restore",
     "common_archive": "Archive",
     "common_remove": "Remove",
@@ -251,21 +252,89 @@
     "overview_open_create_project": "Open Create project…",
     "overview_load_failed": "Unable to load the project",
     "workspace_action_failed": "Workspace action failed",
+    "calendar_select": "Select",
+    "calendar_done": "Done",
+    "calendar_selection_actions": "Calendar publication actions",
+    "calendar_selected_publications": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} selected",
+                "countPlural=other": "{count} selected"
+            }
+        }
+    ],
+    "calendar_select_all_visible": "Select all visible",
+    "calendar_clear_selection": "Deselect",
     "queue_title": "Queue",
     "queue_filters": "Queue filters",
     "queue_summary": "Queue summary",
     "queue_filter_aria": "{label} ({count})",
     "queue_all": "All",
     "queue_attention": "Needs attention",
+    "queue_drafts": "Drafts",
     "queue_scheduled": "Scheduled",
     "queue_manual": "Manual",
+    "queue_delivery_filter": "Delivery",
+    "queue_all_delivery_modes": "All delivery modes",
+    "queue_manual_delivery_mode": "Manual delivery",
     "queue_publications": "Publications",
+    "queue_column_publication": "Publication",
+    "queue_column_destination": "Destination",
+    "queue_column_action": "Action",
     "queue_no_publications": "Queue is empty",
     "queue_no_publications_description": "Create a publication to add work here.",
     "queue_show_all": "Show all",
     "queue_load_more": "Load more",
+    "queue_bulk_actions": "Publication actions",
+    "queue_selected_publications": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} selected",
+                "countPlural=other": "{count} selected"
+            }
+        }
+    ],
+    "queue_select_all_visible": "Select all visible",
+    "queue_clear_selection": "Deselect",
+    "queue_select_publication": "Select {title}",
+    "queue_deselect_publication": "Deselect {title}",
+    "queue_reschedule": "Reschedule",
+    "queue_reschedule_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Reschedule {count} publication",
+                "countPlural=other": "Reschedule {count} publications"
+            }
+        }
+    ],
+    "queue_reschedule_deliver_at": "Deliver at",
+    "queue_reschedule_submit": "Apply schedule",
+    "queue_reschedule_required": "Choose a date and time.",
+    "queue_reschedule_only_scheduled": "Only scheduled publications can be rescheduled.",
+    "queue_cancel": "Cancel",
+    "queue_cancel_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Cancel {count} publication",
+                "countPlural=other": "Cancel {count} publications"
+            }
+        }
+    ],
+    "queue_cancel_description": "These publications will not be delivered.",
+    "queue_cancel_submit": "Cancel publications",
+    "queue_cancel_only_scheduled": "Only scheduled publications can be cancelled.",
     "queue_no_attention_title": "Nothing needs attention",
     "queue_no_attention_description": "Publications needing attention will appear here.",
+    "queue_no_drafts_title": "No drafts",
+    "queue_no_drafts_description": "Saved drafts will appear here.",
     "queue_no_scheduled_title": "Nothing scheduled",
     "queue_no_scheduled_description": "Scheduled publications will appear here.",
     "queue_no_manual_title": "No manual work waiting",
@@ -277,7 +346,7 @@
     "publication_empty_description": "Create a publication to start the queue.",
     "publication_automatic": "Automatic",
     "publication_manual": "Manual",
-    "publication_due_manual": "Due manual",
+    "publication_due_manual": "Manual action",
     "publication_draft_changes_pending": "Draft changes pending",
     "publication_state_queued": "Queued",
     "publication_state_ready": "Ready",
@@ -292,7 +361,11 @@
     "publication_attention_description": "Review the destination and record the outcome before this work can leave the queue.",
     "publication_nothing_due": "Nothing is due",
     "publication_manual_destination": "Manual destination — record the outcome when it is complete.",
-    "publication_record_published": "Record as published",
+    "publication_record_published": "Mark published",
+    "publication_retry_delivery": "Retry delivery",
+    "publication_cancel_title": "Cancel publication?",
+    "publication_cancel_description": "This publication will not be delivered.",
+    "publication_cancel_submit": "Cancel publication",
     "publication_outcome_title": "Publication outcome needs your decision",
     "publication_outcome_ambiguous_description": "Herald could not confirm whether the provider accepted this publication. Choose the outcome you verified; Herald will not send it again.",
     "publication_outcome_external_url_label": "Published URL (optional)",
@@ -997,7 +1070,10 @@
     "editor_lifecycle_read_only": "This publication has entered delivery and can no longer be edited.",
     "editor_manual_publish_failed": "The publication could not be recorded as published.",
     "editor_manual_published": "Publication recorded as published.",
+    "editor_cancel_failed": "The publication could not be cancelled.",
+    "editor_cancelled": "Publication cancelled.",
     "editor_back_to_queue": "Back to queue",
+    "editor_back_to_calendar": "Back to calendar",
     "editor_title": "Publication editor",
     "editor_sidebar_selected_target": "Selected target",
     "editor_sidebar_delivery_snapshot": "Delivery snapshot",
@@ -1072,6 +1148,7 @@
     "editor_previous_local_newer": "A previous local copy was kept because the server has newer work.",
     "editor_server_newer_local": "The server has newer work. Your local copy is preserved; reload it or restore your changes explicitly.",
     "editor_server_loaded": "The server version is loaded. Your previous local copy remains available.",
+    "editor_background_update": "The publication changed in the background. The latest server state is shown.",
     "editor_server_loaded_conflict": "The server version is loaded, but this draft still uses source revision {revision}. Rebase it before writing again.",
     "editor_recovered_review": "The recovered copy is active for review, but the server draft must be rebased before it can be saved.",
     "editor_recovered_promotion": "The recovered copy is active and ready for explicit promotion.",

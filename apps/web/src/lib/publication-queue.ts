@@ -1,6 +1,6 @@
 import type { PublicationSummary } from '@/lib/api'
 
-export type QueueFilter = 'all' | 'attention' | 'scheduled' | 'manual'
+export type QueueFilter = 'all' | 'attention' | 'draft' | 'scheduled' | 'manual'
 
 export function filterQueuePublications(
     publications: readonly PublicationSummary[],
@@ -9,16 +9,31 @@ export function filterQueuePublications(
 ) {
     if (filter === 'all') return publications
     if (filter === 'attention') {
-        return publications.filter(publication => duePublicationIds.has(publication.id))
+        return publications.filter(
+            publication =>
+                duePublicationIds.has(publication.id) ||
+                publication.state === 'failed' ||
+                publication.state === 'ambiguous' ||
+                publication.draftReviewState === 'review_required'
+        )
+    }
+    if (filter === 'draft') {
+        return publications.filter(publication => publication.state === 'draft')
     }
     if (filter === 'scheduled') {
-        return publications.filter(publication => publication.scheduledAt !== null)
+        return publications.filter(publication => publication.state === 'scheduled')
     }
     return publications.filter(publication => publication.deliveryMode === 'manual')
 }
 
 export function isQueueFilter(value: string): value is QueueFilter {
-    return value === 'all' || value === 'attention' || value === 'scheduled' || value === 'manual'
+    return (
+        value === 'all' ||
+        value === 'attention' ||
+        value === 'draft' ||
+        value === 'scheduled' ||
+        value === 'manual'
+    )
 }
 
 export function filterQueueByTags(

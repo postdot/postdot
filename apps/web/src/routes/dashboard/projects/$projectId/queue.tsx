@@ -1,17 +1,27 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { PublicationQueuePage } from '@/components/publication-queue-page'
+import { isQueueFilter, type QueueFilter } from '@/lib/publication-queue'
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/queue')({
     validateSearch: (search: Record<string, unknown>) => ({
+        filter: parseQueueFilter(search.filter),
         tagIds: parseTagIds(search.tagIds),
     }),
     component: QueueRoute,
 })
 
 function QueueRoute() {
-    const { tagIds } = Route.useSearch()
-    return <PublicationQueuePage initialTagIds={tagIds} />
+    const { filter, tagIds } = Route.useSearch()
+    return <PublicationQueuePage initialFilter={filter} initialTagIds={tagIds} />
+}
+
+function parseQueueFilter(value: unknown): QueueFilter | undefined {
+    const candidate = Array.isArray(value) ? value[0] : value
+    if (typeof candidate !== 'string' || !isQueueFilter(candidate) || candidate === 'all') {
+        return undefined
+    }
+    return candidate
 }
 
 function parseTagIds(value: unknown): string[] | undefined {

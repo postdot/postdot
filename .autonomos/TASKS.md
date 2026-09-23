@@ -231,6 +231,18 @@ the central project reads and projection/realtime reliability.
 - [x] **[OPS-151]** Bound multi-project worker fairness and verify provider/media fault checkpoints `Priority: 🟠` `Complexity: L` — [ISSUE-076]; the worker now uses a bounded round-robin quantum while preserving serial lease-fenced effects, and representative provider/MediaStore failure paths are covered without requiring live cloud credentials.
 - [x] **[WEB-152]** Return complete Queue aggregates alongside paginated publication rows `Priority: 🔴` `Complexity: M` — [ISSUE-077]; the API now returns authorization-scoped, tag/range-aware aggregate counts so tabs and summary bars never mistake a partial page for the complete project history.
 
+## 🧭 Queue operational UX
+
+- [x] **[WEB-183]** Consolidate Queue around one filterable publication list `Priority: 🟠` `Complexity: M` — remove the duplicate attention surface, separate lifecycle filters from delivery mode, preserve due-work and bulk actions, and prove mixed-state responsive behavior with localized browser coverage.
+- [x] **[WEB-185]** Simplify Queue hierarchy and row actions `Priority: 🟠` `Complexity: M` — consolidate filters, selection, and list presentation into one readable control/list composition, expose global selection directly, and align concise per-publication actions across responsive layouts. Implemented with surface-based controls, compact count badges, direct global selection, icon-led due actions, and aligned publication row actions; targeted and full repository validation passed.
+- [x] **[WEB-186]** Make Queue controls responsive and tabular `Priority: 🟠` `Complexity: M` — keep lifecycle tabs on their own wrapping surface, move delivery filters to a separate flow, and place a real global checkbox with column labels in the publication table header so narrow layouts never depend on horizontal scrolling. Implemented with wrapping surface tabs, a separate filter flow, a real table-header selection checkbox, and explicit mobile column placement; targeted and full repository validation passed.
+- [x] **[WEB-187]** Keep Queue selection geometry stable `Priority: 🟠` `Complexity: S` — remove the selected-row side stripe and keep one persistent action surface so selecting publications reveals actions without inserting a new block or shifting the table. Implemented with the delivery-mode and taxonomy filters anchored in the persistent bar, conditional bulk actions, and a browser anchor-position assertion; targeted and full repository validation passed.
+- [x] **[WEB-188]** Reframe Queue empty states `Priority: 🟠` `Complexity: M` — replace the row-like empty result with a centered, illustrated state that uses the shared Empty primitives, keeps copy concise, supports theme-aware SVG artwork, and preserves the existing Queue actions and responsive contracts. Implemented with a reusable publication empty-state composition, theme-token SVG illustration, omitted draft filler copy, and browser coverage for the illustrated state; targeted and full repository validation passed.
+
+## 🧭 Publication lifecycle UX
+
+- [x] **[WEB-184]** Make publication detail lifecycle actions explicit `Priority: 🟠` `Complexity: M` — expose due manual work, retry, cancellation, and terminal read-only transitions from one state-aware detail surface, with confirmation and localized browser coverage.
+
 ## 🧭 Autonomos ledger reconciliation
 
 - [x] **[META-153]** Reconcile issue completion state with task evidence and isolate explicit follow-ups `Priority: 🟠` `Complexity: S` — [ISSUE-078]; completed accepted issues are resolved with concise evidence, while open worktree/MCP limitations and deliberately deferred UX, account-lifecycle, and analytics work remain visible as separate follow-ups.

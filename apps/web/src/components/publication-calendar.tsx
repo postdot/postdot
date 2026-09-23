@@ -1,8 +1,10 @@
 import { Button } from '@herald/ui/components/button'
 import { Kbd } from '@herald/ui/components/kbd'
+import { cn } from '@herald/ui/lib/utils'
 import { AltArrowLeftIcon } from '@solar-icons/react/bold/alt-arrow-left'
 import { AltArrowRightIcon } from '@solar-icons/react/bold/alt-arrow-right'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
+import { CheckSquareIcon } from '@solar-icons/react/bold/check-square'
 import type { RegisterableHotkey } from '@tanstack/hotkeys'
 import { useHotkeys } from '@tanstack/react-hotkeys'
 import { useNavigate } from '@tanstack/react-router'
@@ -21,6 +23,7 @@ import {
 import { PublicationCalendarPreviewSheet } from '@/components/publication-calendar-preview-sheet'
 import {
     EventCalendar,
+    type EventCalendarApi,
     useEventCalendarNavigation,
     useEventCalendarOccurrences,
     useEventCalendarSettings,
@@ -44,6 +47,7 @@ import {
     type PublicationCalendarView,
     toPublicationCalendarEvents,
 } from '@/lib/publication-calendar-events'
+import * as m from '@/paraglide/messages.js'
 
 const CALENDAR_VIEWS: CalendarView[] = ['month', 'week', 'day', 'agenda']
 const MOBILE_CALENDAR_QUERY = '(max-width: 47.999rem)'
@@ -67,8 +71,10 @@ export function PublicationCalendar({
     locale,
     calendarDate,
     initialView,
+    onSelectedPublicationIdsChange,
     projectId,
     publications,
+    selectedPublicationIds,
     timeZone,
 }: {
     readonly duePublicationIds: ReadonlySet<string>
@@ -76,8 +82,10 @@ export function PublicationCalendar({
     readonly locale: string
     readonly calendarDate: Date
     readonly initialView?: PublicationCalendarView
+    readonly onSelectedPublicationIdsChange: (publicationIds: readonly string[]) => void
     readonly projectId: string
     readonly publications: readonly PublicationSummary[]
+    readonly selectedPublicationIds: ReadonlySet<string>
     readonly timeZone: string
 }) {
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/overview' })
@@ -90,19 +98,34 @@ export function PublicationCalendar({
     const isNarrow = useMediaQuery(MOBILE_CALENDAR_QUERY)
     const [expandedDay, setExpandedDay] = useState<Date | null>(null)
     const [previewPublicationId, setPreviewPublicationId] = useState<string | null>(null)
+    const [selectionMode, setSelectionMode] = useState(false)
     const calendarShellRef = useRef<HTMLDivElement>(null)
+    const calendarApiRef = useRef<EventCalendarApi<PublicationCalendarEventData> | null>(null)
     const expandedDayKey = expandedDay === null ? null : toDateKey(expandedDay, timeZone)
     const viewPreference = initialView ?? 'auto'
     const view = viewPreference === 'auto' ? (isNarrow ? 'agenda' : 'month') : viewPreference
+    const eventIdsByKey = useMemo(
+        () => new Map(events.map(event => [calendarEventKey(event), event.id])),
+        [events]
+    )
+    const selectedEventKeys = useMemo(
+        () => events.filter(event => selectedPublicationIds.has(event.id)).map(calendarEventKey),
+        [events, selectedPublicationIds]
+    )
 
     const openPublication = useCallback(
         (publicationId: string) => {
             void navigate({
                 params: { projectId, publicationId },
+                search: {
+                    date: toDateKey(calendarDate, timeZone),
+                    from: 'calendar',
+                    view: isPublicationCalendarView(view) ? view : undefined,
+                },
                 to: '/dashboard/projects/$projectId/publications/$publicationId',
             })
         },
-        [navigate, projectId]
+        [calendarDate, navigate, projectId, timeZone, view]
     )
     const openPublicationPreview = useCallback((publicationId: string) => {
         setPreviewPublicationId(publicationId)
@@ -126,6 +149,7 @@ export function PublicationCalendar({
     const handleDateChange = useCallback(
         (date: Date) => {
             setExpandedDay(null)
+            onSelectedPublicationIdsChange([])
             void navigate({
                 params: { projectId },
                 replace: true,
@@ -133,7 +157,7 @@ export function PublicationCalendar({
                 to: '/dashboard/projects/$projectId/overview',
             })
         },
-        [navigate, projectId, timeZone]
+        [navigate, onSelectedPublicationIdsChange, projectId, timeZone]
     )
     const handleViewChange = useCallback(
         (nextView: CalendarView) => {
@@ -170,12 +194,32 @@ export function PublicationCalendar({
         },
         [createOnDate, timeZone]
     )
-    const handleEventClick = useCallback(
-        (occurrence: EventCalendarOccurrence<PublicationCalendarEventData>) => {
-            const publication = occurrence.event.data?.publication
-            if (publication !== undefined) openPublicationPreview(publication.id)
+    const togglePublicationSelection = useCallback(
+        (publicationId: string) => {
+            const next = new Set(selectedPublicationIds)
+            if (next.has(publicationId)) next.delete(publicationId)
+            else next.add(publicationId)
+            onSelectedPublicationIdsChange([...next])
         },
-        [openPublicationPreview]
+        [onSelectedPublicationIdsChange, selectedPublicationIds]
+    )
+    const handleEventClick = useCallback(
+        (occurrence: EventCalendarOccurrence<PublicationCalendarEventData>, event: MouseEvent) => {
+            const publication = occurrence.event.data?.publication
+            if (publication === undefined) return
+            if (selectionMode) {
+                event.preventDefault()
+                if (calendarApiRef.current === null) {
+                    togglePublicationSelection(publication.id)
+                } else {
+                    calendarApiRef.current.selectEvent(occurrence.key, { additive: true })
+                }
+                return
+            }
+            event.preventDefault()
+            openPublicationPreview(publication.id)
+        },
+        [openPublicationPreview, selectionMode, togglePublicationSelection]
     )
     const handleMoreClick = useCallback((day: Date) => {
         setExpandedDay(day)
@@ -210,8 +254,16 @@ export function PublicationCalendar({
                 interactions={CALENDAR_INTERACTIONS}
                 loading={loading}
                 locale={dateFnsLocale}
+                apiRef={calendarApiRef}
+                selection={{ eventKeys: selectedEventKeys, slot: null }}
                 onDateChange={handleDateChange}
                 onEventClick={handleEventClick}
+                onSelectionChange={selection => {
+                    const nextIds = selection.eventKeys
+                        .map(eventKey => eventIdsByKey.get(eventKey))
+                        .filter((id): id is string => id !== undefined)
+                    onSelectedPublicationIdsChange([...new Set(nextIds)])
+                }}
                 onMoreClick={handleMoreClick}
                 onSlotClick={handleSlotClick}
                 onViewChange={handleViewChange}
@@ -231,7 +283,7 @@ export function PublicationCalendar({
                 renderEvent={renderEvent}
                 classNames={{
                     dayAddButton: 'rounded-sm shadow-control',
-                    event: '!inset-ring-0 !shadow-none !bg-surface-field dark:!bg-surface-field hover:!bg-muted dark:hover:!bg-muted rounded-sm',
+                    event: 'inset-ring-0 !shadow-none !bg-surface-field dark:!bg-surface-field hover:!bg-muted dark:hover:!bg-muted data-selected:!bg-primary/15 dark:data-selected:!bg-primary/20 data-selected:!inset-ring-primary/55 rounded-sm',
                     monthBar: 'px-0.5',
                     monthBarOverlay: 'pt-8',
                     monthBody: 'gap-0.5',
@@ -247,13 +299,23 @@ export function PublicationCalendar({
                 }}>
                 <EventCalendarToolbar
                     hotkeyTarget={calendarShellRef}
+                    onSelectionModeChange={enabled => {
+                        setSelectionMode(enabled)
+                        if (!enabled) onSelectedPublicationIdsChange([])
+                    }}
+                    selectionMode={selectionMode}
+                    selectLabel={m.calendar_select()}
+                    doneLabel={m.calendar_done()}
                     shortcutsEnabled={previewPublicationId === null}
                 />
                 <CalendarBody
                     expandedDay={expandedDay}
                     locale={locale}
                     onEventClick={openPublicationPreview}
+                    onToggleSelection={togglePublicationSelection}
                     projectId={projectId}
+                    selectedPublicationIds={selectedPublicationIds}
+                    selectionMode={selectionMode}
                     timeZone={timeZone}
                 />
             </EventCalendar>
@@ -271,10 +333,18 @@ export function PublicationCalendar({
 }
 
 function EventCalendarToolbar({
+    doneLabel,
     hotkeyTarget,
+    onSelectionModeChange,
+    selectLabel,
+    selectionMode,
     shortcutsEnabled,
 }: {
+    readonly doneLabel: string
     readonly hotkeyTarget: RefObject<HTMLDivElement | null>
+    readonly onSelectionModeChange: (enabled: boolean) => void
+    readonly selectLabel: string
+    readonly selectionMode: boolean
     readonly shortcutsEnabled: boolean
 }) {
     const { title, prev, next, today, isToday } = useEventCalendarNavigation()
@@ -348,6 +418,14 @@ function EventCalendarToolbar({
                     id="calendar-title">
                     {title}
                 </h2>
+                <Button
+                    aria-pressed={selectionMode}
+                    onClick={() => onSelectionModeChange(!selectionMode)}
+                    size="sm"
+                    variant={selectionMode ? 'secondary' : 'ghost'}>
+                    <CheckSquareIcon aria-hidden="true" />
+                    {selectionMode ? doneLabel : selectLabel}
+                </Button>
                 <div
                     aria-label={settings.i18n.labels.selectView}
                     className="flex items-center rounded-md bg-muted p-0.5"
@@ -379,13 +457,19 @@ function CalendarBody({
     expandedDay,
     locale,
     onEventClick,
+    onToggleSelection,
     projectId,
+    selectedPublicationIds,
+    selectionMode,
     timeZone,
 }: {
     readonly expandedDay: Date | null
     readonly locale: string
     readonly onEventClick: (publicationId: string) => void
+    readonly onToggleSelection: (publicationId: string) => void
     readonly projectId: string
+    readonly selectedPublicationIds: ReadonlySet<string>
+    readonly selectionMode: boolean
     readonly timeZone: string
 }) {
     const { view } = useEventCalendarView()
@@ -396,6 +480,9 @@ function CalendarBody({
                 <PublicationCalendarAgenda
                     locale={locale}
                     onEventClick={onEventClick}
+                    onToggleSelection={onToggleSelection}
+                    selectedPublicationIds={selectedPublicationIds}
+                    selectionMode={selectionMode}
                     timeZone={timeZone}
                 />
             </div>
@@ -440,10 +527,16 @@ function useMediaQuery(query: string) {
 function PublicationCalendarAgenda({
     locale,
     onEventClick,
+    onToggleSelection,
+    selectedPublicationIds,
+    selectionMode,
     timeZone,
 }: {
     readonly locale: string
     readonly onEventClick: (publicationId: string) => void
+    readonly onToggleSelection: (publicationId: string) => void
+    readonly selectedPublicationIds: ReadonlySet<string>
+    readonly selectionMode: boolean
     readonly timeZone: string
 }) {
     const occurrences = useEventCalendarOccurrences<PublicationCalendarEventData>()
@@ -506,12 +599,23 @@ function PublicationCalendarAgenda({
                                 timeZone,
                                 locale
                             )
+                            const selected = selectedPublicationIds.has(publication.id)
                             return (
                                 <button
                                     aria-label={`${occurrence.event.title} — ${publication.channelName} — ${time}`}
-                                    className="group flex min-w-0 items-center gap-3 rounded-md bg-surface-field px-3 py-2.5 text-left shadow-field transition-[background-color,transform] hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+                                    aria-pressed={selectionMode ? selected : undefined}
+                                    className={cn(
+                                        'group flex min-w-0 items-center gap-3 rounded-md bg-surface-field px-3 py-2.5 text-left shadow-field transition-[background-color,box-shadow,transform] hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring',
+                                        selected &&
+                                            'bg-primary/15 shadow-control hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/25'
+                                    )}
+                                    data-selected={selected || undefined}
                                     key={occurrence.key}
-                                    onClick={() => onEventClick(publication.id)}
+                                    onClick={() =>
+                                        selectionMode
+                                            ? onToggleSelection(publication.id)
+                                            : onEventClick(publication.id)
+                                    }
                                     type="button">
                                     <span
                                         aria-hidden="true"
@@ -600,6 +704,10 @@ function PublicationEventContent({
 function calendarTimeFor(date: Date, timeZone: string) {
     const parts = getZonedDateTimeParts(date.getTime(), timeZone)
     return `${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`
+}
+
+function calendarEventKey(event: { readonly id: string; readonly start: Date }) {
+    return `${event.id}::${event.start.toISOString()}`
 }
 
 function viewName(

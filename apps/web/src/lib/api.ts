@@ -1082,6 +1082,30 @@ export const api = {
         )
     },
 
+    async reschedulePublications(
+        projectId: string,
+        publicationIds: readonly string[],
+        scheduledAt: number
+    ): Promise<{ publications: Publication[] }> {
+        return unwrap<{ publications: Publication[] }>(
+            await client.api.projects({ projectId }).publications.schedule.patch({
+                publicationIds: [...publicationIds],
+                scheduledAt,
+            })
+        )
+    },
+
+    async cancelPublications(
+        projectId: string,
+        publicationIds: readonly string[]
+    ): Promise<{ publications: Publication[] }> {
+        return unwrap<{ publications: Publication[] }>(
+            await client.api.projects({ projectId }).publications.cancel.patch({
+                publicationIds: [...publicationIds],
+            })
+        )
+    },
+
     async rebasePublicationDraft(
         projectId: string,
         publicationId: string,

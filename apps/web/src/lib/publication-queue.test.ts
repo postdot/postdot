@@ -36,6 +36,8 @@ describe('publication queue filters', () => {
         publication('scheduled', { scheduledAt: 2, state: 'scheduled' }),
         publication('manual', { deliveryMode: 'manual' }),
         publication('due', { deliveryMode: 'manual', scheduledAt: 3, state: 'ready' }),
+        publication('failed', { scheduledAt: 4, state: 'failed' }),
+        publication('review', { draftReviewState: 'review_required' }),
     ]
 
     test('keeps the source order for the all filter', () => {
@@ -45,17 +47,23 @@ describe('publication queue filters', () => {
     test('uses durable due ids for the attention filter', () => {
         expect(filterQueuePublications(publications, new Set(['due']), 'attention')).toEqual([
             publications[3]!,
+            publications[4]!,
+            publications[5]!,
         ])
     })
 
     test('filters scheduled and manual work without changing order', () => {
         expect(filterQueuePublications(publications, new Set(), 'scheduled')).toEqual([
             publications[1]!,
-            publications[3]!,
         ])
         expect(filterQueuePublications(publications, new Set(), 'manual')).toEqual([
             publications[2]!,
             publications[3]!,
+        ])
+        expect(filterQueuePublications(publications, new Set(), 'draft')).toEqual([
+            publications[0]!,
+            publications[2]!,
+            publications[5]!,
         ])
     })
 

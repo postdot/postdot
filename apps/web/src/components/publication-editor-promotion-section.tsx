@@ -10,6 +10,7 @@ import * as m from '@/paraglide/messages.js'
 interface PublicationEditorPromotionSectionProps {
     readonly timeZone: string
     readonly scheduleValue: string
+    readonly retry: boolean
     readonly disabled: boolean
     readonly draftRequiresReview: boolean
     readonly draftDiffersFromTarget: boolean
@@ -20,6 +21,7 @@ interface PublicationEditorPromotionSectionProps {
 export function PublicationEditorPromotionSection({
     timeZone,
     scheduleValue,
+    retry,
     disabled,
     draftRequiresReview,
     draftDiffersFromTarget,
@@ -72,7 +74,7 @@ export function PublicationEditorPromotionSection({
                         </Field>
                         <Button className="sm:mb-5" onClick={onPromote} disabled={disabled}>
                             <CheckSquareIcon aria-hidden="true" />
-                            {m.editor_apply_draft()}
+                            {retry ? m.publication_retry_delivery() : m.editor_apply_draft()}
                         </Button>
                     </div>
                 </CardContent>

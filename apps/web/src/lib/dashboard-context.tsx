@@ -159,6 +159,11 @@ export interface ProjectDashboardContextValue extends ProjectData {
     ) => Promise<boolean>
     readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
     readonly onPublish: (publicationId: string) => Promise<boolean>
+    readonly onCancelPublications: (publicationIds: readonly string[]) => Promise<boolean>
+    readonly onReschedulePublications: (
+        publicationIds: readonly string[],
+        scheduledAt: number
+    ) => Promise<boolean>
     readonly onLoadMorePublications: () => Promise<void>
     readonly loadingMorePublications: boolean
     readonly pending: boolean
@@ -372,6 +377,23 @@ export function ProjectDashboardProvider({
     async function handlePublish(publicationId: string): Promise<boolean> {
         return runAction(async () => {
             await api.publishManualPublication(project.id, publicationId)
+            await refreshProject()
+        })
+    }
+
+    async function handleReschedulePublications(
+        publicationIds: readonly string[],
+        scheduledAt: number
+    ): Promise<boolean> {
+        return runAction(async () => {
+            await api.reschedulePublications(project.id, publicationIds, scheduledAt)
+            await refreshProject()
+        })
+    }
+
+    async function handleCancelPublications(publicationIds: readonly string[]): Promise<boolean> {
+        return runAction(async () => {
+            await api.cancelPublications(project.id, publicationIds)
             await refreshProject()
         })
     }
@@ -631,6 +653,8 @@ export function ProjectDashboardProvider({
         onConnectDiscordPublisher: handleConnectDiscordPublisher,
         onConnectDevtoPublisher: handleConnectDevtoPublisher,
         onPublish: handlePublish,
+        onCancelPublications: handleCancelPublications,
+        onReschedulePublications: handleReschedulePublications,
         onLoadMorePublications: handleLoadMorePublications,
         loadingMorePublications,
         pending,

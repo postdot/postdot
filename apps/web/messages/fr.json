@@ -10,6 +10,7 @@
     "common_save": "Enregistrer",
     "common_delete": "Supprimer",
     "common_edit": "Modifier",
+    "common_view": "Voir",
     "common_restore": "Restaurer",
     "common_archive": "Archiver",
     "common_remove": "Retirer",
@@ -163,7 +164,7 @@
     "nav_no_channels": "Aucun canal pour le moment",
     "nav_channel_tooltip": "{channel} · {provider} · {state}",
     "nav_publications": "Publications",
-    "nav_needs_attention": "À traiter",
+    "nav_needs_attention": "Action requise",
     "nav_sign_out": "Se déconnecter",
     "nav_publication_editor": "Éditeur de publication",
     "nav_account_menu": "Ouvrir le menu du compte",
@@ -251,21 +252,89 @@
     "overview_open_create_project": "Ouvrir Créer un projet…",
     "overview_load_failed": "Impossible de charger le projet",
     "workspace_action_failed": "Échec de l’action sur l’espace de travail",
+    "calendar_select": "Sélectionner",
+    "calendar_done": "Terminer",
+    "calendar_selection_actions": "Actions sur les publications du calendrier",
+    "calendar_selected_publications": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} sélectionnée",
+                "countPlural=other": "{count} sélectionnées"
+            }
+        }
+    ],
+    "calendar_select_all_visible": "Tout sélectionner",
+    "calendar_clear_selection": "Désélectionner",
     "queue_title": "File d’attente",
     "queue_filters": "Filtres de la file d’attente",
     "queue_summary": "Résumé de la file d’attente",
     "queue_filter_aria": "{label} ({count})",
     "queue_all": "Tout",
-    "queue_attention": "À traiter",
+    "queue_attention": "Action requise",
+    "queue_drafts": "Brouillons",
     "queue_scheduled": "Planifiées",
     "queue_manual": "Manuelles",
+    "queue_delivery_filter": "Mode de livraison",
+    "queue_all_delivery_modes": "Tous les modes",
+    "queue_manual_delivery_mode": "Livraison manuelle",
     "queue_publications": "Publications",
+    "queue_column_publication": "Publication",
+    "queue_column_destination": "Destination",
+    "queue_column_action": "Action",
     "queue_no_publications": "La file est vide",
     "queue_no_publications_description": "Créez une publication pour y ajouter du travail.",
     "queue_show_all": "Tout afficher",
     "queue_load_more": "Charger davantage",
-    "queue_no_attention_title": "Rien à traiter",
-    "queue_no_attention_description": "Les publications à traiter apparaîtront ici.",
+    "queue_bulk_actions": "Actions sur les publications",
+    "queue_selected_publications": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} sélectionnée",
+                "countPlural=other": "{count} sélectionnées"
+            }
+        }
+    ],
+    "queue_select_all_visible": "Tout sélectionner",
+    "queue_clear_selection": "Désélectionner",
+    "queue_select_publication": "Sélectionner {title}",
+    "queue_deselect_publication": "Désélectionner {title}",
+    "queue_reschedule": "Replanifier",
+    "queue_reschedule_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Replanifier {count} publication",
+                "countPlural=other": "Replanifier {count} publications"
+            }
+        }
+    ],
+    "queue_reschedule_deliver_at": "Diffuser le",
+    "queue_reschedule_submit": "Appliquer",
+    "queue_reschedule_required": "Choisissez une date et une heure.",
+    "queue_reschedule_only_scheduled": "Seules les publications planifiées peuvent être replanifiées.",
+    "queue_cancel": "Annuler",
+    "queue_cancel_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Annuler {count} publication",
+                "countPlural=other": "Annuler {count} publications"
+            }
+        }
+    ],
+    "queue_cancel_description": "Ces publications ne seront pas diffusées.",
+    "queue_cancel_submit": "Annuler les publications",
+    "queue_cancel_only_scheduled": "Seules les publications planifiées peuvent être annulées.",
+    "queue_no_attention_title": "Aucune action requise",
+    "queue_no_attention_description": "Les publications nécessitant une action apparaîtront ici.",
+    "queue_no_drafts_title": "Aucun brouillon",
+    "queue_no_drafts_description": "Les brouillons enregistrés apparaîtront ici.",
     "queue_no_scheduled_title": "Rien de planifié",
     "queue_no_scheduled_description": "Les publications planifiées apparaîtront ici.",
     "queue_no_manual_title": "Aucun travail manuel en attente",
@@ -277,7 +346,7 @@
     "publication_empty_description": "Créez une publication pour commencer la file.",
     "publication_automatic": "Automatique",
     "publication_manual": "Manuel",
-    "publication_due_manual": "Manuel à traiter",
+    "publication_due_manual": "Action manuelle",
     "publication_draft_changes_pending": "Modifications du brouillon en attente",
     "publication_state_queued": "En file",
     "publication_state_ready": "Prête",
@@ -288,11 +357,15 @@
     "publication_state_cancelled": "Annulée",
     "publication_state_draft": "Brouillon",
     "publication_unscheduled": "Non planifiée",
-    "publication_needs_attention": "À traiter",
+    "publication_needs_attention": "Action requise",
     "publication_attention_description": "Vérifiez la destination et enregistrez le résultat avant de retirer ce travail de la file.",
     "publication_nothing_due": "Rien à traiter",
     "publication_manual_destination": "Destination manuelle — enregistrez le résultat une fois terminé.",
-    "publication_record_published": "Enregistrer comme publiée",
+    "publication_record_published": "Marquer publiée",
+    "publication_retry_delivery": "Réessayer la livraison",
+    "publication_cancel_title": "Annuler la publication ?",
+    "publication_cancel_description": "Cette publication ne sera pas diffusée.",
+    "publication_cancel_submit": "Annuler la publication",
     "publication_outcome_title": "Résultat de publication à confirmer",
     "publication_outcome_ambiguous_description": "Herald n’a pas pu confirmer si le provider a accepté cette publication. Choisissez le résultat vérifié ; Herald ne la renverra pas.",
     "publication_outcome_external_url_label": "URL publiée (facultatif)",
@@ -997,7 +1070,10 @@
     "editor_lifecycle_read_only": "Cette publication est entrée dans son cycle de livraison et ne peut plus être modifiée.",
     "editor_manual_publish_failed": "La publication n’a pas pu être enregistrée comme publiée.",
     "editor_manual_published": "Publication enregistrée comme publiée.",
+    "editor_cancel_failed": "La publication n’a pas pu être annulée.",
+    "editor_cancelled": "Publication annulée.",
     "editor_back_to_queue": "Retour à la file d’attente",
+    "editor_back_to_calendar": "Retour au calendrier",
     "editor_title": "Éditeur de publication",
     "editor_sidebar_selected_target": "Cible sélectionnée",
     "editor_sidebar_delivery_snapshot": "Aperçu de la livraison",
@@ -1072,6 +1148,7 @@
     "editor_previous_local_newer": "Une copie locale précédente a été conservée car le serveur contient un travail plus récent.",
     "editor_server_newer_local": "Le serveur contient un travail plus récent. Votre copie locale est conservée ; rechargez-la ou restaurez explicitement vos modifications.",
     "editor_server_loaded": "La version serveur est chargée. Votre copie locale précédente reste disponible.",
+    "editor_background_update": "La publication a changé en arrière-plan. Le dernier état du serveur est affiché.",
     "editor_server_loaded_conflict": "La version serveur est chargée, mais ce brouillon utilise toujours la révision source {revision}. Rebasez-le avant de réécrire.",
     "editor_recovered_review": "La copie récupérée est active pour vérification, mais le brouillon serveur doit être rebasé avant enregistrement.",
     "editor_recovered_promotion": "La copie récupérée est active et prête pour une promotion explicite.",

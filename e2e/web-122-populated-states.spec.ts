@@ -78,6 +78,56 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
     await expect(overviewCalendar.locator('[data-slot="event-calendar-event"]')).toHaveCount(4)
 
+    let cancelPayload: { publicationIds: string[] } | null = null
+    await page.route(`**/api/projects/${projectId}/publications/cancel`, async route => {
+        if (route.request().method() !== 'PATCH') {
+            await route.continue()
+            return
+        }
+
+        const body = route.request().postDataJSON() as { publicationIds: string[] }
+        cancelPayload = body
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                publications: publications
+                    .filter(publication => body.publicationIds.includes(publication.id))
+                    .map(publication => ({ ...publication, state: 'cancelled' })),
+            }),
+        })
+    })
+
+    await overviewCalendar.getByRole('button', { name: 'Select', exact: true }).click()
+    const calendarEvents = overviewCalendar.locator('[data-slot="event-calendar-event"]')
+    const firstSelectedEvent = calendarEvents.filter({ hasText: 'E2E-122 publication 2' })
+    const secondSelectedEvent = calendarEvents.filter({ hasText: 'E2E-122 publication 3' })
+    await firstSelectedEvent.click()
+    await secondSelectedEvent.click()
+    await expect(firstSelectedEvent).toHaveAttribute('aria-pressed', 'true')
+    await expect(secondSelectedEvent).toHaveAttribute('aria-pressed', 'true')
+    const calendarBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
+    await expect(calendarBulkActionBar).toContainText('2 selected')
+    await expect(
+        calendarBulkActionBar.getByRole('button', { name: 'Reschedule', exact: true })
+    ).toBeEnabled()
+    await expect(
+        calendarBulkActionBar.getByRole('button', { name: 'Cancel', exact: true })
+    ).toBeEnabled()
+    await calendarBulkActionBar.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(
+        page.getByRole('heading', { name: 'Cancel 2 publications', exact: true })
+    ).toBeVisible()
+    await expect.poll(() => cancelPayload).toBeNull()
+    await page.locator('[data-bulk-cancel-confirm="true"]').click()
+    await expect
+        .poll(() => cancelPayload)
+        .toEqual({
+            publicationIds: [publications[1]!.id, publications[2]!.id],
+        })
+    await expect(calendarBulkActionBar).toHaveCount(0)
+    await overviewCalendar.getByRole('button', { name: 'Done', exact: true }).click()
+
     await page.setViewportSize({ width: 390, height: 844 })
     await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
 
@@ -85,29 +135,37 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('heading', { name: 'Queue', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'All (8)', exact: true })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Needs attention (1)', exact: true })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Scheduled (4)', exact: true })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Manual (4)', exact: true })).toBeVisible()
-    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(9)
-
-    const queueAttentionBox = await page
-        .getByRole('heading', { name: 'Needs attention', exact: true })
-        .boundingBox()
-    const queuePublicationsBox = await page
-        .getByRole('heading', { name: 'Publications', exact: true })
-        .boundingBox()
-    expect(queueAttentionBox?.y).toBeLessThan(queuePublicationsBox?.y ?? Number.POSITIVE_INFINITY)
+    await expect(page.getByRole('tab', { name: 'Scheduled (3)', exact: true })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Drafts (4)', exact: true })).toBeVisible()
+    const deliveryFilter = page.getByRole('combobox', { name: 'Delivery', exact: true })
+    await expect(deliveryFilter).toContainText('All delivery modes')
+    await expect(page.locator('a[data-publication-edit-link="true"]')).toHaveCount(8)
+    await expect(page.locator('[data-queue-publication-list="true"]')).toHaveCount(1)
+    const publicationTable = page.locator('[data-publication-table-header="true"]')
+    await expect(publicationTable).toContainText('Publication')
+    await expect(publicationTable).toContainText('Destination')
+    await expect(publicationTable).toContainText('Action')
+    await expect(
+        publicationTable.locator('[data-queue-select-all="true"] input[type="checkbox"]')
+    ).toHaveCount(1)
+    await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'Needs attention (1)', exact: true }).click()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 1' })).toHaveCount(1)
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Needs attention', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Mark published', exact: true })).toBeVisible()
 
-    await page.getByRole('tab', { name: 'Scheduled (4)', exact: true }).click()
-    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(5)
-    await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 1' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Scheduled (3)', exact: true }).click()
+    await expect(page.locator('a[data-publication-edit-link="true"]')).toHaveCount(3)
+    await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 1' })).toHaveCount(0)
+    await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 4' })).toBeVisible()
 
-    await page.getByRole('tab', { name: 'Manual (4)', exact: true }).click()
-    await expect(page.locator('a[href*="/publications/"]')).toHaveCount(5)
+    await deliveryFilter.click()
+    await page.getByRole('option', { name: 'Manual delivery', exact: true }).click()
+    await expect(page).toHaveURL(/\/queue\?filter=manual$/)
+    await expect(page.locator('a[data-publication-edit-link="true"]')).toHaveCount(4)
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 2' })).toBeVisible()
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 8' })).toBeVisible()
 })

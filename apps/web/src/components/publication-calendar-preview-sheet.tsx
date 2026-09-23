@@ -8,6 +8,7 @@ import {
     SheetTitle,
 } from '@herald/ui/components/sheet'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/bold/calendar-minimalistic'
+import { EyeIcon } from '@solar-icons/react/bold/eye'
 import { LinkIcon } from '@solar-icons/react/bold/link'
 import { PenIcon } from '@solar-icons/react/bold/pen'
 import { useQuery } from '@tanstack/react-query'
@@ -15,6 +16,8 @@ import { useMemo, type ReactNode } from 'react'
 
 import { PublicationStatus, formatSchedule } from '@/components/dashboard-publication-parts'
 import { api, type PublicationSummary } from '@/lib/api'
+import { projectQueryKeys } from '@/lib/project-realtime'
+import { canEditPublication } from '@/lib/publication-lifecycle'
 
 export function PublicationCalendarPreviewSheet({
     locale,
@@ -39,7 +42,7 @@ export function PublicationCalendarPreviewSheet({
     )
     const previewQuery = useQuery({
         enabled: publicationId !== null,
-        queryKey: ['publication-calendar-preview', projectId, publicationId],
+        queryKey: projectQueryKeys.publicationEditor(projectId, publicationId ?? ''),
         queryFn: () => {
             if (publicationId === null) {
                 throw new Error('A publication is required to load its preview')
@@ -51,6 +54,7 @@ export function PublicationCalendarPreviewSheet({
     const editor = previewQuery.data?.editor
     const copy = getPreviewCopy(locale)
     const title = publication?.postTitle ?? copy.untitled
+    const editable = publication !== null && canEditPublication(publication.state)
 
     return (
         <Sheet
@@ -121,8 +125,12 @@ export function PublicationCalendarPreviewSheet({
                                     size="sm"
                                 />
                             }>
-                            <PenIcon aria-hidden="true" />
-                            {copy.edit}
+                            {editable ? (
+                                <PenIcon aria-hidden="true" />
+                            ) : (
+                                <EyeIcon aria-hidden="true" />
+                            )}
+                            {editable ? copy.edit : copy.view}
                         </SheetClose>
                     )}
                 </SheetFooter>
@@ -190,6 +198,7 @@ interface PreviewCopy {
     readonly mediaOnly: string
     readonly noContent: string
     readonly edit: string
+    readonly view: string
     readonly schedule: string
     readonly status: string
     readonly unavailable: string
@@ -206,6 +215,7 @@ function getPreviewCopy(locale: string): PreviewCopy {
             mediaOnly: 'Publication avec média',
             noContent: 'Aucun contenu à afficher',
             edit: 'Modifier la publication',
+            view: 'Voir la publication',
             schedule: 'Planification',
             status: 'Statut',
             unavailable: 'Cette publication n’est plus disponible.',
@@ -221,6 +231,7 @@ function getPreviewCopy(locale: string): PreviewCopy {
         mediaOnly: 'Media publication',
         noContent: 'No content to display',
         edit: 'Edit publication',
+        view: 'View publication',
         schedule: 'Schedule',
         status: 'Status',
         unavailable: 'This publication is no longer available.',
