@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 const e2eApiPort = process.env.HERALD_E2E_API_PORT
 if (e2eApiPort === undefined) {
@@ -37,22 +37,13 @@ type LayoutView = {
     }
 }
 
-test('persists mixed and media-only publications through the dashboard', async ({
-    page,
-    request,
-}) => {
+test('keeps dashboard and composer media journeys reliable', async ({ page, request }) => {
     test.setTimeout(60_000)
 
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-33 Project ${suffix}`
     const channelName = `E2E-33 Channel ${suffix}`
     const secondChannelName = `E2E-33 Second channel ${suffix}`
-    const mixedTitle = `E2E-33 Mixed ${suffix}`
-    const mediaOnlyTitle = `E2E-33 Media only ${suffix}`
-    const sourceText = `E2E-33 source ${suffix}`
-    const targetText = `E2E-33 target ${suffix}`
-    const secondTargetText = `E2E-33 second target ${suffix}`
-    const scheduledDateTime = localDateTimeInHours(2)
 
     const readinessResponse = await request.get(`${e2eApiOrigin}/ready`)
     expect(readinessResponse.status()).toBe(200)
@@ -439,6 +430,14 @@ test('persists mixed and media-only publications through the dashboard', async (
             name: new RegExp(`Remove ${secondMediaFilename}`),
         })
     ).toHaveCount(0)
+})
+
+test('supports media library search, viewing, and bulk actions', async ({ page }) => {
+    test.setTimeout(60_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+    const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
 
     await page.getByRole('link', { name: 'Media', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/media$/)
@@ -453,22 +452,146 @@ test('persists mixed and media-only publications through the dashboard', async (
             .locator('[data-media-import-zone="true"]')
             .getByRole('button', { name: 'Browse', exact: true })
     ).toBeVisible()
-    const droppedMediaFilename = `herald-e2e-dropped-${suffix}.png`
-    await page.locator('[data-media-import-zone="true"]').evaluate(
-        (element, file) => {
-            const dataTransfer = new DataTransfer()
-            dataTransfer.items.add(
-                new File([Uint8Array.from(file.bytes)], file.name, { type: file.mimeType })
-            )
-            element.dispatchEvent(
-                new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer })
-            )
-        },
-        { name: droppedMediaFilename, mimeType: 'image/png', bytes: [...mediaBytes] }
-    )
+    await importMediaFiles(page, [mediaFilename, secondMediaFilename, droppedMediaFilename])
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
+    const mediaLibraryViewer = page.locator('[data-media-viewer="true"]')
+    const mediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
+    const droppedMediaCard = page
+        .locator('[data-media-bulk-selection-card="true"]')
+        .filter({ hasText: droppedMediaFilename })
+    await expect(droppedMediaCard.locator('[data-media-open-trigger="true"]')).toHaveCount(0)
+    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await expect(mediaLibraryViewer).toBeVisible()
+    await expect(
+        mediaLibraryViewer.getByRole('button', { name: 'Enter fullscreen', exact: true })
+    ).toBeVisible()
+    const mediaViewerZoomOut = mediaLibraryViewer.getByRole('button', {
+        name: 'Zoom out',
+        exact: true,
+    })
+    const mediaViewerZoomIn = mediaLibraryViewer.getByRole('button', {
+        name: 'Zoom in',
+        exact: true,
+    })
+    const mediaViewerZoomReset = mediaLibraryViewer.getByRole('button', {
+        name: 'Reset zoom',
+        exact: true,
+    })
+    await expect(mediaViewerZoomOut).toBeDisabled()
+    await expect(mediaViewerZoomIn).toBeEnabled()
+    await mediaViewerZoomIn.click()
+    await expect(mediaViewerZoomReset).toBeEnabled()
+    await expect(mediaLibraryViewer.getByText('150%', { exact: true })).toBeVisible()
+    await mediaViewerZoomReset.click()
+    await expect(mediaViewerZoomReset).toBeDisabled()
+    const viewerImage = mediaLibraryViewer.locator('main img').first()
+    const viewerImageBounds = await viewerImage.boundingBox()
+    expect(viewerImageBounds).not.toBeNull()
+    await page.mouse.move(
+        (viewerImageBounds?.x ?? 0) + (viewerImageBounds?.width ?? 0) / 2,
+        (viewerImageBounds?.y ?? 0) + (viewerImageBounds?.height ?? 0) / 2
+    )
+    await page.mouse.wheel(0, -100)
+    await expect(mediaLibraryViewer.getByText('115%', { exact: true })).toBeVisible()
+    await mediaViewerZoomReset.click()
+    await expect(mediaViewerZoomReset).toBeDisabled()
+    const initialViewerFilename = await mediaLibraryViewer
+        .locator('[data-slot="dialog-title"]')
+        .textContent()
+    await page.keyboard.press('ArrowRight')
+    await expect(mediaLibraryViewer.locator('[data-slot="dialog-title"]')).not.toHaveText(
+        initialViewerFilename ?? ''
+    )
+    await page.keyboard.press('ArrowLeft')
+    await expect(mediaLibraryViewer.locator('[data-slot="dialog-title"]')).toHaveText(
+        initialViewerFilename ?? ''
+    )
+    const viewerThumbnailViewport = mediaLibraryViewer.locator('[data-media-viewer-thumbnails]')
+    const viewerThumbnailTrack = mediaLibraryViewer.locator(
+        '[data-media-viewer-thumbnail-track="true"]'
+    )
+    await page.setViewportSize({ width: 200, height: 480 })
+    await expect(viewerThumbnailViewport).toBeVisible()
+    await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grab')
+    const viewerThumbnailBounds = await viewerThumbnailViewport.boundingBox()
+    expect(viewerThumbnailBounds).not.toBeNull()
+    const thumbnailTrackLeftBefore = (await viewerThumbnailTrack.boundingBox())?.x
+    expect(thumbnailTrackLeftBefore).toBeDefined()
+    const thumbnailDragX = (viewerThumbnailBounds?.x ?? 0) + (viewerThumbnailBounds?.width ?? 0) / 2
+    const thumbnailDragY =
+        (viewerThumbnailBounds?.y ?? 0) + (viewerThumbnailBounds?.height ?? 0) / 2
+    await page.mouse.move(thumbnailDragX, thumbnailDragY)
+    await page.mouse.down()
+    await page.mouse.move(thumbnailDragX - 50, thumbnailDragY, { steps: 4 })
+    await page.mouse.up()
+    await expect
+        .poll(async () => (await viewerThumbnailTrack.boundingBox())?.x)
+        .not.toBe(thumbnailTrackLeftBefore)
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await expect(
+        mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
+    ).toBeEnabled()
+    await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(mediaLibraryViewer).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
+    await expect(mediaBulkActionBar).toBeVisible()
+    await expect(mediaBulkActionBar).toContainText('0 selected')
+    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await expect(droppedMediaCard).toHaveAttribute('data-media-action-selected', 'true')
+    await droppedMediaCard.click({ position: { x: 2, y: 2 } })
+    await expect(droppedMediaCard).not.toHaveAttribute('data-media-action-selected')
+    await page.getByRole('button', { name: `Select ${mediaFilename}`, exact: true }).click()
+    await expect(mediaBulkActionBar).toBeVisible()
+    await expect(
+        mediaBulkActionBar.getByRole('button', { name: 'Select all', exact: true })
+    ).toBeVisible()
+    await expect(
+        mediaBulkActionBar.getByRole('button', { name: 'Deselect', exact: true })
+    ).toBeVisible()
+    await expect(
+        mediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true })
+    ).toBeVisible()
+    await expect(
+        mediaBulkActionBar.getByRole('button', { name: 'Open (1)', exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: `Select ${secondMediaFilename}`, exact: true }).click()
+    await expect(mediaBulkActionBar).toContainText('2 selected')
+    await mediaBulkActionBar.getByRole('button', { name: 'Open (2)', exact: true }).click()
+    await expect(mediaLibraryViewer).toBeVisible()
+    await expect(mediaLibraryViewer.locator('[data-media-viewer-thumbnail="true"]')).toHaveCount(2)
+    await expect(
+        mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
+    ).toBeEnabled()
+    await mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true }).click()
+    await expect(mediaLibraryViewer.getByText('2 of 2', { exact: true })).toHaveCount(1)
+    await mediaLibraryViewer.getByRole('button', { name: 'Close', exact: true }).click()
+    await expect(mediaLibraryViewer).toHaveCount(0)
+    await mediaBulkActionBar.getByRole('button', { name: 'Delete (2)', exact: true }).click()
+    const mediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
+    await expect(mediaBulkDeletionDialog).toBeVisible()
+    await expect(
+        mediaBulkDeletionDialog.locator(
+            '[data-media-bulk-delete-body="true"] [data-media-bulk-delete-preview="true"]'
+        )
+    ).toHaveCount(2)
+    const mediaBulkDeleteConfirm = mediaBulkDeletionDialog.getByRole('button', {
+        name: 'Delete',
+        exact: true,
+    })
+    await expect(mediaBulkDeleteConfirm).toBeEnabled()
+    await mediaBulkDeleteConfirm.click()
+    await expect(mediaBulkDeletionDialog).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: `View ${mediaFilename}`, exact: true })
+    ).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: `View ${secondMediaFilename}`, exact: true })
+    ).toHaveCount(0)
+    await page.getByRole('button', { name: 'Exit selection', exact: true }).click()
+    await expect(mediaBulkActionBar).toHaveCount(0)
     const mediaSearch = page.getByRole('searchbox', { name: 'Search media', exact: true })
     await expect(mediaSearch).toBeVisible()
 
@@ -522,6 +645,66 @@ test('persists mixed and media-only publications through the dashboard', async (
         'data-media-library-view',
         'list'
     )
+    await droppedMediaCard
+        .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
+        .click()
+    await page.getByRole('menuitem', { name: 'Information', exact: true }).click()
+    const mediaInformationDialog = page.locator('[data-media-info-dialog="true"]')
+    await expect(mediaInformationDialog).toBeVisible()
+    await expect(mediaInformationDialog.getByText('File details', { exact: true })).toBeVisible()
+    await expect(
+        mediaInformationDialog.getByText('No references in this project.', { exact: true })
+    ).toBeVisible()
+    await mediaInformationDialog.getByRole('button', { name: 'Close', exact: true }).first().click()
+    await expect(mediaInformationDialog).toHaveCount(0)
+    await droppedMediaCard
+        .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
+        .click()
+    const mediaDownload = page.waitForEvent('download')
+    await page.getByRole('menuitem', { name: 'Download', exact: true }).click()
+    expect((await mediaDownload).suggestedFilename()).toBe(droppedMediaFilename)
+    await droppedMediaCard
+        .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
+        .click()
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
+    const mediaDeletionDialog = page.locator('[data-media-delete-dialog="true"]')
+    await expect(mediaDeletionDialog).toBeVisible()
+    await expect(
+        mediaDeletionDialog.locator(
+            '[data-media-delete-body="true"] [data-media-delete-preview="true"]'
+        )
+    ).toBeVisible()
+    await expect(mediaDeletionDialog).not.toContainText('Not used')
+    const mediaDeleteConfirm = mediaDeletionDialog.locator('[data-media-delete-confirm="true"]')
+    await expect(mediaDeleteConfirm).toBeEnabled()
+    await mediaDeleteConfirm.click()
+    await expect(mediaDeletionDialog).toHaveCount(0)
+    await expect(
+        page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
+    ).toHaveCount(0)
+})
+
+test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
+    test.setTimeout(60_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    const projectName = `E2E-33 Project ${suffix}`
+    const channelName = `E2E-33 Channel ${suffix}`
+    const secondChannelName = `E2E-33 Second channel ${suffix}`
+    const mixedTitle = `E2E-33 Mixed ${suffix}`
+    const mediaOnlyTitle = `E2E-33 Media only ${suffix}`
+    const sourceText = `E2E-33 source ${suffix}`
+    const targetText = `E2E-33 target ${suffix}`
+    const secondTargetText = `E2E-33 second target ${suffix}`
+    const scheduledDateTime = localDateTimeInHours(2)
+
+    const { projectId: firstProjectId } = await createAccountAndProject(page, suffix, projectName)
+    await createChannel(page, channelName)
+    await createChannel(page, secondChannelName, 'LinkedIn text')
+    await page.goto(`/dashboard/projects/${firstProjectId}/media`)
+    await importMediaFiles(page, [editedMediaFilename])
+    await page.getByRole('button', { name: 'List view', exact: true }).click()
+
     await expect(
         page.locator('main').getByRole('button', { name: 'New publication', exact: true })
     ).toHaveCount(0)
@@ -530,6 +713,26 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByLabel('Title', { exact: true }).fill(mixedTitle)
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    const mixedAttachmentLibrary = page.locator('[data-media-library="true"]')
+    const mixedAttachmentSearch = mixedAttachmentLibrary.getByRole('searchbox', {
+        name: 'Search media',
+        exact: true,
+    })
+    await mixedAttachmentSearch.fill(editedMediaFilename)
+    const mixedAttachmentCard = mixedAttachmentLibrary
+        .locator('article')
+        .filter({ hasText: editedMediaFilename })
+        .first()
+    await expect(mixedAttachmentCard).toHaveCount(1)
+    await mixedAttachmentCard.locator('[data-media-preview="true"]').click()
+    await expect(
+        mixedAttachmentCard.locator('[data-media-selection-toggle="true"]')
+    ).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
+    ).toBeVisible()
     const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().inputValue()
     await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
     await page.getByLabel('Channel content', { exact: true }).fill(targetText)
@@ -578,12 +781,55 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('option', { name: channelName, exact: true }).click()
     await page.getByLabel('Title', { exact: true }).fill(mediaOnlyTitle)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
-    const libraryMediaToggle = page
-        .locator('[data-media-library="true"] article')
+    const attachmentLibrary = page.locator('[data-media-library="true"]')
+    await expect(attachmentLibrary).toHaveAttribute('data-media-picker-mode', 'attach')
+    await expect(attachmentLibrary.locator('[data-media-asset-actions="true"]')).toHaveCount(0)
+    await expect(attachmentLibrary.locator('[data-media-attachment-scroll="true"]')).toBeVisible()
+    await expect(attachmentLibrary.locator('input[id^="media-alt-"]')).toHaveCount(0)
+    await expect(attachmentLibrary.locator('[data-media-library-toolbar="true"]')).toBeVisible()
+    await expect(
+        attachmentLibrary.getByRole('group', { name: 'Media view', exact: true })
+    ).toBeVisible()
+    await expect(attachmentLibrary.getByText('Attach', { exact: true })).toHaveCount(0)
+    const attachmentScroll = attachmentLibrary.locator('[data-media-attachment-scroll="true"]')
+    await expect(attachmentScroll).toHaveCSS('overflow-y', 'auto')
+    const attachmentSearch = attachmentLibrary.getByRole('searchbox', {
+        name: 'Search media',
+        exact: true,
+    })
+    await attachmentSearch.fill(editedMediaFilename)
+    const attachmentCard = attachmentLibrary
+        .locator('article')
         .filter({ hasText: editedMediaFilename })
-        .locator('[data-media-selection-toggle="true"]')
-    await libraryMediaToggle.click()
+        .first()
+    await expect(attachmentCard).toHaveCount(1)
+    await attachmentSearch.fill('')
+    const libraryMediaToggle = attachmentCard.locator('[data-media-selection-toggle="true"]')
+    await attachmentCard.locator('[data-media-preview="true"]').click()
     await expect(libraryMediaToggle).toHaveAttribute('aria-pressed', 'true')
+    const selectedCardGaps = await attachmentLibrary
+        .locator('[data-media-selection-active="true"]')
+        .first()
+        .evaluate(card => {
+            const scroll = card.closest('[data-media-attachment-scroll="true"]')
+            if (scroll === null) return null
+            const cardRect = card.getBoundingClientRect()
+            const scrollRect = scroll.getBoundingClientRect()
+            return {
+                bottom: scrollRect.bottom - cardRect.bottom,
+                left: cardRect.left - scrollRect.left,
+                right: scrollRect.right - cardRect.right,
+                top: cardRect.top - scrollRect.top,
+            }
+        })
+    expect(selectedCardGaps).not.toBeNull()
+    expect(selectedCardGaps?.top).toBeGreaterThan(0)
+    expect(selectedCardGaps?.left).toBeGreaterThan(0)
+    expect(selectedCardGaps?.right).toBeGreaterThan(0)
+    expect(selectedCardGaps?.bottom).toBeGreaterThan(0)
+    await expect(
+        page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
+    ).toHaveCount(0)
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(
         page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
@@ -705,8 +951,20 @@ test('persists mixed and media-only publications through the dashboard', async (
         'compact'
     )
     await expect(page.locator('[data-media-card-layout="compact"]')).not.toHaveCount(0)
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
+    await page.getByRole('button', { name: `Select ${editedMediaFilename}`, exact: true }).click()
+    const usedMediaBulkActionBar = page.locator('[data-bulk-action-bar="true"]')
+    await usedMediaBulkActionBar.getByRole('button', { name: 'Delete (1)', exact: true }).click()
+    const usedMediaBulkDeletionDialog = page.locator('[data-media-bulk-delete-dialog="true"]')
+    await expect(
+        usedMediaBulkDeletionDialog.locator('[data-media-bulk-delete-usage="blocked"]')
+    ).toBeVisible()
+    await expect(
+        usedMediaBulkDeletionDialog.getByRole('button', { name: 'Delete', exact: true })
+    ).toBeDisabled()
+    await usedMediaBulkDeletionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(usedMediaBulkDeletionDialog).toHaveCount(0)
 
-    const firstProjectId = projectIdFromUrl(page.url())
     const secondProjectName = `E2E-51 Second project ${suffix}`
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('option', { name: 'Create project', exact: true }).click()
@@ -741,6 +999,67 @@ test('persists mixed and media-only publications through the dashboard', async (
         secondProjectName
     )
 })
+
+async function createAccountAndProject(page: Page, suffix: string, projectName?: string) {
+    const email = `e2e-33-${suffix}@herald.local`
+    const resolvedProjectName = projectName ?? `E2E-33 Project ${suffix}`
+
+    await page.goto('/')
+    await expect(page).toHaveURL(/\/login$/)
+    await page.getByRole('button', { name: 'Need an account?' }).click()
+    await page.getByLabel('Name').fill('E2E-33 Operator')
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Password').fill('e2e-33-password')
+    await page.getByRole('button', { name: 'Create account', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
+
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
+    await page.locator('#new-project').fill(resolvedProjectName)
+    await page
+        .locator('form')
+        .filter({ has: page.locator('#new-project') })
+        .getByRole('button', { name: 'Add project', exact: true })
+        .click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+
+    return { email, projectId: projectIdFromUrl(page.url()), projectName: resolvedProjectName }
+}
+
+async function createChannel(page: Page, channelName: string, profileName?: string) {
+    const projectId = projectIdFromUrl(page.url())
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    if (profileName !== undefined) {
+        const channelProfile = page.getByRole('combobox', { name: 'Profile', exact: true })
+        await channelProfile.click()
+        await page.getByRole('option', { name: profileName, exact: true }).click()
+    }
+    await page.getByLabel('Channel name').fill(channelName)
+    await page.getByRole('button', { name: 'Create channel', exact: true }).click()
+    await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
+}
+
+async function importMediaFiles(page: Page, filenames: readonly string[]) {
+    const importZone = page.locator('[data-media-import-zone="true"]')
+    await expect(importZone).toBeVisible()
+
+    for (const name of filenames) {
+        await importZone.evaluate(
+            (element, file) => {
+                const dataTransfer = new DataTransfer()
+                dataTransfer.items.add(
+                    new File([Uint8Array.from(file.bytes)], file.name, { type: file.mimeType })
+                )
+                element.dispatchEvent(
+                    new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer })
+                )
+            },
+            { name, mimeType: 'image/png', bytes: [...mediaBytes] }
+        )
+        await expect(page.getByRole('button', { name: `View ${name}`, exact: true })).toBeVisible()
+    }
+}
 
 interface TargetContent {
     readonly body?: string

@@ -1,6 +1,19 @@
+import { Button } from '@herald/ui/components/button'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@herald/ui/components/dropdown-menu'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
-import { CheckReadIcon } from '@solar-icons/react/bold/check-read'
+import { DownloadMinimalisticIcon } from '@solar-icons/react/bold/download-minimalistic'
+import { FolderOpenIcon } from '@solar-icons/react/bold/folder-open'
+import { GalleryEditIcon } from '@solar-icons/react/bold/gallery-edit'
+import { InfoCircleIcon } from '@solar-icons/react/bold/info-circle'
+import { MenuDotsIcon } from '@solar-icons/react/bold/menu-dots'
+import { TrashBinMinimalisticIcon } from '@solar-icons/react/bold/trash-bin-minimalistic'
 
 import { api, type MediaReference } from '@/lib/api'
 import { formatBytes, formatNumber } from '@/lib/format'
@@ -15,7 +28,17 @@ interface MediaAssetCardProps {
     readonly projectId: string
     readonly selected: MediaSelection | undefined
     readonly selectable?: boolean
-    readonly onAccessibilityTextChange: (assetId: string, text: string) => void
+    readonly showAccessibilityText?: boolean
+    readonly showActions?: boolean
+    readonly actionSelectionEnabled?: boolean
+    readonly actionSelected?: boolean
+    readonly onAccessibilityTextChange?: (assetId: string, text: string) => void
+    readonly onActionSelectionToggle?: (asset: MediaReference) => void
+    readonly onDownload?: (asset: MediaReference) => void
+    readonly onEdit?: (asset: MediaReference) => void
+    readonly onInfo?: (asset: MediaReference) => void
+    readonly onOpen?: (asset: MediaReference) => void
+    readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview: (asset: MediaReference) => void
 }
@@ -29,7 +52,17 @@ export function MediaAssetCard({
     projectId,
     selected,
     selectable = true,
+    showAccessibilityText = true,
+    showActions = true,
+    actionSelectionEnabled = false,
+    actionSelected = false,
     onAccessibilityTextChange,
+    onActionSelectionToggle,
+    onDownload,
+    onEdit,
+    onInfo,
+    onOpen,
+    onRequestDelete,
     onToggle,
     onPreview,
 }: MediaAssetCardProps) {
@@ -37,6 +70,7 @@ export function MediaAssetCard({
     const representation = readyRepresentation(asset)
     const isGrid = layout === 'grid'
     const isCompact = layout === 'compact'
+    const attachmentSelected = selectable && selected !== undefined
     const previewClassName = isGrid
         ? 'flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground object-cover'
         : isCompact
@@ -46,62 +80,170 @@ export function MediaAssetCard({
     return (
         <article
             data-media-card-layout={layout}
-            className={`rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field ${
-                selectable && selected !== undefined ? 'ring-2 ring-primary/35' : ''
+            data-media-bulk-selection-card={
+                actionSelectionEnabled || onOpen !== undefined ? 'true' : undefined
+            }
+            data-media-selection-card={selectable ? 'true' : undefined}
+            data-media-selection-active={attachmentSelected || undefined}
+            data-media-action-selected={actionSelected || undefined}
+            style={{
+                contentVisibility: 'auto',
+                containIntrinsicSize: isGrid ? '0 17rem' : isCompact ? '0 5rem' : '0 7rem',
+            }}
+            onClick={event => {
+                if (interactionDisabled || asset.asset.state !== 'ready') return
+                if (
+                    event.target instanceof Element &&
+                    event.target.closest(
+                        'button, input, textarea, a, select, [data-media-asset-action]'
+                    ) !== null
+                ) {
+                    return
+                }
+                if (actionSelectionEnabled) {
+                    onActionSelectionToggle?.(asset)
+                } else if (selectable) {
+                    onToggle(asset)
+                } else {
+                    onOpen?.(asset)
+                }
+            }}
+            className={`group relative rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field transition-[background-color,box-shadow] ${
+                actionSelected
+                    ? 'cursor-pointer bg-primary/5 ring-1 ring-primary/75'
+                    : attachmentSelected
+                      ? 'cursor-pointer bg-primary/5 ring-1 ring-primary/70'
+                      : (actionSelectionEnabled || onOpen !== undefined || selectable) &&
+                          asset.asset.state === 'ready'
+                        ? 'cursor-pointer hover:bg-surface-raised/60'
+                        : ''
             }`}>
             <div
                 className={
                     isGrid ? 'flex min-w-0 flex-col gap-2' : 'flex min-w-0 items-center gap-3'
                 }>
-                <button
-                    type="button"
-                    disabled={interactionDisabled || representation === undefined}
-                    aria-label={m.media_view_asset({ filename: asset.asset.originalFilename })}
-                    data-media-preview="true"
-                    onClick={() => onPreview(asset)}
-                    className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50`}>
-                    <MediaPreview
-                        projectId={projectId}
-                        asset={asset}
-                        representation={representation}
-                        className={previewClassName}
-                    />
-                </button>
-                {selectable ? (
+                {actionSelectionEnabled || selectable ? (
+                    <div
+                        data-media-preview="true"
+                        className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-pointer rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}>
+                        <MediaPreview
+                            projectId={projectId}
+                            asset={asset}
+                            representation={representation}
+                            className={previewClassName}
+                        />
+                    </div>
+                ) : (
                     <button
                         type="button"
-                        aria-pressed={selected !== undefined}
-                        data-media-selection-toggle="true"
-                        disabled={interactionDisabled || asset.asset.state !== 'ready'}
-                        onClick={() => onToggle(asset)}
-                        className={`flex min-w-0 flex-1 gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
-                        <AssetDetails
+                        disabled={interactionDisabled || representation === undefined}
+                        aria-label={m.media_view_asset({ filename: asset.asset.originalFilename })}
+                        data-media-preview="true"
+                        onClick={() => onPreview(asset)}
+                        title={m.media_view_asset({ filename: asset.asset.originalFilename })}
+                        className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50`}>
+                        <MediaPreview
+                            projectId={projectId}
                             asset={asset}
-                            locale={locale}
                             representation={representation}
+                            className={previewClassName}
                         />
-                        {selected === undefined ? (
-                            <span className="text-xs text-muted-foreground">
-                                {m.media_attach()}
-                            </span>
-                        ) : (
-                            <CheckReadIcon
-                                aria-label={m.media_attached()}
-                                className="shrink-0 text-primary"
-                            />
-                        )}
                     </button>
+                )}
+                {actionSelectionEnabled ? (
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                        <button
+                            type="button"
+                            aria-label={
+                                actionSelected
+                                    ? m.media_bulk_deselect_asset({
+                                          filename: asset.asset.originalFilename,
+                                      })
+                                    : m.media_bulk_select_asset({
+                                          filename: asset.asset.originalFilename,
+                                      })
+                            }
+                            aria-pressed={actionSelected}
+                            data-media-bulk-selection-toggle="true"
+                            disabled={
+                                interactionDisabled ||
+                                asset.asset.state !== 'ready' ||
+                                onActionSelectionToggle === undefined
+                            }
+                            onClick={() => onActionSelectionToggle?.(asset)}
+                            className={`flex min-w-0 flex-1 cursor-pointer gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
+                            <AssetDetails
+                                asset={asset}
+                                locale={locale}
+                                representation={representation}
+                            />
+                        </button>
+                        {showActions ? (
+                            <MediaAssetActions
+                                asset={asset}
+                                interactionDisabled={interactionDisabled}
+                                onDownload={onDownload}
+                                onEdit={onEdit}
+                                onInfo={onInfo}
+                                onOpen={onOpen}
+                                onRequestDelete={onRequestDelete}
+                                representation={representation}
+                            />
+                        ) : null}
+                    </div>
+                ) : selectable ? (
+                    <div
+                        className={`flex min-w-0 flex-1 items-start gap-2 ${isGrid ? 'items-start' : 'items-center'}`}>
+                        <button
+                            type="button"
+                            aria-pressed={selected !== undefined}
+                            data-media-selection-toggle="true"
+                            disabled={interactionDisabled || asset.asset.state !== 'ready'}
+                            onClick={() => onToggle(asset)}
+                            className={`flex min-w-0 flex-1 gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
+                            <AssetDetails
+                                asset={asset}
+                                locale={locale}
+                                representation={representation}
+                            />
+                            {selected !== undefined ? (
+                                <span className="sr-only">{m.media_attached()}</span>
+                            ) : null}
+                        </button>
+                        {showActions ? (
+                            <MediaAssetActions
+                                asset={asset}
+                                interactionDisabled={interactionDisabled}
+                                onOpen={onOpen}
+                                representation={representation}
+                            />
+                        ) : null}
+                    </div>
                 ) : (
-                    <div className="min-w-0 flex-1">
-                        <AssetDetails
-                            asset={asset}
-                            locale={locale}
-                            representation={representation}
-                        />
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                            <AssetDetails
+                                asset={asset}
+                                locale={locale}
+                                representation={representation}
+                            />
+                        </div>
+                        {showActions ? (
+                            <MediaAssetActions
+                                asset={asset}
+                                interactionDisabled={interactionDisabled}
+                                onDownload={onDownload}
+                                onEdit={onEdit}
+                                onInfo={onInfo}
+                                onOpen={onOpen}
+                                onRequestDelete={onRequestDelete}
+                                representation={representation}
+                            />
+                        ) : null}
                     </div>
                 )}
             </div>
-            {selectable && selected !== undefined ? (
+            {selectable && selected !== undefined && showAccessibilityText ? (
                 <Field className="mt-3 gap-1">
                     <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>
                         {m.media_accessibility_text()}
@@ -111,7 +253,7 @@ export function MediaAssetCard({
                         value={selected.accessibilityText ?? ''}
                         disabled={interactionDisabled}
                         onChange={event =>
-                            onAccessibilityTextChange(asset.asset.id, event.target.value)
+                            onAccessibilityTextChange?.(asset.asset.id, event.target.value)
                         }
                         placeholder={m.media_accessibility_placeholder()}
                         className="h-8 text-xs"
@@ -119,6 +261,122 @@ export function MediaAssetCard({
                 </Field>
             ) : null}
         </article>
+    )
+}
+
+function MediaAssetActions({
+    asset,
+    interactionDisabled,
+    onDownload,
+    onEdit,
+    onInfo,
+    onOpen,
+    onRequestDelete,
+    representation,
+}: {
+    readonly asset: MediaReference
+    readonly interactionDisabled: boolean
+    readonly onDownload?: (asset: MediaReference) => void
+    readonly onEdit?: (asset: MediaReference) => void
+    readonly onInfo?: (asset: MediaReference) => void
+    readonly onOpen?: (asset: MediaReference) => void
+    readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly representation: ReturnType<typeof readyRepresentation>
+}) {
+    if (
+        onOpen === undefined &&
+        onDownload === undefined &&
+        onEdit === undefined &&
+        onInfo === undefined &&
+        onRequestDelete === undefined
+    )
+        return null
+
+    return (
+        <div className="shrink-0">
+            <DropdownMenu modal={false}>
+                <DropdownMenuTrigger
+                    render={
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={interactionDisabled}
+                            data-media-asset-actions="true"
+                            aria-label={m.media_asset_actions({
+                                filename: asset.asset.originalFilename,
+                            })}
+                            className="text-muted-foreground hover:bg-surface-raised hover:text-foreground">
+                            <MenuDotsIcon aria-hidden="true" />
+                        </Button>
+                    }
+                />
+                <DropdownMenuContent align="end" className="min-w-44">
+                    {onInfo !== undefined ? (
+                        <DropdownMenuItem
+                            data-media-asset-action="info"
+                            disabled={interactionDisabled}
+                            onClick={() => onInfo(asset)}>
+                            <InfoCircleIcon aria-hidden="true" />
+                            {m.media_info_action()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {onOpen !== undefined ? (
+                        <DropdownMenuItem
+                            data-media-asset-action="open"
+                            disabled={
+                                interactionDisabled ||
+                                asset.asset.state !== 'ready' ||
+                                representation === undefined
+                            }
+                            onClick={() => onOpen(asset)}>
+                            <FolderOpenIcon aria-hidden="true" />
+                            {m.media_open_action()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {onDownload !== undefined ? (
+                        <DropdownMenuItem
+                            data-media-asset-action="download"
+                            disabled={interactionDisabled || asset.asset.state !== 'ready'}
+                            onClick={() => onDownload(asset)}>
+                            <DownloadMinimalisticIcon aria-hidden="true" />
+                            {m.media_download_action()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {onEdit !== undefined ? (
+                        <DropdownMenuItem
+                            data-media-asset-action="edit"
+                            disabled={
+                                interactionDisabled ||
+                                asset.asset.state !== 'ready' ||
+                                representation?.family !== 'image'
+                            }
+                            onClick={() => onEdit(asset)}>
+                            <GalleryEditIcon aria-hidden="true" />
+                            {m.media_edit_image()}
+                        </DropdownMenuItem>
+                    ) : null}
+                    {onRequestDelete !== undefined ? (
+                        <>
+                            {onOpen !== undefined ||
+                            onDownload !== undefined ||
+                            onEdit !== undefined ||
+                            onInfo !== undefined ? (
+                                <DropdownMenuSeparator />
+                            ) : null}
+                            <DropdownMenuItem
+                                data-media-asset-action="delete"
+                                variant="destructive"
+                                disabled={interactionDisabled || asset.asset.state !== 'ready'}
+                                onClick={() => onRequestDelete(asset)}>
+                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                {m.media_delete_confirm()}
+                            </DropdownMenuItem>
+                        </>
+                    ) : null}
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
     )
 }
 
@@ -180,11 +438,13 @@ export function MediaPreview({
     asset,
     representation,
     className,
+    draggable,
 }: {
     readonly projectId: string
     readonly asset: MediaReference
     readonly representation: ReturnType<typeof readyRepresentation>
     readonly className?: string
+    readonly draggable?: boolean
 }) {
     if (representation?.family === 'image') {
         return (
@@ -192,6 +452,7 @@ export function MediaPreview({
                 src={api.mediaContentUrl(projectId, asset.asset.id)}
                 alt=""
                 loading="lazy"
+                draggable={draggable}
                 className={className ?? 'size-12 rounded-md object-cover shadow-field'}
             />
         )

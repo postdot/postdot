@@ -1,0 +1,366 @@
+import { Button } from '@herald/ui/components/button'
+import { ButtonGroup } from '@herald/ui/components/button-group'
+import { Input } from '@herald/ui/components/input'
+import { Kbd } from '@herald/ui/components/kbd'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@herald/ui/components/select'
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@herald/ui/components/tooltip'
+import { GalleryIcon } from '@solar-icons/react/bold/gallery'
+import { ListIcon } from '@solar-icons/react/bold/list'
+import { MagnifierIcon } from '@solar-icons/react/bold/magnifier'
+import { Widget2Icon } from '@solar-icons/react/bold/widget-2'
+import type { RegisterableHotkey } from '@tanstack/hotkeys'
+import { useHotkeys } from '@tanstack/react-hotkeys'
+
+import { type MediaListDateFilter, type MediaListFamilyFilter, type MediaListSort } from '@/lib/api'
+import type { MediaLibraryViewMode } from '@/lib/media-library-view'
+import * as m from '@/paraglide/messages.js'
+
+const MEDIA_VIEW_SHORTCUTS = {
+    compact: 'C',
+    grid: 'G',
+    list: 'L',
+} satisfies Record<MediaLibraryViewMode, RegisterableHotkey>
+
+interface MediaLibraryToolbarProps {
+    readonly projectId: string
+    readonly searchQuery: string
+    readonly searchPending: boolean
+    readonly mediaDateFilter: MediaListDateFilter
+    readonly mediaFamilyFilter: MediaListFamilyFilter
+    readonly mediaSort: MediaListSort
+    readonly mediaViewMode: MediaLibraryViewMode
+    readonly bulkSelectionMode: boolean
+    readonly interactionDisabled: boolean
+    readonly assetCount: number
+    readonly totalAssets: number
+    readonly className?: string
+    readonly showResultCount?: boolean
+    readonly showSelectionMode?: boolean
+    readonly showViewControls?: boolean
+    readonly onSearchQueryChange: (query: string) => void
+    readonly onDateChange: (value: MediaListDateFilter) => void
+    readonly onFamilyChange: (value: MediaListFamilyFilter) => void
+    readonly onSortChange: (value: MediaListSort) => void
+    readonly onViewModeChange: (value: MediaLibraryViewMode) => void
+    readonly onToggleSelectionMode?: () => void
+}
+
+export function MediaLibraryToolbar({
+    projectId,
+    searchQuery,
+    searchPending,
+    mediaDateFilter,
+    mediaFamilyFilter,
+    mediaSort,
+    mediaViewMode,
+    bulkSelectionMode,
+    interactionDisabled,
+    assetCount,
+    totalAssets,
+    className,
+    showResultCount = true,
+    showSelectionMode = true,
+    showViewControls = true,
+    onSearchQueryChange,
+    onDateChange,
+    onFamilyChange,
+    onSortChange,
+    onViewModeChange,
+    onToggleSelectionMode,
+}: MediaLibraryToolbarProps) {
+    return (
+        <div
+            role="search"
+            aria-label={m.media_search_label()}
+            data-media-library-toolbar="true"
+            className={`flex flex-col gap-3 ${className ?? ''}`}>
+            <div className="relative min-w-0 sm:w-80">
+                <label className="sr-only" htmlFor={`media-search-${projectId}`}>
+                    {m.media_search_label()}
+                </label>
+                <MagnifierIcon
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                />
+                <Input
+                    id={`media-search-${projectId}`}
+                    type="search"
+                    data-media-search="true"
+                    value={searchQuery}
+                    onChange={event => onSearchQueryChange(event.target.value)}
+                    placeholder={m.media_search_placeholder()}
+                    className="h-8 pl-9 text-sm"
+                />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+                <MediaLibraryFilters
+                    date={mediaDateFilter}
+                    family={mediaFamilyFilter}
+                    sort={mediaSort}
+                    onDateChange={onDateChange}
+                    onFamilyChange={onFamilyChange}
+                    onSortChange={onSortChange}
+                />
+                <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+                    {showResultCount && searchPending ? (
+                        <p aria-live="polite" className="text-xs text-muted-foreground">
+                            {m.media_searching()}
+                        </p>
+                    ) : showResultCount && assetCount > 0 && totalAssets > 0 ? (
+                        <p aria-live="polite" className="text-xs text-muted-foreground">
+                            {m.media_visible_count({ shown: assetCount, total: totalAssets })}
+                        </p>
+                    ) : null}
+                    {showSelectionMode ? (
+                        <Button
+                            type="button"
+                            variant={bulkSelectionMode ? 'secondary' : 'outline'}
+                            size="sm"
+                            className="shadow-none"
+                            aria-pressed={bulkSelectionMode}
+                            data-media-selection-mode-toggle="true"
+                            disabled={interactionDisabled}
+                            onClick={onToggleSelectionMode}>
+                            {bulkSelectionMode
+                                ? m.media_bulk_exit_selection_mode()
+                                : m.media_bulk_select_mode()}
+                        </Button>
+                    ) : null}
+                    {showViewControls ? (
+                        <MediaLibraryViewControls
+                            disabled={interactionDisabled}
+                            value={mediaViewMode}
+                            onChange={onViewModeChange}
+                        />
+                    ) : null}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+function MediaLibraryViewControls({
+    disabled,
+    value,
+    onChange,
+}: {
+    readonly disabled: boolean
+    readonly value: MediaLibraryViewMode
+    readonly onChange: (value: MediaLibraryViewMode) => void
+}) {
+    useHotkeys(
+        [
+            {
+                hotkey: MEDIA_VIEW_SHORTCUTS.grid,
+                callback: () => onChange('grid'),
+            },
+            {
+                hotkey: MEDIA_VIEW_SHORTCUTS.compact,
+                callback: () => onChange('compact'),
+            },
+            {
+                hotkey: MEDIA_VIEW_SHORTCUTS.list,
+                callback: () => onChange('list'),
+            },
+        ],
+        {
+            enabled: !disabled,
+            ignoreInputs: true,
+            preventDefault: true,
+            requireReset: true,
+            stopPropagation: true,
+        }
+    )
+
+    return (
+        <TooltipProvider delay={450}>
+            <ButtonGroup
+                aria-label={m.media_view_modes()}
+                data-media-view-controls="true"
+                className="shrink-0">
+                <Tooltip>
+                    <TooltipTrigger
+                        render={
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                className={mediaLibraryViewButtonClass(value === 'grid')}
+                                aria-label={m.media_view_grid()}
+                                aria-keyshortcuts={MEDIA_VIEW_SHORTCUTS.grid}
+                                aria-pressed={value === 'grid'}
+                                data-media-view-mode="grid"
+                                disabled={disabled}
+                                onClick={() => onChange('grid')}>
+                                <GalleryIcon aria-hidden="true" />
+                            </Button>
+                        }
+                    />
+                    <TooltipContent>
+                        <span>{m.media_view_grid()}</span>
+                        <Kbd aria-hidden="true">{MEDIA_VIEW_SHORTCUTS.grid}</Kbd>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger
+                        render={
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                className={mediaLibraryViewButtonClass(value === 'compact')}
+                                aria-label={m.media_view_compact()}
+                                aria-keyshortcuts={MEDIA_VIEW_SHORTCUTS.compact}
+                                aria-pressed={value === 'compact'}
+                                data-media-view-mode="compact"
+                                disabled={disabled}
+                                onClick={() => onChange('compact')}>
+                                <Widget2Icon aria-hidden="true" />
+                            </Button>
+                        }
+                    />
+                    <TooltipContent>
+                        <span>{m.media_view_compact()}</span>
+                        <Kbd aria-hidden="true">{MEDIA_VIEW_SHORTCUTS.compact}</Kbd>
+                    </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                    <TooltipTrigger
+                        render={
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                className={mediaLibraryViewButtonClass(value === 'list')}
+                                aria-label={m.media_view_list()}
+                                aria-keyshortcuts={MEDIA_VIEW_SHORTCUTS.list}
+                                aria-pressed={value === 'list'}
+                                data-media-view-mode="list"
+                                disabled={disabled}
+                                onClick={() => onChange('list')}>
+                                <ListIcon aria-hidden="true" />
+                            </Button>
+                        }
+                    />
+                    <TooltipContent>
+                        <span>{m.media_view_list()}</span>
+                        <Kbd aria-hidden="true">{MEDIA_VIEW_SHORTCUTS.list}</Kbd>
+                    </TooltipContent>
+                </Tooltip>
+            </ButtonGroup>
+        </TooltipProvider>
+    )
+}
+
+function mediaLibraryViewButtonClass(active: boolean) {
+    return active
+        ? 'bg-muted text-foreground shadow-none hover:bg-muted/80'
+        : 'text-muted-foreground shadow-none'
+}
+
+function MediaLibraryFilters({
+    date,
+    family,
+    sort,
+    onDateChange,
+    onFamilyChange,
+    onSortChange,
+}: {
+    readonly date: MediaListDateFilter
+    readonly family: MediaListFamilyFilter
+    readonly sort: MediaListSort
+    readonly onDateChange: (value: MediaListDateFilter) => void
+    readonly onFamilyChange: (value: MediaListFamilyFilter) => void
+    readonly onSortChange: (value: MediaListSort) => void
+}) {
+    return (
+        <div className="flex flex-wrap items-center gap-2" data-media-filters="true">
+            <Select
+                items={{
+                    all: m.media_filter_all_types(),
+                    image: m.media_filter_images(),
+                    video: m.media_filter_videos(),
+                    audio: m.media_filter_audio(),
+                    document: m.media_filter_documents(),
+                }}
+                value={family}
+                onValueChange={value => onFamilyChange((value ?? 'all') as MediaListFamilyFilter)}>
+                <SelectTrigger
+                    size="sm"
+                    className="w-auto min-w-32"
+                    aria-label={m.media_filter_type()}
+                    data-media-filter="family">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start">
+                    <SelectItem value="all">{m.media_filter_all_types()}</SelectItem>
+                    <SelectItem value="image">{m.media_filter_images()}</SelectItem>
+                    <SelectItem value="video">{m.media_filter_videos()}</SelectItem>
+                    <SelectItem value="audio">{m.media_filter_audio()}</SelectItem>
+                    <SelectItem value="document">{m.media_filter_documents()}</SelectItem>
+                </SelectContent>
+            </Select>
+            <Select
+                items={{
+                    all: m.media_filter_all_dates(),
+                    last_24_hours: m.media_filter_last_24_hours(),
+                    last_7_days: m.media_filter_last_7_days(),
+                    last_30_days: m.media_filter_last_30_days(),
+                }}
+                value={date}
+                onValueChange={value => onDateChange((value ?? 'all') as MediaListDateFilter)}>
+                <SelectTrigger
+                    size="sm"
+                    className="w-auto min-w-36"
+                    aria-label={m.media_filter_date()}
+                    data-media-filter="date">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start">
+                    <SelectItem value="all">{m.media_filter_all_dates()}</SelectItem>
+                    <SelectItem value="last_24_hours">{m.media_filter_last_24_hours()}</SelectItem>
+                    <SelectItem value="last_7_days">{m.media_filter_last_7_days()}</SelectItem>
+                    <SelectItem value="last_30_days">{m.media_filter_last_30_days()}</SelectItem>
+                </SelectContent>
+            </Select>
+            <Select
+                items={{
+                    newest: m.media_sort_newest(),
+                    oldest: m.media_sort_oldest(),
+                    name_asc: m.media_sort_name_asc(),
+                    name_desc: m.media_sort_name_desc(),
+                    largest: m.media_sort_largest(),
+                    smallest: m.media_sort_smallest(),
+                }}
+                value={sort}
+                onValueChange={value => onSortChange((value ?? 'newest') as MediaListSort)}>
+                <SelectTrigger
+                    size="sm"
+                    className="w-auto min-w-36"
+                    aria-label={m.media_sort()}
+                    data-media-filter="sort">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start">
+                    <SelectItem value="newest">{m.media_sort_newest()}</SelectItem>
+                    <SelectItem value="oldest">{m.media_sort_oldest()}</SelectItem>
+                    <SelectItem value="name_asc">{m.media_sort_name_asc()}</SelectItem>
+                    <SelectItem value="name_desc">{m.media_sort_name_desc()}</SelectItem>
+                    <SelectItem value="largest">{m.media_sort_largest()}</SelectItem>
+                    <SelectItem value="smallest">{m.media_sort_smallest()}</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+    )
+}

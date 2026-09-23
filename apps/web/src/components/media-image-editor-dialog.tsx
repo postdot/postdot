@@ -14,7 +14,7 @@ import { RefreshCircleIcon } from '@solar-icons/react/bold/refresh-circle'
 import { useEffect, useMemo, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
 
-import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
+import { readyRepresentation } from '@/components/media-asset-card'
 import { api, type MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -22,72 +22,6 @@ import * as m from '@/paraglide/messages.js'
 import 'react-easy-crop/react-easy-crop.css'
 
 type EditorAspect = 'source' | 'square' | 'portrait' | 'landscape'
-
-interface MediaImageViewerDialogProps {
-    readonly asset: MediaReference | null
-    readonly open: boolean
-    readonly onOpenChange: (open: boolean) => void
-    readonly onEdit: (asset: MediaReference) => void
-}
-
-export function MediaImageViewerDialog({
-    asset,
-    open,
-    onOpenChange,
-    onEdit,
-}: MediaImageViewerDialogProps) {
-    useLanguage()
-    if (asset === null) return null
-
-    const representation = readyRepresentation(asset)
-    const image = representation?.family === 'image'
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent
-                showCloseButton
-                className="max-h-[calc(100vh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-5xl">
-                <DialogHeader className="border-b border-border/60 px-5 py-4 sm:px-6">
-                    <DialogTitle className="truncate pr-8">
-                        {asset.asset.originalFilename}
-                    </DialogTitle>
-                    <DialogDescription className="sr-only">
-                        {m.media_viewer_description()}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="flex min-h-0 items-center justify-center bg-surface-canvas p-4 sm:p-8">
-                    {image ? (
-                        <img
-                            src={api.mediaContentUrl(asset.asset.projectId, asset.asset.id)}
-                            alt={
-                                asset.asset.defaultAccessibilityText ?? asset.asset.originalFilename
-                            }
-                            className="max-h-[min(68vh,42rem)] max-w-full object-contain"
-                        />
-                    ) : (
-                        <MediaPreview
-                            projectId={asset.asset.projectId}
-                            asset={asset}
-                            representation={representation}
-                            className="flex size-48 items-center justify-center bg-surface-field text-sm font-medium uppercase text-muted-foreground"
-                        />
-                    )}
-                </div>
-                <div className="flex items-center justify-between gap-3 border-t border-border/60 bg-muted px-5 py-3 sm:px-6">
-                    <span className="min-w-0 truncate text-xs text-muted-foreground">
-                        {image ? m.media_viewer_hint() : m.media_file_type()}
-                    </span>
-                    {image ? (
-                        <Button type="button" onClick={() => onEdit(asset)}>
-                            <GalleryEditIcon aria-hidden="true" />
-                            {m.media_edit_image()}
-                        </Button>
-                    ) : null}
-                </div>
-            </DialogContent>
-        </Dialog>
-    )
-}
 
 interface MediaImageEditorDialogProps {
     readonly asset: MediaReference | null

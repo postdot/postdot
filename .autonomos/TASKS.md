@@ -315,7 +315,7 @@ the central project reads and projection/realtime reliability.
 
 ## 🌐 External media sources
 
-- [ ] **[MEDIA-181]** Define the first safe set of external media sources for the Herald library `Priority: 🔵` `Complexity: L` — [ISSUE-103]; compare provider plugins and direct picker APIs, choose the self-hosted Companion/authentication boundary, decide which source OAuth credentials and network transfers belong to Herald, and specify failure/retry/privacy contracts before adding source controls. Do not install the all-in-one remote-sources preset or expose unconfigured provider buttons.
+- [/] **[MEDIA-181]** Define the first safe set of external media sources for the Herald library `Priority: 🔵` `Complexity: L` — [ISSUE-103]; compare provider plugins and direct picker APIs, choose the self-hosted Companion/authentication boundary, decide which source OAuth credentials and network transfers belong to Herald, and specify failure/retry/privacy contracts before adding source controls. Do not install the all-in-one remote-sources preset or expose unconfigured provider buttons. In progress: explicit source registry, browser-owned device/webcam capture, configured URL source, controlled server transfer, and shared verification lifecycle are implemented; OAuth-backed providers and Companion boundary remain, while Unsplash is explicitly deferred as a later nice-to-have.
 
 ## 🎞️ Media library contract
 

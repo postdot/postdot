@@ -115,6 +115,42 @@ describe('Herald media upload orchestration', () => {
 
         expect(reservation.intent.id).toBe('intent-1')
     })
+
+    it('enforces the server-provided policy through Uppy restrictions', () => {
+        const controller = createHeraldMediaUploadController('project-1', createClient())
+        const failures: string[] = []
+        controller.uppy.on('restriction-failed', file => {
+            failures.push(file?.name ?? 'batch')
+        })
+
+        try {
+            controller.setUploadPolicy({
+                allowedContentTypes: ['image/png'],
+                maxFileSize: 4,
+            })
+
+            expect(controller.uppy.opts.restrictions.allowedFileTypes).toEqual(['image/png'])
+            expect(controller.uppy.opts.restrictions.maxFileSize).toBe(4)
+
+            controller.uppy.addFiles([
+                {
+                    name: 'large.png',
+                    type: 'image/png',
+                    data: new Blob(['12345'], { type: 'image/png' }),
+                },
+                {
+                    name: 'notes.txt',
+                    type: 'text/plain',
+                    data: new Blob(['123'], { type: 'text/plain' }),
+                },
+            ])
+
+            expect(failures).toEqual(['large.png', 'notes.txt'])
+            expect(controller.uppy.getFiles()).toHaveLength(0)
+        } finally {
+            void controller.uppy.destroy()
+        }
+    })
 })
 
 function createClient(overrides: Partial<HeraldMediaUploadClient> = {}): HeraldMediaUploadClient {

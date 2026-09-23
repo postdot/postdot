@@ -126,6 +126,49 @@ describe('media HTTP routes', () => {
             expect(projectResponse.status).toBe(201)
             const projectBody = (await projectResponse.json()) as { project: { id: string } }
 
+            const uploadPolicyResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/upload-policy`,
+                cookie
+            )
+            expect(uploadPolicyResponse.status).toBe(200)
+            expect(await uploadPolicyResponse.json()).toEqual({
+                allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
+                maxFileSize: 2_000_000,
+            })
+
+            const mediaSourcesResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/sources`,
+                cookie
+            )
+            expect(mediaSourcesResponse.status).toBe(200)
+            expect(await mediaSourcesResponse.json()).toEqual({
+                sources: [
+                    {
+                        id: 'device',
+                        transfer: 'browser',
+                        requiresAuthentication: false,
+                    },
+                    {
+                        id: 'webcam',
+                        transfer: 'browser',
+                        requiresAuthentication: false,
+                    },
+                ],
+            })
+
+            const disabledUrlImportResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/imports/url`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ url: 'https://images.example/cover.png' }),
+                }
+            )
+            expect(disabledUrlImportResponse.status).toBe(404)
+
             const bytes = createPng()
             const reserveResponse = await jsonRequest(
                 app,
@@ -265,7 +308,7 @@ describe('media HTTP routes', () => {
 
             const listResponse = await jsonRequest(
                 app,
-                `/api/projects/${projectBody.project.id}/media?limit=1&search=cover`,
+                `/api/projects/${projectBody.project.id}/media?limit=1&search=cover&sort=name_asc&family=image&date=all`,
                 cookie
             )
             expect(listResponse.status).toBe(200)
@@ -277,6 +320,7 @@ describe('media HTTP routes', () => {
                     },
                 ],
                 nextCursor: null,
+                total: 1,
             })
 
             const getResponse = await jsonRequest(
@@ -287,6 +331,55 @@ describe('media HTTP routes', () => {
             expect(getResponse.status).toBe(200)
             expect(await getResponse.json()).toMatchObject({
                 asset: { id: reservationBody.asset.id, state: 'ready' },
+            })
+
+            const batchReserveResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/uploads`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ originalFilename: 'batch.png' }),
+                }
+            )
+            expect(batchReserveResponse.status).toBe(201)
+            const batchReservationBody = (await batchReserveResponse.json()) as {
+                asset: { id: string }
+            }
+            const batchDeleteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/deletion-requests`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        assetIds: [
+                            batchReservationBody.asset.id,
+                            batchReservationBody.asset.id,
+                            'missing-media',
+                        ],
+                    }),
+                }
+            )
+            expect(batchDeleteResponse.status).toBe(200)
+            expect(await batchDeleteResponse.json()).toEqual({
+                deletions: [
+                    { assetId: batchReservationBody.asset.id, status: 'deletion_requested' },
+                    { assetId: 'missing-media', status: 'not_found' },
+                ],
+            })
+
+            const usageResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/usage`,
+                cookie
+            )
+            expect(usageResponse.status).toBe(200)
+            expect(await usageResponse.json()).toEqual({
+                assetId: reservationBody.asset.id,
+                active: [],
+                history: [],
+                auditEventCount: 0,
             })
 
             const deleteResponse = await jsonRequest(
@@ -301,13 +394,20 @@ describe('media HTTP routes', () => {
                 media: { asset: { state: 'deletion_requested' } },
             })
 
-            const deletedContentResponse = await jsonRequest(
+            const deferredContentResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/content`,
                 cookie
             )
-            expect(deletedContentResponse.status).toBe(404)
-            expect((await app.handle(new Request(publicUrl))).status).toBe(404)
+            expect(deferredContentResponse.status).toBe(200)
+            expect(Array.from(new Uint8Array(await deferredContentResponse.arrayBuffer()))).toEqual(
+                Array.from(bytes)
+            )
+            const deferredPublicResponse = await app.handle(new Request(publicUrl))
+            expect(deferredPublicResponse.status).toBe(200)
+            expect(Array.from(new Uint8Array(await deferredPublicResponse.arrayBuffer()))).toEqual(
+                Array.from(bytes)
+            )
 
             const deletedMetadataResponse = await jsonRequest(
                 app,
@@ -408,7 +508,9 @@ describe('media HTTP routes', () => {
                 expect.arrayContaining([
                     '/api/projects/{projectId}/media',
                     '/api/projects/{projectId}/media/{assetId}',
+                    '/api/projects/{projectId}/media/{assetId}/usage',
                     '/api/projects/{projectId}/media/{assetId}/content',
+                    '/api/projects/{projectId}/media/deletion-requests',
                     '/api/projects/{projectId}/media/uploads',
                     '/api/projects/{projectId}/media/uploads/{intentId}',
                     '/api/projects/{projectId}/media/uploads/{intentId}/finalize',

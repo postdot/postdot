@@ -69,14 +69,16 @@ async function requestWithNode(
                     byteCount += bytes.byteLength
                 })
                 response.once('end', () =>
-                    finish(() =>
+                    finish(() => {
+                        const body = Buffer.concat(chunks)
                         resolve({
                             status: response.statusCode ?? 0,
                             headers: responseHeaders(response.headers),
-                            body: Buffer.concat(chunks).toString('utf8'),
+                            body: body.toString('utf8'),
+                            bodyBytes: body,
                             bodyTruncated,
                         })
-                    )
+                    })
                 )
                 response.once('error', error => finish(() => reject(error)))
             }

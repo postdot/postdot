@@ -477,9 +477,205 @@
     "media_accessibility_placeholder": "Describe this media for people who cannot see it",
     "media_upload": "Add media",
     "media_uploading": "Adding {filename}…",
+    "media_recovery_title": "Interrupted import recovered",
+    "media_recovery_description": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} file was recovered.",
+                "countPlural=other": "{count} files were recovered."
+            }
+        }
+    ],
+    "media_recovery_missing": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} file must be selected again.",
+                "countPlural=other": "{count} files must be selected again."
+            }
+        }
+    ],
+    "media_recovery_resume": "Resume",
+    "media_recovery_reselect": "Select again",
+    "media_recovery_dismiss": "Dismiss",
     "media_view_asset": "View {filename}",
+    "media_open_asset": "Open {filename}",
+    "media_asset_actions": "Actions for {filename}",
+    "media_info_action": "Information",
+    "media_download_action": "Download",
+    "media_info_title": "Media information",
+    "media_info_details": "File details",
+    "media_info_type": "Type",
+    "media_info_format": "Format",
+    "media_info_size": "Size",
+    "media_info_dimensions": "Dimensions",
+    "media_info_duration": "Duration",
+    "media_info_pages": "Pages",
+    "media_info_animation": "Animation",
+    "media_info_yes": "Yes",
+    "media_info_no": "No",
+    "media_info_created": "Created",
+    "media_info_updated": "Updated",
+    "media_info_usage": "Usage",
+    "media_info_usage_loading": "Loading usage…",
+    "media_info_usage_error": "Usage could not be checked right now.",
+    "media_info_usage_none": "No references in this project.",
+    "media_info_usage_active": "Current usage",
+    "media_info_usage_history": "History",
+    "media_info_usage_source": "Source content",
+    "media_info_usage_publication": "Publication",
+    "media_info_usage_draft": "Draft",
+    "media_info_usage_target": "Target",
+    "media_info_usage_execution": "Execution",
+    "media_info_untitled": "Untitled publication",
+    "media_open_action": "Open",
     "media_viewer_description": "View the full media asset.",
-    "media_viewer_hint": "Full-size preview",
+    "media_viewer_position": "{current} of {total}",
+    "media_viewer_previous": "Previous media",
+    "media_viewer_next": "Next media",
+    "media_viewer_thumbnails": "Media thumbnails",
+    "media_viewer_fullscreen": "Enter fullscreen",
+    "media_viewer_exit_fullscreen": "Exit fullscreen",
+    "media_viewer_zoom_in": "Zoom in",
+    "media_viewer_zoom_out": "Zoom out",
+    "media_viewer_zoom_reset": "Reset zoom",
+    "media_viewer_zoom_reset_short": "Reset",
+    "media_usage_checking": "Checking usage…",
+    "media_usage_unavailable": "Usage unavailable",
+    "media_usage_source": "Present in source content",
+    "media_usage_active": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} active publication",
+                "countPlural=other": "{count} active publications"
+            }
+        }
+    ],
+    "media_usage_history": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} publication in history",
+                "countPlural=other": "{count} publications in history"
+            }
+        }
+    ],
+    "media_usage_audit": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} entry in project history",
+                "countPlural=other": "{count} entries in project history"
+            }
+        }
+    ],
+    "media_delete_title": "Delete this file?",
+    "media_delete_used_description": "This media is still used. Remove its references before deleting it.",
+    "media_delete_unavailable_description": "Its usage cannot be checked right now.",
+    "media_delete_confirm": "Delete",
+    "media_delete_asset": "Delete {filename}",
+    "media_delete_pending": "Deleting…",
+    "media_bulk_actions": "Bulk actions",
+    "media_bulk_clear_selection": "Deselect",
+    "media_bulk_clear_visible": "Deselect",
+    "media_bulk_delete_action": "Delete ({count})",
+    "media_bulk_open_action": "Open ({count})",
+    "media_bulk_select_mode": "Select",
+    "media_bulk_exit_selection_mode": "Exit selection",
+    "media_bulk_select_asset": "Select {filename}",
+    "media_bulk_deselect_asset": "Deselect {filename}",
+    "media_bulk_selected": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} selected",
+                "countPlural=other": "{count} selected"
+            }
+        }
+    ],
+    "media_bulk_select_visible": "Select all",
+    "media_bulk_delete_title": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Delete this file?",
+                "countPlural=other": "Delete these {count} files?"
+            }
+        }
+    ],
+    "media_bulk_delete_preview_label": "Selected media",
+    "media_bulk_delete_description": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "This file will be removed from the media library.",
+                "countPlural=other": "These {count} files will be removed from the media library."
+            }
+        }
+    ],
+    "media_bulk_usage_checking": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Checking where this file is used…",
+                "countPlural=other": "Checking where these {count} files are used…"
+            }
+        }
+    ],
+    "media_bulk_delete_unavailable": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Usage for one file could not be checked.",
+                "countPlural=other": "Usage for {count} files could not be checked."
+            }
+        }
+    ],
+    "media_bulk_delete_blocked": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "One selected file is still used.",
+                "countPlural=other": "{count} selected files are still used."
+            }
+        }
+    ],
+    "media_bulk_delete_more_blocked": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "One more file is blocked.",
+                "countPlural=other": "{count} more files are blocked."
+            }
+        }
+    ],
+    "media_bulk_delete_remove_blocked": "Remove the used files from the selection to continue.",
+    "media_bulk_delete_pending": "Deleting…",
+    "media_bulk_delete_partial_error": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "One file could not be deleted. Its usage may have changed.",
+                "countPlural=other": "{count} files could not be deleted. Their usage may have changed."
+            }
+        }
+    ],
+    "media_bulk_missing_assets": "Some selected media is no longer available.",
     "media_edit_image": "Edit image",
     "media_editor_description": "Crop, zoom, or rotate this image. Saving creates a new media asset.",
     "media_editor_zoom": "Zoom",
@@ -496,22 +692,66 @@
     "media_editor_saving": "Saving…",
     "media_editor_failed": "The image could not be edited.",
     "media_action_failed": "Media action failed",
+    "media_upload_rejected": "The selected file could not be imported.",
+    "media_upload_rejected_type": "{filename} is not supported. Accepted formats: {types}.",
+    "media_upload_rejected_size": "{filename} exceeds the {size} limit.",
     "media_loading": "Loading media library…",
     "media_empty_title": "No media yet",
     "media_empty_description": "Import an image to make it available for publications.",
     "media_empty_here": "Add media when you need it.",
     "media_empty_publication_new": "No media added",
-    "media_upload_image": "Import from device",
+    "media_upload_image": "Import",
     "media_import": "Import",
+    "media_source_picker_title": "Import media",
+    "media_source_picker_description": "Choose a source.",
+    "media_sources_label": "Media sources",
+    "media_source_device": "Device",
+    "media_source_device_description": "Choose files from this device.",
+    "media_source_webcam": "Webcam",
+    "media_source_webcam_description": "Take a photo with this device’s camera.",
+    "media_source_url": "URL",
+    "media_source_url_description": "Import an image from a direct URL.",
+    "media_source_url_label": "Image URL",
+    "media_source_url_placeholder": "https://example.com/image.jpg",
+    "media_source_url_hint": "PNG · JPEG · WebP",
+    "media_source_url_import": "Import",
+    "media_source_url_importing": "Importing…",
     "media_drop_files": "Drop files",
     "media_drop_files_active": "Release to upload",
     "media_drop_files_hint": "or",
     "media_browse_files": "Browse",
     "media_supported_types": "PNG · JPEG · WebP",
+    "media_webcam_title": "Take a photo",
+    "media_webcam_description": "Use this device’s camera.",
+    "media_webcam_loading": "Starting camera…",
+    "media_webcam_permission": "Camera access is required to take a photo.",
+    "media_webcam_unavailable": "No camera is available on this device.",
+    "media_webcam_unsupported": "The camera is not available here. Use a secure connection (HTTPS).",
+    "media_webcam_capture": "Take photo",
+    "media_webcam_capturing": "Capturing…",
+    "media_webcam_capture_failed": "The photo could not be captured.",
     "media_search_label": "Search media",
     "media_search_placeholder": "Filename",
     "media_searching": "Searching…",
-    "media_visible_count": "{count} shown",
+    "media_filter_type": "File type",
+    "media_filter_all_types": "All types",
+    "media_filter_images": "Images",
+    "media_filter_videos": "Videos",
+    "media_filter_audio": "Audio",
+    "media_filter_documents": "Documents",
+    "media_filter_date": "Date added",
+    "media_filter_all_dates": "Any date",
+    "media_filter_last_24_hours": "Last 24 hours",
+    "media_filter_last_7_days": "Last 7 days",
+    "media_filter_last_30_days": "Last 30 days",
+    "media_sort": "Sort",
+    "media_sort_newest": "Newest",
+    "media_sort_oldest": "Oldest",
+    "media_sort_name_asc": "Name A–Z",
+    "media_sort_name_desc": "Name Z–A",
+    "media_sort_largest": "Largest",
+    "media_sort_smallest": "Smallest",
+    "media_visible_count": "{shown} of {total}",
     "media_view_modes": "Media view",
     "media_view_grid": "Gallery view",
     "media_view_compact": "Compact view",
@@ -968,6 +1208,16 @@
     "api_access_tokens_unavailable": "Project access tokens are temporarily unavailable.",
     "api_media_unavailable": "The media asset is no longer available.",
     "api_media_storage_unavailable": "Media storage is temporarily unavailable.",
+    "api_media_in_use": "This media asset is still used by the project.",
+    "api_media_url_invalid": "Enter a valid media URL.",
+    "api_media_url_unavailable": "This media URL could not be reached.",
+    "api_media_url_redirect": "This media URL could not be followed.",
+    "api_media_url_http_error": "This URL did not return an image.",
+    "api_media_url_missing_type": "This URL did not identify an image type.",
+    "api_media_url_unsupported_type": "This image format is not supported.",
+    "api_media_url_too_large": "This image is too large.",
+    "api_media_url_empty": "This URL returned an empty file.",
+    "api_media_url_upload_failed": "The image could not be imported.",
     "api_upload_expired": "The media upload expired. Start it again.",
     "api_size_mismatch": "The uploaded file size did not match the reservation.",
     "api_provider_failure": "The provider could not complete the request.",

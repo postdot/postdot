@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import type { CustomHttpRequest, CustomHttpRequester } from './contract'
-import { createNetworkControlledFetcher } from './fetcher'
+import { createNetworkControlledBinaryFetcher, createNetworkControlledFetcher } from './fetcher'
 
 async function readBody(request: CustomHttpRequest): Promise<Uint8Array> {
     if (request.body === null) return new Uint8Array()
@@ -24,6 +24,7 @@ function createRequester(
         readonly status: number
         readonly headers?: Record<string, string>
         readonly body?: string
+        readonly bodyBytes?: Uint8Array
         readonly bodyTruncated?: boolean
     } = { status: 202 }
 ): { readonly requester: CustomHttpRequester; readonly requests: CustomHttpRequest[] } {
@@ -37,6 +38,7 @@ function createRequester(
                     status: response.status,
                     headers: response.headers ?? { 'content-type': 'application/json' },
                     body: response.body ?? '{}',
+                    bodyBytes: response.bodyBytes,
                     bodyTruncated: response.bodyTruncated ?? false,
                 }
             },
@@ -104,6 +106,25 @@ describe('network-controlled fetcher', () => {
         await expect(
             fetcher('https://example.social/api/v1/accounts/verify_credentials')
         ).rejects.toThrow('exceeded the configured limit')
+    })
+
+    test('preserves binary response bytes for server-side media imports', async () => {
+        const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+        const fetcher = createNetworkControlledBinaryFetcher({
+            resolveHostname: async () => [{ address: '8.8.8.8', family: 4 }],
+            requester: createRequester({
+                status: 200,
+                headers: { 'content-type': 'image/png' },
+                body: 'not the binary payload',
+                bodyBytes: bytes,
+            }).requester,
+        })
+
+        const response = await fetcher('https://images.example/media.png')
+
+        expect(response.status).toBe(200)
+        expect(response.body).toEqual(bytes)
+        expect(response.bodyTruncated).toBe(false)
     })
 
     test('rejects URL credentials before DNS resolution', async () => {

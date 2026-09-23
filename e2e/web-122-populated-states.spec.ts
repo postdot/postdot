@@ -213,7 +213,7 @@ test('supports dense events and slot creation in the ReUI week view', async ({ p
     await expect(selectedWeekButton).toHaveAttribute('aria-pressed', 'true')
     await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveText('W')
     await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveCSS('height', '16px')
-    await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveClass(/bg-surface-field/)
+    await expect(selectedWeekButton.locator('[data-slot="kbd"]')).toHaveClass(/bg-current\/10/)
     const kbdBackground = await selectedWeekButton
         .locator('[data-slot="kbd"]')
         .evaluate(element => getComputedStyle(element).backgroundColor)

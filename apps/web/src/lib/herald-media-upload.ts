@@ -1,9 +1,21 @@
 import type { MediaFinalize, MediaReference, MediaReservation, MediaUpload } from '@herald/client'
+import { defaultMediaUploadContentTypes } from '@herald/core'
 import Uppy, { type Meta, type UppyFile } from '@uppy/core'
+import GoldenRetriever from '@uppy/golden-retriever'
 
 import { MediaVerificationError } from '@/lib/media-errors'
 
 export type HeraldMediaUppyFile = UppyFile<Meta, Record<string, never>>
+
+export interface HeraldMediaUploadPolicy {
+    readonly allowedContentTypes: readonly string[]
+    readonly maxFileSize: number | null
+}
+
+export const defaultHeraldMediaUploadPolicy: HeraldMediaUploadPolicy = {
+    allowedContentTypes: defaultMediaUploadContentTypes,
+    maxFileSize: null,
+}
 
 export interface HeraldMediaUploadClient {
     reserveMediaUpload: (
@@ -26,19 +38,30 @@ export interface HeraldMediaUploadController {
     readonly uppy: Uppy<Meta, Record<string, never>>
     readonly mediaByFileId: ReadonlyMap<string, MediaReference>
     readonly errorsByFileId: ReadonlyMap<string, unknown>
+    readonly policy: HeraldMediaUploadPolicy
+    readonly setUploadPolicy: (policy: HeraldMediaUploadPolicy) => void
+}
+
+export interface HeraldMediaUploadOptions {
+    readonly id?: string
+    readonly recoveryExpires?: number
 }
 
 export function createHeraldMediaUploadController(
     projectId: string,
     client: HeraldMediaUploadClient,
-    waitForVerification: (milliseconds: number) => Promise<void> = delay
+    waitForVerification: (milliseconds: number) => Promise<void> = delay,
+    initialPolicy: HeraldMediaUploadPolicy = defaultHeraldMediaUploadPolicy,
+    options: HeraldMediaUploadOptions = {}
 ): HeraldMediaUploadController {
     const mediaByFileId = new Map<string, MediaReference>()
     const errorsByFileId = new Map<string, unknown>()
+    let uploadPolicy = normalizeUploadPolicy(initialPolicy)
     const uppy = new Uppy<Meta, Record<string, never>>({
-        id: `herald-media-${projectId}`,
+        id: options.id ?? `herald-media-${projectId}`,
         autoProceed: false,
         allowMultipleUploadBatches: true,
+        restrictions: toUppyRestrictions(uploadPolicy),
     })
 
     uppy.addUploader(async (fileIds, _uploadId) => {
@@ -89,7 +112,53 @@ export function createHeraldMediaUploadController(
         }
     })
 
-    return { uppy, mediaByFileId, errorsByFileId }
+    if (canUseBrowserRecovery()) {
+        uppy.use(GoldenRetriever, {
+            expires: options.recoveryExpires ?? 24 * 60 * 60 * 1000,
+        })
+    }
+
+    return {
+        uppy,
+        mediaByFileId,
+        errorsByFileId,
+        get policy() {
+            return uploadPolicy
+        },
+        setUploadPolicy(policy) {
+            uploadPolicy = normalizeUploadPolicy(policy)
+            uppy.setOptions({ restrictions: toUppyRestrictions(uploadPolicy) })
+        },
+    }
+}
+
+function normalizeUploadPolicy(policy: HeraldMediaUploadPolicy): HeraldMediaUploadPolicy {
+    const allowedContentTypes = [
+        ...new Set(
+            policy.allowedContentTypes
+                .map(contentType => contentType.trim().toLowerCase())
+                .filter(contentType => contentType !== '')
+        ),
+    ]
+    if (allowedContentTypes.length === 0) {
+        throw new Error('media_upload_policy_invalid')
+    }
+
+    if (
+        policy.maxFileSize !== null &&
+        (!Number.isSafeInteger(policy.maxFileSize) || policy.maxFileSize <= 0)
+    ) {
+        throw new Error('media_upload_policy_invalid')
+    }
+
+    return { allowedContentTypes, maxFileSize: policy.maxFileSize }
+}
+
+function toUppyRestrictions(policy: HeraldMediaUploadPolicy) {
+    return {
+        allowedFileTypes: [...policy.allowedContentTypes],
+        maxFileSize: policy.maxFileSize,
+    }
 }
 
 export async function uploadHeraldMediaFile(
@@ -138,4 +207,11 @@ export async function completeHeraldMediaUpload(
 
 function delay(milliseconds: number) {
     return new Promise<void>(resolve => window.setTimeout(resolve, milliseconds))
+}
+
+function canUseBrowserRecovery() {
+    return (
+        typeof window !== 'undefined' &&
+        (typeof indexedDB !== 'undefined' || typeof localStorage !== 'undefined')
+    )
 }
