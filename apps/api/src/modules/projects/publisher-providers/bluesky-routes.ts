@@ -8,21 +8,24 @@ import {
     createBlueskyStateStoreWithKeyCapture,
     readBlueskySessionTokenSet,
 } from '@herald/bluesky'
+import type { AccessStore } from '@herald/db'
 import { digestAuthorizationState } from '@herald/oauth'
 import type { Logger } from 'pino'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth'
 import type { PublisherRuntime } from '../../publishers/runtime'
+import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { blueskyConnectionBody, blueskyConnectionSchema, errorResponse } from '../models'
 
 export function registerBlueskyPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
-    } = {}
+    }
 ) {
     const { authorizationAttemptStore, credentialStore, publisherStore } = publisher
 
@@ -60,6 +63,17 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                             message: 'Human authentication is required to connect Bluesky',
                         },
                     })
+                }
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
                 }
 
                 if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
@@ -238,6 +252,22 @@ export function registerBlueskyPublisherRoutes<const Routes extends Record<strin
                     return redirectBlueskyPublisher(
                         publisher.webOrigin,
                         '/dashboard',
+                        'invalid_callback'
+                    )
+                }
+
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: pendingAttempt.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return redirectBlueskyPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
                         'invalid_callback'
                     )
                 }

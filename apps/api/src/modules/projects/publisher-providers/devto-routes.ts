@@ -1,3 +1,4 @@
+import type { AccessStore } from '@herald/db'
 import {
     DEVTO_PROVIDER,
     createDevtoPublisher,
@@ -9,16 +10,18 @@ import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth'
 import type { PublisherRuntime } from '../../publishers/runtime'
+import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { devtoConnectionBody, devtoConnectionResponse, errorResponse } from '../models'
 
 export function registerDevtoPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
         readonly devtoFetcher?: DevtoFetcher
-    } = {}
+    }
 ) {
     const { credentialStore, publisherStore } = publisher
 
@@ -55,6 +58,17 @@ export function registerDevtoPublisherRoutes<const Routes extends Record<string,
                         message: 'Human authentication is required to connect DEV.to',
                     },
                 })
+            }
+            if (
+                !canAccessProjectRole({
+                    access: options.access,
+                    authMethod,
+                    minimumRole: 'editor',
+                    projectId: params.projectId,
+                    userId: user.id,
+                })
+            ) {
+                return status(403, forbiddenProjectMutation())
             }
 
             if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {

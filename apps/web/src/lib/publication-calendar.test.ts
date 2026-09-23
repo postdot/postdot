@@ -4,6 +4,7 @@ import type { PublicationSummary } from '@/lib/api'
 
 import {
     createCalendarMonth,
+    getCalendarMonthTimestampRange,
     getUnscheduledPublications,
     groupScheduledPublications,
     startOfCalendarMonth,
@@ -91,5 +92,14 @@ describe('publication calendar', () => {
         )
 
         expect(monthStart).toEqual(new Date(Date.UTC(2026, 7, 1, 12)))
+    })
+
+    test('builds an exclusive timestamp range in the project timezone', () => {
+        expect(
+            getCalendarMonthTimestampRange(new Date(Date.UTC(2026, 8, 1, 12)), 'America/New_York')
+        ).toEqual({
+            from: Date.UTC(2026, 8, 1, 4),
+            to: Date.UTC(2026, 9, 1, 4),
+        })
     })
 })

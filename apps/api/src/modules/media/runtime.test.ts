@@ -42,6 +42,47 @@ describe('media runtime maintenance', () => {
         expect(calls).toBe(callsAfterStop)
     })
 
+    it('waits for an in-flight reconciliation before completing shutdown', async () => {
+        let calls = 0
+        let release: (() => void) | undefined
+        let reconciliationStarted: (() => void) | undefined
+        const started = new Promise<void>(resolve => {
+            reconciliationStarted = resolve
+        })
+        const runtime = createMediaReconciliationRuntime(
+            {
+                reconcile: () => {
+                    calls += 1
+                    reconciliationStarted?.()
+                    return new Promise<ReconcileMediaResult>(resolve => {
+                        release = () =>
+                            resolve({ expiredUploads: 0, missingObjects: 0, deletedAssets: 0 })
+                    })
+                },
+            },
+            { intervalMs: 5 }
+        )
+
+        runtime.start()
+        await started
+
+        let stopped = false
+        const shutdown = runtime.stop().then(() => {
+            stopped = true
+        })
+
+        await Promise.resolve()
+        expect(stopped).toBe(false)
+        expect(runtime.state).toBe('stopped')
+        expect(calls).toBe(1)
+
+        release?.()
+        await shutdown
+
+        expect(stopped).toBe(true)
+        expect(runtime.state).toBe('stopped')
+    })
+
     it('marks failed reconciliation and can recover when restarted', async () => {
         let calls = 0
         const failure = new Error('storage unavailable')

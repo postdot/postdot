@@ -116,6 +116,49 @@ describe('next-event scheduler', () => {
         expect(fixture.timers.active.size).toBe(0)
     })
 
+    test('waits for in-flight processing before completing shutdown', async () => {
+        const clock = new FakeClock(1_800_000_000_000)
+        const timers = new FakeTimers()
+        const errors: unknown[] = []
+        let release: (() => void) | undefined
+        let processingStarted: (() => void) | undefined
+        const started = new Promise<void>(resolve => {
+            processingStarted = resolve
+        })
+        const scheduler = new NextEventScheduler({
+            getNextEventAt: () => clock.current,
+            processDueEvents: async () => {
+                processingStarted?.()
+                await new Promise<void>(resolve => {
+                    release = resolve
+                })
+            },
+            onError: error => errors.push(error),
+            clock,
+            timers,
+        })
+
+        scheduler.start()
+        const wake = timers.fireOnly()
+        await started
+
+        let stopped = false
+        const shutdown = scheduler.stop().then(() => {
+            stopped = true
+        })
+
+        await Promise.resolve()
+        expect(stopped).toBe(false)
+        expect(scheduler.state).toBe('stopped')
+        expect(errors).toEqual([])
+
+        release?.()
+        await Promise.all([wake, shutdown])
+
+        expect(stopped).toBe(true)
+        expect(timers.active.size).toBe(0)
+    })
+
     test('reconstructs its timer when a new scheduler starts', () => {
         const first = createFixture(fixtureTime(30_000))
         first.scheduler.start()

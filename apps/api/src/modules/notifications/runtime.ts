@@ -1,6 +1,8 @@
 import type { NotificationStore } from '@herald/db'
 
 const maximumBatchesPerProject = 10
+const continuationDelayMs = 0
+const defaultRecoveryDelayMs = 1_000
 
 export type NotificationProjectionRuntimeState =
     | 'idle'
@@ -33,7 +35,9 @@ export function createNotificationProjectionRuntime(
         throw new Error('Notification projection interval must be a positive safe integer')
     }
 
-    let timer: ReturnType<typeof setInterval> | undefined
+    let intervalTimer: ReturnType<typeof setInterval> | undefined
+    let continuationTimer: ReturnType<typeof setTimeout> | undefined
+    let continuationProjectIds: Set<string> | null | undefined
     let started = false
     let running = false
     let recoveryRequired = false
@@ -44,6 +48,7 @@ export function createNotificationProjectionRuntime(
         if (running) return
         running = true
         state = recoveryRequired ? 'recovering' : 'running'
+        let needsContinuation = false
         try {
             for (const projectId of projectIds ?? notifications.listProjectIds()) {
                 let batches = 0
@@ -52,16 +57,54 @@ export function createNotificationProjectionRuntime(
                     hasMore = notifications.project(projectId).hasMore
                     batches += 1
                 } while (hasMore && batches < maximumBatchesPerProject)
+                if (hasMore) needsContinuation = true
             }
-            recoveryRequired = false
-            state = started ? 'started' : 'idle'
+            recoveryRequired = needsContinuation
+            if (needsContinuation) {
+                state = started ? 'recovering' : 'idle'
+                scheduleContinuation(projectIds, continuationDelayMs)
+            } else {
+                cancelContinuation()
+                state = started ? 'started' : 'idle'
+            }
         } catch (error) {
             recoveryRequired = true
             state = 'failed'
             handleError(error)
+            scheduleContinuation(projectIds, intervalMs ?? defaultRecoveryDelayMs)
         } finally {
             running = false
         }
+    }
+
+    function scheduleContinuation(projectIds: readonly string[] | undefined, delayMs: number) {
+        if (!started) return
+
+        if (projectIds === undefined) {
+            continuationProjectIds = null
+        } else if (continuationProjectIds === undefined) {
+            continuationProjectIds = new Set(projectIds)
+        } else if (continuationProjectIds !== null) {
+            for (const projectId of projectIds) continuationProjectIds.add(projectId)
+        }
+
+        if (continuationTimer !== undefined) return
+        continuationTimer = setTimeout(() => {
+            continuationTimer = undefined
+            const pendingProjectIds = continuationProjectIds
+            continuationProjectIds = undefined
+            project(
+                pendingProjectIds === null || pendingProjectIds === undefined
+                    ? undefined
+                    : [...pendingProjectIds]
+            )
+        }, delayMs)
+    }
+
+    function cancelContinuation() {
+        if (continuationTimer !== undefined) clearTimeout(continuationTimer)
+        continuationTimer = undefined
+        continuationProjectIds = undefined
     }
 
     return {
@@ -71,15 +114,16 @@ export function createNotificationProjectionRuntime(
         start() {
             if (started) return
             started = true
-            if (intervalMs !== undefined) timer = setInterval(project, intervalMs)
+            if (intervalMs !== undefined) intervalTimer = setInterval(project, intervalMs)
             state = recoveryRequired ? 'recovering' : 'started'
             queueMicrotask(() => {
                 if (started) project()
             })
         },
         stop() {
-            if (timer !== undefined) clearInterval(timer)
-            timer = undefined
+            if (intervalTimer !== undefined) clearInterval(intervalTimer)
+            intervalTimer = undefined
+            cancelContinuation()
             started = false
             state = 'stopped'
         },

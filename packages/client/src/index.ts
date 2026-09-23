@@ -32,6 +32,7 @@ import type {
     ProjectResponse,
     PublicationResponse,
     PublicationSummaryResponse,
+    PublicationSummaryPageResponse,
     PublicationListQuery as PublicationListQueryResponse,
     BlueskyAnalyticsCollectionResponse,
     ProviderAnalyticsObservationPage,
@@ -91,6 +92,7 @@ export type MediaFinalize = MediaFinalizeResponse
 export type MediaDeletion = MediaDeletionResponse
 export type PublicationEditorState = PublicationEditorStateResponse
 export type PublicationSummary = PublicationSummaryResponse
+export type PublicationSummaryPage = PublicationSummaryPageResponse
 export type PublicationListQuery = PublicationListQueryResponse
 export type AuditEvent = AuditEventResponse
 export type CreatedProjectAccessToken = CreatedProjectAccessTokenResponse

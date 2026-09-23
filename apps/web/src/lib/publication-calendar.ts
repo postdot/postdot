@@ -1,5 +1,5 @@
 import type { PublicationSummary } from '@/lib/api'
-import { getZonedDateTimeParts } from '@/lib/date-time'
+import { getZonedDateTimeParts, parseDateTimeLocal } from '@/lib/date-time'
 
 export function calendarWeekdays(locale = 'en') {
     const monday = Date.UTC(2021, 10, 1)
@@ -27,6 +27,11 @@ export interface CalendarMonth {
     readonly month: number
     readonly timeZone: string
     readonly year: number
+}
+
+export interface CalendarMonthTimestampRange {
+    readonly from: number
+    readonly to: number
 }
 
 export function createCalendarMonth(
@@ -104,6 +109,16 @@ export function startOfCalendarMonth(date = new Date(), timeZone = 'UTC') {
     return createCivilDate(parts.year, parts.month - 1, 1)
 }
 
+export function getCalendarMonthTimestampRange(
+    cursor: Date,
+    timeZone = 'UTC'
+): CalendarMonthTimestampRange {
+    const start = calendarBoundary(cursor, timeZone)
+    const end = calendarBoundary(shiftCalendarMonth(cursor, 1), timeZone)
+    if (end <= start) throw new Error('Calendar month range is invalid')
+    return { from: start, to: end }
+}
+
 export function toDateKey(date: Date, timeZone = 'UTC') {
     const parts = getZonedDateTimeParts(date.getTime(), timeZone)
     return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
@@ -137,4 +152,13 @@ function comparePublications(left: PublicationSummary, right: PublicationSummary
 function startOfMondayWeek(date: Date) {
     const daysSinceMonday = (date.getUTCDay() + 6) % 7
     return addDays(date, -daysSinceMonday)
+}
+
+function calendarBoundary(date: Date, timeZone: string) {
+    const value = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}T00:00`
+    const timestamp = parseDateTimeLocal(value, timeZone)
+    if (typeof timestamp !== 'number') {
+        throw new Error(`Calendar boundary cannot be represented in ${timeZone}`)
+    }
+    return timestamp
 }

@@ -1,4 +1,5 @@
 import type { PublisherConnectionDestination } from '@herald/db'
+import type { AccessStore } from '@herald/db'
 import {
     createAuthorizationRequest,
     digestAuthorizationState,
@@ -11,15 +12,17 @@ import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth'
 import type { PublisherRuntime } from '../../publishers/runtime'
+import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { errorResponse, xConnectionBody, xConnectionSchema } from '../models'
 
 export function registerXPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
-    } = {}
+    }
 ) {
     const { authorizationAttemptStore, credentialStore, publisherStore } = publisher
 
@@ -57,6 +60,17 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                             message: 'Human authentication is required to connect X',
                         },
                     })
+                }
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
                 }
 
                 if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
@@ -196,6 +210,22 @@ export function registerXPublisherRoutes<const Routes extends Record<string, unk
                     authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
                 if (pendingAttempt === null || pendingAttempt.providerId !== X_PROVIDER) {
                     return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
+                }
+
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: pendingAttempt.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return redirectPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'invalid_callback'
+                    )
                 }
 
                 let x: Awaited<ReturnType<PublisherRuntime['resolveXApplication']>>

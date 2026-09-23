@@ -1,5 +1,7 @@
+import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
+import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     activateChannelProfileBody,
     channelProfileActivationSchema,
@@ -16,7 +18,8 @@ import type { AuthenticatedElysia, ManualStore } from './types'
 
 export function registerChannelProfileRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    manualStore: ManualStore
+    manualStore: ManualStore,
+    access: AccessStore
 ) {
     return app
         .get(
@@ -59,6 +62,7 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     200: Type.Object({ profile: channelProfileVersionSchema }),
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -68,7 +72,18 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     tags: ['Channels'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const profile = manualStore.createChannelProfileDraft({
                     projectId: params.projectId,
                     channelId: params.channelId,
@@ -93,6 +108,7 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     200: Type.Object({ assessment: channelProfileAssessmentSchema }),
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -102,7 +118,18 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     tags: ['Channels'],
                 },
             },
-            ({ params, status, user }) => {
+            ({ authMethod, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const assessment = manualStore.previewChannelProfileActivation({
                     projectId: params.projectId,
                     channelId: params.channelId,
@@ -127,6 +154,7 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     200: channelProfileActivationSchema,
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -136,7 +164,18 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                     tags: ['Channels'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const result = manualStore.activateChannelProfile({
                     projectId: params.projectId,
                     channelId: params.channelId,

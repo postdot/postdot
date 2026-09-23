@@ -22,7 +22,7 @@ import {
     type PublisherConnection,
     type Project,
     type Publication,
-    type PublicationSummary,
+    type PublicationSummaryPage,
     type ProjectCategory,
     type ProjectTag,
 } from '@herald/client'
@@ -945,14 +945,26 @@ export const api = {
 
     async listPublications(
         projectId: string,
-        options: { tagIds?: readonly string[] } = {}
-    ): Promise<{ publications: PublicationSummary[] }> {
-        return unwrap<{ publications: PublicationSummary[] }>(
+        options: {
+            tagIds?: readonly string[]
+            cursor?: string
+            limit?: number
+            from?: number
+            to?: number
+        } = {}
+    ): Promise<PublicationSummaryPage> {
+        const query = {
+            ...(options.tagIds === undefined || options.tagIds.length === 0
+                ? {}
+                : { tagIds: [...options.tagIds] }),
+            ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+            ...(options.limit === undefined ? {} : { limit: options.limit }),
+            ...(options.from === undefined ? {} : { from: options.from }),
+            ...(options.to === undefined ? {} : { to: options.to }),
+        }
+        return unwrap<PublicationSummaryPage>(
             await client.api.projects({ projectId }).publications.get({
-                query:
-                    options.tagIds === undefined || options.tagIds.length === 0
-                        ? undefined
-                        : { tagIds: [...options.tagIds] },
+                query: Object.keys(query).length === 0 ? undefined : query,
             })
         )
     },
@@ -1072,6 +1084,7 @@ export type {
     ProjectTag,
     Publication,
     PublicationSummary,
+    PublicationSummaryPage,
     Notification,
     NotificationInbox,
     NotificationPreference,

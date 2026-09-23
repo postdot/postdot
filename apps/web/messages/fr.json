@@ -264,6 +264,7 @@
     "queue_no_publications": "La file est vide",
     "queue_no_publications_description": "Créez une publication pour y ajouter du travail.",
     "queue_show_all": "Tout afficher",
+    "queue_load_more": "Charger davantage",
     "queue_no_attention_title": "Rien à traiter",
     "queue_no_attention_description": "Les publications à traiter apparaîtront ici.",
     "queue_no_scheduled_title": "Rien de planifié",

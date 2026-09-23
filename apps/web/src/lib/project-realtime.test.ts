@@ -156,4 +156,45 @@ describe('project realtime event source', () => {
         expect(signals).toEqual([{ kind: 'resync-required', reason: 'cursor_gap' }])
         source.close()
     })
+
+    test('stops a project stream when the server revokes project access', () => {
+        const fake = new FakeEventSource()
+        const signals: unknown[] = []
+        const source = createProjectRealtimeClient('project-1', () => fake)
+        source.subscribe(signal => signals.push(signal))
+
+        fake.emit(
+            'project.access-revoked',
+            JSON.stringify({ projectId: 'project-1', reason: 'access_revoked' })
+        )
+
+        expect(signals).toEqual([{ kind: 'access-revoked' }])
+        expect(fake.closed).toBe(true)
+    })
+
+    test('accepts taxonomy invalidation events without exposing their payload', () => {
+        const fake = new FakeEventSource()
+        const signals: unknown[] = []
+        const source = createProjectRealtimeClient('project-1', () => fake)
+        source.subscribe(signal => signals.push(signal))
+
+        fake.emit(
+            'project.update',
+            JSON.stringify({
+                id: 'tag-created',
+                cursor: 'event-sequence:1',
+                projectId: 'project-1',
+                version: 1,
+                type: 'project_tag.created',
+                entity: { type: 'project_tag', id: 'tag-1' },
+                occurredAt: 1_800_000_000_000,
+                payload: {},
+            })
+        )
+
+        expect(signals).toMatchObject([
+            { kind: 'update', event: { type: 'project_tag.created', payload: {} } },
+        ])
+        source.close()
+    })
 })

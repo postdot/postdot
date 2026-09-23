@@ -16,7 +16,7 @@
         "format": "oxfmt --check .",
         "format:fix": "oxfmt --write .",
         "typecheck": "tsc --noEmit",
-        "clean": "rimraf dist .turbo drizzle",
+        "clean": "rimraf dist .turbo",
         "db:generate": "drizzle-kit generate --config drizzle.config.ts",
         "db:migrate": "bun run src/migrate.ts",
         "test": "bun test"

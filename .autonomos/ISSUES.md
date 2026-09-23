@@ -942,7 +942,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-040] Generalize built-in provider connection boundaries before adding Bluesky
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: Built-in execution already resolves versioned adapters through a registry,
   but publisher runtime construction, OAuth routes and callbacks, channel profile
   resolution, and database connection normalization still contain LinkedIn-specific
@@ -964,11 +964,17 @@ channels` with a foreign-key constraint error even though a fresh empty database
   deployment and coordination cost without evidence. None is selected.
 - Tasks: PROVIDER-74
 - Related decision: ADR-033
+- Resolution: PROVIDER-74 moved provider identity, connection, destination,
+  profile, credential, and execution concerns behind explicit provider-owned
+  ports while keeping orchestration, project scope, encrypted persistence, and
+  generic outcomes shared. The follow-up Bluesky slice exercised that boundary
+  without adding another provider-shaped central branch. Real-provider
+  authorization remains a separate controlled operator validation boundary.
 
 ## [ISSUE-041] Add Bluesky as the next built-in provider after the boundary extraction
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: Herald currently has one production-relevant built-in provider. Bluesky
   exercises a materially different account and API model from LinkedIn, including
   repository/PDS identity and provider-specific authorization and media handling.
@@ -984,11 +990,17 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: CHANNEL-75 (after PROVIDER-74)
 - Related issue: ISSUE-040
 - Related decision: ADR-036 (accepted)
+- Resolution: CHANNEL-75 delivered the provider-owned Bluesky profile,
+  portable AT Protocol OAuth bridge, encrypted restart-safe session state,
+  project-owned account destination, text and image publication path, provider
+  outcome mapping, and deterministic tests. The provider stays disabled until
+  its required deployment profile is configured; no real provider action is
+  implied by this resolution.
 
 ## [ISSUE-042] Treat the web application as a dedicated client architecture project
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The web application is the most visible Herald client, but its current
   navigation, composition, calendar, queue, channel, and media surfaces were built
   incrementally while backend foundations were being established. The owner explicitly
@@ -1006,6 +1018,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   IA and interaction design come first; visual tokens and component calibration support
   that structure. Public marketing pages remain out of scope unless separately accepted.
 - Tasks: WEB-76 (after the provider and Bluesky slices provide the next backend evidence)
+- Resolution: WEB-76 established the authenticated web-client ownership
+  boundaries, project context, route composition, responsive navigation
+  structure, and decomposition of the largest surfaces without moving domain
+  rules into the client. The remaining visual calibration and route-density
+  work is tracked separately by ISSUE-063 and ISSUE-065.
 
 ## [ISSUE-043] Expose the Bluesky connection flow through the supported web client
 
@@ -1215,7 +1232,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-049] Establish a user-facing localization foundation
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The web client currently renders English UI copy directly in
   application components. It has no locale preference, translation catalog,
   fallback policy, or shared message-formatting boundary; locale-sensitive
@@ -1233,11 +1250,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
   requiring clients to translate server-rendered prose. Publication-content
   language remains a separate domain concern.
 - Tasks: I18N-95, I18N-99, I18N-100
+- Resolution: I18N-95, I18N-99, and I18N-100 established the Paraglide
+  localization boundary, migrated authenticated web copy and locale-aware
+  formatting, enforced catalog coverage, and validated English/French switching
+  in the browser. Translation quality, public-route localization, and a future
+  persisted account preference remain separate follow-ups.
 
 ## [ISSUE-050] Keep notifications and project work views synchronized
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The notification inbox loads when its component mounts or opens, and
   project queue/publication data is initially loaded and refreshed after local
   mutations. The browser currently has no general push, polling, SSE, or
@@ -1255,11 +1277,17 @@ channels` with a foreign-key constraint error even though a fresh empty database
   publication outcomes.
 - Tasks: REALTIME-96, REALTIME-102, REALTIME-103, REALTIME-104, REALTIME-105, REALTIME-106
 - Related issues: ISSUE-045, ISSUE-046
+- Resolution: REALTIME-96 and REALTIME-102 through REALTIME-106 established
+  authenticated reconnectable SSE, post-commit project invalidation, durable
+  replay and recovery semantics, and production Query integration. NOTIFY-127
+  and NOTIFY-128 extended the inbox to a user-wide scope with one authenticated
+  invalidation stream. The signal remains process-local by design; a future
+  multi-process deployment would require a separate cross-process boundary.
 
 ## [ISSUE-051] Give the notification inbox a non-blocking interaction surface
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The current dashboard notification inbox is presented as a centered
   modal dialog with an overlay. The product direction is an operational workspace
   where notifications should be inspectable alongside the current task rather
@@ -1274,6 +1302,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   component and visual treatment remain subject to the dedicated UX task.
 - Tasks: DESIGN-97
 - Related issues: ISSUE-046, ISSUE-050
+- Resolution: DESIGN-97 and its follow-up implementation now expose the inbox
+  as a contextual, non-blocking popover that keeps the current work surface
+  visible while preserving loading, error, read/archive, preference, and
+  accessibility behavior. Notification grouping and transient toast feedback
+  remain outside this bounded correction.
 
 ## [ISSUE-052] Reduce explanatory repetition and operational information density
 
@@ -1300,7 +1333,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-053] Define project categories and publication tags
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: Herald needs a way to organize publications beyond their channel,
   schedule, and lifecycle state. Categories and tags have been identified as
   useful product concepts, but their ownership, semantics, and query behavior
@@ -1394,7 +1427,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-056] Define provider-owned engagement analytics without conflating operational metrics
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The current Herald analytics contract measures operational facts
   created by Herald: publication lifecycle, queue depth, attempts, retries,
   failures, ambiguity, recovery, and latency. The competitor review shows a
@@ -1808,3 +1841,303 @@ channels` with a foreign-key constraint error even though a fresh empty database
   generated baseline, and the test suite verifies that obsolete tables cannot appear
   in a fresh database. A database file is intentionally not reset by application
   code; a stale disposable local file must be moved aside explicitly.
+
+## [ISSUE-068] Enforce the accepted project role boundary on every mutation
+
+- Type: problem
+- Status: resolved
+- Evidence: The 2026-09-11 foundation audit reproduced a project member with the
+  Better Auth `viewer` role receiving `201 Created` from both channel creation and
+  post creation. The same fixture received `403` for the existing project timezone
+  mutation, proving that the role is known but not enforced consistently. See the
+  [security audit](worklogs/2026-09-11-herald-audit/01-securite-et-acces.md).
+- Impact: A principal explicitly granted read-only access can modify project
+  content and potentially influence downstream publication work. The current
+  route-level test coverage can therefore pass while the product-wide role contract
+  remains false.
+- Desired outcome: Every project operation accepts only a principal with the
+  current capability required by that operation; read-only members cannot mutate
+  project state, valid editors and owners retain their intended operations, and
+  denied requests leave no durable or external side effect.
+- Tasks: ACCESS-143
+- Related issues: ISSUE-013, ISSUE-062, ISSUE-067
+- Related decisions: ADR-061, ADR-064
+- Resolution: A shared project-role guard now protects every project content,
+  channel, profile, media, taxonomy, delivery, and provider-analytics mutation.
+  It runs before the domain store or external provider flow, so viewers receive
+  403 without side effects while editors and owners retain their capabilities.
+  Owner-only membership, project-setting, and API-key operations remain explicit
+  human-session boundaries. The lifecycle integration test covers viewer denial,
+  editor success, removed access, and project-token restrictions.
+
+## [ISSUE-069] End or reauthorize project event streams after access revocation
+
+- Type: problem
+- Status: resolved
+- Evidence: The audit opened a project SSE stream as a viewer, removed the
+  membership, confirmed a new project read was rejected, and then observed a later
+  `channel.created` event on the already-open stream. The stream currently checks
+  access at connection time but does not revalidate the principal during its
+  lifetime. See the [security audit](worklogs/2026-09-11-herald-audit/01-securite-et-acces.md).
+- Impact: Revoked members can continue observing project identifiers, event types,
+  subjects, and timestamps. The reproduction did not expose post text, tokens, or
+  provider responses, but it violates the expected lifetime of a revoked project
+  access grant.
+- Desired outcome: A project event stream stops exposing project facts after a
+  revoked, expired, disabled, or logged-out principal is no longer authorized, and
+  every reconnect performs the complete current access check within an explicit
+  bounded delay.
+- Tasks: REALTIME-144
+- Related issues: ISSUE-050, ISSUE-064, ISSUE-068
+- Related decisions: ADR-048, ADR-050
+- Resolution: Project SSE streams revalidate the Better Auth session and current
+  project membership before each journal read and again before serving the
+  resulting batch. A failed check emits a terminal `project.access-revoked`
+  signal and closes the stream; the browser consumes that signal and disables
+  automatic reconnection. The default recheck bound is the existing 15-second
+  heartbeat interval, and the stream tests cover fail-closed revocation.
+
+## [ISSUE-070] Make publication history and calendar reads complete at supported scale
+
+- Type: problem
+- Status: resolved
+- Evidence: The publication summary reader applies a fixed limit of 100 while the
+  API returns only `{ publications }` and the web project context consumes that
+  array as the complete data set for Queue and calendar views. The audit created 101
+  stored publications and received 100 with no continuation metadata. See the
+  [reliability audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+- Impact: Queue filters, counters, and the calendar can silently omit valid work.
+  Ordering the bounded result before the calendar groups it can also hide future
+  publications behind older history; the database rows themselves are not lost.
+- Desired outcome: Users can reach every publication relevant to Queue filters and
+  every publication in a selected calendar period without silent truncation, while
+  response size and query cost remain bounded and the scope of counters is explicit.
+- Tasks: WEB-145
+- Related issues: ISSUE-009, ISSUE-019, ISSUE-063, ISSUE-066
+- Related decisions: ADR-002, ADR-032, ADR-057
+- Resolution: Publication summaries now use a bounded keyset page with a
+  versioned continuation cursor. Queue exposes an explicit load-more action,
+  while calendar reads request the selected month as a half-open timestamp range
+  and drain its pages. Calendar queries have their own cache key and realtime
+  invalidation path, and the database/API tests cover tails, filters, invalid
+  cursors, ranges, and timezone boundaries.
+
+## [ISSUE-071] Make notification projection catch up completely after a delay
+
+- Type: problem
+- Status: resolved
+- Evidence: The notification projection runtime stops after ten batches even when
+  the store reports more work and returns to `started`. Production constructs the
+  runtime without a recovery interval, so a backlog larger than the bounded pass can
+  remain unprojected until another signal or restart. The audit reproduced twelve
+  required batches as ten processed with state `started`. See the [reliability
+  audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+- Impact: The durable fact journal remains intact, but the user-global notification
+  inbox can be stale or incomplete while readiness still reports the runtime as
+  active. Recovery after interruption is therefore not guaranteed by the current
+  projection lifecycle.
+- Desired outcome: A bounded notification projection eventually processes all
+  eligible durable facts after interruption or transient failure, exposes meaningful
+  lag or failure state, and does not block the API with an unbounded synchronous loop.
+- Tasks: NOTIFY-146
+- Related issues: ISSUE-046, ISSUE-050, ISSUE-066
+- Related decisions: ADR-038, ADR-058, ADR-059
+- Resolution: The projection runtime keeps the per-run ten-batch bound but
+  schedules an asynchronous continuation whenever a project still reports work.
+  It also schedules delayed retry after a transient failure, merges project
+  wakeups without overlapping runs, cancels pending work on stop, and exposes a
+  `recovering` or `failed` state instead of silently returning to `started`.
+  Runtime tests cover backlog continuation and lifecycle behavior.
+
+## [ISSUE-072] Deliver taxonomy changes through the realtime contract
+
+- Type: problem
+- Status: resolved
+- Evidence: Taxonomy mutations append `project_tag.*` and
+  `publication.tags_replaced` facts, but those event names are absent from both the
+  server and browser realtime allowlists. The real `publication.tags_replaced`
+  event is therefore converted to no client event. See the [client architecture
+  audit](worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md).
+- Impact: Another tab or session can retain stale tags, filters, and publication
+  data indefinitely because the project query uses an infinite stale time and relies
+  on realtime invalidation or an explicit local action.
+- Desired outcome: Every committed taxonomy mutation that affects a visible project
+  resource either produces a supported realtime invalidation event or causes a
+  deterministic resynchronization, with server and client event contracts kept in
+  agreement.
+- Tasks: REALTIME-147
+- Related issues: ISSUE-050, ISSUE-053, ISSUE-063, ISSUE-066
+- Related decisions: ADR-050, ADR-062
+- Resolution: Project-tag creation, rename, archive, restore, and publication
+  tag replacement are now present in both the server and browser realtime
+  allowlists. The existing empty-payload contract is preserved; the web bridge
+  invalidates project data, publication data, and notifications deterministically
+  for the affected resource. Server and browser tests exercise the taxonomy
+  event contract.
+
+## [ISSUE-073] Keep migration sources outside ordinary build cleanup
+
+- Type: problem
+- Status: resolved
+- Evidence: `packages/db/package.json` defines `clean` as `rimraf dist .turbo drizzle`,
+  while `drizzle` contains the committed migration SQL and metadata. The audit did
+  not execute the destructive command against the repository, but the script and
+  tracked files establish the behavior statically. See the [reliability audit](worklogs/2026-09-11-herald-audit/02-fiabilite-donnees-exploitation.md).
+- Impact: A normal cleanup can remove the source history required for a fresh
+  startup or package build. Git can restore committed files, but a local migration
+  that has not been committed is not recoverable through that path.
+- Desired outcome: Routine cleanup removes only disposable build outputs; any
+  deliberate migration reset is a separately named, explicit, documented operation
+  and cleanup is proven safe in a disposable clone.
+- Tasks: OPS-148
+- Related issues: ISSUE-001, ISSUE-008, ISSUE-026, ISSUE-067
+- Related decisions: ADR-005, ADR-064
+- Resolution: The database package cleanup now removes only `dist` and `.turbo`;
+  the committed Drizzle migration directory is outside ordinary cleanup. A
+  disposable clean verification preserved the baseline SQL and migration journal
+  byte-for-byte.
+
+## [ISSUE-074] Include repository-level test families in the standard quality gate
+
+- Type: problem
+- Status: resolved
+- Evidence: `bun run check` reaches workspace tests through Turbo but does not run
+  the eight tests under `scripts/`; those tests are only green when invoked
+  separately with `bun test scripts`. The audit confirmed the omission in the Turbo
+  task graph and the root package scripts. See the [client and quality audit](worklogs/2026-09-11-herald-audit/03-architecture-client-qualite.md).
+- Impact: Regressions in the CLI and runtime-isolation helpers can merge while the
+  repository's advertised check remains green. This weakens confidence in the same
+  orchestration paths used by local development and browser validation.
+- Desired outcome: The normal repository quality gate executes every required test
+  family, including root-level scripts, and a deliberate regression in that family
+  fails the gate.
+- Tasks: QUAL-149
+- Related issues: ISSUE-017, ISSUE-025, ISSUE-066
+- Related decisions: ADR-029
+- Resolution: The root `test:unit` command now runs the Turbo workspace suites
+  and the dedicated `test:scripts` command. The eight CLI and runtime-isolation
+  tests pass through that explicit gate, so root script regressions are no longer
+  outside the normal repository check.
+
+## [ISSUE-075] Prove graceful runtime shutdown and durable restart recovery
+
+- Type: problem
+- Status: resolved
+- Evidence: The foundation audit's medium-term follow-up identified shutdown during
+  a provider effect, notification projection, or media reconciliation as unverified.
+  `NextEventScheduler.stop()`, the publication worker, and media maintenance stop
+  scheduling synchronously, while the production entrypoint closes the database
+  immediately afterward. Existing tests cover idle cleanup and restart-readable
+  state, but do not prove that in-flight work drains before the database and runtime
+  lock are released.
+- Impact: A SIGTERM during an external effect can close SQLite while the worker is
+  still completing its durable outcome, or can leave a provider/media operation
+  without a clear final checkpoint. A process that exits without a durable final
+  state must be recoverable on restart without claiming that an unknown external
+  effect was successful.
+- Desired outcome: Graceful shutdown prevents new work, waits for in-flight worker,
+  projection, and media maintenance operations to settle before closing resources,
+  and releases the runtime boundary only after that drain. Restart tests must prove
+  durable job recovery, notification projection recovery, media maintenance
+  lifecycle, and an explicit behavior for forced-stop leftovers.
+- Scope boundary: This issue proves the existing single-process lifecycle and
+  recovery contracts; it does not introduce a supervisor, a distributed lock,
+  provider-specific cancellation APIs, or a new deployment architecture.
+- Tasks: OPS-150
+- Related issues: ISSUE-012, ISSUE-026, ISSUE-067
+- Related decisions: ADR-005, ADR-038, ADR-058, ADR-064
+- Resolution: The scheduler now stops planning new work and exposes an async
+  drain barrier; the worker and media maintenance propagate it, and production
+  awaits those drains before closing SQLite or releasing the runtime lock.
+  Restart, notification projection, workflow lease, backup/restore, and stale
+  lock tests preserve durable recovery and explicit forced-stop handling.
+
+## [ISSUE-076] Prove fair multi-project execution and provider media boundaries
+
+- Type: risk
+- Status: resolved
+- Evidence: The publication worker currently iterates projects sequentially and
+  drains one project's due jobs in an unbounded inner loop before it visits the
+  next project. The provider conformance suite and MediaStore contract suite use
+  deterministic doubles, but no representative fixture proves that a busy
+  project cannot delay another project indefinitely, or that provider/media
+  fault paths preserve their durable checkpoints together.
+- Impact: A project with a large ready backlog can monopolize the single worker and
+  make another project's scheduled publication late even when both are due. A
+  green provider or S3-shaped test can also hide a missing error/checkpoint
+  contract if the failure path is not exercised explicitly.
+- Desired outcome: The single worker services projects with a bounded round-robin
+  quantum, preserves serial external effects and lease fencing, and has
+  representative provider/media fault tests that distinguish durable outcomes
+  from unknown external outcomes. Deployment-specific cloud behavior remains an
+  explicit verification boundary rather than an unearned claim.
+- Scope boundary: This issue does not add concurrent workers, a broker, a
+  distributed scheduler, live provider credentials, or a required cloud service.
+- Tasks: OPS-151
+- Related issues: ISSUE-028, ISSUE-067, ISSUE-075
+- Related decisions: ADR-005, ADR-019, ADR-038, ADR-064
+- Resolution: The publication worker now services each project with a bounded
+  round-robin quantum instead of draining one project's due backlog before
+  visiting the next. Serial provider effects, project-scoped actor leases, and
+  claim fencing remain unchanged. Existing provider fault coverage exercises
+  success, retryable, failed, and ambiguous outcomes; local and S3-shaped
+  MediaStore contract coverage exercises atomic replacement and failed writes
+  without leaving partial objects. These checks remain deterministic and do not
+  claim live cloud-provider behavior.
+
+## [ISSUE-077] Make Queue summary counts complete across paginated history
+
+- Type: problem
+- Status: resolved
+- Evidence: The publication list is intentionally bounded to 100 rows and
+  returns a continuation cursor, while `PublicationQueuePage` derives total,
+  manual, automatic, and scheduled counts from the rows currently held in the
+  browser. The foundation audit reproduced 101 stored publications with only
+  100 returned by the first page, so the visible counts are not the project's
+  complete Queue counts until the user loads another page.
+- Impact: Queue tabs, summary bars, accessible labels, and empty/filter context
+  can report partial numbers as if they were authoritative. A user can therefore
+  make an incorrect triage decision without any visible indication that the
+  counts are incomplete.
+- Desired outcome: The paginated publication contract returns explicit,
+  authorization-scoped aggregate counts for the Queue summary, with filter and
+  range semantics defined at the API boundary. Loading another page must append
+  rows only; it must not change already-known aggregate counts except after a
+  deliberate refresh or mutation.
+- Scope boundary: This issue does not remove pagination, expose unbounded
+  history, introduce a second read model, or make calendar range counts pretend
+  to be global Queue counts.
+- Tasks: WEB-152
+- Related issues: ISSUE-019, ISSUE-063, ISSUE-070
+- Related decisions: ADR-002, ADR-032, ADR-057
+- Resolution: Publication summary pages now return an explicit aggregate for
+  the same authorized project, tag filter, and half-open scheduled range as
+  the row query. The Queue stores that aggregate separately from its bounded
+  rows and uses it for summary bars, tabs, accessible counts, and unfiltered
+  section metadata. Loading another page only appends rows; a refresh or
+  mutation is responsible for replacing the known aggregate.
+
+## [ISSUE-078] Keep issue completion state aligned with task evidence
+
+- Type: problem
+- Status: resolved
+- Evidence: The task ledger recorded completed work for several accepted
+  issues, while the issue register still presented those same issues as merely
+  accepted. Other accepted issues intentionally retained unimplemented or
+  explicitly deferred scope, so a bulk status change would have hidden real
+  follow-ups.
+- Impact: The owner could not reliably tell whether the next action was a bug
+  fix, an already-delivered decision, an operational validation, or a deferred
+  product choice. This makes backlog prioritization and handoff less precise.
+- Desired outcome: Issue status reflects the evidence available in completed
+  tasks and resolutions. Residual scope remains explicit, and open harness or
+  deliberately deferred work is not presented as complete.
+- Tasks: META-153
+- Resolution: The accepted issues whose scoped outcomes are implemented have
+  been reconciled to `resolved`, with concise closure evidence and bounded
+  follow-ups where applicable. ISSUE-052, ISSUE-058, ISSUE-062, ISSUE-063, and
+  ISSUE-065 remain accepted because their records explicitly retain product,
+  UX, account-lifecycle, or scale scope that is not fully implemented. The
+  open ISSUE-021, ISSUE-029, and ISSUE-036 remain open; the MCP workstream is
+  intentionally deferred by the owner and the app-managed worktree limitation
+  remains a harness constraint.

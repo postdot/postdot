@@ -1,5 +1,6 @@
 import { isCustomHttpAuthentication } from '@herald/core'
 import { CUSTOM_HTTP_PUBLISHER_KIND, normalizeCustomHttpEndpoint } from '@herald/custom-http'
+import type { AccessStore } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
 import type { MastodonFetcher } from '@herald/mastodon'
@@ -8,6 +9,7 @@ import { Type } from 'typebox'
 
 import { type AuthenticatedElysia } from '../../plugins/auth'
 import type { PublisherRuntime } from '../publishers/runtime'
+import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     errorResponse,
     customHttpConnectionBody,
@@ -27,12 +29,13 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
         readonly mastodonFetcher?: MastodonFetcher
         readonly discordFetcher?: DiscordFetcher
         readonly devtoFetcher?: DevtoFetcher
-    } = {}
+    }
 ) {
     const { publisherStore } = publisher
     const routes = app
@@ -79,6 +82,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     200: customHttpConnectionResponse,
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -88,7 +92,18 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                     tags: ['Channels'],
                 },
             },
-            async ({ body, params, status, user }) => {
+            async ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
@@ -221,6 +236,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
             response: {
                 200: publisherDisconnectedSchema,
                 401: errorResponse,
+                403: errorResponse,
                 404: errorResponse,
                 409: errorResponse,
             },
@@ -230,7 +246,18 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 tags: ['Channels'],
             },
         },
-        ({ params, status, user }) => {
+        ({ authMethod, params, status, user }) => {
+            if (
+                !canAccessProjectRole({
+                    access: options.access,
+                    authMethod,
+                    minimumRole: 'editor',
+                    projectId: params.projectId,
+                    userId: user.id,
+                })
+            ) {
+                return status(403, forbiddenProjectMutation())
+            }
             const result = publisherStore.disconnectPublisherConnection({
                 projectId: params.projectId,
                 channelId: params.channelId,

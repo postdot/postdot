@@ -384,10 +384,121 @@ describe('manual workflow store', () => {
                     ?.map(publication => publication.id)
             ).toEqual([firstPublication?.id ?? ''])
             expect(
+                store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                    filter: { tagIds: [beta?.id ?? '', alpha?.id ?? ''] },
+                })?.summary
+            ).toEqual({ total: 1, manual: 1, automatic: 0, scheduled: 0 })
+            expect(
                 store.listPublicationSummaries(project.project.id, 'user-1', {
                     tagIds: [foreignTag?.id ?? ''],
                 })
             ).toEqual([])
+            expect(
+                store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                    filter: { tagIds: [foreignTag?.id ?? ''] },
+                })?.summary
+            ).toEqual({ total: 0, manual: 0, automatic: 0, scheduled: 0 })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('pages publication summaries without dropping the tail and supports scheduled ranges', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Publication Pagination Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Pagination destination',
+                profile: automaticTestProfile,
+            })
+            if (channel === null) throw new Error('The pagination channel was not created')
+
+            for (let index = 0; index < 100; index += 1) {
+                store.createPost({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    title: `Scheduled ${index}`,
+                    sourceContent: sourceContent(`Scheduled ${index}`),
+                    publications: [
+                        {
+                            channelId: channel.id,
+                            deliveryMode: index === 0 ? 'automatic' : 'manual',
+                            scheduledAt: now + index * 60_000,
+                        },
+                    ],
+                })
+            }
+            const unscheduled = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                title: 'Unscheduled tail',
+                sourceContent: sourceContent('Unscheduled tail'),
+                publications: [
+                    {
+                        channelId: channel.id,
+                    },
+                ],
+            })
+            const firstPage = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                limit: 100,
+            })
+            expect(firstPage?.publications).toHaveLength(100)
+            expect(firstPage?.nextCursor).not.toBeNull()
+            expect(firstPage?.summary).toEqual({
+                total: 101,
+                manual: 100,
+                automatic: 1,
+                scheduled: 100,
+            })
+
+            const secondPage = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                cursor: firstPage?.nextCursor,
+                limit: 100,
+            })
+            expect(secondPage?.publications.map(publication => publication.id)).toEqual([
+                unscheduled?.publications[0]?.id ?? '',
+            ])
+            expect(secondPage?.nextCursor).toBeNull()
+            expect(secondPage?.summary).toEqual(firstPage?.summary)
+            expect(store.listPublicationSummaries(project.project.id, 'user-1')).toHaveLength(101)
+
+            const range = store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                from: now + 10 * 60_000,
+                to: now + 11 * 60_000,
+                limit: 1,
+            })
+            expect(range?.publications.map(publication => publication.postTitle)).toEqual([
+                'Scheduled 10',
+            ])
+            expect(range?.nextCursor).toBeNull()
+            expect(range?.summary).toEqual({
+                total: 1,
+                manual: 1,
+                automatic: 0,
+                scheduled: 1,
+            })
+
+            expect(() =>
+                store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                    cursor: 'publication-v1:invalid',
+                })
+            ).toThrow('publication cursor is invalid')
+            expect(() =>
+                store.listPublicationSummaryPage(project.project.id, 'user-1', {
+                    from: now + 1,
+                    to: now,
+                })
+            ).toThrow('publication list range')
         } finally {
             closeDatabase(database)
         }

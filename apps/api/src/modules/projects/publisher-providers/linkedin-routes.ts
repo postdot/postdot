@@ -1,4 +1,4 @@
-import type { PublisherConnectionDestination } from '@herald/db'
+import type { AccessStore, PublisherConnectionDestination } from '@herald/db'
 import {
     LINKEDIN_PROVIDER,
     LINKEDIN_MEMBER_REQUIRED_SCOPES,
@@ -17,15 +17,17 @@ import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../../plugins/auth'
 import type { PublisherRuntime } from '../../publishers/runtime'
+import { canAccessProjectRole, forbiddenProjectMutation } from '../authorization'
 import { errorResponse, linkedInConnectionBody, linkedInConnectionSchema } from '../models'
 
 export function registerLinkedInPublisherRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     publisher: PublisherRuntime,
     options: {
+        readonly access: AccessStore
         readonly logger?: Logger
         readonly onWorkScheduled?: () => void
-    } = {}
+    }
 ) {
     const { authorizationAttemptStore, credentialStore, publisherStore } = publisher
 
@@ -63,6 +65,17 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                             message: 'Human authentication is required to connect LinkedIn',
                         },
                     })
+                }
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
                 }
 
                 if (!publisherStore.hasChannelAccess(params.projectId, params.channelId, user.id)) {
@@ -217,6 +230,22 @@ export function registerLinkedInPublisherRoutes<const Routes extends Record<stri
                     authorizationAttemptStore.getAuthorizationAttempt(stateDigest)
                 if (pendingAttempt === null || pendingAttempt.providerId !== LINKEDIN_PROVIDER) {
                     return redirectPublisher(publisher.webOrigin, '/dashboard', 'invalid_callback')
+                }
+
+                if (
+                    !canAccessProjectRole({
+                        access: options.access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: pendingAttempt.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return redirectPublisher(
+                        publisher.webOrigin,
+                        pendingAttempt.returnPath,
+                        'invalid_callback'
+                    )
                 }
 
                 let linkedin: Awaited<ReturnType<PublisherRuntime['resolveLinkedInApplication']>>

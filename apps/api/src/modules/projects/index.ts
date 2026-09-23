@@ -125,21 +125,35 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.apiKeyActors,
         options.now
     )
-    const channelRoutes = registerChannelRoutes(accessTokenRoutes, options.manualStore)
-    const channelProfileRoutes = registerChannelProfileRoutes(channelRoutes, options.manualStore)
+    const channelRoutes = registerChannelRoutes(
+        accessTokenRoutes,
+        options.manualStore,
+        options.access
+    )
+    const channelProfileRoutes = registerChannelProfileRoutes(
+        channelRoutes,
+        options.manualStore,
+        options.access
+    )
     const publisherRoutes = registerPublisherRoutes(channelProfileRoutes, options.publisher, {
+        access: options.access,
         logger: options.logger,
         onWorkScheduled: options.onWorkScheduled,
         discordFetcher: options.discordFetcher,
         devtoFetcher: options.devtoFetcher,
     })
-    const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, {
+    const postRoutes = registerPostRoutes(publisherRoutes, options.manualStore, options.access, {
         onWorkScheduled: options.onWorkScheduled,
     })
-    const publicationRoutes = registerPublicationRoutes(postRoutes, options.manualStore, {
-        onWorkScheduled: options.onWorkScheduled,
-    })
-    const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media)
+    const publicationRoutes = registerPublicationRoutes(
+        postRoutes,
+        options.manualStore,
+        options.access,
+        {
+            onWorkScheduled: options.onWorkScheduled,
+        }
+    )
+    const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media, options.access)
     const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
     const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)
     const providerAnalyticsRoutes = registerProviderAnalyticsRoutes(
@@ -151,13 +165,16 @@ export function createProjectModule(options: ProjectModuleOptions) {
             fetcher: options.blueskyAnalyticsFetcher,
             timeoutMs: options.blueskyAnalyticsTimeoutMs,
             now: options.blueskyAnalyticsNow,
-        })
+        }),
+        options.access
     )
     const auditRoutes = registerAuditEventRoutes(providerAnalyticsRoutes, options.manualStore)
     return registerRealtimeRoutes(
         auditRoutes,
         options.eventJournal,
         options.notifications,
+        options.access,
+        options.auth,
         options.projectChanges,
         options.userChanges
     )

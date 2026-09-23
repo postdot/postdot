@@ -1,6 +1,8 @@
 import { DomainInvariantError } from '@herald/core'
+import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
+import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     duePublicationSchema,
     errorResponse,
@@ -9,7 +11,7 @@ import {
     publicationEditorStateSchema,
     publicationListQuery,
     publicationSchema,
-    publicationSummarySchema,
+    publicationSummaryPageSchema,
     parsePublicationTagFilter,
     publishPublicationBody,
     reconcilePublicationBody,
@@ -26,6 +28,7 @@ export interface PublicationRouteOptions {
 export function registerPublicationRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     manualStore: ManualStore,
+    access: AccessStore,
     options: PublicationRouteOptions = {}
 ) {
     return app
@@ -36,9 +39,10 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 params: projectParams,
                 query: publicationListQuery,
                 response: {
-                    200: Type.Object({ publications: Type.Array(publicationSummarySchema) }),
+                    200: publicationSummaryPageSchema,
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     422: errorResponse,
                 },
@@ -49,17 +53,19 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 },
             },
             ({ params, query, status, user }) => {
-                const publications = manualStore.listPublicationSummaries(
-                    params.projectId,
-                    user.id,
-                    parsePublicationTagFilter(query.tagIds)
-                )
-                if (publications === null) {
+                const page = manualStore.listPublicationSummaryPage(params.projectId, user.id, {
+                    cursor: query.cursor,
+                    filter: parsePublicationTagFilter(query.tagIds),
+                    from: query.from,
+                    limit: query.limit,
+                    to: query.to,
+                })
+                if (page === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },
                     })
                 }
-                return { publications }
+                return page
             }
         )
         .get(
@@ -100,6 +106,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     200: Type.Object({ editor: publicationEditorStateSchema }),
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                 },
                 detail: {
@@ -132,6 +139,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     200: Type.Object({ editor: publicationEditorStateSchema }),
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                     422: errorResponse,
@@ -142,7 +150,18 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 if (body.sourceContent === undefined && body.targetContent === undefined) {
                     throw new DomainInvariantError(
                         'invalid_input',
@@ -187,6 +206,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     200: Type.Object({ editor: publicationEditorStateSchema }),
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                     422: errorResponse,
@@ -197,7 +217,18 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const draft = manualStore.rebasePublicationDraft({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
@@ -233,6 +264,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     200: Type.Object({ editor: publicationEditorStateSchema }),
                     400: errorResponse,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -242,7 +274,18 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const publication = manualStore.promotePublicationDraft({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
@@ -281,6 +324,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 response: {
                     200: Type.Object({ publication: publicationSchema }),
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -290,7 +334,18 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const publication = manualStore.publishManualPublication({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
@@ -318,6 +373,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 response: {
                     200: Type.Object({ publication: publicationSchema }),
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -327,7 +383,18 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     tags: ['Publications'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const result = manualStore.reconcileAmbiguousPublication({
                     projectId: params.projectId,
                     publicationId: params.publicationId,

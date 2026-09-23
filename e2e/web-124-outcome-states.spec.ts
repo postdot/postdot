@@ -33,24 +33,31 @@ test('keeps failed and ambiguous publications legible across queue and overview'
         }),
     ]
 
-    await page.route(`**/api/projects/${projectId}/publications`, async route => {
-        const requestUrl = new URL(route.request().url())
-        if (
-            route.request().method() !== 'GET' ||
-            requestUrl.pathname !== `/api/projects/${projectId}/publications`
-        ) {
-            await route.continue()
-            return
-        }
+    await page.route(
+        new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
+        async route => {
+            const requestUrl = new URL(route.request().url())
+            if (
+                route.request().method() !== 'GET' ||
+                requestUrl.pathname !== `/api/projects/${projectId}/publications`
+            ) {
+                await route.continue()
+                return
+            }
 
-        const response = await route.fetch()
-        await response.body()
-        await route.fulfill({
-            status: response.status(),
-            contentType: 'application/json',
-            body: JSON.stringify({ publications }),
-        })
-    })
+            const response = await route.fetch()
+            await response.body()
+            await route.fulfill({
+                status: response.status(),
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    publications,
+                    nextCursor: null,
+                    summary: { total: 2, manual: 0, automatic: 2, scheduled: 2 },
+                }),
+            })
+        }
+    )
 
     await page.goto(`/dashboard/projects/${projectId}/queue`)
     await expect(page.getByRole('heading', { name: 'Queue', exact: true })).toBeVisible()

@@ -32,6 +32,7 @@ const defaultRetryPolicy = createExponentialRetryPolicy({
     initialDelay: 60_000,
     maximumDelay: 60 * 60_000,
 })
+const jobsPerProjectPerRound = 1
 
 export interface PublicationWorkerOptions {
     readonly database: HeraldDatabase
@@ -60,7 +61,7 @@ export interface PublicationWorker {
     readonly scheduler: NextEventScheduler
     processDueEvents(now: number): Promise<void>
     start(): void
-    stop(): void
+    stop(): Promise<void>
     replan(): void
 }
 
@@ -78,36 +79,50 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
 
     const processDueEvents = async (at: number) => {
         const processingNow = () => Math.max(at, now())
+        const projects = workflowStore
+            .listProjectIds()
+            .map(projectId => ({
+                projectId,
+                actorId: workflowStore.ensureSystemActor(projectId, processingNow()),
+            }))
+            .filter(
+                (project): project is { projectId: string; actorId: string } =>
+                    project.actorId !== null
+            )
 
-        for (const projectId of workflowStore.listProjectIds()) {
-            const actorId = workflowStore.ensureSystemActor(projectId, processingNow())
-            if (actorId === null) continue
+        while (true) {
+            let processedAny = false
 
-            while (true) {
-                const result = await processNextWorkflowEvent({
-                    store: workflowStore,
-                    actorId,
-                    leaseDuration,
-                    retryPolicy,
-                    createClaimToken,
-                    performExternalEffect: job =>
-                        performExternalEffect({
-                            job,
-                            builtInProviderRegistry: options.builtInProviderRegistry,
-                            providerMediaDeliveryStore,
-                            publisherStore,
-                            publisherCredentialStore: options.publisherCredentialStore,
-                            media: options.media,
-                            resolveBuiltInMediaUrl: options.resolveBuiltInMediaUrl,
-                            customHttpTransport,
-                            resolveCustomHttpMediaUrl: options.resolveCustomHttpMediaUrl,
-                            now: processingNow(),
-                        }),
-                    now: processingNow,
-                })
+            for (const { actorId } of projects) {
+                for (let jobCount = 0; jobCount < jobsPerProjectPerRound; jobCount += 1) {
+                    const result = await processNextWorkflowEvent({
+                        store: workflowStore,
+                        actorId,
+                        leaseDuration,
+                        retryPolicy,
+                        createClaimToken,
+                        performExternalEffect: job =>
+                            performExternalEffect({
+                                job,
+                                builtInProviderRegistry: options.builtInProviderRegistry,
+                                providerMediaDeliveryStore,
+                                publisherStore,
+                                publisherCredentialStore: options.publisherCredentialStore,
+                                media: options.media,
+                                resolveBuiltInMediaUrl: options.resolveBuiltInMediaUrl,
+                                customHttpTransport,
+                                resolveCustomHttpMediaUrl: options.resolveCustomHttpMediaUrl,
+                                now: processingNow(),
+                            }),
+                        now: processingNow,
+                    })
 
-                if (result.jobId === null || result.outcome === 'claim_lost') break
+                    if (result.jobId === null || result.outcome === 'claim_lost') break
+                    processedAny = true
+                }
             }
+
+            if (!processedAny) break
         }
     }
 
@@ -125,7 +140,7 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
             scheduler.start()
         },
         stop() {
-            scheduler.stop()
+            return scheduler.stop()
         },
         replan() {
             if (scheduler.state === 'started') scheduler.replan()

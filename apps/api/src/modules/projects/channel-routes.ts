@@ -1,5 +1,7 @@
+import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
+import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     channelSchema,
     channelDeletedSchema,
@@ -16,7 +18,8 @@ import type { AuthenticatedElysia, ManualStore } from './types'
 
 export function registerChannelRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    manualStore: ManualStore
+    manualStore: ManualStore,
+    access: AccessStore
 ) {
     return app
         .get(
@@ -54,6 +57,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 response: {
                     201: Type.Object({ channel: channelSchema }),
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     422: errorResponse,
                 },
@@ -63,7 +67,18 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const channel = manualStore.createChannel({
                     projectId: params.projectId,
                     subjectId: user.id,
@@ -87,6 +102,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 response: {
                     200: Type.Object({ channel: channelSchema }),
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -96,7 +112,18 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const channel = manualStore.renameChannel({
                     projectId: params.projectId,
                     channelId: params.channelId,
@@ -121,6 +148,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 response: {
                     200: Type.Object({ channel: channelSchema }),
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: Type.Union([channelLifecycleConflictResponse, errorResponse]),
                 },
@@ -130,7 +158,18 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const result = manualStore.archiveChannel({
                     projectId: params.projectId,
                     channelId: params.channelId,
@@ -163,6 +202,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 response: {
                     200: Type.Object({ channel: channelSchema }),
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: errorResponse,
                 },
@@ -172,7 +212,18 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const result = manualStore.restoreChannel({
                     projectId: params.projectId,
                     channelId: params.channelId,
@@ -205,6 +256,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 response: {
                     200: channelDeletedSchema,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                     409: Type.Union([channelLifecycleConflictResponse, errorResponse]),
                 },
@@ -214,7 +266,18 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                     tags: ['Channels'],
                 },
             },
-            ({ body, params, status, user }) => {
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
                 const result = manualStore.deleteChannel({
                     projectId: params.projectId,
                     channelId: params.channelId,
