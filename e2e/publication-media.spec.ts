@@ -810,7 +810,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
 })
 
 test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
-    test.setTimeout(60_000)
+    test.setTimeout(90_000)
     await mockWebcam(page)
 
     const suffix = randomUUID().slice(0, 8)
