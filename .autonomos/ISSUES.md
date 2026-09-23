@@ -2670,3 +2670,153 @@ channels` with a foreign-key constraint error even though a fresh empty database
   generation and browser coverage now exercise the canonical `view`/`date`
   contract. Focused unit and browser tests, the full repository gate, and the
   production build pass. Historical Autonomos records remain unchanged.
+
+## [ISSUE-098] Clarify publication authoring entry points and user vocabulary
+
+- Type: design
+- Status: resolved
+- Evidence: The authenticated project shell exposes `Composer` as a persistent
+  peer in Work navigation, while Overview, Calendar, Queue, and empty states
+  expose creation actions such as `New publication` or `Create a publication`.
+  The destination route is a real multi-channel authoring flow, but it presents
+  the internal relationship as `Source`, `Destinations`, `targets`, channel
+  overrides, delivery modes, and schedules before the operator has chosen a
+  mental model for that work.
+- Impact: Users may not know whether Composer is a separate kind of work, a
+  duplicate entry point, or simply the place to make a publication. The
+  distinction between shared content, channel-specific copy, delivery, and
+  scheduling is useful to the product but currently leaks implementation/domain
+  vocabulary into the first reading of the task. Renaming one label in isolation
+  could leave the sidebar, page title, back links, empty states, and existing
+  publication editor inconsistent.
+- Desired outcome: Define the primary authoring job, the role of the dedicated
+  creation route, and the entry-point hierarchy before implementation. Choose
+  user vocabulary for a new publication, shared content, channel-specific
+  adaptations, delivery, and scheduling; retain source/target semantics in the
+  domain and expose them only where they help a decision. The result must make
+  the existing multi-destination capability understandable without adding
+  explanatory prose or removing useful shortcuts.
+- Scope boundary: This is an IA, interaction, and content-design investigation
+  for authenticated publication authoring. It does not change the publication
+  domain/API, remove the multi-destination model, redesign the calendar, or
+  implement a visual preview/editor rewrite until the authoring contract is
+  accepted. The final visible label is intentionally not predetermined.
+- Tasks: DESIGN-173, WEB-174
+- Related issues: ISSUE-063, ISSUE-080, ISSUE-081
+- Related decisions: ADR-057
+- Decision: The dedicated creation route remains the reusable authoring surface,
+  but it is not a peer destination in the Work navigation. The canonical route
+  is `/dashboard/projects/$projectId/publications/new`; `/compose` is removed
+  rather than retained as a compatibility alias because this private development
+  application has no migration obligation. The sidebar exposes one primary
+  `New publication` action when a project is active, while project creation is
+  available from the project selector instead of occupying a persistent slot.
+  The product vocabulary uses `publication` consistently; the exact hierarchy
+  of the authoring form (`Source`, channel adaptations, delivery, and schedule)
+  remains a bounded follow-up and is not re-litigated by this routing slice.
+- Resolution: WEB-174 implements the accepted entry-point contract. The route and
+  authoring module now use `/publications/new`, all in-scope links, copy, route
+  artifacts, and browser contracts were updated, and the former `/compose` route
+  and Composer navigation peer were removed. The project selector is labeled
+  `Project` / `Projet`, contains the inline project-creation action, and the
+  active-project sidebar exposes one prominent `New publication` /
+  `Nouvelle publication` action. The authoring form hierarchy remains deferred
+  to a separate UX slice.
+- Verification: The authenticated browser inspection confirms the French sidebar
+  hierarchy and selector behavior. `bun run check` passes format, lint, typecheck,
+  unit tests, 17 Playwright scenarios, and the production build; i18n coverage is
+  100% for English and French.
+- Acceptance: A concise authoring IA brief maps every current entry point to one
+  user job, states whether the dedicated route remains a navigation destination
+  or only an action target, proposes vocabulary alternatives with rationale, and
+  records the chosen direction and deferred questions. No code rename is made
+  solely to test a label before that contract is accepted.
+
+## [ISSUE-099] Reframe new-publication authoring around the operator’s job
+
+- Type: design
+- Status: resolved
+- Evidence: The canonical new-publication route still opens with two visually
+  equal sections named `Source` and `Destinations`. The first reading therefore
+  exposes the internal fan-out model before answering the operator’s two
+  sequential questions: what should be published, and where should it go?
+  The target editor also presents channel selection, shared delivery defaults,
+  and channel-specific overrides as one undifferentiated settings surface.
+- Impact: The page can be technically correct while making a normal publication
+  feel like a technical composition workflow. Repeated source/destination
+  vocabulary and peer panels dilute the primary writing task, while default
+  settings and optional channel adaptations compete for the same attention.
+- Desired outcome: Make the publication itself the primary object of the page.
+  Use user-facing `Content` and `Publish to` language, give the content editor
+  the dominant visual weight, let channel selection precede delivery settings,
+  and keep per-channel adaptation and delivery overrides available without
+  making them the default reading path. Preserve the existing multi-channel
+  API and draft behavior.
+- Scope boundary: This slice changes the new-publication information hierarchy,
+  labels, and progressive disclosure only. It does not add a social-network
+  preview, rich-text editing, new scheduling semantics, or a redesigned
+  publication detail editor.
+- Tasks: DESIGN-175, WEB-176
+- Related issues: ISSUE-098, ISSUE-063
+- Related decisions: ADR-057
+- Acceptance: An operator can identify the content editor and the channels to
+  publish to from the first frame, understands that shared delivery settings
+  apply to all selected channels, and can still select, remove, customize, and
+  schedule multiple channels. The page has no user-facing Source/Destinations
+  headings, no duplicate “destination” framing in the active channel card, and
+  remains usable at narrow widths with localized English and French copy.
+- Resolution: DESIGN-175 and WEB-176 implement the accepted authoring contract.
+  The page now leads with `Content` / `Contenu`, uses `Publish to` /
+  `Publier sur`, gives the editor the dominant column, puts channel selection
+  before shared delivery settings, and keeps channel-specific changes in the
+  active channel card. User-facing Source/Destinations and duplicate destination
+  framing were removed without changing the multi-channel API or draft behavior.
+- Verification: Focused browser coverage and the full repository gate pass for
+  the localized route, including the narrow multi-channel and media scenarios;
+  English and French i18n coverage remains 100%. The authenticated integrated
+  browser was inspected on the local `/publications/new` route.
+
+## [ISSUE-100] Give publication authoring a contextual output preview
+
+- Type: design
+- Status: resolved
+- Evidence: The new-publication route now makes shared content, selected
+  channels, and channel-specific overrides legible, but the operator still has
+  to mentally translate that draft into the output of the active channel. The
+  page exposes no immediate indication of how a title, adaptation, or selected
+  media will be presented for the channel currently being configured.
+- Impact: Multi-channel authoring remains an abstract configuration task. An
+  operator can select a different channel or write an override without getting
+  quick feedback that the content being reviewed has changed, which preserves
+  the uncertainty the new hierarchy was intended to reduce.
+- Desired outcome: Add one contextual, live preview for the selected channel.
+  It should identify the active channel, show the effective channel content
+  (override when present, otherwise shared content), show the publication title
+  where the known profile uses one, and render selected media when available.
+  The preview must remain content-led, use the existing surface grammar, and
+  stay honest as an approximation rather than pretending to reproduce every
+  provider’s final renderer.
+- Scope boundary: This slice does not add a server-rendered preview endpoint,
+  provider-perfect rendering, rich-text editing, character/media compliance
+  validation, new scheduling behavior, persistence, or a second authoring
+  flow. Custom and manual channels use the generic content/media treatment.
+- Tasks: DESIGN-177, WEB-178
+- Related issues: ISSUE-098, ISSUE-099
+- Related decisions: ADR-057
+- Acceptance: The preview follows the active channel tab without navigation;
+  shared content, a channel override, title changes, and selected media update
+  immediately; the known DEV.to title/body distinction is represented while
+  other profiles remain generic and truthful; an empty draft does not display
+  fake content; no-channel and narrow layouts remain actionable and localized;
+  no API or publication-domain contract changes are required.
+- Resolution: DESIGN-177 and WEB-178 add a contextual draft preview below the
+  selected-channel controls. The preview identifies the active channel, uses
+  the effective channel content, shows DEV.to titles where that profile owns a
+  title field, and renders selected media through the existing media primitive.
+  It stays local to the page and makes no API or publication-domain changes.
+- Verification: The focused new-publication browser scenario covers no-channel,
+  shared content, channel override precedence, active-channel switching, and
+  narrow layout. The media scenario confirms selected media is visible in the
+  preview. Web unit tests cover the pure preview model; localization coverage
+  remains 100%; the full repository gate passes with 17 Playwright scenarios;
+  the authenticated integrated browser was inspected in light and dark themes.

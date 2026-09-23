@@ -52,7 +52,8 @@ export function DashboardShell({
     const { pathname } = useLocation()
     useLanguage()
     const scrollRegionRef = useRef<HTMLDivElement>(null)
-    const isPublicationRoute = pathname.includes('/publications/')
+    const isPublicationRoute =
+        pathname.includes('/publications/') && !pathname.endsWith('/publications/new')
     const activeSection = workspaceSection(pathname)
     const global = useDashboardGlobal()
     const selectedProjectId = selectedProject?.id ?? null

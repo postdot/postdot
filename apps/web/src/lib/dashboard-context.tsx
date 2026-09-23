@@ -232,21 +232,21 @@ export function ProjectDashboardProvider({
     async function handleCreatePost(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
         if (postContent.trim() === '' && sourceMedia.length === 0) {
-            setError(m.composer_source_required())
+            setError(m.publication_new_source_required())
             return
         }
         if (
             publicationTargets.length === 0 ||
             publicationTargets.some(target => target.channelId === '')
         ) {
-            setError(m.composer_channel_required())
+            setError(m.publication_new_channel_required())
             return
         }
         if (
             new Set(publicationTargets.map(target => target.channelId)).size !==
             publicationTargets.length
         ) {
-            setError(m.composer_duplicate_channel())
+            setError(m.publication_new_duplicate_channel())
             return
         }
 
@@ -289,7 +289,7 @@ export function ProjectDashboardProvider({
         if (publicationInputs.some(input => input === null)) {
             setError(
                 scheduleError === null
-                    ? m.composer_invalid_destination()
+                    ? m.publication_new_invalid_destination()
                     : dateTimeLocalErrorMessage(scheduleError)
             )
             return

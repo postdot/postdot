@@ -12,8 +12,8 @@ test('makes the calendar the first project view while keeping Queue focused', as
     await expect(page.locator('[data-calendar="reui"]')).toBeVisible()
     await expect(page.locator('[data-calendar-view="month"]')).toBeVisible()
     await expect(
-        page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
-    ).toHaveCount(1)
+        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
+    ).toHaveCount(2)
 
     await page.setViewportSize({ width: 1280, height: 900 })
     const calendar = page.locator('[data-calendar="reui"]')
@@ -36,15 +36,15 @@ test('makes the calendar the first project view while keeping Queue focused', as
         page.getByText('Create a publication to add work here.', { exact: true })
     ).toBeVisible()
     await expect(
-        page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
-    ).toHaveCount(2)
+        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
+    ).toHaveCount(3)
 
     await page.getByRole('tab', { name: 'Needs attention (0)', exact: true }).click()
     await expect(page.getByText('Nothing needs attention', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Show all', exact: true })).toBeVisible()
     await expect(
-        page.locator('a[href*="/compose"]').filter({ hasText: 'New publication' })
-    ).toHaveCount(1)
+        page.locator('a[href*="/publications/new"]').filter({ hasText: 'New publication' })
+    ).toHaveCount(2)
 
     await page.getByRole('button', { name: 'Show all', exact: true }).click()
     await expect(page.getByText('Queue is empty', { exact: true })).toBeVisible()
@@ -60,7 +60,8 @@ async function createAccountAndProject(page: Page, suffix: string) {
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
 
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     await page.locator('#new-project').fill(`E2E-122 project ${suffix}`)
     await page
         .locator('form')

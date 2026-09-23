@@ -2,35 +2,68 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
-test('keeps narrow compose and queue usable with long channel names', async ({ page }) => {
+test('keeps narrow new-publication flow and queue usable with long channel names', async ({
+    page,
+}) => {
     test.setTimeout(45_000)
 
     const suffix = randomUUID().slice(0, 8)
     const firstChannelName = `E2E-121 long destination alpha ${suffix} for a publishing workspace`
     const secondChannelName = `E2E-121 long destination beta ${suffix} for a publishing workspace`
-    const publicationTitle = `E2E-121 narrow compose ${suffix}`
+    const publicationTitle = `E2E-121 narrow new publication ${suffix}`
 
     await createAccountAndProject(page, suffix)
+
+    await page.locator('a[href$="/publications/new"]').click()
+    await expect(page.locator('[data-publication-draft-preview="true"]')).toHaveCount(0)
+    await expect(
+        page.getByText('Add a channel before scheduling a publication.', { exact: true })
+    ).toBeVisible()
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await createChannel(page, firstChannelName)
     await createChannel(page, secondChannelName)
 
-    await page.getByRole('link', { name: 'Compose', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/compose$/)
+    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoHorizontalOverflow(page)
 
     const firstTab = page.getByRole('tab', { name: new RegExp(firstChannelName) })
-    const addDestination = page.getByRole('button', { name: 'Add destination', exact: true })
+    const addChannel = page.getByRole('button', { name: 'Add channel', exact: true })
     await expect(firstTab).toBeVisible()
-    await expect(addDestination).toBeVisible()
+    await expect(addChannel).toBeVisible()
+
+    await expect(page.getByRole('heading', { name: 'Content', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Publish to', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Source', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Destinations', exact: true })).toHaveCount(0)
+    await expect(
+        page.locator(
+            '[data-new-publication-publish-to="true"] [data-publication-channel-selection]'
+        )
+    ).toBeVisible()
+    await expect(
+        page.locator('[data-new-publication-publish-to="true"] [data-publication-shared-settings]')
+    ).toBeVisible()
+    const publishToOrder = await page
+        .locator('[data-new-publication-publish-to="true"]')
+        .evaluate(element =>
+            Array.from(
+                element.querySelectorAll(
+                    '[data-publication-channel-selection], [data-publication-shared-settings]'
+                )
+            ).map(item =>
+                item.hasAttribute('data-publication-channel-selection') ? 'channels' : 'settings'
+            )
+        )
+    expect(publishToOrder).toEqual(['channels', 'settings'])
 
     await firstTab.focus()
     await expect(firstTab).toBeFocused()
     await page.keyboard.press('Tab')
-    await expect(addDestination).toBeFocused()
+    await expect(addChannel).toBeFocused()
     await page.keyboard.press('Enter')
 
     const secondTab = page.getByRole('tab', { name: new RegExp(secondChannelName) })
@@ -38,8 +71,35 @@ test('keeps narrow compose and queue usable with long channel names', async ({ p
     await expect(secondTab).toHaveAttribute('aria-selected', 'true')
     await expectNoHorizontalOverflow(page)
 
+    const preview = page.locator('[data-publication-draft-preview="true"]')
+    await expect(preview).toBeVisible()
+
     await page.getByLabel('Title', { exact: true }).fill(publicationTitle)
-    await page.getByLabel('Content', { exact: true }).fill('E2E-121 narrow compose content')
+    const sharedContent = 'E2E-121 narrow new publication content'
+    await page.getByLabel('Content', { exact: true }).fill(sharedContent)
+    await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
+        sharedContent
+    )
+    await expect(preview).toContainText(secondChannelName)
+
+    await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
+    const targetOverride = page.getByRole('textbox', {
+        name: 'Channel content',
+        exact: true,
+    })
+    const overrideContent = 'E2E-121 second-channel adaptation'
+    await targetOverride.fill(overrideContent)
+    await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
+        overrideContent
+    )
+
+    await firstTab.click()
+    await expect(firstTab).toHaveAttribute('aria-selected', 'true')
+    await expect(preview).toContainText(firstChannelName)
+    await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
+        sharedContent
+    )
+
     await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
 
     await page.getByRole('button', { name: 'Toggle workspace navigation', exact: true }).click()
@@ -70,7 +130,8 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<void
     await page.getByRole('button', { name: 'Create account', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard(?:\?.*)?$/)
 
-    await page.getByText('Create project', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
+    await page.getByRole('option', { name: 'Create project', exact: true }).click()
     await page.locator('#new-project').fill(`E2E-121 project ${suffix}`)
     await page
         .locator('form')

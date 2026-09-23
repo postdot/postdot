@@ -9,7 +9,7 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { AddIcon } from '@solar-icons/react/bold/add'
-import type { FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import type { Project, ProjectCategory } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
@@ -39,6 +39,8 @@ export function DashboardProjectContext({
     selectedProjectId,
 }: DashboardProjectContextProps) {
     useLanguage()
+    const [createProjectOpen, setCreateProjectOpen] = useState(false)
+    const previousSelectedProjectId = useRef(selectedProjectId)
     const noProject = m.nav_no_project_selected()
     const selectedProject = projects.find(project => project.id === selectedProjectId) ?? null
     const selectedCategory =
@@ -49,19 +51,39 @@ export function DashboardProjectContext({
     const categoryOptions = categories.filter(
         category => category.state === 'active' || category.id === selectedCategory?.id
     )
+
+    function handleProjectChange(projectId: string | null) {
+        setCreateProjectOpen(false)
+        onProjectChange(projectId)
+    }
+
+    useEffect(() => {
+        if (previousSelectedProjectId.current !== selectedProjectId) {
+            setCreateProjectOpen(false)
+        }
+        previousSelectedProjectId.current = selectedProjectId
+    }, [selectedProjectId])
+
     return (
         <div className="space-y-4">
             <Field className="min-w-0 gap-1.5">
                 <FieldLabel className="text-xs font-medium text-muted-foreground">
-                    {m.nav_workspace()}
+                    {m.nav_project()}
                 </FieldLabel>
                 <Select
                     items={Object.fromEntries([
                         ['__none__', noProject],
                         ...projects.map(project => [project.id, project.name]),
+                        ['__create__', m.nav_create_project()],
                     ])}
                     value={selectedProjectId}
-                    onValueChange={value => onProjectChange(value === '__none__' ? null : value)}>
+                    onValueChange={value => {
+                        if (value === '__create__') {
+                            setCreateProjectOpen(true)
+                            return
+                        }
+                        handleProjectChange(value === '__none__' ? null : value)
+                    }}>
                     <SelectTrigger
                         aria-label={m.nav_select_project()}
                         className="h-9 w-full border-0 bg-sidebar-accent/45 px-2.5 shadow-none hover:bg-sidebar-accent focus-visible:ring-2">
@@ -74,9 +96,45 @@ export function DashboardProjectContext({
                                 {project.name}
                             </SelectItem>
                         ))}
+                        <SelectItem value="__create__">
+                            <AddIcon aria-hidden="true" />
+                            {m.nav_create_project()}
+                        </SelectItem>
                     </SelectContent>
                 </Select>
             </Field>
+
+            {createProjectOpen ? (
+                <form className="rounded-md bg-sidebar-accent/50 p-3" onSubmit={onCreateProject}>
+                    <Field>
+                        <FieldLabel className="sr-only" htmlFor="new-project">
+                            {m.nav_new_project()}
+                        </FieldLabel>
+                        <Input
+                            id="new-project"
+                            required
+                            autoFocus
+                            value={projectName}
+                            onChange={event => onProjectNameChange(event.target.value)}
+                            placeholder={m.nav_project_name()}
+                            className="h-9"
+                        />
+                    </Field>
+                    <div className="mt-2 flex items-center justify-end gap-1">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            type="button"
+                            onClick={() => setCreateProjectOpen(false)}>
+                            {m.common_cancel()}
+                        </Button>
+                        <Button size="sm" type="submit" disabled={pending}>
+                            <AddIcon aria-hidden="true" />
+                            {m.nav_add_project()}
+                        </Button>
+                    </div>
+                </form>
+            ) : null}
 
             {selectedProject !== null && categories.length > 0 ? (
                 <Field className="min-w-0 gap-1.5">
@@ -118,32 +176,6 @@ export function DashboardProjectContext({
                     </Select>
                 </Field>
             ) : null}
-
-            <details className="group rounded-md bg-sidebar-accent/50 p-3 open:bg-sidebar-accent">
-                <summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-muted-foreground transition-[color] hover:text-foreground [&::-webkit-details-marker]:hidden">
-                    <AddIcon aria-hidden="true" className="size-3.5" />
-                    <span>{m.nav_create_project()}</span>
-                </summary>
-                <form className="mt-3 grid gap-2" onSubmit={onCreateProject}>
-                    <Field>
-                        <FieldLabel className="sr-only" htmlFor="new-project">
-                            {m.nav_new_project()}
-                        </FieldLabel>
-                        <Input
-                            id="new-project"
-                            required
-                            value={projectName}
-                            onChange={event => onProjectNameChange(event.target.value)}
-                            placeholder={m.nav_project_name()}
-                            className="h-9"
-                        />
-                    </Field>
-                    <Button size="sm" type="submit" disabled={pending}>
-                        <AddIcon aria-hidden="true" />
-                        {m.nav_add_project()}
-                    </Button>
-                </form>
-            </details>
         </div>
     )
 }

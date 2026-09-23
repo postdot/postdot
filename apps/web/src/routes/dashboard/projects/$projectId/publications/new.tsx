@@ -1,15 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { PublicationComposer } from '@/components/publication-composer'
+import { NewPublicationPage } from '@/components/new-publication-page'
 import { parseCalendarDate, parseCalendarTime } from '@/lib/publication-authoring'
 
-export interface ComposeSearch {
+export interface NewPublicationSearch {
     date?: string
     time?: string
 }
 
-export const Route = createFileRoute('/dashboard/projects/$projectId/compose')({
-    validateSearch: (search: Record<string, unknown>): ComposeSearch => {
+export const Route = createFileRoute('/dashboard/projects/$projectId/publications/new')({
+    validateSearch: (search: Record<string, unknown>): NewPublicationSearch => {
         const date = parseCalendarDate(search.date)
         const time = parseCalendarTime(search.time)
         return {
@@ -17,10 +17,10 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/compose')({
             ...(time === undefined ? {} : { time }),
         }
     },
-    component: ComposeRoute,
+    component: NewPublicationRoute,
 })
 
-function ComposeRoute() {
+function NewPublicationRoute() {
     const { date, time } = Route.useSearch()
-    return <PublicationComposer calendarDate={date} calendarTime={time} />
+    return <NewPublicationPage calendarDate={date} calendarTime={time} />
 }

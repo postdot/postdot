@@ -78,7 +78,7 @@ export function PublicationQueuePage({
                             <Link
                                 params={{ projectId: project.id }}
                                 search={{ date: undefined }}
-                                to="/dashboard/projects/$projectId/compose"
+                                to="/dashboard/projects/$projectId/publications/new"
                             />
                         }>
                         <PenIcon aria-hidden="true" />
@@ -199,7 +199,7 @@ export function PublicationQueuePage({
                                         <Link
                                             params={{ projectId: project.id }}
                                             search={{ date: undefined }}
-                                            to="/dashboard/projects/$projectId/compose"
+                                            to="/dashboard/projects/$projectId/publications/new"
                                         />
                                     }
                                     size="sm"
