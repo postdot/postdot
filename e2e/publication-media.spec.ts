@@ -528,6 +528,20 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.setViewportSize({ width: 200, height: 480 })
     await expect(viewerThumbnailViewport).toBeVisible()
     await expect(viewerThumbnailTrack).toHaveCSS('cursor', 'grab')
+    const viewerThumbnailBounds = await viewerThumbnailViewport.boundingBox()
+    expect(viewerThumbnailBounds).not.toBeNull()
+    const thumbnailTrackLeftBefore = (await viewerThumbnailTrack.boundingBox())?.x
+    expect(thumbnailTrackLeftBefore).toBeDefined()
+    const thumbnailDragX = (viewerThumbnailBounds?.x ?? 0) + (viewerThumbnailBounds?.width ?? 0) / 2
+    const thumbnailDragY =
+        (viewerThumbnailBounds?.y ?? 0) + (viewerThumbnailBounds?.height ?? 0) / 2
+    await page.mouse.move(thumbnailDragX, thumbnailDragY)
+    await page.mouse.down()
+    await page.mouse.move(thumbnailDragX - 50, thumbnailDragY, { steps: 4 })
+    await page.mouse.up()
+    await expect
+        .poll(async () => (await viewerThumbnailTrack.boundingBox())?.x)
+        .not.toBe(thumbnailTrackLeftBefore)
     await page.setViewportSize({ width: 1280, height: 720 })
     await expect(
         mediaLibraryViewer.getByRole('button', { name: 'Next media', exact: true })
