@@ -19,6 +19,9 @@ import type { HeraldDatabase } from './client'
 
 const DEFAULT_UPLOAD_INTENT_TTL_MS = 15 * 60 * 1_000
 const DEFAULT_DELETION_GRACE_PERIOD_MS = 24 * 60 * 60 * 1_000
+const DEFAULT_MEDIA_LIST_LIMIT = 24
+const MAX_MEDIA_LIST_LIMIT = 100
+const MAX_MEDIA_SEARCH_LENGTH = 255
 
 export interface MediaAssetStoreOptions {
     readonly now?: () => number
@@ -53,6 +56,19 @@ export interface FinalizeMediaUploadInput {
 export interface MediaAssetReference {
     readonly asset: MediaAsset
     readonly representations: readonly MediaRepresentation[]
+}
+
+export interface ListMediaAssetsInput {
+    readonly projectId: string
+    readonly subjectId: string
+    readonly cursor?: string | null
+    readonly limit?: number
+    readonly search?: string | null
+}
+
+export interface MediaAssetListPage {
+    readonly items: readonly MediaAssetReference[]
+    readonly nextCursor: string | null
 }
 
 export interface MediaAssetContent {
@@ -274,13 +290,29 @@ export function createMediaAssetStore(
         where project_id = ?1
           and id = ?2
     `)
-    const listAssetsStatement = client.query<MediaAssetRow, [string]>(`
+    const listAssetsStatement = client.query<
+        MediaAssetRow,
+        [
+            projectId: string,
+            search: string | null,
+            cursorCreatedAt: number | null,
+            cursorId: string | null,
+            limit: number,
+        ]
+    >(`
         select ${assetColumns}
         from media_assets
         where project_id = ?1
           and state <> 'deleted'
           and archived_at is null
-        order by created_at, id
+          and (?2 is null or original_filename like ?2 escape '\\')
+          and (
+              ?3 is null
+              or created_at < ?3
+              or (created_at = ?3 and id < ?4)
+          )
+        order by created_at desc, id desc
+        limit ?5
     `)
     const loadRepresentationStatement = client.query<MediaRepresentationRow, [string, string]>(`
         select ${representationColumns}
@@ -1279,17 +1311,54 @@ export function createMediaAssetStore(
                 : openRepresentationContent(media, representation.id)
         },
 
-        listAssets(projectId: string, subjectId: string): readonly MediaAssetReference[] | null {
-            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
-            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
+        listAssetsPage(input: ListMediaAssetsInput): MediaAssetListPage | null {
+            const normalizedProjectId = requireNonBlank(input.projectId, 'projectId')
+            if (
+                !hasProjectAccess(
+                    normalizedProjectId,
+                    requireNonBlank(input.subjectId, 'subjectId')
+                )
+            ) {
                 return null
             }
-            return listAssetsStatement.all(normalizedProjectId).map(asset => ({
+
+            const limit = input.limit ?? DEFAULT_MEDIA_LIST_LIMIT
+            if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_MEDIA_LIST_LIMIT) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    `media list limit must be between 1 and ${MAX_MEDIA_LIST_LIMIT}`
+                )
+            }
+
+            const search = normalizeMediaSearch(input.search)
+            const cursor = parseMediaAssetCursor(input.cursor)
+            const rows = listAssetsStatement.all(
+                normalizedProjectId,
+                search === null ? null : `%${escapeLikePattern(search)}%`,
+                cursor?.createdAt ?? null,
+                cursor?.id ?? null,
+                limit + 1
+            )
+            const hasMore = rows.length > limit
+            const pageRows = rows.slice(0, limit)
+            const items = pageRows.map(asset => ({
                 asset: toMediaAsset(asset),
                 representations: listRepresentationsStatement
                     .all(normalizedProjectId, asset.id)
                     .map(toMediaRepresentation),
             }))
+            const last = hasMore ? items.at(-1)?.asset : undefined
+
+            return {
+                items,
+                nextCursor:
+                    last === undefined
+                        ? null
+                        : encodeMediaAssetCursor({
+                              createdAt: last.createdAt,
+                              id: last.id,
+                          }),
+            }
         },
 
         requestDeletion(
@@ -1425,6 +1494,65 @@ async function scanObject(
     }
 
     return { size, sha256: hash.digest('hex'), header: header.subarray(0, headerSize) }
+}
+
+interface MediaAssetCursor {
+    readonly createdAt: number
+    readonly id: string
+}
+
+const mediaAssetCursorPrefix = 'media-v1:'
+
+function encodeMediaAssetCursor(cursor: MediaAssetCursor): string {
+    return `${mediaAssetCursorPrefix}${cursor.createdAt}:${encodeURIComponent(cursor.id)}`
+}
+
+function parseMediaAssetCursor(cursor: string | null | undefined): MediaAssetCursor | null {
+    if (cursor === null || cursor === undefined) return null
+    if (!cursor.startsWith(mediaAssetCursorPrefix)) {
+        throw new DomainInvariantError('invalid_input', 'media cursor is invalid')
+    }
+
+    const separator = cursor.indexOf(':', mediaAssetCursorPrefix.length)
+    if (separator < 0) {
+        throw new DomainInvariantError('invalid_input', 'media cursor is invalid')
+    }
+
+    const createdAt = Number(cursor.slice(mediaAssetCursorPrefix.length, separator))
+    let id: string
+    try {
+        id = decodeURIComponent(cursor.slice(separator + 1))
+    } catch {
+        throw new DomainInvariantError('invalid_input', 'media cursor is invalid')
+    }
+
+    const parsed = { createdAt, id }
+    if (
+        !Number.isSafeInteger(createdAt) ||
+        createdAt < 0 ||
+        id.length === 0 ||
+        encodeMediaAssetCursor(parsed) !== cursor
+    ) {
+        throw new DomainInvariantError('invalid_input', 'media cursor is invalid')
+    }
+    return parsed
+}
+
+function normalizeMediaSearch(value: string | null | undefined): string | null {
+    if (value === null || value === undefined) return null
+    const normalized = value.trim()
+    if (normalized.length === 0) return null
+    if (normalized.length > MAX_MEDIA_SEARCH_LENGTH) {
+        throw new DomainInvariantError(
+            'invalid_input',
+            `media search must not exceed ${MAX_MEDIA_SEARCH_LENGTH} characters`
+        )
+    }
+    return normalized
+}
+
+function escapeLikePattern(value: string): string {
+    return value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')
 }
 
 function buildReservation(

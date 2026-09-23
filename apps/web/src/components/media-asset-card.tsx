@@ -11,53 +11,97 @@ import * as m from '@/paraglide/messages.js'
 interface MediaAssetCardProps {
     readonly asset: MediaReference
     readonly interactionDisabled: boolean
+    readonly layout?: MediaAssetCardLayout
     readonly projectId: string
     readonly selected: MediaSelection | undefined
+    readonly selectable?: boolean
     readonly onAccessibilityTextChange: (assetId: string, text: string) => void
     readonly onToggle: (asset: MediaReference) => void
+    readonly onPreview: (asset: MediaReference) => void
 }
+
+export type MediaAssetCardLayout = 'grid' | 'compact' | 'list'
 
 export function MediaAssetCard({
     asset,
     interactionDisabled,
+    layout = 'list',
     projectId,
     selected,
+    selectable = true,
     onAccessibilityTextChange,
     onToggle,
+    onPreview,
 }: MediaAssetCardProps) {
     const { locale } = useLanguage()
     const representation = readyRepresentation(asset)
+    const isGrid = layout === 'grid'
+    const isCompact = layout === 'compact'
+    const previewClassName = isGrid
+        ? 'flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground object-cover'
+        : isCompact
+          ? 'flex size-12 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground object-cover'
+          : 'flex size-20 items-center justify-center rounded-md bg-muted text-xs font-medium uppercase text-muted-foreground object-cover'
 
     return (
         <article
-            className={`rounded-md bg-surface-field p-3 shadow-field ${
-                selected === undefined ? '' : 'ring-2 ring-primary/35'
+            data-media-card-layout={layout}
+            className={`rounded-md bg-surface-field ${isGrid || isCompact ? 'p-2' : 'p-3'} shadow-field ${
+                selectable && selected !== undefined ? 'ring-2 ring-primary/35' : ''
             }`}>
-            <button
-                type="button"
-                aria-pressed={selected !== undefined}
-                disabled={interactionDisabled || asset.asset.state !== 'ready'}
-                onClick={() => onToggle(asset)}
-                className="flex w-full items-center gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50">
-                <MediaPreview projectId={projectId} asset={asset} representation={representation} />
-                <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
-                        {asset.asset.originalFilename}
-                    </span>
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                        {mediaSummary(asset, representation, locale)}
-                    </span>
-                </span>
-                {selected === undefined ? (
-                    <span className="text-xs text-muted-foreground">{m.media_attach()}</span>
-                ) : (
-                    <CheckReadIcon
-                        aria-label={m.media_attached()}
-                        className="shrink-0 text-primary"
+            <div
+                className={
+                    isGrid ? 'flex min-w-0 flex-col gap-2' : 'flex min-w-0 items-center gap-3'
+                }>
+                <button
+                    type="button"
+                    disabled={interactionDisabled || representation === undefined}
+                    aria-label={m.media_view_asset({ filename: asset.asset.originalFilename })}
+                    data-media-preview="true"
+                    onClick={() => onPreview(asset)}
+                    className={`${isGrid ? 'block w-full' : 'shrink-0'} cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50`}>
+                    <MediaPreview
+                        projectId={projectId}
+                        asset={asset}
+                        representation={representation}
+                        className={previewClassName}
                     />
+                </button>
+                {selectable ? (
+                    <button
+                        type="button"
+                        aria-pressed={selected !== undefined}
+                        data-media-selection-toggle="true"
+                        disabled={interactionDisabled || asset.asset.state !== 'ready'}
+                        onClick={() => onToggle(asset)}
+                        className={`flex min-w-0 flex-1 gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50 ${isGrid ? 'items-start' : 'items-center'}`}>
+                        <AssetDetails
+                            asset={asset}
+                            locale={locale}
+                            representation={representation}
+                        />
+                        {selected === undefined ? (
+                            <span className="text-xs text-muted-foreground">
+                                {m.media_attach()}
+                            </span>
+                        ) : (
+                            <CheckReadIcon
+                                aria-label={m.media_attached()}
+                                className="shrink-0 text-primary"
+                            />
+                        )}
+                    </button>
+                ) : (
+                    <div className="min-w-0 flex-1">
+                        <AssetDetails
+                            asset={asset}
+                            locale={locale}
+                            representation={representation}
+                        />
+                    </div>
                 )}
-            </button>
-            {selected !== undefined ? (
+            </div>
+            {selectable && selected !== undefined ? (
                 <Field className="mt-3 gap-1">
                     <FieldLabel className="text-xs" htmlFor={`media-alt-${asset.asset.id}`}>
                         {m.media_accessibility_text()}
@@ -75,6 +119,27 @@ export function MediaAssetCard({
                 </Field>
             ) : null}
         </article>
+    )
+}
+
+function AssetDetails({
+    asset,
+    locale,
+    representation,
+}: {
+    readonly asset: MediaReference
+    readonly locale: string
+    readonly representation: ReturnType<typeof readyRepresentation>
+}) {
+    return (
+        <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium">
+                {asset.asset.originalFilename}
+            </span>
+            <span className="mt-1 block text-xs text-muted-foreground">
+                {mediaSummary(asset, representation, locale)}
+            </span>
+        </span>
     )
 }
 

@@ -1,7 +1,5 @@
 import { Button } from '@herald/ui/components/button'
-import { ArrowLeftIcon } from '@solar-icons/react/bold/arrow-left'
-import { GalleryIcon } from '@solar-icons/react/bold/gallery'
-import { Link } from '@tanstack/react-router'
+import { UploadIcon } from '@solar-icons/react/bold/upload'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
@@ -11,46 +9,38 @@ import * as m from '@/paraglide/messages.js'
 
 export function MediaLibraryPage() {
     useLanguage()
-    const { onSourceMediaChange, project, sourceMedia } = useProjectDashboard()
+    const { project } = useProjectDashboard()
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                action={
-                    <Button
-                        nativeButton={false}
-                        render={
-                            <Link
-                                params={{ projectId: project.id }}
-                                search={{ date: undefined }}
-                                to="/dashboard/projects/$projectId/publications/new"
-                            />
-                        }
-                        variant="ghost">
-                        <ArrowLeftIcon aria-hidden="true" />
-                        {m.media_back_to_new_publication()}
-                    </Button>
-                }
-                title={m.media_title()}>
-                <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
-            </DashboardPageHeader>
-
-            <section className="max-w-4xl">
-                <div className="mb-3 flex justify-end">
-                    <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
-                        <GalleryIcon aria-hidden="true" className="size-4" />
-                        {sourceMedia.length === 0
-                            ? m.media_none_selected()
-                            : m.common_media_selected({ count: sourceMedia.length })}
-                    </span>
-                </div>
+            <section className="w-full">
                 <MediaAttachmentPicker
                     emptyDescription={m.media_empty_description()}
                     projectId={project.id}
-                    value={sourceMedia}
-                    onChange={onSourceMediaChange}
+                    renderHeader={({ disabled, onImport, uploading }) => (
+                        <DashboardPageHeader
+                            title={m.media_title()}
+                            action={
+                                <Button
+                                    type="button"
+                                    disabled={disabled}
+                                    className="shadow-none"
+                                    onClick={onImport}>
+                                    <UploadIcon aria-hidden="true" />
+                                    {uploading === null
+                                        ? m.media_import()
+                                        : m.media_uploading({ filename: uploading })}
+                                </Button>
+                            }
+                        />
+                    )}
+                    selectionMode="manage"
+                    value={[]}
+                    onChange={ignoreMediaSelection}
                 />
             </section>
         </main>
     )
 }
+
+function ignoreMediaSelection() {}

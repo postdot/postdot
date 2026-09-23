@@ -43,6 +43,17 @@ export interface Session {
     }
 }
 
+export interface MediaListOptions {
+    readonly cursor?: string
+    readonly limit?: number
+    readonly search?: string
+}
+
+export interface MediaListPage {
+    readonly media: MediaReference[]
+    readonly nextCursor: string | null
+}
+
 export type LinkedInConnectionDestination =
     | { readonly type: 'member' }
     | { readonly type: 'organization'; readonly id: string }
@@ -536,9 +547,9 @@ export const api = {
         )
     },
 
-    async listMedia(projectId: string): Promise<{ media: MediaReference[] }> {
-        return unwrap<{ media: MediaReference[] }>(
-            await client.api.projects({ projectId }).media.get()
+    async listMedia(projectId: string, options: MediaListOptions = {}): Promise<MediaListPage> {
+        return unwrap<MediaListPage>(
+            await client.api.projects({ projectId }).media.get({ query: options })
         )
     },
 
@@ -562,7 +573,7 @@ export const api = {
         )
     },
 
-    async uploadMedia(projectId: string, intentId: string, file: File): Promise<MediaUpload> {
+    async uploadMedia(projectId: string, intentId: string, file: Blob): Promise<MediaUpload> {
         return requestAuth<MediaUpload>(
             `/api/projects/${encodeURIComponent(projectId)}/media/uploads/${encodeURIComponent(intentId)}`,
             {

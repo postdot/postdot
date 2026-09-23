@@ -2820,3 +2820,165 @@ channels` with a foreign-key constraint error even though a fresh empty database
   preview. Web unit tests cover the pure preview model; localization coverage
   remains 100%; the full repository gate passes with 17 Playwright scenarios;
   the authenticated integrated browser was inspected in light and dark themes.
+
+## [ISSUE-101] Establish a Herald-owned media authoring and editing boundary
+
+- Type: proposal
+- Status: resolved
+- Evidence: The current web picker combines library reads, upload orchestration,
+  selection, accessibility text, ordering, and compact previews in one
+  application component. It has no reusable image viewer or editor, and its
+  current order controls are a fallback rather than the intended dense media
+  workflow. Uppy offers a mature upload core and a prebuilt image editor, but
+  its Dashboard is an opinionated surface that does not belong in Herald's
+  visual system; the editor is documented primarily around that Dashboard.
+  The project therefore needs an evidence-backed choice for the editor and the
+  composition boundary, not a skin applied to a vendor dashboard.
+- Impact: Choosing an upload/editor stack without separating orchestration from
+  presentation could either force Herald to inherit a foreign UI or recreate
+  fragile upload, preview, crop, reorder, and recovery behavior inside the
+  publication form. Editing an existing asset in place could also destroy a
+  reusable original or make provider-specific variants impossible to introduce
+  later.
+- Desired outcome: Prove a reusable, Herald-owned media workflow that supports
+  the existing reserve/upload/finalize lifecycle, library selection, full-size
+  preview, non-destructive image editing, dense ordered attachments, keyboard
+  and pointer access, and light/dark responsive presentation. Compare a
+  headless upload orchestrator with a React-oriented standalone editor, record
+  the bundle and accessibility trade-offs, and define whether edited output is
+  a new asset or a durable representation before integrating it into
+  publication authoring.
+- Scope boundary: This is a media-system and editor investigation. It does not
+  adopt Uppy Dashboard, change provider contracts, invent per-destination crop
+  semantics, or replace the publication editor before the prototype has
+  demonstrated a stable contract. Existing assets must remain immutable during
+  the experiment.
+- Tasks: MEDIA-179
+- Related issues: ISSUE-003, ISSUE-007, ISSUE-099, ISSUE-100
+- Resolution: MEDIA-179 establishes the first Herald-owned boundary. The web
+  picker keeps API upload orchestration and uses a lazy Herald viewer/editor
+  with `react-easy-crop` for crop, zoom, and rotation. Saving creates a new
+  verified asset and replaces a selected source only after verification; native
+  drag ordering has focus-visible/mobile arrow fallbacks. Uppy Dashboard is
+  explicitly not adopted, and Uppy core/headless remains a future option only
+  if upload orchestration needs exceed the current API lifecycle. The proven
+  composition remains in `apps/web` until a second consumer justifies a
+  generic `@herald/media-ui` package.
+- Verification: The focused publication-media browser scenario and the full
+  repository gate pass; the authenticated integrated browser was reviewed in
+  light and dark themes. The production build splits the editor into a 41.48
+  kB (13.81 kB gzip) lazy chunk and keeps the picker at 24.31 kB (8.45 kB
+  gzip). Provider-specific transforms, touch-first sortable interaction, and
+  generalized media packaging remain explicit follow-up scope.
+
+## [ISSUE-102] Make the Media route a first-class library and introduce a headless Uppy intake boundary
+
+- Type: proposal
+- Status: resolved
+- Evidence: The Media route reused the publication editor's project-scoped
+  selection state, so it presented a library as if it were an attachment
+  picker and carried selection affordances without a publication consumer.
+  The picker also owned the browser file input and upload orchestration
+  directly, despite the need to evaluate Uppy for reusable intake behavior
+  without adopting its opinionated Dashboard surface.
+- Impact: Treating the library and attachment workflow as the same interaction
+  makes the standalone Media page ambiguous and makes a future upload/editor
+  evolution harder to isolate. Adopting a vendor UI wholesale would instead
+  make Herald inherit foreign surfaces and styling.
+- Desired outcome: The Media route manages reusable project-scoped verified
+  assets with preview and editing actions, while publication contexts retain
+  attachment selection. Uppy Core and React headless hooks should orchestrate
+  file intake, and a Herald adapter should preserve the existing
+  `reserve → raw upload → finalize/verify` contract and its error semantics.
+- Scope boundary: This slice does not adopt Uppy Dashboard or vendor CSS,
+  change the media API, migrate the current Herald-owned image editor, add
+  cancellation/resumability, or introduce a generic `@herald/media-ui`
+  package before a second API-independent consumer exists.
+- Tasks: MEDIA-180
+- Related issues: ISSUE-003, ISSUE-101, ISSUE-099, ISSUE-100
+- Resolution: MEDIA-180 adds a testable Herald upload adapter around Uppy Core,
+  uses `@uppy/react`'s headless file-input, dropzone, context, and state hooks,
+  and keeps Herald responsible for reservation, raw transfer, verification
+  polling, and typed diagnostics. The Media route now runs in explicit manage
+  mode: it has no publication-selection toggles, retains preview/edit/upload
+  actions, and offers a direct New publication entry point. Publication
+  attachment contexts keep their existing selection behavior.
+- Verification: The focused Uppy orchestration tests cover ready, pending, and
+  failed verification; the publication/media browser scenario covers import,
+  editing, reorder, the manage-only Media route, and return to authoring. The
+  full repository gate passes with localization coverage, 17 Playwright
+  scenarios, and the production build. Uppy remains headless and the existing
+  editor remains unchanged pending a dedicated editor proof.
+- Follow-up: Evaluate Uppy Image Editor as an isolated Herald dialog adapter,
+  then separately assess real progress, cancellation, retry, and resumability
+  against the current API lifecycle before changing the editor or extracting a
+  shared media package.
+
+## [ISSUE-103] Define safe external media sources for the project library
+
+- Type: proposal
+- Status: open
+- Evidence: The first Uppy integration deliberately supports local device
+  selection and drag-and-drop only. Uppy documents remote sources such as
+  Google Drive, Dropbox, OneDrive, Unsplash, and URL import as separate
+  provider plugins; those integrations require Companion to authenticate with
+  the remote service and transfer the selected file. The current Herald API
+  has no Companion boundary or remote-source ownership model.
+- Impact: Adding source buttons without deciding which providers Herald
+  supports, where OAuth credentials live, and which service downloads the
+  bytes would create misleading UI and an unreviewed security/deployment
+  boundary. Installing the all-in-one remote-sources preset would also pull in
+  most provider plugins when the product may only need a small subset.
+- Desired outcome: Choose a deliberately small first set of external sources,
+  define their authentication, privacy, network-egress, byte-transfer,
+  failure, and self-hosting contracts, then expose them through a
+  Herald-owned source picker that feeds the same verified media lifecycle as
+  local files.
+- Scope boundary: This investigation does not add Uppy Dashboard, enable a
+  hosted Companion by default, store third-party OAuth tokens in the media
+  domain, or install every remote-source plugin. Local device/drop handling
+  remains available while the source contract is evaluated.
+- Tasks: MEDIA-181
+- Related issues: ISSUE-003, ISSUE-101, ISSUE-102
+- Acceptance: The supported-source list and deployment mode are explicit; each
+  selected provider has a reviewed OAuth and transfer boundary; unsupported or
+  unconfigured sources are absent from the UI; imported bytes enter the same
+  Herald reserve/upload/finalize/verification lifecycle; focused security,
+  failure, and browser coverage exists before any source is enabled.
+
+## [ISSUE-104] Define the scalable project media library contract
+
+- Type: proposal
+- Status: open
+- Evidence: The Media route now has a real local intake zone backed by the
+  headless Uppy boundary, but its library presentation is still a first-pass
+  two-column card grid with fixed previews and an ad hoc metadata subset. The
+  current media list is unbounded, the server currently verifies PNG, JPEG, and
+  WebP assets with a default 100 MB object limit, and the UI does not expose the
+  available deferred-deletion operation or whether an asset is referenced by a
+  draft, scheduled publication, execution, or audit record.
+- Impact: Adding remote sources, more file types, bulk actions, or a visible
+  delete control before defining these semantics would make the library
+  misleading and could either hide assets at scale or encourage destructive
+  actions whose consequences are not understandable. A browser-visible drop
+  instruction is only truthful when the drop target is an actual intake boundary;
+  that boundary is now covered by a real browser `drop` test, while the
+  integrated ChatGPT browser may still lack an OS-file drag source.
+- Desired outcome: An accepted product, API, and operational contract for the
+  project media library covering the default browse mode and density options,
+  the minimum useful metadata and actions, supported file constraints and
+  diagnostics, bounded search/filter/sort reads, usage/reference semantics, and
+  a safe deletion state machine. The contract must keep local intake, future
+  external sources, publication attachment selection, and media management
+  distinct while allowing them to share verified assets.
+- Scope boundary: This issue does not adopt Uppy Dashboard or vendor CSS, add
+  remote-provider controls (tracked by ISSUE-103), replace the current image
+  editor, add blind deletion, or introduce virtualization before a bounded API
+  and measured rendering need exist.
+- Tasks: MEDIA-182
+- Related issues: ISSUE-003, ISSUE-101, ISSUE-102, ISSUE-103
+- Acceptance: The repository records the accepted browse/metadata/action model,
+  a cursor-based or otherwise bounded media-read contract, explicit usage
+  categories and deletion outcomes, upload constraints, and test/measurement
+  targets. The contract identifies which decisions are product defaults and
+  which remain intentionally deferred before implementation work begins.
