@@ -19,7 +19,7 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "@base-ui/react": "1.7.0",
+        "@base-ui/react": "1.8.0",
         "@date-fns/tz": "1.5.0",
         "@dicebear/core": "10.7.0",
         "@dicebear/styles": "10.6.0",
@@ -29,40 +29,40 @@
         "@iconify-icons/flag": "2.0.0",
         "@iconify-icons/logos": "2.0.1",
         "@iconify/react": "6.0.2",
-        "@solar-icons/react": "2.3.0",
-        "@tanstack/hotkeys": "0.8.0",
-        "@tanstack/query-db-collection": "^1.2.12",
-        "@tanstack/react-db": "^0.3.7",
-        "@tanstack/react-hotkeys": "^0.10.0",
-        "@tanstack/react-query": "^5.102.8",
-        "@tanstack/react-router": "1.170.32",
+        "@solar-icons/react": "2.3.1",
+        "@tanstack/hotkeys": "0.9.0",
+        "@tanstack/query-db-collection": "^1.2.15",
+        "@tanstack/react-db": "^0.4.1",
+        "@tanstack/react-hotkeys": "^0.11.0",
+        "@tanstack/react-query": "^5.103.2",
+        "@tanstack/react-router": "1.170.39",
         "@uppy/core": "6.0.1",
         "@uppy/golden-retriever": "6.0.0",
         "@uppy/react": "6.0.0",
-        "@wrksz/themes": "^2.0.0-beta.2",
+        "@wrksz/themes": "^2.0.2",
         "date-fns": "4.4.0",
-        "motion": "13.0.0",
-        "react": "19.2.8",
-        "react-dom": "19.2.8",
+        "motion": "13.4.2",
+        "react": "19.3.0",
+        "react-dom": "19.3.0",
         "react-easy-crop": "6.2.3",
         "react-full-screen": "1.1.1",
         "react-zoom-pan-pinch": "4.2.0"
     },
     "devDependencies": {
-        "@inlang/paraglide-js": "2.25.0",
+        "@inlang/paraglide-js": "2.25.4",
         "@storybook/react-vite": "10.6.0",
         "@tailwindcss/vite": "4.3.3",
         "@tala-tools/tsconfig": "0.1.0",
-        "@tanstack/router-plugin": "1.168.35",
-        "@types/react": "19.2.18",
-        "@types/react-dom": "19.2.5",
+        "@tanstack/router-plugin": "1.168.40",
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
         "@vitejs/plugin-react": "6.1.1",
-        "shadcn": "4.19.0",
+        "shadcn": "4.21.0",
         "tailwindcss": "4.3.3",
         "typescript": "7.0.2",
-        "vite": "8.2.2"
+        "vite": "8.3.0"
     },
     "engines": {
-        "bun": ">=1.4"
+        "bun": ">=1.4.2"
     }
 }

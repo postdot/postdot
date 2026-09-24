@@ -19,14 +19,14 @@
         "clean": "rimraf dist .turbo"
     },
     "dependencies": {
-        "typebox": "1.3.20"
+        "typebox": "1.3.34"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",
-        "@types/bun": "1.4.0",
+        "@types/bun": "1.4.2",
         "typescript": "7.0.2"
     },
     "engines": {
-        "bun": ">=1.4"
+        "bun": ">=1.4.2"
     }
 }
