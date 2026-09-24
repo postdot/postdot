@@ -25,6 +25,7 @@ interface MediaAssetCollectionProps {
     readonly onInfo?: (asset: MediaReference) => void
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly onPermanentlyDelete?: (asset: MediaReference) => void
     readonly onRestore?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview?: (asset: MediaReference) => void
@@ -53,6 +54,7 @@ export function MediaAssetCollection({
     onInfo,
     onOpen,
     onRequestDelete,
+    onPermanentlyDelete,
     onRestore,
     onToggle,
     onPreview,
@@ -82,6 +84,7 @@ export function MediaAssetCollection({
                     onInfo={onInfo}
                     onOpen={onOpen}
                     onRequestDelete={onRequestDelete}
+                    onPermanentlyDelete={onPermanentlyDelete}
                     onRestore={onRestore}
                     onToggle={onToggle}
                     onPreview={onPreview}

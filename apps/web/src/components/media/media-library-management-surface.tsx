@@ -74,6 +74,7 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly onInfo?: (asset: MediaReference) => void
     readonly onOpenAsset?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly onPermanentlyDelete?: (asset: MediaReference) => void
     readonly onToggleAsset: (asset: MediaReference) => void
     readonly onViewChange: (view: 'library' | 'trash') => void
     readonly onRestore?: (asset: MediaReference) => void
@@ -132,6 +133,7 @@ export function MediaLibraryManagementSurface({
     onInfo,
     onOpenAsset,
     onRequestDelete,
+    onPermanentlyDelete,
     onRestore,
     onViewChange,
     onToggleAsset,
@@ -310,6 +312,7 @@ export function MediaLibraryManagementSurface({
                     onOpen={view === 'library' ? onOpenAsset : undefined}
                     onPreview={onOpenAsset}
                     onRequestDelete={view === 'library' ? onRequestDelete : undefined}
+                    onPermanentlyDelete={view === 'trash' ? onPermanentlyDelete : undefined}
                     onRestore={view === 'trash' ? onRestore : undefined}
                     onToggle={onToggleAsset}
                     projectId={projectId}

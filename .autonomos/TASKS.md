@@ -333,6 +333,7 @@ the central project reads and projection/realtime reliability.
 
 - [x] **[MEDIA-182]** Close the media deletion-recovery contract `Priority: 🟠` `Complexity: S` — [ISSUE-104]. Deletion now moves files out of the library and into a project-scoped Trash view; the configured retention duration and permanent-deletion deadline are visible, and eligible files can be restored before expiry. The database preserves the exact pre-deletion lifecycle state, rejects restoration after expiry, and claims permanent purge before deleting bytes so reconciliation can safely retry partial storage cleanup. Evidence: [MEDIA-182 trash recovery worklog](worklogs/2026-09-24-MEDIA-182-trash-recovery.md).
 - [x] **[MEDIA-183]** Refine media Trash hierarchy and copy `Priority: 🔵` `Complexity: S` — [ISSUE-104]; keep Trash secondary to Media, shorten destructive labels, reduce repeated retention detail, and fix the browser-test selector. Evidence: [MEDIA-183 worklog](worklogs/2026-09-24-MEDIA-183.md).
+- [x] **[MEDIA-210]** Add confirmed permanent deletion from the media Trash `Priority: 🟠` `Complexity: M` — allow an editor to permanently delete one trashed asset before its retention deadline, retain the existing active-reference and backup fences, and cover API, UI, and failure recovery. Evidence: [MEDIA-210 worklog](worklogs/2026-09-24-MEDIA-210.md).
 
 ## 🔎 External audit reconciliation
 

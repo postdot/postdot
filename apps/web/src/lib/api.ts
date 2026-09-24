@@ -955,6 +955,19 @@ export const api = {
         )
     },
 
+    async permanentlyDeleteMedia(
+        projectId: string,
+        assetId: string
+    ): Promise<'deleted' | 'cleanup_pending'> {
+        const response = await requestAuth<{
+            readonly status: 'deleted' | 'cleanup_pending'
+        }>(
+            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/permanent`,
+            { method: 'POST' }
+        )
+        return response.status
+    },
+
     async restoreMedia(projectId: string, assetId: string): Promise<void> {
         await requestAuth<{ readonly status: 'restored'; readonly media: MediaReference }>(
             `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/restore`,

@@ -903,6 +903,70 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
             }
         )
         .post(
+            '/api/projects/:projectId/media/:assetId/permanent',
+            {
+                auth: true,
+                params: mediaAssetParams,
+                response: {
+                    200: Type.Object({ status: Type.Literal('deleted') }),
+                    202: Type.Object({ status: Type.Literal('cleanup_pending') }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'permanentlyDeleteProjectMedia',
+                    summary: 'Permanently delete a trashed project media asset',
+                    tags: ['Media'],
+                },
+            },
+            async ({ authMethod, params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const result = await media.permanentlyDeleteAsset(
+                    params.projectId,
+                    params.assetId,
+                    user.id
+                )
+                if (result.kind === 'not_found') {
+                    return status(404, {
+                        error: {
+                            code: 'not_found',
+                            message: 'Media asset not found in the trash',
+                        },
+                    })
+                }
+                if (result.kind === 'blocked') {
+                    const backupInProgress = result.reason === 'backup_in_progress'
+                    return status(409, {
+                        error: {
+                            code: backupInProgress ? 'media_backup_in_progress' : 'media_in_use',
+                            message: backupInProgress
+                                ? 'Media cannot be permanently deleted while a backup is running'
+                                : 'Media asset is still referenced by project content',
+                        },
+                    })
+                }
+                if (result.kind === 'cleanup_pending') {
+                    return status(202, { status: 'cleanup_pending' as const })
+                }
+                return { status: 'deleted' as const }
+            }
+        )
+        .post(
             '/api/projects/:projectId/media/:assetId/restore',
             {
                 auth: true,

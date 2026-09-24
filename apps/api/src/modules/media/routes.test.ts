@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { createAuth } from '@herald/auth'
 import { closeDatabase, createDatabase, createMediaAssetStore, runMigrations } from '@herald/db'
-import { createLocalMediaStore } from '@herald/media'
+import { createLocalMediaStore, type MediaStore } from '@herald/media'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -83,22 +83,34 @@ describe('media HTTP routes', () => {
             publisherEncryptionKeyId: 'test-v1',
         })
         const auth = createAuth(database, { baseURL, secret })
-        const media = createMediaAssetStore(
-            database,
-            createLocalMediaStore({
-                storeId: 'local-test',
-                rootDirectory,
-                maxObjectBytes: 2_000_000,
-            }),
-            {
-                now: () => now,
-                createId: (() => {
-                    let value = 0
-                    return () => `media-id-${++value}`
-                })(),
-                deletionGracePeriodMs: 60_000,
-            }
-        )
+        let failNextMediaObjectDelete = false
+        const localMediaStore = createLocalMediaStore({
+            storeId: 'local-test',
+            rootDirectory,
+            maxObjectBytes: 2_000_000,
+        })
+        const mediaStore: MediaStore = {
+            storeId: localMediaStore.storeId,
+            maxObjectBytes: localMediaStore.maxObjectBytes,
+            put: (key, source, options) => localMediaStore.put(key, source, options),
+            stat: key => localMediaStore.stat(key),
+            open: (key, options) => localMediaStore.open(key, options),
+            async delete(key) {
+                if (failNextMediaObjectDelete) {
+                    failNextMediaObjectDelete = false
+                    throw new Error('Temporary object-store failure')
+                }
+                await localMediaStore.delete(key)
+            },
+        }
+        const media = createMediaAssetStore(database, mediaStore, {
+            now: () => now,
+            createId: (() => {
+                let value = 0
+                return () => `media-id-${++value}`
+            })(),
+            deletionGracePeriodMs: 60_000,
+        })
         const app = createApp({
             auth,
             database,
@@ -465,6 +477,51 @@ describe('media HTTP routes', () => {
                 total: 1,
             })
 
+            const deleteAgainResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}`,
+                cookie,
+                { method: 'DELETE' }
+            )
+            expect(deleteAgainResponse.status).toBe(202)
+
+            failNextMediaObjectDelete = true
+            const permanentDeleteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/permanent`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(permanentDeleteResponse.status).toBe(202)
+            expect(await permanentDeleteResponse.json()).toEqual({ status: 'cleanup_pending' })
+
+            const completedPermanentDeleteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/permanent`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(completedPermanentDeleteResponse.status).toBe(200)
+            expect(await completedPermanentDeleteResponse.json()).toEqual({ status: 'deleted' })
+
+            const permanentlyDeletedContentResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/content`,
+                cookie
+            )
+            expect(permanentlyDeletedContentResponse.status).toBe(404)
+
+            const permanentlyDeletedTrashResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media?view=trash&search=cover`,
+                cookie
+            )
+            expect(permanentlyDeletedTrashResponse.status).toBe(200)
+            expect(await permanentlyDeletedTrashResponse.json()).toMatchObject({
+                media: [],
+                total: 0,
+            })
+
             const mismatchReserveResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/media/uploads`,
@@ -550,6 +607,7 @@ describe('media HTTP routes', () => {
                     '/api/projects/{projectId}/media',
                     '/api/projects/{projectId}/media/{assetId}',
                     '/api/projects/{projectId}/media/{assetId}/restore',
+                    '/api/projects/{projectId}/media/{assetId}/permanent',
                     '/api/projects/{projectId}/media/{assetId}/usage',
                     '/api/projects/{projectId}/media/{assetId}/content',
                     '/api/projects/{projectId}/media/deletion-requests',

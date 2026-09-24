@@ -741,7 +741,7 @@ describe('project media lifecycle', () => {
                 [now + 1_000, now, now]
             )
             await expect(
-                media.purgeAsset(projectId, reservation?.asset.id ?? '', subjectId, now, 0)
+                media.permanentlyDeleteAsset(projectId, reservation?.asset.id ?? '', subjectId, now)
             ).resolves.toEqual({ kind: 'blocked', reason: 'backup_in_progress' })
             database.$client.run('delete from media_backup_fences where id = 1')
 
@@ -757,22 +757,20 @@ describe('project media lifecycle', () => {
                     createdByActorId: actorId,
                 })
                 .run()
-            const blocked = await media.purgeAsset(
+            const blocked = await media.permanentlyDeleteAsset(
                 projectId,
                 reservation?.asset.id ?? '',
                 subjectId,
-                now,
-                0
+                now
             )
             expect(blocked).toEqual({ kind: 'blocked', reason: 'referenced' })
 
             database.$client.run('delete from posts where id = ?', ['post-media-reference'])
-            const deleted = await media.purgeAsset(
+            const deleted = await media.permanentlyDeleteAsset(
                 projectId,
                 reservation?.asset.id ?? '',
                 subjectId,
-                now,
-                0
+                now
             )
             expect(deleted.kind).toBe('deleted')
             expect(media.getAsset(projectId, reservation?.asset.id ?? '', subjectId)).toBeNull()
@@ -874,7 +872,7 @@ describe('project media lifecycle', () => {
                 })
 
                 await expect(
-                    media.purgeAsset(projectId, reservation.asset.id, subjectId, now, 0)
+                    media.permanentlyDeleteAsset(projectId, reservation.asset.id, subjectId, now)
                 ).resolves.toMatchObject({
                     kind: 'deleted',
                     media: { asset: { state: 'deleted' } },

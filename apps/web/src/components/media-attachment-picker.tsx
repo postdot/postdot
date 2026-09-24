@@ -32,10 +32,12 @@ import { MediaPreview, readyRepresentation } from '@/components/media-asset-card
 import { MediaBulkDeletionDialog } from '@/components/media-bulk-deletion-dialog'
 import { MediaDeletionDialog } from '@/components/media-deletion-dialog'
 import { MediaInformationDialog } from '@/components/media-information-dialog'
+import { MediaPermanentDeletionDialog } from '@/components/media-permanent-deletion-dialog'
 import { MediaSourcePickerDialog } from '@/components/media-source-picker-dialog'
 import { MediaUploadRecoveryNotice } from '@/components/media-upload-recovery-notice'
 import { MediaWebcamDialog } from '@/components/media-webcam-dialog'
 import {
+    ApiError,
     api,
     formatApiError,
     type MediaImportSource,
@@ -192,6 +194,11 @@ function MediaAttachmentPickerView({
     const [deletionAsset, setDeletionAsset] = useState<MediaReference | null>(null)
     const [deletionPending, setDeletionPending] = useState(false)
     const [deletionError, setDeletionError] = useState<string | null>(null)
+    const [permanentDeletionAsset, setPermanentDeletionAsset] = useState<MediaReference | null>(
+        null
+    )
+    const [permanentDeletionPending, setPermanentDeletionPending] = useState(false)
+    const [permanentDeletionError, setPermanentDeletionError] = useState<string | null>(null)
     const [bulkSelectedAssetIds, setBulkSelectedAssetIds] = useState<Set<string>>(() => new Set())
     const [bulkDeletionAssets, setBulkDeletionAssets] = useState<MediaReference[]>([])
     const [bulkDeletionPending, setBulkDeletionPending] = useState(false)
@@ -255,6 +262,7 @@ function MediaAttachmentPickerView({
         savingEdited ||
         uploading !== null ||
         deletionPending ||
+        permanentDeletionPending ||
         bulkDeletionPending ||
         restorePending ||
         bulkSelectionResolutionPending ||
@@ -792,6 +800,12 @@ function MediaAttachmentPickerView({
         setDeletionError(null)
     }
 
+    function openPermanentDeletion(asset: MediaReference) {
+        if (!canManageLibrary || mediaView !== 'trash' || permanentDeletionPending) return
+        setPermanentDeletionAsset(asset)
+        setPermanentDeletionError(null)
+    }
+
     async function confirmDeletion() {
         if (!canManageLibrary || deletionAsset === null) return
 
@@ -822,6 +836,48 @@ function MediaAttachmentPickerView({
             setDeletionError(errorMessage(caughtError))
         } finally {
             setDeletionPending(false)
+        }
+    }
+
+    async function confirmPermanentDeletion() {
+        if (
+            !canManageLibrary ||
+            mediaView !== 'trash' ||
+            permanentDeletionAsset === null ||
+            permanentDeletionPending
+        ) {
+            return
+        }
+
+        const asset = permanentDeletionAsset
+        setPermanentDeletionPending(true)
+        setPermanentDeletionError(null)
+        try {
+            const result = await api.permanentlyDeleteMedia(projectId, asset.asset.id)
+            setAssets(current => current.filter(candidate => candidate.asset.id !== asset.asset.id))
+            setRestorableAssetIds(current => {
+                const next = new Set(current)
+                next.delete(asset.asset.id)
+                return next
+            })
+            setListRefreshKey(current => current + 1)
+            setStatusMessage(
+                result === 'deleted'
+                    ? m.media_trash_delete_permanently_success()
+                    : m.media_trash_delete_permanently_pending()
+            )
+            setPermanentDeletionAsset(null)
+        } catch (caughtError) {
+            const errorMessage =
+                caughtError instanceof ApiError && caughtError.code === 'media_in_use'
+                    ? m.media_trash_delete_permanently_in_use()
+                    : caughtError instanceof ApiError &&
+                        caughtError.code === 'media_backup_in_progress'
+                      ? m.media_trash_delete_permanently_backup()
+                      : m.media_trash_delete_permanently_failed()
+            setPermanentDeletionError(errorMessage)
+        } finally {
+            setPermanentDeletionPending(false)
         }
     }
 
@@ -1364,6 +1420,7 @@ function MediaAttachmentPickerView({
                             void openSelectedViewer()
                         }}
                         onRequestDelete={canManageLibrary ? openDeletion : undefined}
+                        onPermanentlyDelete={canManageLibrary ? openPermanentDeletion : undefined}
                         onRestore={canManageLibrary ? restoreAsset : undefined}
                         onSearchQueryChange={handleSearchQueryChange}
                         onSortChange={setMediaSort}
@@ -1684,6 +1741,19 @@ function MediaAttachmentPickerView({
                 }}
                 open={deletionAsset !== null}
                 pending={deletionPending}
+            />
+            <MediaPermanentDeletionDialog
+                asset={permanentDeletionAsset}
+                error={permanentDeletionError}
+                onConfirm={() => void confirmPermanentDeletion()}
+                onOpenChange={open => {
+                    if (!open && !permanentDeletionPending) {
+                        setPermanentDeletionAsset(null)
+                        setPermanentDeletionError(null)
+                    }
+                }}
+                open={permanentDeletionAsset !== null}
+                pending={permanentDeletionPending}
             />
             <MediaBulkDeletionDialog
                 assets={bulkDeletionAssets}

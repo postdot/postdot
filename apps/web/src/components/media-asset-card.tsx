@@ -43,6 +43,7 @@ interface MediaAssetCardProps {
     readonly onInfo?: (asset: MediaReference) => void
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly onPermanentlyDelete?: (asset: MediaReference) => void
     readonly onRestore?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview?: (asset: MediaReference) => void
@@ -71,6 +72,7 @@ export function MediaAssetCard({
     onInfo,
     onOpen,
     onRequestDelete,
+    onPermanentlyDelete,
     onRestore,
     onToggle,
     onPreview,
@@ -205,6 +207,7 @@ export function MediaAssetCard({
                                 onInfo={onInfo}
                                 onOpen={onOpen}
                                 onRequestDelete={onRequestDelete}
+                                onPermanentlyDelete={onPermanentlyDelete}
                                 onRestore={restoreAvailable ? onRestore : undefined}
                                 representation={representation}
                             />
@@ -269,6 +272,7 @@ export function MediaAssetCard({
                                 onInfo={onInfo}
                                 onOpen={onOpen}
                                 onRequestDelete={onRequestDelete}
+                                onPermanentlyDelete={onPermanentlyDelete}
                                 onRestore={restoreAvailable ? onRestore : undefined}
                                 representation={representation}
                             />
@@ -305,6 +309,7 @@ function MediaAssetActions({
     onInfo,
     onOpen,
     onRequestDelete,
+    onPermanentlyDelete,
     onRestore,
     representation,
 }: {
@@ -315,6 +320,7 @@ function MediaAssetActions({
     readonly onInfo?: (asset: MediaReference) => void
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly onPermanentlyDelete?: (asset: MediaReference) => void
     readonly onRestore?: (asset: MediaReference) => void
     readonly representation: ReturnType<typeof readyRepresentation>
 }) {
@@ -324,6 +330,7 @@ function MediaAssetActions({
         onEdit === undefined &&
         onInfo === undefined &&
         onRequestDelete === undefined &&
+        onPermanentlyDelete === undefined &&
         onRestore === undefined
     )
         return null
@@ -416,6 +423,19 @@ function MediaAssetActions({
                                 onClick={() => onRequestDelete(asset)}>
                                 <TrashBinMinimalisticIcon aria-hidden="true" />
                                 {m.media_delete_confirm()}
+                            </DropdownMenuItem>
+                        </>
+                    ) : null}
+                    {onPermanentlyDelete !== undefined ? (
+                        <>
+                            {onRestore !== undefined ? <DropdownMenuSeparator /> : null}
+                            <DropdownMenuItem
+                                data-media-asset-action="permanent-delete"
+                                variant="destructive"
+                                disabled={interactionDisabled}
+                                onClick={() => onPermanentlyDelete(asset)}>
+                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                {m.media_trash_delete_permanently()}
                             </DropdownMenuItem>
                         </>
                     ) : null}

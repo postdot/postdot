@@ -168,6 +168,7 @@ export type RequestMediaDeletionResult =
 
 export type PurgeMediaAssetResult =
     | { readonly kind: 'deleted'; readonly media: MediaAssetReference }
+    | { readonly kind: 'cleanup_pending'; readonly media: MediaAssetReference }
     | {
           readonly kind: 'blocked'
           readonly reason: 'grace_period' | 'referenced' | 'backup_in_progress'
@@ -2112,6 +2113,33 @@ export function createMediaAssetStore(
                 requireTimestamp(at ?? now(), 'at'),
                 gracePeriodMs
             )
+        },
+
+        async permanentlyDeleteAsset(
+            projectId: string,
+            assetId: string,
+            subjectId: string,
+            at?: number
+        ): Promise<PurgeMediaAssetResult> {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedAssetId = requireNonBlank(assetId, 'assetId')
+            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
+                return { kind: 'not_found' }
+            }
+            try {
+                return await purgeInternal(
+                    normalizedProjectId,
+                    normalizedAssetId,
+                    requireTimestamp(at ?? now(), 'at'),
+                    0
+                )
+            } catch (error) {
+                const claimed = readMedia(normalizedProjectId, normalizedAssetId)
+                if (claimed?.asset.state === 'deleted') {
+                    return { kind: 'cleanup_pending', media: claimed }
+                }
+                throw error
+            }
         },
 
         async reconcile(at?: number): Promise<ReconcileMediaResult> {
