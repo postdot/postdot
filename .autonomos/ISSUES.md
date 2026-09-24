@@ -3266,17 +3266,18 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-122] Define an operational observability contract
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The supplied audit reports health/readiness checks and domain analytics but no accepted metrics, tracing, dashboards, or alert thresholds.
 - Impact: Operators may detect failures only after users report them and cannot distinguish backlog, provider, notification, or storage degradation quickly.
 - Desired outcome: Supported deployments have a bounded observability contract tied to concrete service-level and recovery goals.
 - Tasks: OPS-207
-- Current classification: Health/readiness and domain analytics exist, but
-  runtime instrumentation is not implemented. The owner approved a
-  Prometheus-client-based, self-hosted direction; no cloud monitoring service
-  is required. The remaining task is to define and expose a bounded metrics
-  surface. Scraping, retention, dashboards, and alert thresholds remain
-  deployment-owned rather than prerequisites for the application endpoint.
+- Resolution: OPS-207 adds an unauthenticated Prometheus scrape endpoint backed
+  by the approved Prometheus JavaScript client, with process CPU, memory, and
+  uptime measurements plus fixed-cardinality scheduler and worker metrics. No
+  user, workspace, project, channel, or provider identifiers are emitted. The
+  deployment guide requires network-level restriction of the scrape endpoint.
+  Scrape cadence, retention, dashboards, and alert thresholds remain
+  deployment-owned; no hosted monitoring service was added.
 
 ## [ISSUE-123] Define production deployment and recovery boundaries
 

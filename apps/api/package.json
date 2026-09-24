@@ -33,6 +33,7 @@
         "@herald/media": "workspace:*",
         "@herald/oauth": "workspace:*",
         "@herald/x": "workspace:*",
+        "@prometheus-io/client": "0.16.1",
         "@sinclair/typebox": "^0.34.52",
         "drizzle-orm": "0.45.3",
         "drizzle-typebox": "^0.3.3",

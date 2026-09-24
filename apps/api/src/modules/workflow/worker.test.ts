@@ -327,6 +327,10 @@ describe('publication worker', () => {
                 }),
             ]
             const requests: Array<{ readonly headers: Headers; readonly body: string }> = []
+            const runObservations: Array<{
+                readonly outcome: 'success' | 'failure'
+                readonly durationSeconds: number
+            }> = []
             const publisher = createLinkedInTextPublisher({
                 baseUrl: 'https://linkedin.test',
                 fetcher: async (_input, init) => {
@@ -354,9 +358,14 @@ describe('publication worker', () => {
                     nextRunAt: ({ attempts, failedAt }) =>
                         attempts === 1 ? failedAt + 60_000 : null,
                 },
+                onRunCompleted: observation => runObservations.push(observation),
             })
 
             await worker.processDueEvents(now + 3)
+
+            expect(runObservations).toHaveLength(1)
+            expect(runObservations[0]?.outcome).toBe('success')
+            expect(runObservations[0]?.durationSeconds).toBeGreaterThanOrEqual(0)
 
             const notifications = createNotificationStore(database, { now: () => now + 4 })
             const notificationProjection = createNotificationProjectionRuntime(notifications)
