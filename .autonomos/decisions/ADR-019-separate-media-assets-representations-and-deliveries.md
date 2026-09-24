@@ -102,10 +102,25 @@ Heavy or optional processors are explicit capabilities and do not silently enlar
 the base production image. A format is not advertised as supported on the Linux
 runtime until its inspector has executable contract evidence.
 
-Asset deletion is two-phase. Archiving removes normal selection access. Physical
-deletion requires no retained draft, target, execution, or audit reference and a
-completed grace period. Provider-side cleanup is separately owned by each provider
-module.
+Asset deletion is recoverable and two-phase. A deletion request removes the asset
+from the normal library and places it in a separate Trash view. The instance's
+configured retention period governs how long the asset can be restored; it is 24
+hours by default. The confirmation states the configured duration, and the Trash
+shows each eligible asset's permanent-deletion deadline. Restore reinstates the
+asset and representation lifecycle states and failure details captured at the
+deletion request; incomplete upload lifecycles without a recoverable file are not
+restorable. Requests from before restore snapshots existed are also not guessed
+back into a state.
+
+After the retention period, physical deletion requires no retained draft, target,
+execution, or audit reference and no active backup fence. Purge first atomically
+claims the asset as permanently deleted, so restoration cannot race with storage
+cleanup. If deleting bytes then fails partway, reconciliation retries the
+idempotent object deletes before finalizing the representations. Provider-side
+cleanup is separately owned by each provider module.
+
+The owner accepted the recoverable Trash behavior on 2026-09-24 while keeping the
+existing configurable retention period and its 24-hour default.
 
 ## Backup and restore
 

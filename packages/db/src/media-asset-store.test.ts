@@ -55,6 +55,7 @@ function seedProject(database: ReturnType<typeof createDatabase>, suffix: string
 interface MediaFixtureOptions {
     readonly now?: () => number
     readonly uploadIntentTtlMs?: number
+    readonly deletionGracePeriodMs?: number
 }
 
 async function withFixture<T>(
@@ -85,7 +86,7 @@ async function withFixture<T>(
             return () => `media-id-${++value}`
         })(),
         uploadIntentTtlMs: options.uploadIntentTtlMs,
-        deletionGracePeriodMs: 0,
+        deletionGracePeriodMs: options.deletionGracePeriodMs ?? 0,
     })
 
     try {
@@ -103,6 +104,70 @@ async function withFixture<T>(
 }
 
 describe('project media lifecycle', () => {
+    it('moves deleted assets out of the library and restores them from the trash before expiry', async () => {
+        let current = now
+        await withFixture(
+            async ({ media, projectId, subjectId }) => {
+                const reservation = media.reserveUpload({
+                    projectId,
+                    subjectId,
+                    originalFilename: 'recoverable.png',
+                })
+                expect(reservation).not.toBeNull()
+                if (reservation === null) throw new Error('Reservation was not created')
+
+                await media.upload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                    source: streamOf(createPng()),
+                })
+                const finalized = await media.finalizeUpload({
+                    projectId,
+                    subjectId,
+                    intentId: reservation.intent.id,
+                })
+                expect(finalized.kind).toBe('ready')
+
+                expect(media.requestDeletion(projectId, reservation.asset.id, subjectId).kind).toBe(
+                    'requested'
+                )
+                expect(media.listAssetsPage({ projectId, subjectId })?.items).toEqual([])
+                expect(media.listAssetsPage({ projectId, subjectId })?.trashCount).toBe(1)
+
+                const trash = media.listAssetsPage({ projectId, subjectId, view: 'trash' })
+                expect(trash).toMatchObject({ total: 1, trashCount: 1, retentionMs: 60_000 })
+                expect(trash?.items[0]?.asset.state).toBe('deletion_requested')
+
+                const restored = media.restoreDeletion(
+                    projectId,
+                    reservation.asset.id,
+                    subjectId,
+                    current + 59_999
+                )
+                expect(restored.kind).toBe('restored')
+                expect(restored.kind === 'restored' ? restored.media.asset.state : null).toBe(
+                    'ready'
+                )
+                expect(media.listAssetsPage({ projectId, subjectId })?.items).toHaveLength(1)
+                expect(media.listAssetsPage({ projectId, subjectId, view: 'trash' })?.total).toBe(0)
+
+                media.requestDeletion(projectId, reservation.asset.id, subjectId)
+                current += 60_000
+                expect(
+                    media.restoreDeletion(projectId, reservation.asset.id, subjectId, current)
+                ).toEqual({ kind: 'expired' })
+                expect(media.listAssetsPage({ projectId, subjectId, view: 'trash' })).toMatchObject(
+                    {
+                        total: 0,
+                        trashCount: 0,
+                    }
+                )
+            },
+            { now: () => current, deletionGracePeriodMs: 60_000 }
+        )
+    })
+
     it('reserves, streams, verifies, and finalizes an immutable representation', async () => {
         await withFixture(async ({ media, projectId, subjectId }) => {
             const bytes = createPng()
@@ -676,7 +741,7 @@ describe('project media lifecycle', () => {
                 [now + 1_000, now, now]
             )
             await expect(
-                media.purgeAsset(projectId, reservation?.asset.id ?? '', subjectId, now, 0)
+                media.permanentlyDeleteAsset(projectId, reservation?.asset.id ?? '', subjectId, now)
             ).resolves.toEqual({ kind: 'blocked', reason: 'backup_in_progress' })
             database.$client.run('delete from media_backup_fences where id = 1')
 
@@ -692,22 +757,20 @@ describe('project media lifecycle', () => {
                     createdByActorId: actorId,
                 })
                 .run()
-            const blocked = await media.purgeAsset(
+            const blocked = await media.permanentlyDeleteAsset(
                 projectId,
                 reservation?.asset.id ?? '',
                 subjectId,
-                now,
-                0
+                now
             )
             expect(blocked).toEqual({ kind: 'blocked', reason: 'referenced' })
 
             database.$client.run('delete from posts where id = ?', ['post-media-reference'])
-            const deleted = await media.purgeAsset(
+            const deleted = await media.permanentlyDeleteAsset(
                 projectId,
                 reservation?.asset.id ?? '',
                 subjectId,
-                now,
-                0
+                now
             )
             expect(deleted.kind).toBe('deleted')
             expect(media.getAsset(projectId, reservation?.asset.id ?? '', subjectId)).toBeNull()
@@ -787,27 +850,35 @@ describe('project media lifecycle', () => {
     })
 
     it('can delete an incomplete or failed asset without inventing inspection facts', async () => {
-        await withFixture(async ({ media, projectId, subjectId }) => {
-            const reservation = media.reserveUpload({
-                projectId,
-                subjectId,
-                originalFilename: 'incomplete.png',
-            })
-            expect(reservation).not.toBeNull()
-            if (reservation === null) throw new Error('Reservation was not created')
+        await withFixture(
+            async ({ media, projectId, subjectId }) => {
+                const reservation = media.reserveUpload({
+                    projectId,
+                    subjectId,
+                    originalFilename: 'incomplete.png',
+                })
+                expect(reservation).not.toBeNull()
+                if (reservation === null) throw new Error('Reservation was not created')
 
-            const requested = media.requestDeletion(projectId, reservation.asset.id, subjectId)
-            expect(requested.kind).toBe('requested')
-            if (requested.kind !== 'requested') return
-            expect(requested.media.asset.archivedAt).toBe(now)
-            expect(requested.media.representations[0]?.state).toBe('deletion_requested')
+                const requested = media.requestDeletion(projectId, reservation.asset.id, subjectId)
+                expect(requested.kind).toBe('requested')
+                if (requested.kind !== 'requested') return
+                expect(requested.media.asset.archivedAt).toBe(now)
+                expect(requested.media.representations[0]?.state).toBe('deletion_requested')
+                expect(
+                    media.restoreDeletion(projectId, reservation.asset.id, subjectId, now)
+                ).toEqual({
+                    kind: 'not_restorable',
+                })
 
-            await expect(
-                media.purgeAsset(projectId, reservation.asset.id, subjectId, now, 0)
-            ).resolves.toMatchObject({
-                kind: 'deleted',
-                media: { asset: { state: 'deleted' } },
-            })
-        })
+                await expect(
+                    media.permanentlyDeleteAsset(projectId, reservation.asset.id, subjectId, now)
+                ).resolves.toMatchObject({
+                    kind: 'deleted',
+                    media: { asset: { state: 'deleted' } },
+                })
+            },
+            { deletionGracePeriodMs: 60_000 }
+        )
     })
 })

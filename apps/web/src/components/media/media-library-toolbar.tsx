@@ -21,6 +21,7 @@ import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { Widget2Icon } from '@solar-icons/react/linear/widget-2'
 import type { RegisterableHotkey } from '@tanstack/hotkeys'
 import { useHotkeys } from '@tanstack/react-hotkeys'
+import type { ReactNode } from 'react'
 
 import { type MediaListDateFilter, type MediaListFamilyFilter, type MediaListSort } from '@/lib/api'
 import type { MediaLibraryViewMode } from '@/lib/media-library-view'
@@ -53,6 +54,7 @@ export interface MediaLibraryToolbarProps {
     readonly totalAssets: number
     readonly className?: string
     readonly features?: MediaLibraryFeatureOptions
+    readonly navigationAction?: ReactNode
     readonly showResultCount?: boolean
     readonly showSelectionMode?: boolean
     readonly showViewControls?: boolean
@@ -78,6 +80,7 @@ export function MediaLibraryToolbar({
     totalAssets,
     className,
     features,
+    navigationAction,
     showResultCount: showResultCountProp = true,
     showSelectionMode = true,
     showViewControls: showViewControlsProp = true,
@@ -162,6 +165,7 @@ export function MediaLibraryToolbar({
                             onChange={onViewModeChange}
                         />
                     ) : null}
+                    {navigationAction}
                 </div>
             </div>
         </div>

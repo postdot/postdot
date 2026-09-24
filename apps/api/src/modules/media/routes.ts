@@ -15,6 +15,7 @@ const mediaProjectParams = Type.Object({
 const mediaListQuery = Type.Object({
     cursor: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })),
     limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })),
+    view: Type.Optional(Type.Union([Type.Literal('library'), Type.Literal('trash')])),
     search: Type.Optional(Type.String({ maxLength: 255 })),
     sort: Type.Optional(
         Type.Union([
@@ -160,8 +161,11 @@ const mediaReferenceSchema = Type.Object({
 
 const mediaListPageSchema = Type.Object({
     media: Type.Array(mediaReferenceSchema),
+    restorableAssetIds: Type.Array(Type.String({ minLength: 1 })),
     nextCursor: Type.Union([Type.String({ minLength: 1 }), Type.Null()]),
     total: Type.Integer({ minimum: 0 }),
+    trashCount: Type.Integer({ minimum: 0 }),
+    retentionMs: Type.Integer({ minimum: 0 }),
 })
 
 const mediaUploadPolicySchema = Type.Object({
@@ -215,6 +219,11 @@ const mediaUrlImportResponse = Type.Union([finalizedResponse, pendingResponse])
 
 const deletionResponse = Type.Object({
     status: Type.Literal('deletion_requested'),
+    media: mediaReferenceSchema,
+})
+
+const restorationResponse = Type.Object({
+    status: Type.Literal('restored'),
     media: mediaReferenceSchema,
 })
 
@@ -645,6 +654,7 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 const page = media.listAssetsPage({
                     projectId: params.projectId,
                     subjectId: user.id,
+                    view: query.view,
                     cursor: query.cursor,
                     limit: query.limit,
                     search: query.search,
@@ -659,8 +669,11 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 }
                 return {
                     media: page.items.map(toMediaReferenceResponse),
+                    restorableAssetIds: [...page.restorableAssetIds],
                     nextCursor: page.nextCursor,
                     total: page.total,
+                    trashCount: page.trashCount,
+                    retentionMs: page.retentionMs,
                 }
             }
         )
@@ -887,6 +900,132 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     media: toMediaReferenceResponse(result.media),
                 }
                 return result.kind === 'requested' ? status(202, response) : response
+            }
+        )
+        .post(
+            '/api/projects/:projectId/media/:assetId/permanent',
+            {
+                auth: true,
+                params: mediaAssetParams,
+                response: {
+                    200: Type.Object({ status: Type.Literal('deleted') }),
+                    202: Type.Object({ status: Type.Literal('cleanup_pending') }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'permanentlyDeleteProjectMedia',
+                    summary: 'Permanently delete a trashed project media asset',
+                    tags: ['Media'],
+                },
+            },
+            async ({ authMethod, params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const result = await media.permanentlyDeleteAsset(
+                    params.projectId,
+                    params.assetId,
+                    user.id
+                )
+                if (result.kind === 'not_found') {
+                    return status(404, {
+                        error: {
+                            code: 'not_found',
+                            message: 'Media asset not found in the trash',
+                        },
+                    })
+                }
+                if (result.kind === 'blocked') {
+                    const backupInProgress = result.reason === 'backup_in_progress'
+                    return status(409, {
+                        error: {
+                            code: backupInProgress ? 'media_backup_in_progress' : 'media_in_use',
+                            message: backupInProgress
+                                ? 'Media cannot be permanently deleted while a backup is running'
+                                : 'Media asset is still referenced by project content',
+                        },
+                    })
+                }
+                if (result.kind === 'cleanup_pending') {
+                    return status(202, { status: 'cleanup_pending' as const })
+                }
+                return { status: 'deleted' as const }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/media/:assetId/restore',
+            {
+                auth: true,
+                params: mediaAssetParams,
+                response: {
+                    200: restorationResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    410: errorResponse,
+                    503: errorResponse,
+                },
+                detail: {
+                    operationId: 'restoreProjectMedia',
+                    summary: 'Restore a project media asset from the trash',
+                    tags: ['Media'],
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (media === undefined) return status(503, mediaUnavailableError())
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+
+                const result = media.restoreDeletion(params.projectId, params.assetId, user.id)
+                if (result.kind === 'not_found') {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Media asset not found in the trash' },
+                    })
+                }
+                if (result.kind === 'expired') {
+                    return status(410, {
+                        error: {
+                            code: 'media_deletion_expired',
+                            message: 'The media retention period has expired',
+                        },
+                    })
+                }
+                if (result.kind === 'not_restorable') {
+                    return status(409, {
+                        error: {
+                            code: 'media_not_restorable',
+                            message: 'This media asset cannot be restored',
+                        },
+                    })
+                }
+                return {
+                    status: 'restored' as const,
+                    media: toMediaReferenceResponse(result.media),
+                }
             }
         )
 }

@@ -784,7 +784,9 @@
         }
     ],
     "media_delete_title": "Supprimer ce fichier ?",
-    "media_delete_used_description": "Ce média est encore utilisé. Retirez ses références avant de le supprimer.",
+    "media_delete_retention": "Il y restera {duration} avant sa suppression définitive.",
+    "media_delete_immediate": "Suppression définitive, sans restauration possible.",
+    "media_delete_used_description": "Retirez ses références avant de le supprimer.",
     "media_delete_unavailable_description": "Impossible de vérifier son utilisation pour le moment.",
     "media_delete_confirm": "Supprimer",
     "media_delete_asset": "Supprimer {filename}",
@@ -815,18 +817,28 @@
             "selectors": ["countPlural"],
             "match": {
                 "countPlural=one": "Supprimer ce fichier ?",
-                "countPlural=other": "Supprimer ces {count} fichiers ?"
+                "countPlural=other": "Supprimer {count} fichiers ?"
             }
         }
     ],
     "media_bulk_delete_preview_label": "Médias sélectionnés",
     "media_bulk_delete_description": [
         {
+            "declarations": ["input count", "input duration", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Corbeille pendant {duration}, puis suppression définitive.",
+                "countPlural=other": "Ils resteront dans la corbeille {duration}, puis seront supprimés définitivement."
+            }
+        }
+    ],
+    "media_bulk_delete_immediate": [
+        {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "Ce fichier sera retiré de la bibliothèque média.",
-                "countPlural=other": "Ces {count} fichiers seront retirés de la bibliothèque média."
+                "countPlural=one": "Suppression définitive, sans restauration possible.",
+                "countPlural=other": "Suppression définitive de {count} fichiers, sans restauration possible."
             }
         }
     ],
@@ -902,8 +914,67 @@
     "media_upload_rejected": "Le fichier sélectionné ne peut pas être importé.",
     "media_upload_rejected_type": "{filename} n’est pas pris en charge. Formats acceptés : {types}.",
     "media_upload_rejected_size": "{filename} dépasse la limite de {size}.",
-    "media_loading": "Chargement de la bibliothèque média…",
+    "media_loading": "Chargement des médias…",
     "media_empty_title": "Aucun média",
+    "media_trash_open": "Corbeille",
+    "media_trash_heading": "Corbeille",
+    "media_trash_back": "Retour aux médias",
+    "media_trash_empty_title": "La corbeille est vide",
+    "media_trash_expires_at": "Suppression définitive le {date}",
+    "media_trash_delete_permanently": "Supprimer définitivement",
+    "media_trash_delete_permanently_title": "Supprimer définitivement ?",
+    "media_trash_delete_permanently_description": "Ce fichier ne pourra pas être restauré.",
+    "media_trash_delete_permanently_success": "Fichier supprimé définitivement.",
+    "media_trash_delete_permanently_pending": "Le nettoyage du fichier sera retenté automatiquement.",
+    "media_trash_delete_permanently_failed": "Impossible de supprimer le fichier. Réessayez.",
+    "media_trash_delete_permanently_in_use": "Retirez d'abord ce fichier du contenu du projet.",
+    "media_trash_delete_permanently_backup": "Attendez la fin de la sauvegarde, puis réessayez.",
+    "media_trash_restore": "Restaurer",
+    "media_trash_not_restorable": "Ce fichier ne peut plus être restauré.",
+    "media_trash_restored": "Fichier restauré.",
+    "media_trash_restore_failed": "Impossible de restaurer ce fichier.",
+    "media_trash_delete_success": "Fichier déplacé dans la corbeille.",
+    "media_bulk_trash_delete_success": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Fichier déplacé dans la corbeille.",
+                "countPlural=other": "{count} fichiers déplacés dans la corbeille."
+            }
+        }
+    ],
+    "media_retention_seconds": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "{count} seconde",
+                "countPlural=other": "{count} secondes"
+            }
+        }
+    ],
+    "media_retention_minutes": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": { "countPlural=one": "{count} minute", "countPlural=other": "{count} minutes" }
+        }
+    ],
+    "media_retention_hours": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": { "countPlural=one": "{count} heure", "countPlural=other": "{count} heures" }
+        }
+    ],
+    "media_retention_days": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": { "countPlural=one": "{count} jour", "countPlural=other": "{count} jours" }
+        }
+    ],
     "media_empty_description": "Importez une image pour la rendre disponible dans vos publications.",
     "media_empty_here": "Ajoutez un média si nécessaire.",
     "media_empty_publication_new": "Aucun média ajouté",
@@ -981,7 +1052,7 @@
     "media_state_inspecting": "Vérification en cours",
     "media_state_ready": "Prêt",
     "media_state_failed": "Échec",
-    "media_state_deletion_requested": "Suppression demandée",
+    "media_state_deletion_requested": "Dans la corbeille",
     "media_state_deleted": "Supprimé",
     "media_state_unknown": "Indisponible",
     "media_bytes": "{size} octets",

@@ -787,7 +787,9 @@
         }
     ],
     "media_delete_title": "Delete this file?",
-    "media_delete_used_description": "This media is still used. Remove its references before deleting it.",
+    "media_delete_retention": "It will stay in the trash for {duration} before being permanently deleted.",
+    "media_delete_immediate": "Permanently deleted with no option to restore.",
+    "media_delete_used_description": "Remove its references before deleting it.",
     "media_delete_unavailable_description": "Its usage cannot be checked right now.",
     "media_delete_confirm": "Delete",
     "media_delete_asset": "Delete {filename}",
@@ -818,18 +820,28 @@
             "selectors": ["countPlural"],
             "match": {
                 "countPlural=one": "Delete this file?",
-                "countPlural=other": "Delete these {count} files?"
+                "countPlural=other": "Delete {count} files?"
             }
         }
     ],
     "media_bulk_delete_preview_label": "Selected media",
     "media_bulk_delete_description": [
         {
+            "declarations": ["input count", "input duration", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Kept in Trash for {duration}, then permanently deleted.",
+                "countPlural=other": "They will stay in Trash for {duration}, then be permanently deleted."
+            }
+        }
+    ],
+    "media_bulk_delete_immediate": [
+        {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "This file will be removed from the media library.",
-                "countPlural=other": "These {count} files will be removed from the media library."
+                "countPlural=one": "Permanently deleted with no option to restore.",
+                "countPlural=other": "{count} files permanently deleted with no option to restore."
             }
         }
     ],
@@ -905,8 +917,64 @@
     "media_upload_rejected": "The selected file could not be imported.",
     "media_upload_rejected_type": "{filename} is not supported. Accepted formats: {types}.",
     "media_upload_rejected_size": "{filename} exceeds the {size} limit.",
-    "media_loading": "Loading media library…",
+    "media_loading": "Loading media…",
     "media_empty_title": "No media yet",
+    "media_trash_open": "Trash",
+    "media_trash_heading": "Trash",
+    "media_trash_back": "Back to media",
+    "media_trash_empty_title": "The trash is empty",
+    "media_trash_expires_at": "Permanently deleted {date}",
+    "media_trash_delete_permanently": "Delete permanently",
+    "media_trash_delete_permanently_title": "Delete permanently?",
+    "media_trash_delete_permanently_description": "This file can't be restored.",
+    "media_trash_delete_permanently_success": "File permanently deleted.",
+    "media_trash_delete_permanently_pending": "File cleanup will be retried automatically.",
+    "media_trash_delete_permanently_failed": "Couldn't delete the file. Try again.",
+    "media_trash_delete_permanently_in_use": "Remove this file from project content before deleting it.",
+    "media_trash_delete_permanently_backup": "Wait for the backup to finish, then try again.",
+    "media_trash_restore": "Restore",
+    "media_trash_not_restorable": "This file can no longer be restored.",
+    "media_trash_restored": "File restored.",
+    "media_trash_restore_failed": "This file could not be restored.",
+    "media_trash_delete_success": "File moved to the trash.",
+    "media_bulk_trash_delete_success": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "File moved to the trash.",
+                "countPlural=other": "{count} files moved to the trash."
+            }
+        }
+    ],
+    "media_retention_seconds": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": { "countPlural=one": "{count} second", "countPlural=other": "{count} seconds" }
+        }
+    ],
+    "media_retention_minutes": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": { "countPlural=one": "{count} minute", "countPlural=other": "{count} minutes" }
+        }
+    ],
+    "media_retention_hours": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": { "countPlural=one": "{count} hour", "countPlural=other": "{count} hours" }
+        }
+    ],
+    "media_retention_days": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": { "countPlural=one": "{count} day", "countPlural=other": "{count} days" }
+        }
+    ],
     "media_empty_description": "Import an image to make it available for publications.",
     "media_empty_here": "Add media when you need it.",
     "media_empty_publication_new": "No media added",
@@ -984,7 +1052,7 @@
     "media_state_inspecting": "Inspecting",
     "media_state_ready": "Ready",
     "media_state_failed": "Failed",
-    "media_state_deletion_requested": "Deletion requested",
+    "media_state_deletion_requested": "In trash",
     "media_state_deleted": "Deleted",
     "media_state_unknown": "Unavailable",
     "media_bytes": "{size} bytes",

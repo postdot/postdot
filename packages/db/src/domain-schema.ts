@@ -1002,6 +1002,9 @@ export const mediaAssets = sqliteTable(
         state: text('state', { enum: mediaAssetStates }).notNull(),
         archivedAt: integer('archived_at'),
         deletionRequestedAt: integer('deletion_requested_at'),
+        deletionRestoreState: text('deletion_restore_state', { enum: mediaAssetStates }),
+        deletionRestoreFailureCode: text('deletion_restore_failure_code'),
+        deletionRestoreFailureMessage: text('deletion_restore_failure_message'),
         deletedAt: integer('deleted_at'),
         failureCode: text('failure_code'),
         failureMessage: text('failure_message'),
@@ -1011,6 +1014,9 @@ export const mediaAssets = sqliteTable(
     table => [
         uniqueIndex('media_assets_project_id_id_uidx').on(table.projectId, table.id),
         index('media_assets_project_state_idx').on(table.projectId, table.state),
+        index('media_assets_project_trash_idx')
+            .on(table.projectId, table.deletionRequestedAt)
+            .where(sql`${table.state} = 'deletion_requested'`),
         foreignKey({
             name: 'media_assets_project_actor_fk',
             columns: [table.projectId, table.createdByActorId],
@@ -1068,6 +1074,11 @@ export const mediaRepresentations = sqliteTable(
         kind: text('kind', { enum: mediaRepresentationKinds }).notNull(),
         sourceRepresentationId: text('source_representation_id'),
         state: text('state', { enum: mediaRepresentationStates }).notNull(),
+        deletionRestoreState: text('deletion_restore_state', {
+            enum: mediaRepresentationStates,
+        }),
+        deletionRestoreFailureCode: text('deletion_restore_failure_code'),
+        deletionRestoreFailureMessage: text('deletion_restore_failure_message'),
         storeId: text('store_id').notNull(),
         objectKey: text('object_key').notNull(),
         declaredContentType: text('declared_content_type'),

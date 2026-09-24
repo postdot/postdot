@@ -55,6 +55,7 @@ export interface Session {
 export interface MediaListOptions {
     readonly cursor?: string
     readonly limit?: number
+    readonly view?: 'library' | 'trash'
     readonly search?: string
     readonly sort?: MediaListSort
     readonly family?: MediaListFamilyFilter
@@ -85,8 +86,11 @@ export interface PublicationComposerDraft {
 
 export interface MediaListPage {
     readonly media: MediaReference[]
+    readonly restorableAssetIds: string[]
     readonly nextCursor: string | null
     readonly total: number
+    readonly trashCount: number
+    readonly retentionMs: number
 }
 
 export type LinkedInConnectionDestination =
@@ -948,6 +952,26 @@ export const api = {
         return requestAuth<MediaDeletion>(
             `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}`,
             { method: 'DELETE' }
+        )
+    },
+
+    async permanentlyDeleteMedia(
+        projectId: string,
+        assetId: string
+    ): Promise<'deleted' | 'cleanup_pending'> {
+        const response = await requestAuth<{
+            readonly status: 'deleted' | 'cleanup_pending'
+        }>(
+            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/permanent`,
+            { method: 'POST' }
+        )
+        return response.status
+    },
+
+    async restoreMedia(projectId: string, assetId: string): Promise<void> {
+        await requestAuth<{ readonly status: 'restored'; readonly media: MediaReference }>(
+            `/api/projects/${encodeURIComponent(projectId)}/media/${encodeURIComponent(assetId)}/restore`,
+            { method: 'POST' }
         )
     },
 

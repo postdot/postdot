@@ -53,6 +53,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'media_info_pages',
             'media_info_type',
             'media_info_usage_publication',
+            'media_retention_minutes',
             'media_source_url',
             'media_source_url_hint',
             'media_source_webcam',

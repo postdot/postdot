@@ -806,6 +806,13 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
     const mediaDeletionDialog = page.locator('[data-media-delete-dialog="true"]')
     await expect(mediaDeletionDialog).toBeVisible()
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await expect(mediaDeletionDialog).toContainText(
+        'stay in the trash for 1 day before being permanently deleted'
+    )
+    const mediaDeleteRetention = mediaDeletionDialog.locator('[data-media-delete-retention="true"]')
+    await expect(mediaDeleteRetention).toBeVisible()
+    await expect(mediaDeleteRetention).toHaveClass(/text-xs/)
     await expect(
         mediaDeletionDialog.locator(
             '[data-media-delete-body="true"] [data-media-delete-preview="true"]'
@@ -819,6 +826,61 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toHaveCount(0)
+    await page.getByRole('button', { name: /^Trash/ }).click()
+    await expect(page.getByRole('heading', { name: 'Trash', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Import', exact: true })).toHaveCount(0)
+    const trashCard = page
+        .locator('[data-media-card-layout]')
+        .filter({ hasText: droppedMediaFilename })
+    await expect(trashCard).toBeVisible()
+    await expect(trashCard).toContainText('Permanently deleted')
+    const trashExpiry = trashCard.locator('[data-media-trash-expires-at="true"]')
+    await expect(trashExpiry).toBeVisible()
+    await expect(trashExpiry).toHaveClass(/text-xs/)
+
+    const permanentlyDeletedTrashCard = page
+        .locator('[data-media-card-layout]')
+        .filter({ hasText: secondMediaFilename })
+    await expect(permanentlyDeletedTrashCard).toBeVisible()
+    await permanentlyDeletedTrashCard
+        .getByRole('button', { name: `Actions for ${secondMediaFilename}`, exact: true })
+        .click()
+    await page.getByRole('menuitem', { name: 'Delete permanently', exact: true }).click()
+    const permanentDeletionDialog = page.locator('[data-media-permanent-delete-dialog="true"]')
+    await expect(permanentDeletionDialog).toBeVisible()
+    await expect(permanentDeletionDialog).toContainText(secondMediaFilename)
+    await expect(permanentDeletionDialog).toContainText("can't be restored")
+    await page.setViewportSize({ width: 390, height: 844 })
+    const permanentDeletionDialogBounds = await permanentDeletionDialog.boundingBox()
+    expect(permanentDeletionDialogBounds).not.toBeNull()
+    expect(permanentDeletionDialogBounds?.x).toBeGreaterThanOrEqual(0)
+    expect(
+        (permanentDeletionDialogBounds?.x ?? 0) + (permanentDeletionDialogBounds?.width ?? 0)
+    ).toBeLessThanOrEqual(390)
+    await permanentDeletionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(permanentDeletionDialog).toHaveCount(0)
+    await expect(permanentlyDeletedTrashCard).toBeVisible()
+    await page.setViewportSize({ width: 1280, height: 720 })
+
+    await permanentlyDeletedTrashCard
+        .getByRole('button', { name: `Actions for ${secondMediaFilename}`, exact: true })
+        .click()
+    await page.getByRole('menuitem', { name: 'Delete permanently', exact: true }).click()
+    await permanentDeletionDialog.getByRole('button', { name: 'Delete', exact: true }).click()
+    await expect(permanentDeletionDialog).toHaveCount(0)
+    await expect(permanentlyDeletedTrashCard).toHaveCount(0)
+    await expect(page.getByText('File permanently deleted.', { exact: true })).toBeVisible()
+
+    await trashCard
+        .getByRole('button', { name: `Actions for ${droppedMediaFilename}`, exact: true })
+        .click()
+    await page.getByRole('menuitem', { name: 'Restore', exact: true }).click()
+    await expect(page.getByText('File restored.', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Back to media', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
+    ).toBeVisible()
 })
 
 test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
@@ -1406,7 +1468,10 @@ test('persists mixed and media-only publications through the dashboard', async (
         usedMediaBulkDeletionDialog.locator('[data-media-bulk-delete-usage="blocked"]')
     ).toBeVisible()
     await expect(
-        usedMediaBulkDeletionDialog.getByRole('button', { name: 'Delete', exact: true })
+        usedMediaBulkDeletionDialog.getByRole('button', {
+            name: 'Delete',
+            exact: true,
+        })
     ).toBeDisabled()
     await usedMediaBulkDeletionDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(usedMediaBulkDeletionDialog).toHaveCount(0)

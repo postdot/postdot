@@ -18,11 +18,11 @@ export function MediaLibraryPage() {
                 <MediaAttachmentPicker
                     emptyDescription={m.media_empty_description()}
                     projectId={project.id}
-                    renderHeader={({ disabled, onImport, uploading }) => (
+                    renderHeader={({ disabled, onImport, uploading, view }) => (
                         <DashboardPageHeader
                             title={m.media_title()}
                             action={
-                                readOnly ? undefined : (
+                                readOnly || view === 'trash' ? undefined : (
                                     <Button
                                         type="button"
                                         disabled={disabled}
