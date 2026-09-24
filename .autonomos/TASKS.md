@@ -361,3 +361,7 @@ the central project reads and projection/realtime reliability.
 - [ ] **[OPS-207]** Implement the owner-approved self-hosted metrics surface `Priority: 🟠` `Complexity: M` — [ISSUE-122]; use the approved Prometheus JavaScript client direction for a bounded scrape endpoint and operational process/worker metrics. Do not add a hosted service. Leave scrape cadence, retention, dashboards, and alert thresholds to the deployment operator; verify endpoint exposure and tests before enabling it.
 - [x] **[OPS-208]** Verify and document current deployment and recovery boundaries `Priority: 🟠` `Complexity: M` — confirm the production image, health/readiness contract, Mailpit development boundary, database/media backup, restore lock, and publisher-key recovery instructions. — [ISSUE-123]
 - [x] **[DOCS-209]** Reconcile public documentation with current providers and route boundaries `Priority: 🟠` `Complexity: M` — verify the supported provider list, LinkedIn scope, API-key model, recovery references, and explicit deferrals against the current source. — [ISSUE-124]
+
+## Local development reliability
+
+- [/] **[OPS-211]** Restore authenticated local app loading and unblock the media Trash pull request `Priority: 🟠` `Complexity: M` — identify why the Vite proxy returns a non-Herald response for authentication, restore the local API without changing user data, add the permanent-delete route to the OpenAPI inventory test, and merge PR #198 only after all required checks pass.
