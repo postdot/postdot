@@ -2276,7 +2276,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-086] Adapt the initial time-grid anchor to visible publication data
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: Week and Day retain the complete 24-hour timeline, but opening a
   populated range still places the operator at `00:00`. In a realistic review
   schedule, the first timed publications may begin much later in the day, so a
@@ -2915,7 +2915,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-103] Define safe external media sources for the project library
 
 - Type: proposal
-- Status: open
+- Status: resolved
 - Evidence: The first Uppy integration deliberately supports local device
   selection and drag-and-drop only. Uppy documents remote sources such as
   Google Drive, Dropbox, OneDrive, Unsplash, and URL import as separate
@@ -2943,25 +2943,29 @@ channels` with a foreign-key constraint error even though a fresh empty database
   unconfigured sources are absent from the UI; imported bytes enter the same
   Herald reserve/upload/finalize/verification lifecycle; focused security,
   failure, and browser coverage exists before any source is enabled.
+- Resolution: The first supported set is local device selection, browser-owned
+  webcam capture, and an explicitly configured server-side URL importer. URL
+  transfers use controlled egress, bounded redirects, bytes, content types, and
+  timeouts; all accepted bytes enter the shared verified upload lifecycle.
+  OAuth-backed cloud providers, Companion, and Unsplash remain optional future
+  work, not a permanent exclusion or a prerequisite for the delivered sources.
 
 ## [ISSUE-104] Define the scalable project media library contract
 
 - Type: proposal
-- Status: open
-- Evidence: The Media route now has a real local intake zone backed by the
-  headless Uppy boundary, but its library presentation is still a first-pass
-  two-column card grid with fixed previews and an ad hoc metadata subset. The
-  current media list is unbounded, the server currently verifies PNG, JPEG, and
-  WebP assets with a default 100 MB object limit, and the UI does not expose the
-  available deferred-deletion operation or whether an asset is referenced by a
-  draft, scheduled publication, execution, or audit record.
-- Impact: Adding remote sources, more file types, bulk actions, or a visible
-  delete control before defining these semantics would make the library
-  misleading and could either hide assets at scale or encourage destructive
-  actions whose consequences are not understandable. A browser-visible drop
-  instruction is only truthful when the drop target is an actual intake boundary;
-  that boundary is now covered by a real browser `drop` test, while the
-  integrated ChatGPT browser may still lack an OS-file drag source.
+- Status: accepted
+- Evidence: The initial audit's unbounded-list and missing-usage findings are
+  no longer current. Media management now uses bounded cursor reads, stable
+  ordering, search, persisted gallery/compact/list modes, an upload-policy
+  endpoint, usage categories, and guarded deferred deletion. The server checks
+  references before accepting a deletion request and again before physical purge.
+- Impact: The implemented deletion action hides an unused asset immediately
+  while retaining its bytes for the configured grace period, but offers no
+  restore action during that period. Without an explicit decision about undo,
+  the grace period protects storage recovery rather than the user's ability to
+  reverse an accidental action. The drop target itself is covered by a real
+  browser `drop` test; the integrated browser may still lack an OS-file drag
+  source.
 - Desired outcome: An accepted product, API, and operational contract for the
   project media library covering the default browse mode and density options,
   the minimum useful metadata and actions, supported file constraints and
@@ -2980,6 +2984,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
   categories and deletion outcomes, upload constraints, and test/measurement
   targets. The contract identifies which decisions are product defaults and
   which remain intentionally deferred before implementation work begins.
+- Current classification: The browse, upload, usage, and guarded deletion
+  contracts are implemented and covered by database, API, and browser tests.
+  Deletion is intentionally deferred and irreversible in the current state
+  machine: there is no restore/undo action during the grace period. That recovery
+  behavior is the only remaining product decision for closing this issue;
+  virtualization and additional layout benchmarking are not justified without
+  observed performance problems.
+- Follow-up: Decide whether a user may undo a deletion request before purge. If
+  not, close this issue with the current one-way grace-period contract. If yes,
+  add an explicit restore transition and UI action before closure.
 
 ## [ISSUE-105] Define the integration state of the external audit branch
 
@@ -3140,35 +3154,44 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Desired outcome: Supported external notification destinations, ownership, transport, retry, ambiguity, and observability semantics are explicit and exercised end to end.
 - Tasks: NOTIFY-199
 - Current classification: The durable delivery store is real and tested, but no
-  external destination is part of the current Herald product contract. Wiring a
-  transport without selecting destinations, ownership, and ambiguity semantics
-  would invent behavior.
+  external destination is part of the current Herald product contract. The owner
+  explicitly deferred Ntfy, Telegram, and other real adapters for now, without
+  ruling them out permanently. A recording in-memory transport verifies the
+  delivery seam without network access; revisit real adapters when a concrete
+  destination is requested.
 
 ## [ISSUE-115] Define durable email failure handling
 
 - Type: problem
 - Status: accepted
 - Evidence: The supplied audit reports that authentication email delivery is fire-and-forget without durable retry or dead-letter handling.
-- Impact: Temporary transport failures can silently lose invitations, verification messages, or password-reset messages.
+- Impact: Because SMTP sends are non-blocking and are not retried, invitations, verification messages, or password-reset messages may not reach their recipients after a transport failure. The API logs the failure, but there is no durable reconciliation queue.
 - Desired outcome: Email delivery has an explicit reliability contract for acceptance, retry, ambiguity, permanent failure, and operator reconciliation.
 - Tasks: NOTIFY-200
-- Current classification: SMTP delivery is intentionally documented as
-  best-effort and asynchronous, with Mailpit limited to development. Durable
-  retry and dead-letter behavior require an explicit delivery guarantee and
-  operator reconciliation contract.
+- Current classification: SMTP delivery is intentionally optional,
+  asynchronous, and best-effort. Transport failures are logged without message
+  payloads, but there is no durable retry or dead-letter behavior; Mailpit is
+  development-only. A durable queue requires an explicit delivery guarantee
+  and operator reconciliation contract.
 
 ## [ISSUE-116] Prove worker fairness and multi-process execution policy
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The supplied audit questions project scheduling fairness, timer behavior, claim races, and the absence of runtime execution metrics.
 - Impact: A busy project or multiple process instances could delay or duplicate external effects, while operators lack evidence about backlog and claim health.
 - Desired outcome: The supported worker topology, fairness guarantees, lease behavior, shutdown semantics, and operational measurements are explicit and tested.
 - Tasks: WORKFLOW-201
 - Current classification: The worker uses bounded round-robin service, atomic
-  lease-fenced claims, and awaited scheduler drain behavior. Runtime metrics and
-  a supported multi-process deployment policy remain undefined and are not safe
-  to infer from the current single-process product boundary.
+  lease-fenced claims, and awaited scheduler drain behavior. The supported
+  deployment remains one process and one worker; multi-process execution is not
+  claimed. Runtime metrics are tracked separately under ISSUE-122.
+- Resolution: ADR-003 defines the current single-process boundary. OPS-150
+  verifies graceful shutdown and durable restart recovery; OPS-151 verifies
+  round-robin fairness, lease-fenced claims, retries, cancellation, and
+  ambiguous outcomes in a local provider sandbox. No evidence justifies adding
+  multi-process coordination. Observability remains separately tracked under
+  ISSUE-122.
 
 ## [ISSUE-117] Enforce the repository language boundary and vocabulary
 
@@ -3248,8 +3271,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Desired outcome: Supported deployments have a bounded observability contract tied to concrete service-level and recovery goals.
 - Tasks: OPS-207
 - Current classification: Health/readiness and domain analytics exist, but
-  metrics, tracing, dashboards, alert thresholds, and retention are not defined
-  for a supported deployment target.
+  runtime instrumentation is not implemented. The owner approved a
+  Prometheus-client-based, self-hosted direction; no cloud monitoring service
+  is required. The remaining task is to define and expose a bounded metrics
+  surface. Scraping, retention, dashboards, and alert thresholds remain
+  deployment-owned rather than prerequisites for the application endpoint.
 
 ## [ISSUE-123] Define production deployment and recovery boundaries
 
