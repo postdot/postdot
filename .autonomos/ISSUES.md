@@ -2960,12 +2960,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
   endpoint, usage categories, and guarded deferred deletion. The server checks
   references before accepting a deletion request and again before physical purge.
 - Impact: The implemented deletion action hides an unused asset immediately
-  while retaining its bytes for the configured grace period, but offers no
-  restore action during that period. Without an explicit decision about undo,
-  the grace period protects storage recovery rather than the user's ability to
-  reverse an accidental action. The drop target itself is covered by a real
-  browser `drop` test; the integrated browser may still lack an OS-file drag
-  source.
+  while retaining its bytes for 24 hours by default (configurable), but offers
+  no restore action during that period. The interval delays physical cleanup; it
+  does not let the user reverse deletion in the UI. The product choice still open
+  is whether to add a restore action before cleanup. The drop target itself is
+  covered by a real browser `drop` test; the integrated browser may still lack an
+  OS-file drag source.
 - Desired outcome: An accepted product, API, and operational contract for the
   project media library covering the default browse mode and density options,
   the minimum useful metadata and actions, supported file constraints and
@@ -3112,11 +3112,13 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Impact: Key compromise, planned rotation, or secret-provider migration may require manual reconnection of every publisher or create recovery ambiguity.
 - Desired outcome: Herald has an accepted key lifecycle covering rotation, active-version selection, re-encryption, rollback, recovery, and operator evidence without exposing secret values.
 - Tasks: SECURITY-197
-- Current classification: Herald supports one deployment-owned key, key IDs,
-  encrypted credential envelopes, recovery instructions, and fail-closed restore
-  behavior. Rotation, keyrings, and re-encryption are not implemented because
-  the secret-provider and rollback contract is an owner-level deployment
-  decision.
+- Current classification: ADR-012 and the implementation already establish the
+  current contract: one deployment-owned key, key/version identifiers in
+  encrypted envelopes, and a separate backup requirement. Key rotation,
+  keyrings, and re-encryption are not supported. Losing or replacing the key makes
+  existing stored credentials unreadable, so affected publisher accounts must be
+  connected again. This is an accepted current limitation, not an unanswered
+  product decision; revisit rotation tooling if an actual deployment needs it.
 
 ## [ISSUE-112] Prove authorization coverage across route families
 
@@ -3171,8 +3173,9 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Current classification: SMTP delivery is intentionally optional,
   asynchronous, and best-effort. Transport failures are logged without message
   payloads, but there is no durable retry or dead-letter behavior; Mailpit is
-  development-only. A durable queue requires an explicit delivery guarantee
-  and operator reconciliation contract.
+  development-only. ADR-066 already accepts this behavior for the current
+  product. A durable queue is future work only if a deployment needs guaranteed
+  delivery and operator reconciliation; this is not an open decision or blocker.
 
 ## [ISSUE-116] Prove worker fairness and multi-process execution policy
 

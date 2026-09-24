@@ -19,8 +19,10 @@ supersedes its in-progress status and stale blocker summary.
   Cloud OAuth providers, Companion, and Unsplash are deferred, not permanently
   rejected.
 - Reconciled ISSUE-104 and MEDIA-182 with the actual bounded library, upload,
-  usage, reference, and deferred-purge implementation. The only remaining
-  owner choice is whether deletion can be undone during the grace period.
+  usage, reference, and deferred-purge implementation. Deleting an unused asset
+  hides it immediately and purges its file after 24 hours by default (configurable),
+  unless references or a backup fence prevent cleanup. There is no UI restore
+  action; whether to add one is the only product choice still open in this audit.
 - Completed the worker audit in ISSUE-116 / WORKFLOW-201. ADR-003 remains the
   current single-process/worker boundary; OPS-150 and OPS-151 provide shutdown,
   restart, fairness, lease, retry, and ambiguous-outcome evidence. Metrics are
@@ -32,8 +34,15 @@ supersedes its in-progress status and stale blocker summary.
 - Captured the approved self-hosted Prometheus-client direction in ISSUE-122
   and moved OPS-207 to actionable backlog. No hosted monitoring service is
   required; runtime instrumentation has not yet been implemented.
-- Kept publisher-key rotation (ISSUE-111 / SECURITY-197) and durable SMTP
-  retry semantics (ISSUE-115 / NOTIFY-200) blocked on explicit policy choices.
+- Confirmed the current publisher encryption contract in accepted ADR-012:
+  one deployment-owned key, backed up separately; replacing or losing it makes
+  existing publisher credentials unreadable, requiring account reconnection.
+  Closed SECURITY-197 as a policy verification; automated rotation is future
+  work only if a concrete deployment needs it (ISSUE-111 remains accepted).
+- Confirmed accepted ADR-066 already settles current email behavior: optional
+  asynchronous SMTP, logged failures, and no retry guarantee. Closed NOTIFY-200
+  as a policy verification; durable retries are future work only if a deployment
+  needs guaranteed delivery (ISSUE-115 remains accepted).
 - Confirmed the remaining audit findings: ISSUE-112, 113, 117, 118, 120, 121,
   123, and 124 are resolved; ISSUE-119 remains accepted for later component
   seams. Existing worktree and history classifications under ISSUE-105–110
@@ -41,17 +50,13 @@ supersedes its in-progress status and stale blocker summary.
 
 ## Decisions still needed
 
-1. Media deletion: add an Undo transition during the grace period, or keep the
-   current one-way deferred deletion. Recommendation: add Undo so the grace
-   period provides an actual recovery path.
-2. Publisher encryption: retain one deployment-owned key and require publisher
-   reconnection after key loss/change, or implement a versioned keyring with
-   re-encryption and rollback. Recommendation: keep the simpler single-key
-   self-hosted contract until rotation is a concrete need.
-3. Transactional email: retain optional asynchronous best-effort SMTP with
-   logged failures, or add durable retries and dead-letter reconciliation.
-   Recommendation: retain the current low-complexity contract until a
-   deployment requires guaranteed delivery.
+1. Media deletion: should Herald provide an “Undo deletion” action
+   during the default 24-hour retention interval? Today, deleting an unused
+   image removes it from the library immediately. Its file stays on disk/storage
+   for 24 hours by default, then Herald removes it automatically unless a
+   reference or backup prevents cleanup. There is currently no way in the UI to
+   bring it back. Recommendation: add the restore action so this interval can
+   recover an accidental deletion.
 
 META-62 remains blocked by the Codex app-managed worktree control limitation; it
 does not block Herald work. OPS-207 is now actionable backlog, not a blocker.
@@ -75,5 +80,5 @@ needed for this ledger-only closeout.
 
 ## Next steps
 
-The next implementation-ready task is OPS-207. The three owner choices above
-can be decided independently; none blocks unrelated development work.
+The next implementation-ready task is OPS-207. The media restore choice does not
+block unrelated development work.
