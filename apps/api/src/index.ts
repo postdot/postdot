@@ -26,6 +26,7 @@ import {
     createMediaReconciliationRuntime,
 } from './modules/media/runtime'
 import { createMediaUrlImporter } from './modules/media/url-import'
+import { createHeraldMetrics } from './modules/metrics/metrics'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
@@ -194,6 +195,7 @@ async function startServerWithRuntimeLock(
             resolveOAuth: publisher.resolveXOAuth,
         }),
     ])
+    const metrics = createHeraldMetrics()
     const worker = createPublicationWorker({
         database,
         publisherStore: publisher.publisherStore,
@@ -213,7 +215,9 @@ async function startServerWithRuntimeLock(
                 assetId: mediaReference.assetId,
                 representationId: mediaReference.representationId,
             }),
+        onRunCompleted: metrics.observeWorkerRun,
     })
+    metrics.bindScheduler(worker.scheduler)
     const baseApp = createApp({
         auth,
         database,
@@ -222,6 +226,7 @@ async function startServerWithRuntimeLock(
         mediaUrlImporter,
         mediaPublicDelivery,
         logging: config.logging,
+        metrics: metrics.registry,
         onWorkScheduled: worker.replan,
         access,
         allowAdditionalSignups,

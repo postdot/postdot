@@ -17,9 +17,11 @@ import {
     createLinkedInOrganizationClient,
 } from '@herald/linkedin'
 import type { OAuthAuthorizationServer } from '@herald/oauth'
+import type { Registry } from '@prometheus-io/client'
 import { eq } from 'drizzle-orm'
 
 import { createApp } from './app'
+import { createHeraldMetrics } from './modules/metrics/metrics'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createPublisherRuntime, type PublisherRuntimeOptions } from './modules/publishers/runtime'
 
@@ -102,6 +104,9 @@ type OpenApiResponse = {
                 }[]
             }
         }
+        readonly 'text/plain'?: {
+            readonly schema?: { readonly type?: string }
+        }
     }
 }
 
@@ -118,6 +123,7 @@ function createFixture(
         readonly apiOrigin?: string
         readonly webOrigin?: string
         readonly runtime?: HealthRuntime
+        readonly metrics?: Registry
         readonly allowAdditionalSignups?: boolean
     } = {}
 ) {
@@ -150,6 +156,7 @@ function createFixture(
         publisher,
         manualStore: { now: () => now },
         runtime: options.runtime,
+        metrics: options.metrics,
         notifications,
     })
 
@@ -234,6 +241,26 @@ async function readStreamChunk(response: Response) {
 }
 
 describe('Herald API', () => {
+    it('serves Prometheus exposition without requiring an application session', async () => {
+        const metrics = createHeraldMetrics()
+        metrics.bindScheduler({ state: 'running' })
+        metrics.observeWorkerRun({ outcome: 'success', durationSeconds: 0.25 })
+        const { app, database } = createFixture({ metrics: metrics.registry })
+
+        try {
+            const response = await app.handle(new Request(`${baseURL}/metrics`))
+            expect(response.status).toBe(200)
+            expect(response.headers.get('content-type')).toBe(metrics.registry.contentType)
+            const exposition = await response.text()
+            expect(exposition).toContain('herald_process_memory_bytes{type="rss"}')
+            expect(exposition).toContain(
+                'herald_publication_worker_runs_total{outcome="success"} 1'
+            )
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('reports health publicly and mounts Better Auth', async () => {
         const { app, database } = createFixture()
 
@@ -628,6 +655,7 @@ describe('Herald API', () => {
             expect(Object.keys(specification.paths)).toEqual([
                 '/health',
                 '/ready',
+                '/metrics',
                 '/api/instance/status',
                 '/api/access/invitations/{token}',
                 '/api/access',
@@ -797,6 +825,12 @@ describe('Herald API', () => {
             })
             expect(specification.security).toEqual([{ bearerAuth: [] }, { sessionCookie: [] }])
             expect(specification.paths['/health']?.get?.security).toEqual([])
+            expect(specification.paths['/metrics']?.get?.operationId).toBe('getMetrics')
+            expect(specification.paths['/metrics']?.get?.security).toEqual([])
+            expect(
+                specification.paths['/metrics']?.get?.responses?.['200']?.content?.['text/plain']
+                    ?.schema?.type
+            ).toBe('string')
             expect(specification.paths['/api/projects']?.get?.security).toBeUndefined()
             expect(specification.paths['/api/projects/{projectId}/events']?.get?.security).toEqual([
                 { sessionCookie: [] },

@@ -20,6 +20,7 @@ import {
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
+import { Registry } from '@prometheus-io/client'
 import { Elysia } from 'elysia'
 
 import type { HeraldLoggingConfig } from './config'
@@ -28,6 +29,7 @@ import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/r
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
 import type { MediaUrlImporter } from './modules/media/url-import'
+import { createMetricsRoutes } from './modules/metrics/routes'
 import { createProjectModule } from './modules/projects'
 import type { ProjectRealtimeHub, UserRealtimeHub } from './modules/projects/realtime-runtime'
 import { createBlueskyMetadataRoutes } from './modules/publishers/metadata-routes'
@@ -45,6 +47,7 @@ export interface HeraldAppOptions {
     readonly mediaPublicDelivery?: MediaPublicDelivery
     readonly manualStore?: ManualStoreOptions
     readonly logging?: HeraldLoggingConfig
+    readonly metrics?: Registry
     readonly onWorkScheduled?: () => void
     /** Test-only escape hatch for independent browser fixtures. */
     readonly allowAdditionalSignups?: boolean
@@ -73,6 +76,7 @@ function createDomainApp({
     mediaPublicDelivery,
     manualStore: manualStoreOptions,
     logging,
+    metrics,
     onWorkScheduled,
     allowAdditionalSignups,
     runtime,
@@ -182,6 +186,7 @@ function createDomainApp({
         )
         .use(createErrorHandler())
         .use(createHealthRoutes({ database, runtime }))
+        .use(createMetricsRoutes(metrics ?? new Registry()))
         .use(createPublicInstanceRoutes(accessStore, { allowAdditionalSignups }))
         .use(
             createProjectModule({
@@ -227,6 +232,7 @@ export function createApp({
     mediaPublicDelivery,
     manualStore: manualStoreOptions,
     logging,
+    metrics,
     onWorkScheduled,
     allowAdditionalSignups,
     runtime,
@@ -252,6 +258,7 @@ export function createApp({
         mediaPublicDelivery,
         manualStore: manualStoreOptions,
         logging,
+        metrics,
         onWorkScheduled,
         allowAdditionalSignups,
         runtime,

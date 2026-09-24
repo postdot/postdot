@@ -35,6 +35,11 @@ const defaultRetryPolicy = createExponentialRetryPolicy({
 })
 const jobsPerProjectPerRound = 1
 
+export interface PublicationWorkerRunObservation {
+    readonly outcome: 'success' | 'failure'
+    readonly durationSeconds: number
+}
+
 export interface PublicationWorkerOptions {
     readonly database: HeraldDatabase
     readonly publisherStore: ReturnType<typeof createPublisherStore>
@@ -57,6 +62,7 @@ export interface PublicationWorkerOptions {
     readonly createClaimToken?: () => string
     readonly providerMediaDeliveryStore?: ReturnType<typeof createProviderMediaDeliveryStore>
     readonly onError?: (error: unknown) => void
+    readonly onRunCompleted?: (observation: PublicationWorkerRunObservation) => void
 }
 
 export interface PublicationWorker {
@@ -80,6 +86,23 @@ export function createPublicationWorker(options: PublicationWorkerOptions): Publ
     const createClaimToken = options.createClaimToken ?? (() => crypto.randomUUID())
 
     const processDueEvents = async (at: number) => {
+        const startedAt = performance.now()
+        let outcome: PublicationWorkerRunObservation['outcome'] = 'success'
+
+        try {
+            await processDueEventsWithoutObservation(at)
+        } catch (error) {
+            outcome = 'failure'
+            throw error
+        } finally {
+            options.onRunCompleted?.({
+                outcome,
+                durationSeconds: (performance.now() - startedAt) / 1_000,
+            })
+        }
+    }
+
+    const processDueEventsWithoutObservation = async (at: number) => {
         const processingNow = () => Math.max(at, now())
         const projects = workflowStore
             .listProjectIds()
