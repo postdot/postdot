@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.0 AS build
+FROM oven/bun:1.4.2 AS build
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ RUN cp apps/api/dist/index.js /out/herald.js
 RUN cp -R packages/db/drizzle/. /out/migrations/
 RUN cp -R apps/web/dist/. /out/public/
 
-FROM oven/bun:1.4.0-slim
+FROM oven/bun:1.4.2-slim
 
 WORKDIR /app
 

@@ -33,6 +33,13 @@ describe('database migrations', () => {
             expect(tables).not.toContain('project_access_tokens')
             expect(tables).not.toContain('access_legacy_retirement')
 
+            const accountColumns = database.$client
+                .query<{ readonly name: string; readonly notnull: number }, []>(
+                    'PRAGMA table_info(account)'
+                )
+                .all()
+            expect(accountColumns.find(column => column.name === 'issuer')?.notnull).toBe(0)
+
             expect(
                 database.$client
                     .query<{ readonly state: string; readonly bootstrapBlocked: number }, []>(
@@ -47,7 +54,7 @@ describe('database migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 6 })
+            ).toEqual({ count: 7 })
         } finally {
             closeDatabase(database)
         }
@@ -71,7 +78,7 @@ describe('database migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 6 })
+            ).toEqual({ count: 7 })
         } finally {
             closeDatabase(database)
         }
@@ -79,7 +86,7 @@ describe('database migrations', () => {
 
     it('keeps the committed migration folder in generated order', () => {
         const files = [...new Bun.Glob('*.sql').scanSync({ cwd: defaultMigrationsFolder })].sort()
-        expect(files).toHaveLength(6)
+        expect(files).toHaveLength(7)
         expect(files[0]).toMatch(/^0000_.+\.sql$/)
         expect(files[1]).toMatch(/^0001_.+\.sql$/)
         expect(files[2]).toMatch(/^0002_.+\.sql$/)

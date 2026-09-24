@@ -84,7 +84,11 @@ async function seedExistingUser(
 ) {
     const credential = database.$client
         .query<
-            { readonly issuer: string; readonly providerId: string; readonly password: string },
+            {
+                readonly issuer: string | null
+                readonly providerId: string
+                readonly password: string
+            },
             []
         >(
             `select issuer, provider_id as providerId, password from account
@@ -110,7 +114,7 @@ async function seedExistingUser(
             void,
             [
                 id: string,
-                issuer: string,
+                issuer: string | null,
                 accountId: string,
                 providerId: string,
                 userId: string,
