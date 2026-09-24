@@ -99,7 +99,9 @@ export function MediaDeletionDialog({
                     <DialogDescription className="truncate">
                         {asset.asset.originalFilename}
                     </DialogDescription>
-                    <p className="text-sm text-muted-foreground">
+                    <p
+                        data-media-delete-retention="true"
+                        className="text-xs leading-4 text-muted-foreground">
                         {retentionMs > 0
                             ? m.media_delete_retention({
                                   duration: formatMediaRetentionDuration(retentionMs),

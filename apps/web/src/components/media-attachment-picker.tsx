@@ -99,6 +99,7 @@ export interface MediaAttachmentPickerProps {
     readonly renderHeader?: (actions: {
         readonly disabled: boolean
         readonly onImport: () => void
+        readonly view: 'library' | 'trash'
         readonly uploading: string | null
     }) => ReactNode
     readonly disabled?: boolean
@@ -1274,6 +1275,7 @@ function MediaAttachmentPickerView({
     const header = renderHeader?.({
         disabled: mediaWriteDisabled,
         onImport: openSourcePicker,
+        view: mediaView,
         uploading,
     })
 

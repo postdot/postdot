@@ -1,5 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
@@ -14,7 +15,6 @@ import type {
     MediaReference,
 } from '@/lib/api'
 import type { MediaLibraryViewMode } from '@/lib/media-library-view'
-import { formatMediaRetentionDuration } from '@/lib/media-retention'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -138,27 +138,21 @@ export function MediaLibraryManagementSurface({
 }: MediaLibraryManagementSurfaceProps) {
     return (
         <>
-            <div
-                role="group"
-                aria-label={m.media_library_views()}
-                className="mb-3 flex w-fit items-center gap-1 rounded-lg bg-muted p-1">
-                <Button
-                    type="button"
-                    size="sm"
-                    variant={view === 'library' ? 'secondary' : 'ghost'}
-                    aria-pressed={view === 'library'}
-                    onClick={() => onViewChange('library')}>
-                    {m.media_library_tab()}
-                </Button>
-                <Button
-                    type="button"
-                    size="sm"
-                    variant={view === 'trash' ? 'secondary' : 'ghost'}
-                    aria-pressed={view === 'trash'}
-                    onClick={() => onViewChange('trash')}>
-                    {m.media_trash_tab({ count: trashCount })}
-                </Button>
-            </div>
+            {view === 'trash' ? (
+                <div className="mb-2 flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-medium">{m.media_trash_heading()}</h2>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="shrink-0 shadow-none"
+                        disabled={interactionDisabled}
+                        onClick={() => onViewChange('library')}>
+                        <AltArrowLeftIcon aria-hidden="true" />
+                        {m.media_trash_back()}
+                    </Button>
+                </div>
+            ) : null}
 
             <MediaLibraryToolbar
                 assetCount={assets.length}
@@ -181,6 +175,26 @@ export function MediaLibraryManagementSurface({
                     view === 'trash'
                         ? { ...libraryFeatures, filters: false, viewModes: false }
                         : libraryFeatures
+                }
+                navigationAction={
+                    view === 'library' && canManageLibrary ? (
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="shadow-none"
+                            disabled={interactionDisabled}
+                            data-media-trash-open="true"
+                            onClick={() => onViewChange('trash')}>
+                            <TrashBinMinimalisticIcon aria-hidden="true" />
+                            {m.media_trash_open()}
+                            {trashCount > 0 ? (
+                                <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums text-muted-foreground">
+                                    {trashCount}
+                                </span>
+                            ) : null}
+                        </Button>
+                    ) : undefined
                 }
                 showSelectionMode={canManageLibrary && view === 'library'}
                 totalAssets={totalAssets}
@@ -268,15 +282,7 @@ export function MediaLibraryManagementSurface({
                                 ? 'bg-primary/10'
                                 : 'bg-surface-raised/70'
                         }`}
-                        description={
-                            view === 'trash'
-                                ? retentionMs > 0
-                                    ? m.media_trash_empty_description({
-                                          duration: formatMediaRetentionDuration(retentionMs),
-                                      })
-                                    : m.media_trash_empty_immediate()
-                                : (emptyDescription ?? null)
-                        }
+                        description={view === 'trash' ? null : (emptyDescription ?? null)}
                         icon={
                             view === 'trash' ? (
                                 <TrashBinMinimalisticIcon aria-hidden="true" />

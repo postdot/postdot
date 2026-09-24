@@ -132,7 +132,9 @@ export function MediaBulkDeletionDialog({
                         ) : null}
                     </div>
 
-                    <DialogDescription>
+                    <DialogDescription
+                        data-media-delete-retention="true"
+                        className="text-xs leading-4 text-muted-foreground">
                         {retentionMs > 0
                             ? m.media_bulk_delete_description({
                                   count: assets.length,

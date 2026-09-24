@@ -449,7 +449,9 @@ function AssetDetails({
             {asset.asset.state === 'deletion_requested' &&
             asset.asset.deletionRequestedAt !== null &&
             retentionMs !== undefined ? (
-                <span className="mt-1 block text-xs text-muted-foreground">
+                <span
+                    data-media-trash-expires-at="true"
+                    className="mt-1 block text-xs text-muted-foreground">
                     {m.media_trash_expires_at({
                         date: formatMediaDeletionDeadline(
                             asset.asset.deletionRequestedAt + retentionMs,

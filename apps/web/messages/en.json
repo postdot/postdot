@@ -786,18 +786,18 @@
             }
         }
     ],
-    "media_delete_title": "Move this file to the trash?",
+    "media_delete_title": "Delete this file?",
     "media_delete_retention": "It will stay in the trash for {duration} before being permanently deleted.",
-    "media_delete_immediate": "This file will be permanently deleted immediately and cannot be restored.",
-    "media_delete_used_description": "This media is still in use. Remove its references before moving it to the trash.",
+    "media_delete_immediate": "Permanently deleted with no option to restore.",
+    "media_delete_used_description": "Remove its references before deleting it.",
     "media_delete_unavailable_description": "Its usage cannot be checked right now.",
-    "media_delete_confirm": "Move to trash",
-    "media_delete_asset": "Move {filename} to trash",
-    "media_delete_pending": "Moving…",
+    "media_delete_confirm": "Delete",
+    "media_delete_asset": "Delete {filename}",
+    "media_delete_pending": "Deleting…",
     "media_bulk_actions": "Bulk actions",
     "media_bulk_clear_selection": "Deselect",
     "media_bulk_clear_visible": "Deselect",
-    "media_bulk_delete_action": "Move to trash ({count})",
+    "media_bulk_delete_action": "Delete ({count})",
     "media_bulk_open_action": "Open ({count})",
     "media_bulk_select_mode": "Select",
     "media_bulk_exit_selection_mode": "Exit selection",
@@ -819,8 +819,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "Move this file to the trash?",
-                "countPlural=other": "Move these {count} files to the trash?"
+                "countPlural=one": "Delete this file?",
+                "countPlural=other": "Delete {count} files?"
             }
         }
     ],
@@ -830,8 +830,8 @@
             "declarations": ["input count", "input duration", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "This file will stay in the trash for {duration} before being permanently deleted.",
-                "countPlural=other": "These {count} files will stay in the trash for {duration} before being permanently deleted."
+                "countPlural=one": "Kept in Trash for {duration}, then permanently deleted.",
+                "countPlural=other": "They will stay in Trash for {duration}, then be permanently deleted."
             }
         }
     ],
@@ -840,8 +840,8 @@
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
             "match": {
-                "countPlural=one": "This file will be permanently deleted immediately and cannot be restored.",
-                "countPlural=other": "These {count} files will be permanently deleted immediately and cannot be restored."
+                "countPlural=one": "Permanently deleted with no option to restore.",
+                "countPlural=other": "{count} files permanently deleted with no option to restore."
             }
         }
     ],
@@ -917,18 +917,16 @@
     "media_upload_rejected": "The selected file could not be imported.",
     "media_upload_rejected_type": "{filename} is not supported. Accepted formats: {types}.",
     "media_upload_rejected_size": "{filename} exceeds the {size} limit.",
-    "media_loading": "Loading media library…",
+    "media_loading": "Loading media…",
     "media_empty_title": "No media yet",
-    "media_library_tab": "Library",
-    "media_library_views": "Media views",
-    "media_trash_tab": "Trash ({count})",
+    "media_trash_open": "Trash",
+    "media_trash_heading": "Trash",
+    "media_trash_back": "Back to media",
     "media_trash_empty_title": "The trash is empty",
-    "media_trash_empty_description": "Deleted files stay here for {duration} before they are permanently removed.",
-    "media_trash_empty_immediate": "Deleted files are permanently removed immediately.",
     "media_trash_expires_at": "Permanently deleted {date}",
     "media_trash_restore": "Restore",
     "media_trash_not_restorable": "This file can no longer be restored.",
-    "media_trash_restored": "File restored to the library.",
+    "media_trash_restored": "File restored.",
     "media_trash_restore_failed": "This file could not be restored.",
     "media_trash_delete_success": "File moved to the trash.",
     "media_bulk_trash_delete_success": [
