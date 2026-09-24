@@ -86,6 +86,7 @@ export interface MediaAssetReference {
 export interface ListMediaAssetsInput {
     readonly projectId: string
     readonly subjectId: string
+    readonly view?: 'library' | 'trash'
     readonly cursor?: string | null
     readonly limit?: number
     readonly search?: string | null
@@ -96,8 +97,11 @@ export interface ListMediaAssetsInput {
 
 export interface MediaAssetListPage {
     readonly items: readonly MediaAssetReference[]
+    readonly restorableAssetIds: readonly string[]
     readonly nextCursor: string | null
     readonly total: number
+    readonly trashCount: number
+    readonly retentionMs: number
 }
 
 export type MediaAssetUsageLocation = 'source' | 'draft' | 'target' | 'execution'
@@ -170,6 +174,12 @@ export type PurgeMediaAssetResult =
       }
     | { readonly kind: 'not_found' }
 
+export type RestoreMediaDeletionResult =
+    | { readonly kind: 'restored'; readonly media: MediaAssetReference }
+    | { readonly kind: 'expired' }
+    | { readonly kind: 'not_restorable' }
+    | { readonly kind: 'not_found' }
+
 export interface ReconcileMediaResult {
     readonly expiredUploads: number
     readonly missingObjects: number
@@ -184,6 +194,9 @@ interface MediaAssetRow {
     readonly state: MediaAssetState
     readonly archivedAt: number | null
     readonly deletionRequestedAt: number | null
+    readonly deletionRestoreState: MediaAssetState | null
+    readonly deletionRestoreFailureCode: string | null
+    readonly deletionRestoreFailureMessage: string | null
     readonly deletedAt: number | null
     readonly failureCode: string | null
     readonly failureMessage: string | null
@@ -199,6 +212,9 @@ interface MediaRepresentationRow {
     readonly kind: 'original' | 'derived'
     readonly sourceRepresentationId: string | null
     readonly state: MediaRepresentationState
+    readonly deletionRestoreState: MediaRepresentationState | null
+    readonly deletionRestoreFailureCode: string | null
+    readonly deletionRestoreFailureMessage: string | null
     readonly storeId: string
     readonly objectKey: string
     readonly declaredContentType: string | null
@@ -274,6 +290,15 @@ type MediaListCountStatementParams = [
     search: string | null,
     family: string | null,
     createdAfter: number | null,
+]
+
+type MediaTrashListStatementParams = [
+    projectId: string,
+    trashCutoff: number,
+    search: string | null,
+    cursorKey: number | null,
+    cursorId: string | null,
+    limit: number,
 ]
 
 function mediaListStatementSql(sort: MediaAssetListSort): string {
@@ -373,6 +398,9 @@ const mediaListAssetColumns = `
     media_assets.state,
     media_assets.archived_at as archivedAt,
     media_assets.deletion_requested_at as deletionRequestedAt,
+    media_assets.deletion_restore_state as deletionRestoreState,
+    media_assets.deletion_restore_failure_code as deletionRestoreFailureCode,
+    media_assets.deletion_restore_failure_message as deletionRestoreFailureMessage,
     media_assets.deleted_at as deletedAt,
     media_assets.failure_code as failureCode,
     media_assets.failure_message as failureMessage,
@@ -388,6 +416,9 @@ const representationColumns = `
     kind,
     source_representation_id as sourceRepresentationId,
     state,
+    deletion_restore_state as deletionRestoreState,
+    deletion_restore_failure_code as deletionRestoreFailureCode,
+    deletion_restore_failure_message as deletionRestoreFailureMessage,
     store_id as storeId,
     object_key as objectKey,
     declared_content_type as declaredContentType,
@@ -496,6 +527,32 @@ export function createMediaAssetStore(
           and (?3 is null or original_representation.family = ?3)
           and (?4 is null or media_assets.created_at >= ?4)
     `)
+    const listTrashAssetsStatement = client.query<MediaAssetRow, MediaTrashListStatementParams>(`
+        select ${mediaListAssetColumns}
+        from media_assets
+        where media_assets.project_id = ?1
+          and media_assets.state = 'deletion_requested'
+          and media_assets.deletion_requested_at > ?2
+          and (?3 is null or media_assets.original_filename like ?3 escape '\\')
+          and (
+              ?4 is null
+              or media_assets.deletion_requested_at < ?4
+              or (media_assets.deletion_requested_at = ?4 and media_assets.id < ?5)
+          )
+        order by media_assets.deletion_requested_at desc, media_assets.id desc
+        limit ?6
+    `)
+    const countTrashAssetsStatement = client.query<
+        { readonly total: number },
+        [string, number, string | null]
+    >(`
+        select count(*) as total
+        from media_assets
+        where project_id = ?1
+          and state = 'deletion_requested'
+          and deletion_requested_at > ?2
+          and (?3 is null or original_filename like ?3 escape '\\')
+    `)
     const loadRepresentationStatement = client.query<MediaRepresentationRow, [string, string]>(`
         select ${representationColumns}
         from media_representations
@@ -595,8 +652,15 @@ export function createMediaAssetStore(
     const listDeletionCandidatesStatement = client.query<MediaAssetRow, [number]>(`
         select ${assetColumns}
         from media_assets
-        where state = 'deletion_requested'
-          and deletion_requested_at <= ?1
+        where (
+            (state = 'deletion_requested' and deletion_requested_at <= ?1)
+            or (state = 'deleted' and exists (
+                select 1 from media_representations
+                where media_representations.project_id = media_assets.project_id
+                  and media_representations.asset_id = media_assets.id
+                  and media_representations.state = 'deletion_requested'
+            ))
+        )
         order by deletion_requested_at, id
     `)
     const activeBackupFenceStatement = client.query<{ id: number }, [number]>(`
@@ -909,16 +973,77 @@ export function createMediaAssetStore(
     `)
     const requestDeletionAssetStatement = client.query<void, [number, string, string]>(`
         update media_assets
-        set state = 'deletion_requested', deletion_requested_at = ?1,
-            archived_at = coalesce(archived_at, ?1),
+        set deletion_restore_state = state,
+            deletion_restore_failure_code = failure_code,
+            deletion_restore_failure_message = failure_message,
+            state = 'deletion_requested', deletion_requested_at = ?1,
+            archived_at = ?1,
             failure_code = null, failure_message = null, updated_at = ?1
         where project_id = ?2 and id = ?3 and state <> 'deleted'
     `)
     const requestDeletionRepresentationsStatement = client.query<void, [number, string, string]>(`
         update media_representations
-        set state = 'deletion_requested', failure_code = null,
+        set deletion_restore_state = state,
+            deletion_restore_failure_code = failure_code,
+            deletion_restore_failure_message = failure_message,
+            state = 'deletion_requested', failure_code = null,
             failure_message = null, updated_at = ?1
         where project_id = ?2 and asset_id = ?3 and state <> 'deleted'
+    `)
+    const readDeletionRestoreSnapshotStatement = client.query<
+        {
+            readonly state: MediaAssetState | null
+            readonly failureCode: string | null
+            readonly failureMessage: string | null
+            readonly deletionRequestedAt: number | null
+        },
+        [string, string]
+    >(`
+        select deletion_restore_state as state,
+               deletion_restore_failure_code as failureCode,
+               deletion_restore_failure_message as failureMessage,
+               deletion_requested_at as deletionRequestedAt
+        from media_assets
+        where project_id = ?1 and id = ?2 and state = 'deletion_requested'
+    `)
+    const readRepresentationRestoreSnapshotsStatement = client.query<
+        {
+            readonly id: string
+            readonly kind: 'original' | 'derived'
+            readonly state: MediaRepresentationState | null
+            readonly failureCode: string | null
+            readonly failureMessage: string | null
+        },
+        [string, string]
+    >(`
+        select id,
+               kind,
+               deletion_restore_state as state,
+               deletion_restore_failure_code as failureCode,
+               deletion_restore_failure_message as failureMessage
+        from media_representations
+        where project_id = ?1 and asset_id = ?2 and state = 'deletion_requested'
+    `)
+    const restoreAssetStatement = client.query<void, [number, string, string]>(`
+        update media_assets
+        set state = deletion_restore_state, archived_at = null,
+            deletion_requested_at = null, deleted_at = null,
+            failure_code = deletion_restore_failure_code,
+            failure_message = deletion_restore_failure_message,
+            deletion_restore_state = null, deletion_restore_failure_code = null,
+            deletion_restore_failure_message = null, updated_at = ?1
+        where project_id = ?2 and id = ?3 and state = 'deletion_requested'
+          and deletion_restore_state is not null
+    `)
+    const restoreRepresentationsStatement = client.query<void, [number, string, string]>(`
+        update media_representations
+        set state = deletion_restore_state,
+            failure_code = deletion_restore_failure_code,
+            failure_message = deletion_restore_failure_message,
+            deletion_restore_state = null, deletion_restore_failure_code = null,
+            deletion_restore_failure_message = null, updated_at = ?1
+        where project_id = ?2 and asset_id = ?3 and state = 'deletion_requested'
+          and deletion_restore_state is not null
     `)
     const expireAssetIntentsStatement = client.query<void, [number, string, string]>(`
         update media_upload_intents
@@ -926,15 +1051,21 @@ export function createMediaAssetStore(
         where project_id = ?2 and asset_id = ?3
           and state in ('pending', 'uploading', 'uploaded')
     `)
-    const deleteRepresentationsStatement = client.query<void, [number, string, string]>(`
-        update media_representations
-        set state = 'deleted', updated_at = ?1
-        where project_id = ?2 and asset_id = ?3 and state = 'deletion_requested'
-    `)
-    const deleteAssetStatement = client.query<void, [number, string, string]>(`
+    const claimAssetPurgeStatement = client.query<void, [number, string, string]>(`
         update media_assets
-        set state = 'deleted', deleted_at = ?1, updated_at = ?1
+        set state = 'deleted', deleted_at = ?1, updated_at = ?1,
+            deletion_restore_state = null,
+            deletion_restore_failure_code = null,
+            deletion_restore_failure_message = null
         where project_id = ?2 and id = ?3 and state = 'deletion_requested'
+    `)
+    const finalizeDeletedRepresentationsStatement = client.query<void, [number, string, string]>(`
+        update media_representations
+        set state = 'deleted', updated_at = ?1,
+            deletion_restore_state = null,
+            deletion_restore_failure_code = null,
+            deletion_restore_failure_message = null
+        where project_id = ?2 and asset_id = ?3 and state = 'deletion_requested'
     `)
     const markMissingRepresentationStatement = client.query<void, [number, string, string]>(`
         update media_representations
@@ -1157,10 +1288,82 @@ export function createMediaAssetStore(
             expireAssetIntentsStatement.run(input.at, input.projectId, input.assetId)
         }
     )
-    const markDeletedTransaction = client.transaction(
-        (input: { readonly at: number; readonly projectId: string; readonly assetId: string }) => {
-            deleteRepresentationsStatement.run(input.at, input.projectId, input.assetId)
-            deleteAssetStatement.run(input.at, input.projectId, input.assetId)
+    const restoreDeletionTransaction = client.transaction(
+        (input: {
+            readonly at: number
+            readonly projectId: string
+            readonly assetId: string
+        }): RestoreMediaDeletionResult => {
+            const snapshot = readDeletionRestoreSnapshotStatement.get(
+                input.projectId,
+                input.assetId
+            )
+            if (snapshot === null) return { kind: 'not_found' }
+            if (
+                snapshot.deletionRequestedAt === null ||
+                input.at >=
+                    safeAdd(
+                        snapshot.deletionRequestedAt,
+                        deletionGracePeriodMs,
+                        'deletion grace period'
+                    )
+            ) {
+                return { kind: 'expired' }
+            }
+            if (snapshot.state !== 'ready') {
+                return { kind: 'not_restorable' }
+            }
+
+            const representationSnapshots = readRepresentationRestoreSnapshotsStatement.all(
+                input.projectId,
+                input.assetId
+            )
+            if (
+                representationSnapshots.length === 0 ||
+                !representationSnapshots.some(
+                    representation =>
+                        representation.kind === 'original' && representation.state === 'ready'
+                ) ||
+                representationSnapshots.some(
+                    representation =>
+                        representation.state === null ||
+                        representation.state === 'deletion_requested' ||
+                        representation.state === 'deleted' ||
+                        representation.state === 'reserved' ||
+                        representation.state === 'stored' ||
+                        representation.state === 'inspecting'
+                )
+            ) {
+                return { kind: 'not_restorable' }
+            }
+
+            assertMediaAssetTransition('deletion_requested', snapshot.state)
+            for (const representation of representationSnapshots) {
+                assertMediaRepresentationTransition('deletion_requested', representation.state!)
+            }
+
+            const restoredRepresentations = restoreRepresentationsStatement.run(
+                input.at,
+                input.projectId,
+                input.assetId
+            )
+            const restoredAsset = restoreAssetStatement.run(
+                input.at,
+                input.projectId,
+                input.assetId
+            )
+            if (
+                restoredAsset.changes !== 1 ||
+                restoredRepresentations.changes !== representationSnapshots.length
+            ) {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    'Media deletion could not be restored consistently'
+                )
+            }
+
+            const media = readMedia(input.projectId, input.assetId)
+            return media === null ? { kind: 'not_found' } : { kind: 'restored', media }
         }
     )
     const markMissingTransaction = client.transaction(
@@ -1450,21 +1653,34 @@ export function createMediaAssetStore(
         }
         const media = readMedia(projectId, assetId)
         if (media === null) return { kind: 'not_found' }
-        if (media.asset.state !== 'deletion_requested') return { kind: 'not_found' }
-        if (
-            media.asset.deletionRequestedAt === null ||
-            at < safeAdd(media.asset.deletionRequestedAt, gracePeriodMs, 'deletion grace period')
-        ) {
-            return { kind: 'blocked', reason: 'grace_period' }
+        const purgeWasClaimed = media.asset.state === 'deleted'
+        if (!purgeWasClaimed && media.asset.state !== 'deletion_requested') {
+            return { kind: 'not_found' }
         }
-        if (hasMediaReference(client, projectId, assetId)) {
-            return { kind: 'blocked', reason: 'referenced' }
+        if (!purgeWasClaimed) {
+            if (
+                media.asset.deletionRequestedAt === null ||
+                at <
+                    safeAdd(media.asset.deletionRequestedAt, gracePeriodMs, 'deletion grace period')
+            ) {
+                return { kind: 'blocked', reason: 'grace_period' }
+            }
+            if (hasMediaReference(client, projectId, assetId)) {
+                return { kind: 'blocked', reason: 'referenced' }
+            }
+
+            const claimed = claimAssetPurgeStatement.run(at, projectId, assetId)
+            if (claimed.changes !== 1) return { kind: 'not_found' }
+        } else if (!media.representations.some(item => item.state === 'deletion_requested')) {
+            return { kind: 'not_found' }
         }
 
         for (const representation of media.representations) {
-            await mediaStore.delete(representation.objectKey)
+            if (representation.state === 'deletion_requested') {
+                await mediaStore.delete(representation.objectKey)
+            }
         }
-        markDeletedTransaction.immediate({ at, projectId, assetId })
+        finalizeDeletedRepresentationsStatement.run(at, projectId, assetId)
         const deleted = readMedia(projectId, assetId)
         return deleted === null ? { kind: 'not_found' } : { kind: 'deleted', media: deleted }
     }
@@ -1715,13 +1931,73 @@ export function createMediaAssetStore(
             }
 
             const search = normalizeMediaSearch(input.search)
+            const searchPattern = search === null ? null : `%${escapeLikePattern(search)}%`
+            const timestamp = requireTimestamp(now(), 'now')
+            const trashCutoff = timestamp - deletionGracePeriodMs
+            const trashCount =
+                countTrashAssetsStatement.get(normalizedProjectId, trashCutoff, null)?.total ?? 0
+            const view = input.view ?? 'library'
+
+            if (view === 'trash') {
+                const cursor = parseMediaAssetCursor(input.cursor, 'newest')
+                const total =
+                    search === null
+                        ? trashCount
+                        : (countTrashAssetsStatement.get(
+                              normalizedProjectId,
+                              trashCutoff,
+                              searchPattern
+                          )?.total ?? 0)
+                const rows = listTrashAssetsStatement.all(
+                    normalizedProjectId,
+                    trashCutoff,
+                    searchPattern,
+                    cursor === null ? null : (cursor.key as number),
+                    cursor?.id ?? null,
+                    limit + 1
+                )
+                const hasMore = rows.length > limit
+                const pageRows = rows.slice(0, limit)
+                const pageData = pageRows.map(asset => ({
+                    asset,
+                    representations: listRepresentationsStatement.all(
+                        normalizedProjectId,
+                        asset.id
+                    ),
+                }))
+                const items = pageData.map(({ asset, representations }) => ({
+                    asset: toMediaAsset(asset),
+                    representations: representations.map(toMediaRepresentation),
+                }))
+                const restorableAssetIds = pageData
+                    .filter(({ asset, representations }) =>
+                        hasRestorableMediaSnapshot(asset, representations)
+                    )
+                    .map(({ asset }) => asset.id)
+                const last = hasMore ? items.at(-1) : undefined
+                return {
+                    items,
+                    restorableAssetIds,
+                    total,
+                    trashCount,
+                    retentionMs: deletionGracePeriodMs,
+                    nextCursor:
+                        last === undefined
+                            ? null
+                            : encodeMediaAssetCursor({
+                                  sort: 'newest',
+                                  key: last.asset.deletionRequestedAt!,
+                                  id: last.asset.id,
+                              }),
+                }
+            }
+
             const sort = normalizeMediaListSort(input.sort)
             const family = normalizeMediaFamilyFilter(input.family)
             const date = normalizeMediaDateFilter(input.date)
             const cursor = parseMediaAssetCursor(input.cursor, sort)
-            const createdAfter = mediaDateFilterSince(date, now())
+            const createdAfter = mediaDateFilterSince(date, timestamp)
             const cursorKey = cursor?.key ?? null
-            const searchPattern = search === null ? null : `%${escapeLikePattern(search)}%`
             const totalRow = countAssetsStatement.get(
                 normalizedProjectId,
                 searchPattern,
@@ -1750,7 +2026,10 @@ export function createMediaAssetStore(
 
             return {
                 items,
+                restorableAssetIds: [],
                 total,
+                trashCount,
+                retentionMs: deletionGracePeriodMs,
                 nextCursor:
                     last === undefined
                         ? null
@@ -1794,6 +2073,24 @@ export function createMediaAssetStore(
             return requested === null
                 ? { kind: 'not_found' }
                 : { kind: 'requested', media: requested }
+        },
+
+        restoreDeletion(
+            projectId: string,
+            assetId: string,
+            subjectId: string,
+            at?: number
+        ): RestoreMediaDeletionResult {
+            const normalizedProjectId = requireNonBlank(projectId, 'projectId')
+            const normalizedAssetId = requireNonBlank(assetId, 'assetId')
+            if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
+                return { kind: 'not_found' }
+            }
+            return restoreDeletionTransaction.immediate({
+                at: requireTimestamp(at ?? now(), 'at'),
+                projectId: normalizedProjectId,
+                assetId: normalizedAssetId,
+            })
         },
 
         async purgeAsset(
@@ -2097,6 +2394,25 @@ function toMediaAsset(row: MediaAssetRow): MediaAsset {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
     }
+}
+
+function hasRestorableMediaSnapshot(
+    asset: MediaAssetRow,
+    representations: readonly MediaRepresentationRow[]
+): boolean {
+    return (
+        asset.deletionRestoreState === 'ready' &&
+        representations.some(
+            representation =>
+                representation.kind === 'original' &&
+                representation.deletionRestoreState === 'ready'
+        ) &&
+        representations.every(
+            representation =>
+                representation.deletionRestoreState === 'ready' ||
+                representation.deletionRestoreState === 'failed'
+        )
+    )
 }
 
 function toMediaRepresentation(row: MediaRepresentationRow): MediaRepresentation {

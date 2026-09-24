@@ -2953,19 +2953,21 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-104] Define the scalable project media library contract
 
 - Type: proposal
-- Status: accepted
-- Evidence: The initial audit's unbounded-list and missing-usage findings are
-  no longer current. Media management now uses bounded cursor reads, stable
-  ordering, search, persisted gallery/compact/list modes, an upload-policy
-  endpoint, usage categories, and guarded deferred deletion. The server checks
-  references before accepting a deletion request and again before physical purge.
-- Impact: The implemented deletion action hides an unused asset immediately
-  while retaining its bytes for 24 hours by default (configurable), but offers
-  no restore action during that period. The interval delays physical cleanup; it
-  does not let the user reverse deletion in the UI. The product choice still open
-  is whether to add a restore action before cleanup. The drop target itself is
-  covered by a real browser `drop` test; the integrated browser may still lack an
-  OS-file drag source.
+- Status: resolved
+- Evidence: Media management uses bounded cursor reads, stable ordering, search,
+  persisted gallery/compact/list modes, an upload-policy endpoint, usage
+  categories, and guarded deferred deletion. The owner chose recoverable
+  deletion: requests immediately remove assets from the library and place them
+  in a separate Trash view for the configured retention period (24 hours by
+  default). The UI states that duration before confirmation, shows each item's
+  permanent-deletion deadline, and offers restoration while its saved lifecycle
+  snapshot remains eligible. Database, API, and browser tests cover listing,
+  expiry, restoration, and the normal-library boundary. See the
+  [MEDIA-182 trash recovery worklog](worklogs/2026-09-24-MEDIA-182-trash-recovery.md).
+- Impact: Files do not linger in the normal media library after deletion, while
+  users can recover eligible files until their configured deadline. Permanent
+  cleanup remains protected by the reference check and backup fence, with
+  reconciliation retrying partial object deletion.
 - Desired outcome: An accepted product, API, and operational contract for the
   project media library covering the default browse mode and density options,
   the minimum useful metadata and actions, supported file constraints and
@@ -2984,16 +2986,12 @@ channels` with a foreign-key constraint error even though a fresh empty database
   categories and deletion outcomes, upload constraints, and test/measurement
   targets. The contract identifies which decisions are product defaults and
   which remain intentionally deferred before implementation work begins.
-- Current classification: The browse, upload, usage, and guarded deletion
-  contracts are implemented and covered by database, API, and browser tests.
-  Deletion is intentionally deferred and irreversible in the current state
-  machine: there is no restore/undo action during the grace period. That recovery
-  behavior is the only remaining product decision for closing this issue;
-  virtualization and additional layout benchmarking are not justified without
-  observed performance problems.
-- Follow-up: Decide whether a user may undo a deletion request before purge. If
-  not, close this issue with the current one-way grace-period contract. If yes,
-  add an explicit restore transition and UI action before closure.
+- Current classification: The browse, upload, usage, guarded deletion, Trash,
+  and restore contracts are implemented and covered. No additional layout
+  benchmarking or virtualization is justified without observed performance
+  problems.
+- Follow-up: None for this issue. Future changes to retention policy remain an
+  operational configuration choice, not an unresolved product decision.
 
 ## [ISSUE-105] Define the integration state of the external audit branch
 

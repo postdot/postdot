@@ -96,7 +96,7 @@ describe('media HTTP routes', () => {
                     let value = 0
                     return () => `media-id-${++value}`
                 })(),
-                deletionGracePeriodMs: 0,
+                deletionGracePeriodMs: 60_000,
             }
         )
         const app = createApp({
@@ -424,6 +424,47 @@ describe('media HTTP routes', () => {
             )
             expect(repeatedDeleteResponse.status).toBe(200)
 
+            const trashListResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media?view=trash&search=cover`,
+                cookie
+            )
+            expect(trashListResponse.status).toBe(200)
+            expect(await trashListResponse.json()).toMatchObject({
+                media: [
+                    {
+                        asset: { id: reservationBody.asset.id, state: 'deletion_requested' },
+                    },
+                ],
+                restorableAssetIds: [reservationBody.asset.id],
+                total: 1,
+                trashCount: 2,
+                retentionMs: 60_000,
+            })
+
+            const restoreResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/restore`,
+                cookie,
+                { method: 'POST' }
+            )
+            expect(restoreResponse.status).toBe(200)
+            expect(await restoreResponse.json()).toMatchObject({
+                status: 'restored',
+                media: { asset: { id: reservationBody.asset.id, state: 'ready' } },
+            })
+
+            const restoredLibraryResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media?search=cover`,
+                cookie
+            )
+            expect(restoredLibraryResponse.status).toBe(200)
+            expect(await restoredLibraryResponse.json()).toMatchObject({
+                media: [{ asset: { id: reservationBody.asset.id, state: 'ready' } }],
+                total: 1,
+            })
+
             const mismatchReserveResponse = await jsonRequest(
                 app,
                 `/api/projects/${projectBody.project.id}/media/uploads`,
@@ -508,6 +549,7 @@ describe('media HTTP routes', () => {
                 expect.arrayContaining([
                     '/api/projects/{projectId}/media',
                     '/api/projects/{projectId}/media/{assetId}',
+                    '/api/projects/{projectId}/media/{assetId}/restore',
                     '/api/projects/{projectId}/media/{assetId}/usage',
                     '/api/projects/{projectId}/media/{assetId}/content',
                     '/api/projects/{projectId}/media/deletion-requests',

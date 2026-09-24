@@ -14,6 +14,7 @@ import { MediaPreview, readyRepresentation } from '@/components/media-asset-card
 import { api, type MediaAssetUsage, type MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { mediaCanBeDeleted } from '@/lib/media-deletion-policy'
+import { formatMediaRetentionDuration } from '@/lib/media-retention'
 import * as m from '@/paraglide/messages.js'
 
 export function MediaDeletionDialog({
@@ -23,6 +24,7 @@ export function MediaDeletionDialog({
     onOpenChange,
     open,
     pending,
+    retentionMs,
 }: {
     readonly asset: MediaReference | null
     readonly error: string | null
@@ -30,6 +32,7 @@ export function MediaDeletionDialog({
     readonly onOpenChange: (open: boolean) => void
     readonly open: boolean
     readonly pending: boolean
+    readonly retentionMs: number
 }) {
     useLanguage()
 
@@ -96,6 +99,13 @@ export function MediaDeletionDialog({
                     <DialogDescription className="truncate">
                         {asset.asset.originalFilename}
                     </DialogDescription>
+                    <p className="text-sm text-muted-foreground">
+                        {retentionMs > 0
+                            ? m.media_delete_retention({
+                                  duration: formatMediaRetentionDuration(retentionMs),
+                              })
+                            : m.media_delete_immediate()}
+                    </p>
                     {usageLoading ? (
                         <p
                             data-media-delete-usage="checking"

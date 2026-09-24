@@ -153,6 +153,7 @@ function MediaAttachmentPickerView({
 }: MediaAttachmentPickerProps & { readonly controller: HeraldMediaUploadController }) {
     const { locale } = useLanguage()
     const [assets, setAssets] = useState<MediaReference[]>([])
+    const [restorableAssetIds, setRestorableAssetIds] = useState<Set<string>>(() => new Set())
     const [loading, setLoading] = useState(true)
     const [loadingMore, setLoadingMore] = useState(false)
     const [savingEdited, setSavingEdited] = useState(false)
@@ -162,6 +163,11 @@ function MediaAttachmentPickerView({
     const [mediaSort, setMediaSort] = useState<MediaListSort>('newest')
     const [mediaFamilyFilter, setMediaFamilyFilter] = useState<MediaListFamilyFilter>('all')
     const [mediaDateFilter, setMediaDateFilter] = useState<MediaListDateFilter>('all')
+    const [mediaLibraryView, setMediaLibraryView] = useState<'library' | 'trash'>('library')
+    const [trashCount, setTrashCount] = useState(0)
+    const [retentionMs, setRetentionMs] = useState(0)
+    const [restorePending, setRestorePending] = useState(false)
+    const [statusMessage, setStatusMessage] = useState<string | null>(null)
     const [mediaViewMode, setMediaViewMode] = useState<MediaLibraryViewMode>(() =>
         readMediaLibraryViewMode()
     )
@@ -241,6 +247,7 @@ function MediaAttachmentPickerView({
     const canManageLibrary = manageOnly && !readOnly
     const showSelectedAccessibilityText = showAccessibilityText ?? !compact
     const libraryControlsEnabled = manageOnly || compact
+    const mediaView = manageOnly ? mediaLibraryView : 'library'
     const normalizedSearchQuery = libraryControlsEnabled ? searchQuery.trim() : ''
     const interactionLocked =
         disabled ||
@@ -248,6 +255,7 @@ function MediaAttachmentPickerView({
         uploading !== null ||
         deletionPending ||
         bulkDeletionPending ||
+        restorePending ||
         bulkSelectionResolutionPending ||
         recoveryActionPending
     const mediaWriteDisabled = interactionLocked || readOnly
@@ -373,23 +381,31 @@ function MediaAttachmentPickerView({
 
             void api
                 .listMedia(projectId, {
+                    view: mediaView,
                     limit: MEDIA_PAGE_SIZE,
                     search: normalizedSearchQuery || undefined,
-                    sort: libraryControlsEnabled ? mediaSort : undefined,
+                    sort: libraryControlsEnabled && mediaView === 'library' ? mediaSort : undefined,
                     family:
-                        libraryControlsEnabled && mediaFamilyFilter !== 'all'
+                        libraryControlsEnabled &&
+                        mediaView === 'library' &&
+                        mediaFamilyFilter !== 'all'
                             ? mediaFamilyFilter
                             : undefined,
                     date:
-                        libraryControlsEnabled && mediaDateFilter !== 'all'
+                        libraryControlsEnabled &&
+                        mediaView === 'library' &&
+                        mediaDateFilter !== 'all'
                             ? mediaDateFilter
                             : undefined,
                 })
                 .then(response => {
                     if (active && requestId === listRequestId.current) {
                         setAssets(response.media)
+                        setRestorableAssetIds(new Set(response.restorableAssetIds))
                         setNextCursor(response.nextCursor)
                         setTotalAssets(response.total)
+                        setTrashCount(response.trashCount)
+                        setRetentionMs(response.retentionMs)
                     }
                 })
                 .catch(caughtError => {
@@ -413,6 +429,7 @@ function MediaAttachmentPickerView({
         listRefreshKey,
         mediaDateFilter,
         mediaFamilyFilter,
+        mediaView,
         mediaSort,
         libraryControlsEnabled,
         normalizedSearchQuery,
@@ -747,7 +764,7 @@ function MediaAttachmentPickerView({
             return
         }
 
-        setViewerAllowsFileActions(!previewOnly && !readOnly)
+        setViewerAllowsFileActions(!previewOnly && !readOnly && mediaView === 'library')
         setViewerAssets(assets.length > 0 ? assets : [asset])
         setViewerAsset(asset)
     }
@@ -768,7 +785,7 @@ function MediaAttachmentPickerView({
     }
 
     function openDeletion(asset: MediaReference) {
-        if (!canManageLibrary) return
+        if (!canManageLibrary || mediaView !== 'library') return
         closeViewer()
         setDeletionAsset(asset)
         setDeletionError(null)
@@ -791,6 +808,7 @@ function MediaAttachmentPickerView({
                 return next
             })
             setListRefreshKey(current => current + 1)
+            setStatusMessage(m.media_trash_delete_success())
             const nextValue = currentValueRef.current.filter(
                 selection => selection.assetId !== asset.asset.id
             )
@@ -803,6 +821,46 @@ function MediaAttachmentPickerView({
             setDeletionError(errorMessage(caughtError))
         } finally {
             setDeletionPending(false)
+        }
+    }
+
+    function changeMediaLibraryView(view: 'library' | 'trash') {
+        if (!manageOnly || view === mediaLibraryView) return
+        listRequestId.current += 1
+        loadMoreInFlightRef.current = false
+        setMediaLibraryView(view)
+        setAssets([])
+        setRestorableAssetIds(new Set())
+        setNextCursor(null)
+        setTotalAssets(0)
+        setLoading(true)
+        setLoadingMore(false)
+        setError(null)
+        setStatusMessage(null)
+        setBulkSelectionMode(false)
+        clearBulkSelection()
+    }
+
+    async function restoreAsset(asset: MediaReference) {
+        if (!canManageLibrary || mediaView !== 'trash' || restorePending) return
+
+        setRestorePending(true)
+        setError(null)
+        setStatusMessage(null)
+        try {
+            await api.restoreMedia(projectId, asset.asset.id)
+            setAssets(current => current.filter(item => item.asset.id !== asset.asset.id))
+            setRestorableAssetIds(current => {
+                const next = new Set(current)
+                next.delete(asset.asset.id)
+                return next
+            })
+            setListRefreshKey(current => current + 1)
+            setStatusMessage(m.media_trash_restored())
+        } catch {
+            setError(m.media_trash_restore_failed())
+        } finally {
+            setRestorePending(false)
         }
     }
 
@@ -855,6 +913,9 @@ function MediaAttachmentPickerView({
                     selectedMediaByIdRef.current.delete(assetId)
                 }
                 setListRefreshKey(current => current + 1)
+                setStatusMessage(
+                    m.media_bulk_trash_delete_success({ count: completedAssetIds.size })
+                )
             }
 
             if (failedAssets.length === 0) {
@@ -1052,23 +1113,27 @@ function MediaAttachmentPickerView({
         setError(null)
         try {
             const response = await api.listMedia(projectId, {
+                view: mediaView,
                 cursor: nextCursor,
                 limit: MEDIA_PAGE_SIZE,
                 search: normalizedSearchQuery || undefined,
-                sort: libraryControlsEnabled ? mediaSort : undefined,
+                sort: libraryControlsEnabled && mediaView === 'library' ? mediaSort : undefined,
                 family:
-                    libraryControlsEnabled && mediaFamilyFilter !== 'all'
+                    libraryControlsEnabled && mediaView === 'library' && mediaFamilyFilter !== 'all'
                         ? mediaFamilyFilter
                         : undefined,
                 date:
-                    libraryControlsEnabled && mediaDateFilter !== 'all'
+                    libraryControlsEnabled && mediaView === 'library' && mediaDateFilter !== 'all'
                         ? mediaDateFilter
                         : undefined,
             })
             if (requestId !== listRequestId.current) return
             setAssets(current => mergeMediaAssets(current, response.media))
+            setRestorableAssetIds(current => new Set([...current, ...response.restorableAssetIds]))
             setNextCursor(response.nextCursor)
             setTotalAssets(response.total)
+            setTrashCount(response.trashCount)
+            setRetentionMs(response.retentionMs)
         } catch (caughtError) {
             if (requestId === listRequestId.current) setError(errorMessage(caughtError))
         } finally {
@@ -1115,6 +1180,7 @@ function MediaAttachmentPickerView({
         compact,
         interactionLocked,
         libraryControlsEnabled,
+        mediaView,
         libraryOpen,
         loading,
         loadingMore,
@@ -1253,6 +1319,7 @@ function MediaAttachmentPickerView({
                     <MediaLibraryManagementSurface
                         allVisibleBulkSelected={allVisibleBulkSelected}
                         assets={assets}
+                        restorableAssetIds={restorableAssetIds}
                         bulkSelectedAssetIds={bulkSelectedAssetIds}
                         bulkSelectedCount={bulkSelectedCount}
                         bulkSelectionMode={bulkSelectionMode}
@@ -1271,6 +1338,10 @@ function MediaAttachmentPickerView({
                         mediaSort={mediaSort}
                         mediaViewMode={mediaViewMode}
                         mediaWriteDisabled={mediaWriteDisabled}
+                        view={mediaView}
+                        trashCount={trashCount}
+                        retentionMs={retentionMs}
+                        statusMessage={statusMessage}
                         nextCursor={nextCursor}
                         onAccessibilityTextChange={updateAccessibilityText}
                         onBrowse={openSourcePicker}
@@ -1291,6 +1362,7 @@ function MediaAttachmentPickerView({
                             void openSelectedViewer()
                         }}
                         onRequestDelete={canManageLibrary ? openDeletion : undefined}
+                        onRestore={canManageLibrary ? restoreAsset : undefined}
                         onSearchQueryChange={handleSearchQueryChange}
                         onSortChange={setMediaSort}
                         onToggleAsset={toggleAsset}
@@ -1300,6 +1372,7 @@ function MediaAttachmentPickerView({
                             visibleReadyAssets.length > 0 ? toggleVisibleBulkSelection : undefined
                         }
                         onViewModeChange={setMediaViewMode}
+                        onViewChange={changeMediaLibraryView}
                         projectId={projectId}
                         searchPending={searchPending}
                         searchQuery={searchQuery}
@@ -1599,6 +1672,7 @@ function MediaAttachmentPickerView({
             <MediaDeletionDialog
                 asset={deletionAsset}
                 error={deletionError}
+                retentionMs={retentionMs}
                 onConfirm={() => void confirmDeletion()}
                 onOpenChange={open => {
                     if (!open && !deletionPending) {
@@ -1612,6 +1686,7 @@ function MediaAttachmentPickerView({
             <MediaBulkDeletionDialog
                 assets={bulkDeletionAssets}
                 error={bulkDeletionError}
+                retentionMs={retentionMs}
                 onConfirm={() => void confirmBulkDeletion()}
                 onOpenChange={open => {
                     if (!open && !bulkDeletionPending) {

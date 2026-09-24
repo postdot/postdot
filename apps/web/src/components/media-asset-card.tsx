@@ -14,10 +14,12 @@ import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
+import { UndoLeftIcon } from '@solar-icons/react/linear/undo-left'
 
 import { api, type MediaReference } from '@/lib/api'
 import { formatBytes, formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
+import { formatMediaDeletionDeadline } from '@/lib/media-retention'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -26,6 +28,8 @@ interface MediaAssetCardProps {
     readonly interactionDisabled: boolean
     readonly layout?: MediaAssetCardLayout
     readonly projectId: string
+    readonly retentionMs?: number
+    readonly restoreAvailable?: boolean
     readonly selected: MediaSelection | undefined
     readonly selectable?: boolean
     readonly showAccessibilityText?: boolean
@@ -39,6 +43,7 @@ interface MediaAssetCardProps {
     readonly onInfo?: (asset: MediaReference) => void
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly onRestore?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview?: (asset: MediaReference) => void
     readonly previewUrl?: string
@@ -51,6 +56,8 @@ export function MediaAssetCard({
     interactionDisabled,
     layout = 'list',
     projectId,
+    retentionMs,
+    restoreAvailable = false,
     selected,
     selectable = true,
     showAccessibilityText = true,
@@ -64,12 +71,13 @@ export function MediaAssetCard({
     onInfo,
     onOpen,
     onRequestDelete,
+    onRestore,
     onToggle,
     onPreview,
     previewUrl,
 }: MediaAssetCardProps) {
     const { locale } = useLanguage()
-    const representation = readyRepresentation(asset)
+    const representation = displayRepresentation(asset)
     const isGrid = layout === 'grid'
     const isCompact = layout === 'compact'
     const attachmentSelected = selectable && selected !== undefined
@@ -184,6 +192,8 @@ export function MediaAssetCard({
                                 asset={asset}
                                 locale={locale}
                                 representation={representation}
+                                retentionMs={retentionMs}
+                                restoreAvailable={restoreAvailable}
                             />
                         </button>
                         {showActions ? (
@@ -195,6 +205,7 @@ export function MediaAssetCard({
                                 onInfo={onInfo}
                                 onOpen={onOpen}
                                 onRequestDelete={onRequestDelete}
+                                onRestore={restoreAvailable ? onRestore : undefined}
                                 representation={representation}
                             />
                         ) : null}
@@ -222,6 +233,8 @@ export function MediaAssetCard({
                                 asset={asset}
                                 locale={locale}
                                 representation={representation}
+                                retentionMs={retentionMs}
+                                restoreAvailable={restoreAvailable}
                             />
                             {selected !== undefined ? (
                                 <span className="sr-only">{m.media_attached()}</span>
@@ -243,6 +256,8 @@ export function MediaAssetCard({
                                 asset={asset}
                                 locale={locale}
                                 representation={representation}
+                                retentionMs={retentionMs}
+                                restoreAvailable={restoreAvailable}
                             />
                         </div>
                         {showActions ? (
@@ -254,6 +269,7 @@ export function MediaAssetCard({
                                 onInfo={onInfo}
                                 onOpen={onOpen}
                                 onRequestDelete={onRequestDelete}
+                                onRestore={restoreAvailable ? onRestore : undefined}
                                 representation={representation}
                             />
                         ) : null}
@@ -289,6 +305,7 @@ function MediaAssetActions({
     onInfo,
     onOpen,
     onRequestDelete,
+    onRestore,
     representation,
 }: {
     readonly asset: MediaReference
@@ -298,6 +315,7 @@ function MediaAssetActions({
     readonly onInfo?: (asset: MediaReference) => void
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly onRestore?: (asset: MediaReference) => void
     readonly representation: ReturnType<typeof readyRepresentation>
 }) {
     if (
@@ -305,7 +323,8 @@ function MediaAssetActions({
         onDownload === undefined &&
         onEdit === undefined &&
         onInfo === undefined &&
-        onRequestDelete === undefined
+        onRequestDelete === undefined &&
+        onRestore === undefined
     )
         return null
 
@@ -329,6 +348,15 @@ function MediaAssetActions({
                     }
                 />
                 <DropdownMenuContent align="end" className="min-w-44">
+                    {onRestore !== undefined ? (
+                        <DropdownMenuItem
+                            data-media-asset-action="restore"
+                            disabled={interactionDisabled}
+                            onClick={() => onRestore(asset)}>
+                            <UndoLeftIcon aria-hidden="true" />
+                            {m.media_trash_restore()}
+                        </DropdownMenuItem>
+                    ) : null}
                     {onInfo !== undefined ? (
                         <DropdownMenuItem
                             data-media-asset-action="info"
@@ -401,10 +429,14 @@ function AssetDetails({
     asset,
     locale,
     representation,
+    retentionMs,
+    restoreAvailable,
 }: {
     readonly asset: MediaReference
     readonly locale: string
     readonly representation: ReturnType<typeof readyRepresentation>
+    readonly retentionMs?: number
+    readonly restoreAvailable: boolean
 }) {
     return (
         <span className="min-w-0 flex-1">
@@ -414,6 +446,23 @@ function AssetDetails({
             <span className="mt-1 block text-xs text-muted-foreground">
                 {mediaSummary(asset, representation, locale)}
             </span>
+            {asset.asset.state === 'deletion_requested' &&
+            asset.asset.deletionRequestedAt !== null &&
+            retentionMs !== undefined ? (
+                <span className="mt-1 block text-xs text-muted-foreground">
+                    {m.media_trash_expires_at({
+                        date: formatMediaDeletionDeadline(
+                            asset.asset.deletionRequestedAt + retentionMs,
+                            locale
+                        ),
+                    })}
+                </span>
+            ) : null}
+            {asset.asset.state === 'deletion_requested' && !restoreAvailable ? (
+                <span className="mt-1 block text-xs text-state-attention">
+                    {m.media_trash_not_restorable()}
+                </span>
+            ) : null}
         </span>
     )
 }
@@ -423,6 +472,17 @@ export function readyRepresentation(asset: MediaReference) {
         asset.representations.find(
             representation => representation.state === 'ready' && representation.kind === 'original'
         ) ?? asset.representations.find(representation => representation.state === 'ready')
+    )
+}
+
+function displayRepresentation(asset: MediaReference) {
+    if (asset.asset.state !== 'deletion_requested') return readyRepresentation(asset)
+    return (
+        asset.representations.find(
+            representation =>
+                representation.state === 'deletion_requested' && representation.kind === 'original'
+        ) ??
+        asset.representations.find(representation => representation.state === 'deletion_requested')
     )
 }
 

@@ -14,6 +14,7 @@ import type {
     MediaReference,
 } from '@/lib/api'
 import type { MediaLibraryViewMode } from '@/lib/media-library-view'
+import { formatMediaRetentionDuration } from '@/lib/media-retention'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -23,6 +24,7 @@ import { MediaLibraryToolbar, type MediaLibraryFeatureOptions } from './media-li
 export interface MediaLibraryManagementSurfaceProps {
     readonly projectId: string
     readonly assets: readonly MediaReference[]
+    readonly restorableAssetIds: ReadonlySet<string>
     readonly selectedAssetById: ReadonlyMap<string, MediaSelection>
     readonly loading: boolean
     readonly loadingMore: boolean
@@ -47,6 +49,10 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly mediaSort: MediaListSort
     readonly mediaViewMode: MediaLibraryViewMode
     readonly totalAssets: number
+    readonly trashCount: number
+    readonly retentionMs: number
+    readonly view: 'library' | 'trash'
+    readonly statusMessage: string | null
     readonly canManageLibrary: boolean
     readonly libraryFeatures?: MediaLibraryFeatureOptions
     readonly onBrowse: () => void
@@ -69,11 +75,14 @@ export interface MediaLibraryManagementSurfaceProps {
     readonly onOpenAsset?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
     readonly onToggleAsset: (asset: MediaReference) => void
+    readonly onViewChange: (view: 'library' | 'trash') => void
+    readonly onRestore?: (asset: MediaReference) => void
 }
 
 export function MediaLibraryManagementSurface({
     projectId,
     assets,
+    restorableAssetIds,
     selectedAssetById,
     loading,
     loadingMore,
@@ -98,6 +107,10 @@ export function MediaLibraryManagementSurface({
     mediaSort,
     mediaViewMode,
     totalAssets,
+    trashCount,
+    retentionMs,
+    view,
+    statusMessage,
     canManageLibrary,
     libraryFeatures,
     onBrowse,
@@ -119,10 +132,34 @@ export function MediaLibraryManagementSurface({
     onInfo,
     onOpenAsset,
     onRequestDelete,
+    onRestore,
+    onViewChange,
     onToggleAsset,
 }: MediaLibraryManagementSurfaceProps) {
     return (
         <>
+            <div
+                role="group"
+                aria-label={m.media_library_views()}
+                className="mb-3 flex w-fit items-center gap-1 rounded-lg bg-muted p-1">
+                <Button
+                    type="button"
+                    size="sm"
+                    variant={view === 'library' ? 'secondary' : 'ghost'}
+                    aria-pressed={view === 'library'}
+                    onClick={() => onViewChange('library')}>
+                    {m.media_library_tab()}
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant={view === 'trash' ? 'secondary' : 'ghost'}
+                    aria-pressed={view === 'trash'}
+                    onClick={() => onViewChange('trash')}>
+                    {m.media_trash_tab({ count: trashCount })}
+                </Button>
+            </div>
+
             <MediaLibraryToolbar
                 assetCount={assets.length}
                 bulkSelectionMode={bulkSelectionMode}
@@ -140,12 +177,22 @@ export function MediaLibraryManagementSurface({
                 projectId={projectId}
                 searchPending={searchPending}
                 searchQuery={searchQuery}
-                features={libraryFeatures}
-                showSelectionMode={canManageLibrary}
+                features={
+                    view === 'trash'
+                        ? { ...libraryFeatures, filters: false, viewModes: false }
+                        : libraryFeatures
+                }
+                showSelectionMode={canManageLibrary && view === 'library'}
                 totalAssets={totalAssets}
             />
 
-            {canManageLibrary && bulkSelectionMode ? (
+            {statusMessage !== null ? (
+                <p role="status" className="mt-3 text-sm text-muted-foreground">
+                    {statusMessage}
+                </p>
+            ) : null}
+
+            {canManageLibrary && view === 'library' && bulkSelectionMode ? (
                 <div className="sticky top-0 z-20 mt-3">
                     <BulkActionBar
                         actions={[
@@ -207,7 +254,7 @@ export function MediaLibraryManagementSurface({
                 ) : (
                     <EmptyState
                         action={
-                            canManageLibrary ? (
+                            view === 'library' && canManageLibrary ? (
                                 <MediaDropHint
                                     active={dragActive}
                                     disabled={mediaWriteDisabled}
@@ -217,27 +264,47 @@ export function MediaLibraryManagementSurface({
                             ) : undefined
                         }
                         className={`mt-2 min-h-72 flex-1 transition-colors ${
-                            dragActive ? 'bg-primary/10' : 'bg-surface-raised/70'
+                            dragActive && view === 'library'
+                                ? 'bg-primary/10'
+                                : 'bg-surface-raised/70'
                         }`}
-                        description={emptyDescription ?? null}
-                        illustration="image"
-                        title={m.media_empty_title()}
+                        description={
+                            view === 'trash'
+                                ? retentionMs > 0
+                                    ? m.media_trash_empty_description({
+                                          duration: formatMediaRetentionDuration(retentionMs),
+                                      })
+                                    : m.media_trash_empty_immediate()
+                                : (emptyDescription ?? null)
+                        }
+                        icon={
+                            view === 'trash' ? (
+                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                            ) : undefined
+                        }
+                        illustration={view === 'library' ? 'image' : undefined}
+                        title={
+                            view === 'trash' ? m.media_trash_empty_title() : m.media_empty_title()
+                        }
                     />
                 )
             ) : (
                 <MediaAssetCollection
                     assets={assets}
+                    restorableAssetIds={restorableAssetIds}
                     className={mediaLibraryGridClass(mediaViewMode)}
                     interactionDisabled={interactionDisabled}
                     layout={mediaViewMode}
+                    retentionMs={view === 'trash' ? retentionMs : undefined}
                     onAccessibilityTextChange={onAccessibilityTextChange}
                     onActionSelectionToggle={onToggleBulkAsset}
-                    onDownload={onDownload}
-                    onEdit={onEdit}
-                    onInfo={onInfo}
-                    onOpen={onOpenAsset}
+                    onDownload={view === 'library' ? onDownload : undefined}
+                    onEdit={view === 'library' ? onEdit : undefined}
+                    onInfo={view === 'library' ? onInfo : undefined}
+                    onOpen={view === 'library' ? onOpenAsset : undefined}
                     onPreview={onOpenAsset}
-                    onRequestDelete={onRequestDelete}
+                    onRequestDelete={view === 'library' ? onRequestDelete : undefined}
+                    onRestore={view === 'trash' ? onRestore : undefined}
                     onToggle={onToggleAsset}
                     projectId={projectId}
                     selectable={false}
@@ -263,7 +330,7 @@ export function MediaLibraryManagementSurface({
                 </div>
             ) : null}
 
-            {canManageLibrary && assets.length > 0 ? (
+            {canManageLibrary && view === 'library' && assets.length > 0 ? (
                 <MediaDropHint
                     active={dragActive}
                     className="mt-5"

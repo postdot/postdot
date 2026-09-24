@@ -5,7 +5,9 @@ import type { MediaSelection } from '@/lib/target-media'
 
 interface MediaAssetCollectionProps {
     readonly assets: readonly MediaReference[]
+    readonly restorableAssetIds?: ReadonlySet<string>
     readonly projectId: string
+    readonly retentionMs?: number
     readonly interactionDisabled: boolean
     readonly layout: MediaAssetCardLayout
     readonly className?: string
@@ -23,6 +25,7 @@ interface MediaAssetCollectionProps {
     readonly onInfo?: (asset: MediaReference) => void
     readonly onOpen?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
+    readonly onRestore?: (asset: MediaReference) => void
     readonly onToggle: (asset: MediaReference) => void
     readonly onPreview?: (asset: MediaReference) => void
     readonly previewUrl?: (asset: MediaReference) => string | undefined
@@ -30,7 +33,9 @@ interface MediaAssetCollectionProps {
 
 export function MediaAssetCollection({
     assets,
+    restorableAssetIds,
     projectId,
+    retentionMs,
     interactionDisabled,
     layout,
     className,
@@ -48,6 +53,7 @@ export function MediaAssetCollection({
     onInfo,
     onOpen,
     onRequestDelete,
+    onRestore,
     onToggle,
     onPreview,
     previewUrl,
@@ -58,9 +64,11 @@ export function MediaAssetCollection({
                 <MediaAssetCard
                     key={asset.asset.id}
                     asset={asset}
+                    restoreAvailable={restorableAssetIds?.has(asset.asset.id) ?? false}
                     interactionDisabled={interactionDisabled}
                     layout={layout}
                     projectId={projectId}
+                    retentionMs={retentionMs}
                     selected={selectedAssetById?.get(asset.asset.id)}
                     selectable={selectable}
                     showAccessibilityText={showAccessibilityText}
@@ -74,6 +82,7 @@ export function MediaAssetCollection({
                     onInfo={onInfo}
                     onOpen={onOpen}
                     onRequestDelete={onRequestDelete}
+                    onRestore={onRestore}
                     onToggle={onToggle}
                     onPreview={onPreview}
                     previewUrl={previewUrl?.(asset)}

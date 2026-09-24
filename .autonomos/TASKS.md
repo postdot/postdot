@@ -331,7 +331,7 @@ the central project reads and projection/realtime reliability.
 
 ## 🎞️ Media library contract
 
-- [!] **[MEDIA-182]** Close the remaining media deletion-recovery contract `Priority: 🟠` `Complexity: S` — [ISSUE-104]; the bounded library, modes, search, usage categories, upload limits, reference guard, deferred purge, and tests are delivered. Current behavior: requesting deletion hides the asset immediately; its file is physically removed after 24 hours by default (configurable), unless a reference or backup fence prevents it. There is no restore action, so the delay protects storage cleanup, not user recovery. Owner decision: add a restore action during that interval, or keep deletion one-way. Recommendation: add restore.
+- [x] **[MEDIA-182]** Close the media deletion-recovery contract `Priority: 🟠` `Complexity: S` — [ISSUE-104]. Deletion now moves files out of the library and into a project-scoped Trash view; the configured retention duration and permanent-deletion deadline are visible, and eligible files can be restored before expiry. The database preserves the exact pre-deletion lifecycle state, rejects restoration after expiry, and claims permanent purge before deleting bytes so reconciliation can safely retry partial storage cleanup. Evidence: [MEDIA-182 trash recovery worklog](worklogs/2026-09-24-MEDIA-182-trash-recovery.md).
 
 ## 🔎 External audit reconciliation
 

@@ -720,6 +720,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/media/{assetId}/content',
                 '/api/projects/{projectId}/media/{assetId}',
                 '/api/projects/{projectId}/media/deletion-requests',
+                '/api/projects/{projectId}/media/{assetId}/restore',
                 '/api/notifications',
                 '/api/notifications/{notificationId}/read',
                 '/api/notifications/{notificationId}/archive',
@@ -742,6 +743,10 @@ describe('Herald API', () => {
             expect(specification.paths['/api/channel-profile-presets']?.get?.operationId).toBe(
                 'listChannelProfilePresets'
             )
+            expect(
+                specification.paths['/api/projects/{projectId}/media/{assetId}/restore']?.post
+                    ?.operationId
+            ).toBe('restoreProjectMedia')
             expect(specification.paths['/api/projects/{projectId}/members']?.get?.operationId).toBe(
                 'listProjectMembers'
             )

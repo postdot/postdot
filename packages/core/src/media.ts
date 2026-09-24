@@ -198,7 +198,7 @@ const mediaAssetTransitions: Readonly<Record<MediaAssetState, readonly MediaAsse
     inspecting: ['ready', 'failed', 'deletion_requested'],
     ready: ['failed', 'deletion_requested'],
     failed: ['reserved', 'deletion_requested'],
-    deletion_requested: ['deleted'],
+    deletion_requested: ['reserved', 'stored', 'inspecting', 'ready', 'failed', 'deleted'],
     deleted: [],
 }
 
@@ -210,7 +210,7 @@ const mediaRepresentationTransitions: Readonly<
     inspecting: ['ready', 'failed', 'deletion_requested'],
     ready: ['failed', 'deletion_requested'],
     failed: ['reserved', 'deletion_requested'],
-    deletion_requested: ['deleted'],
+    deletion_requested: ['reserved', 'stored', 'inspecting', 'ready', 'failed', 'deleted'],
     deleted: [],
 }
 
