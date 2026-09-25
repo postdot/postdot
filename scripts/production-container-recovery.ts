@@ -53,7 +53,7 @@ async function waitForReadiness(port: number): Promise<void> {
     throw new Error(lastFailure)
 }
 
-async function startServer(dataDirectory: string): Promise<void> {
+async function startServer(dataDirectory: string, stage: 'source' | 'restored'): Promise<void> {
     await mkdir(dataDirectory, { recursive: true })
     runDocker([
         'run',
@@ -86,7 +86,16 @@ async function startServer(dataDirectory: string): Promise<void> {
         throw new Error(`Docker returned an invalid published port: ${mappedAddress}`)
     }
 
-    await waitForReadiness(port)
+    try {
+        await waitForReadiness(port)
+    } catch (error) {
+        const containerState = runDocker(['inspect', '--format', '{{json .State}}', containerName])
+        const logs = runDocker(['logs', '--tail', '100', containerName])
+        throw new Error(
+            `The ${stage} production container did not become ready: ${String(error)}\n` +
+                `Container state: ${containerState}\nContainer logs:\n${logs}`
+        )
+    }
     runDocker(['stop', '--time', '60', containerName])
     runDocker(['rm', containerName])
     containerStarted = false
@@ -98,7 +107,7 @@ try {
     runDocker(['build', '--tag', imageTag, '.'])
     imageBuilt = true
 
-    await startServer(sourceData)
+    await startServer(sourceData, 'source')
 
     await mkdir(restoredData)
     runDocker([
@@ -129,7 +138,7 @@ try {
         '/backups/herald.bundle',
     ])
 
-    await startServer(restoredData)
+    await startServer(restoredData, 'restored')
     console.log(
         'Production image started, created a media backup without server secrets, restored it, and became ready.'
     )
