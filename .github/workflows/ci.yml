@@ -38,3 +38,6 @@ jobs:
 
             - name: Check
               run: bun run check
+
+            - name: Verify production image backup and restore
+              run: bun run test:container:recovery

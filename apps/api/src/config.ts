@@ -23,14 +23,8 @@ const exampleBetterAuthSecret = 'replace-with-a-random-secret-of-at-least-32-cha
 const exampleMediaPublicUrlSecret = 'replace-with-a-random-secret-of-at-least-32-characters'
 const examplePublisherEncryptionKey = 'replace-with-64-hex-characters'
 
-const environmentDefinitions = {
-    NODE_ENV: env.enum(['development', 'test', 'production'], {
-        defaultValue: 'development',
-    }),
-    PORT: env.integer({ defaultValue: 3000, minimum: 1, maximum: 65_535 }),
+const mediaEnvironmentDefinitions = {
     DB_FILE_NAME: env.string({ defaultValue: defaultDatabaseFileName }),
-    HERALD_MIGRATIONS_DIR: env.string({ defaultValue: defaultMigrationsDirectory }),
-    HERALD_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
     HERALD_MEDIA_STORE: env.enum(['local', 's3'], { defaultValue: 'local' }),
     HERALD_MEDIA_DIRECTORY: env.string({ defaultValue: defaultMediaDirectory, minLength: 1 }),
     HERALD_MEDIA_STORE_ID: env.string({ defaultValue: 'local-default', minLength: 1 }),
@@ -58,6 +52,16 @@ const environmentDefinitions = {
     HERALD_MEDIA_S3_SECRET_ACCESS_KEY: env.optionalString({ minLength: 1 }),
     HERALD_MEDIA_S3_SESSION_TOKEN: env.optionalString({ minLength: 1 }),
     HERALD_MEDIA_S3_PREFIX: env.optionalString({ minLength: 1 }),
+} as const
+
+const environmentDefinitions = {
+    NODE_ENV: env.enum(['development', 'test', 'production'], {
+        defaultValue: 'development',
+    }),
+    PORT: env.integer({ defaultValue: 3000, minimum: 1, maximum: 65_535 }),
+    HERALD_MIGRATIONS_DIR: env.string({ defaultValue: defaultMigrationsDirectory }),
+    HERALD_WEB_ASSETS_DIR: env.string({ defaultValue: defaultWebAssetsDirectory }),
+    ...mediaEnvironmentDefinitions,
     BETTER_AUTH_URL: env.url({
         defaultValue: values => {
             const port = values.PORT
@@ -181,6 +185,26 @@ export interface HeraldConfig {
     readonly logging: HeraldLoggingConfig
 }
 
+export interface HeraldMaintenanceConfig {
+    readonly databaseFileName: string
+    readonly media: HeraldConfig['media']
+}
+
+type HeraldMediaEnvironment = Omit<
+    InferEnvironment<typeof mediaEnvironmentDefinitions>,
+    'DB_FILE_NAME'
+>
+
+export function createHeraldMaintenanceConfig(
+    source: EnvironmentSource = Bun.env
+): HeraldMaintenanceConfig {
+    const environment = createEnvironment(mediaEnvironmentDefinitions, source)
+    return {
+        databaseFileName: environment.DB_FILE_NAME,
+        media: createMediaConfig(environment),
+    }
+}
+
 export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldConfig {
     const environment = createEnvironment(environmentDefinitions, source)
     if (environment.HERALD_METRICS_ENABLED && environment.HERALD_METRICS_TOKEN === undefined) {
@@ -203,32 +227,6 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
 
     if (hasXClientId !== hasXClientSecret) {
         throw new Error('X_CLIENT_ID and X_CLIENT_SECRET must be set together to enable X')
-    }
-
-    const mediaS3Values = {
-        bucket: environment.HERALD_MEDIA_S3_BUCKET,
-        region: environment.HERALD_MEDIA_S3_REGION,
-        endpoint: environment.HERALD_MEDIA_S3_ENDPOINT,
-        accessKeyId: environment.HERALD_MEDIA_S3_ACCESS_KEY_ID,
-        secretAccessKey: environment.HERALD_MEDIA_S3_SECRET_ACCESS_KEY,
-        sessionToken: environment.HERALD_MEDIA_S3_SESSION_TOKEN,
-        prefix: environment.HERALD_MEDIA_S3_PREFIX,
-    }
-    if (environment.HERALD_MEDIA_STORE === 's3') {
-        if (
-            mediaS3Values.bucket === undefined ||
-            mediaS3Values.accessKeyId === undefined ||
-            mediaS3Values.secretAccessKey === undefined
-        ) {
-            throw new Error(
-                'HERALD_MEDIA_S3_BUCKET, HERALD_MEDIA_S3_ACCESS_KEY_ID, and HERALD_MEDIA_S3_SECRET_ACCESS_KEY are required when HERALD_MEDIA_STORE=s3'
-            )
-        }
-        if (mediaS3Values.region === undefined && mediaS3Values.endpoint === undefined) {
-            throw new Error(
-                'HERALD_MEDIA_S3_REGION or HERALD_MEDIA_S3_ENDPOINT is required when HERALD_MEDIA_STORE=s3'
-            )
-        }
     }
 
     const linkedin =
@@ -284,36 +282,7 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             fileName: environment.DB_FILE_NAME,
             migrationsDirectory: environment.HERALD_MIGRATIONS_DIR,
         },
-        media: {
-            driver: environment.HERALD_MEDIA_STORE,
-            directory: environment.HERALD_MEDIA_DIRECTORY,
-            storeId: environment.HERALD_MEDIA_STORE_ID,
-            maxObjectBytes: environment.HERALD_MEDIA_MAX_OBJECT_BYTES,
-            uploadIntentTtlMs: environment.HERALD_MEDIA_UPLOAD_TTL_MS,
-            deletionGracePeriodMs: environment.HERALD_MEDIA_DELETION_GRACE_MS,
-            publicUrlLifetimeMs: environment.HERALD_MEDIA_PUBLIC_URL_TTL_MS,
-            ...(environment.HERALD_MEDIA_STORE === 's3' && mediaS3Values.bucket !== undefined
-                ? {
-                      s3: {
-                          bucket: mediaS3Values.bucket,
-                          ...(mediaS3Values.region === undefined
-                              ? {}
-                              : { region: mediaS3Values.region }),
-                          ...(mediaS3Values.endpoint === undefined
-                              ? {}
-                              : { endpoint: mediaS3Values.endpoint }),
-                          accessKeyId: mediaS3Values.accessKeyId!,
-                          secretAccessKey: mediaS3Values.secretAccessKey!,
-                          ...(mediaS3Values.sessionToken === undefined
-                              ? {}
-                              : { sessionToken: mediaS3Values.sessionToken }),
-                          ...(mediaS3Values.prefix === undefined
-                              ? {}
-                              : { prefix: mediaS3Values.prefix }),
-                      },
-                  }
-                : {}),
-        },
+        media: createMediaConfig(environment),
         auth: {
             baseURL: environment.BETTER_AUTH_URL,
             secret: environment.BETTER_AUTH_SECRET,
@@ -345,6 +314,66 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
         },
         ...(environment.HERALD_METRICS_ENABLED
             ? { metrics: { bearerToken: environment.HERALD_METRICS_TOKEN! } }
+            : {}),
+    }
+}
+
+function createMediaConfig(environment: HeraldMediaEnvironment): HeraldConfig['media'] {
+    const mediaS3Values = {
+        bucket: environment.HERALD_MEDIA_S3_BUCKET,
+        region: environment.HERALD_MEDIA_S3_REGION,
+        endpoint: environment.HERALD_MEDIA_S3_ENDPOINT,
+        accessKeyId: environment.HERALD_MEDIA_S3_ACCESS_KEY_ID,
+        secretAccessKey: environment.HERALD_MEDIA_S3_SECRET_ACCESS_KEY,
+        sessionToken: environment.HERALD_MEDIA_S3_SESSION_TOKEN,
+        prefix: environment.HERALD_MEDIA_S3_PREFIX,
+    }
+
+    if (environment.HERALD_MEDIA_STORE === 's3') {
+        if (
+            mediaS3Values.bucket === undefined ||
+            mediaS3Values.accessKeyId === undefined ||
+            mediaS3Values.secretAccessKey === undefined
+        ) {
+            throw new Error(
+                'HERALD_MEDIA_S3_BUCKET, HERALD_MEDIA_S3_ACCESS_KEY_ID, and HERALD_MEDIA_S3_SECRET_ACCESS_KEY are required when HERALD_MEDIA_STORE=s3'
+            )
+        }
+        if (mediaS3Values.region === undefined && mediaS3Values.endpoint === undefined) {
+            throw new Error(
+                'HERALD_MEDIA_S3_REGION or HERALD_MEDIA_S3_ENDPOINT is required when HERALD_MEDIA_STORE=s3'
+            )
+        }
+    }
+
+    return {
+        driver: environment.HERALD_MEDIA_STORE,
+        directory: environment.HERALD_MEDIA_DIRECTORY,
+        storeId: environment.HERALD_MEDIA_STORE_ID,
+        maxObjectBytes: environment.HERALD_MEDIA_MAX_OBJECT_BYTES,
+        uploadIntentTtlMs: environment.HERALD_MEDIA_UPLOAD_TTL_MS,
+        deletionGracePeriodMs: environment.HERALD_MEDIA_DELETION_GRACE_MS,
+        publicUrlLifetimeMs: environment.HERALD_MEDIA_PUBLIC_URL_TTL_MS,
+        ...(environment.HERALD_MEDIA_STORE === 's3' && mediaS3Values.bucket !== undefined
+            ? {
+                  s3: {
+                      bucket: mediaS3Values.bucket,
+                      ...(mediaS3Values.region === undefined
+                          ? {}
+                          : { region: mediaS3Values.region }),
+                      ...(mediaS3Values.endpoint === undefined
+                          ? {}
+                          : { endpoint: mediaS3Values.endpoint }),
+                      accessKeyId: mediaS3Values.accessKeyId!,
+                      secretAccessKey: mediaS3Values.secretAccessKey!,
+                      ...(mediaS3Values.sessionToken === undefined
+                          ? {}
+                          : { sessionToken: mediaS3Values.sessionToken }),
+                      ...(mediaS3Values.prefix === undefined
+                          ? {}
+                          : { prefix: mediaS3Values.prefix }),
+                  },
+              }
             : {}),
     }
 }

@@ -369,3 +369,7 @@ the central project reads and projection/realtime reliability.
 ## Prometheus scrape hardening
 
 - [x] **[OPS-212]** Secure, document, and verify opt-in Prometheus metrics `Priority: 🟠` `Complexity: M` — [ISSUE-125]; disable `/metrics` by default, require a configured bearer token when enabled, document safe local/private-network scraping and enable/disable settings, and add HTTP end-to-end coverage for disabled, unauthorized, authorized, and changing worker metrics. Do not expand to OpenTelemetry in this task. Evidence: the endpoint is mounted only when enabled with a dedicated token (minimum 32 characters), uses a constant-time token comparison, and documents Prometheus `credentials_file` plus private-network protections. Real HTTP tests verify 404 when disabled, 401 without/with an invalid token, authenticated exposition, process/scheduler/worker values, and updated worker counters/duration buckets. Checks: `bun run check:quick`, 181 API tests, and `bun run build` pass.
+
+## Production backup and restore execution
+
+- [x] **[OPS-213]** Make the documented backup and restore commands executable from the production image `Priority: 🔴` `Complexity: M` — [ISSUE-123]; dispatch maintenance without requiring unrelated web-authentication or publisher-encryption secrets, retain any credentials genuinely required by the configured media store, verify documented media bundle backup/restore against an isolated production image and disposable data, and keep CI and operator instructions aligned. Evidence: [OPS-213 worklog](worklogs/2026-09-25-OPS-213.md).

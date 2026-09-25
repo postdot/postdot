@@ -204,10 +204,10 @@ part of `bun run check` and must only be run with an operator-owned test account
 3. Add the credentials to the ignored local file `apps/api/.env` and restart the
    API:
 
-   ```dotenv
-   LINKEDIN_CLIENT_ID=your-client-id
-   LINKEDIN_CLIENT_SECRET=your-client-secret
-   ```
+    ```dotenv
+    LINKEDIN_CLIENT_ID=your-client-id
+    LINKEDIN_CLIENT_SECRET=your-client-secret
+    ```
 
 4. Open the dashboard, sign in with the local Herald email/password account,
    create a project and channel, then use **Publisher connections → Connect
@@ -219,14 +219,14 @@ part of `bun run check` and must only be run with an operator-owned test account
    the durable job at the scheduled time.
 6. Verify the result through the project audit command:
 
-   ```sh
-   bun run herald audit list --project <project-id> --json
-   ```
+    ```sh
+    bun run herald audit list --project <project-id> --json
+    ```
 
-   A successful provider call records the provider post identifier in the
-   publication outcome and audit trail. If the provider outcome is uncertain, do
-   not publish a second copy; inspect LinkedIn first and use the explicit
-   `publications reconcile` command to resolve the existing publication.
+    A successful provider call records the provider post identifier in the
+    publication outcome and audit trail. If the provider outcome is uncertain, do
+    not publish a second copy; inspect LinkedIn first and use the explicit
+    `publications reconcile` command to resolve the existing publication.
 
 The provider currently targets text and single-image posts for LinkedIn members
 and organizations through the
@@ -292,8 +292,10 @@ The example reuses the local environment file for convenience; deployment setups
 should provide an equivalent secret-managed environment file and must not commit it.
 
 Create a complete application backup from a running container by mounting the
-application data volume and a separate host backup directory. The bundle contains
-the database and verified media bytes:
+application data volume and a separate host backup directory. The command uses
+the local media-store defaults from the image and does not need the web
+authentication or publisher-encryption secrets. The bundle contains the database
+and verified media bytes:
 
 ```sh
 docker run --rm \
@@ -313,6 +315,14 @@ docker run --rm \
   --mount type=bind,source="$PWD/backups",target=/backups \
   herald:local restore --media --input /backups/herald.bundle
 ```
+
+When the deployment uses S3-compatible media storage, pass the media-store
+settings to both maintenance commands (for example, with a protected env file
+containing `HERALD_MEDIA_STORE=s3` and its `HERALD_MEDIA_S3_*` values). The
+maintenance command validates those storage credentials but does not require the
+application authentication, signed-media-URL, or publisher-encryption secrets.
+Keep the publisher-encryption key separately: the restored application needs it
+to use its encrypted publisher connections.
 
 The lock is intentionally not reclaimed automatically after a forced process
 termination. If a restart or restore reports an existing lock, first verify
