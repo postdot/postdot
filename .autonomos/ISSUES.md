@@ -3304,3 +3304,21 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Resolution: README and deployment documentation now match the provider
   packages, LinkedIn member scope, user-owned API-key boundary, recovery flow,
   and explicit deferred capabilities verified in the current source.
+
+## [ISSUE-125] Protect the optional Prometheus scrape endpoint
+
+- Type: problem
+- Status: resolved
+- Evidence: `GET /metrics` is mounted on the same HTTP server as the public API
+  and has no authentication. The deployment guide asks operators to restrict it,
+  but the application does not enforce that boundary.
+- Impact: A public Herald deployment can expose process and publication-worker
+  activity to unauthenticated callers, and the scrape handler can be repeatedly
+  invoked from the public network.
+- Desired outcome: Operators can intentionally enable metrics and allow only
+  authenticated monitoring scrapes, with clear setup and verification guidance.
+- Tasks: OPS-212
+- Resolution: `/metrics` is absent by default and requires a dedicated bearer
+  token of at least 32 characters when enabled. HTTP tests cover disabled,
+  unauthorized, and authenticated scrapes, including changing worker metrics;
+  deployment guidance documents configuration and network restrictions.

@@ -101,6 +101,44 @@ describe('Herald configuration', () => {
         })
     })
 
+    it('keeps Prometheus metrics disabled by default and requires a dedicated token to enable them', () => {
+        const requiredSecrets = {
+            BETTER_AUTH_SECRET: secret,
+            HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+            HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+        }
+
+        expect(createHeraldConfig(requiredSecrets).metrics).toBeUndefined()
+        expect(
+            createHeraldConfig({
+                ...requiredSecrets,
+                HERALD_METRICS_TOKEN: 'stale-token-ignored-while-disabled',
+            }).metrics
+        ).toBeUndefined()
+        expect(() =>
+            createHeraldConfig({
+                ...requiredSecrets,
+                HERALD_METRICS_ENABLED: 'true',
+            })
+        ).toThrow('HERALD_METRICS_TOKEN is required')
+        expect(() =>
+            createHeraldConfig({
+                ...requiredSecrets,
+                HERALD_METRICS_ENABLED: 'true',
+                HERALD_METRICS_TOKEN: 'short-token',
+            })
+        ).toThrow('HERALD_METRICS_TOKEN')
+
+        const token = 'herald-monitoring-token-for-tests-more-than-32-characters'
+        expect(
+            createHeraldConfig({
+                ...requiredSecrets,
+                HERALD_METRICS_ENABLED: 'true',
+                HERALD_METRICS_TOKEN: token,
+            }).metrics
+        ).toEqual({ bearerToken: token })
+    })
+
     it('keeps email delivery optional and rejects incomplete SMTP configuration', () => {
         expect(
             createHeraldConfig({

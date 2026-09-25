@@ -123,7 +123,10 @@ function createFixture(
         readonly apiOrigin?: string
         readonly webOrigin?: string
         readonly runtime?: HealthRuntime
-        readonly metrics?: Registry
+        readonly metrics?: {
+            readonly registry: Registry
+            readonly bearerToken: string
+        }
         readonly allowAdditionalSignups?: boolean
     } = {}
 ) {
@@ -241,21 +244,85 @@ async function readStreamChunk(response: Response) {
 }
 
 describe('Herald API', () => {
-    it('serves Prometheus exposition without requiring an application session', async () => {
+    it('serves authenticated Prometheus scrapes over HTTP and reflects worker updates', async () => {
         const metrics = createHeraldMetrics()
         metrics.bindScheduler({ state: 'running' })
         metrics.observeWorkerRun({ outcome: 'success', durationSeconds: 0.25 })
-        const { app, database } = createFixture({ metrics: metrics.registry })
+        const bearerToken = 'herald-test-monitoring-token-with-more-than-32-characters'
+        const { app, database } = createFixture({
+            metrics: { registry: metrics.registry, bearerToken },
+        })
+        const server = Bun.serve({
+            hostname: '127.0.0.1',
+            port: 0,
+            fetch: request => app.handle(request),
+        })
+
+        try {
+            const metricsUrl = new URL('/metrics', server.url)
+            const anonymousResponse = await fetch(metricsUrl)
+            expect(anonymousResponse.status).toBe(401)
+            expect(anonymousResponse.headers.get('www-authenticate')).toContain('Bearer')
+
+            const invalidTokenResponse = await fetch(metricsUrl, {
+                headers: { authorization: 'Bearer invalid-monitoring-token' },
+            })
+            expect(invalidTokenResponse.status).toBe(401)
+
+            const response = await fetch(metricsUrl, {
+                headers: { authorization: `Bearer ${bearerToken}` },
+            })
+            expect(response.status).toBe(200)
+            expect(response.headers.get('content-type')).toBe(metrics.registry.contentType)
+            const firstExposition = await response.text()
+            expect(firstExposition).toContain('herald_process_memory_bytes{type="rss"}')
+            expect(firstExposition).toContain(
+                'herald_publication_scheduler_state{state="running"} 1'
+            )
+            expect(firstExposition).toContain(
+                'herald_publication_worker_runs_total{outcome="success"} 1'
+            )
+            expect(firstExposition).toContain(
+                'herald_publication_worker_run_duration_seconds_bucket{le="0.5",outcome="success"} 1'
+            )
+
+            metrics.observeWorkerRun({ outcome: 'failure', durationSeconds: 2 })
+            const updatedResponse = await fetch(metricsUrl, {
+                headers: { authorization: `Bearer ${bearerToken}` },
+            })
+            expect(updatedResponse.status).toBe(200)
+            const updatedExposition = await updatedResponse.text()
+            expect(updatedExposition).toContain(
+                'herald_publication_worker_runs_total{outcome="failure"} 1'
+            )
+            expect(updatedExposition).toContain(
+                'herald_publication_worker_run_duration_seconds_bucket{le="5",outcome="failure"} 1'
+            )
+
+            const openApiResponse = await app.handle(new Request(`${baseURL}/openapi/json`))
+            const openApi = (await openApiResponse.json()) as {
+                readonly paths: Record<string, { readonly get?: OpenApiOperation }>
+                readonly components?: {
+                    readonly securitySchemes?: Record<string, unknown>
+                }
+            }
+            expect(openApi.paths['/metrics']?.get?.security).toEqual([{ metricsBearerAuth: [] }])
+            expect(openApi.components?.securitySchemes?.metricsBearerAuth).toMatchObject({
+                scheme: 'bearer',
+                type: 'http',
+            })
+        } finally {
+            await server.stop(true)
+            closeDatabase(database)
+        }
+    })
+
+    it('does not expose the metrics route when monitoring is disabled', async () => {
+        const { app, database } = createFixture()
 
         try {
             const response = await app.handle(new Request(`${baseURL}/metrics`))
-            expect(response.status).toBe(200)
-            expect(response.headers.get('content-type')).toBe(metrics.registry.contentType)
-            const exposition = await response.text()
-            expect(exposition).toContain('herald_process_memory_bytes{type="rss"}')
-            expect(exposition).toContain(
-                'herald_publication_worker_runs_total{outcome="success"} 1'
-            )
+            expect(response.status).toBe(404)
         } finally {
             closeDatabase(database)
         }
@@ -655,7 +722,6 @@ describe('Herald API', () => {
             expect(Object.keys(specification.paths)).toEqual([
                 '/health',
                 '/ready',
-                '/metrics',
                 '/api/instance/status',
                 '/api/access/invitations/{token}',
                 '/api/access',
@@ -825,12 +891,7 @@ describe('Herald API', () => {
             })
             expect(specification.security).toEqual([{ bearerAuth: [] }, { sessionCookie: [] }])
             expect(specification.paths['/health']?.get?.security).toEqual([])
-            expect(specification.paths['/metrics']?.get?.operationId).toBe('getMetrics')
-            expect(specification.paths['/metrics']?.get?.security).toEqual([])
-            expect(
-                specification.paths['/metrics']?.get?.responses?.['200']?.content?.['text/plain']
-                    ?.schema?.type
-            ).toBe('string')
+            expect(specification.paths['/metrics']).toBeUndefined()
             expect(specification.paths['/api/projects']?.get?.security).toBeUndefined()
             expect(specification.paths['/api/projects/{projectId}/events']?.get?.security).toEqual([
                 { sessionCookie: [] },
