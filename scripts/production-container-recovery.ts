@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { chmod, mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -17,6 +17,13 @@ const mediaUrlSecret = 'production-image-recovery-test-media-secret'
 const publisherEncryptionKey = '0123456789abcdef'.repeat(4)
 let imageBuilt = false
 let containerStarted = false
+
+async function prepareContainerWritableDirectory(path: string): Promise<void> {
+    await mkdir(path, { recursive: true })
+    // The private temporary parent limits access while the image's `bun` user
+    // can write even when its UID differs from the host runner's UID.
+    await chmod(path, 0o777)
+}
 
 function runDocker(args: readonly string[]): string {
     const result = spawnSync('docker', args, {
@@ -102,14 +109,14 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
 }
 
 try {
-    await mkdir(sourceData)
-    await mkdir(backupDirectory)
+    await prepareContainerWritableDirectory(sourceData)
+    await prepareContainerWritableDirectory(backupDirectory)
     runDocker(['build', '--tag', imageTag, '.'])
     imageBuilt = true
 
     await startServer(sourceData, 'source')
 
-    await mkdir(restoredData)
+    await prepareContainerWritableDirectory(restoredData)
     runDocker([
         'run',
         '--rm',
