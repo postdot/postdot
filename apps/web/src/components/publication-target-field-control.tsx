@@ -10,10 +10,12 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { Textarea } from '@herald/ui/components/textarea'
+import { X_TEXT_COUNTING_ALGORITHM, parseXPostText } from '@herald/x/text'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { useEffect, useState } from 'react'
 
+import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import {
@@ -43,6 +45,15 @@ export function TargetFieldControl({
     onChange,
 }: TargetFieldControlProps) {
     const { locale } = useLanguage()
+    const weightedLimit =
+        field.weightedLengthAlgorithm === X_TEXT_COUNTING_ALGORITHM ? field.maxWeightedLength : null
+    const weightedText =
+        weightedLimit === null ? null : parseXPostText(typeof value === 'string' ? value : '')
+    const weightedTextInvalid =
+        weightedText !== null &&
+        typeof value === 'string' &&
+        value.trim().length > 0 &&
+        !weightedText.valid
     const description =
         compact && field.kind !== 'unsupported' && field.kind !== 'readonly'
             ? null
@@ -97,18 +108,31 @@ export function TargetFieldControl({
                 <FieldLabel htmlFor={fieldId}>{field.label}</FieldLabel>
                 {field.kind === 'text' ? (
                     field.semantic === 'primary_text' ? (
-                        <Textarea
-                            id={fieldId}
-                            value={typeof value === 'string' ? value : ''}
-                            onChange={event =>
-                                onChange(optionalTextValue(event.target.value, field.required))
-                            }
-                            disabled={disabled}
-                            minLength={field.minLength ?? undefined}
-                            maxLength={field.maxLength ?? undefined}
-                            rows={6}
-                            className="min-h-32 min-w-0 max-w-full text-sm leading-6"
-                        />
+                        <div className="grid min-w-0 gap-1.5">
+                            <Textarea
+                                id={fieldId}
+                                value={typeof value === 'string' ? value : ''}
+                                onChange={event =>
+                                    onChange(optionalTextValue(event.target.value, field.required))
+                                }
+                                disabled={disabled}
+                                minLength={field.minLength ?? undefined}
+                                maxLength={field.maxLength ?? undefined}
+                                aria-invalid={weightedTextInvalid || undefined}
+                                aria-describedby={
+                                    weightedText === null ? undefined : `${fieldId}-weighted-count`
+                                }
+                                rows={6}
+                                className="min-h-32 min-w-0 max-w-full text-sm leading-6"
+                            />
+                            {weightedText !== null ? (
+                                <XWeightedTextCount
+                                    id={`${fieldId}-weighted-count`}
+                                    invalid={weightedTextInvalid}
+                                    result={weightedText}
+                                />
+                            ) : null}
+                        </div>
                     ) : (
                         <Input
                             id={fieldId}
@@ -315,7 +339,10 @@ function StringListField({
 
 function fieldDescription(field: TargetEditorField, locale: string): string | null {
     const constraints: string[] = []
-    if (field.minLength !== null || field.maxLength !== null) {
+    if (
+        field.maxWeightedLength === null &&
+        (field.minLength !== null || field.maxLength !== null)
+    ) {
         if (field.minLength !== null && field.maxLength !== null) {
             constraints.push(
                 m.editor_constraint_characters_range({

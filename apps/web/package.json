@@ -26,6 +26,7 @@
         "@herald/client": "workspace:*",
         "@herald/core": "workspace:*",
         "@herald/ui": "workspace:*",
+        "@herald/x": "workspace:*",
         "@iconify-icons/flag": "2.0.0",
         "@iconify-icons/logos": "2.0.1",
         "@iconify/react": "6.0.2",

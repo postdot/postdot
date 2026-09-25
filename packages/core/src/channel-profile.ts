@@ -63,6 +63,8 @@ export interface TextFieldCapability {
     readonly minLength?: number
     readonly maxLength: number
     readonly maxGraphemes?: number
+    readonly maxWeightedLength?: number
+    readonly weightedLengthAlgorithm?: string
 }
 
 export interface MediaDimensionCapability {
@@ -152,6 +154,24 @@ export interface CompiledChannelProfile {
         content: unknown,
         rules: readonly ContentValidationRule[]
     ): Promise<ValidationResult<Readonly<Record<string, unknown>>>>
+}
+
+/**
+ * Provider-owned validation for rules that cannot be expressed as a JSON
+ * Schema or a provider-neutral capability. Adapters are trusted runtime code;
+ * persisted profiles never contain executable validation behavior.
+ */
+export interface ChannelProfileValidationAdapter {
+    readonly contractId: string
+    prepareProfile?(profile: ChannelProfileDefinition): ChannelProfileDefinition
+    validate(
+        profile: ChannelProfileDefinition,
+        content: Readonly<Record<string, unknown>>
+    ): readonly ValidationIssue[]
+}
+
+export interface ChannelProfileCompilerOptions {
+    readonly validationAdapters?: readonly ChannelProfileValidationAdapter[]
 }
 
 function profileIssue(
@@ -474,6 +494,46 @@ function validateCapabilities(profile: ChannelProfileDefinition): ValidationIssu
             )
         }
         if (
+            capability.maxWeightedLength !== undefined &&
+            (!Number.isSafeInteger(capability.maxWeightedLength) ||
+                capability.maxWeightedLength < 1)
+        ) {
+            issues.push(
+                profileIssue(
+                    `${path}/maxWeightedLength`,
+                    'capability.limit_invalid',
+                    'Text maxWeightedLength must be a positive safe integer',
+                    'capability'
+                )
+            )
+        }
+        if (
+            capability.weightedLengthAlgorithm !== undefined &&
+            capability.weightedLengthAlgorithm.trim().length === 0
+        ) {
+            issues.push(
+                profileIssue(
+                    `${path}/weightedLengthAlgorithm`,
+                    'capability.weighted_algorithm_invalid',
+                    'Text weightedLengthAlgorithm must be a non-empty identifier',
+                    'capability'
+                )
+            )
+        }
+        if (
+            capability.maxWeightedLength !== undefined &&
+            capability.weightedLengthAlgorithm === undefined
+        ) {
+            issues.push(
+                profileIssue(
+                    `${path}/weightedLengthAlgorithm`,
+                    'capability.weighted_algorithm_required',
+                    'Text maxWeightedLength requires a weightedLengthAlgorithm identifier',
+                    'capability'
+                )
+            )
+        }
+        if (
             invalidOptionalPositiveInteger(capability.minLength) ||
             invalidRange(capability.minLength, capability.maxLength)
         ) {
@@ -769,7 +829,9 @@ function capabilityValidationIssues(
 
 function createCompiledProfile(
     profile: ChannelProfileDefinition,
-    validator: RuntimeSchemaValidator
+    validationProfile: ChannelProfileDefinition,
+    validator: RuntimeSchemaValidator,
+    validationAdapter?: ChannelProfileValidationAdapter
 ): CompiledChannelProfile {
     const validate = (content: unknown): ValidationResult<Readonly<Record<string, unknown>>> => {
         const resourceIssues = validateContentResourceLimits(content)
@@ -780,12 +842,15 @@ function createCompiledProfile(
         }
 
         const capabilityIssues = capabilityValidationIssues(
-            profile,
+            validationProfile,
             content as Readonly<Record<string, unknown>>
         )
-        if (hasValidationErrors(capabilityIssues)) return validationFailure(capabilityIssues)
+        const providerIssues =
+            validationAdapter?.validate(profile, content as Readonly<Record<string, unknown>>) ?? []
+        const issues = [...capabilityIssues, ...providerIssues]
+        if (hasValidationErrors(issues)) return validationFailure(issues)
 
-        return validationSuccess(content as Readonly<Record<string, unknown>>)
+        return validationSuccess(content as Readonly<Record<string, unknown>>, issues)
     }
 
     return {
@@ -807,14 +872,24 @@ function createCompiledProfile(
 
 export class ChannelProfileCompiler {
     readonly #validators = new Map<string, CachedSchemaValidator>()
+    readonly #validationAdapters = new Map<string, ChannelProfileValidationAdapter>()
+
+    constructor(options: ChannelProfileCompilerOptions = {}) {
+        for (const adapter of options.validationAdapters ?? []) {
+            if (this.#validationAdapters.has(adapter.contractId)) {
+                throw new TypeError(
+                    `Duplicate channel profile validation adapter for ${adapter.contractId}`
+                )
+            }
+            this.#validationAdapters.set(adapter.contractId, adapter)
+        }
+    }
 
     compile(profile: ChannelProfileDefinition): ValidationResult<CompiledChannelProfile> {
         let snapshot: ChannelProfileDefinition
-        let canonicalSchema: string
 
         try {
             snapshot = snapshotProfile(profile)
-            canonicalSchema = canonicalizeJson(snapshot.contentSchema)
         } catch (error) {
             return validationFailure([
                 profileIssue(
@@ -828,7 +903,37 @@ export class ChannelProfileCompiler {
         const definitionIssues = validateProfileDefinition(snapshot)
         if (hasValidationErrors(definitionIssues)) return validationFailure(definitionIssues)
 
-        const cacheKey = `${snapshot.id}:${snapshot.version}:${snapshot.schemaHash}`
+        const contractId =
+            snapshot.execution.kind === 'built_in' ? snapshot.execution.contractId : null
+        const validationAdapter =
+            contractId === null ? undefined : this.#validationAdapters.get(contractId)
+        let validationProfile: ChannelProfileDefinition
+        try {
+            validationProfile =
+                validationAdapter?.prepareProfile === undefined
+                    ? snapshot
+                    : snapshotProfile(validationAdapter.prepareProfile(structuredClone(snapshot)))
+        } catch (error) {
+            return validationFailure([
+                profileIssue(
+                    '/contentSchema',
+                    'profile.validation_adapter_failed',
+                    error instanceof Error
+                        ? error.message
+                        : 'Provider profile validation preparation failed',
+                    'module'
+                ),
+            ])
+        }
+
+        const preparedDefinitionIssues = validateProfileDefinition(validationProfile)
+        if (hasValidationErrors(preparedDefinitionIssues)) {
+            return validationFailure(preparedDefinitionIssues)
+        }
+
+        const canonicalSchema = canonicalizeJson(validationProfile.contentSchema)
+
+        const cacheKey = `${snapshot.id}:${snapshot.version}:${snapshot.schemaHash}:${contractId ?? ''}`
         const cached = this.#validators.get(cacheKey)
         if (cached !== undefined && cached.canonicalSchema !== canonicalSchema) {
             return validationFailure([
@@ -844,7 +949,9 @@ export class ChannelProfileCompiler {
 
         if (validator === undefined) {
             try {
-                validator = Schema.Compile(snapshot.contentSchema) as RuntimeSchemaValidator
+                validator = Schema.Compile(
+                    validationProfile.contentSchema
+                ) as RuntimeSchemaValidator
             } catch (error) {
                 return validationFailure([
                     profileIssue(
@@ -860,7 +967,9 @@ export class ChannelProfileCompiler {
             this.#validators.set(cacheKey, { canonicalSchema, validator })
         }
 
-        return validationSuccess(createCompiledProfile(snapshot, validator))
+        return validationSuccess(
+            createCompiledProfile(snapshot, validationProfile, validator, validationAdapter)
+        )
     }
 
     clear(): void {

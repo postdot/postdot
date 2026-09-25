@@ -1,4 +1,5 @@
 export * from './contract'
 export * from './profile'
+export * from './profile-validation'
 export * from './publisher'
 export * from './text'

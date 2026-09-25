@@ -1,3 +1,5 @@
+import { X_MAX_WEIGHTED_POST_LENGTH, X_TEXT_COUNTING_ALGORITHM } from '@herald/x/text'
+
 export type TargetEditorFieldKind =
     | 'text'
     | 'number'
@@ -21,6 +23,8 @@ export interface TargetEditorField {
     readonly enumValues: readonly TargetEditorPrimitive[]
     readonly minLength: number | null
     readonly maxLength: number | null
+    readonly maxWeightedLength: number | null
+    readonly weightedLengthAlgorithm: string | null
     readonly minItems: number | null
     readonly maxItems: number | null
     readonly minimum: number | null
@@ -160,6 +164,8 @@ function createBoundField(
             enumValues: [],
             minLength: null,
             maxLength: null,
+            maxWeightedLength: null,
+            weightedLengthAlgorithm: null,
             minItems: greatestDefined(schema?.minItems, capability?.minItems),
             maxItems: leastDefined(schema?.maxItems, capability?.maxItems),
             minimum: null,
@@ -188,6 +194,8 @@ function createField(
     const kind = editorFieldKind(binding.semantic, schema, enumValues, stringItemSchema)
     const schemaType = schemaTypeOf(schema)
     const lengthSchema = kind === 'string-list' ? stringItemSchema : schema
+    const maxWeightedLength = capability?.maxWeightedLength ?? null
+    const weightedLengthAlgorithm = capability?.weightedLengthAlgorithm ?? null
 
     return {
         bindingId: binding.id,
@@ -199,7 +207,12 @@ function createField(
         required: isRequiredPath(root, binding.path),
         enumValues,
         minLength: greatestDefined(lengthSchema?.minLength, capability?.minLength),
-        maxLength: leastDefined(lengthSchema?.maxLength, capability?.maxLength),
+        maxLength:
+            maxWeightedLength === null
+                ? leastDefined(lengthSchema?.maxLength, capability?.maxLength)
+                : null,
+        maxWeightedLength,
+        weightedLengthAlgorithm,
         minItems: greatestDefined(schema?.minItems),
         maxItems: leastDefined(schema?.maxItems),
         minimum: finiteNumber(schema?.minimum),
@@ -272,6 +285,8 @@ interface CapabilitySummary {
 interface TextCapability {
     readonly minLength: number | undefined
     readonly maxLength: number | undefined
+    readonly maxWeightedLength: number | undefined
+    readonly weightedLengthAlgorithm: string | undefined
     readonly acceptedSourceFormats: readonly string[]
 }
 
@@ -306,6 +321,8 @@ function readCapabilities(profile: Record<string, unknown>): CapabilitySummary {
     const text = new Map<string, TextCapability>()
     const media = new Map<string, MediaCapability>()
     const capabilities = isRecord(profile.capabilities) ? profile.capabilities : null
+    const execution = isRecord(profile.execution) ? profile.execution : null
+    const legacyXProfile = execution?.kind === 'built_in' && execution.contractId === 'x'
 
     if (capabilities !== null && Array.isArray(capabilities.textFields)) {
         for (const value of capabilities.textFields) {
@@ -313,6 +330,16 @@ function readCapabilities(profile: Record<string, unknown>): CapabilitySummary {
             text.set(value.bindingId, {
                 minLength: numberOrUndefined(value.minLength),
                 maxLength: numberOrUndefined(value.maxLength),
+                maxWeightedLength:
+                    numberOrUndefined(value.maxWeightedLength) ??
+                    (legacyXProfile && value.bindingId === 'text'
+                        ? X_MAX_WEIGHTED_POST_LENGTH
+                        : undefined),
+                weightedLengthAlgorithm:
+                    stringOrUndefined(value.weightedLengthAlgorithm) ??
+                    (legacyXProfile && value.bindingId === 'text'
+                        ? X_TEXT_COUNTING_ALGORITHM
+                        : undefined),
                 acceptedSourceFormats: Array.isArray(value.acceptedSourceFormats)
                     ? value.acceptedSourceFormats.filter(
                           (format): format is string => typeof format === 'string'
@@ -418,6 +445,10 @@ function numberOrUndefined(value: unknown): number | undefined {
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
         ? value
         : undefined
+}
+
+function stringOrUndefined(value: unknown): string | undefined {
+    return typeof value === 'string' ? value : undefined
 }
 
 function isTargetEditorPrimitive(value: unknown): value is TargetEditorPrimitive {

@@ -1,6 +1,7 @@
 import { openapi } from '@elysiajs/openapi'
 import type { HeraldAuth } from '@herald/auth'
 import type { BlueskyFetcher } from '@herald/bluesky'
+import { ChannelProfileCompiler } from '@herald/core'
 import {
     createManualStore,
     createAnalyticsStore,
@@ -20,6 +21,7 @@ import {
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
+import { xChannelProfileValidationAdapter } from '@herald/x'
 import type { Registry } from '@prometheus-io/client'
 import { Elysia } from 'elysia'
 
@@ -99,6 +101,9 @@ function createDomainApp({
     const accessStore = access ?? createAccessStore(database)
     const manualStore = createManualStore(database, {
         ...manualStoreOptions,
+        profileCompiler:
+            manualStoreOptions?.profileCompiler ??
+            new ChannelProfileCompiler({ validationAdapters: [xChannelProfileValidationAdapter] }),
         media,
         publicMediaUrlAvailable:
             media !== undefined &&

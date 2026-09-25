@@ -4104,7 +4104,7 @@ describe('Herald API', () => {
                 }
                 draft: unknown
             }
-            expect(stateBody.active.version).toBe(1)
+            expect(stateBody.active.version).toBe(2)
             expect(stateBody.draft).toBeNull()
             expect(stateBody.active.profile).toMatchObject({
                 id: 'x',
@@ -5086,6 +5086,122 @@ describe('Herald API', () => {
                     errorMessage: 'Operator verified that no remote post exists',
                 },
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('applies twitter-text validation before X publication scheduling', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app)
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'X validation' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            const projectId = projectBody.project.id
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/channels`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ name: 'X destination', profile: 'x' }),
+                }
+            )
+            expect(channelResponse.status).toBe(201)
+            const channelBody = (await channelResponse.json()) as { channel: { id: string } }
+
+            const longUrl = `https://example.com/${'a'.repeat(300)}`
+            const validPostResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent: {
+                            body: { text: longUrl, format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channelBody.channel.id,
+                                targetContent: { text: longUrl, media: [] },
+                                deliveryMode: 'manual',
+                                scheduledAt: now,
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(validPostResponse.status).toBe(201)
+
+            const invalidScheduledResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent: {
+                            body: { text: '日'.repeat(200), format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channelBody.channel.id,
+                                targetContent: { text: '日'.repeat(200), media: [] },
+                                deliveryMode: 'manual',
+                                scheduledAt: now,
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(invalidScheduledResponse.status).toBe(400)
+
+            const invalidDraftResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/posts`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent: {
+                            body: { text: '日'.repeat(200), format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channelBody.channel.id,
+                                targetContent: { text: '日'.repeat(200), media: [] },
+                                deliveryMode: 'manual',
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(invalidDraftResponse.status).toBe(201)
+            const draftBody = (await invalidDraftResponse.json()) as {
+                publications: Array<{ id: string; reviewState: string }>
+            }
+            const draft = draftBody.publications[0]
+            expect(draft?.reviewState).toBe('review_required')
+            if (draft === undefined) throw new Error('The invalid X draft was not created')
+
+            const promoteResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/publications/${draft.id}/draft/promote`,
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({ expectedRevision: 1, scheduledAt: now }),
+                }
+            )
+            expect(promoteResponse.status).toBe(400)
         } finally {
             closeDatabase(database)
         }

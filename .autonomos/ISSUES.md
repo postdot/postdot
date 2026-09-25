@@ -3337,3 +3337,59 @@ posture` is an exact patch duplicate of `aa889111`, and
   token of at least 32 characters when enabled. HTTP tests cover disabled,
   unauthorized, and authenticated scrapes, including changing worker metrics;
   deployment guidance documents configuration and network restrictions.
+
+## [ISSUE-126] Apply authoritative X text validation throughout publication authoring
+
+- Type: problem
+- Status: resolved
+- Evidence: `packages/x/src/profile.ts` limits both the JSON schema and the text
+  capability to 280 raw characters/graphemes, while `packages/x/src/text.ts`
+  applies X weighted counting only in the delivery adapter and documents
+  approximate URL extraction and invalid-character handling. A 320-character
+  URL is rejected by the profile although the weighted parser accepts it; 200
+  CJK characters pass the profile although the weighted parser rejects them.
+  Draft editing and scheduling use profile validation, while the provider
+  rejects overweight text later in the worker.
+- Impact: Users can be prevented from authoring valid X posts, or can schedule
+  posts that only fail when delivery runs. The local parser can also disagree
+  with X on URL and Unicode edge cases.
+- Desired outcome: The same X-compatible text contract governs editing,
+  persistence, scheduling, and delivery; invalid content is rejected before it
+  is scheduled, valid content is not rejected by a raw-character approximation,
+  and parser behavior is covered by the upstream conformance cases.
+- Tasks: X-214
+- Decision: Adopt the official `twitter-text` npm package at the exact upstream
+  release `3.1.0`. Its age alone is not a reason to fork or reimplement it: X's
+  current developer documentation still recommends the library. Reassess
+  ownership only if the package causes a concrete maintenance or compatibility
+  problem; if that happens, maintain only the functions Herald needs and test
+  them against upstream conformance.
+- Dependency note: The release depends on legacy `core-js` 2 and `punycode`
+  packages; npm reported no known advisories on 2026-09-25 and warns that
+  `core-js` 2 is unmaintained. Keep the dependency direct, exact-pinned, and
+  limited to the X provider/browser counter instead of spreading it through
+  generic core.
+- Validation boundary: The provider-owned weighted-text rule must run in the
+  authoring UI, the shared profile validation used before persistence and
+  scheduling, and the delivery worker. A raw schema/resource bound may remain
+  for safety, but it must not be presented as X's character limit or reject
+  otherwise valid weighted text.
+- Resolution: X now uses the exact-pinned official `twitter-text@3.1.0` parser.
+  The X profile v2 advertises a separate raw resource ceiling and its weighted
+  count algorithm; a provider validation adapter also upgrades stored v1 X
+  profile constraints at runtime without rewriting persisted profile snapshots.
+  The live weighted counter appears in the new-publication source and X target
+  override, as well as the publication target editor. The shared validator
+  blocks invalid scheduled content before persistence/promotion, and the worker
+  retains a final pre-dispatch check.
+- Verification: Upstream behavior tests cover URL weighting, punctuation,
+  emoji sequences, CJK, NFC normalization, invalid characters, and the 280
+  weighted-character boundary. API tests cover scheduling and draft promotion;
+  a browser test verifies the live counter for both shared and per-channel
+  content. `check:quick`, all unit tests, the production build, the full existing
+  Playwright suite, and the focused X composer browser test passed. See the
+  [X-214 worklog](worklogs/2026-09-25-X-214.md).
+- References:
+  [X character counting](https://docs.x.com/fundamentals/counting-characters),
+  [official twitter-text JavaScript implementation](https://github.com/twitter/twitter-text/tree/master/js),
+  [twitter-text v3 configuration](https://github.com/twitter/twitter-text/blob/master/config/v3.json).

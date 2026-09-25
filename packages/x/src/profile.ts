@@ -1,31 +1,31 @@
 import type { ChannelProfileDefinition } from '@herald/core'
 
 import {
-    X_DEFAULT_MAX_CHARACTERS,
     X_EXECUTION_CONTRACT_REVISION,
     X_MAX_ALT_TEXT_LENGTH,
     X_MAX_IMAGE_BYTES,
     X_MAX_IMAGES,
     X_PROVIDER,
 } from './contract'
+import {
+    X_MAX_RAW_POST_TEXT_LENGTH,
+    X_MAX_WEIGHTED_POST_LENGTH,
+    X_TEXT_COUNTING_ALGORITHM,
+} from './text'
 
 export const xChannelProfile: ChannelProfileDefinition = {
     id: X_PROVIDER,
-    version: 1,
-    profileHash: 'sha256:herald-x-post-v1',
-    schemaHash: 'sha256:herald-x-post-schema-v1',
+    version: 2,
+    profileHash: 'sha256:herald-x-post-v2',
+    schemaHash: 'sha256:herald-x-post-schema-v2',
     origin: 'built_in',
-    // The static 280-character schema bound is a coarse authoring approximation.
-    // X validates post text with twitter-text weighted counting (URLs count 23,
-    // emoji and CJK count 2; see parseXPostText in ./text.ts), which the
-    // workflow adapter enforces before any external effect.
     contentSchema: {
         type: 'object',
         properties: {
             text: {
                 type: 'string',
                 minLength: 1,
-                maxLength: X_DEFAULT_MAX_CHARACTERS,
+                maxLength: X_MAX_RAW_POST_TEXT_LENGTH,
             },
             media: {
                 type: 'array',
@@ -58,13 +58,14 @@ export const xChannelProfile: ChannelProfileDefinition = {
         },
     ],
     capabilities: {
-        revision: 'x-post-v1',
+        revision: 'x-post-v2',
         textFields: [
             {
                 bindingId: 'text',
                 acceptedSourceFormats: ['plain_text'],
-                maxLength: X_DEFAULT_MAX_CHARACTERS,
-                maxGraphemes: X_DEFAULT_MAX_CHARACTERS,
+                maxLength: X_MAX_RAW_POST_TEXT_LENGTH,
+                maxWeightedLength: X_MAX_WEIGHTED_POST_LENGTH,
+                weightedLengthAlgorithm: X_TEXT_COUNTING_ALGORITHM,
             },
         ],
         mediaFields: [

@@ -2,6 +2,11 @@ import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert
 import { Button } from '@herald/ui/components/button'
 import { Input } from '@herald/ui/components/input'
 import { Textarea } from '@herald/ui/components/textarea'
+import {
+    X_MAX_WEIGHTED_POST_LENGTH,
+    parseXPostText,
+    type XWeightedTextResult,
+} from '@herald/x/text'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { FileTextIcon } from '@solar-icons/react/linear/file-text'
@@ -19,6 +24,7 @@ import {
     PublicationChannelTabs,
     publicationSharedTabId,
 } from '@/components/publication-target-list'
+import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
 import { type PublicationCreationMode, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
@@ -112,6 +118,14 @@ export function NewPublicationPage({
     )
     const activeTargetUsesSharedContent =
         activeTarget === undefined || !customizedContentTargetIds.has(activeTarget.id)
+    const usesXTextRules = activePreviewChannel?.profileId === 'x'
+    const activeText =
+        activeTarget !== undefined && !activeTargetUsesSharedContent
+            ? activeTarget.content
+            : postContent
+    const activeTextValidation = usesXTextRules ? parseXPostText(activeText) : null
+    const activeTextInvalid =
+        activeTextValidation !== null && activeText.trim().length > 0 && !activeTextValidation.valid
     const previewMedia = sourceMedia
         .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
         .filter((asset): asset is MediaReference => asset !== undefined)
@@ -579,6 +593,9 @@ export function NewPublicationPage({
                                             content={activeTarget.content}
                                             disabled={pending}
                                             id={activeTarget.id}
+                                            weightedLimit={
+                                                usesXTextRules ? X_MAX_WEIGHTED_POST_LENGTH : null
+                                            }
                                             onChange={content =>
                                                 updateTargetContent(activeTarget.id, content)
                                             }
@@ -605,6 +622,12 @@ export function NewPublicationPage({
                                             <Textarea
                                                 id="new-post-content"
                                                 aria-label={m.publication_new_source_content()}
+                                                aria-describedby={
+                                                    usesXTextRules
+                                                        ? 'new-post-content-weighted-count'
+                                                        : undefined
+                                                }
+                                                aria-invalid={activeTextInvalid || undefined}
                                                 value={postContent}
                                                 disabled={pending}
                                                 onChange={event =>
@@ -614,6 +637,15 @@ export function NewPublicationPage({
                                                 rows={9}
                                                 className="min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
                                             />
+                                            {activeTextValidation !== null ? (
+                                                <div className="px-4 pb-3">
+                                                    <XWeightedTextCount
+                                                        id="new-post-content-weighted-count"
+                                                        invalid={activeTextInvalid}
+                                                        result={activeTextValidation}
+                                                    />
+                                                </div>
+                                            ) : null}
                                         </div>
                                     )}
 
@@ -726,15 +758,22 @@ function PublicationChannelContentEditor({
     content,
     disabled,
     id,
+    weightedLimit,
     onChange,
     onUseShared,
 }: {
     readonly content: string
     readonly disabled: boolean
     readonly id: string
+    readonly weightedLimit: number | null
     readonly onChange: (content: string) => void
     readonly onUseShared: () => void
 }) {
+    const weightedText: XWeightedTextResult | null =
+        weightedLimit === null ? null : parseXPostText(content)
+    const weightedTextInvalid =
+        weightedText !== null && content.trim().length > 0 && !weightedText.valid
+
     return (
         <section data-publication-channel-content="true" className="p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -754,10 +793,23 @@ function PublicationChannelContentEditor({
                 value={content}
                 disabled={disabled}
                 onChange={event => onChange(event.target.value)}
+                aria-describedby={
+                    weightedLimit === null ? undefined : `publication-target-${id}-weighted-count`
+                }
+                aria-invalid={weightedTextInvalid || undefined}
                 placeholder={m.publication_new_optional_override()}
                 rows={9}
                 className="min-h-56 resize-y rounded-none border-0 bg-transparent text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
             />
+            {weightedText !== null ? (
+                <div className="px-3 pb-3">
+                    <XWeightedTextCount
+                        id={`publication-target-${id}-weighted-count`}
+                        invalid={weightedTextInvalid}
+                        result={weightedText}
+                    />
+                </div>
+            ) : null}
         </section>
     )
 }
