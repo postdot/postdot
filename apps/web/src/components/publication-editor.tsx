@@ -1,3 +1,4 @@
+import { X_MAX_WEIGHTED_POST_LENGTH } from '@herald/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { ArrowLeftIcon } from '@solar-icons/react/linear/arrow-left'
 import { useQueryClient } from '@tanstack/react-query'
@@ -1191,13 +1192,27 @@ function sourceContentIssue(source: SourceContent): string | null {
 
 function getCapabilitySummary(profile: Profile): CapabilitySummary {
     if (!isRecord(profile.capabilities)) return { textFields: [], mediaFieldCount: 0 }
+    const execution = isRecord(profile.execution) ? profile.execution : null
+    const legacyXProfile = execution?.kind === 'built_in' && execution.contractId === 'x'
     const textFields = Array.isArray(profile.capabilities.textFields)
         ? profile.capabilities.textFields.flatMap(value => {
               if (!isRecord(value) || typeof value.bindingId !== 'string') return []
               return [
                   {
                       bindingId: value.bindingId,
-                      maxLength: typeof value.maxLength === 'number' ? value.maxLength : null,
+                      maxLength:
+                          typeof value.maxWeightedLength === 'number' ||
+                          (legacyXProfile && value.bindingId === 'text')
+                              ? null
+                              : typeof value.maxLength === 'number'
+                                ? value.maxLength
+                                : null,
+                      maxWeightedLength:
+                          typeof value.maxWeightedLength === 'number'
+                              ? value.maxWeightedLength
+                              : legacyXProfile && value.bindingId === 'text'
+                                ? X_MAX_WEIGHTED_POST_LENGTH
+                                : null,
                       acceptedSourceFormats: Array.isArray(value.acceptedSourceFormats)
                           ? value.acceptedSourceFormats.filter(
                                 (format): format is string => typeof format === 'string'

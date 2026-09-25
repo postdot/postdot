@@ -132,9 +132,14 @@ async function executeXPublication(input: {
         return permanentFailure('The execution revision has no X post text')
     }
     if (!isXPostTextValid(text)) {
-        const { weightedLength } = parseXPostText(text)
+        const parsed = parseXPostText(text)
+        if (parsed.hasInvalidCharacters) {
+            return permanentFailure('The X post text contains characters that X does not allow')
+        }
         return permanentFailure(
-            `The X post text exceeds the 280 weighted-character limit (weighted length ${weightedLength})`
+            parsed.weightedLength === null
+                ? 'The X post text cannot be measured by twitter-text'
+                : `The X post text exceeds the 280 weighted-character limit (weighted length ${parsed.weightedLength})`
         )
     }
 

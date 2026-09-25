@@ -14,7 +14,6 @@ export const X_REQUIRED_SCOPES = [
     'offline.access',
     'media.write',
 ] as const
-export const X_DEFAULT_MAX_CHARACTERS = 280
 export const X_MAX_IMAGES = 4
 export const X_MAX_ALT_TEXT_LENGTH = 1_000
 export const X_MAX_IMAGE_BYTES = 5 * 1024 * 1024

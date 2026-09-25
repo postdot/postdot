@@ -10,6 +10,38 @@ import {
 } from './target-editor'
 
 describe('schema-aware target editor metadata', () => {
+    it('uses weighted counting for X instead of the legacy raw-length constraint', () => {
+        const fields = getTargetEditorFields({
+            execution: { kind: 'built_in', contractId: 'x', revision: 'post-v1' },
+            contentSchema: {
+                type: 'object',
+                properties: { text: { type: 'string', minLength: 1, maxLength: 280 } },
+                required: ['text'],
+            },
+            fieldBindings: [{ id: 'text', semantic: 'primary_text', path: '/text' }],
+            capabilities: {
+                textFields: [
+                    {
+                        bindingId: 'text',
+                        acceptedSourceFormats: ['plain_text'],
+                        maxLength: 280,
+                        maxGraphemes: 280,
+                    },
+                ],
+                mediaFields: [],
+            },
+        })
+
+        expect(fields[0]).toEqual(
+            expect.objectContaining({
+                bindingId: 'text',
+                maxLength: null,
+                maxWeightedLength: 280,
+                weightedLengthAlgorithm: 'twitter-text-v3',
+            })
+        )
+    })
+
     it('derives controls and constraints from bound channel fields', () => {
         const fields = getTargetEditorFields({
             contentSchema: {

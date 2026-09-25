@@ -18,6 +18,7 @@ export interface CapabilitySummary {
     readonly textFields: readonly {
         readonly bindingId: string
         readonly maxLength: number | null
+        readonly maxWeightedLength: number | null
         readonly acceptedSourceFormats: readonly string[]
     }[]
     readonly mediaFieldCount: number
@@ -114,9 +115,13 @@ export function PublicationEditorSidebar({
                             className="rounded-md bg-muted px-3 py-2 shadow-field">
                             <p className="font-medium">{field.bindingId}</p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                {field.maxLength === null
-                                    ? m.editor_sidebar_no_length_limit()
-                                    : m.editor_sidebar_max_chars({ count: field.maxLength })}{' '}
+                                {field.maxWeightedLength !== null
+                                    ? m.editor_sidebar_max_weighted_chars({
+                                          count: field.maxWeightedLength,
+                                      })
+                                    : field.maxLength === null
+                                      ? m.editor_sidebar_no_length_limit()
+                                      : m.editor_sidebar_max_chars({ count: field.maxLength })}{' '}
                                 ·{' '}
                                 {field.acceptedSourceFormats.join(', ') ||
                                     m.editor_sidebar_no_source_format()}

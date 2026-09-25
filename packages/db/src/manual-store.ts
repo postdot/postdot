@@ -86,6 +86,7 @@ export interface ManualStoreOptions {
     readonly createId?: () => string
     readonly media?: Pick<MediaAssetStore, 'getAsset'>
     readonly publicMediaUrlAvailable?: boolean
+    readonly profileCompiler?: ChannelProfileCompiler
 }
 
 export interface CreateChannelProfileDraftInput {
@@ -304,7 +305,7 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
     const client = database.$client
     const now = options.now ?? Date.now
     const createId = options.createId ?? (() => crypto.randomUUID())
-    const profileCompiler = new ChannelProfileCompiler()
+    const profileCompiler = options.profileCompiler ?? new ChannelProfileCompiler()
     const media = options.media
     const publicMediaUrlAvailable = options.publicMediaUrlAvailable ?? false
     const projectChannelStore = createProjectChannelStore(database, { now, createId })

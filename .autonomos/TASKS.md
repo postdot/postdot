@@ -373,3 +373,6 @@ the central project reads and projection/realtime reliability.
 ## Production backup and restore execution
 
 - [x] **[OPS-213]** Make the documented backup and restore commands executable from the production image `Priority: 🔴` `Complexity: M` — [ISSUE-123]; dispatch maintenance without requiring unrelated web-authentication or publisher-encryption secrets, retain any credentials genuinely required by the configured media store, verify documented media bundle backup/restore against an isolated production image and disposable data, and keep CI and operator instructions aligned. Evidence: [OPS-213 worklog](worklogs/2026-09-25-OPS-213.md).
+## X publication text validation
+
+- [x] **[X-214]** Apply the official `twitter-text` rules throughout X authoring and delivery `Priority: 🔴` `Complexity: L` — [ISSUE-126]; use the exact upstream npm release, keep the provider parser outside generic core, remove the misleading raw-280 authoring cap, and enforce weighted validation in the editor, persistence/scheduling, and worker. Evidence: [X-214 worklog](worklogs/2026-09-25-X-214.md).
