@@ -165,6 +165,26 @@ try {
 
     if (imageBuilt) {
         try {
+            runDocker([
+                'run',
+                '--rm',
+                '--user',
+                'root',
+                '--entrypoint',
+                '/usr/bin/rm',
+                '--mount',
+                `type=bind,source=${testRoot},target=/test-root`,
+                imageTag,
+                '-rf',
+                '/test-root/source-data',
+                '/test-root/restored-data',
+                '/test-root/backups',
+            ])
+        } catch {
+            // The host cleanup below still removes these paths when ownership permits it.
+        }
+
+        try {
             runDocker(['image', 'rm', imageTag])
         } catch {
             // The uniquely tagged image is disposable and may already be absent.
