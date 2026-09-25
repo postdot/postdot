@@ -20,7 +20,7 @@ import {
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
-import { Registry } from '@prometheus-io/client'
+import type { Registry } from '@prometheus-io/client'
 import { Elysia } from 'elysia'
 
 import type { HeraldLoggingConfig } from './config'
@@ -47,7 +47,10 @@ export interface HeraldAppOptions {
     readonly mediaPublicDelivery?: MediaPublicDelivery
     readonly manualStore?: ManualStoreOptions
     readonly logging?: HeraldLoggingConfig
-    readonly metrics?: Registry
+    readonly metrics?: {
+        readonly registry: Registry
+        readonly bearerToken: string
+    }
     readonly onWorkScheduled?: () => void
     /** Test-only escape hatch for independent browser fixtures. */
     readonly allowAdditionalSignups?: boolean
@@ -145,6 +148,17 @@ function createDomainApp({
                                 description:
                                     'The Better Auth email/password session cookie used by the web application.',
                             },
+                            ...(metrics === undefined
+                                ? {}
+                                : {
+                                      metricsBearerAuth: {
+                                          type: 'http',
+                                          scheme: 'bearer',
+                                          bearerFormat: 'monitoring token',
+                                          description:
+                                              'A dedicated monitoring token configured with HERALD_METRICS_TOKEN. It is separate from Herald user API keys.',
+                                      },
+                                  }),
                         },
                     },
                     security: [{ bearerAuth: [] }, { sessionCookie: [] }],
@@ -186,7 +200,7 @@ function createDomainApp({
         )
         .use(createErrorHandler())
         .use(createHealthRoutes({ database, runtime }))
-        .use(createMetricsRoutes(metrics ?? new Registry()))
+        .use(createMetricsRoutes(metrics))
         .use(createPublicInstanceRoutes(accessStore, { allowAdditionalSignups }))
         .use(
             createProjectModule({

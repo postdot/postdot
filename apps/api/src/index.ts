@@ -195,7 +195,8 @@ async function startServerWithRuntimeLock(
             resolveOAuth: publisher.resolveXOAuth,
         }),
     ])
-    const metrics = createHeraldMetrics()
+    const metricsConfiguration = config.metrics
+    const metrics = metricsConfiguration === undefined ? undefined : createHeraldMetrics()
     const worker = createPublicationWorker({
         database,
         publisherStore: publisher.publisherStore,
@@ -215,9 +216,9 @@ async function startServerWithRuntimeLock(
                 assetId: mediaReference.assetId,
                 representationId: mediaReference.representationId,
             }),
-        onRunCompleted: metrics.observeWorkerRun,
+        onRunCompleted: metrics?.observeWorkerRun,
     })
-    metrics.bindScheduler(worker.scheduler)
+    metrics?.bindScheduler(worker.scheduler)
     const baseApp = createApp({
         auth,
         database,
@@ -226,7 +227,14 @@ async function startServerWithRuntimeLock(
         mediaUrlImporter,
         mediaPublicDelivery,
         logging: config.logging,
-        metrics: metrics.registry,
+        ...(metrics === undefined || metricsConfiguration === undefined
+            ? {}
+            : {
+                  metrics: {
+                      registry: metrics.registry,
+                      bearerToken: metricsConfiguration.bearerToken,
+                  },
+              }),
         onWorkScheduled: worker.replan,
         access,
         allowAdditionalSignups,

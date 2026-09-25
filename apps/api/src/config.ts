@@ -89,6 +89,8 @@ const environmentDefinitions = {
     X_CLIENT_SECRET: env.optionalString({ minLength: 1 }),
     HERALD_WEB_ORIGIN: env.url({ defaultValue: 'http://localhost:5173' }),
     HERALD_OUTBOUND_PRIVATE_DESTINATIONS: env.optionalString(),
+    HERALD_METRICS_ENABLED: env.boolean({ defaultValue: false }),
+    HERALD_METRICS_TOKEN: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
         defaultValue: values => (values.NODE_ENV === 'production' ? 'silent' : 'info'),
     }),
@@ -169,6 +171,9 @@ export interface HeraldConfig {
     readonly network: {
         readonly privateDestinations: readonly PrivateDestinationRule[]
     }
+    readonly metrics?: {
+        readonly bearerToken: string
+    }
     readonly web: {
         readonly origin: string
         readonly assetsDirectory: string
@@ -178,6 +183,12 @@ export interface HeraldConfig {
 
 export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldConfig {
     const environment = createEnvironment(environmentDefinitions, source)
+    if (environment.HERALD_METRICS_ENABLED && environment.HERALD_METRICS_TOKEN === undefined) {
+        throw new Error('HERALD_METRICS_TOKEN is required when HERALD_METRICS_ENABLED=true')
+    }
+    if (environment.HERALD_METRICS_ENABLED && environment.HERALD_METRICS_TOKEN!.length < 32) {
+        throw new Error('HERALD_METRICS_TOKEN must contain at least 32 characters')
+    }
     const hasLinkedInClientId = environment.LINKEDIN_CLIENT_ID !== undefined
     const hasLinkedInClientSecret = environment.LINKEDIN_CLIENT_SECRET !== undefined
 
@@ -332,6 +343,9 @@ export function createHeraldConfig(source: EnvironmentSource = Bun.env): HeraldC
             level: environment.LOG_LEVEL,
             pretty: environment.LOG_PRETTY,
         },
+        ...(environment.HERALD_METRICS_ENABLED
+            ? { metrics: { bearerToken: environment.HERALD_METRICS_TOKEN! } }
+            : {}),
     }
 }
 
