@@ -74,21 +74,6 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
     },
     webServer: [
-        ...(runtime.mailpit === undefined
-            ? []
-            : [
-                  {
-                      command: 'bun run scripts/e2e-mailpit.ts',
-                      url: `http://127.0.0.1:${runtime.mailpit.uiPort}/api/v1/info`,
-                      timeout: 120_000,
-                      reuseExistingServer: false,
-                      env: {
-                          HERALD_E2E_DATA_DIRECTORY: dataDirectory,
-                          HERALD_E2E_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
-                          HERALD_E2E_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
-                      },
-                  },
-              ]),
         {
             command: 'bun ./scripts/e2e-api.ts',
             url: `${apiOrigin}/ready`,

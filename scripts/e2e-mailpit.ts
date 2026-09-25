@@ -1,63 +1,77 @@
 import { basename, resolve } from 'node:path'
 
-import { isSafeE2EDataDirectory } from './e2e-runtime'
+import { isSafeE2EDataDirectory, type E2ERuntimeResources } from './e2e-runtime'
 
-const dataDirectory = Bun.env.HERALD_E2E_DATA_DIRECTORY
-if (!isSafeE2EDataDirectory(dataDirectory)) {
-    throw new Error('Mailpit requires an isolated Herald E2E runtime directory')
-}
+export async function startE2EMailpit(
+    runtime: E2ERuntimeResources,
+    environment: NodeJS.ProcessEnv = process.env
+): Promise<() => Promise<void>> {
+    if (!isSafeE2EDataDirectory(runtime.dataDirectory) || runtime.mailpit === undefined) {
+        throw new Error('Mailpit requires an isolated Herald E2E runtime directory')
+    }
 
-const smtpPort = requiredPort(Bun.env.HERALD_E2E_MAILPIT_SMTP_PORT)
-const uiPort = requiredPort(Bun.env.HERALD_E2E_MAILPIT_UI_PORT)
-const projectName = `herald-${basename(dataDirectory).toLowerCase()}`
-const repositoryRoot = resolve(import.meta.dir, '..')
-const composePrefix = [
-    'docker',
-    'compose',
-    '--project-name',
-    projectName,
-    '--file',
-    resolve(repositoryRoot, 'docker-compose.dev.yml'),
-]
-const composeEnvironment = {
-    ...Bun.env,
-    HERALD_MAILPIT_SMTP_PORT: String(smtpPort),
-    HERALD_MAILPIT_UI_PORT: String(uiPort),
-}
+    const projectName = `herald-${basename(runtime.dataDirectory).toLowerCase()}`
+    const repositoryRoot = resolve(import.meta.dir, '..')
+    const composePrefix = [
+        'docker',
+        'compose',
+        '--project-name',
+        projectName,
+        '--file',
+        resolve(repositoryRoot, 'docker-compose.dev.yml'),
+    ]
+    const composeEnvironment = {
+        ...environment,
+        HERALD_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
+        HERALD_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
+    }
 
-const startup = Bun.spawn([...composePrefix, 'up', '--detach', 'mailpit'], {
-    cwd: repositoryRoot,
-    env: composeEnvironment,
-    stderr: 'inherit',
-    stdout: 'inherit',
-})
-const startupCode = await startup.exited
-if (startupCode !== 0) {
-    await stopMailpit()
-    process.exitCode = startupCode
-} else {
-    const signal = await new Promise<'SIGINT' | 'SIGTERM'>(resolveSignal => {
-        process.once('SIGINT', () => resolveSignal('SIGINT'))
-        process.once('SIGTERM', () => resolveSignal('SIGTERM'))
-    })
-    await stopMailpit()
-    process.exitCode = signal === 'SIGINT' ? 130 : 143
-}
+    const shutdown = async () => {
+        const shutdownProcess = Bun.spawn(
+            [...composePrefix, 'down', '--timeout', '2', '--remove-orphans'],
+            {
+                cwd: repositoryRoot,
+                env: composeEnvironment,
+                stderr: 'inherit',
+                stdout: 'inherit',
+            }
+        )
+        const code = await shutdownProcess.exited
+        if (code !== 0) throw new Error(`Could not stop the Mailpit E2E service (exit ${code})`)
+    }
 
-async function stopMailpit() {
-    const shutdown = Bun.spawn([...composePrefix, 'down', '--timeout', '2', '--remove-orphans'], {
+    const startup = Bun.spawn([...composePrefix, 'up', '--detach', 'mailpit'], {
         cwd: repositoryRoot,
         env: composeEnvironment,
         stderr: 'inherit',
         stdout: 'inherit',
     })
-    return shutdown.exited
+    const startupCode = await startup.exited
+    if (startupCode !== 0) {
+        await shutdown()
+        throw new Error(`Could not start the Mailpit E2E service (exit ${startupCode})`)
+    }
+
+    let shutdownPromise: Promise<void> | undefined
+    return () => {
+        shutdownPromise ??= shutdown()
+        return shutdownPromise
+    }
 }
 
-function requiredPort(value: string | undefined): number {
-    const port = Number(value)
-    if (value === undefined || !Number.isInteger(port) || port < 1 || port > 65_535) {
-        throw new Error('Mailpit E2E ports must be valid TCP ports')
+export async function waitForE2EMailpit(origin: string, timeoutMs = 30_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+        try {
+            const response = await fetch(`${origin}/api/v1/info`, {
+                signal: AbortSignal.timeout(1_000),
+            })
+            if (response.ok) return
+        } catch {
+            // The container can be running before its HTTP listener is ready.
+        }
+        await Bun.sleep(200)
     }
-    return port
+
+    throw new Error(`Mailpit did not become ready at ${origin} within ${timeoutMs}ms`)
 }
