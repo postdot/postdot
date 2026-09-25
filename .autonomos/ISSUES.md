@@ -3422,7 +3422,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-128] Log unexpected HTTP failures in production by default
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: Production defaults `LOG_LEVEL` to `silent`, which disables the
   request-logger error hook. The global HTTP error handler returns a generic
   500 response but does not independently log unexpected exceptions.
@@ -3432,6 +3432,12 @@ posture` is an exact patch duplicate of `aa889111`, and
   and secret-redacted error records in production while successful request
   logging can remain disabled and clients continue to receive generic errors.
 - Tasks: OPS-216
+- Resolution: Production now defaults to `LOG_LEVEL=error`: successful request
+  records remain below the threshold, while unexpected 5xx responses emit one
+  structured Pino record with a generated request ID, route template, safe error
+  type, and bounded stack frames that omit the exception message. Dynamic route
+  values such as signed media tokens are not logged, the generic client error
+  response is unchanged, and `LOG_LEVEL=silent` remains an explicit full opt-out.
 
 ## [ISSUE-129] Verify dashboard delivery from the production image
 

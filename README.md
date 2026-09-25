@@ -61,8 +61,11 @@ Provider-specific deployment requirements, including the no-tunnel Bluesky
 loopback OAuth mode and the public HTTPS mode, are documented in
 [`docs/deployment/provider-requirements.md`](docs/deployment/provider-requirements.md).
 
-Request logging is readable by default in development. Set `LOG_LEVEL=silent` to
-disable it, or set `NODE_ENV=production` to make the default log level silent.
+Request logging is readable by default in development. Production defaults to
+`LOG_LEVEL=error`, which records unexpected server failures without routine
+successful-request logs. Set `LOG_LEVEL=silent` to disable logging entirely.
+When logging is enabled, match an `X-Request-ID` response header to its error
+record when investigating a failed request.
 
 Email delivery is optional. Leave the SMTP variables unset for local/manual-link
 operation. To deliver project invitations, signup verification, and password-reset
@@ -277,7 +280,7 @@ docker run --rm --init \
   --env HERALD_WEB_ASSETS_DIR=/app/public \
   --env BETTER_AUTH_URL=http://localhost:3000 \
   --env HERALD_WEB_ORIGIN=http://localhost:3000 \
-  --env LOG_LEVEL=silent \
+  --env LOG_LEVEL=error \
   --env LOG_PRETTY=false \
 herald:local
 ```
