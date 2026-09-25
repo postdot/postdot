@@ -5,12 +5,21 @@ import { defineConfig, devices } from '@playwright/test'
 import { createE2ERuntimeResources } from './scripts/e2e-runtime'
 
 const rootDirectory = process.cwd()
+const useMailpit = process.env.HERALD_E2E_MAILPIT === 'true'
 const runtime = await createE2ERuntimeResources()
 const { apiOrigin, apiPort, dataDirectory, mediaDirectory, webOrigin, webPort } = runtime
+
+if (useMailpit !== (runtime.mailpit !== undefined)) {
+    throw new Error('Mailpit E2E resources are not configured consistently')
+}
 
 process.env.HERALD_E2E_API_PORT = String(apiPort)
 process.env.HERALD_E2E_DATA_DIRECTORY = dataDirectory
 process.env.HERALD_E2E_WEB_PORT = String(webPort)
+if (runtime.mailpit !== undefined) {
+    process.env.HERALD_E2E_MAILPIT_SMTP_PORT = String(runtime.mailpit.smtpPort)
+    process.env.HERALD_E2E_MAILPIT_UI_PORT = String(runtime.mailpit.uiPort)
+}
 
 const apiEnvironment = {
     NODE_ENV: 'test',
@@ -31,10 +40,19 @@ const apiEnvironment = {
     HERALD_E2E_ALLOW_ADDITIONAL_SIGNUPS: 'true',
     LOG_LEVEL: 'silent',
     LOG_PRETTY: 'false',
+    ...(runtime.mailpit === undefined
+        ? {}
+        : {
+              HERALD_EMAIL_SMTP_HOST: '127.0.0.1',
+              HERALD_EMAIL_SMTP_PORT: String(runtime.mailpit.smtpPort),
+              HERALD_EMAIL_SMTP_SECURE: 'false',
+              HERALD_EMAIL_FROM: 'Herald <no-reply@herald.local>',
+          }),
 } as const
 
 export default defineConfig({
     testDir: './e2e',
+    testIgnore: useMailpit ? [] : ['**/access-219-password-reset.spec.ts'],
     outputDir: join(rootDirectory, 'test-results', basename(dataDirectory)),
     metadata: {
         heraldE2eDataDirectory: dataDirectory,
@@ -56,6 +74,21 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
     },
     webServer: [
+        ...(runtime.mailpit === undefined
+            ? []
+            : [
+                  {
+                      command: 'bun run scripts/e2e-mailpit.ts',
+                      url: `http://127.0.0.1:${runtime.mailpit.uiPort}/api/v1/info`,
+                      timeout: 120_000,
+                      reuseExistingServer: false,
+                      env: {
+                          HERALD_E2E_DATA_DIRECTORY: dataDirectory,
+                          HERALD_E2E_MAILPIT_SMTP_PORT: String(runtime.mailpit.smtpPort),
+                          HERALD_E2E_MAILPIT_UI_PORT: String(runtime.mailpit.uiPort),
+                      },
+                  },
+              ]),
         {
             command: 'bun ./scripts/e2e-api.ts',
             url: `${apiOrigin}/ready`,

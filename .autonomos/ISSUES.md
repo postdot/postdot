@@ -1816,9 +1816,13 @@ channels` with a foreign-key constraint error even though a fresh empty database
   seven days, and new project keys expire after 180 days by default. Herald retains
   instance membership and actor projections, while ACCESS-134 exposes the project
   member and invitation workflow through the dashboard. ACCESS-131 through
-  ACCESS-137 are complete. A complete recovery UI/policy, user
-  deletion/anonymization, ownership transfer policy, and post-retirement physical
-  cleanup remain explicit follow-ups.
+  ACCESS-138 are complete. ACCESS-219 adds localized web password-reset request
+  and completion screens over Better Auth, preserves the same public response for
+  known and unknown accounts, and verifies the configured email path through an
+  isolated Mailpit browser test. Without SMTP, the UI states that password
+  recovery is unavailable; the operator-controlled offline path is still pending
+  under ACCESS-220. User deletion/anonymization, ownership transfer policy, and
+  post-retirement physical cleanup remain explicit follow-ups.
 
 ## [ISSUE-067] Establish a clean development access baseline
 

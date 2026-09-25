@@ -49,7 +49,7 @@ const previewProps: HeraldPasswordResetEmailInput = {
         email: 'preview@example.test',
         name: 'Alex Martin',
     },
-    url: 'http://localhost:5173/auth/reset-password?token=preview-token',
+    url: 'http://localhost:5173/reset-password?token=preview-token',
 }
 
 export default function PasswordResetEmailPreview() {
