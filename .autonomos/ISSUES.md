@@ -3057,8 +3057,8 @@ channels` with a foreign-key constraint error even though a fresh empty database
   their work is integrated and their local refs were removed, excluding the
   authoritative `main` ref and the checked-out `codex/reui-calendar-spike` ref.
   Four non-ancestor branches were evaluated individually: `codex/taxonomy-130-
-  backend` is an exact patch duplicate of `c3df184a`, `docs/analytics-storage-
-  posture` is an exact patch duplicate of `aa889111`, and
+backend` is an exact patch duplicate of `c3df184a`, `docs/analytics-storage-
+posture` is an exact patch duplicate of `aa889111`, and
   `feat/analytics-112-bluesky-observations` is an exact patch duplicate of
   `57f09e0f`. `feat/provider-bluesky-loopback-oauth` is superseded by the
   integrated `ce962f20` implementation and its follow-up access-policy records.
@@ -3285,13 +3285,28 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Status: resolved
 - Evidence: The supplied audit reports a production image and development Mailpit compose file but no complete production orchestration, TLS, backup retention, or restore policy.
 - Impact: Operators may deploy a technically runnable image without a supported secure lifecycle for networking, persistence, and recovery.
-- Desired outcome: Supported deployment modes state their network, secret, persistence, retention, upgrade, and restore responsibilities.
-- Tasks: OPS-208
-- Resolution: The repository documents the supported single-process container,
+- Recent revalidation (2026-09-25): The documented Docker `backup --media` and
+  `restore --media` commands start the production entrypoint without an env file.
+  The entrypoint constructs the complete server configuration before dispatching
+  maintenance, and that configuration rejects the image defaults because the
+  authentication, signed-media-URL, and publisher-encryption secrets are absent.
+  This was reproduced with the production environment values declared by the
+  Dockerfile and `createHeraldConfig`; the commands therefore cannot run as
+  documented. This finding reopens the operational recovery contract; it does
+  not invalidate the historical implementation work below.
+- Desired outcome: Supported deployment modes state their network, secret, persistence, retention, upgrade, and restore responsibilities, and the documented backup/restore commands execute successfully against the production image with only the configuration each operation actually needs.
+- Tasks: OPS-208, OPS-213
+- Previous resolution (OPS-208): The repository documents the supported single-process container,
   health/readiness checks, development-only Mailpit, database/media backup and
   restore commands, runtime locking, and separate publisher-key recovery. Full
   orchestration, TLS termination, and retention remain deployment-owned concerns
   rather than undocumented application behavior.
+- Resolution (OPS-213, 2026-09-25): Maintenance commands now parse only the
+  database and media-store configuration they need. The local media bundle
+  commands run without server secrets; S3 credentials remain validated when S3
+  storage is configured. README instructions match this contract, and CI builds
+  and starts the production image, backs up, restores, and starts the restored
+  database using disposable data.
 
 ## [ISSUE-124] Keep project documentation aligned with implemented boundaries
 

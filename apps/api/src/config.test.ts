@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { createHeraldConfig, defaultMediaDirectory } from './config'
+import { createHeraldConfig, createHeraldMaintenanceConfig, defaultMediaDirectory } from './config'
 
 const secret = 'herald-test-secret-with-at-least-32-characters'
 const mediaPublicUrlSecret = 'herald-media-public-url-secret-with-at-least-32-characters'
@@ -409,5 +409,59 @@ describe('Herald configuration', () => {
                 HERALD_PUBLISHER_ENCRYPTION_KEY: 'not-a-hex-key',
             })
         ).toThrow('HERALD_PUBLISHER_ENCRYPTION_KEY')
+    })
+})
+
+describe('Herald maintenance configuration', () => {
+    it('loads database and local media settings without requiring server secrets', () => {
+        expect(
+            createHeraldMaintenanceConfig({
+                DB_FILE_NAME: '/data/herald.sqlite',
+                BETTER_AUTH_SECRET: 'unused',
+                HERALD_MEDIA_PUBLIC_URL_SECRET: 'unused',
+                HERALD_PUBLISHER_ENCRYPTION_KEY: 'unused',
+            })
+        ).toEqual({
+            databaseFileName: '/data/herald.sqlite',
+            media: {
+                driver: 'local',
+                directory: defaultMediaDirectory,
+                storeId: 'local-default',
+                maxObjectBytes: 100_000_000,
+                uploadIntentTtlMs: 900_000,
+                deletionGracePeriodMs: 86_400_000,
+                publicUrlLifetimeMs: 900_000,
+            },
+        })
+    })
+
+    it('retains and validates credentials required by the configured S3 media store', () => {
+        expect(
+            createHeraldMaintenanceConfig({
+                DB_FILE_NAME: '/data/herald.sqlite',
+                HERALD_MEDIA_STORE: 's3',
+                HERALD_MEDIA_S3_BUCKET: 'herald-media',
+                HERALD_MEDIA_S3_REGION: 'us-east-1',
+                HERALD_MEDIA_S3_ACCESS_KEY_ID: 'access-key',
+                HERALD_MEDIA_S3_SECRET_ACCESS_KEY: 'secret-key',
+            }).media
+        ).toMatchObject({
+            driver: 's3',
+            s3: {
+                bucket: 'herald-media',
+                region: 'us-east-1',
+                accessKeyId: 'access-key',
+                secretAccessKey: 'secret-key',
+            },
+        })
+
+        expect(() =>
+            createHeraldMaintenanceConfig({
+                HERALD_MEDIA_STORE: 's3',
+                HERALD_MEDIA_S3_BUCKET: 'herald-media',
+            })
+        ).toThrow(
+            'HERALD_MEDIA_S3_BUCKET, HERALD_MEDIA_S3_ACCESS_KEY_ID, and HERALD_MEDIA_S3_SECRET_ACCESS_KEY'
+        )
     })
 })

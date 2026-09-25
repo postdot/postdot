@@ -21,6 +21,7 @@
         "test:unit": "turbo test && bun run test:scripts",
         "test:scripts": "bun test scripts",
         "test:e2e": "playwright test",
+        "test:container:recovery": "bun run scripts/production-container-recovery.ts",
         "test:coverage": "bun test --coverage --path-ignore-patterns='e2e/**'",
         "measure:footprint": "bun run build && bun run scripts/measure-footprint.ts",
         "benchmark:analytics": "bun run scripts/benchmark-analytics.ts",

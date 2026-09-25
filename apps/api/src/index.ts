@@ -17,7 +17,7 @@ import {
 import { createMastodonPublisher } from '@herald/mastodon'
 
 import { createApp } from './app'
-import { createHeraldConfig, decodeHexKey } from './config'
+import { createHeraldConfig, createHeraldMaintenanceConfig, decodeHexKey } from './config'
 import { runMaintenanceCommand } from './maintenance'
 import { createHeraldAuthEmailDelivery } from './modules/email/delivery'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
@@ -284,13 +284,15 @@ async function startServerWithRuntimeLock(
 
 if (import.meta.main) {
     const args = Bun.argv.slice(2)
-    if (args.includes('--media')) {
-        const config = createHeraldConfig()
-        const handled = await runMaintenanceCommand(args, {
-            mediaStore: createConfiguredMediaStore(config.media),
+    if (args[0] === 'backup' || args[0] === 'restore') {
+        const config = createHeraldMaintenanceConfig()
+        await runMaintenanceCommand(args, {
+            databaseFileName: config.databaseFileName,
+            ...(args.includes('--media')
+                ? { mediaStore: createConfiguredMediaStore(config.media) }
+                : {}),
         })
-        if (!handled) await startServer(config)
-    } else if (!(await runMaintenanceCommand(args))) {
+    } else {
         await startServer()
     }
 }

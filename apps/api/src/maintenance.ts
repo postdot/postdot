@@ -1,19 +1,17 @@
 import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from '@herald/db'
 import type { MediaStore } from '@herald/media'
 
-import { defaultDatabaseFileName } from './config'
-
 export async function runMaintenanceCommand(
     args: readonly string[],
     options: {
+        readonly databaseFileName: string
         readonly mediaStore?: MediaStore
-    } = {}
+    }
 ) {
     const command = args[0]
     if (command !== 'backup' && command !== 'restore') return false
 
-    const databaseFilename =
-        optionValue(args, '--database') ?? Bun.env.DB_FILE_NAME ?? defaultDatabaseFileName
+    const databaseFilename = optionValue(args, '--database') ?? options.databaseFileName
 
     if (command === 'backup') {
         if (args.includes('--media')) {
