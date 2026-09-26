@@ -3620,7 +3620,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-135] Clarify operational analytics data, retention, and access
 
 - Type: question
-- Status: accepted
+- Status: resolved
 - Evidence: Herald has both a process-level Prometheus scrape endpoint and a
   project-level operational analytics API. The latter computes aggregates on
   demand from current publication/job state and the durable `audit_events`
@@ -3640,7 +3640,7 @@ posture` is an exact patch duplicate of `aa889111`, and
   consumers, storage growth, retention, and project-role visibility explicit;
   and recommend whether the API should remain API-only. Do not add sampling,
   retention deletion, or UI before the owner accepts the relevant boundary.
-- Tasks: ANALYTICS-227, ANALYTICS-229
+- Tasks: ANALYTICS-227, ANALYTICS-229, ANALYTICS-230
 - Related issues: ISSUE-054, ISSUE-056, ISSUE-131
 - Related decisions: ADR-051, ADR-054
 - Retention review (ANALYTICS-229): Keep the accepted project-lifetime policy
@@ -3649,9 +3649,39 @@ posture` is an exact patch duplicate of `aa889111`, and
   contract to signal a required resynchronization. The 100,000-row disposable
   fixture measured about 75.39 MiB; that demonstrates growth, not a deployment
   capacity problem. A finite window or archive needs a separate accepted design.
-- Remaining scope: No role-specific analytics permission decision was made in
-  this task. The current project-actor access boundary is unchanged. The
-  operational analytics web surface remains deferred, not permanently rejected.
+- Resolution (owner direction, 2026-09-26): Keep the current authenticated,
+  read-only, project-scoped analytics API available to actors who can access the
+  project; do not add an editor-only check. API-key requests remain subject to
+  the key's existing project scope. The response is aggregate-only and does not
+  expose journal payloads. Keep operational analytics API-only for now; the web
+  surface is deferred, not permanently rejected. Do not add sampling or change
+  the accepted project-lifetime event retention policy in ADR-037. This closes
+  the current boundary review, not future analytics evolution; revisit with a
+  concrete workflow or measured data-lifecycle constraint.
+
+## [ISSUE-136] Scope a source-backed product capability comparison
+
+- Type: proposal
+- Status: accepted
+- Evidence: The owner wants a broad, fresh comparison of Herald with Postiz,
+  Mixpost, and OpenPost after the current sprint is complete. Existing
+  competitor work under ISSUE-056 is limited to provider-engagement analytics
+  and does not describe product-wide capability coverage.
+- Impact: Repeatedly refining existing surfaces without a grounded view of the
+  product landscape risks missing foundational capabilities and makes it hard
+  to distinguish important product gaps from optional competitor differences.
+- Desired outcome: First propose a grouped, evidence-backed feature inventory
+  for owner review; after the included rows are agreed, deliver a readable
+  Herald-versus-Postiz-versus-Mixpost-versus-OpenPost matrix. Each cell must
+  distinguish present, partial/limited, absent, and unverified behavior, note
+  material edition or plan limits, and link dated authoritative evidence.
+  Missing documentation must not be treated as proof of absence, and the report
+  must not imply that Herald should implement every competitor feature.
+- Tasks: PRODUCT-231
+- Related issues: ISSUE-056, ISSUE-132
+- Scope boundary: Research only. Do not begin until the active sprint and PR
+  #215 are closed. The first task proposes the row set for owner approval; no
+  feature implementation or parity commitment is authorized by this issue.
 
 ## External diagnostic follow-up classification
 
