@@ -2,6 +2,7 @@ import { createAccessStore, type AccessStore, type HeraldDatabase } from '@heral
 import * as schema from '@herald/db/schema'
 import { APIError, betterAuth, type Auth, type BetterAuthOptions } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { hashPassword } from 'better-auth/crypto'
 
 import {
     createHeraldAuthPlugins,
@@ -12,6 +13,16 @@ import {
 
 export type { HeraldAuthInvitationOptions, HeraldOrganizationInvitationEmail } from './plugins'
 export { heraldUserApiKeyConfigId } from './plugins'
+
+export const heraldPasswordPolicy = {
+    minimumLength: 8,
+    maximumLength: 128,
+} as const
+
+/** Hashes an offline-recovered password with the same format used by Better Auth. */
+export function hashHeraldPassword(password: string): Promise<string> {
+    return hashPassword(password)
+}
 
 export interface HeraldAuthVerificationEmail {
     readonly user: {
@@ -393,6 +404,8 @@ export function createAuth(
         },
         emailAndPassword: {
             enabled: true,
+            minPasswordLength: heraldPasswordPolicy.minimumLength,
+            maxPasswordLength: heraldPasswordPolicy.maximumLength,
             ...(sendPasswordResetEmail === undefined
                 ? {}
                 : {

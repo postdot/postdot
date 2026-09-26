@@ -28,6 +28,32 @@ test('allocates independent resources for concurrent E2E runs', async () => {
     }
 })
 
+test('allocates isolated Mailpit ports only for mail-enabled E2E runs', async () => {
+    const [mailEnabled, mailDisabled] = await Promise.all([
+        createE2ERuntimeResources({ HERALD_E2E_MAILPIT: 'true' }),
+        createE2ERuntimeResources({}),
+    ])
+
+    try {
+        expect(mailEnabled.mailpit).toBeDefined()
+        expect(mailDisabled.mailpit).toBeUndefined()
+        expect(
+            new Set([
+                mailEnabled.apiPort,
+                mailEnabled.webPort,
+                mailEnabled.mailpit!.smtpPort,
+                mailEnabled.mailpit!.uiPort,
+            ]).size
+        ).toBe(4)
+    } finally {
+        await Promise.all(
+            [mailEnabled, mailDisabled].map(resource =>
+                rm(resource.dataDirectory, { recursive: true, force: true })
+            )
+        )
+    }
+})
+
 test('rejects the legacy shared directory as a cleanup target', () => {
     expect(isSafeE2EDataDirectory(join(tmpdir(), 'herald-e2e-data'))).toBe(false)
     expect(isSafeE2EDataDirectory(tmpdir())).toBe(false)
@@ -55,6 +81,28 @@ test('reuses the parent runtime when Playwright loads its config in a worker', a
         const workerResources = await createE2ERuntimeResources({
             HERALD_E2E_API_PORT: String(parentResources.apiPort),
             HERALD_E2E_DATA_DIRECTORY: parentResources.dataDirectory,
+            HERALD_E2E_WEB_PORT: String(parentResources.webPort),
+        })
+
+        expect(workerResources).toEqual(parentResources)
+    } finally {
+        await rm(parentResources.dataDirectory, { recursive: true, force: true })
+    }
+})
+
+test('reuses mail-enabled runtime ports when Playwright loads its config in a worker', async () => {
+    const parentResources = await createE2ERuntimeResources({ HERALD_E2E_MAILPIT: 'true' })
+    const mailpit = parentResources.mailpit
+
+    if (mailpit === undefined) throw new Error('Expected Mailpit ports for this fixture')
+
+    try {
+        const workerResources = await createE2ERuntimeResources({
+            HERALD_E2E_API_PORT: String(parentResources.apiPort),
+            HERALD_E2E_DATA_DIRECTORY: parentResources.dataDirectory,
+            HERALD_E2E_MAILPIT: 'true',
+            HERALD_E2E_MAILPIT_SMTP_PORT: String(mailpit.smtpPort),
+            HERALD_E2E_MAILPIT_UI_PORT: String(mailpit.uiPort),
             HERALD_E2E_WEB_PORT: String(parentResources.webPort),
         })
 

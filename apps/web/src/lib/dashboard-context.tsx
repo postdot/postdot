@@ -174,6 +174,10 @@ export interface ProjectDashboardContextValue extends ProjectData {
         providerApplicationId?: string
     ) => Promise<void>
     readonly onStartMastodonConnection: (channelId: string, instanceUrl: string) => Promise<void>
+    readonly onStartXConnection: (
+        channelId: string,
+        providerApplicationId?: string
+    ) => Promise<void>
     readonly onConnectDiscordPublisher: (
         channelId: string,
         input: { botToken: string; channelId: string }
@@ -524,6 +528,17 @@ export function ProjectDashboardProvider({
         })
     }
 
+    async function handleStartXConnection(channelId: string, providerApplicationId?: string) {
+        await runAction(async () => {
+            const { authorizationUrl } = await api.startXPublisherConnection(
+                project.id,
+                channelId,
+                providerApplicationId
+            )
+            window.location.assign(authorizationUrl)
+        })
+    }
+
     async function handleConnectDiscordPublisher(
         channelId: string,
         input: { botToken: string; channelId: string }
@@ -708,6 +723,7 @@ export function ProjectDashboardProvider({
         onStartLinkedInConnection: handleStartLinkedInConnection,
         onStartBlueskyConnection: handleStartBlueskyConnection,
         onStartMastodonConnection: handleStartMastodonConnection,
+        onStartXConnection: handleStartXConnection,
         onConnectDiscordPublisher: handleConnectDiscordPublisher,
         onConnectDevtoPublisher: handleConnectDevtoPublisher,
         onPublish: handlePublish,

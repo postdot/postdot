@@ -4,6 +4,8 @@ import { chmod, mkdtemp, mkdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+import { verifyProductionDashboard } from './production-web-assets'
+
 const repositoryRoot = resolve(import.meta.dir, '..')
 const runId = randomUUID().replaceAll('-', '').slice(0, 12)
 const imageTag = `herald-recovery:${runId}`
@@ -95,11 +97,15 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
 
     try {
         await waitForReadiness(port)
+        const dashboard = await verifyProductionDashboard(`http://127.0.0.1:${port}`)
+        console.log(
+            `The ${stage} production container served the dashboard shell and ${dashboard.assetCount} built assets.`
+        )
     } catch (error) {
         const containerState = runDocker(['inspect', '--format', '{{json .State}}', containerName])
         const logs = runDocker(['logs', '--tail', '100', containerName])
         throw new Error(
-            `The ${stage} production container did not become ready: ${String(error)}\n` +
+            `The ${stage} production container failed its HTTP acceptance checks: ${String(error)}\n` +
                 `Container state: ${containerState}\nContainer logs:\n${logs}`
         )
     }

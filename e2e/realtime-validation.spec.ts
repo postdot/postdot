@@ -285,7 +285,9 @@ test('shows notification loading, error, and retry states', async ({ page }) => 
         })
     })
     await page.getByRole('button', { name: 'Open notification preferences', exact: true }).click()
-    await expect(page.getByRole('alert')).toContainText('The request could not be completed.')
+    await expect(page.getByRole('alert')).toContainText(
+        'The requested resource could not be found.'
+    )
 
     await page.unroute(notificationErrorUrl)
     await page.getByRole('button', { name: 'Try again', exact: true }).click()

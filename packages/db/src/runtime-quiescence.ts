@@ -15,7 +15,7 @@ import { dirname, resolve } from 'node:path'
 const RUNTIME_LOCK_VERSION = 1
 const RUNTIME_LOCK_SUFFIX = '.runtime.lock'
 
-export type RuntimeQuiescenceOwner = 'server' | 'restore'
+export type RuntimeQuiescenceOwner = 'server' | 'restore' | 'recovery'
 
 export interface RuntimeQuiescenceLock {
     readonly databaseFilename: string

@@ -3,6 +3,7 @@ import { Button } from '@herald/ui/components/button'
 import { Input } from '@herald/ui/components/input'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
+import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { BlueskyConnectionDialog } from '@/components/bluesky-connection-dialog'
@@ -49,12 +50,17 @@ interface PublisherConnectionPanelProps {
         providerApplicationId?: string
     ) => Promise<void>
     readonly onStartMastodonConnection: (channelId: string, instanceUrl: string) => Promise<void>
+    readonly onStartXConnection: (
+        channelId: string,
+        providerApplicationId?: string
+    ) => Promise<void>
     readonly onConnectDiscordPublisher: (
         channelId: string,
         input: { botToken: string; channelId: string }
     ) => Promise<boolean>
     readonly onConnectDevtoPublisher: (channelId: string, apiKey: string) => Promise<boolean>
     readonly onDisconnectPublisher: (channelId: string) => Promise<void>
+    readonly isInstanceAdmin?: boolean
     readonly readOnly?: boolean
 }
 
@@ -66,9 +72,11 @@ export function PublisherConnectionPanel({
     onStartLinkedInConnection,
     onStartBlueskyConnection,
     onStartMastodonConnection,
+    onStartXConnection,
     onConnectDiscordPublisher,
     onConnectDevtoPublisher,
     onDisconnectPublisher,
+    isInstanceAdmin = false,
     readOnly = false,
 }: PublisherConnectionPanelProps) {
     useLanguage()
@@ -81,8 +89,14 @@ export function PublisherConnectionPanel({
 
     const needsProviderApplications =
         !readOnly &&
+        isInstanceAdmin &&
         connectableChannels.some(channel => {
-            if (channel.profileId !== 'linkedin' && channel.profileId !== 'bluesky') return false
+            if (
+                channel.profileId !== 'linkedin' &&
+                channel.profileId !== 'bluesky' &&
+                channel.profileId !== 'x'
+            )
+                return false
             const connection = connections.find(item => item.channelId === channel.id)
             return connection === undefined || connection.state !== 'active'
         })
@@ -139,6 +153,8 @@ export function PublisherConnectionPanel({
     const linkedInApplicationId = selectedApplicationId('linkedin')
     const blueskyApplications = applicationsFor('bluesky')
     const blueskyApplicationId = selectedApplicationId('bluesky')
+    const xApplications = applicationsFor('x')
+    const xApplicationId = selectedApplicationId('x') ?? xApplications[0]?.id
     const connectionsByChannel = new Map(
         connections.map(connection => [connection.channelId, connection])
     )
@@ -223,9 +239,11 @@ export function PublisherConnectionPanel({
                                                   ? m.publisher_connect_api_key({
                                                         provider: 'DEV.to',
                                                     })
-                                                  : channel.profileId === 'linkedin'
-                                                    ? m.publisher_no_automatic()
-                                                    : m.publisher_custom_profile()}
+                                                  : channel.profileId === 'x'
+                                                    ? m.publisher_connect_account({ provider: 'X' })
+                                                    : channel.profileId === 'linkedin'
+                                                      ? m.publisher_no_automatic()
+                                                      : m.publisher_custom_profile()}
                                     </p>
                                 ) : connection.kind !== 'custom_http' ? (
                                     <p className="mt-2 text-sm text-muted-foreground">
@@ -393,6 +411,46 @@ export function PublisherConnectionPanel({
                                     onConnect={onStartMastodonConnection}
                                     reconnect={connection !== undefined}
                                 />
+                            ) : channel.profileId === 'x' && canConnect ? (
+                                <div className="mt-4 grid w-full gap-3 sm:mt-0 sm:w-80 sm:shrink-0">
+                                    {isInstanceAdmin ? (
+                                        <ProviderApplicationSelect
+                                            applications={xApplications}
+                                            disabled={pending}
+                                            id={`x-application-${channel.id}`}
+                                            onValueChange={applicationId =>
+                                                selectApplication('x', applicationId)
+                                            }
+                                            value={xApplicationId ?? ''}
+                                        />
+                                    ) : null}
+                                    <Button
+                                        size="sm"
+                                        onClick={() =>
+                                            void onStartXConnection(channel.id, xApplicationId)
+                                        }
+                                        disabled={pending}>
+                                        <AddIcon aria-hidden="true" />
+                                        {connection === undefined
+                                            ? m.provider_connect_title({ provider: 'X' })
+                                            : m.provider_reconnect_title({ provider: 'X' })}
+                                    </Button>
+                                    <p className="text-xs text-muted-foreground">
+                                        {isInstanceAdmin ? (
+                                            <Link
+                                                className="text-primary hover:underline"
+                                                search={{
+                                                    projectId: channel.projectId,
+                                                    workspaceId: undefined,
+                                                }}
+                                                to="/dashboard/settings/provider-applications">
+                                                {m.publisher_x_configure_application()}
+                                            </Link>
+                                        ) : (
+                                            m.publisher_x_admin_setup_required()
+                                        )}
+                                    </p>
+                                </div>
                             ) : channel.profileId === 'discord' && canConnect ? (
                                 <DiscordConnectionDialog
                                     channel={channel}
@@ -423,6 +481,7 @@ export function PublisherConnectionPanel({
                               channel.profileId !== 'mastodon' &&
                               channel.profileId !== 'discord' &&
                               channel.profileId !== 'devto' &&
+                              channel.profileId !== 'x' &&
                               canConnect ? (
                                 <CustomHttpConnectionDialog
                                     channel={channel}

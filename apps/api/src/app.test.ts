@@ -355,6 +355,25 @@ describe('Herald API', () => {
         }
     })
 
+    it('preserves Better Auth session cookies through the Elysia mount', async () => {
+        const { app, database } = createFixture()
+        const email = 'elysia-auth-mount@herald.local'
+
+        try {
+            const cookie = await signUp(app, email)
+            const response = await app.handle(
+                new Request(`${baseURL}/api/auth/get-session`, {
+                    headers: { cookie },
+                })
+            )
+
+            expect(response.status).toBe(200)
+            expect(await response.json()).toMatchObject({ user: { email } })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('manages runtime provider applications without exposing client secrets', async () => {
         const { app, database } = createFixture()
 
@@ -398,6 +417,7 @@ describe('Herald API', () => {
             expect(listResponse.status).toBe(200)
             expect(await listResponse.json()).toEqual({
                 applications: [created.application],
+                xCallbackUri: `${baseURL}/api/oauth/x/callback`,
             })
 
             const disableResponse = await jsonRequest(

@@ -61,8 +61,11 @@ Provider-specific deployment requirements, including the no-tunnel Bluesky
 loopback OAuth mode and the public HTTPS mode, are documented in
 [`docs/deployment/provider-requirements.md`](docs/deployment/provider-requirements.md).
 
-Request logging is readable by default in development. Set `LOG_LEVEL=silent` to
-disable it, or set `NODE_ENV=production` to make the default log level silent.
+Request logging is readable by default in development. Production defaults to
+`LOG_LEVEL=error`, which records unexpected server failures without routine
+successful-request logs. Set `LOG_LEVEL=silent` to disable logging entirely.
+When logging is enabled, match an `X-Request-ID` response header to its error
+record when investigating a failed request.
 
 Email delivery is optional. Leave the SMTP variables unset for local/manual-link
 operation. To deliver project invitations, signup verification, and password-reset
@@ -277,7 +280,7 @@ docker run --rm --init \
   --env HERALD_WEB_ASSETS_DIR=/app/public \
   --env BETTER_AUTH_URL=http://localhost:3000 \
   --env HERALD_WEB_ORIGIN=http://localhost:3000 \
-  --env LOG_LEVEL=silent \
+  --env LOG_LEVEL=error \
   --env LOG_PRETTY=false \
 herald:local
 ```
@@ -325,13 +328,35 @@ Keep the publisher-encryption key separately: the restored application needs it
 to use its encrypted publisher connections.
 
 The lock is intentionally not reclaimed automatically after a forced process
-termination. If a restart or restore reports an existing lock, first verify
-that no Herald process is using the database, then remove only the exact
+termination. If a restart, restore, or account-recovery command reports an existing
+lock, first verify that no Herald process is using the database, then remove only the exact
 `<database>.runtime.lock` sidecar before retrying. Never remove the marker to
 override a live process.
 
 The commands without `--media` remain available for database-only recovery, but do
 not include stored media objects.
+
+### Local account password recovery
+
+When SMTP recovery is unavailable, stop Herald and run the local maintenance
+command against the exact database file. It requires an interactive terminal,
+asks you to confirm the absolute database path, and reads the new password without
+echoing it. The command creates a validated, permission-restricted database backup
+before changing the password, revokes that user's web sessions and pending reset
+links, and leaves projects, API keys, publisher credentials, and historical actors
+untouched:
+
+```sh
+docker run --rm -it \
+  --mount type=volume,source=herald-data,target=/data \
+  herald:local account recover-password --database /data/herald.sqlite
+```
+
+Keep the reported `.before-password-recovery-*` directory under the same protection
+and retention controls as other database backups. It contains `database.sqlite` and
+has owner-only directory/file permissions. Start Herald again after the command
+completes. This command resets an existing account password; it does not create an
+account or change instance-admin roles.
 
 ### Publisher encryption key recovery
 
@@ -368,6 +393,9 @@ To recover publisher credentials:
 Do not generate a replacement key during restore: a new key cannot decrypt existing
 publisher credentials. If the original key is permanently lost, the credentials
 are unrecoverable and each affected publisher must be reconnected deliberately.
+
+See the [capability availability and verification matrix](docs/capability-evidence.md)
+for current web, API, and CLI coverage, known gaps, and end-to-end evidence.
 
 The current workspace contains:
 

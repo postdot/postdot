@@ -1,9 +1,27 @@
+import { randomUUID } from 'node:crypto'
+
 import { DomainInvariantError } from '@herald/core'
 import { MediaStoreError } from '@herald/media'
 import { Elysia, NotFound, ValidationError } from 'elysia'
+import type { Logger } from 'pino'
 
-export function createErrorHandler() {
-    return new Elysia({ name: 'herald-error-handler' }).error('global', ({ error, set }) => {
+type ResponseHeaders = Record<string, string | number | string[]>
+
+export function createErrorHandler(logger?: Logger) {
+    const loggedRequests = new WeakSet<Request>()
+    const requestIds = new WeakMap<Request, string>()
+
+    const app = new Elysia({ name: 'herald-error-handler' })
+
+    app.request(({ request, set }) => {
+        if (logger === undefined) return
+
+        const requestId = randomUUID()
+        requestIds.set(request, requestId)
+        set.headers['x-request-id'] = requestId
+    })
+
+    app.error('global', ({ error, request, path, route, set }) => {
         if (error instanceof ValidationError) {
             set.status = 422
             return {
@@ -43,6 +61,18 @@ export function createErrorHandler() {
                 error.code === 'size_mismatch' ||
                 error.code === 'write_limit_exceeded'
             set.status = clientInputError ? 400 : 500
+            if (set.status >= 500) {
+                logUnexpectedFailure(
+                    logger,
+                    request,
+                    route ?? path,
+                    set.status,
+                    error,
+                    set,
+                    loggedRequests,
+                    requestIds
+                )
+            }
             return {
                 error: {
                     code: clientInputError ? error.code : 'media_storage_failure',
@@ -54,6 +84,16 @@ export function createErrorHandler() {
         }
 
         set.status = 500
+        logUnexpectedFailure(
+            logger,
+            request,
+            route ?? path,
+            set.status,
+            error,
+            set,
+            loggedRequests,
+            requestIds
+        )
         return {
             error: {
                 code: 'internal_error',
@@ -61,4 +101,75 @@ export function createErrorHandler() {
             },
         }
     })
+
+    app.afterResponse(({ request, path, route, set }) => {
+        const status = typeof set.status === 'number' ? set.status : 200
+        if (status < 500 || logger === undefined) return
+
+        if (loggedRequests.has(request)) {
+            loggedRequests.delete(request)
+            return
+        }
+
+        logUnexpectedFailure(
+            logger,
+            request,
+            route ?? path,
+            status,
+            undefined,
+            set,
+            loggedRequests,
+            requestIds
+        )
+    })
+
+    return app.as('global')
+}
+
+function logUnexpectedFailure(
+    logger: Logger | undefined,
+    request: Request,
+    path: string,
+    status: number,
+    error: unknown,
+    set: { headers: ResponseHeaders },
+    loggedRequests: WeakSet<Request>,
+    requestIds: WeakMap<Request, string>
+): void {
+    if (logger === undefined) return
+
+    const requestId = requestIds.get(request) ?? randomUUID()
+    requestIds.set(request, requestId)
+    set.headers['x-request-id'] = requestId
+    logger.error(
+        {
+            method: request.method,
+            path,
+            status,
+            requestId,
+            ...(error === undefined ? { errorType: 'HttpResponse' } : safeErrorDetails(error)),
+        },
+        'request failed'
+    )
+    loggedRequests.add(request)
+}
+
+function safeErrorType(error: unknown): string {
+    if (!(error instanceof Error)) return typeof error
+
+    const name = error.constructor.name
+    return /^[A-Za-z_$][\w$]{0,63}$/.test(name) ? name : 'Error'
+}
+
+function safeErrorDetails(error: unknown): {
+    readonly errorType: string
+    readonly errorStack?: string
+} {
+    if (!(error instanceof Error)) return { errorType: typeof error }
+
+    const stack = error.stack?.split('\n').slice(1, 13).join('\n')
+    return {
+        errorType: safeErrorType(error),
+        ...(stack === undefined || stack.length === 0 ? {} : { errorStack: stack }),
+    }
 }
