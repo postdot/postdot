@@ -3519,10 +3519,10 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related issues: ISSUE-054, ISSUE-056
 - Related decision: ADR-051
 - Resolution (owner decision, 2026-09-26): Defer a web page for Herald's internal
-  delivery/execution analytics. This is not a permanent rejection of analytics
-  UI. The owner's intended product concept is publication-performance
-  analytics (provider-reported views, comments, reactions, and similar values),
-  which is a separate question tracked by [ISSUE-135](#issue-135).
+  delivery/execution analytics for now. This is not a permanent rejection of
+  the page. The project-authorized API remains available while its purpose,
+  persisted source data, overlap with instance telemetry, and access boundary
+  are clarified under [ISSUE-135](#issue-135).
 
 ## [ISSUE-132] Maintain a cross-surface capability and verification matrix
 
@@ -3583,30 +3583,31 @@ posture` is an exact patch duplicate of `aa889111`, and
   frameworks only if concrete incompatibility justifies it.
 - Tasks: MAINT-226
 
-## [ISSUE-135] Define the publication-performance analytics product boundary
+## [ISSUE-135] Clarify operational analytics data, retention, and access
 
 - Type: question
 - Status: accepted
-- Evidence: The owner clarified that the intended analytics page concerns
-  provider-reported performance of Herald publications, such as views,
-  comments, and reactions, not Herald's internal queue, worker, or delivery
-  reliability. Herald currently has a separate operational analytics API and
-  an explicit, bounded Bluesky observation collector; it has no publication-
-  performance analytics page or cross-provider collection policy.
-- Impact: Automatically sampling provider counters without a product boundary
-  could create unbounded SQLite history, unnecessary provider traffic, and
-  unclear expectations about metric comparability, visibility, and export.
-  Conversely, keeping every observation on-demand and API-only may not support
-  the historical comparisons users mean by analytics.
-- Desired outcome: Compare provider-supported publication metrics and access
-  constraints; quantify plausible snapshot growth and retention choices; decide
-  which workflows need historical storage; and recommend whether results are
-  read through the API, exported, visualized, or some combination, with
-  project-role visibility defined. Do not implement collection or UI before
-  the owner accepts a product boundary.
+- Evidence: Herald has both a process-level Prometheus scrape endpoint and a
+  project-level operational analytics API. The latter computes aggregates on
+  demand from current publication/job state and the durable `audit_events`
+  journal; it does not persist query snapshots. That journal is also consumed
+  by realtime and notification projections, and no automatic journal-retention
+  job was found. The API is project-scoped and exposes aggregate results to
+  authenticated project actors without an editor-only role check.
+- Impact: The analytics API may look like another stream of stored metrics,
+  although its reads create no such stream. Separately, durable event history
+  can grow with real workflow activity, and pruning it could affect analytics,
+  realtime replay, and notification records. The process metrics and project
+  report overlap only on a subset of worker outcomes and durations; their
+  scopes and data lifecycles differ.
+- Desired outcome: Establish which operational questions belong in Prometheus,
+  the project analytics API, or a future web surface; make the journal's
+  consumers, storage growth, retention, and project-role visibility explicit;
+  and recommend whether the API should remain API-only. Do not add sampling,
+  retention deletion, or UI before the owner accepts the relevant boundary.
 - Tasks: ANALYTICS-227
 - Related issues: ISSUE-054, ISSUE-056, ISSUE-131
-- Related decisions: ADR-051, ADR-052, ADR-055
+- Related decisions: ADR-051, ADR-054
 
 ## External diagnostic follow-up classification
 
