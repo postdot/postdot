@@ -3424,6 +3424,16 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Scope note: The current fail-closed behavior is intentional, not a newly
   reproduced regression. OPS-217 is an evaluation task only; changing the lock
   contract requires a separately accepted decision.
+- Evaluation (OPS-217, 2026-09-26): A forced-stop experiment on the current
+  sidecar confirmed that SIGKILL leaves the marker and blocks restore, while a
+  Linux `flock` prototype on the repository's local ext4 filesystem excluded a
+  concurrent process and released after SIGKILL. This proves feasibility on this
+  Linux host, not Bun integration or cross-platform behavior. The documented
+  container is Linux, but the project has no explicit host-platform support
+  matrix. Keep the existing contract until the owner chooses whether direct
+  Windows/macOS deployment is supported and accepts a platform-tested kernel
+  lock implementation; do not use heartbeat expiry or PID-only reclamation as a
+  substitute. See the [OPS-217 worklog](worklogs/2026-09-26-OPS-217.md).
 
 ## [ISSUE-128] Log unexpected HTTP failures in production by default
 
