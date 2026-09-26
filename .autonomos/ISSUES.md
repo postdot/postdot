@@ -3504,7 +3504,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-131] Decide whether operational analytics needs a web surface
 
 - Type: question
-- Status: accepted
+- Status: resolved
 - Evidence: Herald has a project-authorized operational analytics API and
   read-model implementation, but no authenticated web analytics route. The
   accepted foundation explicitly did not require a dashboard, so the missing
@@ -3518,6 +3518,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: ANALYTICS-223
 - Related issues: ISSUE-054, ISSUE-056
 - Related decision: ADR-051
+- Resolution (owner decision, 2026-09-26): Defer a web page for Herald's internal
+  delivery/execution analytics. This is not a permanent rejection of analytics
+  UI. The owner's intended product concept is publication-performance
+  analytics (provider-reported views, comments, reactions, and similar values),
+  which is a separate question tracked by [ISSUE-135](#issue-135).
 
 ## [ISSUE-132] Maintain a cross-surface capability and verification matrix
 
@@ -3577,6 +3582,31 @@ posture` is an exact patch duplicate of `aa889111`, and
   document its upgrade constraints; keep the adapter narrow and change
   frameworks only if concrete incompatibility justifies it.
 - Tasks: MAINT-226
+
+## [ISSUE-135] Define the publication-performance analytics product boundary
+
+- Type: question
+- Status: accepted
+- Evidence: The owner clarified that the intended analytics page concerns
+  provider-reported performance of Herald publications, such as views,
+  comments, and reactions, not Herald's internal queue, worker, or delivery
+  reliability. Herald currently has a separate operational analytics API and
+  an explicit, bounded Bluesky observation collector; it has no publication-
+  performance analytics page or cross-provider collection policy.
+- Impact: Automatically sampling provider counters without a product boundary
+  could create unbounded SQLite history, unnecessary provider traffic, and
+  unclear expectations about metric comparability, visibility, and export.
+  Conversely, keeping every observation on-demand and API-only may not support
+  the historical comparisons users mean by analytics.
+- Desired outcome: Compare provider-supported publication metrics and access
+  constraints; quantify plausible snapshot growth and retention choices; decide
+  which workflows need historical storage; and recommend whether results are
+  read through the API, exported, visualized, or some combination, with
+  project-role visibility defined. Do not implement collection or UI before
+  the owner accepts a product boundary.
+- Tasks: ANALYTICS-227
+- Related issues: ISSUE-054, ISSUE-056, ISSUE-131
+- Related decisions: ADR-051, ADR-052, ADR-055
 
 ## External diagnostic follow-up classification
 
