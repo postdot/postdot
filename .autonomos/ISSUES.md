@@ -3504,7 +3504,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-131] Decide whether operational analytics needs a web surface
 
 - Type: question
-- Status: accepted
+- Status: resolved
 - Evidence: Herald has a project-authorized operational analytics API and
   read-model implementation, but no authenticated web analytics route. The
   accepted foundation explicitly did not require a dashboard, so the missing
@@ -3518,6 +3518,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: ANALYTICS-223
 - Related issues: ISSUE-054, ISSUE-056
 - Related decision: ADR-051
+- Resolution (owner decision, 2026-09-26): Defer a web page for Herald's internal
+  delivery/execution analytics for now. This is not a permanent rejection of
+  the page. The project-authorized API remains available while its purpose,
+  persisted source data, overlap with instance telemetry, and access boundary
+  are clarified under [ISSUE-135](#issue-135).
 
 ## [ISSUE-132] Maintain a cross-surface capability and verification matrix
 
@@ -3548,7 +3553,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-133] Reconcile proposed decision records with implemented behavior
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The diagnostic found decision records still marked `proposed` for
   areas with implemented code and tests, including runtime packaging, realtime,
   provider adapters, analytics, and runtime quiescence. A proposed record is
@@ -3562,11 +3567,23 @@ posture` is an exact patch duplicate of `aa889111`, and
   automatically.
 - Tasks: META-225
 - Related issue: ISSUE-109
+- Resolution (META-225, 2026-09-26): Compared ADR-010, ADR-044, ADR-045,
+  ADR-048, ADR-051, ADR-052, ADR-055, ADR-068, and ADR-069 with current source,
+  tests, and their linked worklogs. Their mechanisms are implemented, but the
+  repository does not record explicit owner ratification of these complete
+  technical decisions. All nine statuses remain `proposed`; feature or
+  implementation approval is not treated as ADR acceptance. Corrected ADR-010's
+  obsolete release framing and runtime-version detail to match accepted
+  continuous-development scope and the repository-pinned Bun runtime.
+- Owner clarification: The internal Herald operational-analytics UI deferral
+  does not defer publication-performance analytics such as views and comments.
+  The decision inventory and remaining ratification choices are recorded in the
+  [META-225 worklog](worklogs/2026-09-26-META-225.md).
 
 ## [ISSUE-134] Contain the Better Auth and Elysia type-integration seam
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The Better Auth plugin integration maintains a local type contract
   and conversions around framework inference limitations. The diagnostic
   identified this as a concrete maintenance seam, not evidence that Elysia or
@@ -3576,7 +3593,37 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Characterize the seam with focused contract coverage and
   document its upgrade constraints; keep the adapter narrow and change
   frameworks only if concrete incompatibility justifies it.
-- Tasks: MAINT-226
+- Resolution: Added an Elysia-mounted sign-up/session-cookie contract test and
+  explicit Better Auth/Elysia upgrade checks to the owning package guidance.
+  Existing auth types and adapters remain narrow; no framework incompatibility
+  was reproduced.
+- Evidence: [MAINT-226 worklog](worklogs/2026-09-26-MAINT-226.md).
+
+## [ISSUE-135] Clarify operational analytics data, retention, and access
+
+- Type: question
+- Status: accepted
+- Evidence: Herald has both a process-level Prometheus scrape endpoint and a
+  project-level operational analytics API. The latter computes aggregates on
+  demand from current publication/job state and the durable `audit_events`
+  journal; it does not persist query snapshots. That journal is also consumed
+  by realtime and notification projections, and no automatic journal-retention
+  job was found. The API is project-scoped and exposes aggregate results to
+  authenticated project actors without an editor-only role check.
+- Impact: The analytics API may look like another stream of stored metrics,
+  although its reads create no such stream. Separately, durable event history
+  can grow with real workflow activity, and pruning it could affect analytics,
+  realtime replay, and notification records. The process metrics and project
+  report overlap only on a subset of worker outcomes and durations; their
+  scopes and data lifecycles differ.
+- Desired outcome: Establish which operational questions belong in Prometheus,
+  the project analytics API, or a future web surface; make the journal's
+  consumers, storage growth, retention, and project-role visibility explicit;
+  and recommend whether the API should remain API-only. Do not add sampling,
+  retention deletion, or UI before the owner accepts the relevant boundary.
+- Tasks: ANALYTICS-227
+- Related issues: ISSUE-054, ISSUE-056, ISSUE-131
+- Related decisions: ADR-051, ADR-054
 
 ## External diagnostic follow-up classification
 
