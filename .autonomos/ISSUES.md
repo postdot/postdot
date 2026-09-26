@@ -567,8 +567,9 @@ exists` error. At the same time, the Vite development proxy always targets port
   path. META-61 then validated an explicit-worktree fallback with a bounded
   implementation worker, a stale-base integration, an independent Sol-High
   review, a complete repository gate, and deterministic worktree and branch
-  cleanup. The fallback is now the operational policy; the app-managed
-  task-control path remains gated by META-62 and is not used as the default.
+  cleanup. The owner later retired the separate app-managed control investigation
+  as no longer relevant to current Herald work (ISSUE-029 / META-228); that scope
+  decision does not claim the control-plane limitation was fixed.
 - Resolution: The root AGENT.md now assigns shared resources and integration to
   one orchestrator, requires explicit mission contracts and disjoint semantic
   ownership, restricts worker checks and effects, and records the full worker
@@ -676,7 +677,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-029] Prove visible control for app-managed worktree missions
 
 - Type: problem
-- Status: open
+- Status: declined
 - Evidence: The Codex app-managed worktree task path previously returned
   preparation identifiers without a durable task identity that the orchestrator
   could use for status, cancellation, attribution, visibility, and cleanup.
@@ -698,8 +699,14 @@ exists` error. At the same time, the Vite development proxy always targets port
   progress and final status, cancellation, attribution, operator visibility,
   and cleanup for an app-managed worktree task without granting it shared
   server, browser, credential, or merge ownership.
-- Tasks: META-62
+- Tasks: META-62 (retired; see META-228)
 - Related issues: ISSUE-024
+- Resolution (owner direction, 2026-09-26): The app-managed worktree control
+  investigation is no longer relevant to current Herald work and is retired to
+  stop it from distracting the project. This is a scope decision, not a claim
+  that the Codex control-plane limitation was fixed. Preserve the experiments
+  above as historical evidence; general delegation and worktree safeguards
+  remain in `AGENT.md`.
 
 ## [ISSUE-030] Restrict current web entry points to the authenticated application
 
@@ -2145,10 +2152,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   been reconciled to `resolved`, with concise closure evidence and bounded
   follow-ups where applicable. ISSUE-052, ISSUE-058, ISSUE-062, ISSUE-063, and
   ISSUE-065 remain accepted because their records explicitly retain product,
-  UX, account-lifecycle, or scale scope that is not fully implemented. The
-  open ISSUE-021, ISSUE-029, and ISSUE-036 remain open; the MCP workstream is
-  intentionally deferred by the owner and the app-managed worktree limitation
-  remains a harness constraint.
+  UX, account-lifecycle, or scale scope that is not fully implemented. ISSUE-029
+  was later declined by the owner as no longer relevant to current Herald work;
+  this is not a claim that the platform limitation was fixed. ISSUE-021 and
+  ISSUE-036 remain open; the MCP workstream is intentionally deferred by the
+  owner.
 
 ## [ISSUE-079] Remove redundant hierarchy and duplicate affordances from contextual surfaces
 

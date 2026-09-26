@@ -83,7 +83,7 @@
 - [x] **[AUDIT-37]** Reconcile independent architecture audits against the current product state `Priority: 🔴` `Complexity: L`
 - [x] **[WEB-51]** Make the web project context URL-authoritative `Priority: 🔴` `Complexity: M`
 - [x] **[META-61]** Validate the complete parallel agent lifecycle and finalize orchestration policy `Priority: 🟠` `Complexity: M`
-- [!] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M`
+- [x] **[META-62]** Prove visible control for app-managed worktree missions `Priority: 🟠` `Complexity: M` — retired by owner as no longer relevant to current Herald work; this closure is not a claim that the Codex control-plane limitation was fixed. See [META-228 worklog](worklogs/2026-09-26-META-228.md).
 - [x] **[WEB-63]** Restrict web entry points to the authenticated application and authentication surfaces `Priority: 🟠` `Complexity: S`
 - [x] **[AUDIT-64]** Reconcile the second independent product audit against the current product state `Priority: 🔴` `Complexity: L`
 - [x] **[QUAL-65]** Add regression coverage for verified audit boundaries `Priority: 🔴` `Complexity: M`
@@ -393,3 +393,7 @@ the central project reads and projection/realtime reliability.
 - [x] **[WEB-224]** Identify the next evidence-backed MediaAttachmentPicker extraction seam `Priority: 🔵` `Complexity: M` — [ISSUE-119]; map the remaining independent behaviors and their tests, then propose one bounded ownership boundary without performing a broad refactor or preserving obsolete internal APIs. Evidence: [WEB-224 worklog](worklogs/2026-09-26-WEB-224.md).
 - [x] **[META-225]** Reconcile implemented behavior with proposed decision-record statuses `Priority: 🔵` `Complexity: M` — [ISSUE-133]; inventory only records whose mechanisms are implemented, verify source and owner history, and list explicit acceptance decisions needed; never promote a proposed record automatically. Evidence: [META-225 worklog](worklogs/2026-09-26-META-225.md). All nine reviewed ADRs remain proposed pending explicit owner ratification.
 - [x] **[MAINT-226]** Characterize and contain the Better Auth–Elysia type boundary `Priority: ⚪` `Complexity: M` — [ISSUE-134]; added a mounted sign-up/session-cookie contract test and documented Better Auth/Elysia upgrade checks; no framework incompatibility was reproduced. Evidence: [MAINT-226 worklog](worklogs/2026-09-26-MAINT-226.md).
+
+## Autonomos scope cleanup
+
+- [x] **[META-228]** Retire the stale app-managed worktree control investigation `Priority: 🟠` `Complexity: S` — close META-62 and decline ISSUE-029 as owner-retired scope, explicitly not as a claim that the Codex control-plane limitation was fixed; preserve the experiments and remove stale active-gate guidance. Evidence: [META-228 worklog](worklogs/2026-09-26-META-228.md).
