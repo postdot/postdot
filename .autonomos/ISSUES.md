@@ -3509,7 +3509,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-132] Maintain a cross-surface capability and verification matrix
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The diagnostic found several different backend/frontend gaps and
   noted that their meaning differs: some may be intentional API-only
   capabilities, while account recovery and provider onboarding leave user
@@ -3522,6 +3522,15 @@ posture` is an exact patch duplicate of `aa889111`, and
   existing CLI, and future protocol availability, plus end-to-end evidence and
   intentional deferrals. It must not imply that new clients should be built.
 - Tasks: META-221
+- Resolution (META-221, 2026-09-26): Added the [capability availability and
+  verification matrix](../docs/capability-evidence.md), covering current web,
+  HTTP API, and shipped CLI surfaces with named end-to-end and API-test evidence.
+  It distinguishes API availability from finished client journeys, records the
+  incomplete X web connection and API-only analytics, and preserves MCP as an
+  owner-directed deferral rather than an implementation commitment.
+- Verification: Reviewed the dashboard routes, API modules, CLI command table
+  and mocked-fetch tests, linked Playwright scenarios, and the current analytics
+  and MCP task/issue records. The matrix explicitly limits what each test proves.
 
 ## [ISSUE-133] Reconcile proposed decision records with implemented behavior
 
