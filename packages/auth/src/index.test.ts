@@ -7,10 +7,13 @@ import {
     createManualStore,
     runMigrations,
 } from '@herald/db'
+import { verifyPassword } from 'better-auth/crypto'
 
 import {
     createAuth,
+    hashHeraldPassword,
     heraldUserApiKeyConfigId,
+    heraldPasswordPolicy,
     type HeraldAuthRuntimeOptions,
     type HeraldAuthVerificationEmail,
     type HeraldOrganizationInvitationEmail,
@@ -55,6 +58,15 @@ function createFixture(
 }
 
 describe('Herald authentication', () => {
+    it('uses Better Auth password hashes for offline recovery', async () => {
+        const password = 'recovered-password-123'
+        const hash = await hashHeraldPassword(password)
+
+        expect(hash).not.toBe(password)
+        expect(await verifyPassword({ hash, password })).toBe(true)
+        expect(await verifyPassword({ hash, password: 'different-password-123' })).toBe(false)
+    })
+
     it('exposes Better Auth through its standard health endpoint', async () => {
         const { auth, database } = createFixture()
 
@@ -460,6 +472,95 @@ describe('Herald authentication', () => {
         }
     })
 
+    it('returns the same reset response for known and unknown email addresses', async () => {
+        const deliveries: HeraldAuthVerificationEmail[] = []
+        const { auth, database } = createFixture({
+            sendPasswordResetEmail: delivery => {
+                deliveries.push(delivery)
+            },
+        })
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const signup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'reset-owner@herald.local',
+                        name: 'Reset Owner',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(signup.status).toBe(200)
+
+            const requestReset = (email: string) =>
+                auth.handler(
+                    new Request(`${baseURL}/api/auth/request-password-reset`, {
+                        method: 'POST',
+                        headers,
+                        body: JSON.stringify({
+                            email,
+                            redirectTo: `${baseURL}/reset-password`,
+                        }),
+                    })
+                )
+            const knownResponse = await requestReset('reset-owner@herald.local')
+            const unknownResponse = await requestReset('unknown-reset@herald.local')
+
+            expect(knownResponse.status).toBe(200)
+            expect(unknownResponse.status).toBe(200)
+            expect(await knownResponse.json()).toEqual(await unknownResponse.json())
+            expect(deliveries).toHaveLength(1)
+            expect(deliveries[0]?.user.email).toBe('reset-owner@herald.local')
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('keeps email reset unavailable when the instance has no mail transport', async () => {
+        const { auth, database } = createFixture()
+        const headers = {
+            'content-type': 'application/json',
+            origin: baseURL,
+        }
+
+        try {
+            const signup = await auth.handler(
+                new Request(`${baseURL}/api/auth/sign-up/email`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'offline-reset-owner@herald.local',
+                        name: 'Offline Reset Owner',
+                        password: 'correct-horse-battery-staple',
+                    }),
+                })
+            )
+            expect(signup.status).toBe(200)
+
+            const response = await auth.handler(
+                new Request(`${baseURL}/api/auth/request-password-reset`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        email: 'offline-reset-owner@herald.local',
+                        redirectTo: `${baseURL}/reset-password`,
+                    }),
+                })
+            )
+
+            expect(response.status).toBe(400)
+            expect(await response.json()).toMatchObject({ code: 'RESET_PASSWORD_DISABLED' })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('turns a workspace project invitation into a Herald project grant', async () => {
         const { access, auth, database, manualStore } = createFixture({
             allowAdditionalSignups: true,
@@ -621,6 +722,12 @@ describe('Herald authentication', () => {
 
         try {
             expect(configured.options.emailAndPassword?.enabled).toBe(true)
+            expect(configured.options.emailAndPassword?.minPasswordLength).toBe(
+                heraldPasswordPolicy.minimumLength
+            )
+            expect(configured.options.emailAndPassword?.maxPasswordLength).toBe(
+                heraldPasswordPolicy.maximumLength
+            )
             expect(Object.hasOwn(configured.options, 'socialProviders')).toBe(false)
         } finally {
             closeDatabase(database)

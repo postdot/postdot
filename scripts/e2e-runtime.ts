@@ -13,6 +13,10 @@ export interface E2ERuntimeResources {
     readonly webPort: number
     readonly apiOrigin: string
     readonly webOrigin: string
+    readonly mailpit?: {
+        readonly smtpPort: number
+        readonly uiPort: number
+    }
 }
 
 /**
@@ -35,11 +39,32 @@ export async function createE2ERuntimeResources(
     try {
         const requestedApiPort = parsePort(environment.HERALD_E2E_API_PORT, 'HERALD_E2E_API_PORT')
         const requestedWebPort = parsePort(environment.HERALD_E2E_WEB_PORT, 'HERALD_E2E_WEB_PORT')
+        const useMailpit = environment.HERALD_E2E_MAILPIT === 'true'
+        const requestedMailpitSmtpPort = useMailpit
+            ? parsePort(environment.HERALD_E2E_MAILPIT_SMTP_PORT, 'HERALD_E2E_MAILPIT_SMTP_PORT')
+            : undefined
+        const requestedMailpitUiPort = useMailpit
+            ? parsePort(environment.HERALD_E2E_MAILPIT_UI_PORT, 'HERALD_E2E_MAILPIT_UI_PORT')
+            : undefined
         const requestedPorts = new Set(
-            [requestedApiPort, requestedWebPort].filter(
-                (port): port is number => port !== undefined
-            )
+            [
+                requestedApiPort,
+                requestedWebPort,
+                requestedMailpitSmtpPort,
+                requestedMailpitUiPort,
+            ].filter((port): port is number => port !== undefined)
         )
+        if (
+            requestedPorts.size !==
+            [
+                requestedApiPort,
+                requestedWebPort,
+                requestedMailpitSmtpPort,
+                requestedMailpitUiPort,
+            ].filter((port): port is number => port !== undefined).length
+        ) {
+            throw new Error('E2E API, web, and Mailpit ports must be different')
+        }
         const apiPort = requestedApiPort ?? (await findAvailablePort(requestedPorts))
         const usedPorts = new Set(requestedPorts).add(apiPort)
         const webPort = requestedWebPort ?? (await findAvailablePort(usedPorts))
@@ -47,6 +72,15 @@ export async function createE2ERuntimeResources(
         if (apiPort === webPort) {
             throw new Error(`E2E API and web ports must be different, received ${apiPort}`)
         }
+
+        const mailpitSmtpPort = useMailpit
+            ? (requestedMailpitSmtpPort ?? (await findAvailablePort(usedPorts)))
+            : undefined
+        if (mailpitSmtpPort !== undefined) usedPorts.add(mailpitSmtpPort)
+        const mailpitUiPort = useMailpit
+            ? (requestedMailpitUiPort ?? (await findAvailablePort(usedPorts)))
+            : undefined
+        if (mailpitUiPort !== undefined) usedPorts.add(mailpitUiPort)
 
         return {
             dataDirectory,
@@ -56,6 +90,9 @@ export async function createE2ERuntimeResources(
             webPort,
             apiOrigin: `http://127.0.0.1:${apiPort}`,
             webOrigin: `http://127.0.0.1:${webPort}`,
+            ...(mailpitSmtpPort === undefined || mailpitUiPort === undefined
+                ? {}
+                : { mailpit: { smtpPort: mailpitSmtpPort, uiPort: mailpitUiPort } }),
         }
     } catch (error) {
         rmSync(dataDirectory, { recursive: true, force: true })
@@ -82,6 +119,23 @@ function resourcesFromEnvironment(
         throw new Error(`E2E API and web ports must be different, received ${apiPort}`)
     }
 
+    const useMailpit = environment.HERALD_E2E_MAILPIT === 'true'
+    const mailpitSmtpPort = useMailpit
+        ? parsePort(environment.HERALD_E2E_MAILPIT_SMTP_PORT, 'HERALD_E2E_MAILPIT_SMTP_PORT')
+        : undefined
+    const mailpitUiPort = useMailpit
+        ? parsePort(environment.HERALD_E2E_MAILPIT_UI_PORT, 'HERALD_E2E_MAILPIT_UI_PORT')
+        : undefined
+    if (useMailpit && (mailpitSmtpPort === undefined || mailpitUiPort === undefined)) {
+        throw new Error('Mailpit E2E ports must be set with the existing E2E runtime directory')
+    }
+    const configuredPorts = [apiPort, webPort, mailpitSmtpPort, mailpitUiPort].filter(
+        (port): port is number => port !== undefined
+    )
+    if (new Set(configuredPorts).size !== configuredPorts.length) {
+        throw new Error('E2E API, web, and Mailpit ports must be different')
+    }
+
     return {
         dataDirectory,
         databaseFile: join(dataDirectory, 'herald.sqlite'),
@@ -90,6 +144,9 @@ function resourcesFromEnvironment(
         webPort,
         apiOrigin: `http://127.0.0.1:${apiPort}`,
         webOrigin: `http://127.0.0.1:${webPort}`,
+        ...(mailpitSmtpPort === undefined || mailpitUiPort === undefined
+            ? {}
+            : { mailpit: { smtpPort: mailpitSmtpPort, uiPort: mailpitUiPort } }),
     }
 }
 

@@ -60,6 +60,7 @@ export function ProviderApplicationForm({
     onFormChange,
     onSubmit,
     pending,
+    xCallbackUri,
 }: {
     readonly editingApplication?: ProviderApplication
     readonly editingId: string | null
@@ -68,6 +69,7 @@ export function ProviderApplicationForm({
     readonly onFormChange: Dispatch<SetStateAction<ProviderApplicationFormState>>
     readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void
     readonly pending: boolean
+    readonly xCallbackUri: string
 }) {
     const requiresSecret =
         form.providerId !== 'bluesky' &&
@@ -110,6 +112,7 @@ export function ProviderApplicationForm({
                             editingId={editingId}
                             form={form}
                             onFormChange={onFormChange}
+                            xCallbackUri={xCallbackUri}
                         />
 
                         <Field orientation="horizontal" className="items-start">

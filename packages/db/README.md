@@ -28,14 +28,30 @@ bun apps/api/src/index.ts backup --database ./herald.sqlite --output ./backups/h
 ```
 
 Stop the application before restoring a database-only backup. The API owns a
-sidecar runtime lock next to the database while it is running, and restore
-acquires the same lock before validating or replacing anything. A restore fails
-closed while Herald is active, then validates the backup, writes a temporary
+sidecar runtime lock next to the database while it is running. Restore and local
+account recovery acquire the same lock before changing database state. Restore
+fails closed while Herald is active, then validates the backup, writes a temporary
 replacement, and renames it into place:
 
 ```sh
 bun apps/api/src/index.ts restore --database ./herald.sqlite --input ./backups/herald.sqlite
 ```
+
+When SMTP password recovery is unavailable, the API bundle can reset an existing
+account password offline. The command requires an explicit database path and an
+interactive confirmation of its resolved path. It creates a validated database
+backup before updating the Better Auth password hash, revokes the account's sessions
+and outstanding reset links, and preserves projects, API keys, publisher credentials,
+and historical actors:
+
+```sh
+bun apps/api/src/index.ts account recover-password --database ./herald.sqlite
+```
+
+Run the command with Herald stopped. It does not create users or change instance
+roles. The generated backup is stored in an owner-only directory beside the
+database, with owner-only file permissions; retain or remove it according to the
+deployment's backup policy.
 
 For a complete application backup, add `--media`. Herald creates an inspectable
 directory bundle containing the SQLite snapshot, an integrity manifest, and the
@@ -53,8 +69,8 @@ bun apps/api/src/index.ts restore --media --database ./herald.sqlite --input ./b
 ```
 
 The lock is intentionally not reclaimed automatically after a forced process
-termination. If a restart or restore reports an existing lock, verify that no
-Herald process is using the database, then remove only the exact
+termination. If a restart, restore, or account-recovery command reports an existing
+lock, verify that no Herald process is using the database, then remove only the exact
 `<database>.runtime.lock` sidecar before retrying. Never remove the marker to
 override a live process.
 

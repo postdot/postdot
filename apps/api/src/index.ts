@@ -284,7 +284,15 @@ async function startServerWithRuntimeLock(
 
 if (import.meta.main) {
     const args = Bun.argv.slice(2)
-    if (args[0] === 'backup' || args[0] === 'restore') {
+    if (args[0] === 'account') {
+        try {
+            await runMaintenanceCommand(args)
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Account recovery failed'
+            console.error(`[herald-maintenance] ${message}`)
+            process.exitCode = 1
+        }
+    } else if (args[0] === 'backup' || args[0] === 'restore') {
         const config = createHeraldMaintenanceConfig()
         await runMaintenanceCommand(args, {
             databaseFileName: config.databaseFileName,

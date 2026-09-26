@@ -116,6 +116,7 @@ export type ChannelCreationProfile =
     | 'mastodon'
     | 'discord'
     | 'devto'
+    | 'x'
     | RuntimeChannelProfile
 
 export type { ChannelProfilePreset, ChannelProfilePresets }
@@ -380,25 +381,25 @@ export class ApiError extends Error {
     }
 }
 
-interface ErrorBody {
-    readonly error?: {
-        readonly code?: string
-        readonly message?: string
-        readonly blockers?: readonly string[]
-    }
-}
-
-function isErrorBody(value: unknown): value is ErrorBody {
-    return typeof value === 'object' && value !== null && 'error' in value
-}
-
 function errorFrom(status: number, value: unknown) {
-    const body = isErrorBody(value) ? value.error : undefined
+    const envelope =
+        typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined
+    const payload =
+        envelope?.value !== null && typeof envelope?.value === 'object'
+            ? (envelope.value as Record<string, unknown>)
+            : envelope
+    const details =
+        payload?.error !== null && typeof payload?.error === 'object'
+            ? (payload.error as Record<string, unknown>)
+            : payload
+    const blockers = Array.isArray(details?.blockers)
+        ? details.blockers.filter((blocker): blocker is string => typeof blocker === 'string')
+        : []
     return new ApiError(
         status,
-        body?.code ?? 'request_failed',
-        body?.message ?? '',
-        body?.blockers?.filter((blocker): blocker is string => typeof blocker === 'string') ?? []
+        typeof details?.code === 'string' ? details.code : 'request_failed',
+        typeof details?.message === 'string' ? details.message : '',
+        blockers
     )
 }
 
@@ -448,12 +449,29 @@ export const api = {
         return requestAuth<Session>('/api/auth/sign-up/email', jsonBody({ name, email, password }))
     },
 
+    requestPasswordReset(email: string, redirectTo: string): Promise<{ status: boolean }> {
+        return requestAuth<{ status: boolean }>(
+            '/api/auth/request-password-reset',
+            jsonBody({ email, redirectTo })
+        )
+    },
+
+    resetPassword(token: string, newPassword: string): Promise<{ status: boolean }> {
+        return requestAuth<{ status: boolean }>(
+            '/api/auth/reset-password',
+            jsonBody({ token, newPassword })
+        )
+    },
+
     signOut(): Promise<unknown> {
         return requestAuth('/api/auth/sign-out', jsonBody({}))
     },
 
-    async listProviderApplications(): Promise<{ applications: ProviderApplication[] }> {
-        return requestAuth<{ applications: ProviderApplication[] }>(
+    async listProviderApplications(): Promise<{
+        applications: ProviderApplication[]
+        xCallbackUri: string
+    }> {
+        return requestAuth<{ applications: ProviderApplication[]; xCallbackUri: string }>(
             '/api/settings/provider-applications'
         )
     },
