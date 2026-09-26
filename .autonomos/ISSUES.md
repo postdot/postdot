@@ -3662,26 +3662,38 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-136] Scope a source-backed product capability comparison
 
 - Type: proposal
-- Status: accepted
+- Status: resolved
 - Evidence: The owner wants a broad, fresh comparison of Herald with Postiz,
   Mixpost, and OpenPost after the current sprint is complete. Existing
   competitor work under ISSUE-056 is limited to provider-engagement analytics
-  and does not describe product-wide capability coverage.
+  and does not describe product-wide capability coverage. On 2026-09-27, the
+  owner explicitly authorized proceeding directly to the full comparison and
+  requested coverage of public product messaging, documentation, and source.
 - Impact: Repeatedly refining existing surfaces without a grounded view of the
   product landscape risks missing foundational capabilities and makes it hard
   to distinguish important product gaps from optional competitor differences.
-- Desired outcome: First propose a grouped, evidence-backed feature inventory
-  for owner review; after the included rows are agreed, deliver a readable
-  Herald-versus-Postiz-versus-Mixpost-versus-OpenPost matrix. Each cell must
+- Desired outcome: Deliver a readable, grouped,
+  Herald-versus-Postiz-versus-Mixpost-versus-OpenPost matrix based on public
+  product messaging, official documentation, and current upstream source.
+  Each cell must
   distinguish present, partial/limited, absent, and unverified behavior, note
   material edition or plan limits, and link dated authoritative evidence.
   Missing documentation must not be treated as proof of absence, and the report
   must not imply that Herald should implement every competitor feature.
 - Tasks: PRODUCT-231
 - Related issues: ISSUE-056, ISSUE-132
-- Scope boundary: Research only. Do not begin until the active sprint and PR
-  #215 are closed. The first task proposes the row set for owner approval; no
-  feature implementation or parity commitment is authorized by this issue.
+- Scope boundary: Research only. Begin after the active sprint is complete.
+  The owner has authorized the full comparison without a separate row-set
+  approval step. No feature implementation or parity commitment is authorized
+  by this issue.
+- Resolution: Completed the grouped capability matrix across Herald, Postiz,
+  Mixpost, and OpenPost using public product messaging, official documentation,
+  and pinned upstream source snapshots. The report distinguishes verified,
+  partial/edition-gated, not-found, and unverified evidence; documents important
+  provider and self-hosting limits; and recommends evaluating publication-
+  performance analytics as a separate product workflow without committing to
+  feature parity.
+- Evidence: [PRODUCT-231 worklog](worklogs/2026-09-27-PRODUCT-231.md).
 
 ## External diagnostic follow-up classification
 

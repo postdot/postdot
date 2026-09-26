@@ -405,7 +405,7 @@ the central project reads and projection/realtime reliability.
 
 ## Post-sprint competitor capability study
 
-- [ ] **[PRODUCT-231]** Inventory and scope a source-backed capability comparison with Postiz, Mixpost, and OpenPost `Priority: 🟠` `Complexity: L` — [ISSUE-136]; begin only after the current sprint and PR #215 are closed; inventory candidate product capabilities from official sources and Herald's current implementation, propose a grouped feature-row set for owner approval, and do not infer absence from missing documentation or commit Herald to feature parity.
+- [x] **[PRODUCT-231]** Complete a source-backed capability comparison with Postiz, Mixpost, and OpenPost `Priority: 🟠` `Complexity: L` — [ISSUE-136]; compare public product positioning, official documentation, and current upstream source against Herald; distinguish verified, partial, absent, and unknown capabilities with dated authoritative links; identify material edition limits and recommendations without inferring absence from missing documentation or committing Herald to feature parity. Evidence: [PRODUCT-231 worklog](worklogs/2026-09-27-PRODUCT-231.md).
 
 ## Local main integration
 
