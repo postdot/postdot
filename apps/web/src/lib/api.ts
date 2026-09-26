@@ -116,6 +116,7 @@ export type ChannelCreationProfile =
     | 'mastodon'
     | 'discord'
     | 'devto'
+    | 'x'
     | RuntimeChannelProfile
 
 export type { ChannelProfilePreset, ChannelProfilePresets }
@@ -383,10 +384,14 @@ export class ApiError extends Error {
 function errorFrom(status: number, value: unknown) {
     const envelope =
         typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined
-    const details =
-        envelope?.error !== null && typeof envelope?.error === 'object'
-            ? (envelope.error as Record<string, unknown>)
+    const payload =
+        envelope?.value !== null && typeof envelope?.value === 'object'
+            ? (envelope.value as Record<string, unknown>)
             : envelope
+    const details =
+        payload?.error !== null && typeof payload?.error === 'object'
+            ? (payload.error as Record<string, unknown>)
+            : payload
     const blockers = Array.isArray(details?.blockers)
         ? details.blockers.filter((blocker): blocker is string => typeof blocker === 'string')
         : []
@@ -462,8 +467,11 @@ export const api = {
         return requestAuth('/api/auth/sign-out', jsonBody({}))
     },
 
-    async listProviderApplications(): Promise<{ applications: ProviderApplication[] }> {
-        return requestAuth<{ applications: ProviderApplication[] }>(
+    async listProviderApplications(): Promise<{
+        applications: ProviderApplication[]
+        xCallbackUri: string
+    }> {
+        return requestAuth<{ applications: ProviderApplication[]; xCallbackUri: string }>(
             '/api/settings/provider-applications'
         )
     },
