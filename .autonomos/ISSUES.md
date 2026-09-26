@@ -3458,7 +3458,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-129] Verify dashboard delivery from the production image
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The CI recovery acceptance test now builds and starts the production
   image, checks `/ready`, and exercises backup and restore. It does not request
   the dashboard entry point or verify that its referenced assets are served by
@@ -3471,6 +3471,16 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: OPS-218
 - Related issue: ISSUE-123
 - Related task: OPS-213
+- Resolution (OPS-218, 2026-09-26): The existing production-image acceptance
+  command now fetches the root dashboard document, checks its Herald title and
+  application root, discovers its same-origin built asset references, and
+  requests each one. It verifies successful responses, non-empty bodies, and
+  JavaScript/CSS content types. The check runs against both the initial and
+  restored production containers; CI already invokes this command, so no new
+  workflow step was needed.
+- Verification: The production image served the dashboard shell and all 17
+  referenced assets before backup and after restore. Missing-asset and wrong-shell
+  behavior are unit tested. See the [OPS-218 worklog](worklogs/2026-09-26-OPS-218.md).
 
 ## [ISSUE-130] Complete the X connection journey in the web client
 
