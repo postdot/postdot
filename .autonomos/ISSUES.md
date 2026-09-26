@@ -567,8 +567,9 @@ exists` error. At the same time, the Vite development proxy always targets port
   path. META-61 then validated an explicit-worktree fallback with a bounded
   implementation worker, a stale-base integration, an independent Sol-High
   review, a complete repository gate, and deterministic worktree and branch
-  cleanup. The fallback is now the operational policy; the app-managed
-  task-control path remains gated by META-62 and is not used as the default.
+  cleanup. The owner later retired the separate app-managed control investigation
+  as no longer relevant to current Herald work (ISSUE-029 / META-228); that scope
+  decision does not claim the control-plane limitation was fixed.
 - Resolution: The root AGENT.md now assigns shared resources and integration to
   one orchestrator, requires explicit mission contracts and disjoint semantic
   ownership, restricts worker checks and effects, and records the full worker
@@ -676,7 +677,7 @@ exists` error. At the same time, the Vite development proxy always targets port
 ## [ISSUE-029] Prove visible control for app-managed worktree missions
 
 - Type: problem
-- Status: open
+- Status: declined
 - Evidence: The Codex app-managed worktree task path previously returned
   preparation identifiers without a durable task identity that the orchestrator
   could use for status, cancellation, attribution, visibility, and cleanup.
@@ -698,8 +699,14 @@ exists` error. At the same time, the Vite development proxy always targets port
   progress and final status, cancellation, attribution, operator visibility,
   and cleanup for an app-managed worktree task without granting it shared
   server, browser, credential, or merge ownership.
-- Tasks: META-62
+- Tasks: META-62 (retired; see META-228)
 - Related issues: ISSUE-024
+- Resolution (owner direction, 2026-09-26): The app-managed worktree control
+  investigation is no longer relevant to current Herald work and is retired to
+  stop it from distracting the project. This is a scope decision, not a claim
+  that the Codex control-plane limitation was fixed. Preserve the experiments
+  above as historical evidence; general delegation and worktree safeguards
+  remain in `AGENT.md`.
 
 ## [ISSUE-030] Restrict current web entry points to the authenticated application
 
@@ -2145,10 +2152,11 @@ channels` with a foreign-key constraint error even though a fresh empty database
   been reconciled to `resolved`, with concise closure evidence and bounded
   follow-ups where applicable. ISSUE-052, ISSUE-058, ISSUE-062, ISSUE-063, and
   ISSUE-065 remain accepted because their records explicitly retain product,
-  UX, account-lifecycle, or scale scope that is not fully implemented. The
-  open ISSUE-021, ISSUE-029, and ISSUE-036 remain open; the MCP workstream is
-  intentionally deferred by the owner and the app-managed worktree limitation
-  remains a harness constraint.
+  UX, account-lifecycle, or scale scope that is not fully implemented. ISSUE-029
+  was later declined by the owner as no longer relevant to current Herald work;
+  this is not a claim that the platform limitation was fixed. ISSUE-021 and
+  ISSUE-036 remain open; the MCP workstream is intentionally deferred by the
+  owner.
 
 ## [ISSUE-079] Remove redundant hierarchy and duplicate affordances from contextual surfaces
 
@@ -3612,14 +3620,15 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-135] Clarify operational analytics data, retention, and access
 
 - Type: question
-- Status: accepted
+- Status: resolved
 - Evidence: Herald has both a process-level Prometheus scrape endpoint and a
   project-level operational analytics API. The latter computes aggregates on
   demand from current publication/job state and the durable `audit_events`
   journal; it does not persist query snapshots. That journal is also consumed
-  by realtime and notification projections, and no automatic journal-retention
-  job was found. The API is project-scoped and exposes aggregate results to
-  authenticated project actors without an editor-only role check.
+  by realtime and notification projections. ADR-037 already accepts retaining
+  journal rows for the lifetime of their project; no automatic TTL job exists.
+  The API is project-scoped and exposes aggregate results to authenticated
+  project actors without an editor-only role check.
 - Impact: The analytics API may look like another stream of stored metrics,
   although its reads create no such stream. Separately, durable event history
   can grow with real workflow activity, and pruning it could affect analytics,
@@ -3631,9 +3640,48 @@ posture` is an exact patch duplicate of `aa889111`, and
   consumers, storage growth, retention, and project-role visibility explicit;
   and recommend whether the API should remain API-only. Do not add sampling,
   retention deletion, or UI before the owner accepts the relevant boundary.
-- Tasks: ANALYTICS-227
+- Tasks: ANALYTICS-227, ANALYTICS-229, ANALYTICS-230
 - Related issues: ISSUE-054, ISSUE-056, ISSUE-131
 - Related decisions: ADR-051, ADR-054
+- Retention review (ANALYTICS-229): Keep the accepted project-lifetime policy
+  unchanged. Individual-event deletion cascades to source-linked inbox and
+  delivery history, truncates analytics, and has no realtime retention-floor
+  contract to signal a required resynchronization. The 100,000-row disposable
+  fixture measured about 75.39 MiB; that demonstrates growth, not a deployment
+  capacity problem. A finite window or archive needs a separate accepted design.
+- Resolution (owner direction, 2026-09-26): Keep the current authenticated,
+  read-only, project-scoped analytics API available to actors who can access the
+  project; do not add an editor-only check. API-key requests remain subject to
+  the key's existing project scope. The response is aggregate-only and does not
+  expose journal payloads. Keep operational analytics API-only for now; the web
+  surface is deferred, not permanently rejected. Do not add sampling or change
+  the accepted project-lifetime event retention policy in ADR-037. This closes
+  the current boundary review, not future analytics evolution; revisit with a
+  concrete workflow or measured data-lifecycle constraint.
+
+## [ISSUE-136] Scope a source-backed product capability comparison
+
+- Type: proposal
+- Status: accepted
+- Evidence: The owner wants a broad, fresh comparison of Herald with Postiz,
+  Mixpost, and OpenPost after the current sprint is complete. Existing
+  competitor work under ISSUE-056 is limited to provider-engagement analytics
+  and does not describe product-wide capability coverage.
+- Impact: Repeatedly refining existing surfaces without a grounded view of the
+  product landscape risks missing foundational capabilities and makes it hard
+  to distinguish important product gaps from optional competitor differences.
+- Desired outcome: First propose a grouped, evidence-backed feature inventory
+  for owner review; after the included rows are agreed, deliver a readable
+  Herald-versus-Postiz-versus-Mixpost-versus-OpenPost matrix. Each cell must
+  distinguish present, partial/limited, absent, and unverified behavior, note
+  material edition or plan limits, and link dated authoritative evidence.
+  Missing documentation must not be treated as proof of absence, and the report
+  must not imply that Herald should implement every competitor feature.
+- Tasks: PRODUCT-231
+- Related issues: ISSUE-056, ISSUE-132
+- Scope boundary: Research only. Do not begin until the active sprint and PR
+  #215 are closed. The first task proposes the row set for owner approval; no
+  feature implementation or parity commitment is authorized by this issue.
 
 ## External diagnostic follow-up classification
 
