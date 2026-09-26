@@ -194,10 +194,14 @@ actor row alone never grants authorization.
 ### 6. Recovery and last-administrator safety
 
 - Application password reset uses Better Auth's email flow when mail delivery is
-  configured. Without mail, the supported recovery path is a local/offline maintenance
-  command that requires filesystem access to the SQLite database, a recent backup,
-  and the server being stopped. It creates a short-lived recovery session or resets a
-  password without exposing a reusable admin secret in the URL or logs.
+  configured. Without mail, `account recover-password --database <path>` is the
+  supported local/offline path for an existing email/password account. It requires
+  filesystem access, a stopped server, an interactive terminal, and exact confirmation
+  of the displayed absolute database path. Before mutation it creates a validated owner-only
+  backup, uses Better Auth's password hash, revokes the account's sessions and pending
+  reset links, and preserves projects, API keys, publisher credentials, and actors.
+  Password input is hidden and never accepted through arguments or environment
+  variables. This command does not create accounts or change instance-admin roles.
 - A separate offline `admin recover` operation may designate a new admin only when
   the operator can prove local deployment control. It must report the target database,
   require explicit confirmation, write an audit record once the server starts, and
@@ -349,8 +353,6 @@ Costs and risks:
   configured, or only for password reset and subsequent invitations?
 - Should project owners be allowed to invite a new account directly, or should all
   invitations be initiated from the instance Members surface for clearer governance?
-- What exact recovery command and confirmation UX can be implemented safely against
-  Better Auth without exposing a reusable credential?
 - What anonymization contract is required if an operator requests deletion of a
   person's email/name while retaining attribution and audit history?
 

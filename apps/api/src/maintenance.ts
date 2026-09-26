@@ -1,17 +1,26 @@
 import { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from '@herald/db'
 import type { MediaStore } from '@herald/media'
 
+import { runLocalAccountPasswordRecovery } from './local-account-recovery'
+
 export async function runMaintenanceCommand(
     args: readonly string[],
     options: {
-        readonly databaseFileName: string
+        readonly databaseFileName?: string
         readonly mediaStore?: MediaStore
-    }
+    } = {}
 ) {
     const command = args[0]
+    if (command === 'account') {
+        await runLocalAccountPasswordRecovery(args)
+        return true
+    }
     if (command !== 'backup' && command !== 'restore') return false
 
     const databaseFilename = optionValue(args, '--database') ?? options.databaseFileName
+    if (databaseFilename === undefined) {
+        throw new Error('A database path must be configured or passed with --database')
+    }
 
     if (command === 'backup') {
         if (args.includes('--media')) {
