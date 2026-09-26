@@ -127,7 +127,6 @@ function createDomainApp({
 
     return new Elysia({ name: 'herald-api' })
         .use(createBlueskyMetadataRoutes(publisher))
-        .use(createRequestLogger(logging, logger))
         .use(
             openapi({
                 documentation: {
@@ -203,7 +202,8 @@ function createDomainApp({
                 specPath: '/openapi/json',
             })
         )
-        .use(createErrorHandler())
+        .use(createErrorHandler(logger))
+        .use(createRequestLogger(logging, logger))
         .use(createHealthRoutes({ database, runtime }))
         .use(createMetricsRoutes(metrics))
         .use(createPublicInstanceRoutes(accessStore, { allowAdditionalSignups }))

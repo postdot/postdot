@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import { Elysia } from 'elysia'
 import pino, { type DestinationStream, type Logger } from 'pino'
 
@@ -27,25 +29,27 @@ export function createRequestLogger(options: HeraldLoggingConfig | undefined, lo
     const requestLogger = logger ?? createHeraldLogger(options)
 
     const requestStartTimes = new WeakMap<Request, number>()
-    const failedRequests = new WeakSet<Request>()
-
     return new Elysia({ name: 'herald-request-logger' })
         .decorate('log', requestLogger)
         .request(({ request }) => {
             requestStartTimes.set(request, performance.now())
         })
-        .afterResponse(({ request, path, set }) => {
-            if (failedRequests.has(request)) {
-                failedRequests.delete(request)
+        .afterResponse(({ request, path, route, set }) => {
+            const status = typeof set.status === 'number' ? set.status : 200
+            if (status >= 500 && typeof set.headers['x-request-id'] === 'string') {
+                requestDuration(request, requestStartTimes)
                 return
             }
 
-            const status = typeof set.status === 'number' ? set.status : 200
+            const requestId =
+                status >= 400 ? (set.headers['x-request-id'] ?? randomUUID()) : undefined
+            if (requestId !== undefined) set.headers['x-request-id'] = requestId
             const fields = requestFields(
                 request,
-                path,
+                route ?? path,
                 status,
-                requestDuration(request, requestStartTimes)
+                requestDuration(request, requestStartTimes),
+                requestId
             )
 
             if (status >= 500) {
@@ -55,23 +59,6 @@ export function createRequestLogger(options: HeraldLoggingConfig | undefined, lo
             } else {
                 requestLogger.info(fields, 'request completed')
             }
-        })
-        .error('global', ({ request, path, set, error }) => {
-            failedRequests.add(request)
-
-            const status = typeof set.status === 'number' ? set.status : 500
-            requestLogger.error(
-                {
-                    ...requestFields(
-                        request,
-                        path,
-                        status,
-                        requestDuration(request, requestStartTimes)
-                    ),
-                    err: error,
-                },
-                'request failed'
-            )
         })
         .as('global')
 }
@@ -87,12 +74,19 @@ export function createHeraldLogger(options: HeraldLoggingConfig): Logger {
     return options.pretty ? pino(loggerOptions, createPrettyStream()) : pino(loggerOptions)
 }
 
-function requestFields(request: Request, path: string, status: number, durationMs: number) {
+function requestFields(
+    request: Request,
+    path: string,
+    status: number,
+    durationMs: number,
+    requestId?: string
+) {
     return {
         method: request.method,
         path,
         status,
         durationMs,
+        ...(requestId === undefined ? {} : { requestId }),
     }
 }
 

@@ -86,6 +86,9 @@ function LoginPage() {
                           }
                         : undefined
                 }
+                onForgotPassword={
+                    invitationFlow ? undefined : () => void navigate({ to: '/forgot-password' })
+                }
                 onModeChange={handleModeChange}
                 onSubmit={handleSubmit}
                 pending={pending}

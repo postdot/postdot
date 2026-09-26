@@ -866,7 +866,11 @@ exists` error. At the same time, the Vite development proxy always targets port
 - Desired outcome: A future MCP surface reuses the API/domain contracts, preserves
   project-scoped authorization and actor attribution, and exposes only operations
   whose external side effects and confirmation semantics are explicit.
-- Tasks: to be triaged
+- Tasks: none until the owner reopens the deferred scope
+- Owner direction (2026-09-25): Defer creating the MCP client until the web
+  application and its workflows are sufficiently organized and stable. This is
+  a deferral, not a permanent rejection. Do not create an implementation task
+  until the owner reopens this scope.
 
 ## [ISSUE-037] Add reusable built-in channel profile presets
 
@@ -1044,7 +1048,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   not redesign the web information architecture, add app-password authentication, or
   perform an uncontrolled real-provider publication in automated tests.
 - Tasks: CHANNEL-77
-- Related issue: ISSUE-041
+- Related issue: ISSUE-040
 - Related decision: ADR-036 (accepted)
 - Resolution: The authenticated web client now creates Bluesky channels, starts
   the handle-based OAuth flow, renders the project-owned connected destination,
@@ -1800,7 +1804,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   relay for invitations, signup verification, and password reset; the
   local/manual-link profile remains usable without mail.
 - Tasks: ACCESS-116 (policy), ACCESS-131, ACCESS-132, ACCESS-134, ACCESS-136,
-  ACCESS-137, ACCESS-138
+  ACCESS-137, ACCESS-138, ACCESS-219, ACCESS-220
 - Related issues: ISSUE-013, ISSUE-059
 - Related decisions: ADR-012, ADR-030, ADR-056, ADR-061, ADR-063, ADR-066, ADR-067
 - Resolution: ADR-061 establishes the local single-operator bootstrap and the
@@ -1812,9 +1816,15 @@ channels` with a foreign-key constraint error even though a fresh empty database
   seven days, and new project keys expire after 180 days by default. Herald retains
   instance membership and actor projections, while ACCESS-134 exposes the project
   member and invitation workflow through the dashboard. ACCESS-131 through
-  ACCESS-137 are complete. A complete recovery UI/policy, user
-  deletion/anonymization, ownership transfer policy, and post-retirement physical
-  cleanup remain explicit follow-ups.
+  ACCESS-138 are complete. ACCESS-219 adds localized web password-reset request
+  and completion screens over Better Auth, preserves the same public response for
+  known and unknown accounts, and verifies the configured email path through an
+  isolated Mailpit browser test. Without SMTP, the UI states that password
+  recovery is unavailable; ACCESS-220 provides the operator-controlled offline
+  password reset for an existing account, including a protected pre-change backup
+  and session/reset-link invalidation. Offline admin-role reassignment is separate
+  from this password-reset command. User deletion/anonymization, ownership transfer
+  policy, and post-retirement physical cleanup remain explicit follow-ups.
 
 ## [ISSUE-067] Establish a clean development access baseline
 
@@ -3227,7 +3237,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Evidence: The supplied audit reports oversized UI modules and duplicated responsibilities across page, data, and interaction components.
 - Impact: Future corrections become slower and more likely to introduce regressions or inconsistent behavior.
 - Desired outcome: High-risk web modules have coherent ownership boundaries and measurable extraction targets without speculative abstraction.
-- Tasks: WEB-204
+- Tasks: WEB-204, WEB-224
 - Current classification: Large modules remain, including the calendar, access,
   and publication editor surfaces. The first bounded seam is now implemented:
   management-mode rendering has moved into
@@ -3393,3 +3403,252 @@ posture` is an exact patch duplicate of `aa889111`, and
   [X character counting](https://docs.x.com/fundamentals/counting-characters),
   [official twitter-text JavaScript implementation](https://github.com/twitter/twitter-text/tree/master/js),
   [twitter-text v3 configuration](https://github.com/twitter/twitter-text/blob/master/config/v3.json).
+
+## [ISSUE-127] Recover safely after an abrupt runtime termination
+
+- Type: problem
+- Status: accepted
+- Evidence: ADR-068 deliberately uses a database-specific sidecar marker and
+  fails closed when it remains after forced termination. The operator must
+  establish that no Herald process is using the database and then remove that
+  exact marker manually before restarting.
+- Impact: A normal host crash or forced stop can turn the next startup into a
+  manual recovery procedure, adding friction to the self-hosted operating
+  model even though the marker correctly prevents concurrent restore.
+- Desired outcome: Runtime exclusion is released after process death while
+  restore remains unable to race an active Herald process. Recovery must not
+  depend on marker age or PID checks alone.
+- Tasks: OPS-217
+- Related issue: ISSUE-026
+- Related decision: ADR-068
+- Scope note: The current fail-closed behavior is intentional, not a newly
+  reproduced regression. OPS-217 is an evaluation task only; changing the lock
+  contract requires a separately accepted decision.
+- Evaluation (OPS-217, 2026-09-26): A forced-stop experiment on the current
+  sidecar confirmed that SIGKILL leaves the marker and blocks restore, while a
+  Linux `flock` prototype on the repository's local ext4 filesystem excluded a
+  concurrent process and released after SIGKILL. This proves feasibility on this
+  Linux host, not Bun integration or cross-platform behavior. The documented
+  container is Linux, but the project has no explicit host-platform support
+  matrix. Keep the existing contract until the owner chooses whether direct
+  Windows/macOS deployment is supported and accepts a platform-tested kernel
+  lock implementation; do not use heartbeat expiry or PID-only reclamation as a
+  substitute. See the [OPS-217 worklog](worklogs/2026-09-26-OPS-217.md).
+
+## [ISSUE-128] Log unexpected HTTP failures in production by default
+
+- Type: problem
+- Status: resolved
+- Evidence: Production defaults `LOG_LEVEL` to `silent`, which disables the
+  request-logger error hook. The global HTTP error handler returns a generic
+  500 response but does not independently log unexpected exceptions.
+- Impact: An operator can receive a server error without a corresponding
+  diagnostic record, making a self-hosted failure difficult to investigate.
+- Desired outcome: Unexpected server failures produce structured, correlated
+  and secret-redacted error records in production while successful request
+  logging can remain disabled and clients continue to receive generic errors.
+- Tasks: OPS-216
+- Resolution: Production now defaults to `LOG_LEVEL=error`: successful request
+  records remain below the threshold, while unexpected 5xx responses emit one
+  structured Pino record with a generated request ID, route template, safe error
+  type, and bounded stack frames that omit the exception message. Dynamic route
+  values such as signed media tokens are not logged, the generic client error
+  response is unchanged, and `LOG_LEVEL=silent` remains an explicit full opt-out.
+
+## [ISSUE-129] Verify dashboard delivery from the production image
+
+- Type: problem
+- Status: resolved
+- Evidence: The CI recovery acceptance test now builds and starts the production
+  image, checks `/ready`, and exercises backup and restore. It does not request
+  the dashboard entry point or verify that its referenced assets are served by
+  that image.
+- Impact: A healthy API and successful recovery test could still miss a broken
+  production static-asset path that prevents users from loading Herald.
+- Desired outcome: CI verifies the production image serves the dashboard shell
+  and its built assets, in addition to the existing readiness and recovery
+  checks.
+- Tasks: OPS-218
+- Related issue: ISSUE-123
+- Related task: OPS-213
+- Resolution (OPS-218, 2026-09-26): The existing production-image acceptance
+  command now fetches the root dashboard document, checks its Herald title and
+  application root, discovers its same-origin built asset references, and
+  requests each one. It verifies successful responses, non-empty bodies, and
+  JavaScript/CSS content types. The check runs against both the initial and
+  restored production containers; CI already invokes this command, so no new
+  workflow step was needed.
+- Verification: The production image served the dashboard shell and all 17
+  referenced assets before backup and after restore. Missing-asset and wrong-shell
+  behavior are unit tested. See the [OPS-218 worklog](worklogs/2026-09-26-OPS-218.md).
+
+## [ISSUE-130] Complete the X connection journey in the web client
+
+- Type: problem
+- Status: resolved
+- Evidence: The API exposes the X authorization start/callback flow and the web
+  API client exposes `startXPublisherConnection`, but the authenticated channel
+  connection surface has no corresponding X connection action.
+- Impact: A supported built-in provider is not fully operable through Herald's
+  primary client, even though the provider and API path exist.
+- Desired outcome: A user can initiate, complete, cancel, and recover the X
+  connection flow from the web client, with explicit provider-application
+  requirements and browser coverage.
+- Tasks: CHANNEL-222
+- Related issue: ISSUE-041
+- Related decision: ADR-044
+- Resolution (CHANNEL-222, 2026-09-26): Added X to channel creation and connected
+  its connect/reconnect action to the existing OAuth API. The administrator
+  configuration form now displays the server's exact X redirect URI and PKCE
+  setup guidance; project editors use the instance's default application
+  without calling the admin-only configuration endpoint. The callback continues
+  through the shared connection feedback and recovery surface.
+- Verification: `e2e/channel-x-connection.spec.ts` covers X channel creation,
+  callback setup guidance, missing-configuration error, cancellation, denial,
+  success, and reconnect using mocked browser/provider responses.
+  `apps/api/src/app.test.ts` covers the actual API OAuth state, PKCE, callback,
+  denial, provider errors, and revoked-connection reconnect with mocked provider
+  transport. No live X credentials or requests were used. See the
+  [CHANNEL-222 worklog](worklogs/2026-09-26-CHANNEL-222.md).
+
+## [ISSUE-131] Decide whether operational analytics needs a web surface
+
+- Type: question
+- Status: resolved
+- Evidence: Herald has a project-authorized operational analytics API and
+  read-model implementation, but no authenticated web analytics route. The
+  accepted foundation explicitly did not require a dashboard, so the missing
+  page is not automatically a defect.
+- Impact: Users may not discover useful publication and execution insights in
+  the primary client, or a dashboard may add product and maintenance scope
+  without a demonstrated workflow need.
+- Desired outcome: Compare the value and cost of a concise web view, keeping
+  analytics API-only for now, or deferring the decision until real use supplies
+  evidence. Record the owner's choice before building charts or new metrics.
+- Tasks: ANALYTICS-223
+- Related issues: ISSUE-054, ISSUE-056
+- Related decision: ADR-051
+- Resolution (owner decision, 2026-09-26): Defer a web page for Herald's internal
+  delivery/execution analytics for now. This is not a permanent rejection of
+  the page. The project-authorized API remains available while its purpose,
+  persisted source data, overlap with instance telemetry, and access boundary
+  are clarified under [ISSUE-135](#issue-135).
+
+## [ISSUE-132] Maintain a cross-surface capability and verification matrix
+
+- Type: proposal
+- Status: resolved
+- Evidence: The diagnostic found several different backend/frontend gaps and
+  noted that their meaning differs: some may be intentional API-only
+  capabilities, while account recovery and provider onboarding leave user
+  journeys incomplete. The current issue ledger does not give one concise view
+  of capability availability and end-to-end evidence across surfaces.
+- Impact: Backend implementation or a completed task can be mistaken for a
+  finished user journey, causing unfinished capabilities to disappear from
+  planning or be rediscovered repeatedly.
+- Desired outcome: A small, maintained inventory distinguishes web, API,
+  existing CLI, and future protocol availability, plus end-to-end evidence and
+  intentional deferrals. It must not imply that new clients should be built.
+- Tasks: META-221
+- Resolution (META-221, 2026-09-26): Added the [capability availability and
+  verification matrix](../docs/capability-evidence.md), covering current web,
+  HTTP API, and shipped CLI surfaces with named end-to-end and API-test evidence.
+  It distinguishes API availability from finished client journeys, records the
+  incomplete X web connection and API-only analytics, and preserves MCP as an
+  owner-directed deferral rather than an implementation commitment.
+- Verification: Reviewed the dashboard routes, API modules, CLI command table
+  and mocked-fetch tests, linked Playwright scenarios, and the current analytics
+  and MCP task/issue records. The matrix explicitly limits what each test proves.
+
+## [ISSUE-133] Reconcile proposed decision records with implemented behavior
+
+- Type: problem
+- Status: resolved
+- Evidence: The diagnostic found decision records still marked `proposed` for
+  areas with implemented code and tests, including runtime packaging, realtime,
+  provider adapters, analytics, and runtime quiescence. A proposed record is
+  not owner acceptance, so code presence alone cannot justify changing its
+  status.
+- Impact: Readers cannot tell whether a record is an unaccepted design, an
+  implemented but unratified mechanism, or current normative guidance.
+- Desired outcome: Inventory only the affected records, compare each with
+  current source and owner decisions, and request explicit owner acceptance or
+  retain the proposed status with a clear explanation. Do not promote records
+  automatically.
+- Tasks: META-225
+- Related issue: ISSUE-109
+- Resolution (META-225, 2026-09-26): Compared ADR-010, ADR-044, ADR-045,
+  ADR-048, ADR-051, ADR-052, ADR-055, ADR-068, and ADR-069 with current source,
+  tests, and their linked worklogs. Their mechanisms are implemented, but the
+  repository does not record explicit owner ratification of these complete
+  technical decisions. All nine statuses remain `proposed`; feature or
+  implementation approval is not treated as ADR acceptance. Corrected ADR-010's
+  obsolete release framing and runtime-version detail to match accepted
+  continuous-development scope and the repository-pinned Bun runtime.
+- Owner clarification: The internal Herald operational-analytics UI deferral
+  does not defer publication-performance analytics such as views and comments.
+  The decision inventory and remaining ratification choices are recorded in the
+  [META-225 worklog](worklogs/2026-09-26-META-225.md).
+
+## [ISSUE-134] Contain the Better Auth and Elysia type-integration seam
+
+- Type: problem
+- Status: resolved
+- Evidence: The Better Auth plugin integration maintains a local type contract
+  and conversions around framework inference limitations. The diagnostic
+  identified this as a concrete maintenance seam, not evidence that Elysia or
+  the current architecture should be replaced.
+- Impact: Framework or authentication dependency updates may widen the adapter
+  or cause unsafe type drift if this boundary remains implicit.
+- Desired outcome: Characterize the seam with focused contract coverage and
+  document its upgrade constraints; keep the adapter narrow and change
+  frameworks only if concrete incompatibility justifies it.
+- Resolution: Added an Elysia-mounted sign-up/session-cookie contract test and
+  explicit Better Auth/Elysia upgrade checks to the owning package guidance.
+  Existing auth types and adapters remain narrow; no framework incompatibility
+  was reproduced.
+- Evidence: [MAINT-226 worklog](worklogs/2026-09-26-MAINT-226.md).
+
+## [ISSUE-135] Clarify operational analytics data, retention, and access
+
+- Type: question
+- Status: accepted
+- Evidence: Herald has both a process-level Prometheus scrape endpoint and a
+  project-level operational analytics API. The latter computes aggregates on
+  demand from current publication/job state and the durable `audit_events`
+  journal; it does not persist query snapshots. That journal is also consumed
+  by realtime and notification projections, and no automatic journal-retention
+  job was found. The API is project-scoped and exposes aggregate results to
+  authenticated project actors without an editor-only role check.
+- Impact: The analytics API may look like another stream of stored metrics,
+  although its reads create no such stream. Separately, durable event history
+  can grow with real workflow activity, and pruning it could affect analytics,
+  realtime replay, and notification records. The process metrics and project
+  report overlap only on a subset of worker outcomes and durations; their
+  scopes and data lifecycles differ.
+- Desired outcome: Establish which operational questions belong in Prometheus,
+  the project analytics API, or a future web surface; make the journal's
+  consumers, storage growth, retention, and project-role visibility explicit;
+  and recommend whether the API should remain API-only. Do not add sampling,
+  retention deletion, or UI before the owner accepts the relevant boundary.
+- Tasks: ANALYTICS-227
+- Related issues: ISSUE-054, ISSUE-056, ISSUE-131
+- Related decisions: ADR-051, ADR-054
+
+## External diagnostic follow-up classification
+
+- The X weighted-count finding is resolved by ISSUE-126 and X-214.
+- Production backup/restore execution is resolved by ISSUE-123 and OPS-213;
+  ISSUE-129 tracks the remaining production dashboard-serving assertion only.
+- Password recovery is already tracked under accepted ISSUE-062; ACCESS-219
+  and ACCESS-220 split its remaining web and mail-less operator paths.
+- Real publication validation remains the recurring practice in ISSUE-021; its
+  existing LinkedIn and Bluesky runs are evidence, not work to restart.
+- MCP remains ISSUE-036, intentionally deferred by the owner until the web
+  product is sufficiently stable. This is not a permanent rejection and has no
+  implementation task in the current backlog.
+- Media component debt remains ISSUE-119; WEB-204 is the completed first seam,
+  and WEB-224 will identify the next evidence-backed seam rather than mandate a
+  broad refactor.
+- The Prometheus endpoint was separately secured under ISSUE-125 and OPS-212;
+  the diagnostic does not authorize expanding telemetry.

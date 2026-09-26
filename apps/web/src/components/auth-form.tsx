@@ -27,6 +27,7 @@ interface AuthFormProps {
         readonly signUp: string
     }
     readonly onModeChange?: (mode: AuthMode) => void
+    readonly onForgotPassword?: () => void
     readonly onSubmit: (values: AuthFormValues) => void | Promise<void>
     readonly pending?: boolean
     readonly showSetupAction?: boolean
@@ -41,6 +42,7 @@ export function AuthForm({
     mode = 'sign-in',
     modeToggleLabels,
     onModeChange,
+    onForgotPassword,
     onSubmit,
     pending = false,
     showSetupAction = true,
@@ -150,6 +152,17 @@ export function AuthForm({
                         </Button>
                     </div>
                 </Field>
+
+                {!isSignUp && onForgotPassword ? (
+                    <div className="-mt-3 flex justify-end">
+                        <button
+                            className="text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                            onClick={onForgotPassword}
+                            type="button">
+                            {m.auth_forgot_password()}
+                        </button>
+                    </div>
+                ) : null}
 
                 {error ? (
                     <div

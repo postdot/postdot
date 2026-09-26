@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 
 describe('runtime quiescence lock', () => {
-    it('allows one owner and blocks a concurrent server or restore owner', async () => {
+    it('allows one owner and blocks concurrent server, restore, or recovery owners', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
         const databasePath = join(directory, 'herald.sqlite')
 
@@ -17,6 +17,9 @@ describe('runtime quiescence lock', () => {
             expect(() => acquireRuntimeQuiescenceLock(databasePath, 'restore')).toThrow(
                 'runtime lock'
             )
+            expect(() => acquireRuntimeQuiescenceLock(databasePath, 'recovery')).toThrow(
+                'runtime lock'
+            )
 
             serverLock.release()
             expect(existsSync(serverLock.lockFilename)).toBe(false)
@@ -24,6 +27,13 @@ describe('runtime quiescence lock', () => {
             const restoreLock = acquireRuntimeQuiescenceLock(databasePath, 'restore')
             expect(restoreLock.owner).toBe('restore')
             restoreLock.release()
+
+            const recoveryLock = acquireRuntimeQuiescenceLock(databasePath, 'recovery')
+            expect(recoveryLock.owner).toBe('recovery')
+            expect(() => acquireRuntimeQuiescenceLock(databasePath, 'server')).toThrow(
+                'runtime lock'
+            )
+            recoveryLock.release()
         } finally {
             await rm(directory, { recursive: true, force: true })
         }

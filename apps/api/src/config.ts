@@ -96,7 +96,7 @@ const environmentDefinitions = {
     HERALD_METRICS_ENABLED: env.boolean({ defaultValue: false }),
     HERALD_METRICS_TOKEN: env.optionalString(),
     LOG_LEVEL: env.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'], {
-        defaultValue: values => (values.NODE_ENV === 'production' ? 'silent' : 'info'),
+        defaultValue: values => (values.NODE_ENV === 'production' ? 'error' : 'info'),
     }),
     LOG_PRETTY: env.boolean({
         defaultValue: values => values.NODE_ENV !== 'production',

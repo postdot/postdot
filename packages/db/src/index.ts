@@ -12,12 +12,17 @@ export type {
     HeraldDatabase,
 } from './client'
 export { backupDatabase, backupWithMedia, restoreDatabase, restoreWithMedia } from './backup'
+export { recoverLocalAccountPassword } from './local-account-recovery'
 export type {
     MediaBackupManifest,
     MediaBackupOptions,
     MediaBackupRepresentation,
     MediaRestoreOptions,
 } from './backup'
+export type {
+    LocalAccountPasswordRecoveryOptions,
+    LocalAccountPasswordRecoveryResult,
+} from './local-account-recovery'
 export { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 export type { RuntimeQuiescenceLock, RuntimeQuiescenceOwner } from './runtime-quiescence'
 export { defaultMigrationsFolder, runMigrations } from './migrations'

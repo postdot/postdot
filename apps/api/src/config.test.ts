@@ -222,10 +222,26 @@ describe('Herald configuration', () => {
         ).toThrow('HERALD_OUTBOUND_PRIVATE_DESTINATIONS')
     })
 
-    it('disables logging by default in production', () => {
+    it('logs server errors by default in production without logging successful requests', () => {
         expect(
             createHeraldConfig({
                 NODE_ENV: 'production',
+                BETTER_AUTH_SECRET: secret,
+                HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
+                HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
+            }).logging
+        ).toEqual({
+            enabled: true,
+            level: 'error',
+            pretty: false,
+        })
+    })
+
+    it('allows operators to explicitly disable all logging', () => {
+        expect(
+            createHeraldConfig({
+                NODE_ENV: 'production',
+                LOG_LEVEL: 'silent',
                 BETTER_AUTH_SECRET: secret,
                 HERALD_MEDIA_PUBLIC_URL_SECRET: mediaPublicUrlSecret,
                 HERALD_PUBLISHER_ENCRYPTION_KEY: publisherEncryptionKey,
