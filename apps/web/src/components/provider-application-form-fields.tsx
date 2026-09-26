@@ -16,10 +16,12 @@ export function ProviderApplicationFormFields({
     editingId,
     form,
     onFormChange,
+    xCallbackUri,
 }: {
     readonly editingId: string | null
     readonly form: ProviderApplicationFormState
     readonly onFormChange: Dispatch<SetStateAction<ProviderApplicationFormState>>
+    readonly xCallbackUri: string
 }) {
     function selectProvider(value: string | null) {
         if (value !== 'linkedin' && value !== 'bluesky' && value !== 'x') return
@@ -179,6 +181,19 @@ export function ProviderApplicationFormFields({
                         />
                         <FieldDescription>{m.provider_apps_secret_help()}</FieldDescription>
                     </Field>
+                    {form.providerId === 'x' ? (
+                        <Field className="gap-1.5">
+                            <FieldLabel htmlFor="provider-application-x-callback">
+                                {m.provider_apps_x_callback_uri()}
+                            </FieldLabel>
+                            <Input
+                                id="provider-application-x-callback"
+                                readOnly
+                                value={xCallbackUri}
+                            />
+                            <FieldDescription>{m.provider_apps_x_callback_help()}</FieldDescription>
+                        </Field>
+                    ) : null}
                 </>
             )}
         </>

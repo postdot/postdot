@@ -3475,7 +3475,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-130] Complete the X connection journey in the web client
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The API exposes the X authorization start/callback flow and the web
   API client exposes `startXPublisherConnection`, but the authenticated channel
   connection surface has no corresponding X connection action.
@@ -3487,6 +3487,19 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: CHANNEL-222
 - Related issue: ISSUE-041
 - Related decision: ADR-044
+- Resolution (CHANNEL-222, 2026-09-26): Added X to channel creation and connected
+  its connect/reconnect action to the existing OAuth API. The administrator
+  configuration form now displays the server's exact X redirect URI and PKCE
+  setup guidance; project editors use the instance's default application
+  without calling the admin-only configuration endpoint. The callback continues
+  through the shared connection feedback and recovery surface.
+- Verification: `e2e/channel-x-connection.spec.ts` covers X channel creation,
+  callback setup guidance, missing-configuration error, cancellation, denial,
+  success, and reconnect using mocked browser/provider responses.
+  `apps/api/src/app.test.ts` covers the actual API OAuth state, PKCE, callback,
+  denial, provider errors, and revoked-connection reconnect with mocked provider
+  transport. No live X credentials or requests were used. See the
+  [CHANNEL-222 worklog](worklogs/2026-09-26-CHANNEL-222.md).
 
 ## [ISSUE-131] Decide whether operational analytics needs a web surface
 

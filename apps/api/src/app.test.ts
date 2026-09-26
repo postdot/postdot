@@ -398,6 +398,7 @@ describe('Herald API', () => {
             expect(listResponse.status).toBe(200)
             expect(await listResponse.json()).toEqual({
                 applications: [created.application],
+                xCallbackUri: `${baseURL}/api/oauth/x/callback`,
             })
 
             const disableResponse = await jsonRequest(
