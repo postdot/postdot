@@ -394,6 +394,9 @@ Do not generate a replacement key during restore: a new key cannot decrypt exist
 publisher credentials. If the original key is permanently lost, the credentials
 are unrecoverable and each affected publisher must be reconnected deliberately.
 
+See the [capability availability and verification matrix](docs/capability-evidence.md)
+for current web, API, and CLI coverage, known gaps, and end-to-end evidence.
+
 The current workspace contains:
 
 - `apps/api`: Elysia API process;
