@@ -3553,7 +3553,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-133] Reconcile proposed decision records with implemented behavior
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The diagnostic found decision records still marked `proposed` for
   areas with implemented code and tests, including runtime packaging, realtime,
   provider adapters, analytics, and runtime quiescence. A proposed record is
@@ -3567,6 +3567,18 @@ posture` is an exact patch duplicate of `aa889111`, and
   automatically.
 - Tasks: META-225
 - Related issue: ISSUE-109
+- Resolution (META-225, 2026-09-26): Compared ADR-010, ADR-044, ADR-045,
+  ADR-048, ADR-051, ADR-052, ADR-055, ADR-068, and ADR-069 with current source,
+  tests, and their linked worklogs. Their mechanisms are implemented, but the
+  repository does not record explicit owner ratification of these complete
+  technical decisions. All nine statuses remain `proposed`; feature or
+  implementation approval is not treated as ADR acceptance. Corrected ADR-010's
+  obsolete release framing and runtime-version detail to match accepted
+  continuous-development scope and the repository-pinned Bun runtime.
+- Owner clarification: The internal Herald operational-analytics UI deferral
+  does not defer publication-performance analytics such as views and comments.
+  The decision inventory and remaining ratification choices are recorded in the
+  [META-225 worklog](worklogs/2026-09-26-META-225.md).
 
 ## [ISSUE-134] Contain the Better Auth and Elysia type-integration seam
 
