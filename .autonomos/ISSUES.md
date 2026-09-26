@@ -3583,7 +3583,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-134] Contain the Better Auth and Elysia type-integration seam
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The Better Auth plugin integration maintains a local type contract
   and conversions around framework inference limitations. The diagnostic
   identified this as a concrete maintenance seam, not evidence that Elysia or
@@ -3593,7 +3593,11 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Characterize the seam with focused contract coverage and
   document its upgrade constraints; keep the adapter narrow and change
   frameworks only if concrete incompatibility justifies it.
-- Tasks: MAINT-226
+- Resolution: Added an Elysia-mounted sign-up/session-cookie contract test and
+  explicit Better Auth/Elysia upgrade checks to the owning package guidance.
+  Existing auth types and adapters remain narrow; no framework incompatibility
+  was reproduced.
+- Evidence: [MAINT-226 worklog](worklogs/2026-09-26-MAINT-226.md).
 
 ## [ISSUE-135] Clarify operational analytics data, retention, and access
 
