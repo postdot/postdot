@@ -406,3 +406,7 @@ the central project reads and projection/realtime reliability.
 ## Post-sprint competitor capability study
 
 - [ ] **[PRODUCT-231]** Inventory and scope a source-backed capability comparison with Postiz, Mixpost, and OpenPost `Priority: 🟠` `Complexity: L` — [ISSUE-136]; begin only after the current sprint and PR #215 are closed; inventory candidate product capabilities from official sources and Herald's current implementation, propose a grouped feature-row set for owner approval, and do not infer absence from missing documentation or commit Herald to feature parity.
+
+## Local main integration
+
+- [x] **[META-232]** Adopt owner-directed local verification and direct-main integration `Priority: 🟠` `Complexity: S` — record the temporary workflow change, integrate the already-reviewed branch into local `main`, run the full `bun run check` gate locally, and retire the superseded open PR without publishing to the remote. Evidence: [META-232 worklog](worklogs/2026-09-26-META-232.md).

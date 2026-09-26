@@ -16,6 +16,11 @@ content generator.
 ## ⚙️ Workflow & Preferences
 
 - **Commits:** Conventional Commits
+- **Integration (temporary owner direction):** Until the owner changes this
+  direction, run the repository's full `bun run check` locally and merge
+  completed work directly into local `main`. Do not open pull requests or wait
+  for GitHub Actions. Local integration must not depend on publishing `main` to
+  the remote.
 - **Language:** English
 - **Repository language:** Keep code, comments, documentation, Autonomos artifacts,
   and test descriptions in English. French is allowed only in application
