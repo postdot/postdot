@@ -70,6 +70,7 @@ export const ConnectionStates: Story = {
                             onStartBlueskyConnection={async () => undefined}
                             onStartLinkedInConnection={async () => undefined}
                             onStartMastodonConnection={async () => undefined}
+                            onStartXConnection={async () => undefined}
                         />
                     </div>
                 </div>

@@ -18,7 +18,7 @@ import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { EmptyState } from '@/components/empty-state'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import type { Channel } from '@/lib/api'
-import { useProjectDashboard } from '@/lib/dashboard-context'
+import { useDashboardGlobal, useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import type { PublisherCallbackResult } from '@/lib/publisher-connection-feedback'
 import * as m from '@/paraglide/messages.js'
@@ -36,6 +36,7 @@ export function ChannelManagementPage({
     publisherFeedback,
 }: ChannelManagementPageProps) {
     useLanguage()
+    const { isInstanceAdmin } = useDashboardGlobal()
     const {
         channels,
         connections,
@@ -51,6 +52,7 @@ export function ChannelManagementPage({
         onStartLinkedInConnection,
         onStartBlueskyConnection,
         onStartMastodonConnection,
+        onStartXConnection,
         onConnectDiscordPublisher,
         onConnectDevtoPublisher,
         pending,
@@ -155,9 +157,11 @@ export function ChannelManagementPage({
                     onStartLinkedInConnection={onStartLinkedInConnection}
                     onStartBlueskyConnection={onStartBlueskyConnection}
                     onStartMastodonConnection={onStartMastodonConnection}
+                    onStartXConnection={onStartXConnection}
                     onConnectDiscordPublisher={onConnectDiscordPublisher}
                     onConnectDevtoPublisher={onConnectDevtoPublisher}
                     onDisconnectPublisher={onDisconnectPublisher}
+                    isInstanceAdmin={isInstanceAdmin}
                     readOnly={!canEditProject}
                 />
             </div>

@@ -67,7 +67,10 @@ const errorSchema = Type.Object({
     }),
 })
 
-const applicationListSchema = Type.Object({ applications: Type.Array(applicationSchema) })
+const applicationListSchema = Type.Object({
+    applications: Type.Array(applicationSchema),
+    xCallbackUri: Type.String({ minLength: 1 }),
+})
 const applicationResponseSchema = Type.Object({ application: applicationSchema })
 
 /**
@@ -110,6 +113,7 @@ export function registerProviderApplicationRoutes<const Routes extends Record<st
                 return {
                     applications:
                         publisher.providerApplicationStore.listProviderApplicationConfigurations(),
+                    xCallbackUri: publisher.xCallbackUri,
                 }
             }
         )
