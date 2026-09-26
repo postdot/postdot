@@ -3625,9 +3625,10 @@ posture` is an exact patch duplicate of `aa889111`, and
   project-level operational analytics API. The latter computes aggregates on
   demand from current publication/job state and the durable `audit_events`
   journal; it does not persist query snapshots. That journal is also consumed
-  by realtime and notification projections, and no automatic journal-retention
-  job was found. The API is project-scoped and exposes aggregate results to
-  authenticated project actors without an editor-only role check.
+  by realtime and notification projections. ADR-037 already accepts retaining
+  journal rows for the lifetime of their project; no automatic TTL job exists.
+  The API is project-scoped and exposes aggregate results to authenticated
+  project actors without an editor-only role check.
 - Impact: The analytics API may look like another stream of stored metrics,
   although its reads create no such stream. Separately, durable event history
   can grow with real workflow activity, and pruning it could affect analytics,
@@ -3639,9 +3640,18 @@ posture` is an exact patch duplicate of `aa889111`, and
   consumers, storage growth, retention, and project-role visibility explicit;
   and recommend whether the API should remain API-only. Do not add sampling,
   retention deletion, or UI before the owner accepts the relevant boundary.
-- Tasks: ANALYTICS-227
+- Tasks: ANALYTICS-227, ANALYTICS-229
 - Related issues: ISSUE-054, ISSUE-056, ISSUE-131
 - Related decisions: ADR-051, ADR-054
+- Retention review (ANALYTICS-229): Keep the accepted project-lifetime policy
+  unchanged. Individual-event deletion cascades to source-linked inbox and
+  delivery history, truncates analytics, and has no realtime retention-floor
+  contract to signal a required resynchronization. The 100,000-row disposable
+  fixture measured about 75.39 MiB; that demonstrates growth, not a deployment
+  capacity problem. A finite window or archive needs a separate accepted design.
+- Remaining scope: No role-specific analytics permission decision was made in
+  this task. The current project-actor access boundary is unchanged. The
+  operational analytics web surface remains deferred, not permanently rejected.
 
 ## External diagnostic follow-up classification
 

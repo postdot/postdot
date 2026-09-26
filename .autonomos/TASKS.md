@@ -397,3 +397,7 @@ the central project reads and projection/realtime reliability.
 ## Autonomos scope cleanup
 
 - [x] **[META-228]** Retire the stale app-managed worktree control investigation `Priority: 🟠` `Complexity: S` — close META-62 and decline ISSUE-029 as owner-retired scope, explicitly not as a claim that the Codex control-plane limitation was fixed; preserve the experiments and remove stale active-gate guidance. Evidence: [META-228 worklog](worklogs/2026-09-26-META-228.md).
+
+## Event journal retention policy
+
+- [x] **[ANALYTICS-229]** Recommend whether Herald should change project-lifetime event retention `Priority: 🟠` `Complexity: M` — [ISSUE-135]; compare the accepted project-lifetime policy with bounded deletion and archival, trace impacts on audit history, analytics, notifications, media lifecycle, and realtime cursors, and return an evidence-based recommendation. No deletion or policy change is justified now. Evidence: [ANALYTICS-229 worklog](worklogs/2026-09-26-ANALYTICS-229.md).
