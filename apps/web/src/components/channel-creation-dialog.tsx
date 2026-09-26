@@ -39,6 +39,7 @@ type ProfileChoice =
     | 'linkedin'
     | 'bluesky'
     | 'mastodon'
+    | 'x'
     | 'discord'
     | 'devto'
     | 'custom'
@@ -137,6 +138,7 @@ export function ChannelCreationDialog({
         { value: 'linkedin', label: m.channel_linkedin_profile() },
         { value: 'bluesky', label: m.channel_bluesky_profile() },
         { value: 'mastodon', label: m.channel_mastodon_profile() },
+        { value: 'x', label: m.channel_x_profile() },
         { value: 'discord', label: m.channel_discord_profile() },
         { value: 'devto', label: m.channel_devto_profile() },
         { value: 'custom', label: m.channel_custom_profile() },

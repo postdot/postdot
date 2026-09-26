@@ -20,6 +20,7 @@ import * as m from '@/paraglide/messages.js'
 export function ProviderApplicationSettingsPage() {
     useLanguage()
     const [applications, setApplications] = useState<ProviderApplication[] | null>(null)
+    const [xCallbackUri, setXCallbackUri] = useState<string | null>(null)
     const [editingId, setEditingId] = useState<string | null>(null)
     const [form, setForm] = useState<ProviderApplicationFormState>(newProviderApplicationForm)
     const [formOpen, setFormOpen] = useState(false)
@@ -37,6 +38,7 @@ export function ProviderApplicationSettingsPage() {
             .then(response => {
                 if (!cancelled) {
                     setApplications(response.applications)
+                    setXCallbackUri(response.xCallbackUri)
                     setFormOpen(false)
                 }
             })
@@ -130,6 +132,7 @@ export function ProviderApplicationSettingsPage() {
     async function reloadApplications() {
         const response = await api.listProviderApplications()
         setApplications(response.applications)
+        setXCallbackUri(response.xCallbackUri)
     }
 
     async function runAction(action: () => Promise<void>) {
@@ -194,6 +197,7 @@ export function ProviderApplicationSettingsPage() {
                                     editingApplication={editingApplication}
                                     editingId={editingId}
                                     form={form}
+                                    xCallbackUri={xCallbackUri ?? ''}
                                     onCancel={cancelEdit}
                                     onFormChange={setForm}
                                     onSubmit={event => void handleSubmit(event)}

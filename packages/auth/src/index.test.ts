@@ -7,10 +7,13 @@ import {
     createManualStore,
     runMigrations,
 } from '@herald/db'
+import { verifyPassword } from 'better-auth/crypto'
 
 import {
     createAuth,
+    hashHeraldPassword,
     heraldUserApiKeyConfigId,
+    heraldPasswordPolicy,
     type HeraldAuthRuntimeOptions,
     type HeraldAuthVerificationEmail,
     type HeraldOrganizationInvitationEmail,
@@ -55,6 +58,15 @@ function createFixture(
 }
 
 describe('Herald authentication', () => {
+    it('uses Better Auth password hashes for offline recovery', async () => {
+        const password = 'recovered-password-123'
+        const hash = await hashHeraldPassword(password)
+
+        expect(hash).not.toBe(password)
+        expect(await verifyPassword({ hash, password })).toBe(true)
+        expect(await verifyPassword({ hash, password: 'different-password-123' })).toBe(false)
+    })
+
     it('exposes Better Auth through its standard health endpoint', async () => {
         const { auth, database } = createFixture()
 
@@ -710,6 +722,12 @@ describe('Herald authentication', () => {
 
         try {
             expect(configured.options.emailAndPassword?.enabled).toBe(true)
+            expect(configured.options.emailAndPassword?.minPasswordLength).toBe(
+                heraldPasswordPolicy.minimumLength
+            )
+            expect(configured.options.emailAndPassword?.maxPasswordLength).toBe(
+                heraldPasswordPolicy.maximumLength
+            )
             expect(Object.hasOwn(configured.options, 'socialProviders')).toBe(false)
         } finally {
             closeDatabase(database)
