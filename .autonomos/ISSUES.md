@@ -3754,6 +3754,53 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Resolution: Implemented DEV.to/Forem lifetime totals for known published Herald destinations, authenticated project-scoped API reads and editor-gated explicit collection, and a localized project Performances page that combines cached DEV.to and Bluesky measures per destination. Page reads do not call providers. No recurring collection, historical chart, new credential scope, or retention policy was added.
 - Evidence: [ANALYTICS-233 workflow recommendation](worklogs/2026-09-27-ANALYTICS-233.md); [ANALYTICS-234 worklog](worklogs/2026-09-27-ANALYTICS-234.md); [ANALYTICS-235 worklog](worklogs/2026-09-27-ANALYTICS-235.md).
 
+## [ISSUE-139] Decide whether team publications require a separate approval
+
+- Type: question
+- Status: open
+- Evidence: Herald project access currently distinguishes `owner`, `editor`, and
+  `viewer`. Publication mutations, including scheduling and recording manual
+  publication, require the `editor` role; there is no per-publication approval
+  state. The domain's `review_required` value means a destination needs a
+  compatibility reassessment after a channel-profile change, not editorial
+  approval. The proposed workspace/access record describes Reviewers as having
+  review/read access, but does not define a publication approval gate.
+  Competitor evidence is mixed: Mixpost documents a Pro/Enterprise approval
+  flow and says MCP-created scheduled or queued posts enter `needs_approval`
+  when the workspace requires it ([Mixpost MCP documentation](https://docs.mixpost.app/mcp/),
+  [Mixpost features](https://mixpost.app/features)). Postiz documents
+  human review of agent-created posts in its calendar and approval for its
+  WordPress editorial workflow, but the reviewed public evidence does not
+  establish an equivalent gate for ordinary social publications ([Postiz product overview](https://postiz.com/about),
+  [Postiz WordPress workflow](https://postiz.com/channels/wordpress)). OpenPost
+  documents human review in the agent client flow and explicitly says it does
+  not add a separate server approval step before each allowed change ([OpenPost agent-assisted publishing](https://docs.openpo.st/usage/agent-assisted-publishing)).
+- Impact: A team that expects one member to draft and another to authorize an
+  external publication cannot enforce that separation in Herald today. Adding
+  it would affect the publication lifecycle and must apply consistently to the
+  web app, REST API, current CLI, and any future client; it also requires clear
+  rules for approval identity, edits after approval, and already scheduled work.
+  Competitor presence alone does not establish that Herald users need this
+  policy.
+- Desired outcome: Decide whether Herald should support an enforced
+  author-to-approver handoff before a publication can be sent, or keep the
+  current role-based authorization model until a concrete team workflow
+  requires otherwise.
+- Tasks: none
+- Related issues: ISSUE-136
+- Related decisions: ADR-074
+- Decision needed: (1) Keep the current model: Editors can author, schedule,
+  and publish; separate editorial approval is not a product requirement. (2)
+  Accept separate editorial approval as a product requirement and authorize a
+  focused workflow specification before implementation. Choosing option 2
+  would not authorize coding until the approval rules and lifecycle boundaries
+  are specified.
+- Recommendation: Do not implement an approval gate solely for competitor
+  parity. Decide based on whether Herald must support teams where the person
+  preparing a post must not be able to publish it without a second person's
+  sign-off. Until that need is confirmed, retain the current behavior and keep
+  this issue open rather than implying the question is permanently rejected.
+
 ## External diagnostic follow-up classification
 
 - The X weighted-count finding is resolved by ISSUE-126 and X-214.
