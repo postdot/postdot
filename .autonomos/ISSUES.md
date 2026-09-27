@@ -3754,10 +3754,10 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Resolution: Implemented DEV.to/Forem lifetime totals for known published Herald destinations, authenticated project-scoped API reads and editor-gated explicit collection, and a localized project Performances page that combines cached DEV.to and Bluesky measures per destination. Page reads do not call providers. No recurring collection, historical chart, new credential scope, or retention policy was added.
 - Evidence: [ANALYTICS-233 workflow recommendation](worklogs/2026-09-27-ANALYTICS-233.md); [ANALYTICS-234 worklog](worklogs/2026-09-27-ANALYTICS-234.md); [ANALYTICS-235 worklog](worklogs/2026-09-27-ANALYTICS-235.md).
 
-## [ISSUE-139] Decide whether team publications require a separate approval
+## [ISSUE-139] Separate publication preparation from approval and dispatch
 
-- Type: question
-- Status: open
+- Type: product requirement
+- Status: accepted
 - Evidence: Herald project access currently distinguishes `owner`, `editor`, and
   `viewer`. Publication mutations, including scheduling and recording manual
   publication, require the `editor` role; there is no per-publication approval
@@ -3782,24 +3782,42 @@ posture` is an exact patch duplicate of `aa889111`, and
   rules for approval identity, edits after approval, and already scheduled work.
   Competitor presence alone does not establish that Herald users need this
   policy.
-- Desired outcome: Decide whether Herald should support an enforced
-  author-to-approver handoff before a publication can be sent, or keep the
-  current role-based authorization model until a concrete team workflow
-  requires otherwise.
-- Tasks: none
+- Desired outcome: Allow an external client with limited publication
+  permissions to prepare a publication and propose a delivery time without
+  being able to schedule or dispatch it. A human must explicitly approve the
+  exact content and authorize the real schedule or immediate dispatch.
+- Tasks: [PUB-237](TASKS.md), [PUB-238](TASKS.md)
 - Related issues: ISSUE-136
-- Related decisions: ADR-074
-- Decision needed: (1) Keep the current model: Editors can author, schedule,
-  and publish; separate editorial approval is not a product requirement. (2)
-  Accept separate editorial approval as a product requirement and authorize a
-  focused workflow specification before implementation. Choosing option 2
-  would not authorize coding until the approval rules and lifecycle boundaries
-  are specified.
-- Recommendation: Do not implement an approval gate solely for competitor
-  parity. Decide based on whether Herald must support teams where the person
-  preparing a post must not be able to publish it without a second person's
-  sign-off. Until that need is confirmed, retain the current behavior and keep
-  this issue open rather than implying the question is permanently rejected.
+- Related decisions: ADR-074, ADR-075
+- Owner direction (2026-09-27): This is a real product need, especially for
+  external agents that may prepare publications but must not be able to publish
+  or schedule them. Herald must not classify the external client as an AI
+  agent; the boundary is expressed through generic user-owned API-key actions
+  and an explicit approval workflow.
+- Accepted requirements:
+  - A client with `publication:manage` but without `publication:dispatch` may
+    prepare content and submit a proposed delivery time for human review.
+  - A proposed time is not a schedule: while approval is pending it must not
+    populate the executable schedule, create a worker job, or trigger provider
+    activity.
+  - Only an authenticated human session with project editing authority may
+    approve, reject, or authorize dispatch. A bearer API key cannot approve.
+  - If the proposed time passes without approval, nothing is published or
+    scheduled automatically; the request remains visibly pending.
+  - Approval must refer to the exact content revision reviewed. A later edit
+    invalidates that approval and requires another review.
+  - Ordinary human-authored publications retain the existing direct schedule
+    and publish flow unless explicitly submitted for approval.
+  - No new CLI/MCP client or agent-specific identity is part of this work.
+- Specification recommendation: If approval happens after the proposed time,
+  require the human to choose a new time or explicitly publish now; never
+  silently catch up a missed request. Rejection returns the publication to an
+  editable draft. See [PUB-237](worklogs/2026-09-27-PUB-237.md).
+- Resolution: The current API-key split already separates draft preparation
+  (`publication:manage`) from schedule/dispatch (`publication:dispatch`). The
+  remaining work is to make a proposed schedule reviewable without creating an
+  executable job, then let a human approve it through the web workflow. See
+  [PUB-238](TASKS.md).
 
 ## [ISSUE-140] Let user-owned API keys narrow project actions
 
