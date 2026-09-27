@@ -49,6 +49,45 @@ boundary. Projects remain owned by their workspace and Herald's existing
 project roles continue to decide whether the authenticated user may read or
 modify a resource.
 
+### Action scope
+
+A key may also carry an optional action ceiling. With no ceiling, the key
+continues to inherit all actions its owner can currently perform in each
+project. A limited key is authorized only when all three conditions hold:
+
+1. The owner currently has the required project role.
+2. The project is within the key's current project scope.
+3. The key has the required action capability.
+
+The nullable Better Auth `apikey.permissions` field stores a limited key's
+capabilities. Herald maps each route to an explicit capability and checks it
+after authenticating the key; unknown routes fail closed. A null permission
+record deliberately means “no key-level action ceiling” in Herald, not that
+Better Auth itself treats null as a wildcard. This preserves dynamic role
+inheritance for existing unrestricted keys without freezing a maximum action
+list at key-creation time.
+
+The initial action capabilities are:
+
+- `project:read` — read project content and cached analytics.
+- `publication:manage` — prepare, edit, duplicate, and remove drafts; manage
+  publication tags and project taxonomy.
+- `publication:dispatch` — schedule, cancel, publish, retry, and reconcile
+  publication work.
+- `channel:manage` — manage channels, profiles, and custom HTTP publishers.
+- `media:manage` — upload, import, trash, and restore media.
+- `analytics:refresh` — explicitly call supported providers to refresh stored
+  publication analytics.
+- `media:permanently_delete` — permanently purge trashed media; this is separate
+  from ordinary media management.
+
+Workspace and project access administration, account and API-key management,
+built-in publisher OAuth, notifications/realtime, audit/security surfaces, and
+installation administration remain human-session operations. The capability
+list is a ceiling only; it never grants a role the user does not currently
+have. See [the API-key operations guide](../../docs/security/user-api-keys.md)
+for the current route and client contract.
+
 ### Product surfaces
 
 API keys are managed from the user Preferences area and from the CLI's

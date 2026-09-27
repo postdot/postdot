@@ -47,6 +47,7 @@ export function registerPublisherRoutes<const Routes extends Record<string, unkn
                 response: {
                     200: publisherConnectionsSchema,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                 },
                 detail: {

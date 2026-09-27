@@ -2483,10 +2483,17 @@ describe('Herald API', () => {
             )
             expect(channelResponse.status).toBe(201)
 
-            const auditResponse = await bearerRequest(
+            const deniedAuditResponse = await bearerRequest(
                 app,
                 `/api/projects/${projectId}/audit-events`,
                 createdBody.token
+            )
+            expect(deniedAuditResponse.status).toBe(403)
+
+            const auditResponse = await jsonRequest(
+                app,
+                `/api/projects/${projectId}/audit-events`,
+                cookie
             )
             expect(auditResponse.status).toBe(200)
             const auditBody = (await auditResponse.json()) as {
@@ -4238,13 +4245,20 @@ describe('Herald API', () => {
             )
             expect(tokenConnectionStartResponse.status).toBe(403)
 
-            const tokenCallbackResponse = await bearerRequest(
+            const rejectedCallbackResponse = await bearerRequest(
                 app,
                 '/api/oauth/linkedin/callback',
                 accessTokenBody.token
             )
-            expect(tokenCallbackResponse.status).toBe(303)
-            expect(tokenCallbackResponse.headers.get('location')).toBe(
+            expect(rejectedCallbackResponse.status).toBe(403)
+
+            const sessionInvalidCallbackResponse = await jsonRequest(
+                app,
+                '/api/oauth/linkedin/callback',
+                cookie
+            )
+            expect(sessionInvalidCallbackResponse.status).toBe(303)
+            expect(sessionInvalidCallbackResponse.headers.get('location')).toBe(
                 'http://localhost:5173/dashboard?publisher=invalid_callback'
             )
 
@@ -4598,13 +4612,20 @@ describe('Herald API', () => {
             )
             expect(tokenConnectionStartResponse.status).toBe(403)
 
-            const tokenCallbackResponse = await bearerRequest(
+            const rejectedCallbackResponse = await bearerRequest(
                 app,
                 '/api/oauth/x/callback',
                 accessTokenBody.token
             )
-            expect(tokenCallbackResponse.status).toBe(303)
-            expect(tokenCallbackResponse.headers.get('location')).toBe(
+            expect(rejectedCallbackResponse.status).toBe(403)
+
+            const sessionInvalidCallbackResponse = await jsonRequest(
+                app,
+                '/api/oauth/x/callback',
+                cookie
+            )
+            expect(sessionInvalidCallbackResponse.status).toBe(303)
+            expect(sessionInvalidCallbackResponse.headers.get('location')).toBe(
                 'http://localhost:5173/dashboard?publisher=invalid_callback'
             )
 

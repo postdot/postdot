@@ -192,6 +192,7 @@ export interface HeraldApiKeyAuthApi {
             userId?: string
             expiresIn?: number | null
             metadata?: unknown
+            permissions?: Record<string, string[]>
         }
         headers?: Headers
     }): Promise<HeraldApiKeyRecord & { readonly key: string }>
@@ -207,11 +208,13 @@ export interface HeraldApiKeyAuthApi {
         body: {
             configId?: string
             keyId: string
+            userId?: string
             metadata?: unknown
             name?: string
             expiresIn?: number | null
+            permissions?: Record<string, string[]> | null
         }
-        headers: Headers
+        headers?: Headers
     }): Promise<HeraldApiKeyRecord>
     verifyApiKey(input: {
         body: { configId?: string; key: string }

@@ -356,11 +356,21 @@ export interface ProviderApplicationInput {
     readonly isDefault?: boolean
 }
 
+export type UserApiKeyCapability =
+    | 'project:read'
+    | 'publication:manage'
+    | 'publication:dispatch'
+    | 'channel:manage'
+    | 'media:manage'
+    | 'analytics:refresh'
+    | 'media:permanently_delete'
+
 export interface UserApiKey {
     readonly id: string
     readonly name: string
     readonly tokenPrefix: string
     readonly projectAccess: 'all' | string[]
+    readonly actionAccess: 'all' | UserApiKeyCapability[]
     readonly expiresAt: number | null
     readonly createdAt: number
     readonly updatedAt: number
@@ -638,13 +648,15 @@ export const api = {
     async createUserApiKey(
         name: string | undefined,
         projectIds: readonly string[] | null,
-        expiresAt?: number | null
+        expiresAt?: number | null,
+        actionAccess?: readonly UserApiKeyCapability[] | null
     ): Promise<{ key: UserApiKey; token: string }> {
         return requestAuth<{ key: UserApiKey; token: string }>(
             '/api/api-keys',
             jsonBody({
                 ...(name === undefined ? {} : { name }),
                 projectIds: projectIds === null ? null : [...projectIds],
+                actionAccess: actionAccess == null ? null : [...actionAccess],
                 ...(expiresAt === undefined ? {} : { expiresAt }),
             })
         )
@@ -656,6 +668,7 @@ export const api = {
             readonly name?: string
             readonly projectIds?: readonly string[] | null
             readonly expiresAt?: number | null
+            readonly actionAccess?: readonly UserApiKeyCapability[] | null
         }
     ): Promise<{ key: UserApiKey }> {
         return requestAuth<{ key: UserApiKey }>(
@@ -666,6 +679,12 @@ export const api = {
                     ...(input.projectIds === undefined
                         ? {}
                         : { projectIds: input.projectIds === null ? null : [...input.projectIds] }),
+                    ...(input.actionAccess === undefined
+                        ? {}
+                        : {
+                              actionAccess:
+                                  input.actionAccess === null ? null : [...input.actionAccess],
+                          }),
                 },
                 'PATCH'
             )

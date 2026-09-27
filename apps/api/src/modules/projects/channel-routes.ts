@@ -30,6 +30,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 response: {
                     200: Type.Object({ channels: Type.Array(channelSchema) }),
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                 },
                 detail: {

@@ -1,11 +1,14 @@
-import type { HeraldAuth } from '@herald/auth'
+import type { HeraldApiKeyRecord, HeraldAuth } from '@herald/auth'
 import { Elysia } from 'elysia'
+
+type HeraldApiKeyPermissions = HeraldApiKeyRecord['permissions']
 
 interface UserApiKeyAuthentication {
     /** null means all projects currently available to the key owner. */
     readonly projectIds: readonly string[] | null
     readonly ownerUserId: string
     readonly displayName: string
+    readonly permissions: HeraldApiKeyPermissions
 }
 
 export function createAuthRoutes(auth: HeraldAuth) {
@@ -16,6 +19,11 @@ export interface AuthenticatedElysiaOptions {
     readonly authenticateBetterAuthProjectApiKey?: (
         token: string
     ) => Promise<UserApiKeyAuthentication | null>
+    readonly authorizeUserApiKeyRequest?: (
+        method: string,
+        requestPath: string,
+        permissions: HeraldApiKeyPermissions
+    ) => boolean
     readonly authorizeProjectSessionAccess?: (
         projectId: string,
         userId: string,
@@ -111,6 +119,21 @@ export function createAuthenticatedElysia(
                     ) {
                         return status(404, {
                             error: { code: 'not_found', message: 'Project not found' },
+                        })
+                    }
+
+                    if (
+                        options.authorizeUserApiKeyRequest?.(
+                            request.method,
+                            new URL(request.url).pathname,
+                            authentication.permissions
+                        ) !== true
+                    ) {
+                        return status(403, {
+                            error: {
+                                code: 'insufficient_api_key_permissions',
+                                message: 'This API key is not allowed to perform this action',
+                            },
                         })
                     }
 

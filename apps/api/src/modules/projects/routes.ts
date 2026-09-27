@@ -25,6 +25,7 @@ export function registerProjectRoutes<const Routes extends Record<string, unknow
                 response: {
                     200: Type.Object({ projects: Type.Array(projectSchema) }),
                     401: errorResponse,
+                    403: errorResponse,
                 },
                 detail: {
                     operationId: 'listProjects',

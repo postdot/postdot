@@ -30,6 +30,7 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                 response: {
                     200: channelProfileStateSchema,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                 },
                 detail: {

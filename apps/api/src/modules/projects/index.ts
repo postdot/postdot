@@ -22,6 +22,7 @@ import type { MediaUrlImporter } from '../media/url-import'
 import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
 import { registerProjectAccessGrantRoutes } from './access-grant-routes'
 import { registerAnalyticsRoutes } from './analytics-routes'
+import { canApiKeyAccessRequest } from './api-key-permissions'
 import { registerAuditEventRoutes } from './audit-event-routes'
 import { createBlueskyAnalyticsService } from './bluesky-analytics-service'
 import { registerChannelProfilePresetRoutes } from './channel-profile-preset-routes'
@@ -91,6 +92,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
                                     : (metadata.heraldProjectIds ?? []),
                             ownerUserId: userVerified.key.referenceId,
                             displayName: `API key: ${userVerified.key.name ?? userVerified.key.id}`,
+                            permissions: userVerified.key.permissions,
                         }
                     }
                 }
@@ -99,6 +101,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
                 return null
             }
         },
+        authorizeUserApiKeyRequest: canApiKeyAccessRequest,
         authorizeProjectSessionAccess: (projectId, userId, requestPath) => {
             if (options.access.canAccessProject(projectId, userId)) return true
             if (!isProjectAccessPath(projectId, requestPath)) return false

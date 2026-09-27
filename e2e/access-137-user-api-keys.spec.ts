@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
-test('creates user-owned API keys with generated names and bounded project access', async ({
+test('creates and edits user-owned API keys with bounded project and action access', async ({
     page,
 }) => {
     test.setTimeout(60_000)
@@ -26,7 +26,7 @@ test('creates user-owned API keys with generated names and bounded project acces
     await page.getByRole('button', { name: 'Create an API key', exact: true }).click()
     const allProjectsDialog = page.getByRole('dialog')
     await expect(allProjectsDialog.getByRole('radio', { name: 'All projects' })).toBeChecked()
-    await allProjectsDialog.getByRole('button', { name: 'Create an API key', exact: true }).click()
+    await submitCreateKey(allProjectsDialog, page)
 
     const generatedKeyHeading = page.getByRole('heading', {
         name: /^API key created for Herald [A-Z][a-z]+ [A-Z][a-z]+ [A-Z0-9]{6}$/,
@@ -57,18 +57,65 @@ test('creates user-owned API keys with generated names and bounded project acces
     await page.getByRole('option', { name: projectName, exact: true }).click()
     await expect(projectPicker).toContainText(projectName)
     await page.keyboard.press('Escape')
+
+    const selectedActionsRadio = selectedProjectsDialog.getByRole('radio', {
+        name: 'Only selected actions',
+    })
+    await selectedActionsRadio.check()
+    await selectedProjectsDialog.getByRole('checkbox', { name: 'Read project data' }).check()
     await selectedProjectsDialog
-        .getByRole('button', { name: 'Create an API key', exact: true })
-        .click()
+        .getByRole('checkbox', { name: 'Manage channels and profiles' })
+        .check()
+    await submitCreateKey(selectedProjectsDialog, page)
 
     await expect(generatedKeyHeading).toBeVisible()
+    const limitedKeyName = (await generatedKeyHeading.textContent())?.replace(
+        /^API key created for /,
+        ''
+    )
     await page.getByRole('button', { name: 'Done', exact: true }).click()
+    if (limitedKeyName === undefined) throw new Error('The limited API key name was not rendered')
     await expect(page.getByText(/1 project\(s\): .*E2E-137 project/)).toBeVisible()
+    await expect(
+        page.getByText('Limited to: Read project data, Manage channels and profiles', {
+            exact: true,
+        })
+    ).toBeVisible()
+
+    const limitedKey = page.locator('li').filter({ hasText: limitedKeyName })
+    await limitedKey.getByRole('button', { name: 'Edit actions', exact: true }).click()
+    const editActionsDialog = page.getByRole('dialog')
+    await expect(
+        editActionsDialog.getByRole('checkbox', { name: 'Read project data' })
+    ).toBeChecked()
+    await editActionsDialog.getByRole('checkbox', { name: 'Read project data' }).uncheck()
+    await editActionsDialog
+        .getByRole('checkbox', { name: 'Prepare and manage publications' })
+        .check()
+    await editActionsDialog.getByRole('button', { name: 'Save actions' }).click()
+    await expect(
+        limitedKey.getByText(
+            'Limited to: Prepare and manage publications, Manage channels and profiles',
+            { exact: true }
+        )
+    ).toBeVisible()
 
     const projectRoute = `/dashboard/projects/${projectId}/overview`
     await page.goto(projectRoute)
     await expect(page).toHaveURL(new RegExp(`${projectRoute}$`))
 })
+
+async function submitCreateKey(dialog: Locator, page: Page) {
+    const responsePromise = page.waitForResponse(
+        response =>
+            response.url().endsWith('/api/api-keys') && response.request().method() === 'POST'
+    )
+    await dialog.getByRole('button', { name: 'Create an API key', exact: true }).click()
+    const response = await responsePromise
+    if (response.status() !== 201) {
+        throw new Error(`API key creation failed (${response.status()}): ${await response.text()}`)
+    }
+}
 
 async function createAccountAndProject(
     page: Page,

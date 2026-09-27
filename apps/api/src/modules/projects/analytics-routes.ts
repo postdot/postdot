@@ -18,6 +18,7 @@ export function registerAnalyticsRoutes<const Routes extends Record<string, unkn
                 200: projectAnalyticsSchema,
                 400: errorResponse,
                 401: errorResponse,
+                403: errorResponse,
                 404: errorResponse,
                 422: errorResponse,
             },

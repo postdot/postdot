@@ -3,6 +3,11 @@ import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity, type AuthenticatedElysia } from '../../plugins/auth'
+import {
+    capabilitiesForPermissions,
+    permissionsForCapabilities,
+    type HeraldApiKeyCapability,
+} from '../projects/api-key-permissions'
 
 const errorResponse = Type.Object({
     error: Type.Object({
@@ -15,11 +20,25 @@ const userApiKeyProjectAccessSchema = Type.Union([
     Type.Literal('all'),
     Type.Array(Type.String({ minLength: 1 })),
 ])
+const userApiKeyCapabilitySchema = Type.Union([
+    Type.Literal('project:read'),
+    Type.Literal('publication:manage'),
+    Type.Literal('publication:dispatch'),
+    Type.Literal('channel:manage'),
+    Type.Literal('media:manage'),
+    Type.Literal('analytics:refresh'),
+    Type.Literal('media:permanently_delete'),
+])
+const userApiKeyActionAccessSchema = Type.Union([
+    Type.Literal('all'),
+    Type.Array(userApiKeyCapabilitySchema),
+])
 const userApiKeySchema = Type.Object({
     id: Type.String({ minLength: 1 }),
     name: Type.String({ minLength: 1 }),
     tokenPrefix: Type.String({ minLength: 1 }),
     projectAccess: userApiKeyProjectAccessSchema,
+    actionAccess: userApiKeyActionAccessSchema,
     expiresAt: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
     createdAt: Type.Integer({ minimum: 0 }),
     updatedAt: Type.Integer({ minimum: 0 }),
@@ -30,6 +49,9 @@ const createUserApiKeyBody = Type.Object({
     projectIds: Type.Optional(
         Type.Union([Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }), Type.Null()])
     ),
+    actionAccess: Type.Optional(
+        Type.Union([Type.Array(userApiKeyCapabilitySchema, { minItems: 1 }), Type.Null()])
+    ),
     expiresAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
 })
 const updateUserApiKeyBody = Type.Object(
@@ -37,6 +59,9 @@ const updateUserApiKeyBody = Type.Object(
         name: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
         projectIds: Type.Optional(
             Type.Union([Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }), Type.Null()])
+        ),
+        actionAccess: Type.Optional(
+            Type.Union([Type.Array(userApiKeyCapabilitySchema, { minItems: 1 }), Type.Null()])
         ),
         expiresAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
     },
@@ -113,6 +138,7 @@ function toUserApiKey(key: HeraldApiKeyRecord) {
         name: key.name ?? 'Unnamed API key',
         tokenPrefix: key.prefix ?? 'herald_pat_',
         projectAccess: projectAccessFromMetadata(key.metadata),
+        actionAccess: capabilitiesForPermissions(key.permissions),
         expiresAt: key.expiresAt?.getTime() ?? null,
         createdAt: key.createdAt.getTime(),
         updatedAt: key.updatedAt.getTime(),
@@ -244,7 +270,7 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     security: sessionSecurity,
                 },
             },
-            async ({ authMethod, body, request, status, user }) => {
+            async ({ authMethod, body, status, user }) => {
                 if (authMethod !== 'session') {
                     return status(403, {
                         error: {
@@ -270,9 +296,15 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                         name: body.name?.trim() || generatedUserApiKeyName(),
                         userId: user.id,
                         metadata: metadataForProjectAccess(projectIds),
+                        ...(body.actionAccess === undefined || body.actionAccess === null
+                            ? {}
+                            : {
+                                  permissions: permissionsForCapabilities(
+                                      body.actionAccess as readonly HeraldApiKeyCapability[]
+                                  ),
+                              }),
                         ...(expiresIn === undefined ? {} : { expiresIn }),
                     },
-                    headers: request.headers,
                 })
                 return status(201, { key: toUserApiKey(created), token: created.key })
             }
@@ -336,13 +368,23 @@ export function registerUserApiKeyRoutes<const Routes extends Record<string, unk
                     body: {
                         configId: heraldUserApiKeyConfigId,
                         keyId: params.keyId,
+                        userId: user.id,
                         ...(body.name === undefined ? {} : { name: body.name }),
                         ...(body.projectIds === undefined
                             ? {}
                             : { metadata: metadataForProjectAccess(projectIds ?? null) }),
+                        ...(body.actionAccess === undefined
+                            ? {}
+                            : {
+                                  permissions:
+                                      body.actionAccess === null
+                                          ? null
+                                          : permissionsForCapabilities(
+                                                body.actionAccess as readonly HeraldApiKeyCapability[]
+                                            ),
+                              }),
                         ...(body.expiresAt === undefined ? {} : { expiresIn }),
                     },
-                    headers: request.headers,
                 })
                 return { key: toUserApiKey(updated) }
             }

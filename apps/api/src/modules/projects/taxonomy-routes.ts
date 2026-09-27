@@ -285,6 +285,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                 response: {
                     200: projectTagsSchema,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                 },
                 detail: {
@@ -497,6 +498,7 @@ export function registerTaxonomyRoutes<const Routes extends Record<string, unkno
                 response: {
                     200: projectTagsSchema,
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                 },
                 detail: {

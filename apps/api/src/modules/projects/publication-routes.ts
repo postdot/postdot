@@ -202,6 +202,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 response: {
                     200: Type.Object({ publications: Type.Array(duePublicationSchema) }),
                     401: errorResponse,
+                    403: errorResponse,
                     404: errorResponse,
                 },
                 detail: {

@@ -37,11 +37,24 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+    useEffect,
+    useMemo,
+    useState,
+    type Dispatch,
+    type FormEvent,
+    type SetStateAction,
+} from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
-import { api, formatApiError, type Project, type UserApiKey } from '@/lib/api'
+import {
+    api,
+    formatApiError,
+    type Project,
+    type UserApiKey,
+    type UserApiKeyCapability,
+} from '@/lib/api'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { formatDateTime } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
@@ -51,6 +64,7 @@ const keyExpirationDays = [30, 90, 180, 365] as const
 const millisecondsPerDay = 24 * 60 * 60 * 1_000
 
 type KeyScope = 'all' | 'selected'
+type ActionScope = 'all' | 'selected'
 
 export function UserApiKeysPage() {
     const { locale } = useLanguage()
@@ -59,9 +73,12 @@ export function UserApiKeysPage() {
     const [name, setName] = useState('')
     const [scope, setScope] = useState<KeyScope>('all')
     const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
+    const [actionScope, setActionScope] = useState<ActionScope>('all')
+    const [selectedCapabilities, setSelectedCapabilities] = useState<UserApiKeyCapability[]>([])
     const [expirationDays, setExpirationDays] = useState('180')
     const [createdKey, setCreatedKey] = useState<{ name: string; token: string } | null>(null)
     const [keyToRevoke, setKeyToRevoke] = useState<UserApiKey | null>(null)
+    const [keyToEditActions, setKeyToEditActions] = useState<UserApiKey | null>(null)
     const [createOpen, setCreateOpen] = useState(false)
     const [copied, setCopied] = useState(false)
     const [copyError, setCopyError] = useState<string | null>(null)
@@ -98,12 +115,17 @@ export function UserApiKeysPage() {
         setName('')
         setScope('all')
         setSelectedProjectIds([])
+        setActionScope('all')
+        setSelectedCapabilities([])
         setExpirationDays('180')
     }
 
     async function handleCreate(event: FormEvent<HTMLFormElement>) {
         event.preventDefault()
-        if (scope === 'selected' && selectedProjectIds.length === 0) {
+        if (
+            (scope === 'selected' && selectedProjectIds.length === 0) ||
+            (actionScope === 'selected' && selectedCapabilities.length === 0)
+        ) {
             return
         }
 
@@ -112,7 +134,8 @@ export function UserApiKeysPage() {
             const response = await api.createUserApiKey(
                 normalizedName || undefined,
                 scope === 'all' ? null : selectedProjectIds,
-                Date.now() + Number(expirationDays) * millisecondsPerDay
+                Date.now() + Number(expirationDays) * millisecondsPerDay,
+                actionScope === 'all' ? null : selectedCapabilities
             )
             setCreatedKey({ name: response.key.name, token: response.token })
             setCopied(false)
@@ -130,6 +153,31 @@ export function UserApiKeysPage() {
             await api.revokeUserApiKey(keyId)
             setKeys(current => current?.filter(key => key.id !== keyId) ?? null)
             setKeyToRevoke(null)
+        })
+    }
+
+    function beginEditActions(key: UserApiKey) {
+        setKeyToEditActions(key)
+        setActionScope(key.actionAccess === 'all' ? 'all' : 'selected')
+        setSelectedCapabilities(key.actionAccess === 'all' ? [] : [...key.actionAccess])
+    }
+
+    async function handleUpdateActions(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+        if (
+            keyToEditActions === null ||
+            (actionScope === 'selected' && selectedCapabilities.length === 0)
+        ) {
+            return
+        }
+
+        const keyId = keyToEditActions.id
+        await runAction(async () => {
+            const response = await api.updateUserApiKey(keyId, {
+                actionAccess: actionScope === 'all' ? null : selectedCapabilities,
+            })
+            setKeys(current => current?.map(key => (key.id === keyId ? response.key : key)) ?? null)
+            setKeyToEditActions(null)
         })
     }
 
@@ -274,16 +322,35 @@ export function UserApiKeysPage() {
                                                           .join(', '),
                                                   })}
                                         </p>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {key.actionAccess === 'all'
+                                                ? m.api_keys_action_access_all_summary()
+                                                : m.api_keys_action_access_summary({
+                                                      actions: key.actionAccess
+                                                          .map(capabilityLabel)
+                                                          .join(', '),
+                                                  })}
+                                        </p>
                                     </div>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        disabled={pending}
-                                        onClick={() => setKeyToRevoke(key)}>
-                                        <TrashBinMinimalisticIcon aria-hidden="true" />
-                                        {m.api_keys_revoke()}
-                                    </Button>
+                                    <div className="flex shrink-0 flex-wrap gap-2">
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            disabled={pending}
+                                            onClick={() => beginEditActions(key)}>
+                                            {m.api_keys_edit_actions()}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            disabled={pending}
+                                            onClick={() => setKeyToRevoke(key)}>
+                                            <TrashBinMinimalisticIcon aria-hidden="true" />
+                                            {m.api_keys_revoke()}
+                                        </Button>
+                                    </div>
                                 </li>
                             ))}
                         </ul>
@@ -299,7 +366,7 @@ export function UserApiKeysPage() {
                         resetCreateForm()
                     }
                 }}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>{m.api_keys_create()}</DialogTitle>
                         <DialogDescription className="sr-only">
@@ -415,6 +482,14 @@ export function UserApiKeysPage() {
                             </div>
                         ) : null}
 
+                        <ApiKeyActionAccessFieldset
+                            name="create"
+                            scope={actionScope}
+                            selectedCapabilities={selectedCapabilities}
+                            onScopeChange={setActionScope}
+                            onCapabilitiesChange={setSelectedCapabilities}
+                        />
+
                         <Field className="gap-1.5">
                             <FieldLabel htmlFor="user-api-key-expiration">
                                 {m.api_keys_expiration()}
@@ -445,10 +520,50 @@ export function UserApiKeysPage() {
                                 type="submit"
                                 disabled={
                                     pending ||
-                                    (scope === 'selected' && selectedProjectIds.length === 0)
+                                    (scope === 'selected' && selectedProjectIds.length === 0) ||
+                                    (actionScope === 'selected' &&
+                                        selectedCapabilities.length === 0)
                                 }>
                                 <AddIcon aria-hidden="true" />
                                 {m.api_keys_create()}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={keyToEditActions !== null}
+                onOpenChange={open => !open && !pending && setKeyToEditActions(null)}>
+                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>{m.api_keys_edit_actions_title()}</DialogTitle>
+                        <DialogDescription>{keyToEditActions?.name ?? ''}</DialogDescription>
+                    </DialogHeader>
+                    <form className="grid gap-4" onSubmit={handleUpdateActions}>
+                        <ApiKeyActionAccessFieldset
+                            name="edit"
+                            scope={actionScope}
+                            selectedCapabilities={selectedCapabilities}
+                            onScopeChange={setActionScope}
+                            onCapabilitiesChange={setSelectedCapabilities}
+                        />
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={pending}
+                                onClick={() => setKeyToEditActions(null)}>
+                                {m.common_cancel()}
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    pending ||
+                                    (actionScope === 'selected' &&
+                                        selectedCapabilities.length === 0)
+                                }>
+                                {m.api_keys_save_actions()}
                             </Button>
                         </DialogFooter>
                     </form>
@@ -481,6 +596,107 @@ export function UserApiKeysPage() {
                 </DialogContent>
             </Dialog>
         </main>
+    )
+}
+
+const editableCapabilities: readonly UserApiKeyCapability[] = [
+    'project:read',
+    'publication:manage',
+    'publication:dispatch',
+    'channel:manage',
+    'media:manage',
+    'analytics:refresh',
+    'media:permanently_delete',
+]
+
+function capabilityLabel(capability: UserApiKeyCapability) {
+    switch (capability) {
+        case 'project:read':
+            return m.api_keys_action_read_project()
+        case 'publication:manage':
+            return m.api_keys_action_manage_publications()
+        case 'publication:dispatch':
+            return m.api_keys_action_dispatch_publications()
+        case 'channel:manage':
+            return m.api_keys_action_manage_channels()
+        case 'media:manage':
+            return m.api_keys_action_manage_media()
+        case 'analytics:refresh':
+            return m.api_keys_action_refresh_analytics()
+        case 'media:permanently_delete':
+            return m.api_keys_action_delete_media()
+    }
+}
+
+function ApiKeyActionAccessFieldset({
+    name,
+    scope,
+    selectedCapabilities,
+    onScopeChange,
+    onCapabilitiesChange,
+}: {
+    readonly name: string
+    readonly scope: ActionScope
+    readonly selectedCapabilities: readonly UserApiKeyCapability[]
+    readonly onScopeChange: (scope: ActionScope) => void
+    readonly onCapabilitiesChange: Dispatch<SetStateAction<UserApiKeyCapability[]>>
+}) {
+    return (
+        <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">{m.api_keys_action_access()}</legend>
+            <label
+                className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors focus-within:ring-3 focus-within:ring-ring/50 ${scope === 'all' ? 'bg-secondary' : 'bg-surface-control hover:bg-muted'}`}>
+                <input
+                    checked={scope === 'all'}
+                    className="size-4 accent-primary"
+                    name={`user-api-key-actions-${name}`}
+                    onChange={() => onScopeChange('all')}
+                    type="radio"
+                    value="all"
+                />
+                <span className="min-w-0 truncate font-medium">
+                    {m.api_keys_action_access_all()}
+                </span>
+            </label>
+            <label
+                className={`flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors focus-within:ring-3 focus-within:ring-ring/50 ${scope === 'selected' ? 'bg-secondary' : 'bg-surface-control hover:bg-muted'}`}>
+                <input
+                    checked={scope === 'selected'}
+                    className="size-4 accent-primary"
+                    name={`user-api-key-actions-${name}`}
+                    onChange={() => onScopeChange('selected')}
+                    type="radio"
+                    value="selected"
+                />
+                <span className="min-w-0 truncate font-medium">
+                    {m.api_keys_action_access_selected()}
+                </span>
+            </label>
+            {scope === 'selected' ? (
+                <div className="grid max-h-48 gap-1 overflow-y-auto rounded-md bg-surface-inset/45 p-1">
+                    {editableCapabilities.map(capability => (
+                        <label
+                            className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted focus-within:ring-3 focus-within:ring-ring/50"
+                            key={capability}>
+                            <input
+                                checked={selectedCapabilities.includes(capability)}
+                                className="size-4 shrink-0 accent-primary"
+                                onChange={() =>
+                                    onCapabilitiesChange(current =>
+                                        current.includes(capability)
+                                            ? current.filter(item => item !== capability)
+                                            : [...current, capability]
+                                    )
+                                }
+                                type="checkbox"
+                                value={capability}
+                            />
+                            <span className="min-w-0">{capabilityLabel(capability)}</span>
+                        </label>
+                    ))}
+                </div>
+            ) : null}
+        </fieldset>
     )
 }
 

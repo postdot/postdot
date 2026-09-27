@@ -10,6 +10,7 @@ import {
 } from '@herald/db'
 
 import { createApp } from '../../app'
+import { requiredApiKeyCapability } from '../projects/api-key-permissions'
 import { createPublisherRuntime } from '../publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
@@ -274,6 +275,236 @@ describe('access HTTP routes', () => {
         }
     })
 
+    it('enforces and updates action ceilings independently from project scope', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'api-key-actions@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'API key actions project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            expect(projectResponse.status).toBe(201)
+
+            const createResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Read-only API key',
+                    projectIds: [projectBody.project.id],
+                    actionAccess: ['project:read'],
+                }),
+            })
+            expect(createResponse.status).toBe(201)
+            const created = (await createResponse.json()) as {
+                key: { id: string; actionAccess: string[] }
+                token: string
+            }
+            expect(created.key.actionAccess).toEqual(['project:read'])
+
+            const readableChannels = await bearerRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                created.token
+            )
+            expect(readableChannels.status).toBe(200)
+
+            const deniedChannelMutation = await bearerJsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                created.token,
+                { method: 'POST', body: JSON.stringify({ name: 'Denied channel' }) }
+            )
+            expect(deniedChannelMutation.status).toBe(403)
+            expect(await deniedChannelMutation.json()).toMatchObject({
+                error: { code: 'insufficient_api_key_permissions' },
+            })
+
+            const updateResponse = await jsonRequest(
+                app,
+                `/api/api-keys/${created.key.id}`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ actionAccess: ['channel:manage'] }),
+                }
+            )
+            expect(updateResponse.status).toBe(200)
+            expect(await updateResponse.json()).toMatchObject({
+                key: { actionAccess: ['channel:manage'], projectAccess: [projectBody.project.id] },
+            })
+
+            const deniedRead = await bearerRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                created.token
+            )
+            expect(deniedRead.status).toBe(403)
+
+            const allowedChannelMutation = await bearerJsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                created.token,
+                { method: 'POST', body: JSON.stringify({ name: 'Allowed channel' }) }
+            )
+            expect(allowedChannelMutation.status).toBe(201)
+
+            const deniedSessionOnlyRoute = await bearerRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/members`,
+                created.token
+            )
+            expect(deniedSessionOnlyRoute.status).toBe(403)
+
+            const unrestrictedUpdate = await jsonRequest(
+                app,
+                `/api/api-keys/${created.key.id}`,
+                cookie,
+                { method: 'PATCH', body: JSON.stringify({ actionAccess: null }) }
+            )
+            expect(unrestrictedUpdate.status).toBe(200)
+            expect(await unrestrictedUpdate.json()).toMatchObject({
+                key: { actionAccess: 'all' },
+            })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('requires the separate permanent-delete capability for media purging', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'api-key-media-actions@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'API key media project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            expect(projectResponse.status).toBe(201)
+
+            const createResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    projectIds: [projectBody.project.id],
+                    actionAccess: ['project:read', 'media:manage'],
+                }),
+            })
+            const created = (await createResponse.json()) as {
+                key: { id: string }
+                token: string
+            }
+            expect(createResponse.status).toBe(201)
+
+            const deniedPurge = await bearerJsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/missing-asset/permanent`,
+                created.token,
+                { method: 'POST' }
+            )
+            expect(deniedPurge.status).toBe(403)
+
+            const updateResponse = await jsonRequest(
+                app,
+                `/api/api-keys/${created.key.id}`,
+                cookie,
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ actionAccess: ['media:permanently_delete'] }),
+                }
+            )
+            expect(updateResponse.status).toBe(200)
+
+            const allowedPurgeAttempt = await bearerJsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/media/missing-asset/permanent`,
+                created.token,
+                { method: 'POST' }
+            )
+            expect(allowedPurgeAttempt.status).toBe(503)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it("rechecks the key owner's project role after key creation", async () => {
+        const { access, app, database } = createFixture()
+
+        try {
+            const ownerCookie = await signUp(app, 'api-key-role-owner@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', ownerCookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'API key role project' }),
+            })
+            const projectBody = (await projectResponse.json()) as { project: { id: string } }
+            expect(projectResponse.status).toBe(201)
+
+            const editorUserId = await seedExistingUser(
+                database,
+                'api-key-role-editor@herald.local',
+                'API Key Editor'
+            )
+            const defaultWorkspace = access.getDefaultWorkspace()
+            expect(defaultWorkspace).not.toBeNull()
+            if (defaultWorkspace === null) throw new Error('The default workspace was not created')
+            database.$client
+                .query(
+                    `insert into instance_memberships
+                     (id, user_id, role, state, created_at, updated_at)
+                     values (?1, ?2, 'member', 'enabled', ?3, ?3)`
+                )
+                .run(`instance-membership:${editorUserId}`, editorUserId, now)
+            database.$client
+                .query(
+                    `insert into member (id, organization_id, user_id, role, created_at)
+                     values (?1, ?2, ?3, 'member', ?4)`
+                )
+                .run(
+                    `workspace-member:${editorUserId}`,
+                    defaultWorkspace.organizationId,
+                    editorUserId,
+                    now
+                )
+            const editorCookie = await signIn(app, 'api-key-role-editor@herald.local')
+            expect(
+                access.grantProjectUserAccess({
+                    projectId: projectBody.project.id,
+                    userId: editorUserId,
+                    role: 'editor',
+                })
+            ).toMatchObject({ role: 'editor' })
+
+            const createKeyResponse = await jsonRequest(app, '/api/api-keys', editorCookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    projectIds: [projectBody.project.id],
+                    actionAccess: ['channel:manage'],
+                }),
+            })
+            expect(createKeyResponse.status).toBe(201)
+            const createdKey = (await createKeyResponse.json()) as { token: string }
+
+            const allowedBeforeRevocation = await bearerJsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                createdKey.token,
+                { method: 'POST', body: JSON.stringify({ name: 'Before revocation' }) }
+            )
+            expect(allowedBeforeRevocation.status).toBe(201)
+
+            expect(access.removeProjectUserAccess(projectBody.project.id, editorUserId)).toBe(true)
+            const deniedAfterRevocation = await bearerJsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/channels`,
+                createdKey.token,
+                { method: 'POST', body: JSON.stringify({ name: 'After revocation' }) }
+            )
+            expect(deniedAfterRevocation.status).toBe(403)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('publishes access paths with session security and typed status responses', async () => {
         const { app, database } = createFixture()
 
@@ -292,7 +523,10 @@ describe('access HTTP routes', () => {
             const specification = (await response.json()) as {
                 paths: Record<
                     string,
-                    Record<string, { operationId?: string; responses?: Record<string, unknown> }>
+                    Record<
+                        string,
+                        { operationId?: string; responses?: Record<string, unknown> } | undefined
+                    >
                 >
             }
             expect(Object.keys(specification.paths)).toEqual(
@@ -339,6 +573,18 @@ describe('access HTTP routes', () => {
             expect(
                 specification.paths['/api/access/invitations/accept']?.post?.responses
             ).toHaveProperty('403')
+
+            for (const [path, pathItem] of Object.entries(specification.paths)) {
+                for (const method of ['get', 'post', 'put', 'patch', 'delete'] as const) {
+                    const operation = pathItem[method]
+                    if (operation === undefined) continue
+                    if (requiredApiKeyCapability(method, path) === null) continue
+
+                    expect(operation.responses, `${method.toUpperCase()} ${path}`).toHaveProperty(
+                        '403'
+                    )
+                }
+            }
         } finally {
             closeDatabase(database)
         }

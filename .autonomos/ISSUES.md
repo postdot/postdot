@@ -3801,6 +3801,59 @@ posture` is an exact patch duplicate of `aa889111`, and
   sign-off. Until that need is confirmed, retain the current behavior and keep
   this issue open rather than implying the question is permanently rejected.
 
+## [ISSUE-140] Let user-owned API keys narrow project actions
+
+- Type: accepted proposal
+- Status: resolved
+- Evidence: Herald API keys are owned by a user and inherit that user's current
+  project roles, while the existing optional project subset further narrows
+  access. The Better Auth API-key record already has a nullable native
+  `permissions` field, but Herald neither exposes nor enforces action-level
+  limits. The owner approved an optional capability ceiling on 2026-09-27.
+- Impact: A copied key currently carries every project action available to its
+  owner within its project scope. This is unnecessarily broad for external
+  scripts and especially for less predictable agent clients. Per-key limits
+  must not become a second source of project authority or persist after the
+  owner's role is revoked.
+- Desired outcome: Let a user create and later edit a key that either inherits
+  all of their current project actions or is explicitly limited to a small,
+  understandable set of Herald capabilities.
+- Related issues: ISSUE-112
+- Related decisions: ADR-074, ADR-075
+- Accepted boundaries: A key remains user-owned and generic; Herald does not
+  classify the external client as an AI agent. Effective access is the
+  intersection of the user's current project role, the key's selected project
+  scope, and its optional action ceiling. An unrestricted key continues to
+  inherit all actions dynamically. Restricted capabilities cover project
+  reads; publication preparation/management; publication scheduling and
+  lifecycle control; channel management; media management; explicit provider
+  analytics refresh; and permanent media deletion as a separate sensitive
+  action. Workspace/project access administration, account and API-key
+  management, built-in publisher OAuth, notifications/realtime, and
+  installation administration remain session-only. Existing project-role
+  guards remain authoritative, and no database migration is expected because
+  Better Auth already persists API-key permissions.
+- Acceptance: The same capability policy is checked by the API for every
+  bearer-key request and unknown/session-only routes fail closed. Existing
+  unrestricted keys retain their current behavior; scoped keys cannot exceed
+  current user/project rights; selected project and action scopes compose by
+  intersection. Create/list/update responses expose only safe permission
+  metadata, and the localized key-management UI supports both inherited and
+  limited access. API, UI, and authorization-boundary tests plus English
+  documentation cover the contract.
+- Tasks: ACCESS-236
+- Decision: Owner approved the capability matrix and boundaries in the
+  conversation on 2026-09-27. This authorizes implementation; it does not
+  authorize agent identity, approval workflows, or new clients.
+- Resolution: Added optional key-level capability ceilings using Better Auth's
+  existing permissions field. Each bearer-key request now intersects the
+  owner's current project role, the key's project scope, and its selected
+  actions. Unrestricted keys continue to inherit the owner's current actions;
+  unknown and session-only routes fail closed. The localized Settings UI can
+  create, review, edit, and remove the action ceiling. No schema migration or
+  agent-specific identity was introduced.
+- Evidence: [ACCESS-236 worklog](worklogs/2026-09-27-ACCESS-236.md).
+
 ## External diagnostic follow-up classification
 
 - The X weighted-count finding is resolved by ISSUE-126 and X-214.
