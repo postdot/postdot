@@ -4,7 +4,12 @@ import {
     sourceContentSchema,
     taxonomyLabelMaximumLength,
 } from '@herald/core'
-import type { ChannelProfilePreset, ChannelProfileDefinition, Publication } from '@herald/core'
+import type {
+    ChannelProfilePreset,
+    ChannelProfileDefinition,
+    Publication,
+    PublicationApprovalRequest,
+} from '@herald/core'
 import type { ChannelProfileImpactAssessment } from '@herald/core'
 import type {
     ChannelProfileActivationResult,
@@ -17,7 +22,14 @@ import type {
     PublicationTargetRevision,
     PublicationWorkingDraft,
 } from '@herald/db'
-import { auditEvents, channels, posts, projects, publications } from '@herald/db/schema'
+import {
+    auditEvents,
+    channels,
+    posts,
+    projects,
+    publications,
+    publicationApprovalRequests,
+} from '@herald/db/schema'
 import type { Table } from 'drizzle-orm'
 import { createSchemaFactory } from 'drizzle-typebox'
 import { Type, type Static, type TProperties, type TSchema } from 'typebox'
@@ -81,6 +93,12 @@ export const publicationSchema = Type.Unsafe<Publication>(
         }),
     ])
 )
+export const publicationApprovalRequestSchema = Type.Unsafe<PublicationApprovalRequest>(
+    createElysiaSelectSchema(publicationApprovalRequests)
+)
+export const publicationApprovalRequestsResponseSchema = Type.Object({
+    requests: Type.Array(publicationApprovalRequestSchema),
+})
 const auditEventPersistenceSchema = createElysiaSelectSchema(auditEvents)
 export const auditEventSchema = Type.Unsafe<AuditEvent>(
     Type.Pick(auditEventPersistenceSchema, [
@@ -489,6 +507,7 @@ export type ChannelProfileAssessmentResponse = Static<typeof channelProfileAsses
 export type ChannelProfileActivationResponse = Static<typeof channelProfileActivationSchema>
 export type PostResponse = Static<typeof postSchema>
 export type PublicationResponse = Static<typeof publicationSchema>
+export type PublicationApprovalRequestResponse = Static<typeof publicationApprovalRequestSchema>
 export type DuePublicationResponse = Static<typeof duePublicationSchema>
 export type PublicationEditorStateResponse = Static<typeof publicationEditorStateSchema>
 export type PublicationSummaryResponse = Static<typeof publicationSummarySchema>
@@ -683,6 +702,20 @@ export const rebasePublicationDraftBody = Type.Object({
 export const promotePublicationDraftBody = Type.Object({
     expectedRevision: Type.Integer({ minimum: 1 }),
     scheduledAt: Type.Optional(Type.Union([Type.Integer({ minimum: 0 }), Type.Null()])),
+})
+
+export const submitPublicationForApprovalBody = Type.Object({
+    expectedDraftRevision: Type.Integer({ minimum: 1 }),
+    proposedScheduledAt: Type.Integer({ minimum: 0 }),
+})
+
+export const approvePublicationRequestBody = Type.Object({
+    scheduledAt: Type.Optional(Type.Integer({ minimum: 0 })),
+    publishNow: Type.Optional(Type.Boolean()),
+})
+
+export const rejectPublicationRequestBody = Type.Object({
+    rejectionReason: Type.Optional(Type.String({ maxLength: 500 })),
 })
 
 export const reschedulePublicationsBody = Type.Object({

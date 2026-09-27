@@ -34,6 +34,7 @@ import type {
     PublisherConnectionsResponse,
     ProjectResponse,
     PublicationResponse,
+    PublicationApprovalRequestResponse,
     PublicationSummaryResponse,
     PublicationSummaryPageResponse,
     PublicationListQuery as PublicationListQueryResponse,
@@ -85,6 +86,7 @@ export type ChannelProfileAssessment = ChannelProfileAssessmentResponse
 export type ChannelProfileActivation = ChannelProfileActivationResponse
 export type Post = PostResponse
 export type Publication = PublicationResponse
+export type PublicationApprovalRequest = PublicationApprovalRequestResponse
 export type DuePublication = DuePublicationResponse
 export type MediaAsset = MediaAssetResponse
 export type MediaAssetUsage = MediaAssetUsageResponse

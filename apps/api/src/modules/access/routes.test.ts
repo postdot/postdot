@@ -348,6 +348,9 @@ describe('access HTTP routes', () => {
                 { method: 'POST', body: JSON.stringify({ name: 'Allowed channel' }) }
             )
             expect(allowedChannelMutation.status).toBe(201)
+            const { channel } = (await allowedChannelMutation.json()) as {
+                channel: { id: string }
+            }
 
             const deniedSessionOnlyRoute = await bearerRequest(
                 app,
@@ -365,6 +368,181 @@ describe('access HTTP routes', () => {
             expect(unrestrictedUpdate.status).toBe(200)
             expect(await unrestrictedUpdate.json()).toMatchObject({
                 key: { actionAccess: 'all' },
+            })
+
+            const allowedSchedule = await bearerJsonRequest(
+                app,
+                `/api/projects/${projectBody.project.id}/posts`,
+                created.token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent: {
+                            body: { text: 'Unrestricted scheduled post', format: 'plain_text' },
+                            media: [],
+                        },
+                        publications: [
+                            {
+                                channelId: channel.id,
+                                deliveryMode: 'manual',
+                                scheduledAt: now + 60_000,
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(allowedSchedule.status).toBe(201)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('allows a manage-only API key to request approval but not schedule or approve', async () => {
+        const { app, database } = createFixture()
+
+        try {
+            const cookie = await signUp(app, 'publication-approval@herald.local')
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Publication approval project' }),
+            })
+            const { project } = (await projectResponse.json()) as { project: { id: string } }
+            expect(projectResponse.status).toBe(201)
+
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${project.id}/channels`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({ name: 'Approval destination' }) }
+            )
+            const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+            expect(channelResponse.status).toBe(201)
+
+            const keyResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    projectIds: [project.id],
+                    actionAccess: ['publication:manage'],
+                }),
+            })
+            const { token } = (await keyResponse.json()) as { token: string }
+            expect(keyResponse.status).toBe(201)
+
+            const sourceContent = {
+                body: { text: 'Prepared by an external agent', format: 'plain_text' },
+                media: [],
+            }
+            const proposedScheduledAt = now + 60_000
+            const scheduledCreation = await bearerJsonRequest(
+                app,
+                `/api/projects/${project.id}/posts`,
+                token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent,
+                        publications: [
+                            {
+                                channelId: channel.id,
+                                deliveryMode: 'manual',
+                                scheduledAt: proposedScheduledAt,
+                            },
+                        ],
+                    }),
+                }
+            )
+            expect(scheduledCreation.status).toBe(403)
+            expect(await scheduledCreation.json()).toMatchObject({
+                error: { code: 'insufficient_api_key_permissions' },
+            })
+
+            const draftResponse = await bearerJsonRequest(
+                app,
+                `/api/projects/${project.id}/posts`,
+                token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sourceContent,
+                        publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+                    }),
+                }
+            )
+            expect(draftResponse.status).toBe(201)
+            const { publications } = (await draftResponse.json()) as {
+                publications: Array<{ id: string; state: string }>
+            }
+            const publication = publications[0]
+            if (publication === undefined) throw new Error('The API draft was not created')
+            expect(publication.state).toBe('draft')
+
+            const directPromotion = await bearerJsonRequest(
+                app,
+                `/api/projects/${project.id}/publications/${publication.id}/draft/promote`,
+                token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        expectedRevision: 1,
+                        scheduledAt: proposedScheduledAt,
+                    }),
+                }
+            )
+            expect(directPromotion.status).toBe(403)
+
+            const approvalRequest = await bearerJsonRequest(
+                app,
+                `/api/projects/${project.id}/publications/${publication.id}/approval-request`,
+                token,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        expectedDraftRevision: 1,
+                        proposedScheduledAt,
+                    }),
+                }
+            )
+            expect(approvalRequest.status).toBe(201)
+            expect(await approvalRequest.json()).toMatchObject({
+                request: { publicationId: publication.id, state: 'pending', proposedScheduledAt },
+            })
+
+            const hiddenRequestList = await bearerRequest(
+                app,
+                `/api/projects/${project.id}/publications/approval-requests`,
+                token
+            )
+            expect(hiddenRequestList.status).toBe(403)
+            const deniedApproval = await bearerJsonRequest(
+                app,
+                `/api/projects/${project.id}/publications/${publication.id}/approval-request/approve`,
+                token,
+                { method: 'POST', body: JSON.stringify({}) }
+            )
+            expect(deniedApproval.status).toBe(403)
+
+            const requestsResponse = await jsonRequest(
+                app,
+                `/api/projects/${project.id}/publications/approval-requests`,
+                cookie
+            )
+            expect(requestsResponse.status).toBe(200)
+            expect(await requestsResponse.json()).toMatchObject({
+                requests: [{ publicationId: publication.id, state: 'pending' }],
+            })
+            const approved = await jsonRequest(
+                app,
+                `/api/projects/${project.id}/publications/${publication.id}/approval-request/approve`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({}) }
+            )
+            expect(approved.status).toBe(200)
+            expect(await approved.json()).toMatchObject({
+                publication: {
+                    id: publication.id,
+                    state: 'scheduled',
+                    scheduledAt: proposedScheduledAt,
+                },
             })
         } finally {
             closeDatabase(database)

@@ -2,6 +2,7 @@ import { DomainInvariantError } from '@herald/core'
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
+import { sessionSecurity } from '../../plugins/auth'
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     duePublicationSchema,
@@ -25,6 +26,11 @@ import {
     reschedulePublicationsBody,
     savePublicationDraftBody,
     savePublicationComposerDraftBody,
+    publicationApprovalRequestSchema,
+    publicationApprovalRequestsResponseSchema,
+    submitPublicationForApprovalBody,
+    approvePublicationRequestBody,
+    rejectPublicationRequestBody,
 } from './models'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
@@ -106,6 +112,7 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
+
                 const draft = manualStore.savePublicationComposerDraft({
                     projectId: params.projectId,
                     subjectId: user.id,
@@ -222,6 +229,54 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     })
                 }
                 return { publications }
+            }
+        )
+        .get(
+            '/api/projects/:projectId/publications/approval-requests',
+            {
+                auth: true,
+                params: projectParams,
+                response: {
+                    200: publicationApprovalRequestsResponseSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'listPublicationApprovalRequests',
+                    summary: 'List publications awaiting human approval',
+                    tags: ['Publications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, params, status, user }) => {
+                if (
+                    authMethod !== 'session' ||
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, {
+                        error: {
+                            code: 'forbidden',
+                            message: 'Human project editor access is required',
+                        },
+                    })
+                }
+                const requests = manualStore.listPendingPublicationApprovalRequests(
+                    params.projectId,
+                    user.id
+                )
+                if (requests === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Project not found' },
+                    })
+                }
+                return { requests }
             }
         )
         .patch(
@@ -423,6 +478,186 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     })
                 }
                 return status(201, { post: result.post, publication: result.publication })
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/approval-request',
+            {
+                auth: true,
+                body: submitPublicationForApprovalBody,
+                params: publicationParams,
+                response: {
+                    201: Type.Object({ request: publicationApprovalRequestSchema }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'submitPublicationForApproval',
+                    summary: 'Submit a proposed publication schedule for human approval',
+                    tags: ['Publications'],
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+                const request = manualStore.submitPublicationForApproval({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                    expectedDraftRevision: body.expectedDraftRevision,
+                    proposedScheduledAt: body.proposedScheduledAt,
+                })
+                if (request === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                }
+                return status(201, { request })
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/approval-request/approve',
+            {
+                auth: true,
+                body: approvePublicationRequestBody,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ publication: publicationSchema }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'approvePublicationRequest',
+                    summary: 'Approve a publication and schedule the reviewed revision',
+                    tags: ['Publications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    authMethod !== 'session' ||
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, {
+                        error: {
+                            code: 'forbidden',
+                            message: 'Human project editor access is required to approve',
+                        },
+                    })
+                }
+                const requests = manualStore.listPendingPublicationApprovalRequests(
+                    params.projectId,
+                    user.id
+                )
+                const request = requests?.find(item => item.publicationId === params.publicationId)
+                if (requests === null || request === undefined) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Approval request not found' },
+                    })
+                }
+                const publication = manualStore.approvePublicationApprovalRequest({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    requestId: request.id,
+                    subjectId: user.id,
+                    scheduledAt: body.scheduledAt,
+                    publishNow: body.publishNow,
+                })
+                if (publication === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Approval request not found' },
+                    })
+                }
+                options.onWorkScheduled?.()
+                return { publication }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/approval-request/reject',
+            {
+                auth: true,
+                body: rejectPublicationRequestBody,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({ request: publicationApprovalRequestSchema }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'rejectPublicationRequest',
+                    summary: 'Reject a publication approval request',
+                    tags: ['Publications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    authMethod !== 'session' ||
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, {
+                        error: {
+                            code: 'forbidden',
+                            message: 'Human project editor access is required to reject',
+                        },
+                    })
+                }
+                const requests = manualStore.listPendingPublicationApprovalRequests(
+                    params.projectId,
+                    user.id
+                )
+                const request = requests?.find(item => item.publicationId === params.publicationId)
+                if (requests === null || request === undefined) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Approval request not found' },
+                    })
+                }
+                const rejected = manualStore.rejectPublicationApprovalRequest({
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    requestId: request.id,
+                    subjectId: user.id,
+                    rejectionReason: body.rejectionReason,
+                })
+                if (rejected === null) {
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Approval request not found' },
+                    })
+                }
+                return { request: rejected }
             }
         )
         .get(

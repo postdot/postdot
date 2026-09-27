@@ -2,6 +2,7 @@ import type { HeraldApiKeyRecord, HeraldAuth } from '@herald/auth'
 import { Elysia } from 'elysia'
 
 type HeraldApiKeyPermissions = HeraldApiKeyRecord['permissions']
+export type HeraldAuthenticatedApiKeyPermissions = HeraldApiKeyPermissions
 
 interface UserApiKeyAuthentication {
     /** null means all projects currently available to the key owner. */
@@ -72,6 +73,7 @@ function createAuthenticatedElysiaContract(auth: HeraldAuth) {
                     session: session.session as HeraldAuthSession['session'] | null,
                     authMethod: 'session' as HeraldAuthenticationMethod,
                     apiKeyProjectIds: undefined as readonly string[] | null | undefined,
+                    apiKeyPermissions: undefined as HeraldApiKeyPermissions | undefined,
                 }
             },
         },
@@ -146,6 +148,7 @@ export function createAuthenticatedElysia(
                         session: null,
                         authMethod: 'user_api_key' as const,
                         apiKeyProjectIds: authentication.projectIds,
+                        apiKeyPermissions: authentication.permissions,
                     }
                 }
 
@@ -182,6 +185,7 @@ export function createAuthenticatedElysia(
                     },
                     session: session.session,
                     authMethod: 'session' as const,
+                    apiKeyPermissions: undefined,
                 }
             },
         },

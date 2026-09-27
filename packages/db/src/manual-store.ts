@@ -173,6 +173,12 @@ export interface PromotePublicationDraftInput {
     readonly subjectId: string
     readonly expectedRevision: number
     readonly scheduledAt?: Timestamp | null
+    readonly publishNow?: boolean
+    readonly approvalRequestId?: string
+    readonly approvalRequest?: {
+        readonly id: string
+        readonly proposedScheduledAt: Timestamp
+    }
 }
 
 export interface ReschedulePublicationsInput {
@@ -601,6 +607,25 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
         order by created_at desc, sequence desc
         limit ?2
     `)
+    const supersedePendingApprovalRequestStatement = client.query<
+        { changes: number },
+        [
+            decidedByActorId: string,
+            decidedAt: number,
+            updatedAt: number,
+            projectId: string,
+            publicationId: string,
+        ]
+    >(`
+        update publication_approval_requests
+        set state = 'superseded',
+            decided_by_actor_id = ?1,
+            decided_at = ?2,
+            updated_at = ?3
+        where project_id = ?4
+          and publication_id = ?5
+          and state = 'pending'
+    `)
 
     const channelProfileStore = createChannelProfileStore(database, {
         now,
@@ -630,8 +655,8 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 pinnedMedia,
                 publicMediaUrlAvailable
             ),
-        updateWorkingDraftAssessment: input =>
-            updateWorkingDraftAssessmentStatement.run(
+        updateWorkingDraftAssessment: input => {
+            const updated = updateWorkingDraftAssessmentStatement.run(
                 input.reviewState,
                 input.issuesJson,
                 input.profileVersionId,
@@ -639,7 +664,30 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 input.updatedAt,
                 input.projectId,
                 input.publicationId
-            ).changes === 1,
+            )
+            if (updated.changes !== 1) return false
+            const superseded = supersedePendingApprovalRequestStatement.run(
+                input.updatedByActorId,
+                input.updatedAt,
+                input.updatedAt,
+                input.projectId,
+                input.publicationId
+            )
+            if (superseded.changes === 1) {
+                recordDatabaseCommitProject(database, input.projectId)
+                insertAuditEventStatement.run(
+                    createId(),
+                    input.projectId,
+                    input.updatedByActorId,
+                    'publication.approval_superseded',
+                    'publication',
+                    input.publicationId,
+                    JSON.stringify({ reason: 'profile_assessment_changed' }),
+                    input.updatedAt
+                )
+            }
+            return true
+        },
         updatePublicationAssessment: input =>
             updatePublicationAssessmentStatement.run(
                 input.reviewState,

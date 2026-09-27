@@ -11,6 +11,16 @@ export const heraldApiKeyCapabilities = [
 export type HeraldApiKeyCapability = (typeof heraldApiKeyCapabilities)[number]
 export type HeraldApiKeyPermissions = Record<string, readonly string[]> | null
 
+export function apiKeyHasCapability(
+    permissions: HeraldApiKeyPermissions,
+    capability: HeraldApiKeyCapability
+): boolean {
+    if (permissions === null) return true
+
+    const [resource, action] = capabilityStatements[capability]
+    return permissions[resource]?.includes(action) ?? false
+}
+
 const capabilityStatements: Record<HeraldApiKeyCapability, readonly [string, string]> = {
     'project:read': ['project', 'read'],
     'publication:manage': ['publication', 'manage'],
@@ -137,6 +147,13 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
             return 'project:read'
         }
         if (
+            detail.length === 2 &&
+            detail[1] === 'approval-request' &&
+            normalizedMethod === 'POST'
+        ) {
+            return 'publication:manage'
+        }
+        if (
             detail.length === 1 &&
             ['schedule', 'cancel'].includes(detail[0] ?? '') &&
             normalizedMethod === 'PATCH'
@@ -157,13 +174,9 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
         if (detail[1] === 'draft' && detail.length === 2 && normalizedMethod === 'PATCH') {
             return 'publication:manage'
         }
-        if (
-            detail[1] === 'draft' &&
-            detail.length === 3 &&
-            ['rebase', 'promote'].includes(detail[2] ?? '') &&
-            normalizedMethod === 'POST'
-        ) {
-            return 'publication:manage'
+        if (detail[1] === 'draft' && detail.length === 3 && normalizedMethod === 'POST') {
+            if (detail[2] === 'rebase') return 'publication:manage'
+            if (detail[2] === 'promote') return 'publication:dispatch'
         }
         if (
             detail.length === 2 &&

@@ -21,6 +21,7 @@ import { BulkActionBar } from '@/components/bulk-action-bar'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { PublicationList } from '@/components/dashboard-publication-parts'
 import type { EmptyStateIllustration } from '@/components/empty-state'
+import { PublicationApprovalRequests } from '@/components/publication-approval-requests'
 import { PublicationBulkCancellationDialog } from '@/components/publication-bulk-cancellation-dialog'
 import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-schedule-dialog'
 import { PublicationDraftDeletionDialog } from '@/components/publication-draft-deletion-dialog'
@@ -252,6 +253,10 @@ export function PublicationQueuePage({
                     {project.name} · {project.timeZone}
                 </p>
             </DashboardPageHeader>
+
+            {canEditProject ? (
+                <PublicationApprovalRequests projectId={project.id} timeZone={project.timeZone} />
+            ) : null}
 
             <div className="mt-5 min-w-0" data-queue-controls="true">
                 <Tabs

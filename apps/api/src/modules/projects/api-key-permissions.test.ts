@@ -13,6 +13,11 @@ describe('user API-key capability policy', () => {
         ['GET', '/api/projects/project-1/channels', 'project:read'],
         ['PUT', '/api/projects/project-1/publication-composer-draft', 'publication:manage'],
         ['POST', '/api/projects/project-1/posts', 'publication:manage'],
+        [
+            'POST',
+            '/api/projects/project-1/publications/publication-1/draft/promote',
+            'publication:dispatch',
+        ],
         ['PATCH', '/api/projects/project-1/publications/schedule', 'publication:dispatch'],
         ['PATCH', '/api/projects/project-1/publications/cancel', 'publication:dispatch'],
         [

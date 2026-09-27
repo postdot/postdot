@@ -9,7 +9,11 @@ import {
     type Publication,
 } from '@herald/core'
 
-import { createDatabaseTransaction, type HeraldDatabase } from '../client'
+import {
+    createDatabaseTransaction,
+    recordDatabaseCommitProject,
+    type HeraldDatabase,
+} from '../client'
 import type { PromotePublicationDraftInput } from '../manual-store'
 import {
     canonicalJson,
@@ -34,6 +38,24 @@ import type {
 interface ActiveJobRow {
     readonly id: string
     readonly state: 'pending' | 'running'
+}
+
+interface PendingApprovalRequestRow {
+    readonly id: string
+    readonly targetRevisionId: string
+    readonly draftRevision: number
+    readonly proposedScheduledAt: number
+}
+
+interface ApprovalTargetRevisionRow {
+    readonly sequence: number
+    readonly profileVersionId: string
+    readonly sourceRevision: number
+    readonly deliveryMode: DeliveryMode
+    readonly mediaReferenceCount: number
+    readonly contentHash: string
+    readonly profileHash: string
+    readonly schemaHash: string
 }
 
 interface TargetRevisionInsert {
@@ -133,6 +155,90 @@ export function createPublicationPromotionStore(
         where project_id = ?1
           and publication_id = ?2
     `)
+    const loadPendingApprovalRequestStatement = client.query<
+        PendingApprovalRequestRow,
+        [projectId: string, publicationId: string]
+    >(`
+        select id,
+               target_revision_id as targetRevisionId,
+               draft_revision as draftRevision,
+               proposed_scheduled_at as proposedScheduledAt
+        from publication_approval_requests
+        where project_id = ?1
+          and publication_id = ?2
+          and state = 'pending'
+        limit 1
+    `)
+    const loadApprovalTargetRevisionStatement = client.query<
+        ApprovalTargetRevisionRow,
+        [projectId: string, publicationId: string, targetRevisionId: string]
+    >(`
+        select sequence,
+               profile_version_id as profileVersionId,
+               source_revision as sourceRevision,
+               delivery_mode as deliveryMode,
+               media_reference_count as mediaReferenceCount,
+               content_hash as contentHash,
+               profile_hash as profileHash,
+               schema_hash as schemaHash
+        from publication_target_revisions
+        where project_id = ?1
+          and publication_id = ?2
+          and id = ?3
+    `)
+    const approveRequestStatement = client.query<
+        { changes: number },
+        [
+            scheduledAt: number,
+            actorId: string,
+            decidedAt: number,
+            updatedAt: number,
+            projectId: string,
+            requestId: string,
+            publicationId: string,
+            targetRevisionId: string,
+            draftRevision: number,
+        ]
+    >(`
+        update publication_approval_requests
+        set state = 'approved',
+            decided_by_actor_id = ?2,
+            decided_at = ?3,
+            scheduled_at = ?1,
+            updated_at = ?4
+        where project_id = ?5
+          and id = ?6
+          and publication_id = ?7
+          and target_revision_id = ?8
+          and draft_revision = ?9
+        and state = 'pending'
+    `)
+    const insertApprovalRequestStatement = client.query<
+        void,
+        [
+            id: string,
+            projectId: string,
+            publicationId: string,
+            targetRevisionId: string,
+            draftRevision: number,
+            proposedScheduledAt: number,
+            requestedByActorId: string,
+            createdAt: number,
+        ]
+    >(`
+        insert into publication_approval_requests (
+            id,
+            project_id,
+            publication_id,
+            target_revision_id,
+            draft_revision,
+            proposed_scheduled_at,
+            state,
+            requested_by_actor_id,
+            created_at,
+            updated_at
+        ) values (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8, ?8)
+    `)
     const promotePublicationStatement = client.query<
         { changes: number },
         [
@@ -178,6 +284,47 @@ export function createPublicationPromotionStore(
                 throw new DomainInvariantError(
                     'write_conflict',
                     `Publication draft ${input.publicationId} changed after revision ${input.expectedRevision}`
+                )
+            }
+            const pendingApprovalRequest = loadPendingApprovalRequestStatement.get(
+                input.projectId,
+                input.publicationId
+            )
+            if (input.approvalRequestId === undefined && pendingApprovalRequest !== null) {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    'This publication is awaiting approval and cannot be scheduled directly'
+                )
+            }
+            if (
+                input.approvalRequestId !== undefined &&
+                (pendingApprovalRequest === null ||
+                    pendingApprovalRequest.id !== input.approvalRequestId ||
+                    pendingApprovalRequest.targetRevisionId !== publicationRow.targetRevisionId ||
+                    pendingApprovalRequest.draftRevision !== draftRow.revision)
+            ) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    'The approval request no longer matches the current publication draft'
+                )
+            }
+            if (
+                input.publishNow === true &&
+                (input.scheduledAt !== undefined || input.approvalRequestId === undefined)
+            ) {
+                throw new DomainInvariantError(
+                    'invalid_input',
+                    'Immediate publication requires an approval request and cannot include a schedule'
+                )
+            }
+            if (
+                pendingApprovalRequest !== null &&
+                input.scheduledAt == null &&
+                input.publishNow !== true
+            ) {
+                throw new DomainInvariantError(
+                    'invalid_time',
+                    'Approving a publication requires an explicit scheduled time'
                 )
             }
             if (
@@ -244,49 +391,102 @@ export function createPublicationPromotionStore(
                 )
             }
             const scheduledAt =
-                input.scheduledAt === undefined
-                    ? publicationRow.scheduledAt
-                    : input.scheduledAt === null
-                      ? null
-                      : requireTimestamp(input.scheduledAt, 'scheduledAt')
+                input.publishNow === true
+                    ? timestamp
+                    : input.scheduledAt === undefined
+                      ? publicationRow.scheduledAt
+                      : input.scheduledAt === null
+                        ? null
+                        : requireTimestamp(input.scheduledAt, 'scheduledAt')
+            const approvalProposal = input.approvalRequest
+            if (
+                approvalProposal !== undefined &&
+                (publicationRow.state !== 'draft' ||
+                    publicationRow.scheduledAt !== null ||
+                    scheduledAt !== null ||
+                    input.approvalRequestId !== undefined)
+            ) {
+                throw new DomainInvariantError(
+                    'invalid_transition',
+                    'Only an unscheduled draft can be submitted for approval'
+                )
+            }
             if (scheduledAt !== null && scheduledAt < timestamp) {
                 throw new DomainInvariantError('invalid_time', 'scheduledAt must not be before now')
             }
+            const proposedScheduledAt =
+                approvalProposal === undefined
+                    ? null
+                    : requireTimestamp(approvalProposal.proposedScheduledAt, 'proposedScheduledAt')
+            if (proposedScheduledAt !== null && proposedScheduledAt <= timestamp) {
+                throw new DomainInvariantError(
+                    'invalid_time',
+                    'The proposed schedule must be in the future'
+                )
+            }
             const nextState: 'draft' | 'scheduled' = scheduledAt === null ? 'draft' : 'scheduled'
-            const targetRevisionId = options.createId()
+            const approvalTargetRevision =
+                pendingApprovalRequest === null
+                    ? null
+                    : loadApprovalTargetRevisionStatement.get(
+                          input.projectId,
+                          input.publicationId,
+                          pendingApprovalRequest.targetRevisionId
+                      )
+            if (
+                pendingApprovalRequest !== null &&
+                (approvalTargetRevision === null ||
+                    approvalTargetRevision.profileVersionId !== draftRow.profileVersionId ||
+                    approvalTargetRevision.sourceRevision !== draftRow.sourceRevision ||
+                    approvalTargetRevision.deliveryMode !== publicationRow.deliveryMode ||
+                    approvalTargetRevision.contentHash !== contentHash(content) ||
+                    approvalTargetRevision.profileHash !==
+                        profileResult.value.profile.profileHash ||
+                    approvalTargetRevision.schemaHash !== profileResult.value.profile.schemaHash ||
+                    approvalTargetRevision.mediaReferenceCount !== targetMedia.length)
+            ) {
+                throw new DomainInvariantError(
+                    'write_conflict',
+                    'The publication content no longer matches the revision requested for approval'
+                )
+            }
+            const targetRevisionId = pendingApprovalRequest?.targetRevisionId ?? options.createId()
             const sequence =
+                approvalTargetRevision?.sequence ??
                 (nextTargetRevisionSequenceStatement.get(input.projectId, input.publicationId)
                     ?.sequence ?? 0) + 1
-            options.insertTargetRevision({
-                id: targetRevisionId,
-                projectId: input.projectId,
-                publicationId: input.publicationId,
-                sequence,
-                profileVersionId: draftRow.profileVersionId,
-                sourceRevision: draftRow.sourceRevision,
-                deliveryMode: publicationRow.deliveryMode,
-                mediaReferenceCount: targetMedia.length,
-                contentJson,
-                contentHash: contentHash(content),
-                profileHash: profileResult.value.profile.profileHash,
-                schemaHash: profileResult.value.profile.schemaHash,
-                validationIssuesJson: JSON.stringify(validation.issues),
-                createdByActorId: actorRow.id,
-                createdAt: timestamp,
-            })
-            for (const [position, mediaReference] of targetMedia.entries()) {
-                options.insertTargetRevisionMedia({
-                    id: options.createId(),
+            if (approvalTargetRevision === null) {
+                options.insertTargetRevision({
+                    id: targetRevisionId,
                     projectId: input.projectId,
-                    targetRevisionId,
-                    assetId: mediaReference.reference.assetId,
-                    representationId: mediaReference.representation.id,
-                    position,
-                    contentPath: mediaReference.reference.contentPath,
-                    role: mediaReference.reference.role,
-                    accessibilityText: mediaReference.accessibilityText,
+                    publicationId: input.publicationId,
+                    sequence,
+                    profileVersionId: draftRow.profileVersionId,
+                    sourceRevision: draftRow.sourceRevision,
+                    deliveryMode: publicationRow.deliveryMode,
+                    mediaReferenceCount: targetMedia.length,
+                    contentJson,
+                    contentHash: contentHash(content),
+                    profileHash: profileResult.value.profile.profileHash,
+                    schemaHash: profileResult.value.profile.schemaHash,
+                    validationIssuesJson: JSON.stringify(validation.issues),
+                    createdByActorId: actorRow.id,
                     createdAt: timestamp,
                 })
+                for (const [position, mediaReference] of targetMedia.entries()) {
+                    options.insertTargetRevisionMedia({
+                        id: options.createId(),
+                        projectId: input.projectId,
+                        targetRevisionId,
+                        assetId: mediaReference.reference.assetId,
+                        representationId: mediaReference.representation.id,
+                        position,
+                        contentPath: mediaReference.reference.contentPath,
+                        role: mediaReference.reference.role,
+                        accessibilityText: mediaReference.accessibilityText,
+                        createdAt: timestamp,
+                    })
+                }
             }
 
             const promoted = promotePublicationStatement.run(
@@ -351,6 +551,69 @@ export function createPublicationPromotionStore(
                         `Could not cancel job ${activeJob.id}`
                     )
                 }
+            }
+
+            if (pendingApprovalRequest !== null) {
+                const approved = approveRequestStatement.run(
+                    scheduledAt as number,
+                    actorRow.id,
+                    timestamp,
+                    timestamp,
+                    input.projectId,
+                    pendingApprovalRequest.id,
+                    input.publicationId,
+                    pendingApprovalRequest.targetRevisionId,
+                    draftRow.revision
+                )
+                if (approved.changes !== 1) {
+                    throw new DomainInvariantError(
+                        'claim_mismatch',
+                        `Could not approve publication request ${pendingApprovalRequest.id}`
+                    )
+                }
+                options.insertAuditEvent({
+                    id: options.createId(),
+                    projectId: input.projectId,
+                    actorId: actorRow.id,
+                    action: 'publication.approval_approved',
+                    entityType: 'publication',
+                    entityId: input.publicationId,
+                    metadataJson: JSON.stringify({
+                        requestId: pendingApprovalRequest.id,
+                        targetRevisionId: pendingApprovalRequest.targetRevisionId,
+                        proposedScheduledAt: pendingApprovalRequest.proposedScheduledAt,
+                        scheduledAt,
+                    }),
+                    createdAt: timestamp,
+                })
+            }
+
+            if (approvalProposal !== undefined && proposedScheduledAt !== null) {
+                insertApprovalRequestStatement.run(
+                    requireNonBlank(approvalProposal.id, 'approval request id'),
+                    input.projectId,
+                    input.publicationId,
+                    targetRevisionId,
+                    draftRow.revision,
+                    proposedScheduledAt,
+                    actorRow.id,
+                    timestamp
+                )
+                recordDatabaseCommitProject(database, input.projectId)
+                options.insertAuditEvent({
+                    id: options.createId(),
+                    projectId: input.projectId,
+                    actorId: actorRow.id,
+                    action: 'publication.approval_requested',
+                    entityType: 'publication',
+                    entityId: input.publicationId,
+                    metadataJson: JSON.stringify({
+                        requestId: approvalProposal.id,
+                        targetRevisionId,
+                        proposedScheduledAt,
+                    }),
+                    createdAt: timestamp,
+                })
             }
 
             options.insertAuditEvent({

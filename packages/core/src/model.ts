@@ -23,6 +23,12 @@ export const publisherCredentialStates = ['active', 'reconnect_required', 'revok
 export const channelStates = ['active', 'archived'] as const
 export const deliveryModes = ['manual', 'automatic'] as const
 export const publicationReviewStates = ['compatible', 'review_required'] as const
+export const publicationApprovalRequestStates = [
+    'pending',
+    'approved',
+    'rejected',
+    'superseded',
+] as const
 
 export type ActorKind = (typeof actorKinds)[number]
 export type PublicationState = (typeof publicationStates)[number]
@@ -31,6 +37,7 @@ export type PublisherCredentialState = (typeof publisherCredentialStates)[number
 export type ChannelState = (typeof channelStates)[number]
 export type DeliveryMode = (typeof deliveryModes)[number]
 export type PublicationReviewState = (typeof publicationReviewStates)[number]
+export type PublicationApprovalRequestState = (typeof publicationApprovalRequestStates)[number]
 export type Timestamp = number
 
 interface Entity {
@@ -107,6 +114,19 @@ export interface Publication extends ProjectEntity {
     readonly publishedByActorId: string | null
     readonly lastAssessedProfileVersionId: string | null
     readonly profileAssessmentIssues: readonly Record<string, unknown>[]
+}
+
+export interface PublicationApprovalRequest extends ProjectEntity {
+    readonly publicationId: string
+    readonly targetRevisionId: string
+    readonly draftRevision: number
+    readonly proposedScheduledAt: Timestamp
+    readonly state: PublicationApprovalRequestState
+    readonly requestedByActorId: string
+    readonly decidedByActorId: string | null
+    readonly decidedAt: Timestamp | null
+    readonly scheduledAt: Timestamp | null
+    readonly rejectionReason: string | null
 }
 
 export interface Job extends ProjectEntity {

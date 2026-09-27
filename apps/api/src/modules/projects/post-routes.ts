@@ -1,6 +1,7 @@
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
+import { apiKeyHasCapability } from './api-key-permissions'
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     createPostBody,
@@ -45,7 +46,7 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                 tags: ['Posts'],
             },
         },
-        ({ authMethod, body, params, status, user }) => {
+        ({ apiKeyPermissions, authMethod, body, params, status, user }) => {
             if (
                 !canAccessProjectRole({
                     access,
@@ -56,6 +57,22 @@ export function registerPostRoutes<const Routes extends Record<string, unknown>>
                 })
             ) {
                 return status(403, forbiddenProjectMutation())
+            }
+
+            if (
+                authMethod === 'user_api_key' &&
+                body.publications.some(publication => publication.scheduledAt != null) &&
+                !apiKeyHasCapability(
+                    apiKeyPermissions === undefined ? {} : apiKeyPermissions,
+                    'publication:dispatch'
+                )
+            ) {
+                return status(403, {
+                    error: {
+                        code: 'insufficient_api_key_permissions',
+                        message: 'Scheduling a publication requires publication:dispatch',
+                    },
+                })
             }
             const created = manualStore.createPost({
                 projectId: params.projectId,

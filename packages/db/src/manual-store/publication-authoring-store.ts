@@ -25,6 +25,7 @@ import {
     requirePositiveRevision,
 } from './content-codec'
 import { toWorkingDraft } from './mappers'
+import { createPublicationApprovalStore } from './publication-approval-store'
 import type { PublicationPromotionDependencies } from './publication-promotion-store'
 import { createPublicationPromotionStore } from './publication-promotion-store'
 import { createPublicationReadStore } from './publication-read-store'
@@ -53,6 +54,10 @@ export function createPublicationAuthoringStore(
     const publicationPromotionStore = createPublicationPromotionStore(database, {
         ...options,
         loadWorkingDraft,
+    })
+    const publicationApprovalStore = createPublicationApprovalStore(database, {
+        ...options,
+        promotePublicationDraft: publicationPromotionStore.promotePublicationDraft,
     })
     const updatePostSourceStatement = client.query<
         { changes: number },
@@ -123,6 +128,51 @@ export function createPublicationAuthoringStore(
           and publication_id = ?6
           and revision = ?7
     `)
+    const supersedePendingApprovalRequestStatement = client.query<
+        { changes: number },
+        [
+            decidedByActorId: string,
+            decidedAt: number,
+            updatedAt: number,
+            projectId: string,
+            publicationId: string,
+        ]
+    >(`
+        update publication_approval_requests
+        set state = 'superseded',
+            decided_by_actor_id = ?1,
+            decided_at = ?2,
+            updated_at = ?3
+        where project_id = ?4
+          and publication_id = ?5
+          and state = 'pending'
+    `)
+    const supersedePendingApprovalRequest = (
+        projectId: string,
+        publicationId: string,
+        actorId: string,
+        timestamp: number
+    ) => {
+        const result = supersedePendingApprovalRequestStatement.run(
+            actorId,
+            timestamp,
+            timestamp,
+            projectId,
+            publicationId
+        )
+        if (result.changes === 1) {
+            options.insertAuditEvent({
+                id: options.createId(),
+                projectId,
+                actorId,
+                action: 'publication.approval_superseded',
+                entityType: 'publication',
+                entityId: publicationId,
+                metadataJson: JSON.stringify({ reason: 'draft_changed' }),
+                createdAt: timestamp,
+            })
+        }
+    }
     const savePublicationDraftTransaction = createDatabaseTransaction(
         database,
         (input: SavePublicationDraftInput): PublicationWorkingDraft | null => {
@@ -260,6 +310,12 @@ export function createPublicationAuthoringStore(
                     `Publication draft ${input.publicationId} changed before it could be saved`
                 )
             }
+            supersedePendingApprovalRequest(
+                input.projectId,
+                input.publicationId,
+                actorRow.id,
+                timestamp
+            )
 
             const updated = loadWorkingDraft(input.projectId, input.publicationId)
             if (updated === null)
@@ -338,6 +394,12 @@ export function createPublicationAuthoringStore(
                     `Publication draft ${input.publicationId} changed before it could be rebased`
                 )
             }
+            supersedePendingApprovalRequest(
+                input.projectId,
+                input.publicationId,
+                actorRow.id,
+                timestamp
+            )
             options.insertAuditEvent({
                 id: options.createId(),
                 projectId: input.projectId,
@@ -364,6 +426,7 @@ export function createPublicationAuthoringStore(
     return {
         ...publicationReadStore.api,
         ...publicationPromotionStore,
+        ...publicationApprovalStore,
 
         savePublicationDraft(input: SavePublicationDraftInput): PublicationWorkingDraft | null {
             return savePublicationDraftTransaction.immediate({

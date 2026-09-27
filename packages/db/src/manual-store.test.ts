@@ -14,6 +14,7 @@ import {
     mediaAssets,
     mediaRepresentations,
     posts,
+    publicationApprovalRequests,
     publicationRevisionMedia,
     publicationTargetRevisions,
     publicationWorkingDrafts,
@@ -168,6 +169,47 @@ function createReadyMedia(
             },
         ],
     }
+}
+
+function createApprovalDraft(
+    database: ReturnType<typeof createDatabase>,
+    store: ReturnType<typeof createManualStore>,
+    projectId: string,
+    suffix: string
+) {
+    const channel = store.createChannel({
+        projectId,
+        subjectId: 'user-1',
+        name: `Approval Channel ${suffix}`,
+        profile: automaticTestProfile,
+    })
+    if (channel === null) throw new Error('The approval channel was not created')
+
+    database
+        .insert(publishers)
+        .values({
+            id: `approval-publisher-${suffix}`,
+            projectId,
+            channelId: channel.id,
+            kind: 'future-provider',
+        })
+        .run()
+
+    const created = store.createPost({
+        projectId,
+        subjectId: 'user-1',
+        sourceContent: sourceContent(`Approval source ${suffix}`),
+        publications: [
+            {
+                channelId: channel.id,
+                deliveryMode: 'automatic',
+                targetContent: { body: `Approval target ${suffix}` },
+            },
+        ],
+    })
+    const publication = created?.publications[0]
+    if (publication === undefined) throw new Error('The approval draft was not created')
+    return publication
 }
 
 describe('manual workflow store', () => {
@@ -2191,6 +2233,374 @@ describe('manual workflow store', () => {
                     ?.filter(event => event.action === 'publication.reconciled')
             ).toHaveLength(2)
         } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('holds a proposed schedule as a draft until an approver confirms it', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Approval Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const publication = createApprovalDraft(database, store, project.project.id, 'first')
+            const proposedScheduledAt = now + 60_000
+            const request = store.submitPublicationForApproval({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedDraftRevision: 1,
+                proposedScheduledAt,
+            })
+            if (request === null) throw new Error('The approval request was not created')
+
+            expect(request).toMatchObject({
+                publicationId: publication.id,
+                proposedScheduledAt,
+                state: 'pending',
+                draftRevision: 1,
+            })
+            expect(
+                database
+                    .select({ state: publications.state, scheduledAt: publications.scheduledAt })
+                    .from(publications)
+                    .where(eq(publications.id, publication.id))
+                    .get()
+            ).toEqual({ state: 'draft', scheduledAt: null })
+            expect(database.select().from(jobs).all()).toEqual([])
+            expect(database.select().from(publicationApprovalRequests).all()).toHaveLength(1)
+            expect(() =>
+                store.promotePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 1,
+                    scheduledAt: proposedScheduledAt,
+                })
+            ).toThrow('awaiting approval')
+            expect(database.select().from(jobs).all()).toEqual([])
+
+            const approved = store.approvePublicationApprovalRequest({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                requestId: request.id,
+                subjectId: 'user-1',
+            })
+            expect(approved).toMatchObject({ state: 'scheduled', scheduledAt: proposedScheduledAt })
+            expect(approved?.targetRevisionId).toBe(request.targetRevisionId)
+            expect(database.select().from(jobs).all()).toEqual([
+                expect.objectContaining({
+                    publicationId: publication.id,
+                    state: 'pending',
+                    runAt: proposedScheduledAt,
+                }),
+            ])
+            expect(
+                database
+                    .select({ state: publicationApprovalRequests.state })
+                    .from(publicationApprovalRequests)
+                    .where(eq(publicationApprovalRequests.id, request.id))
+                    .get()
+            ).toEqual({ state: 'approved' })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('requires a new time or explicit immediate approval after a proposal expires', () => {
+        const database = createDatabase(':memory:')
+        let now = 1_800_000_000_000
+        let advanceClock = false
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => (advanceClock ? now++ : now) })
+            const project = store.createProject({
+                name: 'Overdue Approval Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const publication = createApprovalDraft(database, store, project.project.id, 'overdue')
+            const proposedScheduledAt = now + 60_000
+            const request = store.submitPublicationForApproval({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedDraftRevision: 1,
+                proposedScheduledAt,
+            })
+            if (request === null) throw new Error('The approval request was not created')
+            now = proposedScheduledAt + 1
+
+            expect(() =>
+                store.approvePublicationApprovalRequest({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    requestId: request.id,
+                    subjectId: 'user-1',
+                })
+            ).toThrow('choose a new time or explicitly publish now')
+            expect(database.select().from(jobs).all()).toEqual([])
+
+            expect(() =>
+                store.approvePublicationApprovalRequest({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    requestId: request.id,
+                    subjectId: 'user-1',
+                    publishNow: true,
+                    scheduledAt: now,
+                })
+            ).toThrow('Choose either an explicit schedule or publish now, not both')
+            expect(database.select().from(jobs).all()).toEqual([])
+
+            advanceClock = true
+            const executionTime = now + 1
+            const approvedNow = store.approvePublicationApprovalRequest({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                requestId: request.id,
+                subjectId: 'user-1',
+                publishNow: true,
+            })
+            expect(approvedNow).toMatchObject({ state: 'scheduled', scheduledAt: executionTime })
+            expect(database.select().from(jobs).all()).toEqual([
+                expect.objectContaining({ publicationId: publication.id, runAt: executionTime }),
+            ])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('accepts an explicitly chosen new future time after a proposal expires', () => {
+        const database = createDatabase(':memory:')
+        let now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Overdue Reschedule Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const publication = createApprovalDraft(
+                database,
+                store,
+                project.project.id,
+                'overdue-new-time'
+            )
+            const proposedScheduledAt = now + 60_000
+            const request = store.submitPublicationForApproval({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedDraftRevision: 1,
+                proposedScheduledAt,
+            })
+            if (request === null) throw new Error('The approval request was not created')
+            now = proposedScheduledAt + 1
+            const newScheduledAt = now + 120_000
+
+            const approved = store.approvePublicationApprovalRequest({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                requestId: request.id,
+                subjectId: 'user-1',
+                scheduledAt: newScheduledAt,
+            })
+            expect(approved).toMatchObject({ state: 'scheduled', scheduledAt: newScheduledAt })
+            expect(database.select().from(jobs).all()).toEqual([
+                expect.objectContaining({ publicationId: publication.id, runAt: newScheduledAt }),
+            ])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('does not accept a second approval decision for a completed request', () => {
+        const database = createDatabase(':memory:')
+        let now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Repeated Approval Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const publication = createApprovalDraft(database, store, project.project.id, 'repeat')
+            const request = store.submitPublicationForApproval({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedDraftRevision: 1,
+                proposedScheduledAt: now + 60_000,
+            })
+            if (request === null) throw new Error('The approval request was not created')
+            const approved = store.approvePublicationApprovalRequest({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                requestId: request.id,
+                subjectId: 'user-1',
+            })
+            expect(approved?.state).toBe('scheduled')
+            now += 1
+            expect(() =>
+                store.approvePublicationApprovalRequest({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    requestId: request.id,
+                    subjectId: 'user-1',
+                    publishNow: true,
+                })
+            ).toThrow('Cannot approve an approval request in the approved state')
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('invalidates a pending approval when the submitted draft is edited', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Edited Approval Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const publication = createApprovalDraft(database, store, project.project.id, 'edited')
+            const request = store.submitPublicationForApproval({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedDraftRevision: 1,
+                proposedScheduledAt: now + 60_000,
+            })
+            if (request === null) throw new Error('The approval request was not created')
+
+            store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+                targetContent: { body: 'Changed after approval was requested' },
+            })
+
+            expect(
+                database
+                    .select({ state: publicationApprovalRequests.state })
+                    .from(publicationApprovalRequests)
+                    .where(eq(publicationApprovalRequests.id, request.id))
+                    .get()
+            ).toEqual({ state: 'superseded' })
+            expect(() =>
+                store.approvePublicationApprovalRequest({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    requestId: request.id,
+                    subjectId: 'user-1',
+                })
+            ).toThrow('Cannot approve an approval request in the superseded state')
+            expect(database.select().from(jobs).all()).toEqual([])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('keeps rejection editable and rolls back failed approval-request persistence', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+        let triggerInstalled = false
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Rejected Approval Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const publication = createApprovalDraft(database, store, project.project.id, 'rejected')
+
+            database.$client.run(`
+                create temp trigger fail_approval_request_audit
+                before insert on audit_events
+                when NEW.action = 'publication.approval_requested'
+                begin
+                    select raise(abort, 'forced approval request failure');
+                end
+            `)
+            triggerInstalled = true
+
+            expect(() =>
+                store.submitPublicationForApproval({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
+                    expectedDraftRevision: 1,
+                    proposedScheduledAt: now + 60_000,
+                })
+            ).toThrow('forced approval request failure')
+            expect(database.select().from(publicationTargetRevisions).all()).toHaveLength(0)
+            expect(database.select().from(publicationApprovalRequests).all()).toHaveLength(0)
+            expect(database.select().from(jobs).all()).toEqual([])
+            expect(
+                database
+                    .select({
+                        state: publications.state,
+                        targetRevisionId: publications.targetRevisionId,
+                    })
+                    .from(publications)
+                    .where(eq(publications.id, publication.id))
+                    .get()
+            ).toEqual({ state: 'draft', targetRevisionId: null })
+
+            database.$client.run('drop trigger fail_approval_request_audit')
+            triggerInstalled = false
+            const request = store.submitPublicationForApproval({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedDraftRevision: 1,
+                proposedScheduledAt: now + 60_000,
+            })
+            if (request === null) throw new Error('The approval request was not created')
+            const rejected = store.rejectPublicationApprovalRequest({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                requestId: request.id,
+                subjectId: 'user-1',
+                rejectionReason: 'Needs a factual correction',
+            })
+            expect(rejected).toMatchObject({
+                state: 'rejected',
+                rejectionReason: 'Needs a factual correction',
+            })
+            expect(
+                database
+                    .select({ state: publications.state, scheduledAt: publications.scheduledAt })
+                    .from(publications)
+                    .where(eq(publications.id, publication.id))
+                    .get()
+            ).toEqual({ state: 'draft', scheduledAt: null })
+            expect(database.select().from(jobs).all()).toEqual([])
+            expect(
+                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+                    ?.revision
+            ).toBe(1)
+        } finally {
+            if (triggerInstalled) database.$client.run('drop trigger fail_approval_request_audit')
             closeDatabase(database)
         }
     })

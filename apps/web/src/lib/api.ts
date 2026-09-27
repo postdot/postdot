@@ -30,6 +30,7 @@ import {
     type PublisherConnection,
     type Project,
     type Publication,
+    type PublicationApprovalRequest,
     type PublicationSummaryPage,
     type ProviderAnalyticsPage,
     type ProjectCategory,
@@ -1531,6 +1532,43 @@ export const api = {
             await client.api.projects({ projectId }).publications.get({
                 query: Object.keys(query).length === 0 ? undefined : query,
             })
+        )
+    },
+
+    async listPublicationApprovalRequests(
+        projectId: string
+    ): Promise<{ requests: PublicationApprovalRequest[] }> {
+        return unwrap<{ requests: PublicationApprovalRequest[] }>(
+            await client.api.projects({ projectId }).publications['approval-requests'].get()
+        )
+    },
+
+    async approvePublicationApprovalRequest(
+        projectId: string,
+        publicationId: string,
+        options: { readonly scheduledAt?: number; readonly publishNow?: boolean } = {}
+    ): Promise<{ publication: Publication }> {
+        const body = {
+            ...(options.scheduledAt === undefined ? {} : { scheduledAt: options.scheduledAt }),
+            ...(options.publishNow === undefined ? {} : { publishNow: options.publishNow }),
+        }
+        return unwrap<{ publication: Publication }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                ['approval-request'].approve.post(body)
+        )
+    },
+
+    async rejectPublicationApprovalRequest(
+        projectId: string,
+        publicationId: string
+    ): Promise<{ request: PublicationApprovalRequest }> {
+        return unwrap<{ request: PublicationApprovalRequest }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                ['approval-request'].reject.post({})
         )
     },
 

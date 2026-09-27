@@ -412,6 +412,17 @@
     "queue_sort_created_asc": "Oldest first",
     "queue_sort_scheduled_desc": "Latest scheduled first",
     "queue_sort_scheduled_asc": "Soonest scheduled first",
+    "approval_requests_title": "Awaiting approval",
+    "approval_requests_proposed_for": "Proposed for {date}",
+    "approval_requests_approve": "Approve & schedule",
+    "approval_requests_reject": "Reject",
+    "approval_requests_time_passed": "Proposed time passed",
+    "approval_requests_publish_now": "Approve & publish now",
+    "approval_requests_change_time": "Choose a new time",
+    "approval_requests_date_required": "Choose a date and time.",
+    "approval_requests_schedule": "Schedule",
+    "approval_requests_action_failed": "Could not update the approval request.",
+    "approval_requests_load_failed": "Could not load approval requests.",
     "queue_bulk_actions": "Publication actions",
     "queue_selected_publications": [
         {

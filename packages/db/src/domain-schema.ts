@@ -15,6 +15,7 @@ import {
     providerAnalyticsSubjectTypes,
     providerMediaDeliveryStates,
     publicationReviewStates,
+    publicationApprovalRequestStates,
     publicationStates,
     publisherCredentialStates,
     channelProfileVersionStates,
@@ -1743,6 +1744,104 @@ export const publicationTargetRevisions = sqliteTable(
         check(
             'publication_target_revisions_media_reference_count_valid',
             sql`${table.mediaReferenceCount} >= 0`
+        ),
+    ]
+)
+
+export const publicationApprovalRequests = sqliteTable(
+    'publication_approval_requests',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        publicationId: text('publication_id').notNull(),
+        targetRevisionId: text('target_revision_id').notNull(),
+        draftRevision: integer('draft_revision').notNull(),
+        proposedScheduledAt: integer('proposed_scheduled_at').notNull(),
+        state: text('state', { enum: publicationApprovalRequestStates }).notNull(),
+        requestedByActorId: text('requested_by_actor_id').notNull(),
+        decidedByActorId: text('decided_by_actor_id'),
+        decidedAt: integer('decided_at'),
+        scheduledAt: integer('scheduled_at'),
+        rejectionReason: text('rejection_reason'),
+        ...timestamps(),
+    },
+    table => [
+        uniqueIndex('publication_approval_requests_project_id_id_uidx').on(
+            table.projectId,
+            table.id
+        ),
+        uniqueIndex('publication_approval_requests_one_pending_per_publication_uidx')
+            .on(table.projectId, table.publicationId)
+            .where(sql`${table.state} = 'pending'`),
+        index('publication_approval_requests_project_state_created_idx').on(
+            table.projectId,
+            table.state,
+            table.createdAt
+        ),
+        index('publication_approval_requests_project_publication_created_idx').on(
+            table.projectId,
+            table.publicationId,
+            table.createdAt
+        ),
+        foreignKey({
+            name: 'publication_approval_requests_project_publication_fk',
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            name: 'publication_approval_requests_project_revision_fk',
+            columns: [table.projectId, table.targetRevisionId],
+            foreignColumns: [publicationTargetRevisions.projectId, publicationTargetRevisions.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_approval_requests_project_requester_fk',
+            columns: [table.projectId, table.requestedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            name: 'publication_approval_requests_project_decider_fk',
+            columns: [table.projectId, table.decidedByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        check(
+            'publication_approval_requests_draft_revision_positive',
+            sql`${table.draftRevision} > 0`
+        ),
+        check(
+            'publication_approval_requests_proposed_time_valid',
+            sql`${table.proposedScheduledAt} > 0`
+        ),
+        check(
+            'publication_approval_requests_state_valid',
+            sql`${table.state} in ('pending', 'approved', 'rejected', 'superseded')`
+        ),
+        check(
+            'publication_approval_requests_decision_valid',
+            sql`(${table.state} = 'pending'
+                    and ${table.decidedByActorId} is null
+                    and ${table.decidedAt} is null
+                    and ${table.scheduledAt} is null
+                    and ${table.rejectionReason} is null)
+                or (${table.state} = 'approved'
+                    and ${table.decidedByActorId} is not null
+                    and ${table.decidedAt} is not null
+                    and ${table.scheduledAt} is not null
+                    and ${table.rejectionReason} is null)
+                or (${table.state} = 'rejected'
+                    and ${table.decidedByActorId} is not null
+                    and ${table.decidedAt} is not null
+                    and ${table.scheduledAt} is null)
+                or (${table.state} = 'superseded'
+                    and ${table.decidedByActorId} is not null
+                    and ${table.decidedAt} is not null
+                    and ${table.scheduledAt} is null
+                    and ${table.rejectionReason} is null)`
+        ),
+        check(
+            'publication_approval_requests_rejection_reason_valid',
+            sql`${table.rejectionReason} is null or length(trim(${table.rejectionReason})) > 0`
         ),
     ]
 )

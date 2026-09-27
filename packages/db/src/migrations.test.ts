@@ -28,6 +28,7 @@ describe('database migrations', () => {
             expect(tables).toContain('team_member')
             expect(tables).toContain('workspaces')
             expect(tables).toContain('apikey')
+            expect(tables).toContain('publication_approval_requests')
             expect(tables).not.toContain('project_memberships')
             expect(tables).not.toContain('access_invitations')
             expect(tables).not.toContain('project_access_tokens')
@@ -54,7 +55,7 @@ describe('database migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 8 })
+            ).toEqual({ count: 9 })
         } finally {
             closeDatabase(database)
         }
@@ -78,7 +79,7 @@ describe('database migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 8 })
+            ).toEqual({ count: 9 })
         } finally {
             closeDatabase(database)
         }
@@ -86,7 +87,7 @@ describe('database migrations', () => {
 
     it('keeps the committed migration folder in generated order', () => {
         const files = [...new Bun.Glob('*.sql').scanSync({ cwd: defaultMigrationsFolder })].sort()
-        expect(files).toHaveLength(8)
+        expect(files).toHaveLength(9)
         expect(files[0]).toMatch(/^0000_.+\.sql$/)
         expect(files[1]).toMatch(/^0001_.+\.sql$/)
         expect(files[2]).toMatch(/^0002_.+\.sql$/)

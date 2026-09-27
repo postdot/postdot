@@ -812,10 +812,14 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/publication-composer-draft',
                 '/api/projects/{projectId}/publications',
                 '/api/projects/{projectId}/publications/due',
+                '/api/projects/{projectId}/publications/approval-requests',
                 '/api/projects/{projectId}/publications/schedule',
                 '/api/projects/{projectId}/publications/cancel',
                 '/api/projects/{projectId}/publications/{publicationId}',
                 '/api/projects/{projectId}/publications/{publicationId}/duplicate',
+                '/api/projects/{projectId}/publications/{publicationId}/approval-request',
+                '/api/projects/{projectId}/publications/{publicationId}/approval-request/approve',
+                '/api/projects/{projectId}/publications/{publicationId}/approval-request/reject',
                 '/api/projects/{projectId}/publications/{publicationId}/editor',
                 '/api/projects/{projectId}/publications/{publicationId}/draft',
                 '/api/projects/{projectId}/publications/{publicationId}/draft/rebase',
@@ -903,6 +907,25 @@ describe('Herald API', () => {
                     '/api/projects/{projectId}/publications/{publicationId}/duplicate'
                 ]?.post?.operationId
             ).toBe('duplicateDraftPublication')
+            expect(
+                specification.paths['/api/projects/{projectId}/publications/approval-requests']?.get
+                    ?.security
+            ).toEqual([{ sessionCookie: [] }])
+            expect(
+                specification.paths[
+                    '/api/projects/{projectId}/publications/{publicationId}/approval-request'
+                ]?.post?.operationId
+            ).toBe('submitPublicationForApproval')
+            expect(
+                specification.paths[
+                    '/api/projects/{projectId}/publications/{publicationId}/approval-request/approve'
+                ]?.post?.security
+            ).toEqual([{ sessionCookie: [] }])
+            expect(
+                specification.paths[
+                    '/api/projects/{projectId}/publications/{publicationId}/approval-request/reject'
+                ]?.post?.security
+            ).toEqual([{ sessionCookie: [] }])
             expect(specification.components?.securitySchemes).toEqual({
                 bearerAuth: {
                     bearerFormat: 'Herald API key',

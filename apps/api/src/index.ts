@@ -71,6 +71,7 @@ export type {
     ChannelProfileStateResponse,
     ChannelProfileVersionResponse,
     DuePublicationResponse,
+    PublicationApprovalRequestResponse,
     PostResponse,
     PublicationEditorStateResponse,
     PublisherConnectionResponse,

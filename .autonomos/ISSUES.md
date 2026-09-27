@@ -3757,7 +3757,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-139] Separate publication preparation from approval and dispatch
 
 - Type: product requirement
-- Status: accepted
+- Status: resolved
 - Evidence: Herald project access currently distinguishes `owner`, `editor`, and
   `viewer`. Publication mutations, including scheduling and recording manual
   publication, require the `editor` role; there is no per-publication approval
@@ -3813,11 +3813,19 @@ posture` is an exact patch duplicate of `aa889111`, and
   require the human to choose a new time or explicitly publish now; never
   silently catch up a missed request. Rejection returns the publication to an
   editable draft. See [PUB-237](worklogs/2026-09-27-PUB-237.md).
-- Resolution: The current API-key split already separates draft preparation
-  (`publication:manage`) from schedule/dispatch (`publication:dispatch`). The
-  remaining work is to make a proposed schedule reviewable without creating an
-  executable job, then let a human approve it through the web workflow. See
-  [PUB-238](TASKS.md).
+- Resolution: Implemented a persisted approval request tied to the immutable
+  target revision and exact draft revision. A `publication:manage` key can
+  submit an unscheduled draft and proposed delivery time; pending requests
+  create no executable schedule or worker job. Only a project-editor session
+  can review, reject, or approve. Approval creates scheduled work for the
+  reviewed revision; a late request requires a new future time or explicit
+  publish-now action, with the server timestamp chosen inside the promotion
+  transaction. Rejection leaves the draft editable, and subsequent edits
+  supersede the request. The publication queue includes a localized review
+  surface. Direct API-key scheduling requires `publication:dispatch`; no
+  agent-specific identity, CLI, or MCP client was introduced.
+- Evidence: [PUB-238 worklog](worklogs/2026-09-27-PUB-238.md),
+  [user API key policy](../docs/security/user-api-keys.md).
 
 ## [ISSUE-140] Let user-owned API keys narrow project actions
 

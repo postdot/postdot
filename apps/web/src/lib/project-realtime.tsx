@@ -8,6 +8,8 @@ export const projectQueryKeys = {
     publicationQueues: (projectId: string) => ['project', projectId, 'publication-queues'] as const,
     publicationEditors: (projectId: string) =>
         ['project', projectId, 'publication-editor'] as const,
+    publicationApprovals: (projectId: string) =>
+        ['project', projectId, 'publication-approval-requests'] as const,
     providerAnalytics: (projectId: string, provider: 'bluesky' | 'devto') =>
         ['project', projectId, 'provider-analytics', provider] as const,
     publicationEditor: (projectId: string, publicationId: string) =>
@@ -32,6 +34,10 @@ const projectRealtimeEventTypes = [
     'channel.profile_activated',
     'post.created',
     'publication.created',
+    'publication.approval_requested',
+    'publication.approval_approved',
+    'publication.approval_rejected',
+    'publication.approval_superseded',
     'publication.draft.rebased',
     'publication.target_promoted',
     'publication.ready',
@@ -380,6 +386,10 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                             }),
                             queryClient.invalidateQueries({
                                 queryKey: projectQueryKeys.publicationQueues(projectId),
+                                refetchType: full ? 'all' : 'active',
+                            }),
+                            queryClient.invalidateQueries({
+                                queryKey: projectQueryKeys.publicationApprovals(projectId),
                                 refetchType: full ? 'all' : 'active',
                             }),
                         ]
