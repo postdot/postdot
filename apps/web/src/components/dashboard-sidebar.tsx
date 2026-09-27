@@ -15,6 +15,7 @@ import {
 } from '@herald/ui/components/sidebar'
 import { cn } from '@herald/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
+import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { LinkIcon } from '@solar-icons/react/linear/link'
@@ -42,6 +43,7 @@ import * as m from '@/paraglide/messages.js'
 
 export type DashboardSection =
     | 'overview'
+    | 'performance'
     | 'new-publication'
     | 'queue'
     | 'channels'
@@ -360,6 +362,14 @@ export function DashboardSidebar({
                                             workspaceId={selectedWorkspaceId}
                                         />
                                         <WorkspaceMenuItem
+                                            active={activeSection === 'performance'}
+                                            destination="performance"
+                                            icon={<ChartSquareIcon aria-hidden="true" />}
+                                            label={m.nav_performance()}
+                                            projectId={selectedProjectId}
+                                            workspaceId={selectedWorkspaceId}
+                                        />
+                                        <WorkspaceMenuItem
                                             active={activeSection === 'queue' || isPublicationRoute}
                                             destination="queue"
                                             icon={<ListIcon aria-hidden="true" />}
@@ -528,6 +538,7 @@ export function workspaceSection(pathname: string): DashboardSection {
     if (pathname.includes('/settings')) return 'settings'
     if (pathname.includes('/publications/new')) return 'new-publication'
     if (pathname.includes('/publications/')) return 'queue'
+    if (pathname.includes('/performance')) return 'performance'
     if (pathname.includes('/queue')) return 'queue'
     if (pathname.includes('/channels')) return 'channels'
     if (pathname.includes('/media')) return 'media'
@@ -538,6 +549,7 @@ export function workspaceSection(pathname: string): DashboardSection {
 
 export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'new-publication') return m.nav_new_publication()
+    if (section === 'performance') return m.nav_performance()
     if (section === 'queue') return m.nav_queue()
     if (section === 'channels') return m.nav_channels()
     if (section === 'media') return m.nav_media()
@@ -570,6 +582,7 @@ function WorkspaceMenuItem({
     const requiresProject =
         projectId === null &&
         (destination === 'new-publication' ||
+            destination === 'performance' ||
             destination === 'queue' ||
             destination === 'channels' ||
             destination === 'media' ||

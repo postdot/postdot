@@ -9,6 +9,7 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     const projectId = await createAccountAndProject(page, suffix)
     const projectEntries = [
         { heading: 'Overview', label: 'Overview', path: 'overview' },
+        { heading: 'Performance', label: 'Performance', path: 'performance' },
         { heading: 'Queue', label: 'Queue', path: 'queue' },
         { heading: 'Channels', label: 'Channels', path: 'channels' },
         { heading: 'Media', label: 'Media', path: 'media' },

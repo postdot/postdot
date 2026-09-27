@@ -3729,17 +3729,30 @@ posture` is an exact patch duplicate of `aa889111`, and
   record a source-backed recommendation plus explicit implementation follow-up
   boundaries. An unknown or approval-gated metric must not be presented as
   universally available.
-- Resolution: ANALYTICS-233 recommends a project-level Performances experience
-  that lists provider-specific results per published destination, keeps
-  operational telemetry separate, and avoids cross-network totals. DEV.to/Forem
-  is the strongest first implementation candidate for views, reactions,
-  comments, and history; existing Bluesky observations are the complementary
-  partial-coverage case. Page reads must use cached observations, while any
-  recurring collection requires an explicit cadence, cost, and retention
-  boundary. This resolves the discovery task only; the UI, new collectors, and
-  automatic synchronization remain unimplemented and require acceptance of the
-  recommended product direction.
+- Resolution: ANALYTICS-233 recommended a project-level Performances experience
+  with provider-specific results per published destination, separate from
+  operational telemetry and without cross-network totals. The owner approved
+  that direction on 2026-09-27. Its bounded first implementation is tracked and
+  completed under ISSUE-138: DEV.to/Forem lifetime views, reactions, and comments
+  plus existing Bluesky observations, with cached reads and explicit refresh.
+  Recurring collection and provider-native history remain separate future work
+  requiring an accepted cadence, cost, and retention boundary.
 - Evidence: [ANALYTICS-233 worklog](worklogs/2026-09-27-ANALYTICS-233.md).
+
+## [ISSUE-138] Deliver provider-backed publication performance in project workspaces
+
+- Type: accepted proposal
+- Status: resolved
+- Evidence: The owner approved the ANALYTICS-233 recommendation on 2026-09-27. Herald already stores bounded Bluesky observations but has no user-facing performance workflow. Forem documents per-article lifetime totals for views, reactions, and comments, plus ranged historical data, using the existing connected API key.
+- Impact: Without a project-facing experience, users cannot assess the outcomes of publications they create in Herald. A generic analytics surface or cross-network totals would conflate provider-specific metrics with Herald's operational reporting and could misstate incomparable measures.
+- Desired outcome: Let project members inspect provider-owned performance for published destinations, understand which measures each provider reports and when the data was fetched, and explicitly refresh supported data without making page reads call external providers. The first collection slice records Forem lifetime totals; provider-native date-range history is a later extension, not a prerequisite for displaying the requested views/reactions/comments.
+- Related issues: ISSUE-056, ISSUE-137
+- Related tasks: ANALYTICS-234, ANALYTICS-235
+- Related decisions: ADR-051, ADR-052, ADR-055
+- Accepted boundaries: Place Performances in the normal project work space, separate from operational analytics. Begin with Forem's article views/reactions/comments and the existing Bluesky observations. Preserve provider names and metric semantics; never invent missing values or cross-provider scores. Reads use stored observations; refresh is explicit and bounded. Do not add scheduled collection, new provider scopes, new services, or change the existing observation retention lifecycle in this issue.
+- Acceptance: Provider refresh is project/channel/publication-scoped and role-checked; only known published destination IDs are queried; API keys remain inside the provider boundary; raw responses and secrets are not persisted or returned; lifetime totals are represented as cumulative snapshots; provider errors and absent metrics remain explicit; the web surface presents cached values and freshness and offers explicit refresh; operational analytics remains unchanged. Forem date-range history is deferred because the current observation store retains every fetched snapshot indefinitely and the returned time-series would multiply writes per refresh; do not disguise this as a retention decision.
+- Resolution: Implemented DEV.to/Forem lifetime totals for known published Herald destinations, authenticated project-scoped API reads and editor-gated explicit collection, and a localized project Performances page that combines cached DEV.to and Bluesky measures per destination. Page reads do not call providers. No recurring collection, historical chart, new credential scope, or retention policy was added.
+- Evidence: [ANALYTICS-233 workflow recommendation](worklogs/2026-09-27-ANALYTICS-233.md); [ANALYTICS-234 worklog](worklogs/2026-09-27-ANALYTICS-234.md); [ANALYTICS-235 worklog](worklogs/2026-09-27-ANALYTICS-235.md).
 
 ## External diagnostic follow-up classification
 

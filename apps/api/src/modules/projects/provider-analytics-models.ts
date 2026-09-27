@@ -3,6 +3,7 @@ import type { ProviderAnalyticsObservationPage } from '@herald/db'
 import { Type } from 'typebox'
 
 import type { BlueskyAnalyticsCollectionResponse } from './bluesky-analytics-service'
+import type { DevtoAnalyticsCollectionResponse } from './devto-analytics-service'
 
 const providerAnalyticsSubjectTypeSchema = Type.Union([
     Type.Literal('account'),
@@ -74,6 +75,11 @@ export const blueskyAnalyticsCollectionBody = Type.Object({
     ),
 })
 
+export const devtoAnalyticsCollectionBody = Type.Object({
+    channelId: Type.String({ minLength: 1 }),
+    publicationId: Type.String({ minLength: 1 }),
+})
+
 export const providerAnalyticsObservationPageSchema = Type.Unsafe<ProviderAnalyticsObservationPage>(
     Type.Object({
         contractVersion: Type.Integer({ minimum: 1 }),
@@ -136,3 +142,15 @@ export const blueskyAnalyticsCollectionResponseSchema =
             observations: Type.Array(providerAnalyticsObservationSchema),
         })
     )
+
+export const devtoAnalyticsCollectionResponseSchema = Type.Unsafe<DevtoAnalyticsCollectionResponse>(
+    Type.Object({
+        contractVersion: Type.Integer({ minimum: 1 }),
+        projectId: Type.String({ minLength: 1 }),
+        provider: Type.Literal('devto'),
+        fetchedAt: Type.Integer({ minimum: 0 }),
+        inserted: Type.Integer({ minimum: 0 }),
+        duplicates: Type.Integer({ minimum: 0 }),
+        observations: Type.Array(providerAnalyticsObservationSchema),
+    })
+)

@@ -38,7 +38,9 @@ import type {
     PublicationSummaryPageResponse,
     PublicationListQuery as PublicationListQueryResponse,
     BlueskyAnalyticsCollectionResponse,
+    DevtoAnalyticsCollectionResponse,
     ProviderAnalyticsObservationPage,
+    ProviderAnalyticsObservation,
     ProjectCategoryResponse,
     ProjectTagResponse,
 } from '@herald/api'
@@ -110,4 +112,6 @@ export type Notification = NotificationResponse
 export type NotificationInbox = NotificationInboxResponse
 export type NotificationPreference = NotificationPreferenceResponse
 export type ProviderAnalyticsPage = ProviderAnalyticsObservationPage
+export type ProviderAnalyticsItem = ProviderAnalyticsObservation
 export type BlueskyAnalyticsCollection = BlueskyAnalyticsCollectionResponse
+export type DevtoAnalyticsCollection = DevtoAnalyticsCollectionResponse

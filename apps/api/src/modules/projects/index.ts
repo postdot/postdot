@@ -27,6 +27,7 @@ import { createBlueskyAnalyticsService } from './bluesky-analytics-service'
 import { registerChannelProfilePresetRoutes } from './channel-profile-preset-routes'
 import { registerChannelProfileRoutes } from './channel-profile-routes'
 import { registerChannelRoutes } from './channel-routes'
+import { createDevtoAnalyticsService } from './devto-analytics-service'
 import { registerProjectMemberRoutes } from './member-routes'
 import { registerNotificationRoutes } from './notification-routes'
 import { registerPostRoutes } from './post-routes'
@@ -176,6 +177,12 @@ export function createProjectModule(options: ProjectModuleOptions) {
             fetcher: options.blueskyAnalyticsFetcher,
             timeoutMs: options.blueskyAnalyticsTimeoutMs,
             now: options.blueskyAnalyticsNow,
+        }),
+        createDevtoAnalyticsService({
+            providerAnalytics: options.providerAnalytics,
+            publisher: options.publisher,
+            fetcher: options.devtoFetcher,
+            now: options.now,
         }),
         options.access
     )

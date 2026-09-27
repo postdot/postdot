@@ -29,6 +29,7 @@ import { Route as DashboardProjectsProjectIdChannelsRouteImport } from './routes
 import { Route as DashboardProjectsProjectIdInvitationsRouteImport } from './routes/dashboard/projects/$projectId/invitations'
 import { Route as DashboardProjectsProjectIdMediaRouteImport } from './routes/dashboard/projects/$projectId/media'
 import { Route as DashboardProjectsProjectIdOverviewRouteImport } from './routes/dashboard/projects/$projectId/overview'
+import { Route as DashboardProjectsProjectIdPerformanceRouteImport } from './routes/dashboard/projects/$projectId/performance'
 import { Route as DashboardProjectsProjectIdQueueRouteImport } from './routes/dashboard/projects/$projectId/queue'
 import { Route as DashboardProjectsProjectIdRealtimePrototypeRouteImport } from './routes/dashboard/projects/$projectId/realtime-prototype'
 import { Route as DashboardProjectsProjectIdPublicationsPublicationIdRouteImport } from './routes/dashboard/projects/$projectId/publications/$publicationId'
@@ -144,6 +145,12 @@ const DashboardProjectsProjectIdOverviewRoute =
     path: '/overview',
     getParentRoute: () => DashboardProjectsProjectIdRoute,
   } as any)
+const DashboardProjectsProjectIdPerformanceRoute =
+  DashboardProjectsProjectIdPerformanceRouteImport.update({
+    id: '/performance',
+    path: '/performance',
+    getParentRoute: () => DashboardProjectsProjectIdRoute,
+  } as any)
 const DashboardProjectsProjectIdQueueRoute =
   DashboardProjectsProjectIdQueueRouteImport.update({
     id: '/queue',
@@ -190,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/projects/$projectId/invitations': typeof DashboardProjectsProjectIdInvitationsRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
+  '/dashboard/projects/$projectId/performance': typeof DashboardProjectsProjectIdPerformanceRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/realtime-prototype': typeof DashboardProjectsProjectIdRealtimePrototypeRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
@@ -215,6 +223,7 @@ export interface FileRoutesByTo {
   '/dashboard/projects/$projectId/invitations': typeof DashboardProjectsProjectIdInvitationsRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
+  '/dashboard/projects/$projectId/performance': typeof DashboardProjectsProjectIdPerformanceRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/realtime-prototype': typeof DashboardProjectsProjectIdRealtimePrototypeRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
@@ -242,6 +251,7 @@ export interface FileRoutesById {
   '/dashboard/projects/$projectId/invitations': typeof DashboardProjectsProjectIdInvitationsRoute
   '/dashboard/projects/$projectId/media': typeof DashboardProjectsProjectIdMediaRoute
   '/dashboard/projects/$projectId/overview': typeof DashboardProjectsProjectIdOverviewRoute
+  '/dashboard/projects/$projectId/performance': typeof DashboardProjectsProjectIdPerformanceRoute
   '/dashboard/projects/$projectId/queue': typeof DashboardProjectsProjectIdQueueRoute
   '/dashboard/projects/$projectId/realtime-prototype': typeof DashboardProjectsProjectIdRealtimePrototypeRoute
   '/dashboard/projects/$projectId/publications/$publicationId': typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/invitations'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
+    | '/dashboard/projects/$projectId/performance'
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/realtime-prototype'
     | '/dashboard/projects/$projectId/publications/$publicationId'
@@ -295,6 +306,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/invitations'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
+    | '/dashboard/projects/$projectId/performance'
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/realtime-prototype'
     | '/dashboard/projects/$projectId/publications/$publicationId'
@@ -321,6 +333,7 @@ export interface FileRouteTypes {
     | '/dashboard/projects/$projectId/invitations'
     | '/dashboard/projects/$projectId/media'
     | '/dashboard/projects/$projectId/overview'
+    | '/dashboard/projects/$projectId/performance'
     | '/dashboard/projects/$projectId/queue'
     | '/dashboard/projects/$projectId/realtime-prototype'
     | '/dashboard/projects/$projectId/publications/$publicationId'
@@ -479,6 +492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProjectsProjectIdOverviewRouteImport
       parentRoute: typeof DashboardProjectsProjectIdRoute
     }
+    '/dashboard/projects/$projectId/performance': {
+      id: '/dashboard/projects/$projectId/performance'
+      path: '/performance'
+      fullPath: '/dashboard/projects/$projectId/performance'
+      preLoaderRoute: typeof DashboardProjectsProjectIdPerformanceRouteImport
+      parentRoute: typeof DashboardProjectsProjectIdRoute
+    }
     '/dashboard/projects/$projectId/queue': {
       id: '/dashboard/projects/$projectId/queue'
       path: '/queue'
@@ -529,6 +549,7 @@ interface DashboardProjectsProjectIdRouteChildren {
   DashboardProjectsProjectIdInvitationsRoute: typeof DashboardProjectsProjectIdInvitationsRoute
   DashboardProjectsProjectIdMediaRoute: typeof DashboardProjectsProjectIdMediaRoute
   DashboardProjectsProjectIdOverviewRoute: typeof DashboardProjectsProjectIdOverviewRoute
+  DashboardProjectsProjectIdPerformanceRoute: typeof DashboardProjectsProjectIdPerformanceRoute
   DashboardProjectsProjectIdQueueRoute: typeof DashboardProjectsProjectIdQueueRoute
   DashboardProjectsProjectIdRealtimePrototypeRoute: typeof DashboardProjectsProjectIdRealtimePrototypeRoute
   DashboardProjectsProjectIdPublicationsPublicationIdRoute: typeof DashboardProjectsProjectIdPublicationsPublicationIdRoute
@@ -546,6 +567,8 @@ const DashboardProjectsProjectIdRouteChildren: DashboardProjectsProjectIdRouteCh
     DashboardProjectsProjectIdMediaRoute: DashboardProjectsProjectIdMediaRoute,
     DashboardProjectsProjectIdOverviewRoute:
       DashboardProjectsProjectIdOverviewRoute,
+    DashboardProjectsProjectIdPerformanceRoute:
+      DashboardProjectsProjectIdPerformanceRoute,
     DashboardProjectsProjectIdQueueRoute: DashboardProjectsProjectIdQueueRoute,
     DashboardProjectsProjectIdRealtimePrototypeRoute:
       DashboardProjectsProjectIdRealtimePrototypeRoute,

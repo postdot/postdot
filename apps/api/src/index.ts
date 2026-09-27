@@ -84,6 +84,8 @@ export type {
     ProjectTagResponse,
 } from './modules/projects/models'
 export type { BlueskyAnalyticsCollectionResponse } from './modules/projects/bluesky-analytics-service'
+export type { DevtoAnalyticsCollectionResponse } from './modules/projects/devto-analytics-service'
+export type { ProviderAnalyticsObservation } from '@herald/core'
 export type { ProviderAnalyticsObservationPage } from '@herald/db'
 export type {
     NotificationInboxResponse,

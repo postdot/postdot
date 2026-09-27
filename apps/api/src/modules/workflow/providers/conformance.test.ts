@@ -286,6 +286,12 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                         value: { id: '42', username: 'herald', name: 'Herald' },
                     }
                 },
+                async getArticleAnalytics() {
+                    return {
+                        kind: 'success',
+                        value: { articleId: '1', comments: 0, reactions: 0, pageViews: 0 },
+                    }
+                },
                 async publishArticle() {
                     onDispatch()
                     return outcome as DevtoPublishOutcome

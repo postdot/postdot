@@ -21,7 +21,7 @@ export type DevtoPermanentFailureCode =
     | 'forbidden'
     | 'invalid_request'
 
-export type DevtoRetryableFailureCode = 'rate_limited' | 'provider_failure'
+export type DevtoRetryableFailureCode = 'invalid_response' | 'rate_limited' | 'provider_failure'
 
 export type DevtoAmbiguousFailureCode =
     | 'network_failure'
@@ -61,6 +61,13 @@ export interface DevtoUser {
     readonly name: string
 }
 
+export interface DevtoArticleAnalytics {
+    readonly articleId: string
+    readonly comments: number
+    readonly reactions: number
+    readonly pageViews: number
+}
+
 export interface PublishDevtoArticleInput {
     readonly apiKey: string
     readonly title: string
@@ -70,6 +77,10 @@ export interface PublishDevtoArticleInput {
 
 export interface DevtoPublisher {
     getMe(apiKey: string): Promise<DevtoOperationResult<DevtoUser>>
+    getArticleAnalytics(input: {
+        readonly apiKey: string
+        readonly articleId: string
+    }): Promise<DevtoOperationResult<DevtoArticleAnalytics>>
     publishArticle(input: PublishDevtoArticleInput): Promise<DevtoPublishOutcome>
 }
 

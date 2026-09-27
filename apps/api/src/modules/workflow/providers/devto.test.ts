@@ -139,6 +139,12 @@ describe('DEV.to provider adapter', () => {
                     value: { id: '42', username: 'herald', name: 'Herald' },
                 }
             },
+            async getArticleAnalytics() {
+                return {
+                    kind: 'success',
+                    value: { articleId: '1', comments: 0, reactions: 0, pageViews: 0 },
+                }
+            },
             async publishArticle(input) {
                 publishedInput = input
                 return { type: 'published', externalId: 'article-42' }
@@ -179,6 +185,12 @@ describe('DEV.to provider adapter', () => {
                     value: { id: '42', username: 'herald', name: 'Herald' },
                 }
             },
+            async getArticleAnalytics() {
+                return {
+                    kind: 'success',
+                    value: { articleId: '1', comments: 0, reactions: 0, pageViews: 0 },
+                }
+            },
             async publishArticle(): Promise<DevtoPublishOutcome> {
                 return {
                     type: 'permanent_failure',
@@ -204,6 +216,12 @@ describe('DEV.to provider adapter', () => {
                 return {
                     kind: 'success',
                     value: { id: '42', username: 'herald', name: 'Herald' },
+                }
+            },
+            async getArticleAnalytics() {
+                return {
+                    kind: 'success',
+                    value: { articleId: '1', comments: 0, reactions: 0, pageViews: 0 },
                 }
             },
             async publishArticle() {

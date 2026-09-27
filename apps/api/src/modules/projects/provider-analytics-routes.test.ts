@@ -8,6 +8,7 @@ import {
     createManualStore,
     runMigrations,
 } from '@herald/db'
+import { devtoChannelProfile } from '@herald/devto'
 
 import { createApp } from '../../app'
 import { createPublisherRuntime } from '../publishers/runtime'
@@ -17,6 +18,7 @@ const secret = 'herald-test-secret-with-at-least-32-characters'
 const now = 1_800_000_000_000
 const did = 'did:plc:api-analytics'
 const postUri = 'at://' + did + '/app.bsky.feed.post/3api'
+const devtoApiKey = 'devto-analytics-api-key-that-must-not-leak'
 
 async function signUp(app: ReturnType<typeof createApp>, email: string) {
     const response = await app.handle(
@@ -58,6 +60,7 @@ describe('provider analytics routes', () => {
     it('collects known Bluesky publications, persists them, and never calls the provider on read', async () => {
         const database = createDatabase(':memory:')
         let providerCalls = 0
+        let devtoCalls = 0
         runMigrations(database)
         const auth = createAuth(database, { baseURL, secret })
         const publisher = createPublisherRuntime(database, {
@@ -75,6 +78,18 @@ describe('provider analytics routes', () => {
             database,
             publisher,
             manualStore: { now: () => now },
+            devtoFetcher: async (input, init) => {
+                devtoCalls += 1
+                expect(input.toString()).toBe(
+                    'https://dev.to/api/analytics/totals?article_id=12345'
+                )
+                expect(new Headers(init?.headers).get('api-key')).toBe(devtoApiKey)
+                return Response.json({
+                    comments: { total: 0 },
+                    reactions: { total: 7 },
+                    page_views: { total: 125 },
+                })
+            },
             blueskyAnalyticsNow: () => now + 1_000,
             blueskyAnalyticsFetcher: async input => {
                 providerCalls += 1
@@ -282,6 +297,115 @@ describe('provider analytics routes', () => {
                 duplicates: 8,
             })
             expect(providerCalls).toBe(4)
+
+            const devtoChannel = manual.createChannel({
+                projectId: project.project.id,
+                subjectId: user.id,
+                name: 'DEV.to channel',
+                profile: devtoChannelProfile,
+            })
+            if (devtoChannel === null) throw new Error('The DEV.to channel is missing')
+            const devtoPublication = manual.createPost({
+                projectId: project.project.id,
+                subjectId: user.id,
+                title: 'Already published to DEV.to',
+                sourceContent: {
+                    body: { text: 'Already published', format: 'markdown' },
+                    media: [],
+                },
+                publications: [
+                    {
+                        channelId: devtoChannel.id,
+                        targetContent: {
+                            title: 'Already published to DEV.to',
+                            body_markdown: 'Already published',
+                            media: [],
+                        },
+                    },
+                ],
+            })
+            if (devtoPublication === null) throw new Error('The DEV.to publication is missing')
+            const devtoPublicationId = devtoPublication.publications[0]?.id
+            if (devtoPublicationId === undefined)
+                throw new Error('The DEV.to publication ID is missing')
+            const savedCredential = await publisher.credentialStore.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: actor.id,
+                providerId: 'devto',
+                externalAccountId: 'devto-account-123',
+                externalAccountName: 'Analytics operator',
+                scopes: [],
+                accessToken: devtoApiKey,
+                expiresAt: null,
+            })
+            expect(savedCredential.kind).toBe('created')
+            if (savedCredential.kind !== 'created')
+                throw new Error('The DEV.to credential was not saved')
+            const devtoConnection = publisher.publisherStore.createPublisherConnection({
+                projectId: project.project.id,
+                channelId: devtoChannel.id,
+                subjectId: user.id,
+                kind: 'devto',
+                credentialId: savedCredential.credential.id,
+                destination: {
+                    type: 'account',
+                    id: 'devto-account-123',
+                    name: 'Analytics operator',
+                },
+            })
+            expect(devtoConnection.kind).toBe('created')
+            if (devtoConnection.kind !== 'created')
+                throw new Error('The DEV.to connection was not saved')
+            database.$client
+                .query('update publications set external_id = ?1 where id = ?2')
+                .run('12345', devtoPublicationId)
+
+            const devtoCollectResponse = await request(
+                app,
+                '/api/projects/' + project.project.id + '/analytics/provider/devto/collect',
+                cookie,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        channelId: devtoChannel.id,
+                        publicationId: devtoPublicationId,
+                    }),
+                }
+            )
+            expect(devtoCollectResponse.status).toBe(200)
+            const devtoCollection = (await devtoCollectResponse.json()) as {
+                inserted: number
+                observations: Array<Record<string, unknown>>
+            }
+            expect(devtoCollection.inserted).toBe(3)
+            expect(devtoCollection.observations).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        metricName: 'comments',
+                        value: 0,
+                        availability: 'measured',
+                        freshness: 'unknown',
+                    }),
+                    expect.objectContaining({ metricName: 'reactions', value: 7 }),
+                    expect.objectContaining({ metricName: 'page_views', value: 125 }),
+                ])
+            )
+            expect(JSON.stringify(devtoCollection)).not.toContain(devtoApiKey)
+            expect(devtoCalls).toBe(1)
+
+            const devtoReadResponse = await request(
+                app,
+                '/api/projects/' +
+                    project.project.id +
+                    '/analytics/provider/devto?heraldEntityId=' +
+                    devtoPublicationId,
+                cookie
+            )
+            expect(devtoReadResponse.status).toBe(200)
+            expect(
+                ((await devtoReadResponse.json()) as { observations: unknown[] }).observations
+            ).toHaveLength(3)
+            expect(devtoCalls).toBe(1)
 
             const operationalResponse = await request(
                 app,

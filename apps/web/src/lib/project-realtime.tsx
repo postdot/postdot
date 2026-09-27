@@ -8,6 +8,8 @@ export const projectQueryKeys = {
     publicationQueues: (projectId: string) => ['project', projectId, 'publication-queues'] as const,
     publicationEditors: (projectId: string) =>
         ['project', projectId, 'publication-editor'] as const,
+    providerAnalytics: (projectId: string, provider: 'bluesky' | 'devto') =>
+        ['project', projectId, 'provider-analytics', provider] as const,
     publicationEditor: (projectId: string, publicationId: string) =>
         [...projectQueryKeys.publicationEditors(projectId), publicationId] as const,
     publicationEditorInstance: (projectId: string, publicationId: string, instanceId: string) =>

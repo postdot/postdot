@@ -5,6 +5,7 @@ import {
     DEVTO_MAX_BODY_LENGTH,
     DEVTO_MAX_TITLE_LENGTH,
     type DevtoFetcher,
+    type DevtoArticleAnalytics,
     type DevtoOperationFailure,
     type DevtoOperationResult,
     type DevtoPublishOutcome,
@@ -74,6 +75,38 @@ function readDevtoUser(value: unknown): DevtoUser | null {
     const username = readNonBlank(value.username)
     const name = readNonBlank(value.name) ?? username
     return id === null || username === null || name === null ? null : { id, username, name }
+}
+
+function readAnalyticsTotal(value: unknown): number | null {
+    if (!isRecord(value)) return null
+    const total = value.total
+    return typeof total === 'number' && Number.isSafeInteger(total) && total >= 0 ? total : null
+}
+
+function readDevtoArticleAnalytics(
+    value: unknown,
+    articleId: string
+): DevtoArticleAnalytics | null {
+    if (!isRecord(value)) return null
+    const comments = readAnalyticsTotal(value.comments)
+    const reactions = readAnalyticsTotal(value.reactions)
+    const pageViews = readAnalyticsTotal(value.page_views)
+    if (comments === null || reactions === null || pageViews === null) return null
+    return { articleId, comments, reactions, pageViews }
+}
+
+function normalizeArticleId(value: string): string {
+    const articleId = readNonBlank(value)
+    const numericId = articleId === null ? Number.NaN : Number(articleId)
+    if (
+        articleId === null ||
+        !Number.isSafeInteger(numericId) ||
+        numericId <= 0 ||
+        String(numericId) !== articleId
+    ) {
+        throw new TypeError('DEV.to article ID must be a positive integer')
+    }
+    return articleId
 }
 
 function readArticle(value: unknown): { readonly id: string; readonly url?: string } | null {
@@ -153,7 +186,7 @@ function classifyResponse(response: Response, context: 'read' | 'publish'): Devt
         return permanentFailure('authentication_required', 'DEV.to rejected the API key')
     }
     if (response.status === 403) {
-        return permanentFailure('forbidden', 'DEV.to rejected the publishing permission')
+        return permanentFailure('forbidden', 'DEV.to rejected the API key permissions')
     }
     if (response.status === 429) {
         return retryableFailure('rate_limited', 'DEV.to rate-limited the request')
@@ -239,6 +272,37 @@ export function createDevtoPublisher(options: DevtoPublisherOptions = {}): Devto
                       retryableFailure('provider_failure', 'DEV.to returned an invalid account')
                   )
                 : operationSuccess(user)
+        },
+
+        async getArticleAnalytics(input) {
+            let normalizedKey: string
+            let articleId: string
+            try {
+                normalizedKey = normalizeDevtoApiKey(input.apiKey)
+                articleId = normalizeArticleId(input.articleId)
+            } catch {
+                return operationFailure(
+                    permanentFailure('invalid_input', 'The DEV.to analytics request is invalid')
+                )
+            }
+
+            const query = new URLSearchParams({ article_id: articleId })
+            const result = await request(
+                `/api/analytics/totals?${query.toString()}`,
+                { method: 'GET' },
+                normalizedKey,
+                'read'
+            )
+            if ('failure' in result) return operationFailure(result.failure)
+            const analytics = readDevtoArticleAnalytics(result.body, articleId)
+            return analytics === null
+                ? operationFailure(
+                      retryableFailure(
+                          'invalid_response',
+                          'DEV.to returned invalid article analytics'
+                      )
+                  )
+                : operationSuccess(analytics)
         },
 
         async publishArticle(input: PublishDevtoArticleInput): Promise<DevtoPublishOutcome> {

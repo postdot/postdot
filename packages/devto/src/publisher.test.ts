@@ -86,6 +86,62 @@ describe('DEV.to publisher', () => {
         expect(JSON.stringify(outcome)).not.toContain(API_KEY)
     })
 
+    it('reads article lifetime totals using the existing API-key connection', async () => {
+        let request: { input: string; init: RequestInit | undefined } | undefined
+        const publisher = createDevtoPublisher({
+            baseUrl: 'https://devto.test',
+            fetcher: async (input, init) => {
+                request = { input: input.toString(), init }
+                return jsonResponse({
+                    comments: { total: 3 },
+                    reactions: { total: 5 },
+                    page_views: {
+                        total: 21,
+                        average_read_time_in_seconds: 0,
+                        total_read_time_in_seconds: 0,
+                    },
+                })
+            },
+        })
+
+        await expect(
+            publisher.getArticleAnalytics({ apiKey: API_KEY, articleId: '123' })
+        ).resolves.toEqual({
+            kind: 'success',
+            value: { articleId: '123', comments: 3, reactions: 5, pageViews: 21 },
+        })
+        expect(request?.input).toBe('https://devto.test/api/analytics/totals?article_id=123')
+        const headers = new Headers(request?.init?.headers)
+        expect(headers.get('accept')).toBe('application/vnd.forem.api-v1+json')
+        expect(headers.get('api-key')).toBe(API_KEY)
+        expect(request?.init?.method).toBe('GET')
+    })
+
+    it('rejects invalid article IDs without making a provider request', async () => {
+        let calls = 0
+        const publisher = createDevtoPublisher({
+            fetcher: async () => {
+                calls += 1
+                return jsonResponse({})
+            },
+        })
+
+        await expect(
+            publisher.getArticleAnalytics({ apiKey: API_KEY, articleId: '1 OR 1=1' })
+        ).resolves.toMatchObject({ kind: 'failure', outcome: { code: 'invalid_input' } })
+        expect(calls).toBe(0)
+    })
+
+    it('rejects an incomplete analytics payload instead of interpreting missing metrics as zero', async () => {
+        const publisher = createDevtoPublisher({
+            fetcher: async () => jsonResponse({ comments: { total: 0 }, reactions: { total: 1 } }),
+        })
+
+        await expect(
+            publisher.getArticleAnalytics({ apiKey: API_KEY, articleId: '123' })
+        ).resolves.toMatchObject({ kind: 'failure', outcome: { code: 'invalid_response' } })
+    })
+
     it('classifies an authentication response without exposing the API key', async () => {
         const publisher = createDevtoPublisher({
             baseUrl: 'https://devto.test',

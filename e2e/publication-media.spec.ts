@@ -170,7 +170,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
             )
             return { linkCount: links.length, topOffsetCount: topOffsets.size }
         })
-    expect(workNavigationLayout).toEqual({ linkCount: 2, topOffsetCount: 2 })
+    expect(workNavigationLayout).toEqual({ linkCount: 3, topOffsetCount: 3 })
     expect(projectNavigationLayout).toEqual({ linkCount: 2, topOffsetCount: 2 })
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.setViewportSize({ width: 1280, height: 720 })

@@ -9,6 +9,9 @@ import {
     type ChannelProfileState,
     type ChannelProfileVersion,
     type DuePublication,
+    type BlueskyAnalyticsCollection,
+    type DevtoAnalyticsCollection,
+    type ProviderAnalyticsItem as ProviderAnalyticsItemContract,
     type MediaDeletion,
     type MediaDeletionBatch,
     type MediaFinalize,
@@ -28,6 +31,7 @@ import {
     type Project,
     type Publication,
     type PublicationSummaryPage,
+    type ProviderAnalyticsPage,
     type ProjectCategory,
     type ProjectTag,
 } from '@herald/client'
@@ -35,6 +39,8 @@ import {
 import * as m from '@/paraglide/messages.js'
 
 export type { MediaImportSource } from '@herald/client'
+export type PublicationSummary = PublicationSummaryPage['publications'][number]
+export type ProviderAnalyticsItem = ProviderAnalyticsItemContract
 
 import type { PublicationComposerDraftContent } from '@/lib/publication-recovery'
 
@@ -1111,6 +1117,54 @@ export const api = {
         )
     },
 
+    async listBlueskyProviderAnalytics(
+        projectId: string,
+        options: { limit?: number; providerSubjectId?: string; heraldEntityId?: string } = {}
+    ): Promise<ProviderAnalyticsPage> {
+        return unwrap<ProviderAnalyticsPage>(
+            await client.api.projects({ projectId }).analytics.provider.bluesky.get({
+                query: options,
+            })
+        )
+    },
+
+    async listDevtoProviderAnalytics(
+        projectId: string,
+        options: { limit?: number; providerSubjectId?: string; heraldEntityId?: string } = {}
+    ): Promise<ProviderAnalyticsPage> {
+        return unwrap<ProviderAnalyticsPage>(
+            await client.api.projects({ projectId }).analytics.provider.devto.get({
+                query: options,
+            })
+        )
+    },
+
+    async collectBlueskyProviderAnalytics(
+        projectId: string,
+        channelId: string,
+        publicationId: string
+    ): Promise<BlueskyAnalyticsCollection> {
+        return unwrap<BlueskyAnalyticsCollection>(
+            await client.api.projects({ projectId }).analytics.provider.bluesky.collect.post({
+                channelId,
+                publicationIds: [publicationId],
+            })
+        )
+    },
+
+    async collectDevtoProviderAnalytics(
+        projectId: string,
+        channelId: string,
+        publicationId: string
+    ): Promise<DevtoAnalyticsCollection> {
+        return unwrap<DevtoAnalyticsCollection>(
+            await client.api.projects({ projectId }).analytics.provider.devto.collect.post({
+                channelId,
+                publicationId,
+            })
+        )
+    },
+
     async listNotifications(
         projectId: string,
         options: {
@@ -1612,12 +1666,14 @@ export const api = {
 
 export type {
     AuditEvent,
+    BlueskyAnalyticsCollection,
     Channel,
     ChannelProfileActivation,
     ChannelProfileAssessment,
     ChannelProfileState,
     ChannelProfileVersion,
     DuePublication,
+    DevtoAnalyticsCollection,
     MediaDeletion,
     MediaAssetUsage,
     MediaFinalize,
@@ -1630,8 +1686,8 @@ export type {
     ProjectCategory,
     ProjectTag,
     Publication,
-    PublicationSummary,
     PublicationSummaryPage,
+    ProviderAnalyticsPage,
     Notification,
     NotificationInbox,
     NotificationPreference,

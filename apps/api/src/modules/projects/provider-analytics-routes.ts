@@ -2,10 +2,13 @@ import type { AccessStore, ProviderAnalyticsStore } from '@herald/db'
 
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import type { BlueskyAnalyticsService } from './bluesky-analytics-service'
+import type { DevtoAnalyticsService } from './devto-analytics-service'
 import { errorResponse, projectParams } from './models'
 import {
     blueskyAnalyticsCollectionBody,
     blueskyAnalyticsCollectionResponseSchema,
+    devtoAnalyticsCollectionBody,
+    devtoAnalyticsCollectionResponseSchema,
     providerAnalyticsObservationPageSchema,
     providerAnalyticsQuery,
 } from './provider-analytics-models'
@@ -15,9 +18,10 @@ export function registerProviderAnalyticsRoutes<const Routes extends Record<stri
     app: AuthenticatedElysia<Routes>,
     providerAnalytics: ProviderAnalyticsStore,
     blueskyAnalytics: BlueskyAnalyticsService,
+    devtoAnalytics: DevtoAnalyticsService,
     access: AccessStore
 ) {
-    return app
+    const blueskyRoutes = app
         .get(
             '/api/projects/:projectId/analytics/provider/bluesky',
             {
@@ -92,6 +96,87 @@ export function registerProviderAnalyticsRoutes<const Routes extends Record<stri
                 })
                 return result === null
                     ? status(404, { error: { code: 'not_found', message: 'Project not found' } })
+                    : result
+            }
+        )
+
+    return blueskyRoutes
+        .get(
+            '/api/projects/:projectId/analytics/provider/devto',
+            {
+                auth: true,
+                params: projectParams,
+                query: providerAnalyticsQuery,
+                response: {
+                    200: providerAnalyticsObservationPageSchema,
+                    400: errorResponse,
+                    401: errorResponse,
+                    404: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'getDevtoProviderAnalytics',
+                    summary: 'Read persisted DEV.to provider observations',
+                    tags: ['Provider Analytics'],
+                },
+            },
+            ({ params, query, status, user }) => {
+                const result = providerAnalytics.listObservations({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                    provider: 'devto',
+                    subjectType: query.subjectType,
+                    providerSubjectId: query.providerSubjectId,
+                    heraldEntityId: query.heraldEntityId,
+                    limit: query.limit,
+                })
+                return result === null
+                    ? status(404, { error: { code: 'not_found', message: 'Project not found' } })
+                    : result
+            }
+        )
+        .post(
+            '/api/projects/:projectId/analytics/provider/devto/collect',
+            {
+                auth: true,
+                params: projectParams,
+                body: devtoAnalyticsCollectionBody,
+                response: {
+                    200: devtoAnalyticsCollectionResponseSchema,
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    422: errorResponse,
+                },
+                detail: {
+                    operationId: 'collectDevtoProviderAnalytics',
+                    summary: 'Collect one bounded DEV.to publication snapshot',
+                    tags: ['Provider Analytics'],
+                },
+            },
+            async ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+                const result = await devtoAnalytics.collect({
+                    projectId: params.projectId,
+                    subjectId: user.id,
+                    channelId: body.channelId,
+                    publicationId: body.publicationId,
+                })
+                return result === null
+                    ? status(404, {
+                          error: { code: 'not_found', message: 'Publication not found' },
+                      })
                     : result
             }
         )

@@ -849,6 +849,8 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/analytics',
                 '/api/projects/{projectId}/analytics/provider/bluesky',
                 '/api/projects/{projectId}/analytics/provider/bluesky/collect',
+                '/api/projects/{projectId}/analytics/provider/devto',
+                '/api/projects/{projectId}/analytics/provider/devto/collect',
                 '/api/projects/{projectId}/audit-events',
                 '/api/projects/{projectId}/events',
                 '/api/notifications/events',
@@ -862,6 +864,14 @@ describe('Herald API', () => {
                 specification.paths['/api/projects/{projectId}/media/{assetId}/restore']?.post
                     ?.operationId
             ).toBe('restoreProjectMedia')
+            expect(
+                specification.paths['/api/projects/{projectId}/analytics/provider/devto']?.get
+                    ?.operationId
+            ).toBe('getDevtoProviderAnalytics')
+            expect(
+                specification.paths['/api/projects/{projectId}/analytics/provider/devto/collect']
+                    ?.post?.operationId
+            ).toBe('collectDevtoProviderAnalytics')
             expect(specification.paths['/api/projects/{projectId}/members']?.get?.operationId).toBe(
                 'listProjectMembers'
             )
