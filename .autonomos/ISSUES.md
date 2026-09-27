@@ -3695,6 +3695,52 @@ posture` is an exact patch duplicate of `aa889111`, and
   feature parity.
 - Evidence: [PRODUCT-231 worklog](worklogs/2026-09-27-PRODUCT-231.md).
 
+## [ISSUE-137] Define a useful publication-performance analytics workflow
+
+- Type: proposal
+- Status: resolved
+- Evidence: The product comparison found that Herald distinguishes operational
+  publication/execution reporting from provider-owned performance data, but the
+  latter currently has only a bounded Bluesky API collector and no dashboard
+  experience. The owner explicitly clarified that the desired analytics are
+  publication outcomes such as views and comments, not internal Herald
+  telemetry. Existing provider research covers six publishing integrations,
+  but no product workflow, initial measure set, or collection policy has been
+  accepted.
+- Impact: Implementing a generic “analytics” page or scheduling snapshots
+  before choosing what users need could create a misleading cross-network
+  score, amplify provider API costs, and accumulate historical rows without a
+  user-visible purpose. Conversely, leaving the existing API-only slice
+  disconnected from the web does not fulfill the intended product capability.
+- Desired outcome: Recommend a concrete first publication-performance
+  workflow based on current provider capabilities, account permissions,
+  metric semantics, freshness/history, and self-hosted storage cost. Clearly
+  separate comparable measures from provider-specific ones and identify the
+  smallest coherent implementation follow-up.
+- Tasks: ANALYTICS-233
+- Related issues: ISSUE-056, ISSUE-131, ISSUE-135, ISSUE-136
+- Related decisions: ADR-051, ADR-052, ADR-055
+- Scope boundary: This is product and technical discovery only. It does not
+  authorize a dashboard, additional provider collectors, background polling,
+  new OAuth scopes, retention changes, or changes to operational analytics.
+- Acceptance: The task will compare current supported-provider paths and
+  access barriers, inspect Herald's existing observation schema and collection
+  flow, compare viable user workflows and collection/storage policies, and
+  record a source-backed recommendation plus explicit implementation follow-up
+  boundaries. An unknown or approval-gated metric must not be presented as
+  universally available.
+- Resolution: ANALYTICS-233 recommends a project-level Performances experience
+  that lists provider-specific results per published destination, keeps
+  operational telemetry separate, and avoids cross-network totals. DEV.to/Forem
+  is the strongest first implementation candidate for views, reactions,
+  comments, and history; existing Bluesky observations are the complementary
+  partial-coverage case. Page reads must use cached observations, while any
+  recurring collection requires an explicit cadence, cost, and retention
+  boundary. This resolves the discovery task only; the UI, new collectors, and
+  automatic synchronization remain unimplemented and require acceptance of the
+  recommended product direction.
+- Evidence: [ANALYTICS-233 worklog](worklogs/2026-09-27-ANALYTICS-233.md).
+
 ## External diagnostic follow-up classification
 
 - The X weighted-count finding is resolved by ISSUE-126 and X-214.
