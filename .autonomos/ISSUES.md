@@ -1678,7 +1678,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Browser audit follow-up (2026-09-28): The 2026-09-28 browser audit found that Overview primarily presents a calendar, Queue also contains completed work, and channel identity and connection readiness appear in separate repeated sections. Instance and workspace membership pages require careful reading to distinguish their scopes. The owner requested phased follow-ups; the audit alone did not authorize route or access-contract changes. UX-240's later owner amendment explicitly retains calendar-led Overview and is recorded below.
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
-- UX-240 owner decision and implementation (2026-09-28): keep the calendar as Overview's main surface, with compact widgets for due manual work, the next/latest publication, and activity over the selected week. The owner rejected an action-first Overview and a separate Calendar route. The summary widgets are implemented; broader populated/failure-state review remains open. See [UX-240 worklog](worklogs/2026-09-28-UX-240.md).
+- UX-240 owner decision and implementation (2026-09-28): keep the calendar as Overview's main surface; show only due manual work or an upcoming scheduled publication in the summary band, and omit it entirely when neither exists. The owner rejected an action-first Overview, separate Calendar route, empty counters, stale history, and decorative activity summaries. Broader populated/failure-state review remains open. See [UX-240 worklog](worklogs/2026-09-28-UX-240.md).
 
 ## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
 

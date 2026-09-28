@@ -40,9 +40,9 @@ template.
   and show enough channel readiness to prevent a dead-end; keep the calendar
   available as a planning entry point.
 - Publications present: keep the calendar as the primary surface. The compact
-  summary may show due manual work, the next scheduled publication or latest
-  published fallback, and scheduled/published activity for the selected week.
-  Keep these as orientation rather than a duplicate Queue.
+  summary shows only due manual work or the next scheduled publication. Omit
+  zero counters, empty-state copy, stale published history, and the summary
+  itself when neither widget has useful content.
 - Partial or failed data: identify which summary or publication list is
   incomplete and offer recovery without hiding the rest of the project.
 - No scheduled publications: retain useful date views and lead to Compose with

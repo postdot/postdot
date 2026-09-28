@@ -106,13 +106,13 @@ future landing-page decisions remain explicit below.
   small context lead; when no timed work is present, the existing `00:00`
   baseline remains. This only chooses the initial position, never hides hours,
   and must not repeatedly override manual scrolling.
-- Route job contract: Overview scans publication timing and gives compact
-  context on current manual work, the next or most recent publication, and the
-  selected week; its calendar remains the primary surface. Compose creates and
-  reviews one source fan-out; Queue prioritizes lifecycle and human-action
-  work; Channels manages destination identity and connection readiness; Media
-  manages reusable verified assets. These surfaces must not converge into
-  interchangeable publication-empty dashboards.
+- Route job contract: Overview scans publication timing and surfaces only
+  current manual work or an upcoming scheduled publication; the entire summary
+  stays hidden when neither exists. Its calendar remains the primary surface.
+  Compose creates and reviews one source fan-out; Queue prioritizes lifecycle
+  and human-action work; Channels manages destination identity and connection
+  readiness; Media manages reusable verified assets. These surfaces must not
+  converge into interchangeable publication-empty dashboards.
 - Progressive disclosure contract: hide complexity through ordering, grouping,
   contextual detail, and meaningful iconography rather than removing capability.
   Keep required state, accessibility names, recovery guidance, and destructive
@@ -318,8 +318,9 @@ building it; the current app contract must not silently decide those choices.
   checkpoint.
 - Owner review note: 2026-09-28 — the owner rejected an action-first Overview
   and a separate Calendar route. Overview remains calendar-led; its existing
-  summary area should surface important current work through compact, useful
-  widgets instead of plain KPI values. Queue remains the triage surface.
+  summary area surfaces real current work without zero counters or empty-state
+  messages, and disappears when no useful item is present. Queue remains the
+  triage surface.
 - Accepted changes: 2026-09-01 — Cobalt accent, neutral surface-led
   foundation, purposeful lines, rare depth, and task-dependent density —
   accepted after H-10 owner review; 2026-09-02 — Graphite/Ash low-chroma

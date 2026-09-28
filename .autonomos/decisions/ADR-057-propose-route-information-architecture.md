@@ -46,9 +46,9 @@ The accepted hierarchy, as amended on 2026-09-28, is:
 
 The calendar is embedded in Overview, remains available when no publications
 are scheduled, and keeps its date and reading-mode state in the Overview URL.
-The compact summary highlights due manual publications, the next scheduled
-publication (or latest published fallback), and activity in the selected week.
-It orients the operator without claiming to be a complete Queue count.
+The compact summary shows only due manual publications or an upcoming scheduled
+publication. It disappears when neither has useful content; zero counts, stale
+published history, and empty-state messages do not occupy the band.
 
 The shell should distinguish project-scoped work from global instance settings.
 The project selector and project navigation remain visible when a project is
@@ -72,8 +72,9 @@ Progressive disclosure is part of the accepted contract:
 
 The calendar inside Overview keeps a date-oriented entry path when there are no
 scheduled publications. The owner selected the existing calendar-led structure
-over the proposed action-first landing; calendar composition and summary widgets
-remain subject to rendered review with realistic data.
+over the proposed action-first landing and later clarified that its summary must
+omit empty or stale information. Calendar composition and positive summary
+states remain subject to rendered review with realistic data.
 
 ## Alternatives considered
 
