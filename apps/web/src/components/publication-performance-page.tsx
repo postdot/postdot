@@ -18,6 +18,7 @@ import { useProjectDashboard } from '@/lib/dashboard-context'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
+import { publicationIdentityLabel } from '@/lib/publication-identity'
 import * as m from '@/paraglide/messages.js'
 
 const analyticsPageSize = 500
@@ -97,6 +98,7 @@ function analyticsProvider(profileId: string | undefined): AnalyticsProvider | n
 }
 
 function providerLabel(profileId: string | undefined): string {
+    if (profileId === 'manual-message') return m.channel_manual()
     if (profileId === 'bluesky') return 'Bluesky'
     if (profileId === 'devto') return 'DEV.to'
     if (profileId === 'linkedin') return 'LinkedIn'
@@ -193,7 +195,7 @@ export function PublicationPerformancePage() {
         )
         const isRefreshing =
             refreshMutation.isPending && refreshMutation.variables?.publicationId === publication.id
-        const title = publication.postTitle ?? publication.sourceExcerpt ?? m.publication_untitled()
+        const title = publicationIdentityLabel(publication)
 
         return (
             <article
@@ -204,10 +206,10 @@ export function PublicationPerformancePage() {
                     <Link
                         to="/dashboard/projects/$projectId/publications/$publicationId"
                         params={{ projectId: project.id, publicationId: publication.id }}
-                        className="block truncate text-sm font-medium text-foreground hover:text-primary">
+                        className="block break-words text-sm font-medium text-foreground hover:text-primary">
                         {title}
                     </Link>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                    <p className="mt-1 break-words text-xs text-muted-foreground">
                         {publication.channelName} · {providerLabel(channel?.profileId)}
                         {publication.publishedAt === null
                             ? ''

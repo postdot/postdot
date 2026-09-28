@@ -35,6 +35,7 @@ import {
 import { projectQueryKeys } from '@/lib/project-realtime'
 import { createPublicationTarget, type PublicationTargetDraft } from '@/lib/publication-authoring'
 import type { MediaSelection } from '@/lib/target-media'
+import { useActionError } from '@/lib/use-action-error'
 import * as m from '@/paraglide/messages.js'
 
 export interface ProjectData {
@@ -236,7 +237,7 @@ export function ProjectDashboardProvider({
     const [publicationTagIds, setPublicationTagIds] = useState<string[]>([])
     const [pending, setPending] = useState(false)
     const [loadingMorePublications, setLoadingMorePublications] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError] = useActionError()
 
     function setProjectData(updater: (current: ProjectData) => ProjectData): void {
         queryClient.setQueryData<ProjectData>(projectQueryKeys.data(project.id), current =>

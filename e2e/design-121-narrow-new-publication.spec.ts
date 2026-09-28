@@ -2,6 +2,23 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type Page } from '@playwright/test'
 
+test('keeps failed publication feedback on its originating navigation entry', async ({ page }) => {
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+    await page.getByRole('link', { name: 'Channels', exact: true }).click()
+    await createChannel(page, `Feedback test ${suffix}`)
+    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+    const message = page.getByText('Add content or at least one media attachment.', { exact: true })
+    await expect(message).toBeVisible()
+    await page.getByRole('link', { name: 'Channels', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
+    await expect(message).toHaveCount(0)
+    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'New publication', exact: true })).toBeVisible()
+    await expect(message).toHaveCount(0)
+})
+
 test('keeps narrow new-publication flow and queue usable with long channel names', async ({
     page,
 }) => {

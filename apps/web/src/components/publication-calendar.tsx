@@ -414,7 +414,7 @@ function EventCalendarToolbar({
             </div>
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 sm:justify-end">
                 <h2
-                    className="min-w-0 flex-1 truncate font-heading text-xl font-[580] leading-[1.03] sm:text-2xl"
+                    className="min-w-0 flex-1 break-words font-heading text-xl font-[580] leading-tight sm:text-2xl"
                     id="calendar-title">
                     {title}
                 </h2>

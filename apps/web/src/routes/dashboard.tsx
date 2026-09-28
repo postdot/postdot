@@ -23,6 +23,7 @@ import {
 } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { ProjectRealtimeProvider } from '@/lib/project-realtime'
+import { useActionError } from '@/lib/use-action-error'
 import * as m from '@/paraglide/messages.js'
 
 export interface DashboardSearch {
@@ -128,7 +129,7 @@ function DashboardPage() {
     const [projectName, setProjectName] = useState('')
     const [workspaceName, setWorkspaceName] = useState('')
     const [pending, setPending] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError] = useActionError()
     const selectedWorkspaceId =
         routeSearch.workspaceId ??
         workspaces.find(workspace => workspace.isDefault)?.id ??

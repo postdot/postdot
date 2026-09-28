@@ -1301,10 +1301,12 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
     await expect(calendarEditorEvent).toBeVisible()
     await calendarEditorEvent.click()
+    await expect(page.getByRole('heading', { name: sourceText, exact: true })).toBeVisible()
     await expect(
-        page.getByRole('heading', { name: 'Untitled publication', exact: true })
+        page
+            .getByRole('region', { name: 'Content', exact: true })
+            .getByText(sourceText, { exact: true })
     ).toBeVisible()
-    await expect(page.getByText(sourceText, { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Edit publication', exact: true }).click()
     await expect(page).toHaveURL(
         new RegExp(
@@ -1327,7 +1329,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
 
     await calendarEditorEvent.click()
-    await expect(page.getByText(editedCalendarSource, { exact: true })).toBeVisible()
+    await expect(
+        page
+            .getByRole('region', { name: 'Content', exact: true })
+            .getByText(editedCalendarSource, { exact: true })
+    ).toBeVisible()
     await page.getByRole('button', { name: 'Close', exact: true }).click()
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     await expect(

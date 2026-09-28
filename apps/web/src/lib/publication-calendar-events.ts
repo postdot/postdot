@@ -1,5 +1,6 @@
 import type { CalendarEvent } from '@/components/reui/event-calendar/event-calendar-types'
 import type { PublicationSummary } from '@/lib/api'
+import { publicationIdentityLabel } from '@/lib/publication-identity'
 
 type PublicationCalendarView = 'month' | 'week' | 'day' | 'agenda'
 
@@ -39,7 +40,7 @@ export function toPublicationCalendarEvents(
                 id: publication.id,
                 readOnly: true,
                 start,
-                title: publication.postTitle ?? publication.channelName,
+                title: publicationIdentityLabel(publication),
             }
         })
         .filter(event => !Number.isNaN(event.start.getTime()))

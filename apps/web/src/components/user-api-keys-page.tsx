@@ -500,7 +500,13 @@ export function UserApiKeysPage() {
                                     if (value !== null) setExpirationDays(value)
                                 }}>
                                 <SelectTrigger id="user-api-key-expiration">
-                                    <SelectValue />
+                                    <SelectValue>
+                                        {expirationLabel(
+                                            keyExpirationDays.find(
+                                                days => String(days) === expirationDays
+                                            ) ?? 180
+                                        )}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent align="start">
                                     {keyExpirationDays.map(days => (

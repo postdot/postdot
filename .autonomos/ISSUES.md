@@ -1667,7 +1667,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   workstream. It does not redesign public marketing surfaces, change domain/API
   ownership, remove the source/publication model, or implement provider or
   analytics features.
-- Tasks: WEB-117, WEB-118, WEB-119, WEB-122, DESIGN-98
+- Tasks: WEB-117, WEB-118, WEB-119, WEB-122, DESIGN-98, UX-240, UX-244
 - Related issues: ISSUE-042, ISSUE-050, ISSUE-052, ISSUE-064, ISSUE-066
 - Related decision: ADR-057 (accepted)
 - Related specification: SPEC-007 (draft)
@@ -1676,10 +1676,13 @@ channels` with a foreign-key constraint error even though a fresh empty database
   empty-state and density observations stay as a bounded UX follow-up rather
   than being treated as a completed visual redesign.
 
+- Browser audit follow-up (2026-09-28): The 2026-09-28 browser audit found that Overview primarily presents a calendar, Queue also contains completed work, and channel identity and connection readiness appear in separate repeated sections. Instance and workspace membership pages require careful reading to distinguish their scopes. The owner requested phased follow-ups; UX-240 and UX-244 are bounded design decisions, not authorization to replace route or access contracts.
+- New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+
 ## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
 
 - Type: problem
-- Status: resolved
+- Status: accepted
 - Evidence: Both independent audits found that reduced navigation loses or
   obscures labels, and one audit found truncated section labels without a
   reliable tooltip or accessible name. The audits also found tablet Compose
@@ -1700,13 +1703,16 @@ channels` with a foreign-key constraint error even though a fresh empty database
   introduce a new UI library, or change the project authorization model. It
   includes the provider-settings context and shared pending/error shell only
   insofar as they affect navigation comprehension.
-- Tasks: DESIGN-121, WEB-123, WEB-124
+- Tasks: DESIGN-121, WEB-123, WEB-124, UX-243
 - Related issues: ISSUE-042, ISSUE-051, ISSUE-059, ISSUE-060
 - Related specification: SPEC-006
 - Resolution: DESIGN-121, WEB-123, WEB-124, and WEB-126 established the shared
   shell, project-context, reduced-navigation, responsive, labeling, and
   instance-settings boundaries. The browser regression matrix confirms the
   resulting navigation remains reachable at supported widths.
+
+- Browser audit follow-up (2026-09-28): Reopened after the 2026-09-28 browser audit: at 820 pixels the persistent sidebar leaves approximately four month columns visible; mobile authoring places actions below a tall editor and preview. Channel names remain heavily truncated in the sidebar. Preserve the earlier completed navigation fixes; this follow-up targets responsive composition and readable identity.
+- New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 
 ## [ISSUE-065] Make Herald's visual and content foundation operational beyond default shadcn grammar
 
@@ -1733,12 +1739,15 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Scope boundary: This does not freeze the current logo or palette, build a
   public brand site, add animation dependencies, or replace Base UI. It is not
   a visual polish pass detached from route jobs and real data.
-- Tasks: DESIGN-120, DESIGN-98, WEB-124
+- Tasks: DESIGN-120, DESIGN-98, WEB-124, UX-242
 - Related issues: ISSUE-004, ISSUE-042, ISSUE-052, ISSUE-063
 - Related specification: SPEC-006
 - Follow-up: DESIGN-120 and the UX sprint establish the accepted foundation;
   remaining Access/provider-configuration and empty-state calibration should be
   handled as small evidence-driven passes, not a broad branding rewrite.
+
+- Browser audit follow-up (2026-09-28): The 2026-09-28 browser audit found large headings and unused areas competing with small muted operational labels, closely valued dark surfaces, and premature truncation. UX-242 is a bounded visual calibration against real content, preserving the current brand and theme roles until a reviewed comparison supports a change.
+- New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 
 ## [ISSUE-066] Validate UX against realistic data, transitions, and realtime feedback
 
@@ -1766,7 +1775,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   dashboards, replace SSE/Query, or treat synthetic fixtures as proof of
   provider behavior. Real-provider validation remains a separate controlled
   activity.
-- Tasks: WEB-117, WEB-119, WEB-124, AUDIT-125
+- Tasks: WEB-117, WEB-119, WEB-124, AUDIT-125, UX-246
 - Related issues: ISSUE-050, ISSUE-051, ISSUE-052, ISSUE-063, ISSUE-064
 - Related decisions: ADR-047, ADR-048, ADR-050
 - Resolution: WEB-124 and the post-merge browser validation matrix now cover
@@ -1776,6 +1785,9 @@ channels` with a foreign-key constraint error even though a fresh empty database
   layouts. The disposable run passed 12/12 tests without real provider side
   effects; recurring real-provider validation remains under ISSUE-021.
 - Related specification: SPEC-006
+
+- Browser audit follow-up (2026-09-28): Recurring validation follow-up requested after the 2026-09-28 browser audit. The current first-impression visit used sparse existing data and did not exercise provider dispatch, approvals, failures, or dense scheduling. UX-246 reuses the existing deterministic browser fixtures after the new passes; prior test evidence remains valid for its original scope.
+- New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 
 ## [ISSUE-062] Define Herald human account, instance administration, and invitation policy
 
@@ -2751,7 +2763,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 ## [ISSUE-099] Reframe new-publication authoring around the operator’s job
 
 - Type: design
-- Status: resolved
+- Status: accepted
 - Evidence: The canonical new-publication route still opens with two visually
   equal sections named `Source` and `Destinations`. The first reading therefore
   exposes the internal fan-out model before answering the operator’s two
@@ -2772,7 +2784,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   labels, and progressive disclosure only. It does not add a social-network
   preview, rich-text editing, new scheduling semantics, or a redesigned
   publication detail editor.
-- Tasks: DESIGN-175, WEB-176
+- Tasks: DESIGN-175, WEB-176, UX-241
 - Related issues: ISSUE-098, ISSUE-063
 - Related decisions: ADR-057
 - Acceptance: An operator can identify the content editor and the channels to
@@ -2791,6 +2803,9 @@ channels` with a foreign-key constraint error even though a fresh empty database
   the localized route, including the narrow multi-channel and media scenarios;
   English and French i18n coverage remains 100%. The authenticated integrated
   browser was inspected on the local `/publications/new` route.
+
+- Browser audit follow-up (2026-09-28): Reopened after the 2026-09-28 browser audit: selected destinations, the active editing destination, and shared content use similar controls; removing a destination is separate from activating it. Saved composition feedback and explicit publication-draft creation need distinct meanings. Preserve the completed entry-point and preview work; propose and validate a focused interaction revision before implementation.
+- New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
 
 ## [ISSUE-100] Give publication authoring a contextual output preview
 
@@ -3897,3 +3912,27 @@ posture` is an exact patch duplicate of `aa889111`, and
   broad refactor.
 - The Prometheus endpoint was separately secured under ISSUE-125 and OPS-212;
   the diagnostic does not authorize expanding telemetry.
+
+## [ISSUE-141] Keep operational feedback and publication identity truthful across screens
+
+- Type: problem
+- Status: resolved
+- Evidence: The 2026-09-28 browser visit reproduced a blank-composition validation error on Channels with a channel-action heading. Overview counted a published item as scheduled, while Queue showed no scheduled work. The same item appeared as its channel name in Calendar, as untitled in the preview, and as its content excerpt in Queue. API-key expiration displayed a raw number without its unit. Mobile preview dates and performance titles were truncated.
+- Impact: Operators must reinterpret state and identity between screens and may attribute an error to an unrelated operation.
+- Desired outcome: Action errors stay with the navigation entry that initiated them; lifecycle counts and publication identities agree across surfaces; essential dates, units, and composition-save feedback are explicit.
+- Resolution: UX-239 aligned action feedback, state counts, publication identity, expiration units, composition-save copy, and bounded text wrapping; full local verification passed.
+- Tasks: UX-239
+- Related issues: ISSUE-063, ISSUE-064, ISSUE-099
+- Evidence record: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+
+## [ISSUE-142] Complete user-facing localization and operational terminology
+
+- Type: problem
+- Status: accepted
+- Evidence: The French browser visit displayed an English delivery notification, Body/Headline/Language fields, Provider metadata, and English accessibility labels on the date picker and mobile navigation. These are observations of specific surfaces, not a claim that all notifications or profiles behave identically.
+- Impact: Mixed vocabulary increases interpretation effort and makes the application feel unfinished, including for assistive-technology users.
+- Desired outcome: Built-in user-facing content and accessible names follow the selected locale; provider-owned or custom schema identifiers remain truthful and distinguishable from built-in labels. Account, installation, workspace, and project scopes use consistent names.
+- Tasks: UX-245
+- Related issues: ISSUE-065, ISSUE-099
+- Boundary: Do not rewrite historical event data, user-defined group names, custom schema keys, or provider payloads as a translation shortcut.
+- Evidence record: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).

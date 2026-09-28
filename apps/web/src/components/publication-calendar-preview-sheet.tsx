@@ -17,6 +17,7 @@ import { useMemo, type ReactNode } from 'react'
 import { PublicationStatus, formatSchedule } from '@/components/dashboard-publication-parts'
 import { api, type PublicationSummary } from '@/lib/api'
 import { projectQueryKeys } from '@/lib/project-realtime'
+import { publicationIdentityLabel } from '@/lib/publication-identity'
 import { canEditPublication } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
 
@@ -54,7 +55,7 @@ export function PublicationCalendarPreviewSheet({
     })
     const editor = previewQuery.data?.editor
     const copy = getPreviewCopy(locale)
-    const title = publication?.postTitle ?? copy.untitled
+    const title = publication === null ? copy.untitled : publicationIdentityLabel(publication)
     const editable = publication !== null && canEditPublication(publication.state)
 
     return (
@@ -69,7 +70,9 @@ export function PublicationCalendarPreviewSheet({
                 closeLabel={m.common_close({}, { locale: locale === 'fr' ? 'fr' : 'en' })}
                 side="right">
                 <SheetHeader className="bg-surface-inset px-5 py-5 sm:px-6">
-                    <SheetTitle className="pr-8 truncate text-xl leading-tight">{title}</SheetTitle>
+                    <SheetTitle className="pr-8 break-words text-xl leading-tight">
+                        {title}
+                    </SheetTitle>
                 </SheetHeader>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
@@ -150,12 +153,12 @@ function PreviewMetaRow({
     readonly value: string
 }) {
     return (
-        <div className="flex min-w-0 items-center gap-2 text-sm">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-4">
                 {icon}
             </span>
             <span className="shrink-0 text-muted-foreground">{label}</span>
-            <span className="min-w-0 truncate font-medium">{value}</span>
+            <span className="min-w-0 break-words font-medium">{value}</span>
         </div>
     )
 }

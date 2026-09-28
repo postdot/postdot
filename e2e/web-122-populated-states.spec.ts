@@ -71,7 +71,8 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 
     const overviewSummary = page.getByLabel('Overview summary', { exact: true })
-    await expect(overviewSummary).toContainText('4 scheduled')
+    // Ready manual work has a timestamp but is no longer scheduled.
+    await expect(overviewSummary).toContainText('3 scheduled')
     await expect(overviewSummary).toContainText('4 unscheduled')
     await expect(overviewSummary).toContainText('1 needs attention')
     const overviewCalendar = page.locator('[data-calendar="reui"]')

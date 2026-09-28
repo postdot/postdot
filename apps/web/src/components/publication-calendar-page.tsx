@@ -148,7 +148,7 @@ export function PublicationCalendarPage({
         return succeeded
     }
     const scheduledPublications = publications.filter(
-        publication => publication.scheduledAt !== null
+        publication => publication.state === 'scheduled'
     )
     const unscheduledPublications = getUnscheduledPublications(publications)
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'

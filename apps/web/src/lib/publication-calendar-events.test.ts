@@ -64,6 +64,19 @@ describe('publication calendar adapter', () => {
         ])
     })
 
+    test('identifies an untitled text publication by its content rather than its channel', () => {
+        const [event] = toPublicationCalendarEvents(
+            [
+                publication('untitled', Date.UTC(2026, 8, 19), {
+                    postTitle: '   ',
+                    sourceExcerpt: '  Release announcement  ',
+                }),
+            ],
+            new Set()
+        )
+        expect(event?.title).toBe('Release announcement')
+    })
+
     test('sorts equal timestamps by stable publication id', () => {
         const scheduledAt = Date.UTC(2026, 8, 12, 10, 30)
         const events = toPublicationCalendarEvents(

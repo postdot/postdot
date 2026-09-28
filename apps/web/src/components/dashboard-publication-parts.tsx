@@ -28,6 +28,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { api, type PublicationSummary } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import { publicationIdentityLabel } from '@/lib/publication-identity'
 import { canEditPublication } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
 
@@ -578,17 +579,6 @@ function normalizePublicationTimestamp(value: unknown): number | null {
 
 function formatPublicationDateTime(timestamp: number | null, timeZone: string, locale: string) {
     return timestamp === null ? '—' : formatProjectDateTime(timestamp, timeZone, locale)
-}
-
-function publicationIdentityLabel(publication: PublicationSummary) {
-    const title = publication.postTitle?.trim()
-    if (title) return title
-    const excerpt = publication.sourceExcerpt?.trim()
-    if (excerpt) return excerpt
-    if (publication.mediaCount > 0) {
-        return m.publication_media_count({ count: publication.mediaCount })
-    }
-    return m.publication_untitled()
 }
 
 function PublicationMediaThumbnail({ publication }: { readonly publication: PublicationSummary }) {
