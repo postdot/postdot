@@ -15,7 +15,7 @@ import { PublicationBulkScheduleDialog } from '@/components/publication-bulk-sch
 import { PublicationCalendar } from '@/components/publication-calendar'
 import { PublicationSummaryBar } from '@/components/publication-summary-bar'
 import { QueryErrorState } from '@/components/query-error-state'
-import { api } from '@/lib/api'
+import { api, type PublicationSummary } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
@@ -78,6 +78,33 @@ export function PublicationCalendarPage({
     })
     const calendarPublications = calendarPublicationsQuery.data ?? []
     const dueIds = useMemo(() => new Set(due.map(publication => publication.id)), [due])
+    const overviewWeekActivity = useMemo(
+        () =>
+            getOverviewWeekActivity(
+                calendarDateKey,
+                calendarPublications,
+                locale,
+                project.timeZone
+            ),
+        [calendarDateKey, calendarPublications, locale, project.timeZone]
+    )
+    const nextScheduledPublication = useMemo(() => {
+        const upcoming = calendarPublications.filter(
+            publication =>
+                publication.state === 'scheduled' &&
+                publication.scheduledAt !== null &&
+                toDateKey(new Date(publication.scheduledAt), project.timeZone) >= calendarDateKey
+        )
+        upcoming.sort((left, right) => left.scheduledAt! - right.scheduledAt!)
+        return upcoming[0] ?? null
+    }, [calendarDateKey, calendarPublications, project.timeZone])
+    const recentPublishedPublication = useMemo(() => {
+        const recent = calendarPublications.filter(
+            publication => publication.state === 'published' && publication.publishedAt !== null
+        )
+        recent.sort((left, right) => right.publishedAt! - left.publishedAt!)
+        return recent[0] ?? null
+    }, [calendarPublications])
     const calendarPublicationIds = useMemo(
         () => toPublicationCalendarEvents(calendarPublications, dueIds).map(event => event.id),
         [calendarPublications, dueIds]
@@ -147,9 +174,6 @@ export function PublicationCalendarPage({
         }
         return succeeded
     }
-    const scheduledPublications = publications.filter(
-        publication => publication.state === 'scheduled'
-    )
     const unscheduledPublications = getUnscheduledPublications(publications)
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
     const noChannels = channels.length === 0
@@ -206,24 +230,13 @@ export function PublicationCalendarPage({
                 <>
                     <PublicationSummaryBar
                         ariaLabel={m.overview_summary_aria()}
-                        items={[
-                            {
-                                id: 'scheduled',
-                                label: m.calendar_scheduled(),
-                                value: scheduledPublications.length,
-                            },
-                            {
-                                id: 'unscheduled',
-                                label: m.calendar_unscheduled(),
-                                value: unscheduledPublications.length,
-                            },
-                            {
-                                attention: due.length > 0,
-                                id: 'attention',
-                                label: m.calendar_attention(),
-                                value: due.length,
-                            },
-                        ]}
+                        days={overviewWeekActivity}
+                        dueCount={due.length}
+                        locale={locale}
+                        nextPublication={nextScheduledPublication}
+                        recentPublication={recentPublishedPublication}
+                        projectId={project.id}
+                        timeZone={project.timeZone}
                     />
 
                     {selectedCount > 0 ? (
@@ -348,4 +361,52 @@ async function loadCalendarPublications(
     } while (cursor !== undefined)
 
     return publications
+}
+
+function getOverviewWeekActivity(
+    dateKey: string,
+    publications: readonly PublicationSummary[],
+    locale: string,
+    timeZone: string
+) {
+    const anchor = parseCalendarDateKey(dateKey)
+    if (anchor === undefined) return []
+
+    const mondayOffset = (anchor.getUTCDay() + 6) % 7
+    const monday = new Date(anchor)
+    monday.setUTCDate(monday.getUTCDate() - mondayOffset)
+    const weekdayFormatter = new Intl.DateTimeFormat(locale, {
+        timeZone: 'UTC',
+        weekday: 'short',
+    })
+    const dateFormatter = new Intl.DateTimeFormat(locale, {
+        dateStyle: 'medium',
+        timeZone: 'UTC',
+    })
+
+    return Array.from({ length: 7 }, (_, offset) => {
+        const day = new Date(monday)
+        day.setUTCDate(day.getUTCDate() + offset)
+        const dateKey = day.toISOString().slice(0, 10)
+        const scheduled = publications.filter(
+            publication =>
+                publication.state === 'scheduled' &&
+                publication.scheduledAt !== null &&
+                toDateKey(new Date(publication.scheduledAt), timeZone) === dateKey
+        ).length
+        const published = publications.filter(
+            publication =>
+                publication.state === 'published' &&
+                publication.publishedAt !== null &&
+                toDateKey(new Date(publication.publishedAt), timeZone) === dateKey
+        ).length
+
+        return {
+            dateKey,
+            dateLabel: dateFormatter.format(day),
+            dayLabel: weekdayFormatter.format(day),
+            published,
+            scheduled,
+        }
+    })
 }

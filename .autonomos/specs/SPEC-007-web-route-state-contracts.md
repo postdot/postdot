@@ -8,6 +8,8 @@
   representative empty, populated, partial, failed, and recovery states listed
   below.
 - Related decision: ADR-057
+- Amendment: 2026-09-28 — Overview remains calendar-led; compact summary widgets
+  provide current-work context. There is no separate Calendar route.
 
 ## Intent
 
@@ -29,16 +31,29 @@ template.
 
 ## Route state contracts
 
-### Overview
+### Overview and calendar
 
 - No channel: make connecting or adding the first destination the next useful
-  action; do not lead with zero-valued publication metrics.
+  action; keep the date-oriented calendar available and do not lead with
+  zero-valued publication metrics.
 - Channels but no publications: make the first source composition action clear
-  and show enough channel readiness to prevent a dead-end.
-- Publications present: show attention/recovery work before recent history;
-  keep counters as orientation, not the dominant content.
+  and show enough channel readiness to prevent a dead-end; keep the calendar
+  available as a planning entry point.
+- Publications present: keep the calendar as the primary surface. The compact
+  summary may show due manual work, the next scheduled publication or latest
+  published fallback, and scheduled/published activity for the selected week.
+  Keep these as orientation rather than a duplicate Queue.
 - Partial or failed data: identify which summary or publication list is
   incomplete and offer recovery without hiding the rest of the project.
+- No scheduled publications: retain useful date views and lead to Compose with
+  the selected date.
+- Scheduled publications: scan the month/agenda by local project time zone and
+  keep delivery state and human-due work visible without turning Overview into
+  a second Queue.
+- Unscheduled publications remain discoverable through Queue or the publication
+  editor, outside the date grid.
+- Loading/error: preserve the selected calendar period and explain whether the
+  calendar dates or publication data are unavailable.
 
 ### Compose
 
@@ -52,18 +67,6 @@ template.
   destination, and make retry/recovery explicit.
 - Pending or saved: distinguish local draft state from publication/scheduling
   success; do not imply an external effect before the server confirms it.
-
-### Calendar
-
-- No scheduled publications: retain a date-oriented entry path on desktop and
-  mobile; every useful date view must lead to Compose with the selected date.
-- Scheduled publications: scan the month/agenda by local project time zone and
-  make state and human-due work visible without turning the calendar into a
-  second queue.
-- Unscheduled publications: keep them discoverable outside the date grid with a
-  direct path to Queue or the publication editor.
-- Loading/error: preserve the month context and explain whether dates or
-  publication data are unavailable.
 
 ### Queue
 

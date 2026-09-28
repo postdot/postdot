@@ -1670,14 +1670,15 @@ channels` with a foreign-key constraint error even though a fresh empty database
 - Tasks: WEB-117, WEB-118, WEB-119, WEB-122, DESIGN-98, UX-240, UX-244
 - Related issues: ISSUE-042, ISSUE-050, ISSUE-052, ISSUE-064, ISSUE-066
 - Related decision: ADR-057 (accepted)
-- Related specification: SPEC-007 (draft)
+- Related specification: SPEC-007 (accepted; amended 2026-09-28)
 - Related specification: SPEC-006
 - Follow-up: The accepted route contracts are implemented, but the remaining
   empty-state and density observations stay as a bounded UX follow-up rather
   than being treated as a completed visual redesign.
 
-- Browser audit follow-up (2026-09-28): The 2026-09-28 browser audit found that Overview primarily presents a calendar, Queue also contains completed work, and channel identity and connection readiness appear in separate repeated sections. Instance and workspace membership pages require careful reading to distinguish their scopes. The owner requested phased follow-ups; UX-240 and UX-244 are bounded design decisions, not authorization to replace route or access contracts.
+- Browser audit follow-up (2026-09-28): The 2026-09-28 browser audit found that Overview primarily presents a calendar, Queue also contains completed work, and channel identity and connection readiness appear in separate repeated sections. Instance and workspace membership pages require careful reading to distinguish their scopes. The owner requested phased follow-ups; the audit alone did not authorize route or access-contract changes. UX-240's later owner amendment explicitly retains calendar-led Overview and is recorded below.
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+- UX-240 owner decision and implementation (2026-09-28): keep the calendar as Overview's main surface, with compact widgets for due manual work, the next/latest publication, and activity over the selected week. The owner rejected an action-first Overview and a separate Calendar route. The summary widgets are implemented; broader populated/failure-state review remains open. See [UX-240 worklog](worklogs/2026-09-28-UX-240.md).
 
 ## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
 

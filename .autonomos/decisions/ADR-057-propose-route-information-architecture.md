@@ -6,16 +6,18 @@
 - Related specification: SPEC-006
 - Related decisions: ADR-007, ADR-023
 - Supersedes: none
+- Owner amendment: 2026-09-28 — retain the calendar as Overview's main
+  surface; replace the proposed action-first landing and separate Calendar
+  route with a calendar-led Overview and compact current-work widgets.
 
 ## Context
 
 Herald's accepted design direction describes a quiet dispatch desk in which one
-source becomes several accountable publications. The current application has
-separate routes for Overview, Compose, Calendar, Queue, Channels, and Media,
-but the empty states for the first three operational routes are too similar.
-The current Calendar implementation also renders the desktop month grid only
-when at least one publication is already scheduled, which makes the planning
-surface an endpoint instead of an entry point for an empty project.
+source becomes several accountable publications. The initial proposal treated
+Overview and Calendar as separate destinations, while the live application
+keeps the calendar on Overview. The audit found that the current summary relies
+on plain counters and that the first operational surfaces can look too similar
+when empty.
 
 Two independent read-only audits agree that the visual foundation is broadly
 coherent but identify route hierarchy, progressive disclosure, shell context,
@@ -26,21 +28,27 @@ application into an unexplained collection of compact controls.
 
 ## Decision
 
-Propose retaining the route-oriented workspace, but assign each route one
-primary operator job, one first useful action, and one distinct empty/data
-contract. Do not collapse the routes into a single dashboard or start a broad
-visual rewrite before these contracts are accepted.
+Retain the route-oriented workspace and assign each route one primary operator
+job, one first useful action, and one distinct empty/data contract. Overview
+owns the calendar as its primary planning surface, with a compact summary area
+for current work. Queue remains lifecycle and human-action triage. Do not add a
+separate Calendar route or turn Overview into a text-first task list.
 
-The proposed hierarchy is:
+The accepted hierarchy, as amended on 2026-09-28, is:
 
 | Route | Primary job | First useful action | Must not become |
 | --- | --- | --- | --- |
-| Overview | Answer what deserves attention or what to do next | Follow the highest-value next action: connect, compose, review, or recover | A second Queue or a metric wall |
+| Overview | Scan publication timing and understand the most important current work | Choose a date, inspect a calendar item, or follow a compact attention signal | A second Queue or a metric wall |
 | Compose | Create one source and review its destination publications | Start with source content, then add/review destinations | A settings form or a tour of every capability |
-| Calendar | Scan time and choose a publication date | Select a date and enter Compose with that date | A second Queue or a dead empty-state card |
 | Queue | Prioritize publications by lifecycle and human action | Open the next due, failed, draft, or unscheduled item | A duplicate Overview summary |
 | Channels | Manage destination identity and connection readiness | Add, inspect, connect, or repair a destination | A provider-internals or credential dump |
 | Media | Manage reusable verified assets | Upload, inspect, select, or recover an asset | A second Compose surface |
+
+The calendar is embedded in Overview, remains available when no publications
+are scheduled, and keeps its date and reading-mode state in the Overview URL.
+The compact summary highlights due manual publications, the next scheduled
+publication (or latest published fallback), and activity in the selected week.
+It orients the operator without claiming to be a complete Queue count.
 
 The shell should distinguish project-scoped work from global instance settings.
 The project selector and project navigation remain visible when a project is
@@ -49,7 +57,7 @@ instance scope and must not silently appear to belong to the first project.
 Reduced navigation must preserve accessible names and tooltips even when labels
 are hidden visually.
 
-Progressive disclosure is part of the proposed contract:
+Progressive disclosure is part of the accepted contract:
 
 - Keep the source, destination, lifecycle state, schedule, and next action
   visible when the route's job requires them.
@@ -62,11 +70,10 @@ Progressive disclosure is part of the proposed contract:
 - Use a compact action-oriented empty state per route rather than reusing one
   generic publication-empty card everywhere.
 
-Calendar specifically should keep a date-oriented entry path when there are no
-scheduled publications. The exact desktop composition (always-visible month
-grid versus another equally direct date-scanning surface) remains a design
-checkpoint, but the current condition of hiding the grid until data exists is
-not the proposed target.
+The calendar inside Overview keeps a date-oriented entry path when there are no
+scheduled publications. The owner selected the existing calendar-led structure
+over the proposed action-first landing; calendar composition and summary widgets
+remain subject to rendered review with realistic data.
 
 ## Alternatives considered
 
@@ -87,10 +94,11 @@ review, recovery, and scheduling feel like side effects of authoring. It would
 also weaken the operational distinction between preparing work and operating
 work already in flight. Rejected for the current product stage.
 
-### C. Retain the current routes and only polish their styling
+### C. Make Overview action-first and add a separate Calendar route
 
-This is the smallest diff, but it leaves the duplicate empty states and the
-Calendar entry problem intact. Rejected as insufficient.
+This was the initial recommendation for clearer route jobs. The owner rejected
+it on 2026-09-28: the calendar remains the main Overview surface, and the
+summary area should carry concise current-work widgets.
 
 ## Consequences
 
@@ -106,21 +114,20 @@ Positive:
 
 Costs and risks:
 
-- The exact Overview content and Calendar desktop composition still require a
-  product checkpoint before implementation.
+- Widget content and visual hierarchy require review against populated and
+  failure states; the current local project is sparse.
 - Existing pages will need state-specific composition rather than one shared
   empty-state template.
-- Route contracts must be tested with populated and failure data, not only the
-  current empty local project.
+- Route contracts must be reviewed with populated and failure data, not only the
+  current sparse local project.
 
 ## Acceptance criteria for this proposal
 
-- The owner accepted the route job table and the progressive-disclosure rules by
-  authorizing continuation after review.
+- The owner explicitly retained the calendar as Overview's main surface,
+  rejected an action-first landing and separate Calendar route, and requested
+  useful compact widgets in the existing summary area.
 - WEB-119 records representative empty, loading, populated, partial, failed,
   and recovery states for each route.
-- The accepted result is reflected in `DESIGN.md` or a linked normative spec;
-  this proposed ADR remains non-normative until then.
-- Implementation is reviewed at wide desktop, tablet, and narrow mobile sizes
-  with English and French content before the route migration is considered
-  complete.
+- The amended route direction is reflected in `DESIGN.md` and SPEC-007.
+- The summary widget implementation is reviewed at desktop and narrow mobile
+  widths; review against dense, failed, and multi-destination data remains open.

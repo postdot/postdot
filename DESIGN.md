@@ -76,15 +76,15 @@ future landing-page decisions remain explicit below.
   The main scroll region includes the app header; the header stays sticky at
   the top of that region without a decorative bottom rule. A restrained
   shared surface shadow establishes its layer over the canvas.
-- Workspace routing: the authenticated shell is shared, but operational tasks
-  use separate project-scoped routes for Overview, Calendar, Compose, Queue,
-  Channels, and Media. `/dashboard` resolves to the first available project overview,
+- Workspace routing: the authenticated shell is shared, with project-scoped
+  routes for Overview, Compose, Queue, Channels, and Media. Overview owns the
+  calendar as its primary time-planning surface; there is no separate Calendar
+  destination. `/dashboard` resolves to the first available project overview,
   while `/dashboard/projects/:projectId/...` is the URL-authoritative context
   for a selected project. The publication editor remains nested under its
-  project and returns to that project's Queue. The Queue is the current
-  prioritization surface. The Calendar is a separate time-scanning surface
-  with its own interaction contract; it does not replace the Queue or become a
-  second scheduler.
+  project and returns to that project's Queue. Queue remains the lifecycle and
+  human-action prioritization surface; the Overview calendar does not replace
+  it or become a second scheduler.
 - Calendar planning contract (provisional): show one Monday-first month at a
   time on desktop and tablet, with previous/next/today controls. Scheduled
   publications are grouped by their local date and link to the existing
@@ -106,13 +106,13 @@ future landing-page decisions remain explicit below.
   small context lead; when no timed work is present, the existing `00:00`
   baseline remains. This only chooses the initial position, never hides hours,
   and must not repeatedly override manual scrolling.
-- Route job contract: Overview answers what deserves attention or what the
-  operator should do next; Compose creates and reviews one source fan-out;
-  Calendar scans time and provides a direct date-oriented entry into Compose;
-  Queue prioritizes lifecycle and human-action work; Channels manages
-  destination identity and connection readiness; Media manages reusable
-  verified assets. These surfaces must not converge into interchangeable
-  publication-empty dashboards.
+- Route job contract: Overview scans publication timing and gives compact
+  context on current manual work, the next or most recent publication, and the
+  selected week; its calendar remains the primary surface. Compose creates and
+  reviews one source fan-out; Queue prioritizes lifecycle and human-action
+  work; Channels manages destination identity and connection readiness; Media
+  manages reusable verified assets. These surfaces must not converge into
+  interchangeable publication-empty dashboards.
 - Progressive disclosure contract: hide complexity through ordering, grouping,
   contextual detail, and meaningful iconography rather than removing capability.
   Keep required state, accessibility names, recovery guidance, and destructive
@@ -316,6 +316,10 @@ building it; the current app contract must not silently decide those choices.
   while the add control remains the singular create entry point. Mobile
   density and the final month/agenda transition remain open for the WEB-156
   checkpoint.
+- Owner review note: 2026-09-28 — the owner rejected an action-first Overview
+  and a separate Calendar route. Overview remains calendar-led; its existing
+  summary area should surface important current work through compact, useful
+  widgets instead of plain KPI values. Queue remains the triage surface.
 - Accepted changes: 2026-09-01 — Cobalt accent, neutral surface-led
   foundation, purposeful lines, rare depth, and task-dependent density —
   accepted after H-10 owner review; 2026-09-02 — Graphite/Ash low-chroma
