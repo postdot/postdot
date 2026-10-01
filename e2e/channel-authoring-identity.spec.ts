@@ -27,8 +27,32 @@ test('distinguishes repeated platforms and creates a channel without leaving the
             ).status()
         ).toBe(201)
     }
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await expect(page.getByRole('heading', { name: en.nav_channels, exact: true })).toBeVisible()
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+            await page
+                .getByRole('button', {
+                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                    exact: true,
+                })
+                .click()
+        }
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        await page.screenshot({ path: testInfo.outputPath(`channels-surfaces-${theme}.png`) })
+    }
     await page.goto(`/dashboard/projects/${projectId}/publications/new`)
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
+    for (const theme of ['light', 'dark'] as const) {
+        await page
+            .getByRole('button', {
+                name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                exact: true,
+            })
+            .click()
+        await page.screenshot({ path: testInfo.outputPath(`compose-surfaces-${theme}.png`) })
+    }
+
     const content = page.getByRole('textbox', {
         name: en.publication_new_source_content,
         exact: true,
@@ -77,6 +101,14 @@ test('distinguishes repeated platforms and creates a channel without leaving the
             exact: true,
         })
     ).toBeVisible()
+    const createControl = await rail
+        .getByRole('button', { name: en.channel_add, exact: true })
+        .boundingBox()
+    const availableControl = await rail.locator('[data-channel-available]').first().boundingBox()
+    expect(createControl).not.toBeNull()
+    expect(availableControl).not.toBeNull()
+    expect(Math.abs(createControl!.y - availableControl!.y)).toBeLessThanOrEqual(1)
+    expect(createControl!.height).toBe(availableControl!.height)
     for (const name of ['LinkedIn', 'Discord', 'Mastodon', 'X.com C · C']) {
         await rail
             .getByRole('button', {

@@ -305,7 +305,7 @@ export function PublicationChannelTabs({
                         )
                     })}
                 </div>
-                {createChannel !== undefined ? <div className="py-1">{createChannel}</div> : null}
+                {createChannel !== undefined ? <div className="py-2">{createChannel}</div> : null}
                 {availableChannels.length > 0 ? (
                     <>
                         <div

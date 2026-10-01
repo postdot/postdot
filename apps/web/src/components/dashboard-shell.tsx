@@ -128,7 +128,7 @@ export function DashboardShell({
                         key={pathname}
                         ref={scrollRegionRef}
                         data-dashboard-scroll="true"
-                        className="min-h-0 flex-1 overflow-y-auto bg-surface-raised shadow-surface md:mr-2 md:mb-2 md:ml-0 md:rounded-lg">
+                        className="min-h-0 flex-1 overflow-y-auto bg-surface-background shadow-surface md:mr-2 md:mb-2 md:ml-0 md:rounded-lg">
                         {error ? (
                             <div className="px-4 pt-4 sm:px-6 lg:px-8">
                                 <Alert

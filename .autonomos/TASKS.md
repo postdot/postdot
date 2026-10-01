@@ -466,3 +466,5 @@ UX-260 validation: full `bun run check` passed (44 browser journeys, 2 password-
 UX-261 validation: full `bun run check` passed (44 browser journeys, 2 password-reset journeys, all checks/builds). Evidence: [worklog](worklogs/2026-10-01-UX-261.md).
 
 UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-reset journeys, all checks/builds). Corrected a calendar overflow-link contrast failure discovered during validation. Evidence: [worklog](worklogs/2026-10-01-UX-262.md).
+
+- [x] **[UX-263]** Align channel creation and distinguish nested operational surfaces `Priority: 🟠` `Complexity: M` — owner-reported compose control offset and page/card fill collision; correct rail geometry and semantic surface roles, validate light/dark desktop/mobile, and commit/push the completed pass.

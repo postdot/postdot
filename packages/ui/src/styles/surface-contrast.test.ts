@@ -100,6 +100,17 @@ describe('surface token contract', () => {
                 ),
                 `${themeName}: secondary-foreground on surface-control-hover`
             ).toBeGreaterThanOrEqual(minTextContrastRatio)
+            for (const surfaceToken of [
+                'surface-background',
+                'surface-raised',
+                'surface-overlay',
+            ]) {
+                expect(
+                    contrastRatio(getToken(tokens, 'primary'), getToken(tokens, surfaceToken)),
+                    `${themeName}: primary link on ${surfaceToken}`
+                ).toBeGreaterThanOrEqual(minTextContrastRatio)
+            }
+
             expect(
                 contrastRatio(getToken(tokens, 'primary-foreground'), getToken(tokens, 'primary')),
                 `${themeName}: primary-foreground on primary`
