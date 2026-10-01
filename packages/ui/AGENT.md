@@ -59,3 +59,16 @@ of the shared visual language. Keep one-off product composition in the app.
   fallback, and imperative animations must check the preference themselves.
 - Do not add GSAP or another animation runtime without a concrete interaction,
   bundle measurement, reduced-motion behavior, and an accepted decision record.
+
+## Surface composition
+
+- Validate surfaces against their actual adjacent host, rather than assigning
+  every semantic role a unique shade. Page background sits above the shell
+  canvas; raised content sits above the page; overlays sit above content.
+- Near-black shades need a deliberate elevation step: tiny numeric differences
+  and black shadows do not establish a reliable navigation/page boundary.
+  The shared shell shadow supplies a restrained inset edge in dark mode;
+  use it at the structural page boundary, not on every content card.
+- Check text, links, state labels and hover colors on the final host, including
+  translucent inset layers. Token separation checks supplement rendered review;
+  they do not prove perceptual clarity or accessibility on their own.

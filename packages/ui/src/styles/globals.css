@@ -9,8 +9,8 @@
 :root {
     /*
      * Surface contract:
-     * background is the global page/chrome surface; canvas is the main work
-     * area; inset/field are recessed and input surfaces; control is reserved
+     * background is the page surface; canvas is the navigation/header
+     * foundation; inset/field are recessed and input surfaces; control is reserved
      * for neutral actions; raised/overlay are container surfaces.
      *
      * These roles stay separate on purpose. A neutral action must not inherit
@@ -32,6 +32,7 @@
     --surface-shadow:
         0 2px 4px 0 rgb(24 24 27 / 0.04), 0 1px 2px 0 rgb(24 24 27 / 0.05),
         0 0 1px 0 rgb(24 24 27 / 0.06);
+    --shell-shadow: var(--surface-shadow);
     --overlay-shadow: 0 4px 16px 0 rgb(24 24 27 / 0.08), 0 8px 24px 0 rgb(24 24 27 / 0.06);
     --field-shadow: 0 1px 2px 0 rgb(24 24 27 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.65);
     --control-shadow: 0 1px 2px 0 rgb(24 24 27 / 0.07), inset 0 1px 0 rgb(255 255 255 / 0.45);
@@ -85,6 +86,7 @@
     --color-surface-control: var(--surface-control);
     --color-surface-control-hover: var(--surface-control-hover);
     --color-surface-sidebar: var(--surface-sidebar);
+    --shadow-shell: var(--shell-shadow);
     --shadow-surface: var(--surface-shadow);
     --shadow-overlay: var(--overlay-shadow);
     --shadow-field: var(--field-shadow);
@@ -145,21 +147,22 @@
 
 .dark {
     /* Keep the global background and work canvas distinct in dark mode too. */
-    --surface-background: oklch(0.105 0.002 95);
+    --surface-background: oklch(0.2 0.003 95);
     --surface-canvas: oklch(0.135 0.002 95);
     --background: var(--surface-background);
     --foreground: oklch(0.94 0.003 95);
-    --surface-raised: oklch(0.18 0.003 95);
-    --surface-overlay: oklch(0.235 0.004 95);
-    --surface-inset: oklch(0.205 0.003 95);
-    --surface-field: oklch(0.17 0.003 95);
-    --surface-control: oklch(0.27 0.004 95);
-    --surface-control-hover: oklch(0.3 0.004 95);
+    --surface-raised: oklch(0.255 0.003 95);
+    --surface-overlay: oklch(0.32 0.004 95);
+    --surface-inset: oklch(0.17 0.003 95);
+    --surface-field: oklch(0.23 0.003 95);
+    --surface-control: oklch(0.3 0.004 95);
+    --surface-control-hover: oklch(0.34 0.004 95);
     --surface-sidebar: oklch(0.15 0.003 95);
     --surface-sidebar-hover: oklch(0.22 0.004 95);
     --surface-shadow:
         0 2px 4px 0 rgb(0 0 0 / 0.16), 0 1px 2px 0 rgb(0 0 0 / 0.12),
         inset 0 0 1px 0 rgb(255 255 255 / 0.06);
+    --shell-shadow: inset 0 0 0 1px oklch(0.34 0.004 95);
     --overlay-shadow:
         0 4px 16px 0 rgb(0 0 0 / 0.24), 0 8px 24px 0 rgb(0 0 0 / 0.18),
         inset 0 0 1px 0 rgb(255 255 255 / 0.08);
@@ -175,7 +178,7 @@
     --secondary-hover: var(--surface-control-hover);
     --secondary-foreground: oklch(0.93 0.003 95);
     --muted: var(--surface-inset);
-    --muted-foreground: oklch(0.68 0.004 95);
+    --muted-foreground: oklch(0.72 0.004 95);
     --accent: oklch(0.23 0.004 95);
     --accent-foreground: var(--foreground);
     --destructive: oklch(0.704 0.191 22.216);

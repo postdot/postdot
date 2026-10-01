@@ -468,3 +468,5 @@ UX-261 validation: full `bun run check` passed (44 browser journeys, 2 password-
 UX-262 validation: full `bun run check` passed (44 browser journeys, 2 password-reset journeys, all checks/builds). Corrected a calendar overflow-link contrast failure discovered during validation. Evidence: [worklog](worklogs/2026-10-01-UX-262.md).
 
 - [x] **[UX-263]** Align channel creation and distinguish nested operational surfaces `Priority: 🟠` `Complexity: M` — owner-reported compose control offset and page/card fill collision; correct rail geometry and semantic surface roles, validate light/dark desktop/mobile, and commit/push the completed pass.
+
+- [x] **[UX-264]** Clarify dark surface hierarchy and navigation boundaries `Priority: 🟠` `Complexity: M` — owner reports indistinguishable sidebar/page near-black foundations; establish a readable dark elevation scale and restrained structural shell boundary, document role-based composition, validate both themes and resume UX-250 lifecycle review.

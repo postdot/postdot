@@ -202,6 +202,12 @@ future landing-page decisions remain explicit below.
   roles for canvas, raised surfaces, inset surfaces, fields, and overlays; a
   restrained surface shadow or overlay shadow may distinguish levels without
   turning every region into a bordered card.
+  Surface separation is evaluated against the actual adjacent host, including
+  translucent layers. Near-black shades and black shadows alone must not be
+  relied on to separate navigation from the work page. A restrained structural
+  edge is permitted at that boundary; it does not imply borders around every
+  content region. Numerical token differences supplement visual review rather
+  than establishing perceptual clarity by themselves.
 - Controls: fields use the field surface and its inset shadow as their default
   boundary. A visible border is reserved for focus, invalid state, or a real
   control grouping. Repeated form controls in one row share the same control
