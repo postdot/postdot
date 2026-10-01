@@ -17,7 +17,7 @@
         "test": "bun test"
     },
     "dependencies": {
-        "@atproto/api": "0.20.44",
+        "@atproto/api": "0.22.0",
         "@elysia/static": "2.0.0-beta.2",
         "@elysiajs/openapi": "2.0.0-exp.0",
         "@herald/auth": "workspace:*",
@@ -37,9 +37,9 @@
         "@sinclair/typebox": "^0.34.52",
         "drizzle-orm": "0.45.3",
         "drizzle-typebox": "^0.3.3",
-        "elysia": "^2.0.0-beta.10",
+        "elysia": "^2.0.0-exp.64",
         "exact-mirror": "1.2.6",
-        "nodemailer": "^10.0.10",
+        "nodemailer": "^10.0.13",
         "openapi-types": "12.1.3",
         "pino": "10.3.1",
         "typebox": "1.3.34"
