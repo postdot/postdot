@@ -4,6 +4,7 @@ import type { PublicationSummary } from '@/lib/api'
 
 import {
     calendarDateFromKey,
+    formatCalendarTitle,
     getCalendarViewportTimestampRange,
     getUnscheduledPublications,
     isCalendarDateKey,
@@ -76,5 +77,34 @@ describe('publication calendar', () => {
             from: Date.UTC(2026, 7, 1, 4),
             to: Date.UTC(2026, 10, 1, 4),
         })
+    })
+})
+
+describe('localized calendar period labels', () => {
+    const range = { start: new Date('2026-09-28T00:00:00Z'), end: new Date('2026-10-05T00:00:00Z') }
+    test('uses natural French and English order across months with an exclusive end', () => {
+        expect(formatCalendarTitle('week', range.start, range, 'fr', 'UTC')).toMatch(
+            /28 sept.*4 oct.*2026/
+        )
+        expect(formatCalendarTitle('week', range.start, range, 'en', 'UTC')).toMatch(
+            /Sep 28.*Oct 4.*2026/
+        )
+    })
+    test('keeps day and month titles in the project timezone', () => {
+        const instant = new Date('2026-10-01T01:00:00Z')
+        expect(formatCalendarTitle('day', instant, range, 'fr', 'America/New_York')).toMatch(
+            /30 sept.*2026/
+        )
+        expect(formatCalendarTitle('month', instant, range, 'en', 'America/New_York')).toBe(
+            'September 2026'
+        )
+    })
+    test('shows both years when a period crosses the year boundary', () => {
+        const years = {
+            start: new Date('2025-12-29T00:00:00Z'),
+            end: new Date('2026-01-05T00:00:00Z'),
+        }
+        const title = formatCalendarTitle('week', years.start, years, 'fr', 'UTC')
+        expect(title).toMatch(/29.*2025.*4.*2026/)
     })
 })

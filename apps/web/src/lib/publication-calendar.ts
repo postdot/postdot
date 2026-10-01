@@ -106,3 +106,34 @@ function calendarBoundary(date: Date, timeZone: string) {
     }
     return timestamp
 }
+
+/** Format the visible calendar period without changing its project civil dates. */
+export function formatCalendarTitle(
+    view: string,
+    date: Date,
+    activeRange: { readonly start: Date; readonly end: Date },
+    locale: string,
+    timeZone: string
+) {
+    if (view === 'month') {
+        return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone }).format(
+            date
+        )
+    }
+    if (view === 'day' || view === 'resource') {
+        return new Intl.DateTimeFormat(locale, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            timeZone,
+        }).format(date)
+    }
+    const lastDay = new Date(Math.max(activeRange.start.getTime(), activeRange.end.getTime() - 1))
+    return new Intl.DateTimeFormat(locale, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        timeZone,
+    }).formatRange(activeRange.start, lastDay)
+}

@@ -279,6 +279,9 @@ test('keeps calendar titles readable across intermediate workspace widths', asyn
                 `/dashboard/projects/${projectId}/overview?date=2026-10-01&view=${view}`
             )
             await expect(calendar.locator(`[data-calendar-view="${view}"]`)).toBeVisible()
+            if (view === 'week') {
+                await expect(calendar.locator('#calendar-title')).toHaveText(/28 sept.*4 oct.*2026/)
+            }
             for (const width of [
                 640, 641, 700, 767, 768, 769, 775, 800, 840, 880, 920, 960, 1000, 1023, 1024, 1025,
                 1080, 1160, 1280, 1440,

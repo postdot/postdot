@@ -40,6 +40,7 @@ import type {
 import type { PublicationSummary } from '@/lib/api'
 import { getZonedDateTimeParts } from '@/lib/date-time'
 import { formatTime } from '@/lib/format'
+import { formatCalendarTitle } from '@/lib/publication-calendar'
 import { toDateKey } from '@/lib/publication-calendar'
 import {
     type PublicationCalendarEventData,
@@ -762,12 +763,21 @@ function createCalendarI18n(locale: string, timeZone: string) {
         formats:
             messageLocale === 'fr'
                 ? {
+                      dayTitle: 'EEEE d MMMM yyyy',
+                      agendaDayHeader: 'EEEE d MMMM',
+                      moreDayHeader: 'EEEE d MMMM',
                       eventTime: 'HH:mm',
                       timeGutter: 'HH:mm',
                       timeGutterMinute: 'HH:mm',
                   }
                 : undefined,
         functions: {
+            formatTitle: (
+                view: string,
+                { date, activeRange }: { date: Date; activeRange: { start: Date; end: Date } }
+            ) => formatCalendarTitle(view, date, activeRange, locale, timeZone),
+            formatDayRange: (range: { start: Date; end: Date }) =>
+                formatCalendarTitle('week', range.start, range, locale, timeZone),
             formatEventTime: (start: Date) => formatTime(start.getTime(), timeZone, locale),
         },
     }
