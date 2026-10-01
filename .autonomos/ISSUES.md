@@ -1667,7 +1667,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
   workstream. It does not redesign public marketing surfaces, change domain/API
   ownership, remove the source/publication model, or implement provider or
   analytics features.
-- Tasks: WEB-117, WEB-118, WEB-119, WEB-122, DESIGN-98, UX-240, UX-244
+- Tasks: WEB-117, WEB-118, WEB-119, WEB-122, DESIGN-98, UX-240, UX-244, UX-254
 - Related issues: ISSUE-042, ISSUE-050, ISSUE-052, ISSUE-064, ISSUE-066
 - Related decision: ADR-057 (accepted)
 - Related specification: SPEC-007 (accepted; amended 2026-09-28)
@@ -1678,7 +1678,18 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Browser audit follow-up (2026-09-28): The 2026-09-28 browser audit found that Overview primarily presents a calendar, Queue also contains completed work, and channel identity and connection readiness appear in separate repeated sections. Instance and workspace membership pages require careful reading to distinguish their scopes. The owner requested phased follow-ups; the audit alone did not authorize route or access-contract changes. UX-240's later owner amendment explicitly retains calendar-led Overview and is recorded below.
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+- UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
 - UX-240 owner decision and implementation (2026-09-28): keep the calendar as Overview's main surface; show only due manual work or an upcoming scheduled publication in the summary band, and omit it entirely when neither exists. The owner rejected an action-first Overview, separate Calendar route, empty counters, stale history, and decorative activity summaries. Broader populated/failure-state review remains open. See [UX-240 worklog](worklogs/2026-09-28-UX-240.md).
+- UX-244 evidence (2026-09-29): the same disconnected LinkedIn destination appears in the channel list and the connection section, with “connection required” repeated. The latter also shows a zero-connection counter, an explanatory sentence, a “Connect LinkedIn” action, and a second page-connection form. Preserve both channel and publisher concepts, but resolve their hierarchy and primary action in UX-244 rather than adding another local copy patch. See [UX-249 worklog](worklogs/2026-09-29-UX-249.md).
+- UX-244 bounded pass (2026-09-29): removed the zero-connection counter and repeated explanatory copy, kept connection repair available per built-in channel, and disclosed the optional LinkedIn organization/page path. The persistent project/workspace selectors retain search, creation, and configuration actions; permission and route contracts are unchanged. The identity/readiness/administration relationship remains open for a reviewed information-architecture decision. See [UX-244 worklog](worklogs/2026-09-29-UX-244.md).
+
+- UX-254 access candidate (2026-09-29): centered titles and one return per
+  access page; workspace selection remains in the persistent header; invitations
+  name their scope and omit empty pending sections. Compact workspace group
+  surfaces retain permission consequences and project effective-access sources.
+  Instance role/status enum values now use localized labels. Routes, permissions,
+  invitation acceptance, and recovery contracts remain unchanged. See
+  [UX-254 worklog](worklogs/2026-09-29-UX-254.md).
 
 ## [ISSUE-064] Harden the authenticated shell, navigation context, and responsive accessibility
 
@@ -1714,6 +1725,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Browser audit follow-up (2026-09-28): Reopened after the 2026-09-28 browser audit: at 820 pixels the persistent sidebar leaves approximately four month columns visible; mobile authoring places actions below a tall editor and preview. Channel names remain heavily truncated in the sidebar. Preserve the earlier completed navigation fixes; this follow-up targets responsive composition and readable identity.
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+- UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
 
 ## [ISSUE-065] Make Herald's visual and content foundation operational beyond default shadcn grammar
 
@@ -1749,6 +1761,8 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Browser audit follow-up (2026-09-28): The 2026-09-28 browser audit found large headings and unused areas competing with small muted operational labels, closely valued dark surfaces, and premature truncation. UX-242 is a bounded visual calibration against real content, preserving the current brand and theme roles until a reviewed comparison supports a change.
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+- UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
+- UX-242 (2026-09-28): Dashboard titles now stay at 30 px through tablet widths, and Queue selection headers use 12 px sentence case. Sampled muted-text contrast passes in both themes; dark surface-value separation remains under review without a global token change. Evidence: [UX-242 worklog](worklogs/2026-09-28-UX-242.md).
 
 ## [ISSUE-066] Validate UX against realistic data, transitions, and realtime feedback
 
@@ -1789,6 +1803,7 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Browser audit follow-up (2026-09-28): Recurring validation follow-up requested after the 2026-09-28 browser audit. The current first-impression visit used sparse existing data and did not exercise provider dispatch, approvals, failures, or dense scheduling. UX-246 reuses the existing deterministic browser fixtures after the new passes; prior test evidence remains valid for its original scope.
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+- UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
 
 ## [ISSUE-062] Define Herald human account, instance administration, and invitation policy
 
@@ -2807,6 +2822,17 @@ channels` with a foreign-key constraint error even though a fresh empty database
 
 - Browser audit follow-up (2026-09-28): Reopened after the 2026-09-28 browser audit: selected destinations, the active editing destination, and shared content use similar controls; removing a destination is separate from activating it. Saved composition feedback and explicit publication-draft creation need distinct meanings. Preserve the completed entry-point and preview work; propose and validate a focused interaction revision before implementation.
 - New evidence: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+- UX-246 follow-up completed (2026-09-29): Seven mixed operational states, long destination names, six representative locale/theme/viewport combinations, keyboard filtering/return navigation and responsive approval now supplement the existing recovery/media/realtime journeys. The complete local gate passed 42 browser scenarios plus 2 password-reset scenarios. Presentation defects and remaining composition work are recorded in [UX-246](worklogs/2026-09-29-UX-246.md); synthetic outcomes still do not establish real-provider behavior.
+- UX-241 implementation (2026-09-28): the owner approved the interaction
+  contract. `Publish to` now controls inclusion only; a separate accessible
+  selector controls shared versus channel-specific editing and its preview.
+  The exact editing scope survives route changes and browser/server recovery;
+  removing its destination falls back to shared content. Destination labels
+  wrap, autosave is distinct from creating a persistent draft, and scheduling
+  names the publication count. Six focused Playwright scenarios, the quick
+  repository checks, and the production build pass. The local integrated API
+  was unavailable for a separate manual visual pass.
+- New evidence: [UX-241 worklog](worklogs/2026-09-28-UX-241.md).
 
 ## [ISSUE-100] Give publication authoring a contextual output preview
 
@@ -2852,6 +2878,13 @@ channels` with a foreign-key constraint error even though a fresh empty database
   preview. Web unit tests cover the pure preview model; localization coverage
   remains 100%; the full repository gate passes with 17 Playwright scenarios;
   the authenticated integrated browser was inspected in light and dark themes.
+- Owner follow-up (2026-09-29): The owner wants a much closer visual simulation
+  of the destination feed, beginning with LinkedIn, using a recognizable stock
+  mockup identity and illustrative engagement rather than a channel logo,
+  repeated platform label, generated portrait, or the connected user's actual
+  identity. UX-247 implements that focused correction; UX-248 tracks careful
+  provider-by-provider calibration. Illustrative figures remain preview-only
+  and must not be presented as real analytics.
 
 ## [ISSUE-101] Establish a Herald-owned media authoring and editing boundary
 
@@ -3929,7 +3962,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-142] Complete user-facing localization and operational terminology
 
 - Type: problem
-- Status: accepted
+- Status: resolved
 - Evidence: The French browser visit displayed an English delivery notification, Body/Headline/Language fields, Provider metadata, and English accessibility labels on the date picker and mobile navigation. These are observations of specific surfaces, not a claim that all notifications or profiles behave identically.
 - Impact: Mixed vocabulary increases interpretation effort and makes the application feel unfinished, including for assistive-technology users.
 - Desired outcome: Built-in user-facing content and accessible names follow the selected locale; provider-owned or custom schema identifiers remain truthful and distinguishable from built-in labels. Account, installation, workspace, and project scopes use consistent names.
@@ -3937,3 +3970,63 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Related issues: ISSUE-065, ISSUE-099
 - Boundary: Do not rewrite historical event data, user-defined group names, custom schema keys, or provider payloads as a translation shortcut.
 - Evidence record: [UX-239 worklog](worklogs/2026-09-28-UX-239.md).
+
+- Resolution: UX-245 localizes canonical notification presentation and built-in bound fields, supplies complete date-picker locales and mobile navigation names, and aligns owned French platform terminology. Custom copy, schema titles, payload keys, and stored events remain unchanged. The bilingual journey and full local gate passed; see [UX-245 worklog](worklogs/2026-09-29-UX-245.md).
+
+## [ISSUE-143] Integrate interrupted-composition recovery without risking current work
+
+- Type: problem
+- Status: resolved
+- Evidence: On the new-publication page, an interrupted draft is offered in a full-width bordered alert above a narrower composer. Its title and explanatory sentence repeat the same idea. The recovery action remains present after the operator starts typing; the current handler replaces the current title, content, media, targets, and schedule without a preservation or confirmation step.
+- Impact: The recovery cue competes with the writing surface, and an operator can unintentionally lose newly typed content by restoring the previous session.
+- Desired outcome: Present one compact, recognizable recovery cue within the composer width. Make the recovered and current compositions distinguishable before a replacement, and keep either path recoverable through the decision. Preserve project-scoped local and server draft behavior, scheduling, and media references.
+- Tasks: UX-249
+- Related issues: ISSUE-099, ISSUE-100
+- Acceptance: At desktop and mobile widths the cue fits the composer, uses minimal copy and a useful draft visual; restoring after typing never silently destroys the current composition; discard and restore are explicit and keyboard accessible; local/server recovery and autosave are verified with an isolated browser journey.
+
+## [ISSUE-144] Recompose publication detail around state and the next decision
+
+- Type: design problem
+- Status: accepted for staged UX work
+- Evidence: The 2026-09-29 authenticated review compared a published manual publication with a media-only editable draft. Both open with an oversized title, a separate save indicator, a full-width lifecycle strip, a second destination strip, and a source card beside a feed preview. In the published state, identical content appears in the source card and preview, while read-only revision and source format occupy prominent space. The media-only draft is titled “Untitled publication” here but “Media · 2” in Queue; it shows a large empty body field before its media and a separate delivery panel. The details and activity disclosures each carry helper subtitles.
+- Impact: The operator must scan repeated identity and content before finding the publication's state or next action. The same page behaves like a form even when the publication cannot be edited, and its information hierarchy differs from the accepted new-publication composer.
+- Desired outcome: Give published, draft, scheduled, due-manual, and failed states a clear primary object, status, and next meaningful action. Reuse the recognizable post presentation where it helps inspection, preserve editable controls only where needed, and move revision, format, payload, and history into deliberate secondary access. Keep the return path and source-to-destination relationship intact.
+- Tasks: UX-250
+- Related issues: ISSUE-063, ISSUE-099, ISSUE-100, ISSUE-141
+- Acceptance: Review representative states at wide and narrow widths before implementation; no duplicated content or status in the first frame; editable and read-only modes have distinct hierarchy without losing capability; real lifecycle actions, media, accessibility, and route continuity pass browser checks.
+
+- UX-246 review: Long detail titles now remain centered separately from return controls on narrow screens, and mobile lifecycle actions no longer squeeze errors into a narrow column. The expanded editable Delivery form remains part of the ongoing UX-250 composition review.
+
+## [ISSUE-145] Reduce Queue scan noise while preserving lifecycle lookup
+
+- Type: design problem
+- Status: accepted for staged UX work
+- Evidence: In the populated project, Queue begins with a project name and UTC subtitle although the project is already in the header. It shows a zero-count Scheduled tab, repeats publication state next to the destination, and gives drafts a long “pending draft changes” phrase. The published item appears alongside actionable drafts under All, with identical row weight. The date and action compete with the publication title rather than forming a clear triage order.
+- Impact: Queue remains functional but takes more reading than necessary to identify which publication needs action now. Finished work and inactive filters can dominate the same visual plane as due or failed work.
+- Desired outcome: Preserve all lifecycle states and explicit filters while making action priority, publication identity, destination, and timing scannable. Remove context already carried by the shell and copy that merely restates a visible state.
+- Tasks: UX-251, UX-255
+- Related issues: ISSUE-063, ISSUE-141
+- Acceptance: Test due-manual, failed, scheduled, draft, and published rows together; verify useful filtering and bulk actions at desktop and mobile widths; demonstrate that an operator can distinguish actionable from historical items without reading an explanatory sentence per row.
+
+- UX-246 follow-up: Mixed long destination names and variable lifecycle actions expose desktop header/row column drift. UX-255 tracks a shared grid correction; compact stacking remains readable. Narrow detail lifecycle actions were corrected during UX-246.
+
+## [ISSUE-146] Make Performance meaningful when provider data is unavailable
+
+- Type: design question
+- Status: proposed
+- Evidence: The authenticated project has one published manual publication and no supported connected statistics provider. Performance still shows a permanent subtitle naming Bluesky and DEV.to, then one wide row whose main outcome is “stats are not available for this platform,” leaving the rest of the page blank. Its tab remains a peer to Overview and Queue.
+- Impact: The route's current first frame offers neither a metric nor an actionable decision for this project, while calling attention to capability limits that the operator cannot change from this screen.
+- Desired outcome: Decide whether unsupported publications should be hidden, grouped as context, or given a useful route to connection setup, and when the Performance navigation entry earns persistent prominence. Preserve truthful provider support and access to any collected stats.
+- Tasks: UX-252
+- Related issues: ISSUE-063, ISSUE-135
+- Acceptance: Compare no-data, unsupported-only, supported-but-unconnected, and populated provider cases before choosing a layout or navigation change. Do not imply that manual or unsupported platforms expose metrics they do not provide.
+
+## [ISSUE-147] Keep channel identity usable in compact authoring and navigation
+
+- Type: design problem
+- Status: resolved by UX-256; optional color customization and server-enforced naming remain explicit future considerations
+- Evidence: Owner review on 2026-09-30 identifies redundant sidebar inventory, missing creation access while composing, difficult six-channel rails, indistinguishable same-platform logos and duplicate names, and creation fields ordered before platform choice.
+- Impact: Channel routing becomes ambiguous at intermediate widths; creation interrupts writing and names do not reliably distinguish targets.
+- Desired outcome: Compact, recognizable channel selection with a persistent non-notification identity cue for repeated platforms, meaningful custom identities, guided naming, and channel creation that preserves the composition in place.
+- Tasks: UX-256
+- Boundaries: Preserve existing stored names and API contracts. Suggested naming and creation-dialog collision validation do not claim a database-wide uniqueness constraint; such a constraint needs a separately accepted migration policy for existing duplicates. Owner permits alternative solutions and name customization. Color customization remains an optional future proposal, not a hidden new persisted setting.

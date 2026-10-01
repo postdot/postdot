@@ -69,6 +69,10 @@ future landing-page decisions remain explicit below.
   review. Operational sections default to one clear title with compact
   metadata or an action; an overline, icon, and explanatory paragraph are
   optional content, not a heading formula.
+  When a project page has a return control, place it at the left and center
+  the page title independently of the optional action at the right. At narrow
+  widths, keep the return and action controls on one row and give the centered
+  title its own row so controls cannot compress it.
 - Current shell candidate: the authenticated navigation uses the accessible
   shadcn/Base UI Sidebar primitive for project context, workspace navigation,
   channels, account actions, and a mobile drawer. Its default width, collapse
@@ -113,6 +117,33 @@ future landing-page decisions remain explicit below.
   and human-action work; Channels manages destination identity and connection
   readiness; Media manages reusable verified assets. These surfaces must not
   converge into interchangeable publication-empty dashboards.
+- Composer interaction contract: `Publish to` controls only destination
+  inclusion; a separate editor scope chooses shared or channel-specific copy.
+  Selected destinations and muted available destinations remain visible as
+  distinct adjacent groups, stacking on narrow screens. One activation moves a
+  channel between groups; motion may clarify that transfer, but focus and the
+  resulting selected state must remain clear without animation. Delivery and
+  schedule controls start as a compact summary and expand when requested or
+  when a connection problem needs attention.
+  Adding a destination must not change that scope or delivery defaults. Removing
+  the active destination returns to shared copy while preserving remaining
+  selections and overrides. Recovery restores the exact editing scope. Quiet
+  composition autosave remains distinct from creating a persistent draft, and
+  final actions name the outcome and scheduled publication count.
+  When an interrupted composition blocks new editing pending a recovery choice,
+  present a modal decision with a draft excerpt and explicit restore/discard
+  actions. The background stays inert; dismissal must not silently choose an
+  outcome. Recovery errors remain visible inside that decision surface.
+- Publication detail candidate (UX-250, pending owner review): editing and
+  inspection should have different first frames. An editable publication keeps
+  source controls beside the destination preview; a locked publication leads
+  with the rendered content and keeps source revision, target payload, provider
+  contract, and activity behind secondary disclosure. Show channel identity
+  once in the first frame and reserve full-width state surfaces for a real
+  lifecycle action or problem. A media-only draft starts with its images and
+  offers text as an explicit addition. This candidate is based on the reviewed
+  published manual item and media-only draft; due-manual, failed, and connected
+  platform examples still need an owner checkpoint.
 - Progressive disclosure contract: hide complexity through ordering, grouping,
   contextual detail, and meaningful iconography rather than removing capability.
   Keep required state, accessibility names, recovery guidance, and destructive
