@@ -71,10 +71,10 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
 
     const overviewSummary = page.getByLabel('Overview summary', { exact: true })
-    // Ready manual work has a timestamp but is no longer scheduled.
-    await expect(overviewSummary).toContainText('3 scheduled')
-    await expect(overviewSummary).toContainText('4 unscheduled')
-    await expect(overviewSummary).toContainText('1 needs attention')
+    // Overview surfaces actionable work and the next publication without zero-value totals.
+    await expect(overviewSummary).toContainText('Manual posts due')
+    await expect(overviewSummary).toContainText('Next publication')
+    await expect(overviewSummary).not.toContainText('3 scheduled')
     const overviewCalendar = page.locator('[data-calendar="reui"]')
     await expect(overviewCalendar).toBeVisible()
     await expect(overviewCalendar.locator('[data-calendar-view="month"]')).toBeVisible()
@@ -651,13 +651,7 @@ function currentMonthNoon() {
 
 function currentMonthAt(hour: number, minute = 0) {
     const now = new Date()
-    return Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        Math.min(now.getUTCDate(), 28),
-        hour,
-        minute
-    )
+    return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hour, minute)
 }
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {

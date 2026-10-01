@@ -1,4 +1,5 @@
-import { Button } from '@herald/ui/components/button'
+import { Button, buttonVariants } from '@herald/ui/components/button'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -97,17 +98,6 @@ function analyticsProvider(profileId: string | undefined): AnalyticsProvider | n
     return profileId === 'bluesky' || profileId === 'devto' ? profileId : null
 }
 
-function providerLabel(profileId: string | undefined): string {
-    if (profileId === 'manual-message') return m.channel_manual()
-    if (profileId === 'bluesky') return 'Bluesky'
-    if (profileId === 'devto') return 'DEV.to'
-    if (profileId === 'linkedin') return 'LinkedIn'
-    if (profileId === 'mastodon') return 'Mastodon'
-    if (profileId === 'x') return 'X'
-    if (profileId === 'discord') return 'Discord'
-    return m.channel_custom_profile()
-}
-
 export function PublicationPerformancePage() {
     const { locale } = useLanguage()
     const { channels, project, projectRole } = useProjectDashboard()
@@ -166,7 +156,11 @@ export function PublicationPerformancePage() {
     const channelsById = new Map(channels.map(channel => [channel.id, channel]))
     const publications = (
         publicationsQuery.data?.pages.flatMap(page => page.publications) ?? []
-    ).filter(publication => publication.state === 'published')
+    ).filter(
+        publication =>
+            publication.state === 'published' &&
+            analyticsProvider(channelsById.get(publication.channelId)?.profileId) !== null
+    )
     const analyticsByProvider = {
         bluesky: groupLatestObservations(blueskyQuery.data?.observations ?? []),
         devto: groupLatestObservations(devtoQuery.data?.observations ?? []),
@@ -210,7 +204,7 @@ export function PublicationPerformancePage() {
                         {title}
                     </Link>
                     <p className="mt-1 break-words text-xs text-muted-foreground">
-                        {publication.channelName} · {providerLabel(channel?.profileId)}
+                        {publication.channelName}
                         {publication.publishedAt === null
                             ? ''
                             : ` · ${formatDate(publication.publishedAt)}`}
@@ -275,7 +269,21 @@ export function PublicationPerformancePage() {
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader
-                description={m.performance_description()}
+                back={
+                    <Link
+                        aria-label={m.nav_back_to_overview()}
+                        className={buttonVariants({
+                            variant: 'ghost',
+                            size: 'icon',
+                            className:
+                                'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
+                        })}
+                        params={{ projectId: project.id }}
+                        to="/dashboard/projects/$projectId/overview">
+                        <AltArrowLeftIcon aria-hidden="true" />
+                        <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
+                    </Link>
+                }
                 title={m.performance_title()}
             />
             {publicationsQuery.isError ? (
@@ -292,8 +300,21 @@ export function PublicationPerformancePage() {
                     className="mt-4"
                     description={m.performance_empty_description()}
                     icon={<ChartSquareIcon aria-hidden="true" className="size-5" />}
-                    illustration="data"
+                    layout="compact"
                     title={m.performance_empty_title()}
+                    action={
+                        publicationsQuery.hasNextPage ? (
+                            <Button
+                                disabled={publicationsQuery.isFetchingNextPage}
+                                onClick={() => void publicationsQuery.fetchNextPage()}
+                                size="sm"
+                                variant="ghost">
+                                {publicationsQuery.isFetchingNextPage
+                                    ? m.common_loading()
+                                    : m.performance_load_more()}
+                            </Button>
+                        ) : undefined
+                    }
                 />
             ) : (
                 <>

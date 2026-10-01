@@ -180,11 +180,8 @@ export function PublicationCalendarPage({
                         </Button>
                     )
                 }
-                title={m.overview_title()}>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    {project.name} · {project.timeZone}
-                </p>
-            </DashboardPageHeader>
+                title={m.overview_title()}
+            />
 
             {noChannels ? (
                 <EmptyState
@@ -286,7 +283,7 @@ export function PublicationCalendarPage({
                                         count: unscheduledPublications.length,
                                     })}{' '}
                                     <Link
-                                        className="text-primary underline-offset-4 hover:text-foreground hover:underline"
+                                        className="text-primary underline underline-offset-4 hover:text-foreground"
                                         params={{ projectId: project.id }}
                                         search={{
                                             filter: undefined,

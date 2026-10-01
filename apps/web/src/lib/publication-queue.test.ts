@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
 import type { PublicationSummary } from '@/lib/api'
-import { filterQueueByTags, filterQueuePublications } from '@/lib/publication-queue'
+import {
+    filterQueueByTags,
+    filterQueuePublications,
+    prioritizeQueuePublications,
+} from '@/lib/publication-queue'
 
 type TestPublicationSummary = PublicationSummary & {
     readonly tagIds?: readonly string[]
@@ -42,6 +46,28 @@ describe('publication queue filters', () => {
 
     test('keeps the source order for the all filter', () => {
         expect(filterQueuePublications(publications, new Set(['due']), 'all')).toEqual(publications)
+    })
+
+    test('puts actionable work first and completed history last without reordering peers', () => {
+        const mixed = [
+            publication('published', { state: 'published' }),
+            publication('draft-a'),
+            publication('scheduled-a', { state: 'scheduled' }),
+            publication('failed', { state: 'failed' }),
+            publication('due', { deliveryMode: 'manual', state: 'ready' }),
+            publication('draft-b'),
+            publication('cancelled', { state: 'cancelled' }),
+        ]
+
+        expect(prioritizeQueuePublications(mixed, new Set(['due'])).map(item => item.id)).toEqual([
+            'failed',
+            'due',
+            'scheduled-a',
+            'draft-a',
+            'draft-b',
+            'published',
+            'cancelled',
+        ])
     })
 
     test('uses durable due ids for the attention filter', () => {

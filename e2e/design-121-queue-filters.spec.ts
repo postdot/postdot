@@ -14,12 +14,38 @@ test('wraps queue filters without introducing horizontal scrolling', async ({ pa
     const suffix = randomUUID().slice(0, 8)
     await createAccountAndProject(page, suffix)
     await page.goto(page.url().replace(/\/overview$/, '/queue'))
+    await expect(page.getByRole('link', { name: 'Back to overview', exact: true })).toBeVisible()
 
     const filterList = page.getByRole('tablist').first()
     await expect(filterList).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Scheduled (0)', exact: true })).toHaveText(
+        'Scheduled'
+    )
 
     for (const width of [1280, 768, 390]) {
         await page.setViewportSize({ width, height: 900 })
+        const header = await page.locator('main > header').evaluate(element => {
+            const title = element.querySelector('h1')?.getBoundingClientRect()
+            const back = element
+                .querySelector('a[aria-label="Back to overview"]')
+                ?.getBoundingClientRect()
+            const action = element
+                .querySelector('a[href*="/publications/new"]')
+                ?.getBoundingClientRect()
+            const bounds = element.getBoundingClientRect()
+            if (!title || !back || !action) throw new Error('Queue header controls are missing')
+            return {
+                centerDelta: Math.abs(
+                    (title.left + title.right) / 2 - (bounds.left + bounds.right) / 2
+                ),
+                controlsOverlap: action.left < back.right,
+                titleBelowControls: title.top >= Math.max(back.bottom, action.bottom),
+            }
+        })
+        expect(header.centerDelta).toBeLessThanOrEqual(1)
+        expect(header.controlsOverlap).toBe(false)
+        if (width < 1024) expect(header.titleBelowControls).toBe(true)
+
         const metrics = await filterList.evaluate(element => {
             const view = element.ownerDocument.defaultView as unknown as ComputedStyleView
             const style = view.getComputedStyle(element)

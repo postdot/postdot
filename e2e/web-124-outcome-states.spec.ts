@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
+import en from '../apps/web/messages/en.json' with { type: 'json' }
+import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 import { frenchTranslation } from './locale'
 
 test('keeps failed and ambiguous publications legible across queue and overview', async ({
@@ -34,6 +37,7 @@ test('keeps failed and ambiguous publications legible across queue and overview'
             state: 'ambiguous',
         }),
     ]
+    let showUnsupportedPerformance = false
     await createTestChannel(page, projectId, `E2E-124 outcome channel ${suffix}`)
 
     await page.route(
@@ -54,9 +58,20 @@ test('keeps failed and ambiguous publications legible across queue and overview'
                 status: response.status(),
                 contentType: 'application/json',
                 body: JSON.stringify({
-                    publications,
+                    publications: showUnsupportedPerformance
+                        ? [
+                              {
+                                  ...publications[0],
+                                  id: `e2e-124-published-${suffix}`,
+                                  publishedAt: scheduledAt,
+                                  state: 'published',
+                              },
+                          ]
+                        : publications,
                     nextCursor: null,
-                    summary: { total: 2, manual: 0, automatic: 2, scheduled: 2 },
+                    summary: showUnsupportedPerformance
+                        ? { total: 1, manual: 1, automatic: 0, scheduled: 0 }
+                        : { total: 2, manual: 0, automatic: 2, scheduled: 2 },
                 }),
             })
         }
@@ -119,7 +134,310 @@ test('keeps failed and ambiguous publications legible across queue and overview'
     await expect(
         overviewCalendar.getByRole('button', { name: new RegExp(ambiguousTitle) })
     ).toBeVisible()
+
+    showUnsupportedPerformance = true
+    await page.goto(`/dashboard/projects/${projectId}/performance`)
+    await expect(page.getByRole('heading', { name: 'Performances', exact: true })).toBeVisible()
+    await expect(
+        page.getByText(frenchTranslation('performance_empty_title'), { exact: true })
+    ).toBeVisible()
+    await expect(page.locator('[data-performance-publication]')).toHaveCount(0)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(
+        page.getByText(frenchTranslation('performance_empty_title'), { exact: true })
+    ).toBeVisible()
+    const performanceWidth = await page.locator('[data-dashboard-scroll]').evaluate(region => ({
+        client: region.clientWidth,
+        scroll: region.scrollWidth,
+    }))
+    expect(performanceWidth.scroll).toBeLessThanOrEqual(performanceWidth.client)
 })
+
+test('reviews mixed operational work across responsive locale and theme combinations', async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(180_000)
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const channels = [] as { id: string; name: string }[]
+    for (const [name, profile] of [
+        ['Editorial team — community announcements and customer updates', 'manual-message'],
+        ['LinkedIn — product and partnership announcements', 'linkedin'],
+    ]) {
+        const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: { name, profile },
+        })
+        expect(response.status()).toBe(201)
+        channels.push((await response.json()).channel)
+    }
+    const postResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            title: 'Autumn release — a shared announcement across destinations',
+            sourceContent: {
+                body: {
+                    text: 'A clearer publishing workflow for our community. Discover the autumn release and the improvements prepared with our editorial team.',
+                    format: 'plain_text',
+                },
+                media: [],
+            },
+            publications: channels.map(channel => ({
+                channelId: channel.id,
+                deliveryMode: 'manual',
+            })),
+        },
+    })
+    expect(postResponse.status()).toBe(201)
+    const basePublications = (await postResponse.json()).publications as { id: string }[]
+    const editors = new Map<string, Record<string, unknown>>()
+    for (const publication of basePublications) {
+        const response = await page.request.get(
+            `/api/projects/${projectId}/publications/${publication.id}/editor`
+        )
+        expect(response.ok()).toBe(true)
+        const editor = (await response.json()).editor as Record<string, unknown>
+        editors.set((editor.channel as { id: string }).id, editor)
+    }
+    const scheduledAt = currentMonthNoon()
+    const scenarios = [
+        {
+            state: 'scheduled',
+            channel: 0,
+            scheduledAt: Date.now() - 60_000,
+            title: 'Publish the community announcement manually',
+        },
+        {
+            state: 'failed',
+            channel: 1,
+            scheduledAt,
+            title: 'Partner announcement — delivery was rejected',
+        },
+        {
+            state: 'ambiguous',
+            channel: 1,
+            scheduledAt,
+            title: 'Autumn release — verify the publication before retrying',
+        },
+        {
+            state: 'scheduled',
+            channel: 1,
+            scheduledAt: scheduledAt + 3_600_000,
+            title: 'Product update — discover the improvements prepared with the editorial team and our community',
+        },
+        {
+            state: 'draft',
+            channel: 0,
+            scheduledAt: null,
+            title: 'Workshop invitation — continue preparing the shared announcement',
+        },
+        {
+            state: 'published',
+            channel: 0,
+            scheduledAt,
+            title: 'September highlights — the announcement is now published',
+        },
+        {
+            state: 'cancelled',
+            channel: 1,
+            scheduledAt,
+            title: 'Previous campaign — cancelled after the editorial review',
+        },
+    ]
+    const publications = scenarios.map((scenario, index) => ({
+        ...publicationFixture({
+            channelName: channels[scenario.channel]!.name,
+            errorMessage:
+                scenario.state === 'failed'
+                    ? 'The destination rejected the publication. Review the account connection before retrying.'
+                    : '',
+            id: `review-${index}`,
+            postTitle: scenario.title,
+            projectId,
+            scheduledAt,
+            state: 'failed',
+        }),
+        state: scenario.state,
+        channelId: channels[scenario.channel]!.id,
+        deliveryMode: scenario.channel === 0 ? 'manual' : 'automatic',
+        scheduledAt: scenario.scheduledAt,
+        publishedAt: scenario.state === 'published' ? scheduledAt : null,
+    }))
+    await page.route(
+        new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
+        async route => {
+            const state = new URL(route.request().url()).searchParams.get('state')
+            await route.fulfill({
+                json: {
+                    publications: state
+                        ? publications.filter(item => item.state === state)
+                        : publications,
+                    nextCursor: null,
+                    summary: { total: 7, manual: 3, automatic: 4, scheduled: 2, draft: 1 },
+                },
+            })
+        }
+    )
+    await page.route(`**/api/projects/${projectId}/publications/due`, async route => {
+        await route.fulfill({ json: { publications: [publications[0]] } })
+    })
+    await page.route(`**/api/projects/${projectId}/publications/review-*/tags`, async route => {
+        await route.fulfill({ json: { tags: [] } })
+    })
+    await page.route(`**/api/projects/${projectId}/publications/review-*/editor`, async route => {
+        const id = new URL(route.request().url()).pathname.split('/').at(-2)
+        const index = publications.findIndex(item => item.id === id)
+        if (index < 0) throw new Error('Unknown review publication')
+        const base = editors.get(channels[scenarios[index]!.channel]!.id)!
+        const publication = base.publication as Record<string, unknown>
+        const post = base.post as Record<string, unknown>
+        await route.fulfill({
+            json: {
+                editor: {
+                    ...base,
+                    publication: { ...publication, ...publications[index] },
+                    post: {
+                        ...post,
+                        id: publications[index]!.postId,
+                        title: scenarios[index]!.title,
+                    },
+                },
+            },
+        })
+    })
+
+    const matrix = [
+        { locale: 'en', theme: 'dark', width: 1280 },
+        { locale: 'en', theme: 'light', width: 820 },
+        { locale: 'en', theme: 'light', width: 390 },
+        { locale: 'fr', theme: 'light', width: 1280 },
+        { locale: 'fr', theme: 'dark', width: 820 },
+        { locale: 'fr', theme: 'dark', width: 390 },
+    ] as const
+    for (const variant of matrix) {
+        const copy = variant.locale === 'fr' ? fr : en
+        await page.goto(`/dashboard/projects/${projectId}/queue`)
+        await expect(page.locator('[data-publication-selection-card]')).toHaveCount(7)
+        await expect(page.locator('html')).toHaveClass(/\b(?:light|dark)\b/)
+        if (variant.locale === 'fr' && (await page.locator('html').getAttribute('lang')) !== 'fr') {
+            await page.locator('[data-slot="language-switcher-trigger"]').click()
+            await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+            await expect(page.getByRole('menu')).toHaveCount(0)
+        }
+        if (
+            await page
+                .locator('html')
+                .getAttribute('class')
+                .then(value => !value?.split(' ').includes(variant.theme))
+        ) {
+            await page
+                .getByRole('button', {
+                    name: copy.theme_switch_to.replace('{theme}', copy[`theme_${variant.theme}`]),
+                    exact: true,
+                })
+                .click()
+        }
+        await page.setViewportSize({ width: variant.width, height: 900 })
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        await expect(page.locator('html')).toHaveAttribute('lang', variant.locale)
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${variant.theme}\\b`))
+        const cards = page.locator('[data-publication-selection-card]')
+        await expect(cards).toHaveCount(7)
+        await expect(cards.first()).toContainText(scenarios[0]!.title)
+        await expect(cards.locator('[data-publication-action="record-published"]')).toHaveCount(1)
+        await expect(cards.locator('[data-publication-action="retry"]')).toHaveCount(1)
+        await expect(cards.locator('[data-publication-action="review-outcome"]')).toHaveCount(1)
+        if (variant.width >= 1024) {
+            const alignment = await page.locator('[data-publication-list]').evaluate(list => {
+                const header = list.querySelector('[data-publication-table-header]')!
+                const headingColumns = header.querySelector(':scope > div')!
+                const destination = headingColumns.children[1]!.getBoundingClientRect()
+                const action = headingColumns.children[2]!.getBoundingClientRect()
+                return [...list.querySelectorAll('[data-publication-edit-link]')].map(link => ({
+                    destinationOffset: Math.abs(
+                        link.children[1]!.getBoundingClientRect().left - destination.left
+                    ),
+                    actionOffset: Math.abs(
+                        link.nextElementSibling!.getBoundingClientRect().right - action.right
+                    ),
+                }))
+            })
+            expect(alignment).toHaveLength(7)
+            for (const row of alignment) {
+                expect(row.destinationOffset).toBeLessThanOrEqual(1)
+                expect(row.actionOffset).toBeLessThanOrEqual(1)
+            }
+        }
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        await assertNoOverflow(page)
+        const attention = page.getByRole('tab', {
+            name: `${copy.queue_attention} (3)`,
+            exact: true,
+        })
+        await attention.focus()
+        await page.keyboard.press('Enter')
+        await expect(cards).toHaveCount(3)
+        await page.reload()
+        await expect(cards).toHaveCount(3)
+        await page.screenshot({
+            path: testInfo.outputPath(
+                `queue-${variant.locale}-${variant.theme}-${variant.width}.png`
+            ),
+        })
+        for (const [index, action] of [
+            [0, 'record-published'],
+            [1, 'retry'],
+        ] as const) {
+            await page.goto(`/dashboard/projects/${projectId}/publications/review-${index}`)
+            await expect(page.locator(`[data-publication-action="${action}"]`)).toBeVisible()
+            await expect(page.locator('[data-publication-draft-preview]')).toBeVisible()
+            const header = await page
+                .locator('main header')
+                .first()
+                .evaluate(element => {
+                    const title = element.querySelector('h1')!.getBoundingClientRect()
+                    const back = element.querySelector('a')!.getBoundingClientRect()
+                    const bounds = element.getBoundingClientRect()
+                    return {
+                        center: Math.abs(
+                            (title.left + title.right - bounds.left - bounds.right) / 2
+                        ),
+                        titleBelow: title.top >= back.bottom,
+                    }
+                })
+            expect(header.center).toBeLessThanOrEqual(1)
+            if (variant.width < 1024) expect(header.titleBelow).toBe(true)
+            await assertNoOverflow(page)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            await page.screenshot({
+                path: testInfo.outputPath(
+                    `detail-${index}-${variant.locale}-${variant.theme}-${variant.width}.png`
+                ),
+            })
+            const back = page.getByRole('link', { name: copy.editor_back_to_queue, exact: true })
+            await back.focus()
+            await page.keyboard.press('Enter')
+            await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/queue`))
+        }
+        await page.goto(`/dashboard/projects/${projectId}/overview`)
+        await expect(page.locator('[data-calendar-view]')).toBeVisible()
+        if (variant.width === 390)
+            await expect(page.locator('[data-calendar-view="agenda"]')).toBeVisible()
+        await assertNoOverflow(page)
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        await page.screenshot({
+            path: testInfo.outputPath(
+                `overview-${variant.locale}-${variant.theme}-${variant.width}.png`
+            ),
+        })
+    }
+    await page.unrouteAll({ behavior: 'wait' })
+})
+
+async function assertNoOverflow(page: Page): Promise<void> {
+    expect(
+        await page
+            .locator('[data-dashboard-scroll]')
+            .evaluate(region => region.scrollWidth <= region.clientWidth)
+    ).toBe(true)
+}
 
 function publicationFixture(input: {
     readonly channelName: string
@@ -170,6 +488,84 @@ function currentMonthNoon() {
     const now = new Date()
     return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), Math.min(now.getUTCDate(), 28), 12)
 }
+
+test('keeps draft content truthful in destination-specific preview compositions', async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(90_000)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const profiles = ['x', 'bluesky', 'mastodon', 'devto', 'discord']
+    for (const profileId of profiles) {
+        const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: { name: `Destination ${profileId}`, profile: profileId },
+        })
+        expect(response.status()).toBe(201)
+    }
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    const body = 'A thoughtful update for our community.'
+    await page
+        .getByRole('textbox', { name: en.publication_new_source_content, exact: true })
+        .fill(body)
+    for (const profileId of profiles) {
+        const name = `Destination ${profileId}`
+        const selected = page.getByRole('button', { name, exact: true })
+        if ((await selected.count()) === 0) {
+            await page
+                .getByRole('button', {
+                    name: en.publication_new_add_channel_named.replace('{channel}', name),
+                    exact: true,
+                })
+                .click()
+        }
+        await selected.click()
+        const preview = page.locator(`[data-preview-platform="${profileId}"]`)
+        await expect(preview).toContainText(en.publication_preview_sample_author)
+        await expect(preview.locator('[data-publication-preview-content]')).toHaveText(body)
+        if (profileId === 'devto') {
+            await page
+                .getByLabel(en.publication_new_post_title, { exact: true })
+                .fill('A community update')
+            await expect(preview.getByRole('heading', { name: 'A community update' })).toBeVisible()
+        }
+        if (profileId === 'discord' || profileId === 'devto') {
+            const backgrounds: string[] = []
+            for (const theme of ['light', 'dark'] as const) {
+                if (
+                    !(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)
+                ) {
+                    await page
+                        .getByRole('button', {
+                            name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                            exact: true,
+                        })
+                        .click()
+                }
+                await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
+                backgrounds.push(
+                    await preview.evaluate(element => getComputedStyle(element).backgroundColor)
+                )
+                await preview.screenshot({
+                    path: testInfo.outputPath(`preview-${profileId}-${theme}.png`),
+                })
+            }
+            expect(backgrounds[0]).not.toBe(backgrounds[1])
+        }
+        await expect(preview.getByRole('button')).toHaveCount(0)
+        for (const width of [1280, 390]) {
+            await page.setViewportSize({ width, height: 900 })
+            await assertNoOverflow(page)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            await preview.screenshot({
+                path: testInfo.outputPath(`preview-${profileId}-${width}.png`),
+            })
+        }
+        await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
+        await expect(
+            page.getByRole('textbox', { name: en.publication_new_source_content, exact: true })
+        ).toHaveValue(body)
+    }
+})
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')

@@ -295,7 +295,7 @@ export function PublicationCalendar({
                     monthHeader: '!border-0 gap-0.5',
                     monthRow: '!border-0 gap-0.5',
                     monthView: '!border-0',
-                    moreIndicator: 'px-1.5 text-primary',
+                    moreIndicator: 'px-1.5 text-foreground',
                 }}>
                 <EventCalendarToolbar
                     hotkeyTarget={calendarShellRef}

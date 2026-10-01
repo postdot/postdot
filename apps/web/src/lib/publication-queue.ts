@@ -38,6 +38,33 @@ export function filterQueuePublications(
     return publications.filter(publication => publication.deliveryMode === 'manual')
 }
 
+export function prioritizeQueuePublications(
+    publications: readonly PublicationSummary[],
+    duePublicationIds: ReadonlySet<string>
+) {
+    function priority(publication: PublicationSummary) {
+        if (
+            duePublicationIds.has(publication.id) ||
+            publication.state === 'failed' ||
+            publication.state === 'ambiguous' ||
+            publication.draftReviewState === 'review_required'
+        ) {
+            return 0
+        }
+        if (
+            publication.state === 'scheduled' ||
+            publication.state === 'ready' ||
+            publication.state === 'publishing'
+        ) {
+            return 1
+        }
+        if (publication.state === 'draft') return 2
+        return 3
+    }
+
+    return [...publications].sort((left, right) => priority(left) - priority(right))
+}
+
 export function isQueueFilter(value: string): value is QueueFilter {
     return (
         value === 'all' ||

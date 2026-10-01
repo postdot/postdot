@@ -20,8 +20,22 @@ test('resolves an ambiguous publication without retrying the provider', async ({
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await expect(page.locator('[data-new-publication-form="true"]')).toHaveAttribute(
+        'aria-busy',
+        'false'
+    )
     await page.getByLabel('Content', { exact: true }).fill('E2E recovery content')
-    await page.locator('button[name="publication-action"][value="schedule"]').click()
+    const scheduleButton = page.locator('button[name="publication-action"][value="schedule"]')
+    await Promise.all([
+        page.waitForResponse(
+            response =>
+                response.url().endsWith(`/api/projects/${projectId}/posts`) &&
+                response.request().method() === 'POST' &&
+                response.ok()
+        ),
+        scheduleButton.click(),
+    ])
+    await expect(scheduleButton).toBeEnabled()
 
     await page.getByRole('link', { name: 'Queue', exact: true }).click()
     const publicationLink = page.locator('a[data-publication-edit-link="true"]').first()

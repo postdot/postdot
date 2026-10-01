@@ -1,5 +1,5 @@
 import { Badge } from '@herald/ui/components/badge'
-import { Button } from '@herald/ui/components/button'
+import { Button, buttonVariants } from '@herald/ui/components/button'
 import {
     Select,
     SelectContent,
@@ -9,6 +9,7 @@ import {
 } from '@herald/ui/components/select'
 import { Tabs, TabsList, TabsTrigger } from '@herald/ui/components/tabs'
 import { cn } from '@herald/ui/lib/utils'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
@@ -38,6 +39,7 @@ import {
     filterQueuePublications,
     isQueueFilter,
     isPublicationQueueSort,
+    prioritizeQueuePublications,
     type PublicationQueueSort,
     type QueueFilter,
 } from '@/lib/publication-queue'
@@ -137,11 +139,15 @@ export function PublicationQueuePage({
         scheduled: queueSummary.scheduled,
         manual: queueSummary.manual,
     }
-    const visiblePublications = filterQueuePublications(
+    const filteredPublications = filterQueuePublications(
         taggedPublications,
         duePublicationIds,
         filter
     )
+    const visiblePublications =
+        sort === 'queue'
+            ? prioritizeQueuePublications(filteredPublications, duePublicationIds)
+            : filteredPublications
     const selectedPublications = visiblePublications.filter(publication =>
         selectedPublicationIds.has(publication.id)
     )
@@ -248,11 +254,23 @@ export function PublicationQueuePage({
                         </Button>
                     ) : undefined
                 }
-                title={m.queue_title()}>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    {project.name} · {project.timeZone}
-                </p>
-            </DashboardPageHeader>
+                back={
+                    <Link
+                        aria-label={m.nav_back_to_overview()}
+                        className={buttonVariants({
+                            variant: 'ghost',
+                            size: 'icon',
+                            className:
+                                'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
+                        })}
+                        params={{ projectId: project.id }}
+                        to="/dashboard/projects/$projectId/overview">
+                        <AltArrowLeftIcon aria-hidden="true" />
+                        <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
+                    </Link>
+                }
+                title={m.queue_title()}
+            />
 
             {canEditProject ? (
                 <PublicationApprovalRequests projectId={project.id} timeZone={project.timeZone} />
@@ -278,11 +296,13 @@ export function PublicationQueuePage({
                             })}
                             value="all">
                             {m.queue_all()}
-                            <Badge
-                                className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
-                                variant="secondary">
-                                {formatNumber(filterCounts.all, locale)}
-                            </Badge>
+                            {filterCounts.all > 0 ? (
+                                <Badge
+                                    className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
+                                    variant="secondary">
+                                    {formatNumber(filterCounts.all, locale)}
+                                </Badge>
+                            ) : null}
                         </TabsTrigger>
                         <TabsTrigger
                             aria-label={m.queue_filter_aria({
@@ -291,11 +311,13 @@ export function PublicationQueuePage({
                             })}
                             value="attention">
                             {m.queue_attention()}
-                            <Badge
-                                className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
-                                variant="secondary">
-                                {formatNumber(filterCounts.attention, locale)}
-                            </Badge>
+                            {filterCounts.attention > 0 ? (
+                                <Badge
+                                    className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
+                                    variant="secondary">
+                                    {formatNumber(filterCounts.attention, locale)}
+                                </Badge>
+                            ) : null}
                         </TabsTrigger>
                         <TabsTrigger
                             aria-label={m.queue_filter_aria({
@@ -304,11 +326,13 @@ export function PublicationQueuePage({
                             })}
                             value="scheduled">
                             {m.queue_scheduled()}
-                            <Badge
-                                className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
-                                variant="secondary">
-                                {formatNumber(filterCounts.scheduled, locale)}
-                            </Badge>
+                            {filterCounts.scheduled > 0 ? (
+                                <Badge
+                                    className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
+                                    variant="secondary">
+                                    {formatNumber(filterCounts.scheduled, locale)}
+                                </Badge>
+                            ) : null}
                         </TabsTrigger>
                         <TabsTrigger
                             aria-label={m.queue_filter_aria({
@@ -317,11 +341,13 @@ export function PublicationQueuePage({
                             })}
                             value="draft">
                             {m.queue_drafts()}
-                            <Badge
-                                className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
-                                variant="secondary">
-                                {formatNumber(filterCounts.draft, locale)}
-                            </Badge>
+                            {filterCounts.draft > 0 ? (
+                                <Badge
+                                    className="min-w-5 rounded-md px-1.5 py-0 text-[0.7rem]"
+                                    variant="secondary">
+                                    {formatNumber(filterCounts.draft, locale)}
+                                </Badge>
+                            ) : null}
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>

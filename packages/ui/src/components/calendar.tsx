@@ -12,6 +12,7 @@ import {
     type RootProps,
     type WeekNumberProps,
 } from 'react-day-picker'
+import { enUS, fr } from 'react-day-picker/locale'
 
 import { cn } from '../lib/utils'
 import { Button, buttonVariants } from './button'
@@ -85,7 +86,7 @@ function Calendar({
                 month_grid: cn('w-full border-collapse', defaultClassNames.month_grid),
                 weekdays: cn('flex', defaultClassNames.weekdays),
                 weekday: cn(
-                    'flex-1 rounded-(--cell-radius) text-[0.7rem] font-medium text-muted-foreground/75 select-none',
+                    'flex-1 rounded-(--cell-radius) text-[0.7rem] font-medium text-muted-foreground select-none',
                     defaultClassNames.weekday
                 ),
                 week: cn('mt-1.5 flex w-full', defaultClassNames.week),
@@ -197,4 +198,6 @@ function CalendarWeekNumber({ children, ...props }: WeekNumberProps) {
     )
 }
 
-export { Calendar, CalendarDayButton }
+const calendarLocales = { en: enUS, fr }
+
+export { Calendar, CalendarDayButton, calendarLocales }

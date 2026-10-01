@@ -32,6 +32,7 @@ import { formatDateTime } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { notificationContent } from '@/lib/notification-content'
 import * as m from '@/paraglide/messages.js'
+import type { Locale } from '@/paraglide/runtime.js'
 
 interface NotificationInboxProps {
     readonly projectId: string | null
@@ -307,14 +308,15 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                                     title={m.notifications_empty()}
                                 />
                             ) : (
-                                <div className="grid gap-2" role="list">
+                                <ul className="grid gap-2">
                                     {notifications.map(notification => (
                                         <NotificationItem
                                             key={notification.id}
                                             disabled={workingId === notification.id}
                                             notification={notification}
                                             projectName={
-                                                notification.projectId === null
+                                                notification.projectId === null ||
+                                                notification.projectId === projectId
                                                     ? null
                                                     : (projects.find(
                                                           project =>
@@ -326,7 +328,7 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                                             onMarkRead={markRead}
                                         />
                                     ))}
-                                </div>
+                                </ul>
                             )}
                         </ScrollArea>
                     ) : (
@@ -354,75 +356,71 @@ function NotificationItem({
     readonly disabled: boolean
     readonly notification: Notification
     readonly projectName: string | null
-    readonly locale: string
+    readonly locale: Locale
     readonly onArchive: (notification: Notification) => Promise<void>
     readonly onMarkRead: (notification: Notification) => Promise<void>
 }) {
     const unread = notification.readAt === null
-    const copy = notificationContent(notification)
+    const copy = notificationContent(notification, locale)
 
     return (
-        <article
+        <li
             className={
                 unread
                     ? 'rounded-md bg-surface-raised px-3.5 py-3 shadow-field'
                     : 'rounded-md bg-muted/60 px-3.5 py-3'
-            }
-            role="listitem">
+            }>
             <div className="flex items-start gap-3">
                 <span
                     className={`mt-1.5 size-2 shrink-0 rounded-full ${severityClass(notification)}`}
                     aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                            <p className="text-sm leading-5 font-medium text-foreground">
-                                {copy.title}
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                {copy.body}
-                            </p>
-                            {projectName !== null ? (
-                                <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground/80">
-                                    {projectName}
-                                </p>
-                            ) : null}
-                        </div>
+                    <p className="text-sm leading-5 font-medium break-words text-foreground">
+                        {copy.title}
+                    </p>
+                    {copy.body !== null ? (
+                        <p className="mt-1 text-xs leading-5 break-words text-muted-foreground">
+                            {copy.body}
+                        </p>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.68rem] leading-4 text-muted-foreground">
+                        {projectName !== null ? (
+                            <span className="min-w-0 break-words">{projectName}</span>
+                        ) : null}
                         <time
-                            className="shrink-0 text-[0.68rem] leading-4 text-muted-foreground"
+                            className="tabular-nums"
                             dateTime={new Date(notification.createdAt).toISOString()}>
                             {formatNotificationTime(notification.createdAt, locale)}
                         </time>
-                    </div>
-
-                    <div className="mt-2 flex items-center gap-1">
-                        {unread ? (
+                        <div className="ml-auto flex shrink-0 items-center gap-1">
+                            {unread ? (
+                                <Button
+                                    aria-label={m.notifications_mark_as_read({ title: copy.title })}
+                                    disabled={disabled}
+                                    size="icon-xs"
+                                    title={m.notifications_read_short()}
+                                    variant="ghost"
+                                    onClick={() => void onMarkRead(notification)}>
+                                    <CheckIcon aria-hidden="true" />
+                                    <span className="sr-only">{m.notifications_read_short()}</span>
+                                </Button>
+                            ) : null}
                             <Button
-                                aria-label={m.notifications_mark_as_read({ title: copy.title })}
+                                aria-label={m.notifications_archive_item({ title: copy.title })}
                                 disabled={disabled}
                                 size="icon-xs"
-                                title={m.notifications_read_short()}
+                                title={m.notifications_archive_short()}
                                 variant="ghost"
-                                onClick={() => void onMarkRead(notification)}>
-                                <CheckIcon aria-hidden="true" />
-                                <span className="sr-only">{m.notifications_read_short()}</span>
+                                onClick={() => void onArchive(notification)}>
+                                <ArchiveIcon aria-hidden="true" />
+                                <span className="sr-only">{m.notifications_archive_short()}</span>
                             </Button>
-                        ) : null}
-                        <Button
-                            aria-label={m.notifications_archive_item({ title: copy.title })}
-                            disabled={disabled}
-                            size="icon-xs"
-                            title={m.notifications_archive_short()}
-                            variant="ghost"
-                            onClick={() => void onArchive(notification)}>
-                            <ArchiveIcon aria-hidden="true" />
-                            <span className="sr-only">{m.notifications_archive_short()}</span>
-                        </Button>
+                        </div>
                     </div>
                 </div>
             </div>
-        </article>
+        </li>
     )
 }
 
