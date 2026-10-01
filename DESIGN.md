@@ -205,7 +205,8 @@ future landing-page decisions remain explicit below.
   Surface separation is evaluated against the actual adjacent host, including
   translucent layers. Near-black shades and black shadows alone must not be
   relied on to separate navigation from the work page. A restrained structural
-  edge is permitted at that boundary; it does not imply borders around every
+  edge is permitted at that boundary, with the same geometry and placement
+  in both themes; only its contrast follows the theme. It does not imply borders around every
   content region. Numerical token differences supplement visual review rather
   than establishing perceptual clarity by themselves.
 - Controls: fields use the field surface and its inset shadow as their default

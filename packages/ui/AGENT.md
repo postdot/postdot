@@ -68,7 +68,9 @@ of the shared visual language. Keep one-off product composition in the app.
 - Near-black shades need a deliberate elevation step: tiny numeric differences
   and black shadows do not establish a reliable navigation/page boundary.
   The shared shell shadow supplies a restrained inset edge in dark mode;
-  use it at the structural page boundary, not on every content card.
+  use it at the structural page boundary, not on every content card. Preserve
+  the same edge placement and geometry in light mode; adapt its contrast, not
+  its visual role.
 - Check text, links, state labels and hover colors on the final host, including
   translucent inset layers. Token separation checks supplement rendered review;
   they do not prove perceptual clarity or accessibility on their own.

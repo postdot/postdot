@@ -385,8 +385,8 @@ function EventCalendarToolbar({
     )
 
     return (
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-1.5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <div className="flex shrink-0 items-center gap-1.5">
                 <Button
                     aria-label={settings.i18n.labels.previous}
                     aria-keyshortcuts="["
@@ -412,12 +412,12 @@ function EventCalendarToolbar({
                     <AltArrowRightIcon aria-hidden="true" />
                 </Button>
             </div>
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 sm:justify-end">
-                <h2
-                    className="min-w-0 flex-1 break-words font-heading text-xl font-[580] leading-tight sm:text-2xl"
-                    id="calendar-title">
-                    {title}
-                </h2>
+            <h2
+                className="order-first w-full min-w-0 font-heading text-xl font-[580] leading-tight [overflow-wrap:normal] sm:order-none sm:w-auto sm:min-w-max sm:flex-1 sm:text-2xl"
+                id="calendar-title">
+                {title}
+            </h2>
+            <div className="flex max-w-full flex-wrap items-center gap-3 sm:ml-auto">
                 <Button
                     aria-pressed={selectionMode}
                     onClick={() => onSelectionModeChange(!selectionMode)}

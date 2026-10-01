@@ -262,6 +262,56 @@ test('keeps the populated ReUI calendar responsive and keyboard navigable', asyn
     )
 })
 
+test('keeps calendar titles readable across intermediate workspace widths', async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(90_000)
+    const { calendar, projectId } = await createDenseCalendarProject(page)
+    await page.getByRole('button', { name: 'Switch language to French', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'French', exact: true }).click()
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+
+    for (const collapsed of [false, true]) {
+        await page.setViewportSize({ width: 1280, height: 900 })
+        if (collapsed) await page.locator('[data-slot="sidebar-trigger"]').click()
+        for (const view of ['month', 'week']) {
+            await page.goto(
+                `/dashboard/projects/${projectId}/overview?date=2026-10-01&view=${view}`
+            )
+            await expect(calendar.locator(`[data-calendar-view="${view}"]`)).toBeVisible()
+            for (const width of [
+                640, 641, 700, 767, 768, 769, 775, 800, 840, 880, 920, 960, 1000, 1023, 1024, 1025,
+                1080, 1160, 1280, 1440,
+            ]) {
+                await page.setViewportSize({ width, height: 900 })
+                const layout = await calendar.locator('#calendar-title').evaluate(title => {
+                    const bounds = title.getBoundingClientRect()
+                    const toolbar = title.parentElement!
+                    const lineHeight = Number.parseFloat(getComputedStyle(title).lineHeight)
+                    return {
+                        height: bounds.height,
+                        lineHeight,
+                        titleOverflow: title.scrollWidth - title.clientWidth,
+                        toolbarOverflow: toolbar.scrollWidth - toolbar.clientWidth,
+                    }
+                })
+                expect(
+                    layout.height,
+                    `${view}, ${width}px, collapsed=${collapsed}`
+                ).toBeLessThanOrEqual(layout.lineHeight * 1.1)
+                expect(layout.titleOverflow).toBeLessThanOrEqual(1)
+                expect(layout.toolbarOverflow).toBeLessThanOrEqual(1)
+            }
+            await page.setViewportSize({ width: 775, height: 900 })
+            await page.screenshot({
+                path: testInfo.outputPath(
+                    `calendar-${view}-${collapsed ? 'compact' : 'expanded'}-775.png`
+                ),
+            })
+        }
+    }
+})
+
 test('supports dense events and slot creation in the ReUI week view', async ({ page }) => {
     const { calendar, projectId, suffix } = await createDenseCalendarProject(page)
     await page.setViewportSize({ width: 1280, height: 900 })
