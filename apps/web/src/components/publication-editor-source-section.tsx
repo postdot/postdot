@@ -81,7 +81,7 @@ export function PublicationEditorSourceSection({
 
     return (
         <section className="min-w-0">
-            <div className="rounded-md bg-surface-inset/35 p-4 shadow-surface sm:p-5">
+            <div className="rounded-md bg-surface-raised p-4 shadow-surface sm:p-5">
                 <div className="grid min-w-0 gap-4">
                     {showBodyField ? (
                         <Field className="min-w-0 gap-1.5">
