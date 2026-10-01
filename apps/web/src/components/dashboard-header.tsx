@@ -74,12 +74,15 @@ export function DashboardHeader({
     useLanguage()
     const isSettingsShell =
         isInstanceSettings || isProjectSettings || isWorkspaceSettings || isUserPreferences
-    const backLabel = isProjectSettings ? m.nav_back_to_project() : m.nav_back_to_workspace()
+    const backLabel = projectId !== null ? m.nav_back_to_project() : m.nav_back_to_workspace()
     const backLink =
-        isProjectSettings && projectId !== null ? (
+        projectId !== null ? (
             <Link params={{ projectId }} to="/dashboard/projects/$projectId/overview" />
         ) : (
-            <Link search={{ workspaceId: workspaceId ?? undefined }} to="/dashboard" />
+            <Link
+                search={{ workspaceId: workspaceId ?? undefined, projectId: 'none' }}
+                to="/dashboard"
+            />
         )
 
     return (

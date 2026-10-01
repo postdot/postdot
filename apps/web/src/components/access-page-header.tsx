@@ -1,6 +1,6 @@
 import { Button } from '@herald/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
-import { Link } from '@tanstack/react-router'
+import { Link, useSearch } from '@tanstack/react-router'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
@@ -14,7 +14,15 @@ export function AccessPageHeader({
     readonly projectId?: string
 }) {
     const global = useDashboardGlobal()
-    const label = projectId ? m.nav_back_to_project() : m.nav_back_to_workspace()
+    const search = useSearch({ from: '/dashboard' })
+    const returnProjectId =
+        projectId ??
+        global.projects.find(
+            project =>
+                project.id === search.projectId &&
+                project.workspaceId === global.selectedWorkspaceId
+        )?.id
+    const label = returnProjectId ? m.nav_back_to_project() : m.nav_back_to_workspace()
     return (
         <DashboardPageHeader
             title={title}
@@ -22,14 +30,17 @@ export function AccessPageHeader({
                 <Button
                     nativeButton={false}
                     render={
-                        projectId ? (
+                        returnProjectId ? (
                             <Link
-                                params={{ projectId }}
+                                params={{ projectId: returnProjectId }}
                                 to="/dashboard/projects/$projectId/overview"
                             />
                         ) : (
                             <Link
-                                search={{ workspaceId: global.selectedWorkspaceId ?? undefined }}
+                                search={{
+                                    workspaceId: global.selectedWorkspaceId ?? undefined,
+                                    projectId: 'none',
+                                }}
                                 to="/dashboard"
                             />
                         )

@@ -160,6 +160,22 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     await expect(
         page.getByRole('navigation', { name: 'Administration navigation', exact: true })
     ).toBeVisible()
+    const returnToProject = page.getByRole('button', { name: 'Back to project', exact: true })
+    await expect(returnToProject).toHaveAttribute(
+        'href',
+        `/dashboard/projects/${projectId}/overview`
+    )
+    await returnToProject.click()
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/overview$`))
+
+    await page.goto(`/dashboard/preferences?projectId=${projectId}`)
+    await expect(
+        page.getByRole('button', { name: 'Back to project', exact: true })
+    ).toHaveAttribute('href', `/dashboard/projects/${projectId}/overview`)
+    await page.goto('/dashboard/preferences?projectId=none')
+    await expect(
+        page.getByRole('button', { name: 'Back to workspace', exact: true })
+    ).toHaveAttribute('href', /projectId=none/)
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
