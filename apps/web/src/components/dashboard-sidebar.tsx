@@ -52,6 +52,7 @@ export type DashboardSection =
     | 'settings'
     | 'preferences'
     | 'preferences-api-keys'
+    | 'preferences-account'
 
 interface DashboardSidebarProps {
     readonly activeSection: DashboardSection
@@ -231,6 +232,14 @@ export function DashboardSidebar({
                                             workspaceId={selectedWorkspaceId}
                                         />
                                         <WorkspaceMenuItem
+                                            active={activeSection === 'preferences-account'}
+                                            destination="preferences-account"
+                                            icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
+                                            label={m.nav_preferences_account()}
+                                            projectId={selectedProjectId}
+                                            workspaceId={selectedWorkspaceId}
+                                        />
+                                        <WorkspaceMenuItem
                                             active={activeSection === 'preferences-api-keys'}
                                             destination="preferences-api-keys"
                                             icon={<KeyMinimalisticIcon aria-hidden="true" />}
@@ -396,6 +405,7 @@ export function DashboardSidebar({
 }
 
 export function workspaceSection(pathname: string): DashboardSection {
+    if (pathname === '/dashboard/preferences/account') return 'preferences-account'
     if (pathname === '/dashboard/preferences/api-keys') return 'preferences-api-keys'
     if (pathname === '/dashboard/preferences') return 'preferences'
     if (pathname.includes('/settings/access')) return 'settings-access'
@@ -428,6 +438,7 @@ export function workspaceSectionLabel(section: DashboardSection) {
     if (section === 'settings-workspace') return m.nav_workspace_administration()
     if (section === 'settings') return m.nav_instance_configuration()
     if (section === 'preferences') return m.nav_preferences_general()
+    if (section === 'preferences-account') return m.nav_preferences_account()
     if (section === 'preferences-api-keys') return m.nav_preferences_api_keys()
     return m.nav_overview()
 }
@@ -542,6 +553,17 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/preferences"
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
+                aria-label={ariaLabel}
+                aria-current={active ? 'page' : undefined}
+            />
+        )
+    }
+
+    if (destination === 'preferences-account') {
+        return (
+            <Link
+                to="/dashboard/preferences/account"
                 search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}

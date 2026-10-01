@@ -9,7 +9,7 @@ import type { MediaStore } from '@herald/media'
 import { acquireRuntimeQuiescenceLock } from './runtime-quiescence'
 
 const SQLITE_BUSY_TIMEOUT_MILLISECONDS = 5_000
-const MEDIA_BACKUP_VERSION = 1
+const MEDIA_BACKUP_VERSION = 2
 const MEDIA_BACKUP_DATABASE_FILENAME = 'database.sqlite'
 const MEDIA_BACKUP_MANIFEST_FILENAME = 'manifest.json'
 const DEFAULT_MEDIA_BACKUP_FENCE_LEASE_MS = 15 * 60_000
@@ -33,13 +33,14 @@ export interface MediaRestoreOptions {
 }
 
 export interface MediaBackupManifest {
-    readonly version: 1
+    readonly version: 1 | 2
     readonly createdAt: number
     readonly database: {
         readonly filename: typeof MEDIA_BACKUP_DATABASE_FILENAME
         readonly size: number
         readonly sha256: string
     }
+    readonly avatars?: readonly MediaBackupAvatar[]
     readonly representations: readonly MediaBackupRepresentation[]
 }
 
@@ -56,6 +57,19 @@ export interface MediaBackupRepresentation {
     readonly sha256: string
     readonly databaseByteSize: number | null
     readonly databaseSha256: string | null
+}
+
+export interface MediaBackupAvatar {
+    readonly avatarId: string
+    readonly userId: string
+    readonly state: 'ready' | 'retired'
+    readonly storeId: string
+    readonly objectKey: string
+    readonly relativePath: string
+    readonly size: number
+    readonly sha256: string
+    readonly databaseByteSize: number
+    readonly databaseSha256: string
 }
 
 export function backupDatabase(sourceFilename: string, destinationFilename: string) {
@@ -167,16 +181,19 @@ export async function backupWithMedia(options: MediaBackupOptions): Promise<Medi
 
         const snapshot = openReadOnlyDatabase(databasePath)
         let representations: readonly MediaBackupRepresentation[]
+        let avatars: readonly MediaBackupAvatar[]
         try {
             assertHealthy(snapshot, databasePath)
             assertHeraldDatabase(snapshot, databasePath)
             representations = snapshotMediaRepresentations(snapshot, options.mediaStore)
+            avatars = snapshotAvatars(snapshot, options.mediaStore)
         } finally {
             snapshot.close()
         }
 
         const backedUpRepresentations: MediaBackupRepresentation[] = []
-        for (const representation of representations) {
+        const backedUpAvatars: MediaBackupAvatar[] = []
+        for (const representation of [...representations, ...avatars]) {
             fence.refresh(now())
             const object = await options.mediaStore.open(representation.objectKey, {
                 maxBytes: options.mediaStore.maxObjectBytes,
@@ -210,11 +227,19 @@ export async function backupWithMedia(options: MediaBackupOptions): Promise<Medi
                     `Media object ${representation.objectKey} failed its backup integrity check`
                 )
             }
-            backedUpRepresentations.push({
-                ...representation,
-                size: copied.size,
-                sha256: copied.sha256,
-            })
+            if ('avatarId' in representation) {
+                backedUpAvatars.push({
+                    ...representation,
+                    size: copied.size,
+                    sha256: copied.sha256,
+                })
+            } else {
+                backedUpRepresentations.push({
+                    ...representation,
+                    size: copied.size,
+                    sha256: copied.sha256,
+                })
+            }
         }
 
         fence.refresh(now())
@@ -228,6 +253,7 @@ export async function backupWithMedia(options: MediaBackupOptions): Promise<Medi
                 sha256: databaseIntegrity.sha256,
             },
             representations: backedUpRepresentations,
+            avatars: backedUpAvatars,
         }
         await writeFile(
             join(temporaryPath, MEDIA_BACKUP_MANIFEST_FILENAME),
@@ -280,11 +306,24 @@ async function restoreWithMediaWithoutRuntimeLock(
         assertHealthy(bundleDatabase, bundleDatabasePath)
         assertHeraldDatabase(bundleDatabase, bundleDatabasePath)
         assertBackupDatabaseMediaMatches(bundleDatabase, manifest, options.mediaStore)
+        const expectedAvatars = snapshotAvatars(bundleDatabase, options.mediaStore)
+        const actualAvatars = manifest.avatars ?? []
+        if (
+            expectedAvatars.length !== actualAvatars.length ||
+            expectedAvatars.some(row => {
+                const item = actualAvatars.find(candidate => candidate.avatarId === row.avatarId)
+                return (
+                    !item ||
+                    Object.entries(row).some(([key, value]) => Reflect.get(item, key) !== value)
+                )
+            })
+        )
+            throw new Error('Avatar backup manifest does not match its database snapshot')
     } finally {
         bundleDatabase.close()
     }
 
-    for (const representation of manifest.representations) {
+    for (const representation of [...manifest.representations, ...(manifest.avatars ?? [])]) {
         const objectPath = safeBundlePath(sourcePath, representation.relativePath)
         await assertFileIntegrity(objectPath, representation.size, representation.sha256)
         if (representation.storeId !== options.mediaStore.storeId) {
@@ -322,7 +361,7 @@ async function restoreWithMediaWithoutRuntimeLock(
             restored.close()
         }
 
-        for (const representation of manifest.representations) {
+        for (const representation of [...manifest.representations, ...(manifest.avatars ?? [])]) {
             fence?.refresh(now())
             const existing = await options.mediaStore.stat(representation.objectKey)
             if (existing !== null) continue
@@ -433,6 +472,34 @@ function clearMediaBackupFenceFromSnapshot(filename: string): void {
     } finally {
         database.close()
     }
+}
+
+function snapshotAvatars(database: Database, mediaStore: MediaStore): readonly MediaBackupAvatar[] {
+    if (
+        !database
+            .query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'user_avatars'")
+            .get()
+    )
+        return []
+    const rows = database
+        .query<
+            Omit<MediaBackupAvatar, 'relativePath' | 'databaseByteSize' | 'databaseSha256'>,
+            []
+        >(`
+        SELECT id as avatarId, user_id as userId, state, store_id as storeId,
+            object_key as objectKey, byte_size as size, sha256
+        FROM user_avatars WHERE state IN ('ready', 'retired') ORDER BY id`)
+        .all()
+    return rows.map(row => {
+        if (row.storeId !== mediaStore.storeId)
+            throw new Error('Avatar backup store does not match')
+        return {
+            ...row,
+            relativePath: `avatars/${row.avatarId}.bin`,
+            databaseByteSize: row.size,
+            databaseSha256: row.sha256,
+        }
+    })
 }
 
 function snapshotMediaRepresentations(
@@ -559,7 +626,7 @@ async function readMediaBackupManifest(bundlePath: string): Promise<MediaBackupM
     } catch {
         throw new Error(`Media backup manifest is not valid JSON: ${manifestPath}`)
     }
-    if (!isRecord(parsed) || parsed.version !== MEDIA_BACKUP_VERSION) {
+    if (!isRecord(parsed) || (parsed.version !== 1 && parsed.version !== MEDIA_BACKUP_VERSION)) {
         throw new Error('Unsupported media backup manifest version')
     }
     if (
@@ -605,6 +672,37 @@ async function readMediaBackupManifest(bundlePath: string): Promise<MediaBackupM
             throw new Error('Media backup representation entry is invalid')
         }
         representationIds.add(value.representationId)
+        objectKeys.add(value.objectKey)
+    }
+    if (parsed.version === 2 && !Array.isArray(parsed.avatars)) {
+        throw new Error('Avatar backup manifest entry is invalid')
+    }
+    const avatars = parsed.avatars ?? []
+    if (!Array.isArray(avatars)) throw new Error('Avatar backup manifest entry is invalid')
+    const avatarIds = new Set<string>()
+    for (const value of avatars) {
+        if (
+            !isRecord(value) ||
+            typeof value.avatarId !== 'string' ||
+            !/^[a-zA-Z0-9-]+$/.test(value.avatarId) ||
+            typeof value.userId !== 'string' ||
+            value.userId.length === 0 ||
+            typeof value.storeId !== 'string' ||
+            value.storeId.length === 0 ||
+            typeof value.objectKey !== 'string' ||
+            value.objectKey.length === 0 ||
+            !['ready', 'retired'].includes(String(value.state)) ||
+            value.relativePath !== `avatars/${value.avatarId}.bin` ||
+            !isSafeNonNegativeInteger(value.size) ||
+            !isSha256(value.sha256) ||
+            value.databaseByteSize !== value.size ||
+            value.databaseSha256 !== value.sha256 ||
+            avatarIds.has(value.avatarId) ||
+            objectKeys.has(value.objectKey)
+        ) {
+            throw new Error('Avatar backup manifest entry is invalid')
+        }
+        avatarIds.add(value.avatarId)
         objectKeys.add(value.objectKey)
     }
     return parsed as unknown as MediaBackupManifest

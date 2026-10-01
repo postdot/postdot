@@ -480,6 +480,29 @@ export const api = {
         )
     },
 
+    updateProfile(name: string): Promise<{ status: boolean }> {
+        return requestAuth('/api/auth/update-user', jsonBody({ name: name.trim() }))
+    },
+
+    changePassword(currentPassword: string, newPassword: string): Promise<unknown> {
+        return requestAuth(
+            '/api/auth/change-password',
+            jsonBody({ currentPassword, newPassword, revokeOtherSessions: true })
+        )
+    },
+
+    uploadAvatar(file: File): Promise<{ image: string }> {
+        return requestAuth('/api/account/avatar', {
+            method: 'POST',
+            body: file,
+            headers: { 'content-type': file.type || 'application/octet-stream' },
+        })
+    },
+
+    removeAvatar(): Promise<{ success: boolean }> {
+        return requestAuth('/api/account/avatar', { method: 'DELETE' })
+    },
+
     signOut(): Promise<unknown> {
         return requestAuth('/api/auth/sign-out', jsonBody({}))
     },

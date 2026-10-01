@@ -18,6 +18,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as DashboardPreferencesRouteImport } from './routes/dashboard/preferences'
 import { Route as DashboardPreferencesIndexRouteImport } from './routes/dashboard/preferences/index'
+import { Route as DashboardPreferencesAccountRouteImport } from './routes/dashboard/preferences/account'
 import { Route as DashboardPreferencesApiKeysRouteImport } from './routes/dashboard/preferences/api-keys'
 import { Route as DashboardProjectsProjectIdRouteImport } from './routes/dashboard/projects/$projectId'
 import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard/settings/index'
@@ -79,6 +80,12 @@ const DashboardPreferencesIndexRoute =
   DashboardPreferencesIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => DashboardPreferencesRoute,
+  } as any)
+const DashboardPreferencesAccountRoute =
+  DashboardPreferencesAccountRouteImport.update({
+    id: '/account',
+    path: '/account',
     getParentRoute: () => DashboardPreferencesRoute,
   } as any)
 const DashboardPreferencesApiKeysRoute =
@@ -185,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
   '/dashboard/preferences': typeof DashboardPreferencesRouteWithChildren
+  '/dashboard/preferences/account': typeof DashboardPreferencesAccountRoute
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
@@ -211,6 +219,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
+  '/dashboard/preferences/account': typeof DashboardPreferencesAccountRoute
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
@@ -239,6 +248,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/setup': typeof SetupRoute
   '/dashboard/preferences': typeof DashboardPreferencesRouteWithChildren
+  '/dashboard/preferences/account': typeof DashboardPreferencesAccountRoute
   '/dashboard/preferences/api-keys': typeof DashboardPreferencesApiKeysRoute
   '/dashboard/projects/$projectId': typeof DashboardProjectsProjectIdRouteWithChildren
   '/dashboard/settings/access': typeof DashboardSettingsAccessRoute
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/setup'
     | '/dashboard/preferences'
+    | '/dashboard/preferences/account'
     | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/setup'
+    | '/dashboard/preferences/account'
     | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
@@ -321,6 +333,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/setup'
     | '/dashboard/preferences'
+    | '/dashboard/preferences/account'
     | '/dashboard/preferences/api-keys'
     | '/dashboard/projects/$projectId'
     | '/dashboard/settings/access'
@@ -413,6 +426,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/dashboard/preferences/'
       preLoaderRoute: typeof DashboardPreferencesIndexRouteImport
+      parentRoute: typeof DashboardPreferencesRoute
+    }
+    '/dashboard/preferences/account': {
+      id: '/dashboard/preferences/account'
+      path: '/account'
+      fullPath: '/dashboard/preferences/account'
+      preLoaderRoute: typeof DashboardPreferencesAccountRouteImport
       parentRoute: typeof DashboardPreferencesRoute
     }
     '/dashboard/preferences/api-keys': {
@@ -531,11 +551,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface DashboardPreferencesRouteChildren {
+  DashboardPreferencesAccountRoute: typeof DashboardPreferencesAccountRoute
   DashboardPreferencesApiKeysRoute: typeof DashboardPreferencesApiKeysRoute
   DashboardPreferencesIndexRoute: typeof DashboardPreferencesIndexRoute
 }
 
 const DashboardPreferencesRouteChildren: DashboardPreferencesRouteChildren = {
+  DashboardPreferencesAccountRoute: DashboardPreferencesAccountRoute,
   DashboardPreferencesApiKeysRoute: DashboardPreferencesApiKeysRoute,
   DashboardPreferencesIndexRoute: DashboardPreferencesIndexRoute,
 }

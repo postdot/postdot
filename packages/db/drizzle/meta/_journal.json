@@ -64,6 +64,13 @@
             "when": 1790540399638,
             "tag": "0008_romantic_molten_man",
             "breakpoints": true
+        },
+        {
+            "idx": 9,
+            "version": "6",
+            "when": 1790853158807,
+            "tag": "0009_groovy_lethal_legion",
+            "breakpoints": true
         }
     ]
 }

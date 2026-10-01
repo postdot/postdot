@@ -2744,3 +2744,29 @@ export const notificationDeliveries = sqliteTable(
         ),
     ]
 )
+
+/** Personal images deliberately do not belong to project media libraries. */
+export const userAvatars = sqliteTable(
+    'user_avatars',
+    {
+        id: text('id').primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'restrict' }),
+        state: text('state', { enum: ['pending', 'ready', 'retired'] }).notNull(),
+        storeId: text('store_id').notNull(),
+        objectKey: text('object_key').notNull().unique(),
+        contentType: text('content_type').notNull(),
+        byteSize: integer('byte_size').notNull(),
+        sha256: text('sha256').notNull(),
+        ...timestamps(),
+    },
+    table => [
+        index('user_avatars_owner_state').on(table.userId, table.state),
+        check('user_avatars_state_valid', sql`${table.state} in ('pending', 'ready', 'retired')`),
+        check(
+            'user_avatars_size_valid',
+            sql`${table.byteSize} > 0 and ${table.byteSize} <= 5242880`
+        ),
+    ]
+)

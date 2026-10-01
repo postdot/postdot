@@ -9,6 +9,7 @@ import {
     createDatabase,
     createAccessStore,
     createMediaAssetStore,
+    createUserAvatarStore,
     createNotificationStore,
     acquireRuntimeQuiescenceLock,
     setDatabaseCommitObserver,
@@ -123,7 +124,9 @@ async function startServerWithRuntimeLock(
         projectIds => realtime.publish(projectIds),
         error => console.error('[herald-realtime] post-commit observer failed', error)
     )
-    const media = createMediaAssetStore(database, createConfiguredMediaStore(config.media), {
+    const objectStorage = createConfiguredMediaStore(config.media)
+    const avatars = createUserAvatarStore(database, objectStorage)
+    const media = createMediaAssetStore(database, objectStorage, {
         uploadIntentTtlMs: config.media.uploadIntentTtlMs,
         deletionGracePeriodMs: config.media.deletionGracePeriodMs,
     })
@@ -133,7 +136,13 @@ async function startServerWithRuntimeLock(
         lifetimeMs: config.media.publicUrlLifetimeMs,
     })
     await media.reconcile()
-    const mediaMaintenance = createMediaReconciliationRuntime(media)
+    const mediaMaintenance = createMediaReconciliationRuntime({
+        reconcile: async () => {
+            const result = await media.reconcile()
+            await avatars.reconcile()
+            return result
+        },
+    })
     const email = createHeraldAuthEmailDelivery({
         smtp: config.email?.smtp,
         webOrigin: config.web.origin,
@@ -227,6 +236,8 @@ async function startServerWithRuntimeLock(
         database,
         publisher,
         media,
+        avatars,
+        accountOrigins: [config.web.origin, config.auth.baseURL],
         mediaUrlImporter,
         mediaPublicDelivery,
         logging: config.logging,

@@ -18,6 +18,7 @@ import {
     type AccessStore,
     type ProviderAnalyticsStore,
     type TaxonomyStore,
+    type UserAvatarStore,
 } from '@herald/db'
 import type { DevtoFetcher } from '@herald/devto'
 import type { DiscordFetcher } from '@herald/discord'
@@ -27,6 +28,7 @@ import { Elysia } from 'elysia'
 
 import type { HeraldLoggingConfig } from './config'
 import { createPublicInstanceRoutes } from './modules/access/public-routes'
+import { createAccountRoutes } from './modules/account/routes'
 import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/routes'
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
@@ -44,6 +46,8 @@ export interface HeraldAppOptions {
     readonly auth: HeraldAuth
     readonly database: HeraldDatabase
     readonly publisher: PublisherRuntime
+    readonly avatars?: UserAvatarStore
+    readonly accountOrigins?: readonly string[]
     readonly media?: MediaAssetStore
     readonly mediaUrlImporter?: MediaUrlImporter
     readonly mediaPublicDelivery?: MediaPublicDelivery
@@ -77,6 +81,8 @@ function createDomainApp({
     database,
     publisher,
     media,
+    avatars,
+    accountOrigins,
     mediaUrlImporter,
     mediaPublicDelivery,
     manualStore: manualStoreOptions,
@@ -205,6 +211,7 @@ function createDomainApp({
         .use(createErrorHandler(logger))
         .use(createRequestLogger(logging, logger))
         .use(createHealthRoutes({ database, runtime }))
+        .use(createAccountRoutes(auth, avatars, accountOrigins))
         .use(createMetricsRoutes(metrics))
         .use(createPublicInstanceRoutes(accessStore, { allowAdditionalSignups }))
         .use(
@@ -247,6 +254,8 @@ export function createApp({
     database,
     publisher,
     media,
+    avatars,
+    accountOrigins,
     mediaUrlImporter,
     mediaPublicDelivery,
     manualStore: manualStoreOptions,
@@ -273,6 +282,8 @@ export function createApp({
         database,
         publisher,
         media,
+        avatars,
+        accountOrigins,
         mediaUrlImporter,
         mediaPublicDelivery,
         manualStore: manualStoreOptions,

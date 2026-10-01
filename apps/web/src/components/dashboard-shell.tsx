@@ -50,7 +50,9 @@ export function DashboardShell({
         pathname.includes('/publications/') && !pathname.endsWith('/publications/new')
     const activeSection = workspaceSection(pathname)
     const isUserPreferences =
-        activeSection === 'preferences' || activeSection === 'preferences-api-keys'
+        activeSection === 'preferences' ||
+        activeSection === 'preferences-api-keys' ||
+        activeSection === 'preferences-account'
     const isProjectSettings = activeSection === 'access' || activeSection === 'invitations'
     const isWorkspaceSettings = activeSection === 'settings-workspace'
     const isInstanceSettings =

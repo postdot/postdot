@@ -298,7 +298,8 @@ Create a complete application backup from a running container by mounting the
 application data volume and a separate host backup directory. The command uses
 the local media-store defaults from the image and does not need the web
 authentication or publisher-encryption secrets. The bundle contains the database
-and verified media bytes:
+and verified media bytes, including personal account avatars. New bundles use
+manifest version 2; restore also accepts version 1 bundles from earlier releases:
 
 ```sh
 docker run --rm \

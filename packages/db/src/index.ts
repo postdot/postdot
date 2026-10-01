@@ -336,3 +336,5 @@ export type {
     PublisherStoreOptions,
 } from './publisher-store'
 export * from './schema'
+export { createUserAvatarStore, AvatarValidationError, avatarMaxBytes } from './user-avatar-store'
+export type { UserAvatarStore } from './user-avatar-store'

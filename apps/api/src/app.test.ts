@@ -742,6 +742,8 @@ describe('Herald API', () => {
             expect(Object.keys(specification.paths)).toEqual([
                 '/health',
                 '/ready',
+                '/api/account/avatar',
+                '/api/account/avatars/{id}',
                 '/api/instance/status',
                 '/api/access/invitations/{token}',
                 '/api/access',
@@ -943,6 +945,15 @@ describe('Herald API', () => {
                 },
             })
             expect(specification.security).toEqual([{ bearerAuth: [] }, { sessionCookie: [] }])
+            expect(specification.paths['/api/account/avatar']?.post?.security).toEqual([
+                { sessionCookie: [] },
+            ])
+            expect(specification.paths['/api/account/avatar']?.delete?.security).toEqual([
+                { sessionCookie: [] },
+            ])
+            expect(specification.paths['/api/account/avatars/{id}']?.get?.security).toEqual([
+                { sessionCookie: [] },
+            ])
             expect(specification.paths['/health']?.get?.security).toEqual([])
             expect(specification.paths['/metrics']).toBeUndefined()
             expect(specification.paths['/api/projects']?.get?.security).toBeUndefined()

@@ -394,6 +394,26 @@ export function createAuth(
                     readonly path?: string
                 }
 
+                if (authContext.path === '/update-user') {
+                    const body = authContext.body as Record<string, unknown> | undefined
+                    if (body && Object.hasOwn(body, 'image')) {
+                        throw new APIError('BAD_REQUEST', {
+                            message: 'Use the personal avatar route to update an image',
+                        })
+                    }
+                    if (
+                        !body ||
+                        typeof body.name !== 'string' ||
+                        body.name.trim().length === 0 ||
+                        body.name.trim().length > 100
+                    ) {
+                        throw new APIError('BAD_REQUEST', {
+                            message: 'Name must contain between 1 and 100 characters',
+                        })
+                    }
+                    body.name = body.name.trim()
+                }
+
                 if (
                     authContext.request !== undefined &&
                     authContext.path !== undefined &&
