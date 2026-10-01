@@ -151,6 +151,8 @@ function Sidebar({
     variant = 'sidebar',
     collapsible = 'offcanvas',
     mobileCloseLabel = 'Close',
+    mobileTitle = 'Sidebar',
+    mobileDescription = 'Displays the mobile sidebar.',
     className,
     children,
     dir,
@@ -160,6 +162,8 @@ function Sidebar({
     variant?: 'sidebar' | 'floating' | 'inset'
     collapsible?: 'offcanvas' | 'icon' | 'none'
     mobileCloseLabel?: string
+    mobileTitle?: string
+    mobileDescription?: string | null
 }) {
     const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 
@@ -197,8 +201,10 @@ function Sidebar({
                     }
                     side={side}>
                     <SheetHeader className="sr-only">
-                        <SheetTitle>Sidebar</SheetTitle>
-                        <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+                        <SheetTitle>{mobileTitle}</SheetTitle>
+                        {mobileDescription !== null ? (
+                            <SheetDescription>{mobileDescription}</SheetDescription>
+                        ) : null}
                     </SheetHeader>
                     <div className="flex h-full w-full flex-col">{children}</div>
                 </SheetContent>
@@ -265,7 +271,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
             }}
             {...props}>
             <SidebarMinimalisticIcon className="rotate-180" aria-hidden="true" />
-            <span className="sr-only">Toggle Sidebar</span>
+            <span className="sr-only">{props['aria-label'] ?? 'Toggle Sidebar'}</span>
         </Button>
     )
 }

@@ -3,6 +3,7 @@ import {
     createContext,
     useContext,
     useState,
+    type Context,
     type Dispatch,
     type FormEvent,
     type ReactNode,
@@ -109,7 +110,11 @@ export interface DashboardGlobalContextValue {
     readonly workspaces: readonly WorkspaceListItem[]
 }
 
-const DashboardGlobalContext = createContext<DashboardGlobalContextValue | null>(null)
+const DashboardGlobalContext =
+    (import.meta.hot?.data.dashboardGlobalContext as
+        | Context<DashboardGlobalContextValue | null>
+        | undefined) ?? createContext<DashboardGlobalContextValue | null>(null)
+if (import.meta.hot) import.meta.hot.data.dashboardGlobalContext = DashboardGlobalContext
 
 export function DashboardGlobalProvider({
     children,
@@ -204,7 +209,11 @@ export interface ProjectDashboardContextValue extends ProjectData {
 
 export type PublicationCreationMode = 'draft' | 'schedule'
 
-const ProjectDashboardContext = createContext<ProjectDashboardContextValue | null>(null)
+const ProjectDashboardContext =
+    (import.meta.hot?.data.projectDashboardContext as
+        | Context<ProjectDashboardContextValue | null>
+        | undefined) ?? createContext<ProjectDashboardContextValue | null>(null)
+if (import.meta.hot) import.meta.hot.data.projectDashboardContext = ProjectDashboardContext
 
 export function ProjectDashboardProvider({
     children,

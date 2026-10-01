@@ -11,47 +11,65 @@ import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { Link } from '@tanstack/react-router'
+import type { FormEvent } from 'react'
 
+import { DashboardProjectContext } from '@/components/dashboard-project-context'
 import { UserAvatar } from '@/components/identity-visuals'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationInbox } from '@/components/notification-inbox'
 import { ThemeToggle } from '@/components/theme-toggle'
-import type { Project, Session } from '@/lib/api'
+import type { Project, ProjectCategory, Session, WorkspaceListItem } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface DashboardHeaderProps {
+    readonly hasPageBack: boolean
+    readonly canCreateWorkspace: boolean
+    readonly categories: readonly ProjectCategory[]
     readonly isInstanceSettings: boolean
     readonly isProjectSettings: boolean
     readonly isWorkspaceSettings: boolean
     readonly isUserPreferences: boolean
-    readonly isPublicationRoute: boolean
+    readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
+    readonly onCreateWorkspace: (event: FormEvent<HTMLFormElement>) => void
+    readonly onProjectChange: (projectId: string | null) => void
+    readonly onProjectNameChange: (value: string) => void
+    readonly onWorkspaceChange: (workspaceId: string) => void
+    readonly onWorkspaceNameChange: (value: string) => void
     readonly onSignOut: () => void
     readonly pending: boolean
     readonly projectId: string | null
     readonly projectName: string
     readonly projects: readonly Project[]
-    readonly scopeLabel?: string
-    readonly sectionLabel: string
     readonly session: Session
     readonly workspaceId: string | null
+    readonly workspaceName: string
+    readonly workspaces: readonly WorkspaceListItem[]
 }
 
 export function DashboardHeader({
+    hasPageBack,
+    canCreateWorkspace,
+    categories,
     isInstanceSettings,
     isProjectSettings,
     isWorkspaceSettings,
     isUserPreferences,
-    isPublicationRoute,
+    onCreateProject,
+    onCreateWorkspace,
+    onProjectChange,
+    onProjectNameChange,
+    onWorkspaceChange,
+    onWorkspaceNameChange,
     onSignOut,
     pending,
     projectId,
     projectName,
     projects,
-    scopeLabel,
-    sectionLabel,
     session,
     workspaceId,
+    workspaceName,
+    workspaces,
 }: DashboardHeaderProps) {
     useLanguage()
     const isSettingsShell =
@@ -70,7 +88,7 @@ export function DashboardHeader({
             className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between gap-4 bg-surface-canvas/95 px-4 pl-2 backdrop-blur-sm sm:px-6 sm:pl-2 lg:px-8 lg:pl-2">
             <div className="flex min-w-0 items-center gap-2">
                 <SidebarTrigger aria-label={m.nav_toggle()} title={m.nav_toggle()} />
-                {isSettingsShell ? (
+                {isSettingsShell && !hasPageBack ? (
                     <Button
                         aria-label={backLabel}
                         className="gap-1.5 px-2 text-muted-foreground hover:text-foreground"
@@ -83,30 +101,23 @@ export function DashboardHeader({
                         <span className="hidden sm:inline">{backLabel}</span>
                     </Button>
                 ) : null}
-                <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-                <div className="flex min-w-0 items-center gap-2 text-sm">
-                    {scopeLabel ? (
-                        <>
-                            <span className="truncate text-muted-foreground">{scopeLabel}</span>
-                            <span className="text-muted-foreground/50" aria-hidden="true">
-                                /
-                            </span>
-                        </>
-                    ) : null}
-                    <span className="truncate text-muted-foreground">
-                        {isPublicationRoute ? m.nav_publication_editor() : sectionLabel}
-                    </span>
-                    {projectId !== null && (!isSettingsShell || isProjectSettings) ? (
-                        <>
-                            <span className="text-muted-foreground/50" aria-hidden="true">
-                                /
-                            </span>
-                            <span className="hidden max-w-48 truncate font-medium text-foreground sm:inline">
-                                {projectName}
-                            </span>
-                        </>
-                    ) : null}
-                </div>
+                <DashboardProjectContext
+                    canCreateWorkspace={canCreateWorkspace}
+                    categories={categories}
+                    onCreateProject={onCreateProject}
+                    onCreateWorkspace={onCreateWorkspace}
+                    onProjectChange={onProjectChange}
+                    onProjectNameChange={onProjectNameChange}
+                    onWorkspaceChange={onWorkspaceChange}
+                    onWorkspaceNameChange={onWorkspaceNameChange}
+                    pending={pending}
+                    projectName={projectName}
+                    projects={projects}
+                    selectedProjectId={projectId}
+                    selectedWorkspaceId={workspaceId}
+                    workspaceName={workspaceName}
+                    workspaces={workspaces}
+                />
             </div>
 
             <div className="flex shrink-0 items-center gap-1">

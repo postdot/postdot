@@ -286,22 +286,9 @@ function DashboardPage() {
     return (
         <DashboardGlobalProvider value={value}>
             {isSettingsPath(pathname) ? (
-                <GlobalSettingsShell
-                    global={value}
-                    scopeLabel={m.nav_preferences()}
-                    selectedProject={selectedSettingsProject}
-                />
+                <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />
             ) : isPreferences ? (
-                <GlobalSettingsShell
-                    global={value}
-                    scopeLabel={m.nav_preferences()}
-                    sectionLabel={
-                        isPreferencesApiKeysPath(pathname)
-                            ? m.nav_preferences_api_keys()
-                            : m.nav_preferences_general()
-                    }
-                    selectedProject={selectedSettingsProject}
-                />
+                <GlobalSettingsShell global={value} selectedProject={selectedSettingsProject} />
             ) : pathname === '/dashboard' || pathname === '/dashboard/' ? (
                 projects.length === 0 ? (
                     <EmptyProjectShell global={value} />
@@ -335,10 +322,6 @@ function isPreferencesPath(pathname: string) {
     return pathname === '/dashboard/preferences' || pathname.startsWith('/dashboard/preferences/')
 }
 
-function isPreferencesApiKeysPath(pathname: string) {
-    return pathname === '/dashboard/preferences/api-keys'
-}
-
 function readProjectContextId(search: unknown) {
     return readSearchString(search, 'projectId')
 }
@@ -365,20 +348,15 @@ function readSearchString(search: unknown, key: string) {
 
 function GlobalSettingsShell({
     global,
-    scopeLabel,
-    sectionLabel,
     selectedProject,
 }: {
     readonly global: DashboardGlobalContextValue
-    readonly scopeLabel?: string
-    readonly sectionLabel?: string
     readonly selectedProject: Project | null
 }) {
     return (
         <ProjectRealtimeProvider projectId={null}>
             <DashboardShell
                 channels={[]}
-                dueCount={0}
                 error={global.error}
                 onCreateProject={global.onCreateProject}
                 onProjectChange={global.onProjectChange}
@@ -390,10 +368,7 @@ function GlobalSettingsShell({
                 publisherConnections={[]}
                 projectRole={null}
                 selectedProject={selectedProject}
-                scopeLabel={scopeLabel}
-                sectionLabel={sectionLabel}
-                session={global.session}
-                publicationsCount={0}>
+                session={global.session}>
                 <Outlet />
             </DashboardShell>
         </ProjectRealtimeProvider>
@@ -407,7 +382,6 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
         <ProjectRealtimeProvider projectId={null}>
             <DashboardShell
                 channels={[]}
-                dueCount={0}
                 error={global.error}
                 onCreateProject={global.onCreateProject}
                 onProjectChange={global.onProjectChange}
@@ -419,9 +393,7 @@ function EmptyProjectShell({ global }: { readonly global: DashboardGlobalContext
                 publisherConnections={[]}
                 projectRole={null}
                 selectedProject={null}
-                sectionLabel={m.nav_home()}
-                session={global.session}
-                publicationsCount={0}>
+                session={global.session}>
                 <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                     <div className="w-full">
                         <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
@@ -479,7 +451,6 @@ function ProjectSelectionShell() {
         <ProjectRealtimeProvider projectId={null}>
             <DashboardShell
                 channels={[]}
-                dueCount={0}
                 error={global.error}
                 onCreateProject={global.onCreateProject}
                 onProjectChange={global.onProjectChange}
@@ -491,9 +462,7 @@ function ProjectSelectionShell() {
                 publisherConnections={[]}
                 projectRole={null}
                 selectedProject={null}
-                sectionLabel={m.nav_home()}
-                session={global.session}
-                publicationsCount={0}>
+                session={global.session}>
                 <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                     <div className="w-full">
                         <DashboardPageHeader

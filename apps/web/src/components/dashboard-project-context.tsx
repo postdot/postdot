@@ -21,6 +21,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@herald/ui/components/select'
+import { useSidebar } from '@herald/ui/components/sidebar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
+import { cn } from '@herald/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
@@ -47,13 +50,14 @@ interface ContextSelectorProps {
     readonly ariaLabel: string
     readonly createLabel?: string
     readonly emptyLabel: string
-    readonly footerAction?: ReactNode
+    readonly footerAction?: (close: () => void) => ReactNode
     readonly items: readonly ContextSelectorItem[]
     readonly onCreate?: () => void
     readonly onValueChange: (value: string | null) => void
     readonly placeholder: string
     readonly searchPlaceholder: string
     readonly value: string | null
+    readonly compact?: 'workspace' | 'project'
 }
 
 function ContextSelector({
@@ -67,8 +71,10 @@ function ContextSelector({
     placeholder,
     searchPlaceholder,
     value,
+    compact,
 }: ContextSelectorProps) {
     const [open, setOpen] = useState(false)
+    const { isMobile } = useSidebar()
     const selectedItem =
         (value === null
             ? items.find(item => item.kind === 'none')
@@ -90,19 +96,46 @@ function ContextSelector({
             open={open}
             value={selectedItem}>
             <ComboboxLabel className="sr-only">{ariaLabel}</ComboboxLabel>
-            <ComboboxTrigger aria-label={ariaLabel} data-context-selector="true">
-                <ComboboxValue placeholder={placeholder}>
-                    {(item: ContextSelectorItem | null) =>
-                        item ? (
-                            <ContextOptionContent option={item} />
-                        ) : (
-                            <span className="min-w-0 flex-1 truncate text-left text-muted-foreground">
-                                {placeholder}
-                            </span>
-                        )
-                    }
-                </ComboboxValue>
-            </ComboboxTrigger>
+            <Tooltip disabled={isMobile}>
+                <TooltipTrigger
+                    render={
+                        <ComboboxTrigger
+                            aria-label={ariaLabel}
+                            aria-description={
+                                compact ? (selectedItem?.label ?? placeholder) : undefined
+                            }
+                            data-context-selector="true"
+                            data-context-kind={compact}
+                            className={cn(
+                                compact &&
+                                    'h-8 w-auto min-w-0 max-w-40 gap-1.5 overflow-hidden bg-surface-control p-0 pr-2 shadow-control hover:bg-surface-control-hover [&_[data-resource-avatar]]:!h-full [&_[data-resource-avatar]]:!w-8 [&_[data-resource-avatar]]:!rounded-none',
+                                compact === 'workspace' &&
+                                    'max-w-36 max-sm:size-8 max-sm:flex-none max-sm:pr-0 max-sm:[&>svg]:hidden',
+                                compact === 'project' &&
+                                    'max-sm:max-w-32 max-sm:flex-1 max-sm:[&>svg]:hidden'
+                            )}
+                        />
+                    }>
+                    <ComboboxValue placeholder={placeholder}>
+                        {(item: ContextSelectorItem | null) =>
+                            item ? (
+                                <ContextOptionContent
+                                    option={item}
+                                    hideDescription={compact !== undefined}
+                                    hideMobileLabel={compact === 'workspace'}
+                                />
+                            ) : (
+                                <span className="min-w-0 flex-1 truncate text-left text-muted-foreground">
+                                    {placeholder}
+                                </span>
+                            )
+                        }
+                    </ComboboxValue>
+                </TooltipTrigger>
+                {compact ? (
+                    <TooltipContent>{selectedItem?.label ?? placeholder}</TooltipContent>
+                ) : null}
+            </Tooltip>
 
             <ComboboxPortal>
                 <ComboboxPositioner align="start" sideOffset={4}>
@@ -135,7 +168,7 @@ function ContextSelector({
                         </ComboboxEmpty>
                         {footerAction || (onCreate && createLabel) ? (
                             <div className="mt-1 space-y-0.5 p-1">
-                                {footerAction}
+                                {footerAction?.(() => setOpen(false))}
                                 {onCreate && createLabel ? (
                                     <button
                                         className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
@@ -157,13 +190,21 @@ function ContextSelector({
     )
 }
 
-function ContextOptionContent({ option }: { readonly option: ContextSelectorItem }) {
+function ContextOptionContent({
+    option,
+    hideDescription = false,
+    hideMobileLabel = false,
+}: {
+    readonly option: ContextSelectorItem
+    readonly hideDescription?: boolean
+    readonly hideMobileLabel?: boolean
+}) {
     return (
         <>
             {option.icon}
-            <span className="min-w-0 flex-1 text-left">
+            <span className={cn('min-w-0 flex-1 text-left', hideMobileLabel && 'max-sm:hidden')}>
                 <span className="block truncate font-medium">{option.label}</span>
-                {option.description ? (
+                {option.description && !hideDescription ? (
                     <span className="block truncate text-xs text-muted-foreground">
                         {option.description}
                     </span>
@@ -187,7 +228,6 @@ interface DashboardProjectContextProps {
     readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
     readonly onCreateWorkspace: (event: FormEvent<HTMLFormElement>) => void
     readonly onProjectChange: (projectId: string | null) => void
-    readonly onProjectCategoryChange: (projectId: string, categoryId: string | null) => void
     readonly onProjectNameChange: (value: string) => void
     readonly onWorkspaceChange: (workspaceId: string) => void
     readonly onWorkspaceNameChange: (value: string) => void
@@ -206,7 +246,6 @@ export function DashboardProjectContext({
     onCreateProject,
     onCreateWorkspace,
     onProjectChange,
-    onProjectCategoryChange,
     onProjectNameChange,
     onWorkspaceChange,
     onWorkspaceNameChange,
@@ -233,14 +272,6 @@ export function DashboardProjectContext({
         workspaces.find(workspace => workspace.id === selectedWorkspaceId) ?? null
     const canManageSelectedWorkspace =
         selectedWorkspace?.role === 'owner' || selectedWorkspace?.role === 'admin'
-    const selectedCategory =
-        selectedProject === null
-            ? null
-            : (categories.find(category => category.id === selectedProject.primaryCategoryId) ??
-              null)
-    const categoryOptions = categories.filter(
-        category => category.state === 'active' || category.id === selectedCategory?.id
-    )
     const workspaceOptions = workspaces.map<ContextSelectorItem>(workspace => ({
         description: workspaceRoleLabel(workspace.role),
         icon: <ResourceAvatar kind="workspace" name={workspace.name} seed={workspace.id} />,
@@ -285,15 +316,17 @@ export function DashboardProjectContext({
     }, [selectedProjectId])
 
     return (
-        <div className="space-y-4">
+        <div className="flex min-w-0 items-center gap-1.5" data-header-context="true">
             {workspaces.length > 0 ? (
                 <ContextSelector
                     ariaLabel={m.nav_select_workspace()}
+                    compact="workspace"
                     createLabel={m.nav_create_workspace()}
                     emptyLabel={m.nav_no_matching_workspaces()}
-                    footerAction={
+                    footerAction={close =>
                         canManageSelectedWorkspace ? (
                             <Link
+                                onClick={close}
                                 className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
                                 search={{
                                     projectId: undefined,
@@ -336,11 +369,13 @@ export function DashboardProjectContext({
 
             <ContextSelector
                 ariaLabel={m.nav_select_project()}
+                compact="project"
                 createLabel={m.nav_create_project()}
                 emptyLabel={m.nav_no_matching_projects()}
-                footerAction={
+                footerAction={close =>
                     selectedProject === null ? null : (
                         <Link
+                            onClick={close}
                             className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
                             params={{ projectId: selectedProject.id }}
                             search={{}}
@@ -372,48 +407,64 @@ export function DashboardProjectContext({
                 title={m.nav_create_project()}
                 value={projectName}
             />
-
-            {selectedProject !== null && categories.length > 0 ? (
-                <Field className="min-w-0 gap-1.5">
-                    <FieldLabel className="text-xs font-medium text-muted-foreground">
-                        {m.nav_category()}
-                    </FieldLabel>
-                    <Select
-                        items={Object.fromEntries([
-                            ['__none__', m.nav_no_category()],
-                            ...categoryOptions.map(category => [category.id, category.name]),
-                        ])}
-                        value={selectedProject.primaryCategoryId ?? '__none__'}
-                        onValueChange={value =>
-                            onProjectCategoryChange(
-                                selectedProject.id,
-                                value === '__none__' ? null : value
-                            )
-                        }>
-                        <SelectTrigger
-                            aria-label={m.nav_category()}
-                            className="h-8 w-full border-0 bg-sidebar-accent/25 px-2.5 text-xs shadow-none hover:bg-sidebar-accent focus-visible:ring-2"
-                            disabled={pending}>
-                            <SelectValue placeholder={m.nav_no_category()} />
-                        </SelectTrigger>
-                        <SelectContent align="start">
-                            <SelectItem value="__none__">{m.nav_no_category()}</SelectItem>
-                            {categoryOptions.map(category => (
-                                <SelectItem
-                                    key={category.id}
-                                    disabled={category.state === 'archived'}
-                                    value={category.id}>
-                                    {category.name}
-                                    {category.state === 'archived'
-                                        ? ` · ${m.common_archived()}`
-                                        : ''}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </Field>
-            ) : null}
         </div>
+    )
+}
+
+export function DashboardProjectCategory({
+    categories,
+    onProjectCategoryChange,
+    pending,
+    selectedProject,
+}: {
+    readonly categories: readonly ProjectCategory[]
+    readonly onProjectCategoryChange: (projectId: string, categoryId: string | null) => void
+    readonly pending: boolean
+    readonly selectedProject: Project | null
+}) {
+    useLanguage()
+    if (selectedProject === null || categories.length === 0) return null
+    const selectedCategory = categories.find(
+        category => category.id === selectedProject.primaryCategoryId
+    )
+    const categoryOptions = categories.filter(
+        category => category.state === 'active' || category.id === selectedCategory?.id
+    )
+
+    return (
+        <Field className="min-w-0 gap-1.5">
+            <FieldLabel className="text-xs font-medium text-muted-foreground">
+                {m.nav_category()}
+            </FieldLabel>
+            <Select
+                items={Object.fromEntries([
+                    ['__none__', m.nav_no_category()],
+                    ...categoryOptions.map(category => [category.id, category.name]),
+                ])}
+                value={selectedProject.primaryCategoryId ?? '__none__'}
+                onValueChange={value =>
+                    onProjectCategoryChange(selectedProject.id, value === '__none__' ? null : value)
+                }>
+                <SelectTrigger
+                    aria-label={m.nav_category()}
+                    className="h-8 w-full border-0 bg-sidebar-accent/25 px-2.5 text-xs shadow-none hover:bg-sidebar-accent focus-visible:ring-2"
+                    disabled={pending}>
+                    <SelectValue placeholder={m.nav_no_category()} />
+                </SelectTrigger>
+                <SelectContent align="start">
+                    <SelectItem value="__none__">{m.nav_no_category()}</SelectItem>
+                    {categoryOptions.map(category => (
+                        <SelectItem
+                            key={category.id}
+                            disabled={category.state === 'archived'}
+                            value={category.id}>
+                            {category.name}
+                            {category.state === 'archived' ? ` · ${m.common_archived()}` : ''}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        </Field>
     )
 }
 

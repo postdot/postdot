@@ -4,16 +4,13 @@ import {
     SidebarContent,
     SidebarFooter,
     SidebarGroup,
-    SidebarGroupAction,
     SidebarGroupContent,
     SidebarGroupLabel,
     SidebarHeader,
     SidebarMenu,
-    SidebarMenuBadge,
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@herald/ui/components/sidebar'
-import { cn } from '@herald/ui/lib/utils'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
@@ -26,10 +23,9 @@ import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { Widget2Icon } from '@solar-icons/react/linear/widget-2'
 import { Link } from '@tanstack/react-router'
-import type { FormEvent, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
-import { DashboardProjectContext } from '@/components/dashboard-project-context'
-import { ChannelAvatar } from '@/components/identity-visuals'
+import { DashboardProjectCategory } from '@/components/dashboard-project-context'
 import type {
     Channel,
     Project,
@@ -61,28 +57,17 @@ interface DashboardSidebarProps {
     readonly activeSection: DashboardSection
     readonly categories: readonly ProjectCategory[]
     readonly channels: readonly Channel[]
-    readonly canCreateWorkspace: boolean
-    readonly dueCount: number
     readonly isInstanceAdmin: boolean
     readonly isInstanceSettings: boolean
     readonly isProjectSettings: boolean
     readonly isWorkspaceSettings: boolean
     readonly isUserPreferences: boolean
     readonly isPublicationRoute: boolean
-    readonly onCreateProject: (event: FormEvent<HTMLFormElement>) => void
-    readonly onCreateWorkspace: (event: FormEvent<HTMLFormElement>) => void
-    readonly onProjectChange: (projectId: string | null) => void
     readonly onProjectCategoryChange: (projectId: string, categoryId: string | null) => void
-    readonly onProjectNameChange: (value: string) => void
-    readonly onWorkspaceChange: (workspaceId: string) => void
-    readonly onWorkspaceNameChange: (value: string) => void
     readonly onSignOut: () => void
     readonly pending: boolean
-    readonly projectName: string
-    readonly workspaceName: string
     readonly projects: readonly Project[]
     readonly publisherConnections: readonly PublisherConnection[]
-    readonly publicationsCount: number
     readonly projectRole: ProjectMemberRole | null
     readonly selectedProjectId: string | null
     readonly selectedWorkspaceId: string | null
@@ -93,28 +78,16 @@ export function DashboardSidebar({
     activeSection,
     categories,
     channels,
-    canCreateWorkspace,
-    dueCount,
     isInstanceAdmin,
     isInstanceSettings,
     isProjectSettings,
     isWorkspaceSettings,
     isUserPreferences,
     isPublicationRoute,
-    onCreateProject,
-    onCreateWorkspace,
-    onProjectChange,
     onProjectCategoryChange,
-    onProjectNameChange,
-    onWorkspaceChange,
-    onWorkspaceNameChange,
     onSignOut,
     pending,
-    projectName,
-    workspaceName,
     projects,
-    publisherConnections,
-    publicationsCount,
     projectRole,
     selectedProjectId,
     selectedWorkspaceId,
@@ -124,9 +97,6 @@ export function DashboardSidebar({
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
     const isSettingsShell =
         isInstanceSettings || isProjectSettings || isWorkspaceSettings || isUserPreferences
-    const connectionsByChannel = new Map(
-        publisherConnections.map(connection => [connection.channelId, connection])
-    )
     const selectedWorkspace = workspaces.find(workspace => workspace.id === selectedWorkspaceId)
     const canManageWorkspace =
         selectedWorkspace?.role === 'owner' || selectedWorkspace?.role === 'admin'
@@ -136,6 +106,8 @@ export function DashboardSidebar({
             collapsible="icon"
             className="!border-0 !bg-surface-raised md:!bg-transparent !shadow-surface md:!shadow-none md:p-0! [&_[data-slot=sidebar-inner]]:!bg-surface-canvas [&_[data-slot=sidebar-inner]]:!shadow-none"
             mobileCloseLabel={m.common_close()}
+            mobileTitle={m.nav_aria_label()}
+            mobileDescription={null}
             variant="inset">
             <SidebarHeader className="gap-4 p-3 group-data-[collapsible=icon]:h-14 group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:p-0">
                 <div className="flex items-center gap-2 group-data-[collapsible=icon]:h-14 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center">
@@ -170,23 +142,13 @@ export function DashboardSidebar({
 
                 {!isSettingsShell ? (
                     <div className="group-data-[collapsible=icon]:hidden">
-                        <DashboardProjectContext
-                            onCreateProject={onCreateProject}
-                            onCreateWorkspace={onCreateWorkspace}
-                            onProjectChange={onProjectChange}
+                        <DashboardProjectCategory
                             onProjectCategoryChange={onProjectCategoryChange}
-                            onProjectNameChange={onProjectNameChange}
-                            onWorkspaceChange={onWorkspaceChange}
-                            onWorkspaceNameChange={onWorkspaceNameChange}
                             pending={pending}
-                            projectName={projectName}
-                            workspaceName={workspaceName}
-                            projects={projects}
                             categories={categories}
-                            selectedProjectId={selectedProjectId}
-                            selectedWorkspaceId={selectedWorkspaceId}
-                            canCreateWorkspace={canCreateWorkspace}
-                            workspaces={workspaces}
+                            selectedProject={
+                                projects.find(project => project.id === selectedProjectId) ?? null
+                            }
                         />
                     </div>
                 ) : null}
@@ -200,7 +162,7 @@ export function DashboardSidebar({
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <SidebarMenuButton
-                                className="bg-primary text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground"
+                                className="bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground hover:shadow-surface"
                                 isActive={activeSection === 'new-publication'}
                                 render={workspaceLink(
                                     'new-publication',
@@ -409,105 +371,11 @@ export function DashboardSidebar({
                                 </nav>
                             </SidebarGroupContent>
                         </SidebarGroup>
-
-                        <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
-                            <SidebarGroupLabel className="px-2">
-                                {m.nav_channels()}
-                            </SidebarGroupLabel>
-                            {canEditProject ? (
-                                <SidebarGroupAction
-                                    render={workspaceLink(
-                                        'channels',
-                                        selectedProjectId,
-                                        selectedWorkspaceId,
-                                        m.nav_manage_channels()
-                                    )}
-                                    title={m.nav_manage_channels()}>
-                                    <AddIcon aria-hidden="true" />
-                                </SidebarGroupAction>
-                            ) : null}
-                            <SidebarGroupContent>
-                                {channels.length === 0 ? (
-                                    <p className="px-2 py-2 text-xs leading-5 text-muted-foreground group-data-[collapsible=icon]:hidden">
-                                        {m.nav_no_channels()}
-                                    </p>
-                                ) : (
-                                    <SidebarMenu>
-                                        {channels.map(channel => {
-                                            const connection = connectionsByChannel.get(channel.id)
-                                            const channelState =
-                                                channel.state === 'archived'
-                                                    ? m.channel_archived()
-                                                    : channel.profileId === 'linkedin'
-                                                      ? connection?.state === 'active'
-                                                          ? m.channel_connected()
-                                                          : m.channel_needs_connection()
-                                                      : connection?.state === 'active'
-                                                        ? m.channel_connected()
-                                                        : channel.profileId === 'manual-message'
-                                                          ? m.channel_manual()
-                                                          : m.channel_needs_connection()
-
-                                            return (
-                                                <SidebarMenuItem key={channel.id}>
-                                                    <SidebarMenuButton
-                                                        render={workspaceLink(
-                                                            'channels',
-                                                            selectedProjectId,
-                                                            selectedWorkspaceId,
-                                                            channel.name
-                                                        )}
-                                                        tooltip={m.nav_channel_tooltip({
-                                                            channel: channel.name,
-                                                            provider: channelProviderLabel(
-                                                                channel.profileId
-                                                            ),
-                                                            state: channelState,
-                                                        })}>
-                                                        <ChannelAvatar
-                                                            channel={channel}
-                                                            size="sm"
-                                                        />
-                                                        <span className="truncate group-data-[collapsible=icon]:hidden">
-                                                            {channel.name}
-                                                        </span>
-                                                        <SidebarMenuBadge>
-                                                            {channelState}
-                                                        </SidebarMenuBadge>
-                                                    </SidebarMenuButton>
-                                                </SidebarMenuItem>
-                                            )
-                                        })}
-                                    </SidebarMenu>
-                                )}
-                            </SidebarGroupContent>
-                        </SidebarGroup>
                     </>
                 )}
             </SidebarContent>
 
             <SidebarFooter className="gap-3 p-3 group-data-[collapsible=icon]:p-2">
-                {!isSettingsShell ? (
-                    <div className="rounded-md bg-sidebar-accent px-3 py-3 text-xs text-muted-foreground shadow-surface group-data-[collapsible=icon]:hidden">
-                        <div className="flex items-center justify-between gap-3">
-                            <span>{m.nav_publications()}</span>
-                            <span className="font-medium tabular-nums text-foreground">
-                                {publicationsCount}
-                            </span>
-                        </div>
-                        <div className="mt-2 flex items-center justify-between gap-3">
-                            <span>{m.nav_needs_attention()}</span>
-                            <span
-                                className={cn(
-                                    'font-medium tabular-nums',
-                                    dueCount > 0 ? 'text-state-attention' : 'text-foreground'
-                                )}>
-                                {dueCount}
-                            </span>
-                        </div>
-                    </div>
-                ) : null}
-
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton
@@ -733,14 +601,4 @@ function workspaceLink(
             aria-current={active ? 'page' : undefined}
         />
     )
-}
-
-function channelProviderLabel(profileId: string) {
-    if (profileId === 'bluesky') return 'Bluesky'
-    if (profileId === 'discord') return 'Discord'
-    if (profileId === 'devto') return 'DEV.to'
-    if (profileId === 'linkedin') return 'LinkedIn'
-    if (profileId === 'mastodon') return 'Mastodon'
-    if (profileId === 'manual-message') return m.channel_manual()
-    return m.channel_custom_profile()
 }

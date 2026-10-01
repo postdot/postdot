@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 
 import { DashboardShell } from '@/components/dashboard-shell'
 import { api } from '@/lib/api'
+import { ChannelIdentityProvider } from '@/lib/channel-identity-context'
 import {
     ProjectDashboardProvider,
     loadProjectData,
@@ -53,23 +54,23 @@ function ProjectDashboardFrame() {
     const projectDashboard = useProjectDashboard()
 
     return (
-        <DashboardShell
-            channels={projectDashboard.channels}
-            dueCount={projectDashboard.due.length}
-            error={global.error}
-            onCreateProject={global.onCreateProject}
-            onProjectChange={global.onProjectChange}
-            onProjectNameChange={global.onProjectNameChange}
-            onSignOut={global.onSignOut}
-            pending={global.pending || projectDashboard.pending}
-            projectName={global.projectName}
-            projects={global.projects}
-            publisherConnections={projectDashboard.connections}
-            projectRole={projectDashboard.projectRole}
-            selectedProject={projectDashboard.project}
-            session={global.session}
-            publicationsCount={projectDashboard.publications.length}>
-            <Outlet />
-        </DashboardShell>
+        <ChannelIdentityProvider channels={projectDashboard.channels}>
+            <DashboardShell
+                channels={projectDashboard.channels}
+                error={global.error}
+                onCreateProject={global.onCreateProject}
+                onProjectChange={global.onProjectChange}
+                onProjectNameChange={global.onProjectNameChange}
+                onSignOut={global.onSignOut}
+                pending={global.pending || projectDashboard.pending}
+                projectName={global.projectName}
+                projects={global.projects}
+                publisherConnections={projectDashboard.connections}
+                projectRole={projectDashboard.projectRole}
+                selectedProject={projectDashboard.project}
+                session={global.session}>
+                <Outlet />
+            </DashboardShell>
+        </ChannelIdentityProvider>
     )
 }
