@@ -8,7 +8,7 @@ import {
     DropdownMenuTrigger,
 } from '@herald/ui/components/dropdown-menu'
 import { ArchiveIcon } from '@solar-icons/react/linear/archive'
-import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
+import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { Pen2Icon } from '@solar-icons/react/linear/pen-2'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
@@ -96,7 +96,7 @@ export function ChannelActionsMenu({
                         size="icon-sm"
                         className="shrink-0"
                         disabled={disabled}>
-                        <MenuDotsIcon aria-hidden="true" />
+                        <MenuDotsVerticalIcon aria-hidden="true" />
                     </Button>
                 }
             />

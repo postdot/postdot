@@ -2,7 +2,7 @@ import { cn } from '@herald/ui/lib/utils'
 import { ChatRoundIcon } from '@solar-icons/react/linear/chat-round'
 import { EarthIcon } from '@solar-icons/react/linear/earth'
 import { HeartIcon } from '@solar-icons/react/linear/heart'
-import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
+import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { RepeatIcon } from '@solar-icons/react/linear/repeat'
 import { ShareIcon } from '@solar-icons/react/linear/share'
 
@@ -123,7 +123,7 @@ export function PublicationDraftPreview({
                         ) : null}
                     </div>
                     {social ? (
-                        <MenuDotsIcon
+                        <MenuDotsVerticalIcon
                             aria-hidden="true"
                             className={cn(
                                 'size-5',

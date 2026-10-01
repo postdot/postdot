@@ -18,7 +18,7 @@ import { ClipboardCheckIcon } from '@solar-icons/react/linear/clipboard-check'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { EyeIcon } from '@solar-icons/react/linear/eye'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
-import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
+import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
@@ -356,7 +356,7 @@ function PublicationListItem({
                                                     size="icon-sm"
                                                     type="button"
                                                     variant="ghost">
-                                                    <MenuDotsIcon aria-hidden="true" />
+                                                    <MenuDotsVerticalIcon aria-hidden="true" />
                                                 </Button>
                                             }
                                         />

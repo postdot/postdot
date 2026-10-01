@@ -18,7 +18,7 @@ function RootLayout() {
     return (
         <LanguageProvider>
             <ThemeProvider>
-                <SolarProvider size={18} strokeWidth={1.5}>
+                <SolarProvider size={24} strokeWidth={2}>
                     <div className="min-h-screen bg-background text-foreground">
                         <Outlet />
                     </div>

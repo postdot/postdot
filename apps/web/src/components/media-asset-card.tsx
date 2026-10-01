@@ -12,7 +12,7 @@ import { DownloadMinimalisticIcon } from '@solar-icons/react/linear/download-min
 import { FolderOpenIcon } from '@solar-icons/react/linear/folder-open'
 import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
-import { MenuDotsIcon } from '@solar-icons/react/linear/menu-dots'
+import { MenuDotsVerticalIcon } from '@solar-icons/react/linear/menu-dots-vertical'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { UndoLeftIcon } from '@solar-icons/react/linear/undo-left'
 
@@ -350,7 +350,7 @@ function MediaAssetActions({
                                 filename: asset.asset.originalFilename,
                             })}
                             className="text-muted-foreground hover:bg-surface-raised hover:text-foreground">
-                            <MenuDotsIcon aria-hidden="true" />
+                            <MenuDotsVerticalIcon aria-hidden="true" />
                         </Button>
                     }
                 />
