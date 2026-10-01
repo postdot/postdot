@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
+
+import en from '../apps/web/messages/en.json' with { type: 'json' }
 
 test('a workspace invitation joins the selected group and unlocks its project access', async ({
     page,
-}) => {
-    test.setTimeout(90_000)
+}, testInfo) => {
+    test.setTimeout(150_000)
 
     const suffix = randomUUID().slice(0, 8)
     const owner = await createAccountAndProject(page, suffix)
@@ -38,6 +41,21 @@ test('a workspace invitation joins the selected group and unlocks its project ac
         .first()
     await expect(editorsGroup.getByText(owner.projectName, { exact: true })).toBeVisible()
 
+    await expect(page.getByLabel('Group name', { exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Create group', exact: true }).click()
+    const groupDialog = page.getByRole('dialog')
+    await groupDialog.getByLabel('Group name', { exact: true }).fill('Communications')
+    await page.keyboard.press('Escape')
+    await expect(groupDialog).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Create group', exact: true })).toBeFocused()
+    await page.getByRole('button', { name: 'Create group', exact: true }).click()
+    await expect(groupDialog.getByLabel('Group name', { exact: true })).toHaveValue(
+        'Communications'
+    )
+    await groupDialog.getByRole('button', { name: 'Create group', exact: true }).click()
+    await expect(groupDialog).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Communications', exact: true })).toBeVisible()
+
     const memberEmail = `e2e-135-member-${suffix}@herald.local`
     const invitationResponsePromise = page.waitForResponse(response => {
         const url = new URL(response.url())
@@ -48,10 +66,27 @@ test('a workspace invitation joins the selected group and unlocks its project ac
         )
     })
 
-    await page.getByLabel('Email address', { exact: true }).fill(memberEmail)
+    await page.getByRole('button', { name: 'Add a member', exact: true }).click()
+    const inviteDialog = page.getByRole('dialog')
+    await inviteDialog.getByLabel('Email address', { exact: true }).fill(memberEmail)
     await page.getByRole('combobox', { name: 'Group', exact: true }).click()
     await page.getByRole('option', { name: 'Editors', exact: true }).click()
-    await page.getByRole('button', { name: 'Send invite', exact: true }).click()
+    const invitationEndpoint = /\/api\/workspaces\/[^/]+\/invitations$/
+    await page.route(invitationEndpoint, async route => {
+        if (route.request().method() === 'POST') {
+            await route.fulfill({ status: 503, json: { error: 'workspace_operation_failed' } })
+        } else await route.continue()
+    })
+    await inviteDialog.getByRole('button', { name: 'Send invite', exact: true }).click()
+    await expect(inviteDialog.getByRole('alert')).toBeVisible()
+    await expect(inviteDialog.getByLabel('Email address', { exact: true })).toHaveValue(memberEmail)
+    await expect(inviteDialog.getByRole('combobox', { name: 'Group', exact: true })).toContainText(
+        'Editors'
+    )
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await page.screenshot({ path: testInfo.outputPath('workspace-invite-error.png') })
+    await page.unroute(invitationEndpoint)
+    await inviteDialog.getByRole('button', { name: 'Send invite', exact: true }).click()
 
     const invitationResponse = await invitationResponsePromise
     const invitationBody = (await invitationResponse.json()) as {
@@ -60,6 +95,36 @@ test('a workspace invitation joins the selected group and unlocks its project ac
     expect(invitationBody.invitation).toMatchObject({ status: 'pending' })
     expect(invitationBody.invitation.teamId).toBeTruthy()
     await expect(page.getByText(memberEmail, { exact: true })).toBeVisible()
+    await expect(inviteDialog).toHaveCount(0)
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+            await page
+                .getByRole('button', {
+                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                    exact: true,
+                })
+                .click()
+        }
+        for (const width of [1280, 820, 390]) {
+            await page.setViewportSize({ width, height: 844 })
+            expect(
+                await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+            ).toBe(false)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            await page.screenshot({
+                path: testInfo.outputPath(`workspace-${theme}-${width}.png`),
+                fullPage: true,
+            })
+        }
+    }
+    await page.getByRole('button', { name: 'Add a member', exact: true }).click()
+    await expect(inviteDialog).toBeVisible()
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await page.screenshot({ path: testInfo.outputPath('workspace-mobile-invite.png') })
+    await page.keyboard.press('Escape')
+    await expect(inviteDialog).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Add a member', exact: true })).toBeFocused()
+    await page.setViewportSize({ width: 1280, height: 844 })
 
     const browser = page.context().browser()
     expect(browser).not.toBeNull()
@@ -116,6 +181,10 @@ test('a workspace invitation joins the selected group and unlocks its project ac
             .filter({ hasText: /^Editors/ })
             .first()
         await expect(refreshedEditorsGroup.getByText(memberName, { exact: true })).toBeVisible()
+        await page.screenshot({
+            path: testInfo.outputPath('workspace-populated-members.png'),
+            fullPage: true,
+        })
         await refreshedEditorsGroup
             .getByRole('button', {
                 name: `Remove ${memberName} from this group`,
@@ -135,6 +204,18 @@ test('a workspace invitation joins the selected group and unlocks its project ac
             memberPage.getByRole('heading', { name: 'Create your first project', exact: true })
         ).toBeVisible()
         await expect(memberPage).toHaveURL(/\/dashboard\?projectId=none$/)
+        await refreshedEditorsGroup
+            .getByRole('combobox', { name: 'Add a group member', exact: true })
+            .click()
+        await page.getByRole('option', { name: memberName, exact: true }).click()
+        await expect(
+            refreshedEditorsGroup.getByRole('combobox', { name: 'Add a group member', exact: true })
+        ).toContainText(memberName)
+        await refreshedEditorsGroup.getByRole('button', { name: 'Add', exact: true }).click()
+        await expect(refreshedEditorsGroup.getByText(memberName, { exact: true })).toBeVisible()
+        const restoredProjects = await memberPage.request.get('/api/projects')
+        expect(restoredProjects.status()).toBe(200)
+        expect(await restoredProjects.json()).toMatchObject({ projects: [{ id: owner.projectId }] })
     } finally {
         await memberContext.close()
     }
