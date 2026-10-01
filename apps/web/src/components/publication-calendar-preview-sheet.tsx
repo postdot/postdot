@@ -66,10 +66,10 @@ export function PublicationCalendarPreviewSheet({
             }}>
             <SheetContent
                 aria-describedby={undefined}
-                className="w-[min(32rem,calc(100vw-1rem))] gap-0 p-0 sm:max-w-lg"
+                className="w-[min(32rem,calc(100vw-1rem))] gap-0 bg-surface-raised p-0 sm:max-w-lg"
                 closeLabel={m.common_close({}, { locale: locale === 'fr' ? 'fr' : 'en' })}
                 side="right">
-                <SheetHeader className="bg-surface-inset px-5 py-5 sm:px-6">
+                <SheetHeader className="px-5 py-5 sm:px-6">
                     <SheetTitle className="pr-8 break-words text-xl leading-tight">
                         {title}
                     </SheetTitle>
@@ -120,7 +120,7 @@ export function PublicationCalendarPreviewSheet({
                     )}
                 </div>
 
-                <SheetFooter className="flex-row justify-end gap-3 border-0 bg-surface-inset px-5 py-4 sm:px-6">
+                <SheetFooter className="flex-row justify-end gap-3 border-0 px-5 py-4 sm:px-6">
                     {publication === null ? null : (
                         <SheetClose
                             render={

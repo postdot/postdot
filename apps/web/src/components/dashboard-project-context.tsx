@@ -108,7 +108,7 @@ function ContextSelector({
                             data-context-kind={compact}
                             className={cn(
                                 compact &&
-                                    'h-8 w-auto min-w-0 max-w-40 gap-1.5 overflow-hidden bg-surface-control p-0 pr-2 shadow-control hover:bg-surface-control-hover [&_[data-resource-avatar]]:!h-full [&_[data-resource-avatar]]:!w-8 [&_[data-resource-avatar]]:!rounded-none',
+                                    'h-8 w-auto min-w-0 max-w-40 gap-1.5 overflow-hidden bg-surface-control p-0 pr-2 shadow-control hover:bg-surface-control-hover [&_[data-context-empty-icon]]:!h-full [&_[data-context-empty-icon]]:!w-8 [&_[data-context-empty-icon]]:!rounded-none [&_[data-resource-avatar]]:!h-full [&_[data-resource-avatar]]:!w-8 [&_[data-resource-avatar]]:!rounded-none',
                                 compact === 'workspace' &&
                                     'max-w-36 max-sm:size-8 max-sm:flex-none max-sm:pr-0 max-sm:[&>svg]:hidden',
                                 compact === 'project' &&
@@ -216,7 +216,9 @@ function ContextOptionContent({
 
 function EmptyContextIcon() {
     return (
-        <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <span
+            data-context-empty-icon="true"
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-surface-inset text-muted-foreground">
             <Widget2Icon aria-hidden="true" className="size-4" />
         </span>
     )
@@ -329,7 +331,7 @@ export function DashboardProjectContext({
                                 onClick={close}
                                 className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm font-medium outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
                                 search={{
-                                    projectId: undefined,
+                                    projectId: selectedProjectId ?? 'none',
                                     workspaceId: selectedWorkspaceId ?? undefined,
                                 }}
                                 to="/dashboard/settings/workspace">

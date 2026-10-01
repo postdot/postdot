@@ -278,10 +278,12 @@ function DashboardPage() {
     }
 
     const isPreferences = isPreferencesPath(pathname)
-    const settingsProjectId = isSettingsPath(pathname) ? readProjectContextId(search) : undefined
-    const selectedSettingsProject = isSettingsPath(pathname)
-        ? (projects.find(project => project.id === settingsProjectId) ?? null)
-        : null
+    const settingsProjectId =
+        isSettingsPath(pathname) || isPreferences ? readProjectContextId(search) : undefined
+    const selectedSettingsProject =
+        isSettingsPath(pathname) || isPreferences
+            ? (projects.find(project => project.id === settingsProjectId) ?? null)
+            : null
 
     return (
         <DashboardGlobalProvider value={value}>

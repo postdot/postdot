@@ -153,7 +153,10 @@ export function DashboardHeader({
                         <DropdownMenuItem
                             render={
                                 <Link
-                                    search={{ workspaceId: workspaceId ?? undefined }}
+                                    search={{
+                                        workspaceId: workspaceId ?? undefined,
+                                        projectId: projectId ?? 'none',
+                                    }}
                                     to="/dashboard/preferences"
                                 />
                             }>

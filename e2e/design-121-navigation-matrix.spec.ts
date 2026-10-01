@@ -67,6 +67,10 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/preferences(?:\?.*)?$/)
     await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('projectId')).toBe(projectId)
+    await expect(page.locator('[data-context-kind="project"]')).toContainText(
+        `E2E navigation project ${suffix}`
+    )
     await expect(page.getByRole('navigation', { name: 'Settings', exact: true })).toBeVisible()
     await page
         .getByRole('navigation', { name: 'Settings', exact: true })
@@ -123,6 +127,10 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/preferences(?:\?.*)?$/)
     await expect(page.getByRole('heading', { name: 'General', exact: true })).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('projectId')).toBe(projectId)
+    await expect(page.locator('[data-context-kind="project"]')).toContainText(
+        `E2E navigation project ${suffix}`
+    )
     await expect(page.getByRole('navigation', { name: 'Settings', exact: true })).toBeVisible()
     await expect(page.getByRole('link', { name: 'General', exact: true })).toHaveAttribute(
         'aria-current',
@@ -138,6 +146,10 @@ test('keeps navigation entries aligned with their route and context', async ({ p
     await page.getByRole('link', { name: 'Members & groups', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/settings\/workspace(?:\?.*)?$/)
     await expect(page.getByRole('heading', { name: 'Members & groups', exact: true })).toBeVisible()
+    expect(new URL(page.url()).searchParams.get('projectId')).toBe(projectId)
+    await expect(page.locator('[data-context-kind="project"]')).toContainText(
+        `E2E navigation project ${suffix}`
+    )
     await expect(
         page.getByRole('navigation', { name: 'Workspace navigation', exact: true })
     ).toBeVisible()

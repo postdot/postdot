@@ -227,7 +227,7 @@ export function DashboardSidebar({
                                             destination="preferences"
                                             icon={<SettingsIcon aria-hidden="true" />}
                                             label={m.nav_preferences_general()}
-                                            projectId={null}
+                                            projectId={selectedProjectId}
                                             workspaceId={selectedWorkspaceId}
                                         />
                                         <WorkspaceMenuItem
@@ -235,7 +235,7 @@ export function DashboardSidebar({
                                             destination="preferences-api-keys"
                                             icon={<KeyMinimalisticIcon aria-hidden="true" />}
                                             label={m.nav_preferences_api_keys()}
-                                            projectId={null}
+                                            projectId={selectedProjectId}
                                             workspaceId={selectedWorkspaceId}
                                         />
                                     </SidebarMenu>
@@ -255,7 +255,7 @@ export function DashboardSidebar({
                                                 destination="settings"
                                                 icon={<SettingsIcon aria-hidden="true" />}
                                                 label={m.nav_instance_configuration()}
-                                                projectId={null}
+                                                projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
                                             />
                                             <WorkspaceMenuItem
@@ -265,7 +265,7 @@ export function DashboardSidebar({
                                                     <UsersGroupTwoRoundedIcon aria-hidden="true" />
                                                 }
                                                 label={m.nav_instance_access()}
-                                                projectId={null}
+                                                projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
                                             />
                                             <WorkspaceMenuItem
@@ -276,7 +276,7 @@ export function DashboardSidebar({
                                                 destination="settings-provider-applications"
                                                 icon={<LinkIcon aria-hidden="true" />}
                                                 label={m.nav_instance_provider_apps()}
-                                                projectId={null}
+                                                projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
                                             />
                                         </SidebarMenu>
@@ -299,7 +299,7 @@ export function DashboardSidebar({
                                                     <UsersGroupTwoRoundedIcon aria-hidden="true" />
                                                 }
                                                 label={m.nav_workspace_administration()}
-                                                projectId={null}
+                                                projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
                                             />
                                         </SidebarMenu>
@@ -493,7 +493,7 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/settings"
-                search={{ workspaceId: workspaceId ?? undefined, projectId: undefined }}
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -506,7 +506,7 @@ function workspaceLink(
                 to="/dashboard/settings/access"
                 search={{
                     workspaceId: workspaceId ?? undefined,
-                    projectId: undefined,
+                    projectId: projectId ?? 'none',
                     invitation: undefined,
                     organizationInvitation: undefined,
                 }}
@@ -520,7 +520,7 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/settings/provider-applications"
-                search={{ workspaceId: workspaceId ?? undefined, projectId: undefined }}
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -531,7 +531,7 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/settings/workspace"
-                search={{ workspaceId: workspaceId ?? undefined, projectId: undefined }}
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -542,7 +542,7 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/preferences"
-                search={{ workspaceId: workspaceId ?? undefined }}
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -553,7 +553,7 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard/preferences/api-keys"
-                search={{ workspaceId: workspaceId ?? undefined }}
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
@@ -564,7 +564,7 @@ function workspaceLink(
         return (
             <Link
                 to="/dashboard"
-                search={{ workspaceId: workspaceId ?? undefined }}
+                search={{ workspaceId: workspaceId ?? undefined, projectId: projectId ?? 'none' }}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
             />
