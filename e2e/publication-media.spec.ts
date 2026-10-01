@@ -920,8 +920,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     ).toHaveCount(0)
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
+    await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
 
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
+    await expect(page.getByLabel('Content', { exact: true })).toHaveValue(sourceText)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const mixedAttachmentLibrary = page.locator('[data-media-library="true"]')
     const mixedAttachmentSearch = mixedAttachmentLibrary.getByRole('searchbox', {
