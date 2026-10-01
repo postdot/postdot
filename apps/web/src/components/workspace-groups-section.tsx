@@ -21,6 +21,7 @@ import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { EmptyState } from '@/components/empty-state'
+import { UserAvatar } from '@/components/identity-visuals'
 import {
     api,
     ApiError,
@@ -371,7 +372,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
     const workspaceTeamsById = new Map(workspace.teams.map(team => [team.id, team] as const))
 
     return (
-        <div className="mt-6 space-y-6">
+        <div className="space-y-6">
             {error ? (
                 <Alert variant="destructive">
                     <AlertTitle>{m.access_workspace_groups_action_failed()}</AlertTitle>
@@ -395,9 +396,6 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                             className="font-heading text-base font-medium">
                             {m.access_workspace_members_title()}
                         </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {m.access_workspace_members_description()}
-                        </p>
                     </div>
                     {!canManage ? (
                         <Badge variant="secondary">{m.access_workspace_groups_read_only()}</Badge>
@@ -420,9 +418,12 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                 key={member.id}
                                 aria-busy={pendingMemberAction}>
                                 <div className="flex min-w-0 items-center gap-3">
-                                    <span className="flex size-8 shrink-0 items-center justify-center bg-primary/10 text-xs font-medium text-primary">
-                                        {member.name.charAt(0).toUpperCase()}
-                                    </span>
+                                    <UserAvatar
+                                        imageUrl={member.image}
+                                        name={member.name}
+                                        seed={member.userId}
+                                        size="sm"
+                                    />
                                     <div className="min-w-0">
                                         <div className="flex min-w-0 items-center gap-2">
                                             <p className="truncate text-sm font-medium">
@@ -510,11 +511,8 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                         <h2
                             id="workspace-invite-title"
                             className="font-heading text-base font-medium">
-                            {m.access_workspace_invite_title()}
+                            {m.access_invite_to_scope({ name: workspace.workspace.name })}
                         </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {m.access_workspace_invite_description()}
-                        </p>
                     </div>
 
                     <form
@@ -571,15 +569,11 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                         </Button>
                     </form>
 
-                    <div className="mt-5">
-                        <h4 className="text-xs font-medium uppercase text-muted-foreground">
-                            {m.access_workspace_invite_pending_title()}
-                        </h4>
-                        {invitations.length === 0 ? (
-                            <p className="mt-3 text-xs text-muted-foreground">
-                                {m.access_workspace_invite_pending_empty()}
-                            </p>
-                        ) : (
+                    {invitations.length > 0 ? (
+                        <div className="mt-5">
+                            <h3 className="text-sm font-medium text-muted-foreground">
+                                {m.access_workspace_invite_pending_title()}
+                            </h3>
                             <ul className="mt-3 divide-y divide-border/40">
                                 {invitations.map(invitation => (
                                     <li
@@ -614,8 +608,8 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                     </li>
                                 ))}
                             </ul>
-                        )}
-                    </div>
+                        </div>
+                    ) : null}
                 </section>
             ) : null}
 
@@ -627,9 +621,6 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                             className="font-heading text-base font-medium">
                             {m.access_workspace_groups_title()}
                         </h2>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {m.access_workspace_groups_description()}
-                        </p>
                     </div>
                     {!canManage ? (
                         <Badge variant="secondary">{m.access_workspace_groups_read_only()}</Badge>
@@ -644,7 +635,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                         title={m.access_workspace_groups_empty()}
                     />
                 ) : (
-                    <div className="mt-5 divide-y divide-border/40">
+                    <div className="mt-4 grid gap-3 xl:grid-cols-2">
                         {workspace.teams.map(team => {
                             const members = teamMembers[team.id] ?? []
                             const projects = teamProjects[team.id] ?? []
@@ -657,7 +648,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                             return (
                                 <article
                                     aria-busy={pendingAction?.includes(team.id)}
-                                    className="min-w-0 py-5 first:pt-0 last:pb-0"
+                                    className="min-w-0 bg-surface-inset/45 p-4 shadow-surface"
                                     key={team.id}>
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0 flex-1">
@@ -705,10 +696,6 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                                     ) : null}
                                                 </div>
                                             )}
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {members.length} ·{' '}
-                                                {m.access_workspace_group_members()}
-                                            </p>
                                         </div>
                                         {canManage && !isRenaming ? (
                                             <Button
@@ -725,11 +712,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                         ) : null}
                                     </div>
 
-                                    {members.length === 0 ? (
-                                        <p className="mt-4 text-xs text-muted-foreground">
-                                            {m.access_workspace_group_no_members()}
-                                        </p>
-                                    ) : (
+                                    {members.length > 0 ? (
                                         <ul
                                             className="mt-4 divide-y divide-border/40"
                                             aria-label={team.name}>
@@ -743,9 +726,12 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                                     <li
                                                         className="flex min-w-0 items-center gap-2 py-2 first:pt-0 last:pb-0"
                                                         key={teamMember.id}>
-                                                        <span className="flex size-7 shrink-0 items-center justify-center bg-primary/10 text-xs font-medium text-primary">
-                                                            {displayName.charAt(0).toUpperCase()}
-                                                        </span>
+                                                        <UserAvatar
+                                                            imageUrl={member?.image ?? null}
+                                                            name={displayName}
+                                                            seed={teamMember.userId}
+                                                            size="sm"
+                                                        />
                                                         <div className="min-w-0 flex-1">
                                                             <p className="truncate text-sm font-medium">
                                                                 {displayName}
@@ -776,13 +762,15 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                                 )
                                             })}
                                         </ul>
-                                    )}
+                                    ) : null}
 
                                     {canManage ? (
                                         <div className="mt-4">
-                                            <h4 className="text-xs font-medium uppercase text-muted-foreground">
-                                                {m.access_workspace_group_project_access()}
-                                            </h4>
+                                            {projects.length > 0 ? (
+                                                <h4 className="text-xs font-medium text-muted-foreground">
+                                                    {m.access_workspace_group_project_access()}
+                                                </h4>
+                                            ) : null}
                                             {projects.length === 0 ? (
                                                 <p className="mt-2 text-xs text-muted-foreground">
                                                     {m.access_workspace_group_no_projects()}
@@ -848,11 +836,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
                                                     {m.access_workspace_group_add_button()}
                                                 </Button>
                                             </div>
-                                        ) : (
-                                            <p className="mt-4 text-xs text-muted-foreground">
-                                                {m.access_workspace_group_all_members()}
-                                            </p>
-                                        )
+                                        ) : null
                                     ) : null}
                                 </article>
                             )
@@ -862,7 +846,7 @@ export function WorkspaceGroupsSection({ workspaceId }: WorkspaceGroupsSectionPr
 
                 {canManage ? (
                     <form
-                        className="mt-5 flex flex-col gap-2 border-t border-border/40 pt-5 sm:flex-row sm:items-end"
+                        className="mt-5 flex flex-col gap-2 bg-surface-inset/45 p-4 shadow-surface sm:flex-row sm:items-end"
                         onSubmit={handleCreateTeam}>
                         <Field className="min-w-0 flex-1 gap-1.5">
                             <FieldLabel htmlFor="workspace-group-name">

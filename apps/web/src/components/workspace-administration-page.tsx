@@ -1,21 +1,14 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@herald/ui/components/select'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
+import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
 import { WorkspaceGroupsSection } from '@/components/workspace-groups-section'
-import { api, formatApiError, type WorkspaceListItem } from '@/lib/api'
+import { api, formatApiError } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -26,7 +19,6 @@ export function WorkspaceAdministrationPage({
 }) {
     const navigate = useNavigate()
     useLanguage()
-    const [workspaces, setWorkspaces] = useState<WorkspaceListItem[]>([])
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -44,7 +36,6 @@ export function WorkspaceAdministrationPage({
                 const manageableWorkspaces = response.workspaces.filter(
                     candidate => candidate.role === 'owner' || candidate.role === 'admin'
                 )
-                setWorkspaces(manageableWorkspaces)
                 const workspace =
                     (preferredWorkspaceId === undefined
                         ? undefined
@@ -83,44 +74,10 @@ export function WorkspaceAdministrationPage({
         }
     }, [navigate, preferredWorkspaceId, reloadVersion])
 
-    function handleWorkspaceChange(nextWorkspaceId: string | null) {
-        if (nextWorkspaceId === null || nextWorkspaceId === workspaceId) return
-        void navigate({
-            to: '/dashboard/settings/workspace',
-            search: { projectId: undefined, workspaceId: nextWorkspaceId },
-        })
-    }
-
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="w-full">
-                <DashboardPageHeader
-                    description={m.access_workspace_summary()}
-                    action={
-                        workspaces.length > 0 ? (
-                            <Select
-                                items={Object.fromEntries(
-                                    workspaces.map(workspace => [workspace.id, workspace.name])
-                                )}
-                                value={workspaceId}
-                                onValueChange={handleWorkspaceChange}>
-                                <SelectTrigger
-                                    aria-label={m.nav_select_workspace()}
-                                    className="min-w-52 sm:min-w-60">
-                                    <SelectValue placeholder={m.nav_select_workspace()} />
-                                </SelectTrigger>
-                                <SelectContent align="end">
-                                    {workspaces.map(workspace => (
-                                        <SelectItem key={workspace.id} value={workspace.id}>
-                                            {workspace.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        ) : null
-                    }
-                    title={m.access_workspace_title()}
-                />
+                <AccessPageHeader title={m.access_workspace_title()} />
 
                 {error ? (
                     <Alert className="mb-6" variant="destructive">

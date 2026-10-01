@@ -12,6 +12,14 @@ test('an owner can invite, update, and remove project members', async ({ page })
     await expect(
         page.getByRole('heading', { name: 'Project invitations', exact: true }).first()
     ).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Pending invitations', exact: true })
+    ).toHaveCount(0)
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+    ).toBe(false)
+    await page.setViewportSize({ width: 1280, height: 844 })
     const memberContext = await page.context().browser()?.newContext()
     expect(memberContext).toBeDefined()
     if (memberContext === undefined) throw new Error('The member browser context was not created')

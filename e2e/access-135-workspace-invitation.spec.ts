@@ -20,6 +20,18 @@ test('a workspace invitation joins the selected group and unlocks its project ac
     await page.goto(`/dashboard/settings/workspace?projectId=${owner.projectId}`)
     await expect(page.getByRole('heading', { name: 'Members & groups', exact: true })).toBeVisible()
 
+    await expect(page.getByRole('combobox', { name: 'Select workspace', exact: true })).toHaveCount(
+        1
+    )
+    await expect(page.getByText('No pending workspace invitations.', { exact: true })).toHaveCount(
+        0
+    )
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+    ).toBe(false)
+    await page.setViewportSize({ width: 1280, height: 844 })
+
     const editorsGroup = page
         .locator('article')
         .filter({ hasText: /^Editors/ })

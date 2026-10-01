@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 test('an instance admin can create, copy, revoke, and accept invitations', async ({ page }) => {
@@ -12,13 +13,34 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     await expect(
         page.getByRole('heading', { name: 'Members & invitations', exact: true }).first()
     ).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Your access', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Your access', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Herald users', exact: true })).toBeVisible()
     await expect(page.getByText('Administrator', { exact: true }).first()).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toHaveCount(0)
     await expect(page.getByText(account.email, { exact: true }).first()).toBeVisible()
     await expect(page.getByRole('combobox', { name: `Role for ${account.email}` })).toBeDisabled()
     await expect(page.getByRole('combobox', { name: `Status for ${account.email}` })).toBeDisabled()
+
+    await expect(page.getByRole('heading', { name: 'Invite to Herald', exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: 'Pending invitations', exact: true })
+    ).toHaveCount(0)
+    for (const width of [1280, 820, 390]) {
+        await page.setViewportSize({ width, height: 844 })
+        const geometry = await page.locator('main').evaluate(main => {
+            const title = main.querySelector('h1')!.getBoundingClientRect()
+            const bounds = main.getBoundingClientRect()
+            return {
+                titleCenter: title.x + title.width / 2,
+                mainCenter: bounds.x + bounds.width / 2,
+                overflow: document.documentElement.scrollWidth > window.innerWidth,
+            }
+        })
+        expect(Math.abs(geometry.titleCenter - geometry.mainCenter)).toBeLessThan(2)
+        expect(geometry.overflow).toBe(false)
+    }
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await page.setViewportSize({ width: 1280, height: 844 })
 
     const pendingEmail = `pending-${suffix}@herald.local`
     await page.getByLabel('Email', { exact: true }).fill(pendingEmail)

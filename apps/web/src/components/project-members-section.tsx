@@ -55,6 +55,7 @@ interface CreatedProjectInvitation {
 interface ProjectMembersSectionProps {
     readonly currentUserId: string
     readonly projectId: string
+    readonly projectName: string
     readonly view: 'access' | 'invitations'
     readonly workspaceId: string | null
 }
@@ -78,6 +79,7 @@ const emptyProjectAccessSnapshot: ProjectAccessSnapshot = {
 export function ProjectMembersSection({
     currentUserId,
     projectId,
+    projectName,
     view,
     workspaceId,
 }: ProjectMembersSectionProps) {
@@ -377,12 +379,12 @@ export function ProjectMembersSection({
                     <>
                         <section aria-labelledby="project-effective-access-title">
                             <div className="flex items-center justify-between gap-3">
-                                <h3
+                                <h2
                                     id="project-effective-access-title"
                                     className="text-sm font-medium">
                                     {m.access_project_effective_title()}
-                                </h3>
-                                {members ? (
+                                </h2>
+                                {members && members.length > 0 ? (
                                     <span className="text-xs tabular-nums text-muted-foreground">
                                         {members.length}
                                     </span>
@@ -506,6 +508,7 @@ export function ProjectMembersSection({
                     </>
                 ) : canManageWorkspace ? (
                     <InvitationSection
+                        projectName={projectName}
                         copied={copied}
                         copyError={copyError}
                         createdInvitation={createdInvitation}
@@ -594,33 +597,25 @@ function DirectAccessSection({
         member => !grants?.some(grant => grant.userId === member.userId)
     )
 
+    if (grants?.length === 0 && !canManage) return null
+
     return (
         <section
             className="min-w-0 bg-surface-inset/45 p-4 shadow-surface"
             aria-labelledby="project-direct-access-title">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <h3 id="project-direct-access-title" className="text-sm font-medium">
+                    <h2 id="project-direct-access-title" className="text-sm font-medium">
                         {m.access_project_direct_title()}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        {m.access_project_direct_description()}
-                    </p>
+                    </h2>
                 </div>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                    {grants?.length ?? 0}
-                </span>
             </div>
 
             {grants === null ? (
                 <p className="mt-4 text-sm text-muted-foreground" role="status">
                     {m.access_instance_loading()}
                 </p>
-            ) : grants.length === 0 ? (
-                <p className="mt-4 text-sm text-muted-foreground">
-                    {m.access_project_direct_empty()}
-                </p>
-            ) : (
+            ) : grants.length === 0 ? null : (
                 <ul className="mt-4 grid gap-2">
                     {grants.map(grant => {
                         const member = members.find(candidate => candidate.userId === grant.userId)
@@ -702,9 +697,9 @@ function DirectAccessSection({
                 </ul>
             )}
 
-            {canManage ? (
+            {canManage && availableMembers.length > 0 ? (
                 <form
-                    className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_auto]"
+                    className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem]"
                     onSubmit={onSubmit}>
                     <Select
                         value={selectedUserId}
@@ -732,6 +727,7 @@ function DirectAccessSection({
                         </SelectContent>
                     </Select>
                     <Button
+                        className="sm:col-span-2 sm:justify-self-end"
                         type="submit"
                         size="sm"
                         disabled={pendingAction !== null || selectedUserId === ''}>
@@ -769,33 +765,25 @@ function GroupAccessSection({
     readonly onUpdate: (grant: ProjectTeamGrant) => void
     readonly onRemove: (grant: ProjectTeamGrant) => void
 }) {
+    if (grants?.length === 0 && !canManage) return null
+
     return (
         <section
             className="min-w-0 bg-surface-inset/45 p-4 shadow-surface"
             aria-labelledby="project-group-access-title">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <h3 id="project-group-access-title" className="text-sm font-medium">
+                    <h2 id="project-group-access-title" className="text-sm font-medium">
                         {m.access_project_groups_title()}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        {m.access_project_groups_description()}
-                    </p>
+                    </h2>
                 </div>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                    {grants?.length ?? 0}
-                </span>
             </div>
 
             {grants === null ? (
                 <p className="mt-4 text-sm text-muted-foreground" role="status">
                     {m.access_instance_loading()}
                 </p>
-            ) : grants.length === 0 ? (
-                <p className="mt-4 text-sm text-muted-foreground">
-                    {m.access_project_groups_empty()}
-                </p>
-            ) : (
+            ) : grants.length === 0 ? null : (
                 <ul className="mt-4 grid gap-2">
                     {grants.map(grant => {
                         const isOwner = grant.role === 'owner'
@@ -872,9 +860,9 @@ function GroupAccessSection({
                 </ul>
             )}
 
-            {canManage ? (
+            {canManage && assignableTeams.length > 0 ? (
                 <form
-                    className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_auto]"
+                    className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem]"
                     onSubmit={onSubmit}>
                     <Select
                         value={selectedTeamId}
@@ -902,6 +890,7 @@ function GroupAccessSection({
                         </SelectContent>
                     </Select>
                     <Button
+                        className="sm:col-span-2 sm:justify-self-end"
                         type="submit"
                         size="sm"
                         disabled={pendingAction !== null || selectedTeamId === ''}>
@@ -915,6 +904,7 @@ function GroupAccessSection({
 }
 
 function InvitationSection({
+    projectName,
     copied,
     copyError,
     createdInvitation,
@@ -931,6 +921,7 @@ function InvitationSection({
     onResend,
     onSubmit,
 }: {
+    readonly projectName: string
     readonly copied: boolean
     readonly copyError: boolean
     readonly createdInvitation: CreatedProjectInvitation | null
@@ -953,16 +944,10 @@ function InvitationSection({
             aria-labelledby="project-invite-title">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <h3 id="project-invite-title" className="text-sm font-medium">
-                        {m.access_project_invite_button()}
-                    </h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        {m.access_project_invitation_copy_once()}
-                    </p>
+                    <h2 id="project-invite-title" className="text-sm font-medium">
+                        {m.access_invite_to_scope({ name: projectName })}
+                    </h2>
                 </div>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                    {pendingInvitations.length}
-                </span>
             </div>
 
             <form
@@ -1033,68 +1018,68 @@ function InvitationSection({
                 </div>
             ) : null}
 
-            <div className="mt-6">
-                <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-medium">{m.access_project_pending_title()}</h4>
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                        {pendingInvitations.length}
-                    </span>
-                </div>
+            {invitations === null || pendingInvitations.length > 0 ? (
+                <div className="mt-6">
+                    <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-medium">{m.access_project_pending_title()}</h3>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                            {pendingInvitations.length}
+                        </span>
+                    </div>
 
-                {invitations === null ? (
-                    <p className="mt-4 text-sm text-muted-foreground" role="status">
-                        {m.access_instance_loading()}
-                    </p>
-                ) : pendingInvitations.length === 0 ? (
-                    <p className="mt-4 text-sm text-muted-foreground">
-                        {m.access_project_pending_empty()}
-                    </p>
-                ) : (
-                    <ul className="mt-3 grid gap-2" aria-label={m.access_project_pending_title()}>
-                        {pendingInvitations.map(invitation => (
-                            <li
-                                key={invitation.id}
-                                className="flex min-w-0 flex-col gap-3 bg-surface-raised p-3 shadow-field sm:flex-row sm:items-center sm:justify-between">
-                                <div className="min-w-0">
-                                    <div className="flex min-w-0 items-center gap-2">
-                                        <p className="truncate text-sm font-medium">
-                                            {invitation.email}
+                    {invitations === null ? (
+                        <p className="mt-4 text-sm text-muted-foreground" role="status">
+                            {m.access_instance_loading()}
+                        </p>
+                    ) : (
+                        <ul
+                            className="mt-3 grid gap-2"
+                            aria-label={m.access_project_pending_title()}>
+                            {pendingInvitations.map(invitation => (
+                                <li
+                                    key={invitation.id}
+                                    className="flex min-w-0 flex-col gap-3 bg-surface-raised p-3 shadow-field sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="min-w-0">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <p className="truncate text-sm font-medium">
+                                                {invitation.email}
+                                            </p>
+                                            {isProjectInvitationExpired(invitation) ? (
+                                                <Badge variant="secondary">
+                                                    {m.access_project_invitation_expired()}
+                                                </Badge>
+                                            ) : null}
+                                        </div>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            {projectInvitationDetails(invitation, locale)}
                                         </p>
-                                        {isProjectInvitationExpired(invitation) ? (
-                                            <Badge variant="secondary">
-                                                {m.access_project_invitation_expired()}
-                                            </Badge>
-                                        ) : null}
                                     </div>
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                        {projectInvitationDetails(invitation, locale)}
-                                    </p>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-1">
-                                    <Button
-                                        type="button"
-                                        aria-label={`${m.access_project_invitation_resend()} ${invitation.email}`}
-                                        size="sm"
-                                        variant="ghost"
-                                        disabled={pendingAction !== null}
-                                        onClick={() => onResend(invitation.id)}>
-                                        <RestartIcon aria-hidden="true" />
-                                        {m.access_project_invitation_resend()}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        disabled={pendingAction !== null}
-                                        onClick={() => onCancel(invitation.id)}>
-                                        {m.access_project_cancel_invitation()}
-                                    </Button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
+                                    <div className="flex shrink-0 items-center gap-1">
+                                        <Button
+                                            type="button"
+                                            aria-label={`${m.access_project_invitation_resend()} ${invitation.email}`}
+                                            size="sm"
+                                            variant="ghost"
+                                            disabled={pendingAction !== null}
+                                            onClick={() => onResend(invitation.id)}>
+                                            <RestartIcon aria-hidden="true" />
+                                            {m.access_project_invitation_resend()}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            disabled={pendingAction !== null}
+                                            onClick={() => onCancel(invitation.id)}>
+                                            {m.access_project_cancel_invitation()}
+                                        </Button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            ) : null}
         </section>
     )
 }

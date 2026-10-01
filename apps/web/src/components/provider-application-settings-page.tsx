@@ -5,6 +5,7 @@ import { CheckIcon } from '@solar-icons/react/linear/check'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
 import {
     ProviderApplicationForm,
@@ -151,28 +152,23 @@ export function ProviderApplicationSettingsPage() {
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="w-full">
-                <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                    <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
-                                {m.provider_apps_title()}
-                            </h1>
-                        </div>
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                            {m.provider_apps_description()}
-                        </p>
-                    </div>
-                    {applications?.length ? (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            aria-expanded={formOpen || editingId !== null}
-                            onClick={() => setFormOpen(current => !current)}>
-                            <AddIcon aria-hidden="true" />
-                            {m.provider_apps_new()}
-                        </Button>
-                    ) : null}
-                </header>
+                <DashboardPageHeader
+                    centered
+                    title={m.provider_apps_title()}
+                    description={m.provider_apps_description()}
+                    action={
+                        applications?.length ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                aria-expanded={formOpen || editingId !== null}
+                                onClick={() => setFormOpen(current => !current)}>
+                                <AddIcon aria-hidden="true" />
+                                {m.provider_apps_new()}
+                            </Button>
+                        ) : null
+                    }
+                />
 
                 {error ? (
                     <Alert className="mt-6" variant="destructive">
@@ -190,7 +186,12 @@ export function ProviderApplicationSettingsPage() {
                 ) : null}
 
                 <div className="mt-8 grid gap-8">
-                    <div className="min-w-0">
+                    <div
+                        className={
+                            applications !== null && (formOpen || editingId !== null)
+                                ? 'min-w-0'
+                                : 'hidden'
+                        }>
                         {applications !== null && (formOpen || editingId !== null) ? (
                             <div>
                                 <ProviderApplicationForm
@@ -208,14 +209,6 @@ export function ProviderApplicationSettingsPage() {
                     </div>
 
                     <section aria-label={m.provider_apps_title()} className="min-w-0">
-                        <div className="flex justify-end">
-                            {applications ? (
-                                <span className="text-sm text-muted-foreground">
-                                    {applications.length}
-                                </span>
-                            ) : null}
-                        </div>
-
                         {applications === null ? (
                             <p className="mt-4 text-sm text-muted-foreground" role="status">
                                 {m.provider_apps_loading()}

@@ -66,7 +66,9 @@ test('keeps instance settings separate from project navigation', async ({ page }
         page.getByRole('navigation', { name: 'Project management navigation', exact: true })
     ).toHaveCount(0)
     await expect(
-        page.getByRole('combobox', { name: 'Select workspace', exact: true })
+        page
+            .locator('[data-dashboard-header="true"]')
+            .getByRole('combobox', { name: 'Select workspace', exact: true })
     ).toBeVisible()
 
     await page.goto(`/dashboard/projects/${projectId}/overview`)

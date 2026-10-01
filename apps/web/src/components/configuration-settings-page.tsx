@@ -19,14 +19,11 @@ export function ConfigurationSettingsPage({
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="w-full">
-                <DashboardPageHeader
-                    description={m.configuration_description()}
-                    title={m.nav_instance()}
-                />
+                <DashboardPageHeader centered title={m.nav_instance()} />
 
                 <section aria-label={m.nav_instance()} className="grid gap-3 md:grid-cols-2">
                     <Link
-                        className="group flex min-w-0 flex-col justify-between gap-8 rounded-lg bg-surface-inset/45 p-5 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-surface-inset/70"
+                        className="group flex min-w-0 items-center justify-between gap-3 rounded-md bg-surface-inset/45 p-4 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-surface-inset/70"
                         search={{
                             invitation: undefined,
                             organizationInvitation: undefined,
@@ -48,7 +45,6 @@ export function ConfigurationSettingsPage({
                             </span>
                         </span>
                         <span className="flex items-center gap-2 text-sm font-medium text-primary">
-                            <span>{m.configuration_access_action()}</span>
                             <AltArrowRightIcon
                                 aria-hidden="true"
                                 className="size-4 transition-transform group-hover:translate-x-0.5"
@@ -56,7 +52,7 @@ export function ConfigurationSettingsPage({
                         </span>
                     </Link>
                     <Link
-                        className="group flex min-w-0 flex-col justify-between gap-8 rounded-lg bg-surface-inset/45 p-5 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-surface-inset/70"
+                        className="group flex min-w-0 items-center justify-between gap-3 rounded-md bg-surface-inset/45 p-4 shadow-surface transition-[background-color,transform] hover:-translate-y-px hover:bg-surface-inset/70"
                         search={{ projectId, workspaceId }}
                         to="/dashboard/settings/provider-applications">
                         <span className="flex min-w-0 items-start gap-4">
@@ -73,9 +69,6 @@ export function ConfigurationSettingsPage({
                             </span>
                         </span>
                         <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-primary">
-                            <span className="hidden sm:inline">
-                                {m.configuration_provider_apps_action()}
-                            </span>
                             <AltArrowRightIcon
                                 aria-hidden="true"
                                 className="size-4 transition-transform group-hover:translate-x-0.5"

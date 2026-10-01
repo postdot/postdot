@@ -16,10 +16,10 @@ import { CopyIcon } from '@solar-icons/react/linear/copy'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
-import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded'
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { useEffect, useState, type FormEvent } from 'react'
 
+import { AccessPageHeader } from '@/components/access-page-header'
 import { EmptyState } from '@/components/empty-state'
 import {
     api,
@@ -225,20 +225,7 @@ export function InstanceAccessSettingsPage({
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
             <div className="w-full">
-                <header className="flex items-start gap-3">
-                    <UsersGroupTwoRoundedIcon
-                        className="mt-1 size-5 shrink-0 text-primary"
-                        aria-hidden="true"
-                    />
-                    <div className="min-w-0">
-                        <h1 className="font-heading text-3xl font-semibold leading-[1.02] sm:text-4xl">
-                            {m.access_instance_title()}
-                        </h1>
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                            {m.access_instance_summary()}
-                        </p>
-                    </div>
-                </header>
+                <AccessPageHeader title={m.access_instance_title()} />
 
                 {error ? (
                     <Alert className="mt-6" variant="destructive">
@@ -331,59 +318,63 @@ export function InstanceAccessSettingsPage({
                             </section>
                         ) : null}
 
-                        <div className="mt-8 grid gap-8">
-                            <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                        <h2 className="font-heading text-base font-medium">
-                                            {m.access_membership_title()}
-                                        </h2>
-                                        <p className="mt-1 text-sm text-muted-foreground">
-                                            {global.session.user.email}
-                                        </p>
-                                    </div>
-                                    {access ? (
-                                        <Badge variant="secondary">
-                                            {access.instance.state === 'claimed'
-                                                ? m.access_instance_claimed()
-                                                : m.access_instance_claimable()}
-                                        </Badge>
-                                    ) : null}
-                                </div>
-
-                                {access === null ? (
-                                    <p className="mt-6 text-sm text-muted-foreground" role="status">
-                                        {m.access_instance_loading()}
-                                    </p>
-                                ) : access.membership === null ? (
-                                    <EmptyState
-                                        className="mt-6"
-                                        description={m.access_no_membership_description()}
-                                        icon={<KeyMinimalisticIcon aria-hidden="true" />}
-                                        layout="compact"
-                                        title={m.access_no_membership()}
-                                    />
-                                ) : (
-                                    <div className="mt-6 flex items-center justify-between gap-3 bg-muted/60 p-3 shadow-field">
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-medium">
-                                                {access.membership.name}
-                                            </p>
-                                            <p className="truncate text-xs text-muted-foreground">
-                                                {access.membership.email}
+                        <div className="grid gap-6">
+                            {!access?.isAdmin ? (
+                                <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h2 className="font-heading text-base font-medium">
+                                                {m.access_membership_title()}
+                                            </h2>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                {global.session.user.email}
                                             </p>
                                         </div>
-                                        <Badge
-                                            variant={
-                                                access.membership.role === 'admin'
-                                                    ? 'default'
-                                                    : 'secondary'
-                                            }>
-                                            {instanceRoleLabel(access.membership.role)}
-                                        </Badge>
+                                        {access ? (
+                                            <Badge variant="secondary">
+                                                {access.instance.state === 'claimed'
+                                                    ? m.access_instance_claimed()
+                                                    : m.access_instance_claimable()}
+                                            </Badge>
+                                        ) : null}
                                     </div>
-                                )}
-                            </section>
+
+                                    {access === null ? (
+                                        <p
+                                            className="mt-6 text-sm text-muted-foreground"
+                                            role="status">
+                                            {m.access_instance_loading()}
+                                        </p>
+                                    ) : access.membership === null ? (
+                                        <EmptyState
+                                            className="mt-6"
+                                            description={m.access_no_membership_description()}
+                                            icon={<KeyMinimalisticIcon aria-hidden="true" />}
+                                            layout="compact"
+                                            title={m.access_no_membership()}
+                                        />
+                                    ) : (
+                                        <div className="mt-6 flex items-center justify-between gap-3 bg-muted/60 p-3 shadow-field">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-medium">
+                                                    {access.membership.name}
+                                                </p>
+                                                <p className="truncate text-xs text-muted-foreground">
+                                                    {access.membership.email}
+                                                </p>
+                                            </div>
+                                            <Badge
+                                                variant={
+                                                    access.membership.role === 'admin'
+                                                        ? 'default'
+                                                        : 'secondary'
+                                                }>
+                                                {instanceRoleLabel(access.membership.role)}
+                                            </Badge>
+                                        </div>
+                                    )}
+                                </section>
+                            ) : null}
 
                             {access?.isAdmin ? (
                                 <section className="min-w-0 bg-surface-raised p-5 shadow-surface sm:p-6">
@@ -392,25 +383,10 @@ export function InstanceAccessSettingsPage({
                                             <h2 className="font-heading text-base font-medium">
                                                 {m.access_admin_title()}
                                             </h2>
-                                            <p className="mt-1 text-sm text-muted-foreground">
-                                                {m.access_admin_summary()}
-                                            </p>
                                         </div>
-                                        <Badge variant="secondary">{m.access_role_admin()}</Badge>
                                     </div>
 
-                                    <div className="mt-6">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <h3 className="text-sm font-medium">
-                                                {m.access_members_title()}
-                                            </h3>
-                                            {members ? (
-                                                <span className="text-xs text-muted-foreground">
-                                                    {members.length}
-                                                </span>
-                                            ) : null}
-                                        </div>
-
+                                    <div className="mt-4">
                                         {members === null ? (
                                             <p
                                                 className="mt-4 text-sm text-muted-foreground"
@@ -456,8 +432,12 @@ export function InstanceAccessSettingsPage({
                                                                     {member.email}
                                                                 </p>
                                                             </div>
-                                                            <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                                                            <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2 sm:flex sm:shrink-0">
                                                                 <Select
+                                                                    items={{
+                                                                        admin: m.access_role_admin(),
+                                                                        member: m.access_role_member(),
+                                                                    }}
                                                                     value={member.role}
                                                                     onValueChange={value => {
                                                                         if (value !== null)
@@ -474,7 +454,7 @@ export function InstanceAccessSettingsPage({
                                                                                 email: member.email,
                                                                             }
                                                                         )}
-                                                                        className="min-w-32"
+                                                                        className="w-full min-w-0 sm:min-w-40"
                                                                         disabled={
                                                                             isCurrent ||
                                                                             pendingAction !== null
@@ -492,6 +472,12 @@ export function InstanceAccessSettingsPage({
                                                                     </SelectContent>
                                                                 </Select>
                                                                 <Select
+                                                                    items={{
+                                                                        enabled:
+                                                                            m.access_state_enabled(),
+                                                                        disabled:
+                                                                            m.access_state_disabled(),
+                                                                    }}
                                                                     value={member.state}
                                                                     onValueChange={value => {
                                                                         if (value !== null)
@@ -508,7 +494,7 @@ export function InstanceAccessSettingsPage({
                                                                                 email: member.email,
                                                                             }
                                                                         )}
-                                                                        className="min-w-32"
+                                                                        className="w-full min-w-0 sm:min-w-32"
                                                                         disabled={
                                                                             isCurrent ||
                                                                             pendingAction !== null
@@ -533,8 +519,11 @@ export function InstanceAccessSettingsPage({
                                         )}
                                     </div>
 
+                                    <h3 className="mt-6 text-sm font-medium">
+                                        {m.access_invite_to_scope({ name: 'Herald' })}
+                                    </h3>
                                     <form
-                                        className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end"
+                                        className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
                                         onSubmit={handleCreateInvitation}>
                                         <Field className="min-w-0 flex-1 gap-1.5">
                                             <FieldLabel htmlFor="instance-access-email">
@@ -594,66 +583,61 @@ export function InstanceAccessSettingsPage({
                                         </div>
                                     ) : null}
 
-                                    <div className="mt-6">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <h3 className="text-sm font-medium">
-                                                {m.access_pending_title()}
-                                            </h3>
-                                            <span className="text-xs text-muted-foreground">
-                                                {pendingInvitations.length}
-                                            </span>
-                                        </div>
+                                    {invitations === null || pendingInvitations.length > 0 ? (
+                                        <div className="mt-6">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <h3 className="text-sm font-medium">
+                                                    {m.access_pending_title()}
+                                                </h3>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {pendingInvitations.length}
+                                                </span>
+                                            </div>
 
-                                        {invitations === null ? (
-                                            <p
-                                                className="mt-4 text-sm text-muted-foreground"
-                                                role="status">
-                                                {m.access_instance_loading()}
-                                            </p>
-                                        ) : pendingInvitations.length === 0 ? (
-                                            <EmptyState
-                                                className="mt-4"
-                                                icon={<UserPlusRoundedIcon aria-hidden="true" />}
-                                                layout="compact"
-                                                title={m.access_pending_empty()}
-                                            />
-                                        ) : (
-                                            <ul
-                                                className="mt-3 grid gap-2"
-                                                aria-label={m.access_pending_title()}>
-                                                {pendingInvitations.map(invitation => (
-                                                    <li
-                                                        className="flex flex-col gap-3 bg-muted/60 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between"
-                                                        key={invitation.id}>
-                                                        <div className="min-w-0">
-                                                            <p className="truncate text-sm font-medium">
-                                                                {invitation.targetEmail}
-                                                            </p>
-                                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                                {formatInvitationExpiry(
-                                                                    invitation.expiresAt,
-                                                                    locale
-                                                                )}
-                                                            </p>
-                                                        </div>
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            disabled={pendingAction !== null}
-                                                            onClick={() =>
-                                                                void handleRevokeInvitation(
-                                                                    invitation.id
-                                                                )
-                                                            }>
-                                                            <TrashBinMinimalisticIcon aria-hidden="true" />
-                                                            {m.access_revoke_invitation()}
-                                                        </Button>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
+                                            {invitations === null ? (
+                                                <p
+                                                    className="mt-4 text-sm text-muted-foreground"
+                                                    role="status">
+                                                    {m.access_instance_loading()}
+                                                </p>
+                                            ) : (
+                                                <ul
+                                                    className="mt-3 grid gap-2"
+                                                    aria-label={m.access_pending_title()}>
+                                                    {pendingInvitations.map(invitation => (
+                                                        <li
+                                                            className="flex flex-col gap-3 bg-muted/60 p-3 shadow-field sm:flex-row sm:items-center sm:justify-between"
+                                                            key={invitation.id}>
+                                                            <div className="min-w-0">
+                                                                <p className="truncate text-sm font-medium">
+                                                                    {invitation.targetEmail}
+                                                                </p>
+                                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                                    {formatInvitationExpiry(
+                                                                        invitation.expiresAt,
+                                                                        locale
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                disabled={pendingAction !== null}
+                                                                onClick={() =>
+                                                                    void handleRevokeInvitation(
+                                                                        invitation.id
+                                                                    )
+                                                                }>
+                                                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                                                {m.access_revoke_invitation()}
+                                                            </Button>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    ) : null}
                                 </section>
                             ) : null}
                         </div>
