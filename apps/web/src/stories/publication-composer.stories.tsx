@@ -64,7 +64,7 @@ export const PlatformPreviews: Story = {
 
 function ComposerExample() {
     const [targets, setTargets] = useState(() => [createPublicationTarget('linkedin')])
-    const [activeId, setActiveId] = useState(() => targets[0]!.id)
+    const [activeId, setActiveId] = useState(publicationSharedTabId)
     const [content, setContent] = useState(
         'A small glimpse of what we have been building. More room for ideas, fewer distractions.'
     )
@@ -78,14 +78,19 @@ function ComposerExample() {
                     <PublicationComposer
                         channelNavigation={
                             <PublicationChannelTabs
-                                activeTargetId={activeId}
+                                activeTabId={activeId}
                                 channels={channels}
-                                connections={[]}
                                 defaultDeliveryMode="manual"
                                 defaultScheduledAt="2026-10-01T10:00"
                                 disabled={false}
-                                onActiveTargetChange={setActiveId}
                                 onChange={setTargets}
+                                onActiveTabChange={setActiveId}
+                                onRemoveTarget={targetId => {
+                                    if (activeId === targetId) setActiveId(publicationSharedTabId)
+                                    setTargets(current =>
+                                        current.filter(target => target.id !== targetId)
+                                    )
+                                }}
                                 projectId="composer-demo"
                                 targets={targets}
                                 timeZone="UTC"

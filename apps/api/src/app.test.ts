@@ -3861,6 +3861,7 @@ describe('Herald API', () => {
                 customizedTargetIds: [],
                 defaultDeliveryMode: 'manual',
                 defaultScheduledAt: '',
+                activeContentScopeId: 'target-1',
                 postContent: 'A durable recovery copy.',
                 postTitle: '',
                 publicationTagIds: [],

@@ -2,7 +2,6 @@ import { Button } from '@herald/ui/components/button'
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -17,6 +16,7 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { Textarea } from '@herald/ui/components/textarea'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
@@ -25,6 +25,11 @@ import { useMemo, useState } from 'react'
 
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { api, type ChannelCreationProfile, type RuntimeChannelProfile } from '@/lib/api'
+import {
+    channelNameExists,
+    suggestChannelName,
+    type ChannelIdentityPeer,
+} from '@/lib/channel-identity'
 import {
     builtInChannelProfileTemplatePrefix,
     channelProfileTemplates,
@@ -47,9 +52,13 @@ type ProfileChoice =
 export function ChannelCreationDialog({
     onCreate,
     pending,
+    channels = [],
+    compact = false,
 }: {
     readonly onCreate: (name: string, profile: ChannelCreationProfile) => Promise<boolean>
     readonly pending: boolean
+    readonly channels?: readonly ChannelIdentityPeer[]
+    readonly compact?: boolean
 }) {
     useLanguage()
     const presetsQuery = useQuery({
@@ -74,6 +83,7 @@ export function ChannelCreationDialog({
     )
     const [open, setOpen] = useState(false)
     const [name, setName] = useState('')
+    const [nameEdited, setNameEdited] = useState(false)
     const [choice, setChoice] = useState<ProfileChoice>('manual-message')
     const [templateId, setTemplateId] = useState(channelProfileTemplates[0]?.id ?? '')
     const [profileText, setProfileText] = useState('')
@@ -81,6 +91,7 @@ export function ChannelCreationDialog({
 
     function reset() {
         setName('')
+        setNameEdited(false)
         setChoice('manual-message')
         setTemplateId(channelProfileTemplates[0]?.id ?? '')
         setProfileText('')
@@ -97,6 +108,7 @@ export function ChannelCreationDialog({
 
     function selectProfile(nextChoice: ProfileChoice) {
         setChoice(nextChoice)
+        if (!nameEdited) setName(suggestedName(nextChoice))
         if (nextChoice === 'custom' && profileText === '') {
             const profile = profileForTemplate(templateId, templates)
             if (profile !== undefined) setProfileText(JSON.stringify(profile, null, 2))
@@ -107,6 +119,16 @@ export function ChannelCreationDialog({
         const trimmedName = name.trim()
         if (trimmedName === '') {
             setValidationError(m.channel_name_required())
+            return
+        }
+
+        if (
+            channelNameExists(
+                trimmedName,
+                channels.map(channel => channel.name)
+            )
+        ) {
+            setValidationError(m.channel_name_exists())
             return
         }
 
@@ -144,42 +166,70 @@ export function ChannelCreationDialog({
         { value: 'custom', label: m.channel_custom_profile() },
     ]
 
+    function suggestedName(profile: ProfileChoice) {
+        if (profile === 'custom') return ''
+        const platformNames = {
+            linkedin: 'LinkedIn',
+            bluesky: 'Bluesky',
+            mastodon: 'Mastodon',
+            x: 'X.com',
+            discord: 'Discord',
+            devto: 'DEV.to',
+            'manual-message': m.channel_default_manual_name(),
+        }
+        const label = platformNames[profile]
+        return suggestChannelName(
+            label,
+            channels.map(channel => channel.name),
+            channels.filter(channel => channel.profileId === profile).length
+        )
+    }
+
+    function openDialog() {
+        reset()
+        setName(suggestedName('manual-message'))
+        setOpen(true)
+    }
+
     return (
         <>
-            <Button
-                onClick={() => {
-                    reset()
-                    setOpen(true)
-                }}>
-                <AddIcon aria-hidden="true" />
-                {m.channel_add()}
-            </Button>
+            {compact ? (
+                <Tooltip>
+                    <TooltipTrigger
+                        render={
+                            <Button
+                                type="button"
+                                size="icon-sm"
+                                variant="ghost"
+                                className="size-11 rounded-md bg-surface-control p-0 shadow-control hover:bg-surface-control-hover"
+                                aria-label={m.channel_add()}
+                                onClick={openDialog}>
+                                <AddIcon aria-hidden="true" />
+                            </Button>
+                        }
+                    />
+                    <TooltipContent>{m.channel_add()}</TooltipContent>
+                </Tooltip>
+            ) : (
+                <Button type="button" onClick={openDialog}>
+                    <AddIcon aria-hidden="true" />
+                    {m.channel_add()}
+                </Button>
+            )}
             <Dialog
                 open={open}
                 onOpenChange={nextOpen => {
                     setOpen(nextOpen)
                     if (!nextOpen) reset()
                 }}>
-                <DialogContent className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-2xl overflow-x-hidden overflow-y-auto sm:max-w-2xl">
+                <DialogContent
+                    aria-describedby={undefined}
+                    className="max-h-[min(42rem,calc(100dvh-2rem))] w-[calc(100%-2rem)] max-w-2xl overflow-x-hidden overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{m.channel_create_title()}</DialogTitle>
-                        <DialogDescription>
-                            {m.channel_creation_profile_description()}
-                        </DialogDescription>
                     </DialogHeader>
 
                     <div className="grid gap-5">
-                        <Field className="gap-1.5">
-                            <FieldLabel htmlFor="new-channel-name">{m.channel_name()}</FieldLabel>
-                            <Input
-                                id="new-channel-name"
-                                autoFocus
-                                value={name}
-                                onChange={event => setName(event.target.value)}
-                                placeholder={m.channel_name_placeholder()}
-                            />
-                        </Field>
-
                         <Field className="gap-1.5">
                             <FieldLabel>{m.channel_profile()}</FieldLabel>
                             <div
@@ -196,6 +246,20 @@ export function ChannelCreationDialog({
                                     />
                                 ))}
                             </div>
+                        </Field>
+
+                        <Field className="gap-1.5">
+                            <FieldLabel htmlFor="new-channel-name">{m.channel_name()}</FieldLabel>
+                            <Input
+                                id="new-channel-name"
+                                value={name}
+                                onChange={event => {
+                                    setName(event.target.value)
+                                    setNameEdited(true)
+                                    setValidationError(null)
+                                }}
+                                placeholder={m.channel_name_placeholder()}
+                            />
                         </Field>
 
                         {choice === 'custom' ? (

@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 import type { MediaReference } from '@herald/client'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
+import en from '../apps/web/messages/en.json' with { type: 'json' }
+
 const e2eApiPort = process.env.HERALD_E2E_API_PORT
 if (e2eApiPort === undefined) {
     throw new Error('HERALD_E2E_API_PORT must be set by the Playwright E2E runtime')
@@ -355,35 +357,21 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page).toHaveURL(
         /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
     )
-    await expect(page.getByLabel('Schedule', { exact: true }).first()).toContainText(/9:00 AM/)
+    await expect(
+        page.locator('[data-publication-schedule-disclosure="true"] > summary')
+    ).toContainText(/9:00 AM/)
     await page.goBack()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/channels$/)
 
-    const channelSidebarLayout = await page
-        .locator('[data-slot="sidebar-menu-item"]')
-        .filter({ hasText: channelName })
-        .first()
-        .evaluate(item => {
-            const row = item as unknown as LayoutElement
-            const button = row.querySelector('[data-slot="sidebar-menu-button"]')
-            const label = button?.querySelector('span.truncate')
-            const badge = button?.querySelector('[data-slot="sidebar-menu-badge"]')
-            const labelRectangle = label?.getBoundingClientRect()
-            const badgeRectangle = badge?.getBoundingClientRect()
-            return {
-                overlap:
-                    labelRectangle === undefined || badgeRectangle === undefined
-                        ? null
-                        : Math.max(
-                              0,
-                              Math.min(labelRectangle.right, badgeRectangle.right) -
-                                  Math.max(labelRectangle.left, badgeRectangle.left)
-                          ),
-            }
-        })
-    expect(channelSidebarLayout).toEqual({ overlap: 0 })
+    const projectNavigation = page.getByRole('navigation', { name: 'Project navigation' })
+    await expect(
+        projectNavigation.getByRole('link', { name: 'Channels', exact: true })
+    ).toHaveCount(1)
+    await expect(
+        page.locator('[data-slot="sidebar-inner"]').getByText(channelName, { exact: true })
+    ).toHaveCount(0)
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
 
@@ -400,7 +388,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     const draftResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
     const draftResult = (await (await draftResponse).json()) as {
         publications: { id: string; state: string }[]
     }
@@ -472,13 +460,16 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         .toEqual([`View ${editedMediaFilename}`, `View ${secondMediaFilename}`])
     const firstReorderable = newPublicationEditor.locator('[data-media-reorderable="true"]').first()
     const secondReorderable = newPublicationEditor.locator('[data-media-reorderable="true"]').nth(1)
-    await firstReorderable.dragTo(secondReorderable)
+    await firstReorderable.locator('[data-media-drag-handle="true"]').dragTo(secondReorderable)
     await expect
         .poll(selectedMediaOrder)
         .toEqual([`View ${secondMediaFilename}`, `View ${editedMediaFilename}`])
+    await expect(newPublicationEditor.locator('[data-media-selection-preview="true"]')).toHaveCount(
+        2
+    )
     await newPublicationEditor
-        .getByRole('button', { name: `Move ${secondMediaFilename} right`, exact: true })
-        .click()
+        .getByRole('button', { name: `Reorder ${secondMediaFilename}`, exact: true })
+        .press('ArrowRight')
     await expect
         .poll(selectedMediaOrder)
         .toEqual([`View ${editedMediaFilename}`, `View ${secondMediaFilename}`])
@@ -513,6 +504,27 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
             .getByRole('button', { name: 'Browse', exact: true })
     ).toBeVisible()
     await importMediaFiles(page, [mediaFilename, secondMediaFilename, droppedMediaFilename])
+    await expect(
+        page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
+    ).toBeVisible()
+    await page.setViewportSize({ width: 390, height: 844 })
+    const mediaToolbar = page.locator('[data-media-library-toolbar="true"]')
+    const filterToggle = mediaToolbar.getByRole('button', { name: /^Filters/ })
+    await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(mediaToolbar.getByRole('combobox', { name: 'File type' })).toBeHidden()
+    await filterToggle.click()
+    await mediaToolbar.getByRole('combobox', { name: 'File type' }).click()
+    await page.getByRole('option', { name: 'Documents', exact: true }).click()
+    await expect(
+        page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
+    ).toHaveCount(0)
+    await filterToggle.click()
+    await expect(mediaToolbar.locator('p').getByText('Documents', { exact: true })).toBeVisible()
+    await expect(filterToggle).toHaveAttribute('aria-expanded', 'false')
+    await page.setViewportSize({ width: 1280, height: 720 })
+    await expect(mediaToolbar.getByRole('combobox', { name: 'File type' })).toHaveText('Documents')
+    await mediaToolbar.getByRole('combobox', { name: 'File type' }).click()
+    await page.getByRole('option', { name: 'All types', exact: true }).click()
     await expect(
         page.getByRole('button', { name: `View ${droppedMediaFilename}`, exact: true })
     ).toBeVisible()
@@ -930,18 +942,23 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(
         page.getByRole('button', { name: new RegExp(`Remove ${editedMediaFilename}`) })
     ).toBeVisible()
+    await page.locator('[data-publication-schedule-disclosure="true"] > summary').click()
     const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().innerText()
-    await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
+    await page.getByRole('button', { name: channelName, exact: true }).click()
     await page.getByLabel('Channel content', { exact: true }).fill(targetText)
+    await page.getByRole('button', { name: `Add ${secondChannelName}`, exact: true }).click()
     await page.getByRole('button', { name: secondChannelName, exact: true }).click()
     await expect(
         page.getByRole('button', { name: secondChannelName, exact: true })
     ).toHaveAttribute('aria-pressed', 'true')
+    const deliveryDetails = page.locator('[data-publication-active-channel-settings="true"]')
+    if ((await deliveryDetails.getAttribute('open')) === null) {
+        await deliveryDetails.locator('summary').click()
+    }
     await page.getByRole('button', { name: 'Customize delivery', exact: true }).click()
     await expect(page.getByLabel('Channel schedule', { exact: true })).toContainText(
         defaultSchedule.trim()
     )
-    await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
     await page.getByLabel('Channel content', { exact: true }).fill(secondTargetText)
     const secondPublicationDelivery = page.getByRole('combobox', {
         name: 'Channel delivery',
@@ -971,14 +988,14 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(populatedNewPublicationOverflow.scrollWidth).toBeLessThanOrEqual(
         populatedNewPublicationOverflow.clientWidth
     )
-    await expect(page.getByRole('button', { name: new RegExp(channelName) })).toBeVisible()
-    await expect(page.getByRole('button', { name: new RegExp(secondChannelName) })).toBeVisible()
+    await expect(page.getByRole('button', { name: channelName, exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: secondChannelName, exact: true })).toBeVisible()
     await page.setViewportSize({ width: 1280, height: 720 })
 
     const mixedResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
+    await page.getByRole('button', { name: 'Schedule 2 publications', exact: true }).click()
     const mixedResult = (await (await mixedResponse).json()) as { publications: { id: string }[] }
     const mixedPublicationId = mixedResult.publications[0]?.id
     if (mixedPublicationId === undefined) throw new Error('Expected a mixed publication')
@@ -1265,7 +1282,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page).toHaveURL(
         /\/dashboard\/projects\/[^/]+\/publications\/new\?date=\d{4}-\d{2}-\d{2}$/
     )
-    await expect(page.getByLabel('Schedule', { exact: true }).first()).toContainText(/9:00 AM/)
+    await expect(
+        page.locator('[data-publication-schedule-disclosure="true"] > summary')
+    ).toContainText(/9:00 AM/)
     await page.goBack()
     await expect(calendarMonth).toBeVisible()
     await page.getByRole('button', { name: 'Next period', exact: true }).click()
@@ -1406,6 +1425,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.setViewportSize({ width: 1280, height: 720 })
 
     const promotedSchedule = localDateTimeInHours(4)
+    await page.locator('[data-publication-delivery-disclosure] > summary').click()
     await setDateTimePicker(page, 'Deliver at', promotedSchedule)
     await page.getByRole('button', { name: 'Apply to channel', exact: true }).click()
     await expect(page.getByLabel('Deliver at', { exact: true })).toContainText(
@@ -1435,7 +1455,8 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.locator(mediaOnlySelector).first().click()
-    await expect(page.getByRole('heading', { name: 'Untitled publication' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Media · 1' })).toBeVisible()
+    await page.getByRole('button', { name: 'Add text', exact: true }).click()
     await expect(page.locator('#source-body')).toHaveValue('')
     await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
 
@@ -1443,6 +1464,30 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(mediaOnlyTarget.body).toBeUndefined()
     expect(mediaOnlyTarget.media).toHaveLength(1)
     expect(mediaOnlyTarget.media[0]?.assetId).toBe(assetId)
+
+    const mediaOnlyPublicationId = new URL(page.url()).pathname.split('/').at(-1)
+    if (!mediaOnlyPublicationId) throw new Error('Expected a media-only publication id')
+    const readOnlyEditorRoute = `**/api/projects/${firstProjectId}/publications/${mediaOnlyPublicationId}/editor`
+    await page.route(readOnlyEditorRoute, async route => {
+        const response = await route.fetch()
+        const payload = (await response.json()) as {
+            editor: { publication: Record<string, unknown> }
+        }
+        await route.fulfill({
+            status: response.status(),
+            contentType: 'application/json',
+            body: JSON.stringify({
+                editor: {
+                    ...payload.editor,
+                    publication: { ...payload.editor.publication, state: 'published' },
+                },
+            }),
+        })
+    })
+    await page.reload()
+    await expect(page.locator('#source-body')).toHaveCount(0)
+    await expect(page.locator('[data-publication-preview-media="true"] > div')).toHaveCount(1)
+    await page.unrouteAll({ behavior: 'wait' })
 
     await page.getByRole('link', { name: 'Media', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/media$/)
@@ -1498,7 +1543,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     expect(secondProjectId).not.toBe(firstProjectId)
 
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
-    await expect(page.getByText('No channels yet', { exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('status').getByText(en.channels_empty_title, { exact: true })
+    ).toBeVisible()
     await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
 
     await page.goto(`/dashboard/projects/${firstProjectId}/channels`)
@@ -1510,7 +1557,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
 
     await page.goto(`/dashboard/projects/${secondProjectId}/channels`)
-    await expect(page.getByText('No channels yet', { exact: true })).toBeVisible()
+    await expect(
+        page.getByRole('status').getByText(en.channels_empty_title, { exact: true })
+    ).toBeVisible()
     await expect(page.getByText(channelName, { exact: true })).toHaveCount(0)
     await expect(page.getByRole('combobox', { name: 'Select project' }).first()).toHaveText(
         secondProjectName

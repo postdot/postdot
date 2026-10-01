@@ -1,5 +1,8 @@
 import { X_MAX_WEIGHTED_POST_LENGTH, X_TEXT_COUNTING_ALGORITHM } from '@herald/x/text'
 
+import * as m from '@/paraglide/messages.js'
+import type { Locale } from '@/paraglide/runtime.js'
+
 export type TargetEditorFieldKind =
     | 'text'
     | 'number'
@@ -42,7 +45,10 @@ interface TargetEditorBinding {
     readonly semantic: string
 }
 
-export function getTargetEditorFields(profile: unknown): readonly TargetEditorField[] {
+export function getTargetEditorFields(
+    profile: unknown,
+    locale?: Locale
+): readonly TargetEditorField[] {
     if (!isRecord(profile)) return []
 
     const schema = isRecord(profile.contentSchema) ? profile.contentSchema : null
@@ -78,7 +84,29 @@ export function getTargetEditorFields(profile: unknown): readonly TargetEditorFi
         emittedBindingIds.add(binding.id)
     }
 
-    return fields
+    if (profile.origin !== 'built_in') return fields
+    return fields.map(field => {
+        const fieldSchema = schema === null ? null : resolveSchemaAtPath(schema, field.path)
+        if (typeof fieldSchema?.title === 'string') return field
+        const label = builtInFieldLabel(field.semantic, locale)
+        return label === null ? field : { ...field, label }
+    })
+}
+
+function builtInFieldLabel(semantic: string, locale?: Locale): string | null {
+    const options = { locale }
+    switch (semantic) {
+        case 'primary_text':
+            return m.profile_field_body({}, options)
+        case 'headline':
+            return m.profile_field_headline({}, options)
+        case 'language':
+            return m.profile_field_language({}, options)
+        case 'ordered_media':
+            return m.profile_field_media({}, options)
+        default:
+            return null
+    }
 }
 
 function readBinding(value: unknown): TargetEditorBinding[] {

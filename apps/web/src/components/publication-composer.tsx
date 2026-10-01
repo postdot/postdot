@@ -36,7 +36,7 @@ export function PublicationComposer({
                     preview ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(17rem,0.8fr)]' : 'grid-cols-1'
                 )}>
                 <div className="min-w-0">{editor}</div>
-                {preview ? <aside className="min-w-0 lg:sticky lg:top-6">{preview}</aside> : null}
+                {preview ? <div className="min-w-0 lg:sticky lg:top-6">{preview}</div> : null}
             </div>
 
             {settings ? <div className="min-w-0">{settings}</div> : null}

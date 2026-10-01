@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
 test('makes a revoked publisher connection actionable', async ({ page }) => {
@@ -72,10 +73,16 @@ test('makes a revoked publisher connection actionable', async ({ page }) => {
 
     await page.reload()
     const connection = page.locator(`#publisher-connection-${channelId}`)
+    await expect(page.locator('#channels').getByText(channelName, { exact: true })).toHaveCount(1)
     await expect(connection).toContainText('Access revoked')
     await expect(connection).toContainText(
         'Access was revoked. Reconnect this connection to resume automatic publishing.'
     )
+    const accessibility = await new AxeBuilder({ page }).analyze()
+    expect(accessibility.violations).toEqual([])
+    await connection.getByRole('button', { name: `Manage ${channelName}` }).click()
+    await expect(page.getByRole('menuitem', { name: 'Rename' })).toBeVisible()
+    await page.keyboard.press('Escape')
 
     await connection.getByRole('button', { name: 'Reconnect DEV.to', exact: true }).click()
     const dialog = page.getByRole('dialog')

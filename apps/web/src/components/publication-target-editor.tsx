@@ -34,8 +34,8 @@ export function PublicationTargetEditor({
     readOnly = false,
     compact = false,
 }: PublicationTargetEditorProps) {
-    useLanguage()
-    const fields = useMemo(() => getTargetEditorFields(profile), [profile])
+    const { locale } = useLanguage()
+    const fields = useMemo(() => getTargetEditorFields(profile, locale), [profile, locale])
     const [advancedOpen, setAdvancedOpen] = useState(target === null)
 
     useEffect(() => {
@@ -97,7 +97,11 @@ export function PublicationTargetEditor({
                     data-target-advanced="true"
                     open={advancedOpen}
                     onToggle={event => setAdvancedOpen(event.currentTarget.open)}
-                    className="mt-6 rounded-md bg-muted/45 p-4">
+                    className={
+                        compact
+                            ? 'mt-4 rounded-md bg-surface-inset/45 p-3'
+                            : 'mt-6 rounded-md bg-muted/45 p-4'
+                    }>
                     <summary className="cursor-pointer text-sm font-medium text-foreground">
                         {m.editor_target_advanced()}
                     </summary>

@@ -93,9 +93,6 @@ export function PublicationBulkScheduleDialog({
                             {scheduleError}
                         </p>
                     ) : null}
-                    <p className="text-xs text-muted-foreground">
-                        {m.editor_project_timezone({ timeZone })}
-                    </p>
                 </Field>
 
                 <DialogFooter>

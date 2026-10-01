@@ -16,6 +16,7 @@ export interface PublicationRecoveryState {
     readonly customizedTargetIds: string[]
     readonly customizedContentTargetIds: string[]
     readonly activePublicationTabId: string
+    readonly activeContentScopeId?: string
 }
 
 export type PublicationComposerDraftContent = Omit<PublicationRecoveryState, 'version' | 'savedAt'>
@@ -31,6 +32,7 @@ export interface PublicationRecoveryInput {
     readonly customizedTargetIds: ReadonlySet<string>
     readonly customizedContentTargetIds: ReadonlySet<string>
     readonly activePublicationTabId: string
+    readonly activeContentScopeId: string
 }
 
 export function publicationRecoveryKey(projectId: string) {
@@ -88,6 +90,7 @@ export function writePublicationRecovery(projectId: string, input: PublicationRe
         customizedTargetIds: [...input.customizedTargetIds],
         customizedContentTargetIds: [...input.customizedContentTargetIds],
         activePublicationTabId: input.activePublicationTabId,
+        activeContentScopeId: input.activeContentScopeId,
     }
 
     try {
@@ -131,7 +134,8 @@ function isPublicationRecoveryState(value: unknown): value is PublicationRecover
         typeof value.defaultScheduledAt !== 'string' ||
         !isStringArray(value.customizedTargetIds) ||
         !isStringArray(value.customizedContentTargetIds) ||
-        typeof value.activePublicationTabId !== 'string'
+        typeof value.activePublicationTabId !== 'string' ||
+        (value.activeContentScopeId !== undefined && typeof value.activeContentScopeId !== 'string')
     ) {
         return false
     }

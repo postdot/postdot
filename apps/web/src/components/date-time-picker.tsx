@@ -1,12 +1,11 @@
 import { TZDate } from '@date-fns/tz'
 import { Button } from '@herald/ui/components/button'
-import { Calendar } from '@herald/ui/components/calendar'
+import { Calendar, calendarLocales } from '@herald/ui/components/calendar'
 import { Input } from '@herald/ui/components/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@herald/ui/components/popover'
 import { cn } from '@herald/ui/lib/utils'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { ClockCircleIcon } from '@solar-icons/react/linear/clock-circle'
-import { fr, enUS, type Locale as DateFnsLocale } from 'date-fns/locale'
 import { useEffect, useMemo, useState } from 'react'
 
 import { getZonedDateTimeParts } from '@/lib/date-time'
@@ -77,7 +76,7 @@ export function DateTimePicker({
     }, [parsedValue])
 
     const formattedValue = formatDisplayValue(value, parsedValue, displayLocale ?? locale)
-    const calendarLocale: DateFnsLocale = locale === 'fr' ? fr : enUS
+    const calendarLocale = calendarLocales[locale]
 
     function handleOpenChange(nextOpen: boolean) {
         setOpen(nextOpen)

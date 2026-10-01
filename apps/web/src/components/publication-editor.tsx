@@ -1,6 +1,14 @@
+import { Button, buttonVariants } from '@herald/ui/components/button'
+import {
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from '@herald/ui/components/dialog'
 import { X_MAX_WEIGHTED_POST_LENGTH } from '@herald/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
-import { ArrowLeftIcon } from '@solar-icons/react/linear/arrow-left'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -167,6 +175,9 @@ export function PublicationEditor({
     const [recoveryAvailable, setRecoveryAvailable] = useState(
         initialPublicationEditable && initialRecovery !== null && !shouldRestoreInitialRecovery
     )
+    const pendingRecoveryExcerpt = recoveryAvailable
+        ? readRecovery(recoveryKey, timeZone)?.sourceContent.body?.text?.trim().slice(0, 180)
+        : undefined
     const [scheduleValue, setScheduleValue] = useState(
         shouldRestoreInitialRecovery && initialRecovery !== null
             ? initialRecovery.scheduleValue
@@ -179,6 +190,7 @@ export function PublicationEditor({
     const [tagSavePending, setTagSavePending] = useState(false)
     const [tagError, setTagError] = useState<string | null>(null)
     const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
+    const [readOnlyMedia, setReadOnlyMedia] = useState<MediaReference[]>([])
     const [manualPublishPending, setManualPublishPending] = useState(false)
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     const [cancelPending, setCancelPending] = useState(false)
@@ -187,6 +199,7 @@ export function PublicationEditor({
     const [targetCustomizationOpen, setTargetCustomizationOpen] = useState(
         initialEditor.draft.reviewState !== 'compatible'
     )
+    const technicalDetailsRef = useRef<HTMLDetailsElement>(null)
     const requestGeneration = useRef(0)
 
     const availableTags = useMemo(() => {
@@ -267,14 +280,33 @@ export function PublicationEditor({
         () => new Set(editorChannels.map(channel => channel.id)),
         [editorChannels]
     )
+    const readOnlyMediaIds = sourceContent.media.map(selection => selection.assetId).join('\u0000')
+    useEffect(() => {
+        if (publicationEditable || readOnlyMediaIds === '') return
+
+        let active = true
+        void Promise.allSettled(
+            readOnlyMediaIds.split('\u0000').map(assetId => api.getMedia(projectId, assetId))
+        ).then(results => {
+            if (!active) return
+            setReadOnlyMedia(
+                results.flatMap(result => (result.status === 'fulfilled' ? [result.value] : []))
+            )
+        })
+        return () => {
+            active = false
+        }
+    }, [projectId, publicationEditable, readOnlyMediaIds])
     const previewMedia = useMemo(
         () =>
             sourceContent.media
-                .map(selection =>
-                    availableMedia.find(asset => asset.asset.id === selection.assetId)
+                .map(
+                    selection =>
+                        availableMedia.find(asset => asset.asset.id === selection.assetId) ??
+                        readOnlyMedia.find(asset => asset.asset.id === selection.assetId)
                 )
                 .filter((asset): asset is MediaReference => asset !== undefined),
-        [availableMedia, sourceContent.media]
+        [availableMedia, readOnlyMedia, sourceContent.media]
     )
     const previewContent = useMemo(
         () => getTargetPreviewText(targetResult.value) ?? sourceContent.body?.text ?? '',
@@ -304,12 +336,17 @@ export function PublicationEditor({
         setScheduleValue(toDateTimeLocal(initialEditor.publication.scheduledAt, timeZone))
         setDirty(false)
         setScheduleDirty(false)
-        setSaveState(
+        const incomingSourceConflict =
             initialEditor.draft.sourceRevision !== initialEditor.post.sourceRevision
-                ? 'conflict'
-                : 'saved'
+        setSaveState(incomingSourceConflict ? 'conflict' : 'saved')
+        setMessage(
+            incomingSourceConflict
+                ? m.editor_initial_source_conflict({
+                      draftRevision: initialEditor.draft.sourceRevision,
+                      currentRevision: initialEditor.post.sourceRevision,
+                  })
+                : m.editor_background_update()
         )
-        setMessage(m.editor_background_update())
     }, [
         currentEditorFingerprint,
         editor.publication.id,
@@ -368,6 +405,7 @@ export function PublicationEditor({
     }
 
     useEffect(() => {
+        if (recoveryAvailable) return
         if (!hasLocalChanges) {
             if (!recoveryAvailable) removeRecovery(recoveryKey)
             return
@@ -393,7 +431,7 @@ export function PublicationEditor({
     ])
 
     useEffect(() => {
-        if (!publicationEditable || !dirty) return
+        if (!publicationEditable || !dirty || recoveryAvailable) return
 
         const generation = ++requestGeneration.current
         if (sourceConflict || sourceIssue !== null || targetResult.value === null) {
@@ -441,6 +479,7 @@ export function PublicationEditor({
         expectedRevision,
         projectId,
         publicationEditable,
+        recoveryAvailable,
         recoveryKey,
         sourceConflict,
         sourceContent,
@@ -513,11 +552,11 @@ export function PublicationEditor({
                 timeZone,
             })
         }
-        setRecoveryAvailable(hasLocalChanges || localRecovery !== null)
 
         try {
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
             if (generation !== requestGeneration.current) return
+            setRecoveryAvailable(hasLocalChanges || localRecovery !== null)
             setEditor(response.editor)
             setSourceContent(response.editor.post.sourceContent)
             setTargetText(formatJson(response.editor.draft.content))
@@ -842,49 +881,145 @@ export function PublicationEditor({
         invalidatePublicationQueries()
     }
 
+    const sourceSection = (
+        <PublicationEditorSourceSection
+            projectId={projectId}
+            sourceContent={sourceContent}
+            sourceRevision={editor.post.sourceRevision}
+            disabled={!publicationEditable || isRebasing}
+            readOnly={!publicationEditable}
+            mediaDisabled={
+                !publicationEditable || saveState === 'saving' || saveState === 'rebasing'
+            }
+            onTextChange={updateSourceText}
+            onFormatChange={updateSourceFormat}
+            onOptionalFieldChange={updateSourceOptionalField}
+            onMediaChange={updateSourceMedia}
+            onAssetsChange={setAvailableMedia}
+        />
+    )
+    const targetSection = (
+        <PublicationEditorTargetSection
+            profile={editor.profile.profile}
+            reviewState={editor.draft.reviewState}
+            validationIssues={editor.draft.validationIssues}
+            target={targetResult.value}
+            targetText={targetText}
+            disabled={!publicationEditable || isRebasing}
+            readOnly={!publicationEditable}
+            open={targetCustomizationOpen}
+            onOpenChange={setTargetCustomizationOpen}
+            onTargetChange={next => {
+                setTargetText(formatJson(next))
+                setDirty(true)
+            }}
+            onRawTextChange={value => {
+                setTargetText(value)
+                setDirty(true)
+            }}
+            targetError={targetResult.error}
+            issueCode={issueCode}
+            issueMessage={issueMessage}
+        />
+    )
+    const draftPreview = (
+        <PublicationDraftPreview
+            channel={editor.channel}
+            identityMode={publicationEditable ? 'sample' : 'channel'}
+            media={previewMedia}
+            postContent={previewContent}
+            postTitle={editor.post.title ?? ''}
+        />
+    )
+
     return (
-        <section className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
-            <div className="mx-auto min-w-0 max-w-6xl">
-                <div className="flex flex-col justify-between gap-4 pb-5 sm:flex-row sm:items-start">
-                    <div className="min-w-0">
-                        {backToCalendar === undefined ? (
-                            <Link
-                                to="/dashboard/projects/$projectId/queue"
-                                params={{ projectId }}
-                                search={{ filter: undefined, sort: undefined, tagIds: undefined }}
-                                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-                                <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                                {m.editor_back_to_queue()}
-                            </Link>
-                        ) : (
-                            <Link
-                                to="/dashboard/projects/$projectId/overview"
-                                params={{ projectId }}
-                                search={backToCalendar}
-                                className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-                                <ArrowLeftIcon aria-hidden="true" className="size-4" />
-                                {m.editor_back_to_calendar()}
-                            </Link>
-                        )}
-                        <div className="mt-4 flex min-w-0 flex-wrap items-end justify-between gap-x-4 gap-y-2">
-                            <div className="min-w-0">
-                                <h1 className="break-words font-heading text-3xl font-semibold leading-tight sm:text-4xl">
-                                    {publicationEditorHeading(editor)}
-                                </h1>
-                                <p className="mt-2 break-words text-sm text-muted-foreground">
-                                    {editor.channel.name}
-                                </p>
-                            </div>
+        <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+            {recoveryAvailable ? (
+                <Dialog open onOpenChange={() => {}}>
+                    <DialogContent
+                        showCloseButton={false}
+                        data-publication-recovery-decision="true"
+                        className="sm:max-w-md">
+                        <DialogTitle>{m.editor_recovery_choice_title()}</DialogTitle>
+                        <DialogDescription>
+                            {m.editor_recovery_choice_description()}
+                        </DialogDescription>
+                        {pendingRecoveryExcerpt ? (
+                            <p className="line-clamp-3 break-words rounded-md bg-surface-inset/50 p-3 text-sm text-muted-foreground">
+                                {pendingRecoveryExcerpt}
+                            </p>
+                        ) : null}
+                        {saveState === 'error' && message ? (
+                            <p role="alert" className="break-words text-sm text-state-failed">
+                                {message}
+                            </p>
+                        ) : null}
+                        <DialogFooter>
+                            <Button
+                                variant="secondary"
+                                disabled={isRebasing}
+                                onClick={() => {
+                                    requestGeneration.current += 1
+                                    removeRecovery(recoveryKey)
+                                    setRecoveryAvailable(false)
+                                }}>
+                                {m.editor_discard_recovery()}
+                            </Button>
+                            <Button disabled={isRebasing} onClick={restoreRecovery}>
+                                {m.editor_restore_recovery()}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            ) : null}
+            <div className="mx-auto min-w-0 max-w-6xl" inert={recoveryAvailable}>
+                <header className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 pb-5 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]">
+                    <Link
+                        aria-label={
+                            backToCalendar === undefined
+                                ? m.editor_back_to_queue()
+                                : m.editor_back_to_calendar()
+                        }
+                        className={buttonVariants({
+                            variant: 'ghost',
+                            size: 'icon',
+                            className:
+                                'justify-self-start text-muted-foreground hover:text-foreground sm:w-auto sm:gap-1.5 sm:px-2.5',
+                        })}
+                        params={{ projectId }}
+                        search={
+                            backToCalendar === undefined
+                                ? { filter: undefined, sort: undefined, tagIds: undefined }
+                                : backToCalendar
+                        }
+                        to={
+                            backToCalendar === undefined
+                                ? '/dashboard/projects/$projectId/queue'
+                                : '/dashboard/projects/$projectId/overview'
+                        }>
+                        <AltArrowLeftIcon aria-hidden="true" />
+                        <span className="hidden sm:inline">
+                            {backToCalendar === undefined
+                                ? m.editor_back_to_queue()
+                                : m.editor_back_to_calendar()}
+                        </span>
+                    </Link>
+                    <h1
+                        className="col-span-full row-start-2 min-w-0 line-clamp-2 break-words text-center font-heading text-xl font-semibold leading-tight sm:text-2xl lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:line-clamp-1 lg:truncate xl:text-3xl"
+                        title={publicationEditorHeading(editor, sourceContent)}>
+                        {publicationEditorHeading(editor, sourceContent)}
+                    </h1>
+                    {publicationEditable ? (
+                        <div className="col-start-2 row-start-1 min-w-0 justify-self-end lg:col-start-3">
+                            <PublicationEditorSaveIndicator
+                                compactOnMobile
+                                state={saveState}
+                                revision={editor.draft.revision}
+                                showRevision={false}
+                            />
                         </div>
-                    </div>
-                    <div className="shrink-0 sm:pt-8">
-                        <PublicationEditorSaveIndicator
-                            state={saveState}
-                            revision={editor.draft.revision}
-                            showRevision={false}
-                        />
-                    </div>
-                </div>
+                    ) : null}
+                </header>
 
                 <PublicationLifecyclePanel
                     cancelDisabled={cancellationBlocked}
@@ -911,15 +1046,15 @@ export function PublicationEditor({
                 ) : null}
 
                 <PublicationEditorStatus
-                    isRebasing={isRebasing}
                     message={message}
-                    recoveryAvailable={recoveryAvailable}
                     saveState={saveState}
-                    onRestoreRecovery={restoreRecovery}
-                    onDiscardRecovery={() => {
-                        requestGeneration.current += 1
-                        removeRecovery(recoveryKey)
-                        setRecoveryAvailable(false)
+                    onReviewConflict={() => {
+                        setTechnicalDetailsOpen(true)
+                        const details = technicalDetailsRef.current
+                        if (details === null) return
+                        details.open = true
+                        details.querySelector('summary')?.focus()
+                        details.scrollIntoView({ block: 'start' })
                     }}
                 />
 
@@ -952,64 +1087,27 @@ export function PublicationEditor({
                 <PublicationComposer
                     className="mt-6"
                     channelNavigation={
-                        <PublicationChannelRail
-                            activeChannelId={editor.channel.id}
-                            channels={editorChannels}
-                            disabled={isRebasing}
-                            onActiveChannelChange={handleChannelChange}
-                            selectedChannelIds={editorChannelIds}
-                        />
+                        editorChannels.length > 1 ? (
+                            <PublicationChannelRail
+                                activeChannelId={editor.channel.id}
+                                channels={editorChannels}
+                                disabled={isRebasing}
+                                onActiveChannelChange={handleChannelChange}
+                                selectedChannelIds={editorChannelIds}
+                            />
+                        ) : undefined
                     }
                     editor={
-                        <div className="min-w-0 space-y-5">
-                            <PublicationEditorSourceSection
-                                projectId={projectId}
-                                sourceContent={sourceContent}
-                                sourceRevision={editor.post.sourceRevision}
-                                disabled={!publicationEditable || isRebasing}
-                                readOnly={!publicationEditable}
-                                mediaDisabled={
-                                    !publicationEditable ||
-                                    saveState === 'saving' ||
-                                    saveState === 'rebasing'
-                                }
-                                onTextChange={updateSourceText}
-                                onFormatChange={updateSourceFormat}
-                                onOptionalFieldChange={updateSourceOptionalField}
-                                onMediaChange={updateSourceMedia}
-                                onAssetsChange={setAvailableMedia}
-                            />
-
-                            <PublicationEditorTargetSection
-                                profile={editor.profile.profile}
-                                reviewState={editor.draft.reviewState}
-                                validationIssues={editor.draft.validationIssues}
-                                target={targetResult.value}
-                                targetText={targetText}
-                                disabled={!publicationEditable || isRebasing}
-                                readOnly={!publicationEditable}
-                                open={targetCustomizationOpen}
-                                onOpenChange={setTargetCustomizationOpen}
-                                onTargetChange={next => {
-                                    setTargetText(formatJson(next))
-                                    setDirty(true)
-                                }}
-                                onRawTextChange={value => {
-                                    setTargetText(value)
-                                    setDirty(true)
-                                }}
-                                targetError={targetResult.error}
-                                issueCode={issueCode}
-                                issueMessage={issueMessage}
-                            />
-
-                            {publicationEditable ? (
+                        publicationEditable ? (
+                            <div className="min-w-0 space-y-5">
+                                {sourceSection}
+                                {targetSection}
                                 <PublicationEditorPromotionSection
                                     timeZone={timeZone}
                                     scheduleValue={scheduleValue}
                                     disabled={promotionBlocked}
                                     draftRequiresReview={draftRequiresReview}
-                                    draftDiffersFromTarget={draftDiffersFromTarget}
+                                    draftDiffersFromTarget={draftDiffersFromTarget || scheduleDirty}
                                     onScheduleChange={value => {
                                         setScheduleValue(value)
                                         setScheduleDirty(
@@ -1022,39 +1120,33 @@ export function PublicationEditor({
                                     }}
                                     onPromote={() => void promoteDraft()}
                                 />
-                            ) : null}
-                        </div>
+                            </div>
+                        ) : (
+                            <div className="mx-auto max-w-2xl">{draftPreview}</div>
+                        )
                     }
-                    preview={
-                        <div className="min-w-0">
-                            <PublicationDraftPreview
-                                channel={editor.channel}
-                                media={previewMedia}
-                                postContent={previewContent}
-                                postTitle={editor.post.title ?? ''}
-                            />
-                        </div>
-                    }
+                    preview={publicationEditable ? draftPreview : undefined}
                 />
 
-                <div className="mt-5 grid min-w-0 gap-3">
+                <div
+                    className={`mt-5 grid min-w-0 gap-3 ${publicationEditable ? '' : 'mx-auto max-w-2xl'}`}>
                     <details
                         className="group rounded-xl bg-surface-inset/35 p-1 shadow-surface"
+                        ref={technicalDetailsRef}
                         open={technicalDetailsOpen}
                         onToggle={event => setTechnicalDetailsOpen(event.currentTarget.open)}>
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
                             <span className="min-w-0">
                                 <span className="font-medium">{m.editor_technical_details()}</span>
-                                <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">
-                                    {m.editor_technical_details_hint()}
-                                </span>
                             </span>
                             <AltArrowDownIcon
                                 aria-hidden="true"
                                 className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
                             />
                         </summary>
-                        <div className="px-2 pb-2 pt-2 sm:px-3">
+                        <div className="space-y-3 px-2 pb-2 pt-2 sm:px-3">
+                            {!publicationEditable ? sourceSection : null}
+                            {!publicationEditable ? targetSection : null}
                             <PublicationEditorSidebar
                                 editor={editor}
                                 capabilitySummary={capabilitySummary}
@@ -1075,9 +1167,6 @@ export function PublicationEditor({
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
                             <span className="min-w-0">
                                 <span className="font-medium">{m.editor_activity_details()}</span>
-                                <span className="ml-2 hidden text-xs text-muted-foreground sm:inline">
-                                    {m.editor_activity_details_hint()}
-                                </span>
                             </span>
                             <AltArrowDownIcon
                                 aria-hidden="true"
@@ -1096,19 +1185,20 @@ export function PublicationEditor({
                     </details>
                 </div>
             </div>
-        </section>
+        </main>
     )
 }
 
-function publicationEditorHeading(editor: PublicationEditorState) {
+function publicationEditorHeading(editor: PublicationEditorState, sourceContent: SourceContent) {
     const title = editor.post.title?.trim()
     if (title) return title
 
-    const candidate =
-        editor.post.sourceContent.body?.text.trim() ||
-        editor.post.sourceContent.headline?.trim() ||
-        ''
-    if (candidate === '') return m.publication_untitled()
+    const candidate = sourceContent.body?.text.trim() || sourceContent.headline?.trim() || ''
+    if (candidate === '') {
+        return sourceContent.media.length > 0
+            ? m.publication_media_count({ count: sourceContent.media.length })
+            : m.publication_untitled()
+    }
 
     const normalized = candidate.replace(/\s+/g, ' ')
     return normalized.length > 96 ? `${normalized.slice(0, 93)}…` : normalized

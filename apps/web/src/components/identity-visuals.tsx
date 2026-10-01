@@ -13,6 +13,7 @@ import { Icon } from '@iconify/react'
 import { useMemo, type HTMLAttributes } from 'react'
 
 import type { Channel } from '@/lib/api'
+import { useChannelVariant } from '@/lib/channel-identity-context'
 
 const userStyle = new Style(lorelei)
 const channelStyle = new Style(shapes)
@@ -93,6 +94,14 @@ export function ChannelAvatar({
     readonly size?: ChannelAvatarSize
 } & Omit<HTMLAttributes<HTMLSpanElement>, 'children'>) {
     const icon = getChannelIcon(channel.profileId)
+    const variant = useChannelVariant(channel.id)
+    const initials = channel.name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map(word => Array.from(word)[0] ?? '')
+        .join('')
+        .toLocaleUpperCase()
     const generatedImage = useMemo(
         () => (icon === undefined ? createDiceBearImage(channelStyle, channel.id) : null),
         [channel.id, icon]
@@ -104,7 +113,7 @@ export function ChannelAvatar({
             data-channel-avatar="true"
             data-channel-profile={channel.profileId}
             className={cn(
-                'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md',
+                'relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md',
                 channelAvatarSizeClass[size],
                 icon === undefined ? 'bg-primary/10' : 'bg-white',
                 className
@@ -115,6 +124,17 @@ export function ChannelAvatar({
             ) : (
                 <img alt="" className="size-full object-cover" src={generatedImage ?? undefined} />
             )}
+            {icon === undefined ? (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/10 text-[11px] font-bold text-black drop-shadow-sm">
+                    {initials}
+                </span>
+            ) : variant !== undefined ? (
+                <span
+                    data-channel-variant={variant}
+                    className="absolute bottom-0 right-0 rounded-tl-sm bg-[#171717] px-1 text-[9px] font-semibold leading-3 text-white">
+                    {variant}
+                </span>
+            ) : null}
         </span>
     )
 }

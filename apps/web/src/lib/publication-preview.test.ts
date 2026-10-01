@@ -19,7 +19,7 @@ describe('publication draft preview model', () => {
         })
     })
 
-    test('falls back to shared content for a blank adaptation on social profiles', () => {
+    test('keeps an explicitly blank channel adaptation blank', () => {
         expect(
             getDraftPreviewModel({
                 postContent: 'Shared content',
@@ -28,8 +28,8 @@ describe('publication draft preview model', () => {
                 targetContent: '  \n',
             })
         ).toEqual({
-            body: 'Shared content',
-            hasText: true,
+            body: '  \n',
+            hasText: false,
             showTitle: false,
             title: 'Internal title',
         })

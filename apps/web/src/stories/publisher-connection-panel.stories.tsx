@@ -43,7 +43,7 @@ const connections: PublisherConnection[] = [
 ]
 
 const meta = {
-    title: 'Channels/Publisher connections',
+    title: 'Channels/Readiness',
     component: PublisherConnectionPanel,
     parameters: { layout: 'fullscreen' },
     tags: ['autodocs'],
@@ -63,6 +63,8 @@ export const ConnectionStates: Story = {
                             channels={channels}
                             connections={connections}
                             pending={false}
+                            onEditProfile={() => undefined}
+                            onLifecycleAction={() => undefined}
                             onConnectCustomHttpPublisher={async () => false}
                             onConnectDiscordPublisher={async () => false}
                             onConnectDevtoPublisher={async () => false}

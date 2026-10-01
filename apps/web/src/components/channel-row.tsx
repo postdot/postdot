@@ -61,52 +61,76 @@ export function ChannelRow({
             </div>
 
             {readOnly ? null : (
-                <DropdownMenu>
-                    <DropdownMenuTrigger
-                        render={
-                            <Button
-                                aria-label={m.channel_manage({ channel: channel.name })}
-                                variant="ghost"
-                                size="icon-sm"
-                                className="shrink-0"
-                                disabled={disabled}>
-                                <MenuDotsIcon aria-hidden="true" />
-                            </Button>
-                        }
-                    />
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={onEditProfile}>
-                            <Pen2Icon aria-hidden="true" />
-                            {m.channel_edit_profile()}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onLifecycleAction('rename')}>
-                            <Pen2Icon aria-hidden="true" />
-                            {m.channel_rename()}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {archived ? (
-                            <DropdownMenuItem onClick={() => onLifecycleAction('restore')}>
-                                <RestartIcon aria-hidden="true" />
-                                {m.channel_restore()}
-                            </DropdownMenuItem>
-                        ) : (
-                            <DropdownMenuItem onClick={() => onLifecycleAction('archive')}>
-                                <ArchiveIcon aria-hidden="true" />
-                                {m.channel_archive()}
-                            </DropdownMenuItem>
-                        )}
-                        {archived ? (
-                            <DropdownMenuItem
-                                variant="destructive"
-                                onClick={() => onLifecycleAction('delete')}>
-                                <TrashBinMinimalisticIcon aria-hidden="true" />
-                                {m.channel_delete_permanently()}
-                            </DropdownMenuItem>
-                        ) : null}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <ChannelActionsMenu
+                    channel={channel}
+                    disabled={disabled}
+                    onEditProfile={onEditProfile}
+                    onLifecycleAction={onLifecycleAction}
+                />
             )}
         </div>
+    )
+}
+
+export function ChannelActionsMenu({
+    channel,
+    disabled,
+    onEditProfile,
+    onLifecycleAction,
+}: {
+    readonly channel: Channel
+    readonly disabled: boolean
+    readonly onEditProfile: () => void
+    readonly onLifecycleAction: (action: ChannelLifecycleAction) => void
+}) {
+    useLanguage()
+    const archived = channel.state === 'archived'
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger
+                render={
+                    <Button
+                        aria-label={m.channel_manage({ channel: channel.name })}
+                        variant="ghost"
+                        size="icon-sm"
+                        className="shrink-0"
+                        disabled={disabled}>
+                        <MenuDotsIcon aria-hidden="true" />
+                    </Button>
+                }
+            />
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onEditProfile}>
+                    <Pen2Icon aria-hidden="true" />
+                    {m.channel_edit_profile()}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onLifecycleAction('rename')}>
+                    <Pen2Icon aria-hidden="true" />
+                    {m.channel_rename()}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {archived ? (
+                    <DropdownMenuItem onClick={() => onLifecycleAction('restore')}>
+                        <RestartIcon aria-hidden="true" />
+                        {m.channel_restore()}
+                    </DropdownMenuItem>
+                ) : (
+                    <DropdownMenuItem onClick={() => onLifecycleAction('archive')}>
+                        <ArchiveIcon aria-hidden="true" />
+                        {m.channel_archive()}
+                    </DropdownMenuItem>
+                )}
+                {archived ? (
+                    <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => onLifecycleAction('delete')}>
+                        <TrashBinMinimalisticIcon aria-hidden="true" />
+                        {m.channel_delete_permanently()}
+                    </DropdownMenuItem>
+                ) : null}
+            </DropdownMenuContent>
+        </DropdownMenu>
     )
 }
 

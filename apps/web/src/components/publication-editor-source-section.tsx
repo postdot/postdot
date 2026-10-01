@@ -1,4 +1,4 @@
-import { Card, CardContent } from '@herald/ui/components/card'
+import { Button } from '@herald/ui/components/button'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import {
@@ -9,6 +9,8 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { Textarea } from '@herald/ui/components/textarea'
+import { PenIcon } from '@solar-icons/react/linear/pen'
+import { useState } from 'react'
 
 import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
 import type { MediaReference, PublicationEditorState } from '@/lib/api'
@@ -46,141 +48,146 @@ export function PublicationEditorSourceSection({
 }: PublicationEditorSourceSectionProps) {
     useLanguage()
     const body = sourceContent.body
+    const [bodyExpanded, setBodyExpanded] = useState(sourceContent.media.length === 0)
+    const showBodyField = bodyExpanded || Boolean(body?.text) || sourceContent.media.length === 0
 
-    return (
-        <section className="min-w-0">
-            <Card className="rounded-xl">
-                <CardContent className="p-4 sm:p-5">
-                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                        <h2 className="font-heading text-xl font-[580] leading-tight">
-                            {m.publication_new_source()}
-                        </h2>
-                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                            <span>{m.editor_source_revision({ revision: sourceRevision })}</span>
-                            {readOnly ? (
-                                <span className="rounded-full bg-surface-inset px-2 py-0.5">
-                                    {m.editor_read_only()}
-                                </span>
-                            ) : null}
-                        </div>
-                    </div>
-
-                    {readOnly ? (
-                        <div className="mt-5 grid min-w-0 gap-4">
-                            <div className="rounded-lg bg-surface-inset/55 px-4 py-3">
-                                <p className="text-xs font-medium text-muted-foreground">
-                                    {m.editor_source_body()}
-                                </p>
-                                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">
-                                    {body?.text || '—'}
-                                </p>
-                            </div>
-                            <ReadOnlySourceMeta sourceContent={sourceContent} />
-                        </div>
-                    ) : (
-                        <div className="mt-5 grid min-w-0 gap-4">
-                            <Field className="min-w-0 gap-1.5">
-                                <FieldLabel htmlFor="source-body">
-                                    {m.editor_source_body()}
-                                </FieldLabel>
-                                <Textarea
-                                    id="source-body"
-                                    value={body?.text ?? ''}
-                                    onChange={event => onTextChange(event.target.value)}
-                                    disabled={disabled}
-                                    rows={7}
-                                    className="min-h-40 min-w-0 max-w-full text-sm leading-6"
-                                />
-                            </Field>
-                            <details className="rounded-lg bg-surface-inset/45 p-3">
-                                <summary className="cursor-pointer text-sm font-medium text-foreground">
-                                    {m.editor_content_options()}
-                                </summary>
-                                <div className="mt-4 grid min-w-0 gap-4">
-                                    <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-                                        <Field className="min-w-0 gap-1.5">
-                                            <FieldLabel htmlFor="source-format">
-                                                {m.editor_source_format()}
-                                            </FieldLabel>
-                                            <Select
-                                                items={{
-                                                    plain_text: m.editor_plain_text(),
-                                                    markdown: m.editor_markdown(),
-                                                }}
-                                                value={body?.format ?? 'plain_text'}
-                                                onValueChange={value =>
-                                                    onFormatChange(
-                                                        value as 'plain_text' | 'markdown'
-                                                    )
-                                                }>
-                                                <SelectTrigger
-                                                    id="source-format"
-                                                    disabled={disabled}>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent align="start">
-                                                    <SelectItem value="plain_text">
-                                                        {m.editor_plain_text()}
-                                                    </SelectItem>
-                                                    <SelectItem value="markdown">
-                                                        {m.editor_markdown()}
-                                                    </SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </Field>
-                                        <Field className="min-w-0 gap-1.5">
-                                            <FieldLabel htmlFor="source-headline">
-                                                {m.editor_source_headline()}
-                                            </FieldLabel>
-                                            <Input
-                                                id="source-headline"
-                                                value={sourceContent.headline ?? ''}
-                                                onChange={event =>
-                                                    onOptionalFieldChange(
-                                                        'headline',
-                                                        event.target.value
-                                                    )
-                                                }
-                                                placeholder={m.editor_source_headline_placeholder()}
-                                                disabled={disabled}
-                                                className="min-w-0"
-                                            />
-                                        </Field>
-                                    </div>
-                                    <Field className="min-w-0 gap-1.5">
-                                        <FieldLabel htmlFor="source-language">
-                                            {m.editor_source_language()}
-                                        </FieldLabel>
-                                        <Input
-                                            id="source-language"
-                                            value={sourceContent.language ?? ''}
-                                            onChange={event =>
-                                                onOptionalFieldChange(
-                                                    'language',
-                                                    event.target.value
-                                                )
-                                            }
-                                            placeholder={m.editor_source_language_placeholder()}
-                                            disabled={disabled}
-                                            className="min-w-0"
-                                        />
-                                    </Field>
-                                </div>
-                            </details>
-                        </div>
-                    )}
-
+    if (readOnly) {
+        return (
+            <section className="min-w-0 rounded-xl bg-surface-raised p-4 shadow-surface">
+                <h2 className="text-sm font-medium">{m.publication_new_source()}</h2>
+                <div className="min-w-0 space-y-4 pt-3">
+                    {body?.text ? (
+                        <p className="whitespace-pre-wrap break-words text-sm leading-6">
+                            {body.text}
+                        </p>
+                    ) : null}
+                    <ReadOnlySourceMeta sourceContent={sourceContent} />
                     <MediaAttachmentPicker
                         projectId={projectId}
-                        readOnly={readOnly}
+                        readOnly
                         variant="publication-new-inline"
                         value={sourceContent.media}
                         onChange={onMediaChange}
                         onAssetsChange={onAssetsChange}
-                        disabled={mediaDisabled || readOnly}
+                        disabled
                     />
-                </CardContent>
-            </Card>
+                    <p className="text-xs text-muted-foreground">
+                        {m.editor_source_revision({ revision: sourceRevision })}
+                    </p>
+                </div>
+            </section>
+        )
+    }
+
+    return (
+        <section className="min-w-0">
+            <div className="rounded-md bg-surface-inset/35 p-4 shadow-surface sm:p-5">
+                <div className="grid min-w-0 gap-4">
+                    {showBodyField ? (
+                        <Field className="min-w-0 gap-1.5">
+                            <FieldLabel className="sr-only" htmlFor="source-body">
+                                {m.editor_source_body()}
+                            </FieldLabel>
+                            <Textarea
+                                id="source-body"
+                                value={body?.text ?? ''}
+                                onChange={event => onTextChange(event.target.value)}
+                                disabled={disabled}
+                                rows={sourceContent.media.length > 0 && !body?.text ? 3 : 7}
+                                placeholder={m.editor_source_body_placeholder()}
+                                className={`${sourceContent.media.length > 0 && !body?.text ? 'min-h-24' : 'min-h-40'} min-w-0 max-w-full border-0 bg-transparent p-0 text-sm leading-6 shadow-none dark:bg-transparent`}
+                            />
+                        </Field>
+                    ) : (
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="w-fit"
+                            disabled={disabled}
+                            onClick={() => setBodyExpanded(true)}>
+                            <PenIcon aria-hidden="true" />
+                            {m.editor_add_text()}
+                        </Button>
+                    )}
+                    <MediaAttachmentPicker
+                        projectId={projectId}
+                        variant="publication-new-inline"
+                        value={sourceContent.media}
+                        onChange={onMediaChange}
+                        onAssetsChange={onAssetsChange}
+                        disabled={mediaDisabled}
+                    />
+                    <details className="w-fit max-w-full rounded-lg bg-surface-inset/45 px-3 py-2 open:w-full">
+                        <summary className="cursor-pointer text-sm font-medium text-foreground">
+                            {m.editor_content_options()}
+                        </summary>
+                        <div className="mt-4 grid min-w-0 gap-4">
+                            <p className="text-xs text-muted-foreground">
+                                {m.editor_source_revision({ revision: sourceRevision })}
+                            </p>
+                            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+                                <Field className="min-w-0 gap-1.5">
+                                    <FieldLabel htmlFor="source-format">
+                                        {m.editor_source_format()}
+                                    </FieldLabel>
+                                    <Select
+                                        items={{
+                                            plain_text: m.editor_plain_text(),
+                                            markdown: m.editor_markdown(),
+                                        }}
+                                        value={body?.format ?? 'plain_text'}
+                                        onValueChange={value =>
+                                            onFormatChange(value as 'plain_text' | 'markdown')
+                                        }>
+                                        <SelectTrigger id="source-format" disabled={disabled}>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="start">
+                                            <SelectItem value="plain_text">
+                                                {m.editor_plain_text()}
+                                            </SelectItem>
+                                            <SelectItem value="markdown">
+                                                {m.editor_markdown()}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                                <Field className="min-w-0 gap-1.5">
+                                    <FieldLabel htmlFor="source-headline">
+                                        {m.editor_source_headline()}
+                                    </FieldLabel>
+                                    <Input
+                                        id="source-headline"
+                                        value={sourceContent.headline ?? ''}
+                                        onChange={event =>
+                                            onOptionalFieldChange('headline', event.target.value)
+                                        }
+                                        placeholder={m.editor_source_headline_placeholder()}
+                                        disabled={disabled}
+                                        className="min-w-0"
+                                    />
+                                </Field>
+                            </div>
+                            <Field className="min-w-0 gap-1.5">
+                                <FieldLabel htmlFor="source-language">
+                                    {m.editor_source_language()}
+                                </FieldLabel>
+                                <Input
+                                    id="source-language"
+                                    value={sourceContent.language ?? ''}
+                                    onChange={event =>
+                                        onOptionalFieldChange('language', event.target.value)
+                                    }
+                                    placeholder={m.editor_source_language_placeholder()}
+                                    disabled={disabled}
+                                    className="min-w-0"
+                                />
+                            </Field>
+                        </div>
+                    </details>
+                </div>
+            </div>
         </section>
     )
 }

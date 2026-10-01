@@ -8,7 +8,7 @@ test('keeps core project surfaces free of automated accessibility violations', a
 
     const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
 
-    for (const path of ['overview', 'performance', 'queue', 'media']) {
+    for (const path of ['overview', 'performance', 'queue', 'media', 'channels']) {
         await page.goto(`/dashboard/projects/${projectId}/${path}`)
         await expect(page.locator('[data-dashboard-scroll]')).toBeVisible()
 

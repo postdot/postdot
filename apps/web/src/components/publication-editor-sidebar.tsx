@@ -54,6 +54,73 @@ export function PublicationEditorSidebar({
     const { locale } = useLanguage()
     return (
         <aside className="grid min-w-0 gap-4 lg:grid-cols-2">
+            {sourceConflict || saveState === 'conflict' ? (
+                <Alert
+                    variant="destructive"
+                    data-publication-conflict="true"
+                    className="rounded-md border-0 bg-state-attention/10 px-4 py-4 text-foreground shadow-surface lg:col-span-2">
+                    <AlertTitle>
+                        {sourceConflict
+                            ? m.editor_sidebar_source_review_title()
+                            : m.editor_sidebar_reconcile_title()}
+                    </AlertTitle>
+                    <AlertDescription className="text-foreground group-data-[variant=destructive]/alert:text-foreground">
+                        {sourceConflict
+                            ? m.editor_sidebar_source_conflict_detail({
+                                  draftRevision: editor.draft.sourceRevision,
+                                  currentRevision: editor.post.sourceRevision,
+                              })
+                            : m.editor_sidebar_revision_conflict_detail()}
+                    </AlertDescription>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {sourceConflict ? (
+                            <Button size="sm" onClick={onRebase} disabled={isRebasing}>
+                                {m.editor_sidebar_rebase_current()}
+                            </Button>
+                        ) : null}
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={onReload}
+                            disabled={isRebasing}>
+                            {m.editor_sidebar_load_server()}
+                        </Button>
+                        {recoveryAvailable || hasLocalChanges ? (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={onRestore}
+                                disabled={isRebasing}>
+                                {m.editor_sidebar_load_local()}
+                            </Button>
+                        ) : null}
+                    </div>
+                    {sourceConflict ? (
+                        <div className="mt-4 grid min-w-0 gap-3 text-xs sm:grid-cols-2">
+                            <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
+                                <p className="font-medium text-foreground">
+                                    {m.editor_sidebar_draft_source_revision({
+                                        revision: editor.draft.sourceRevision,
+                                    })}
+                                </p>
+                                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
+                                    {formatJson(editor.draft.baseSourceContent)}
+                                </pre>
+                            </div>
+                            <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
+                                <p className="font-medium text-foreground">
+                                    {m.editor_sidebar_current_source_revision({
+                                        revision: editor.post.sourceRevision,
+                                    })}
+                                </p>
+                                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
+                                    {formatJson(editor.post.sourceContent)}
+                                </pre>
+                            </div>
+                        </div>
+                    ) : null}
+                </Alert>
+            ) : null}
             <section className="min-w-0 rounded-xl bg-surface-inset/65 p-4 shadow-surface sm:p-5">
                 <p className="text-xs font-medium text-muted-foreground">
                     {m.editor_sidebar_selected_target()}
@@ -135,73 +202,6 @@ export function PublicationEditorSidebar({
                     </p>
                 </div>
             </section>
-
-            {sourceConflict || saveState === 'conflict' ? (
-                <Alert
-                    variant="destructive"
-                    className="rounded-xl border-destructive/35 bg-destructive/5 px-4 py-5 lg:col-span-2">
-                    <AlertTitle>
-                        {sourceConflict
-                            ? m.editor_sidebar_source_review_title()
-                            : m.editor_sidebar_reconcile_title()}
-                    </AlertTitle>
-                    <AlertDescription>
-                        {sourceConflict
-                            ? m.editor_sidebar_source_conflict_detail({
-                                  draftRevision: editor.draft.sourceRevision,
-                                  currentRevision: editor.post.sourceRevision,
-                              })
-                            : m.editor_sidebar_revision_conflict_detail()}
-                    </AlertDescription>
-                    {sourceConflict ? (
-                        <div className="mt-4 grid min-w-0 gap-3 text-xs sm:grid-cols-2">
-                            <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
-                                <p className="font-medium text-foreground">
-                                    {m.editor_sidebar_draft_source_revision({
-                                        revision: editor.draft.sourceRevision,
-                                    })}
-                                </p>
-                                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
-                                    {formatJson(editor.draft.baseSourceContent)}
-                                </pre>
-                            </div>
-                            <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
-                                <p className="font-medium text-foreground">
-                                    {m.editor_sidebar_current_source_revision({
-                                        revision: editor.post.sourceRevision,
-                                    })}
-                                </p>
-                                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
-                                    {formatJson(editor.post.sourceContent)}
-                                </pre>
-                            </div>
-                        </div>
-                    ) : null}
-                    <div className="mt-4 grid gap-2">
-                        {sourceConflict ? (
-                            <Button size="sm" onClick={onRebase} disabled={isRebasing}>
-                                {m.editor_sidebar_rebase_current()}
-                            </Button>
-                        ) : null}
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={onReload}
-                            disabled={isRebasing}>
-                            {m.editor_sidebar_load_server()}
-                        </Button>
-                        {recoveryAvailable || hasLocalChanges ? (
-                            <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={onRestore}
-                                disabled={isRebasing}>
-                                {m.editor_sidebar_load_local()}
-                            </Button>
-                        ) : null}
-                    </div>
-                </Alert>
-            ) : null}
         </aside>
     )
 }

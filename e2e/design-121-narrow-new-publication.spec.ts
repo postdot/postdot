@@ -8,7 +8,7 @@ test('keeps failed publication feedback on its originating navigation entry', as
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
     await createChannel(page, `Feedback test ${suffix}`)
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
-    await page.getByRole('button', { name: 'Save draft', exact: true }).click()
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
     const message = page.getByText('Add content or at least one media attachment.', { exact: true })
     await expect(message).toBeVisible()
     await page.getByRole('link', { name: 'Channels', exact: true }).click()
@@ -17,6 +17,98 @@ test('keeps failed publication feedback on its originating navigation entry', as
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'New publication', exact: true })).toBeVisible()
     await expect(message).toHaveCount(0)
+})
+
+test('resolves an interrupted composition before a new one can replace it', async ({ page }) => {
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+    await page.getByRole('link', { name: 'Channels', exact: true }).click()
+    await createChannel(page, `Recovery destination ${suffix}`)
+    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+
+    const editor = page.getByRole('textbox', { name: 'Content', exact: true })
+    await expect(page.locator('[data-new-publication-form="true"]')).not.toHaveAttribute(
+        'inert',
+        ''
+    )
+    const original = `Previous composition ${suffix}`
+    const firstSave = page.waitForResponse(
+        response =>
+            response.url().includes('/publication-composer-draft') &&
+            response.request().method() === 'PUT' &&
+            response.ok()
+    )
+    await editor.fill(original)
+    await firstSave
+    await page.reload()
+
+    const recovery = page.locator('[data-new-publication-recovery="true"]')
+    await expect(recovery).toBeVisible()
+    await expect(recovery).toContainText(original)
+    await expect(recovery).toHaveAttribute('role', 'dialog')
+    await expect(recovery).toHaveAccessibleName('Previous draft')
+    await page.keyboard.press('Escape')
+    await expect(recovery).toBeVisible()
+    await expect(page.locator('[data-new-publication-form="true"]')).toHaveAttribute('inert', '')
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectNoHorizontalOverflow(page)
+    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+    await expect(recovery).toHaveCount(0)
+    await expect(editor).toHaveValue(original)
+
+    const secondSave = page.waitForResponse(
+        response =>
+            response.url().includes('/publication-composer-draft') &&
+            response.request().method() === 'PUT' &&
+            response.ok()
+    )
+    await editor.fill(`Current composition ${suffix}`)
+    await secondSave
+    await page.reload()
+    await expect(recovery).toContainText(`Current composition ${suffix}`)
+    await recovery.getByRole('button', { name: 'Discard', exact: true }).click()
+    await expect(recovery).toHaveCount(0)
+    await expect(editor).toHaveValue('')
+    await expect(page.locator('[data-new-publication-form="true"]')).not.toHaveAttribute(
+        'inert',
+        ''
+    )
+})
+
+test('offers local recovery when composition autosave is unavailable', async ({ page }) => {
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+    await page.getByRole('link', { name: 'Channels', exact: true }).click()
+    await createChannel(page, `Local recovery ${suffix}`)
+    await page.route('**/api/projects/*/publication-composer-draft', async route => {
+        if (route.request().method() !== 'PUT') return route.continue()
+        await route.fulfill({
+            status: 503,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: { code: 'unavailable', message: 'Unavailable' } }),
+        })
+    })
+    await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    const form = page.locator('[data-new-publication-form="true"]')
+    await expect(form).not.toHaveAttribute('inert', '')
+    const editor = page.getByRole('textbox', { name: 'Content', exact: true })
+    const text = `Locally saved composition ${suffix}`
+    await editor.fill(text)
+    await expect
+        .poll(() =>
+            page.evaluate(() =>
+                Object.values(localStorage).some(value =>
+                    value.includes('Locally saved composition')
+                )
+            )
+        )
+        .toBe(true)
+    await page.reload()
+    const recovery = page.locator('[data-new-publication-recovery="true"]')
+    await expect(recovery).toContainText(text)
+    await expect(form).toHaveAttribute('inert', '')
+    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+    await expect(editor).toHaveValue(text)
 })
 
 test('keeps narrow new-publication flow and queue usable with long channel names', async ({
@@ -36,7 +128,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await createChannel(page, secondChannelName)
 
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
-    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new$/)
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new(?:\?.*)?$/)
     await expect(page.getByRole('link', { name: 'New publication', exact: true })).toHaveAttribute(
         'aria-current',
         'page'
@@ -45,10 +137,51 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoHorizontalOverflow(page)
 
-    const firstTab = page.getByRole('button', { name: new RegExp(firstChannelName) })
-    const addChannel = page.getByRole('button', { name: secondChannelName, exact: true })
-    await expect(firstTab).toBeVisible()
-    await expect(addChannel).toBeVisible()
+    const firstDestination = page.getByRole('button', { name: firstChannelName, exact: true })
+    const secondDestination = page.getByRole('button', { name: secondChannelName, exact: true })
+    await expect(firstDestination).toBeVisible()
+    await expect(secondDestination).toHaveCount(0)
+    const availableDestination = page.getByRole('button', {
+        name: `Add ${secondChannelName}`,
+        exact: true,
+    })
+    await expect(availableDestination).toBeVisible()
+    await expect(page.locator('[data-header-context="true"]')).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Select workspace' })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Select project' })).toBeVisible()
+    await expect(page.locator('[data-dashboard-header="true"]')).not.toContainText('/')
+    await page.getByRole('combobox', { name: 'Select workspace' }).click()
+    await expect(page.getByRole('combobox', { name: 'Find a workspace...' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create workspace' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('combobox', { name: 'Find a workspace...' })).toBeHidden()
+    await page.getByRole('combobox', { name: 'Select project' }).click()
+    await expect(page.getByRole('combobox', { name: 'Find a project...' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create project' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Project configuration' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('combobox', { name: 'Find a project...' })).toBeHidden()
+    await page.setViewportSize({ width: 320, height: 700 })
+    await expectNoHorizontalOverflow(page)
+    const scopeOverlap = await page.locator('[data-header-context="true"]').evaluate(context => {
+        const workspace = context
+            .querySelector('[data-context-kind="workspace"]')
+            ?.getBoundingClientRect()
+        const project = context
+            .querySelector('[data-context-kind="project"]')
+            ?.getBoundingClientRect()
+        return workspace && project ? workspace.right - project.left : 0
+    })
+    expect(scopeOverlap).toBeLessThanOrEqual(0)
+    await page.getByRole('combobox', { name: 'Select project' }).click()
+    await page.getByRole('link', { name: 'Project configuration' }).click()
+    await expect(page.getByRole('combobox', { name: 'Find a project...' })).toBeHidden()
+    await expectNoHorizontalOverflow(page)
+    await expect(page.locator('[data-header-context="true"]')).toBeVisible()
+    await page.getByRole('button', { name: 'Back to project' }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await page.setViewportSize({ width: 390, height: 844 })
 
     await expect(page.locator('[data-new-publication-workspace="true"]')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Content', exact: true })).toHaveCount(0)
@@ -58,9 +191,9 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expect(
         page.locator('[data-new-publication-workspace="true"] [data-publication-channel-selection]')
     ).toBeVisible()
-    await expect(
-        page.locator('[data-new-publication-workspace="true"] [data-publication-shared-settings]')
-    ).toBeVisible()
+    const scheduleDetails = page.locator('[data-publication-schedule-disclosure="true"]')
+    await expect(scheduleDetails).not.toHaveAttribute('open')
+    await expect(scheduleDetails).toContainText('Manual publication')
     const workspaceOrder = await page
         .locator('[data-new-publication-workspace="true"]')
         .evaluate(element =>
@@ -74,19 +207,33 @@ test('keeps narrow new-publication flow and queue usable with long channel names
         )
     expect(workspaceOrder).toEqual(['channels', 'settings'])
 
-    await firstTab.focus()
-    await expect(firstTab).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(addChannel).toBeFocused()
-    await page.keyboard.press('Enter')
-
-    const secondTab = page.getByRole('button', { name: new RegExp(secondChannelName) })
-    await expect(secondTab).toBeVisible()
-    await expect(secondTab).toHaveAttribute('data-active-channel', 'true')
+    await availableDestination.focus()
+    await availableDestination.press('Enter')
+    await expect(secondDestination).toBeVisible()
+    await expect(secondDestination).toBeFocused()
+    await expect(availableDestination).toHaveCount(0)
     await expectNoHorizontalOverflow(page)
 
+    const removeSecondDestination = page.getByRole('button', {
+        name: `Remove ${secondChannelName}`,
+        exact: true,
+    })
+    await secondDestination.click()
+    await removeSecondDestination.focus()
+    await removeSecondDestination.press('Enter')
+    await expect(availableDestination).toBeVisible()
+    await expect(availableDestination).toBeFocused()
+    await availableDestination.press('Enter')
+    await expect(secondDestination).toBeVisible()
+
+    await page.getByRole('button', { name: 'Common', exact: true }).click()
     const preview = page.locator('[data-publication-draft-preview="true"]')
     await expect(preview).toBeVisible()
+    await expect(preview).toContainText(firstChannelName)
+    await expect(page.getByRole('button', { name: 'Common', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+    )
 
     await expect(page.getByLabel('Title', { exact: true })).toHaveCount(0)
     const sharedContent = 'E2E-121 narrow new publication content'
@@ -94,27 +241,55 @@ test('keeps narrow new-publication flow and queue usable with long channel names
     await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
         sharedContent
     )
-    await expect(preview).toContainText(secondChannelName)
+    await expect(preview).toContainText(firstChannelName)
 
-    await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
+    await secondDestination.click()
     const targetOverride = page.getByRole('textbox', {
         name: 'Channel content',
         exact: true,
     })
     const overrideContent = 'E2E-121 second-channel adaptation'
     await targetOverride.fill(overrideContent)
+    await page.waitForResponse(
+        response =>
+            response.url().includes('/publication-composer-draft') &&
+            response.request().method() === 'PUT' &&
+            response.ok()
+    )
     await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
         overrideContent
     )
+    await expect(preview).toContainText(secondChannelName)
 
-    await firstTab.click()
-    await expect(firstTab).toHaveAttribute('data-active-channel', 'true')
+    await page.getByRole('link', { name: 'Overview', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/overview$/)
+    await page.getByRole('button', { name: 'New publication', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/projects\/[^/]+\/publications\/new(?:\?.*)?$/)
+    await expect(secondDestination).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('[data-publication-preview-content="true"]')).toHaveText(
+        overrideContent
+    )
+
+    await firstDestination.click()
     await expect(preview).toContainText(firstChannelName)
     await expect(preview.locator('[data-publication-preview-content="true"]')).toHaveText(
         sharedContent
     )
 
-    await page.getByRole('button', { name: 'Schedule 2', exact: true }).click()
+    await scheduleDetails.locator('> summary').click()
+    await page.locator('#publication-default-schedule').click()
+    const scheduleTime = page.locator('#publication-default-schedule-time')
+    await scheduleTime.fill('23:59')
+    await scheduleTime.press('Tab')
+
+    const createResponse = await Promise.all([
+        page.waitForResponse(
+            response => response.url().includes('/posts') && response.request().method() === 'POST',
+            { timeout: 10_000 }
+        ),
+        page.getByRole('button', { name: 'Schedule 2 publications', exact: true }).click(),
+    ]).then(([response]) => response)
+    expect(createResponse.status(), await createResponse.text()).toBe(201)
 
     await page.getByRole('button', { name: 'Toggle workspace navigation', exact: true }).click()
     await page.getByRole('link', { name: 'Queue', exact: true }).click()

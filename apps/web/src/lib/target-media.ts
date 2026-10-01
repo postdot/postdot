@@ -26,6 +26,20 @@ export function mediaSelectionsEqual(
     )
 }
 
+export function reorderMediaSelections(
+    selections: readonly MediaSelection[],
+    orderedAssetIds: readonly string[]
+): MediaSelection[] {
+    if (orderedAssetIds.length !== selections.length) return [...selections]
+    const byId = new Map(selections.map(selection => [selection.assetId, selection]))
+    if (byId.size !== selections.length) return [...selections]
+    const uniqueOrder = new Set(orderedAssetIds)
+    if (uniqueOrder.size !== selections.length) return [...selections]
+    const reordered = orderedAssetIds.map(assetId => byId.get(assetId))
+    if (reordered.some(selection => selection === undefined)) return [...selections]
+    return reordered as MediaSelection[]
+}
+
 export function updateTargetMedia(
     profile: unknown,
     target: Record<string, unknown>,

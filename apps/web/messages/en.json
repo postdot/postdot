@@ -87,7 +87,10 @@
         {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
-            "match": { "countPlural=one": "{count} token", "countPlural=other": "{count} tokens" }
+            "match": {
+                "countPlural=one": "{count} token",
+                "countPlural=other": "{count} tokens"
+            }
         }
     ],
     "access_key_count": [
@@ -115,7 +118,10 @@
         {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
-            "match": { "countPlural=one": "{count} unread", "countPlural=other": "{count} unread" }
+            "match": {
+                "countPlural=one": "{count} unread",
+                "countPlural=other": "{count} unread"
+            }
         }
     ],
     "common_change_count": [
@@ -240,6 +246,7 @@
     "nav_back_to_workspace": "Back to workspace",
     "nav_back_to_project": "Back to project",
     "nav_back_to_queue": "Back to queue",
+    "nav_back_to_overview": "Back to overview",
     "nav_work_navigation": "Work navigation",
     "nav_project_management_navigation": "Project navigation",
     "nav_settings": "Settings",
@@ -345,8 +352,8 @@
     "overview_no_projects": "No projects yet",
     "performance_title": "Performance",
     "performance_description": "Stats are available for Bluesky and DEV.to posts.",
-    "performance_empty_title": "No supported publications yet",
-    "performance_empty_description": "Published Bluesky and DEV.to posts will appear here.",
+    "performance_empty_title": "No statistics to show",
+    "performance_empty_description": "Bluesky and DEV.to publications are currently supported.",
     "performance_not_collected": "Not collected",
     "performance_refresh": "Refresh",
     "performance_refreshing": "Refreshing…",
@@ -493,7 +500,7 @@
     "publication_empty_description": "Create a publication to start the queue.",
     "publication_automatic": "Automatic",
     "publication_manual": "Manual",
-    "publication_due_manual": "Manual action",
+    "publication_due_manual": "To publish manually",
     "publication_draft_changes_pending": "Draft changes pending",
     "publication_state_queued": "Queued",
     "publication_state_ready": "Ready",
@@ -1014,28 +1021,40 @@
         {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
-            "match": { "countPlural=one": "{count} second", "countPlural=other": "{count} seconds" }
+            "match": {
+                "countPlural=one": "{count} second",
+                "countPlural=other": "{count} seconds"
+            }
         }
     ],
     "media_retention_minutes": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
-            "match": { "countPlural=one": "{count} minute", "countPlural=other": "{count} minutes" }
+            "match": {
+                "countPlural=one": "{count} minute",
+                "countPlural=other": "{count} minutes"
+            }
         }
     ],
     "media_retention_hours": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
-            "match": { "countPlural=one": "{count} hour", "countPlural=other": "{count} hours" }
+            "match": {
+                "countPlural=one": "{count} hour",
+                "countPlural=other": "{count} hours"
+            }
         }
     ],
     "media_retention_days": [
         {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
-            "match": { "countPlural=one": "{count} day", "countPlural=other": "{count} days" }
+            "match": {
+                "countPlural=one": "{count} day",
+                "countPlural=other": "{count} days"
+            }
         }
     ],
     "media_empty_description": "Import an image to make it available for publications.",
@@ -1074,6 +1093,7 @@
     "media_search_label": "Search media",
     "media_search_placeholder": "Filename",
     "media_searching": "Searching…",
+    "media_filters_toggle": "Filters",
     "media_filter_type": "File type",
     "media_filter_all_types": "All types",
     "media_filter_images": "Images",
@@ -1103,7 +1123,8 @@
     "media_remove": "Remove {filename}",
     "media_move_left": "Move {filename} left",
     "media_move_right": "Move {filename} right",
-    "media_reorder_hint": "Drag to reorder. Use the move buttons when needed.",
+    "media_reorder_hint": "Drag to reorder. Use the left and right arrow keys when focused.",
+    "media_reorder_handle": "Reorder {filename}",
     "media_missing_assets": "Some selected media is no longer available. Remove it before saving.",
     "media_verification_failed": "The media could not be verified.",
     "media_verification_failed_code": "Media verification failed ({code}).",
@@ -1147,7 +1168,10 @@
         {
             "declarations": ["input count", "local countPlural = count: plural"],
             "selectors": ["countPlural"],
-            "match": { "countPlural=one": "{count} unread", "countPlural=other": "{count} unread" }
+            "match": {
+                "countPlural=one": "{count} unread",
+                "countPlural=other": "{count} unread"
+            }
         }
     ],
     "notification_enabled": "enabled",
@@ -1318,7 +1342,7 @@
     "access_workspace_invite_revoked": "Workspace invitation revoked.",
     "access_workspace_invite_no_group": "No group",
     "access_workspace_group_project_access": "Project access",
-    "access_workspace_group_no_projects": "This group has no project access yet.",
+    "access_workspace_group_no_projects": "No project access",
     "access_project_members": "Members",
     "access_project_members_empty": "No other members yet.",
     "access_project_role_owner": "Owner",
@@ -1384,6 +1408,7 @@
     "editor_source_title": "Source document",
     "editor_source_description": "Shared authoring content is kept separate from each channel’s delivery payload.",
     "editor_source_revision": "Source revision {revision}",
+    "editor_add_text": "Add text",
     "editor_source_body": "Body",
     "editor_source_format": "Source format",
     "editor_plain_text": "Plain text",
@@ -1435,7 +1460,6 @@
     "editor_draft_differs": "Changes pending",
     "editor_draft_matches": "In sync",
     "editor_deliver_at": "Deliver at",
-    "editor_project_timezone": "Project time zone: {timeZone}",
     "editor_clear_draft": "Clear draft",
     "editor_apply_draft": "Apply to channel",
     "editor_clear_draft_note": "Clear the value to keep this publication as a draft.",
@@ -1507,6 +1531,8 @@
     "editor_local_recovery": "Local recovery only",
     "editor_conflict": "Conflict",
     "editor_save_failed": "Save failed",
+    "editor_recovery_choice_title": "Local copy",
+    "editor_recovery_choice_description": "Restore your local copy or keep the saved version before editing.",
     "editor_recovery_available": "A local recovery copy is available.",
     "editor_restore_recovery": "Restore local copy",
     "editor_discard_recovery": "Discard local copy",
@@ -1612,8 +1638,8 @@
     "publication_new_title": "New publication",
     "publication_new_back_overview": "Overview",
     "publication_new_action_failed": "Publication action failed",
-    "publication_new_recovery_title": "Unsaved publication",
-    "publication_new_recovery_description": "Your previous editing session is available.",
+    "publication_new_recovery_title": "Previous draft",
+    "publication_new_recovery_choice": "Resume this draft or start a new publication.",
     "publication_new_recovery_restore": "Restore",
     "publication_new_recovery_discard": "Discard",
     "publication_new_autosave_saving": "Saving composition…",
@@ -1622,6 +1648,12 @@
     "publication_new_source": "Content",
     "publication_new_source_description": "Shared content can be published to several channels.",
     "publication_new_shared_content": "Shared content",
+    "publication_new_common_tab": "Common",
+    "publication_new_add_channel_button": "Add channel",
+    "publication_new_add_channel_named": "Add {channel}",
+    "publication_new_remove_channel": "Remove {channel}",
+    "publication_new_reset_channel_content": "Use common content for {channel}",
+    "publication_new_editing_scope": "Content being edited",
     "publication_new_post_title": "Title",
     "publication_new_post_title_hint": "Optional context for this publication.",
     "publication_new_optional_source_title": "Optional title",
@@ -1636,6 +1668,11 @@
     "publication_preview_comment": "Comment",
     "publication_preview_repost": "Repost",
     "publication_preview_share": "Share",
+    "publication_preview_sample_author": "Alex Martin",
+    "publication_preview_sample_headline": "Product designer",
+    "publication_preview_sample_age": "2h",
+    "publication_preview_sample_activity": "1 comment",
+    "publication_preview_sample_engagement_a11y": "Illustrative engagement: 2 reactions and 1 comment",
     "publication_new_preview_empty": "Write something or add media to see the result here.",
     "publication_new_target_count": [
         {
@@ -1652,8 +1689,17 @@
     "publication_new_delivery_independent": "Each destination is scheduled independently and keeps its own delivery outcome.",
     "publication_new_schedule_automatic": "Schedule",
     "publication_new_schedule_manual": "Schedule",
-    "publication_new_schedule_count": "Schedule {count}",
-    "publication_new_save_draft": "Save draft",
+    "publication_new_schedule_count": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Schedule {count} publication",
+                "countPlural=other": "Schedule {count} publications"
+            }
+        }
+    ],
+    "publication_new_create_draft": "Create draft",
     "publication_new_add_channel": "Add a channel before scheduling a publication.",
     "publication_new_manage_channels": "Manage channels",
     "publication_new_add_destination": "Add channel",
@@ -1662,6 +1708,7 @@
     "publication_new_defaults_for_channels": "For all selected channels",
     "publication_new_default_delivery": "Delivery",
     "publication_new_default_schedule": "Schedule",
+    "publication_new_schedule_settings": "Delivery and schedule",
     "publication_new_customize_delivery": "Customize delivery",
     "publication_new_use_defaults": "Use shared settings",
     "publication_new_uses_defaults": "Uses shared settings",
@@ -1682,7 +1729,6 @@
     "publication_new_manual_publication": "Manual publication",
     "publication_new_automatic_publication": "Automatic publication",
     "publication_new_scheduled_for": "Channel schedule",
-    "publication_new_project_time": "Project time · {timeZone}",
     "editor_shared_authoring_content": "Shared authoring content",
     "editor_source_description_extended": "This source can seed several channel-specific targets. Editing it does not silently replace the selected target.",
     "editor_target_structured_payload": "Editable structured payload",
@@ -1793,5 +1839,24 @@
     "realtime_event_sent": "Signal sent: {event}",
     "realtime_error": "The prototype data layer could not refresh.",
     "realtime_state": "State: {state}",
-    "realtime_items": "{count} items"
+    "realtime_items": "{count} items",
+    "access_invite_to_scope": "Invite to {name}",
+    "notification_delivered_title": "Publication delivered",
+    "notification_failed_title": "Publication failed",
+    "notification_failed_body": "Delivery failed. This publication needs attention.",
+    "notification_uncertain_title": "Publication outcome unknown",
+    "notification_uncertain_body": "Herald could not confirm whether it was delivered.",
+    "notification_reconciled_delivered_title": "Delivery confirmed",
+    "notification_reconciled_failed_title": "Failure confirmed",
+    "notification_reconciled_body": "The previously uncertain outcome has been verified.",
+    "profile_field_body": "Body",
+    "profile_field_headline": "Headline",
+    "profile_field_language": "Language",
+    "profile_field_media": "Media",
+    "channel_name_exists": "A channel with this name already exists.",
+    "channel_default_manual_name": "Manual channel",
+    "publication_remove_customized_title": "Remove this channel?",
+    "publication_remove_customized_description": "Its custom text, media and settings will be discarded. Shared content will be kept.",
+    "publication_remove_customized_cancel": "Keep channel",
+    "publication_remove_customized_confirm": "Remove channel"
 }

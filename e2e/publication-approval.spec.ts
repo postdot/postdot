@@ -1,11 +1,16 @@
 import { randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
+
+import en from '../apps/web/messages/en.json' with { type: 'json' }
+import fr from '../apps/web/messages/fr.json' with { type: 'json' }
 
 test('shows an API-prepared publication for human approval before it is scheduled', async ({
     page,
 }) => {
-    test.setTimeout(45_000)
+    test.setTimeout(60_000)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
 
     const suffix = randomUUID().slice(0, 8)
     const projectId = await createAccountAndProject(page, suffix)
@@ -63,8 +68,29 @@ test('shows an API-prepared publication for human approval before it is schedule
         approvalSection.getByRole('button', { name: 'Approve & schedule', exact: true })
     ).toBeEnabled()
 
-    await approvalSection.getByRole('button', { name: 'Approve & schedule', exact: true }).click()
-    await expect(approvalSection).toHaveCount(0)
+    for (const width of [1280, 820, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        await expect(approvalSection).toBeVisible()
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        expect(
+            await page
+                .locator('[data-dashboard-scroll]')
+                .evaluate(element => element.scrollWidth <= element.clientWidth + 1)
+        ).toBe(true)
+    }
+    await page.locator('[data-slot="language-switcher-trigger"]').click()
+    await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    const translatedSection = page.getByRole('region', { name: fr.approval_requests_title })
+    await expect(translatedSection).toBeVisible()
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    const approve = translatedSection.getByRole('button', {
+        name: fr.approval_requests_approve,
+        exact: true,
+    })
+    await approve.focus()
+    await page.keyboard.press('Enter')
+    await expect(translatedSection).toHaveCount(0)
 
     const publicationsResponse = await page.request.get(
         `/api/projects/${projectId}/publications?state=scheduled`

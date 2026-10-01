@@ -8,13 +8,25 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@herald/ui/components/tooltip'
+import { cn } from '@herald/ui/lib/utils'
 import { CloseIcon } from '@solar-icons/react/linear/close'
+import { LayersMinimalisticIcon } from '@solar-icons/react/linear/layers-minimalistic'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { LayoutGroup, motion, useReducedMotion } from 'motion/react'
+import {
+    useEffect,
+    useRef,
+    useState,
+    type Dispatch,
+    type ReactNode,
+    type SetStateAction,
+} from 'react'
 
 import { DateTimePicker } from '@/components/date-time-picker'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import type { Channel, PublisherConnection } from '@/lib/api'
+import { channelVariant } from '@/lib/channel-identity'
+import { useChannelIdentityPeers } from '@/lib/channel-identity-context'
 import { useLanguage } from '@/lib/i18n'
 import {
     createPublicationTarget,
@@ -110,62 +122,82 @@ export function PublicationChannelRail({
 }
 
 export interface PublicationChannelTabsProps {
-    readonly activeTargetId: string
+    readonly createChannel?: ReactNode
+    readonly activeTabId: string
     readonly channels: readonly Channel[]
-    readonly connections: readonly PublisherConnection[]
     readonly defaultDeliveryMode: DeliveryMode
     readonly defaultScheduledAt: string
     readonly disabled: boolean
-    readonly onActiveTargetChange: (targetId: string) => void
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
-    readonly onDefaultDeliveryModeChange?: (deliveryMode: DeliveryMode) => void
+    readonly onActiveTabChange: (tabId: string) => void
+    readonly onRemoveTarget: (targetId: string) => void
     readonly projectId: string
     readonly targets: readonly PublicationTargetDraft[]
     readonly timeZone: string
 }
 
 export function PublicationChannelTabs({
-    activeTargetId,
+    createChannel,
+    activeTabId,
     channels,
     defaultDeliveryMode,
     defaultScheduledAt,
     disabled,
-    onActiveTargetChange,
     onChange,
-    onDefaultDeliveryModeChange,
+    onActiveTabChange,
+    onRemoveTarget,
     projectId,
     targets,
     timeZone,
 }: PublicationChannelTabsProps) {
     useLanguage()
-    function activateChannel(channelId: string) {
+    const identityPeers = useChannelIdentityPeers()
+    function channelLabel(channel: Channel) {
+        const variant = channelVariant(channel.id, identityPeers)
+        return variant === undefined ? channel.name : `${channel.name} · ${variant}`
+    }
+    const reduceMotion = useReducedMotion()
+    const railRef = useRef<HTMLDivElement>(null)
+    const pendingFocus = useRef<{ channelId: string; selected: boolean } | null>(null)
+    const movement = reduceMotion
+        ? { duration: 0 }
+        : { type: 'spring' as const, stiffness: 420, damping: 38 }
+    function addChannel(channelId: string) {
         const channel = channels.find(item => item.id === channelId)
-        const existing = targets.find(target => target.channelId === channelId)
+        if (targets.some(target => target.channelId === channelId)) return
         const deliveryMode = supportsAutomaticDelivery(channel) ? defaultDeliveryMode : 'manual'
-
-        if (deliveryMode !== defaultDeliveryMode) {
-            onDefaultDeliveryModeChange?.(deliveryMode)
-        }
-
-        if (existing) {
-            if (existing.deliveryMode !== deliveryMode) {
-                onChange(current =>
-                    current.map(target =>
-                        target.id === existing.id ? { ...target, deliveryMode } : target
-                    )
-                )
-            }
-            onActiveTargetChange(existing.id)
-            return
-        }
         const nextTarget = {
             ...createPublicationTarget(channelId, timeZone),
             deliveryMode,
             scheduledAt: defaultScheduledAt,
         }
+        pendingFocus.current = { channelId, selected: true }
         onChange(current => [...current.filter(target => target.channelId !== ''), nextTarget])
-        onActiveTargetChange(nextTarget.id)
     }
+
+    function removeChannel(target: PublicationTargetDraft) {
+        pendingFocus.current = { channelId: target.channelId, selected: false }
+        onRemoveTarget(target.id)
+    }
+
+    const selectedTargets = targets.filter(target => target.channelId !== '')
+    const availableChannels = channels.filter(
+        channel => !selectedTargets.some(target => target.channelId === channel.id)
+    )
+
+    useEffect(() => {
+        const nextFocus = pendingFocus.current
+        if (nextFocus === null) return
+        const selector = nextFocus.selected
+            ? '[data-channel-selected-button]'
+            : '[data-channel-available]'
+        const button = Array.from(
+            railRef.current?.querySelectorAll<HTMLButtonElement>(selector) ?? []
+        ).find(element => element.dataset.channelId === nextFocus.channelId)
+        if (button === undefined) return
+        button.focus()
+        pendingFocus.current = null
+    }, [targets])
 
     if (channels.length === 0) {
         return (
@@ -186,15 +218,143 @@ export function PublicationChannelTabs({
     }
 
     return (
-        <PublicationChannelRail
-            activeChannelId={targets.find(target => target.id === activeTargetId)?.channelId ?? ''}
-            channels={channels}
-            disabled={disabled}
-            onActiveChannelChange={activateChannel}
-            onSharedChange={() => onActiveTargetChange(publicationSharedTabId)}
-            selectedChannelIds={new Set(targets.map(target => target.channelId))}
-            sharedActive={activeTargetId === publicationSharedTabId}
-        />
+        <LayoutGroup id="new-publication-channels">
+            <div
+                ref={railRef}
+                data-publication-channel-selection="true"
+                className="flex min-w-0 flex-wrap items-start gap-x-4 gap-y-2">
+                <div
+                    className="flex min-w-0 flex-1 flex-wrap items-center gap-3 py-2"
+                    role="group"
+                    aria-label={m.publication_new_editing_scope()}>
+                    <Tooltip>
+                        <TooltipTrigger
+                            render={
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    aria-label={m.publication_new_common_tab()}
+                                    title={m.publication_new_common_tab()}
+                                    className={`size-11 shrink-0 gap-2 rounded-md p-0 text-sm shadow-control ${activeTabId === publicationSharedTabId ? 'bg-primary/12 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background hover:bg-primary/16' : 'bg-surface-control text-muted-foreground hover:bg-surface-control-hover'}`}
+                                    aria-pressed={activeTabId === publicationSharedTabId}
+                                    disabled={disabled}
+                                    onClick={() => onActiveTabChange(publicationSharedTabId)}>
+                                    <LayersMinimalisticIcon aria-hidden="true" className="size-4" />
+                                    <span className="sr-only">
+                                        {m.publication_new_common_tab()}
+                                    </span>
+                                </Button>
+                            }
+                        />
+                        <TooltipContent>{m.publication_new_common_tab()}</TooltipContent>
+                    </Tooltip>
+                    {selectedTargets.map(target => {
+                        const channel = channels.find(item => item.id === target.channelId)
+                        if (channel === undefined) return null
+                        return (
+                            <motion.div
+                                key={target.id}
+                                layoutId={`channel-${channel.id}`}
+                                transition={movement}
+                                data-channel-selected="true"
+                                className={`relative flex size-11 shrink-0 items-stretch rounded-md shadow-control ${activeTabId === target.id ? 'bg-primary/12 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background' : 'bg-surface-control'}`}>
+                                <Tooltip>
+                                    <TooltipTrigger
+                                        render={
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                className="size-11 min-w-0 justify-center overflow-hidden rounded-md border-0 p-0 hover:bg-primary/8"
+                                                aria-label={channelLabel(channel)}
+                                                title={channelLabel(channel)}
+                                                aria-pressed={activeTabId === target.id}
+                                                data-channel-selected-button="true"
+                                                data-channel-id={channel.id}
+                                                disabled={disabled}
+                                                onClick={() => onActiveTabChange(target.id)}>
+                                                <ChannelAvatar
+                                                    channel={channel}
+                                                    size="md"
+                                                    className="!h-full !w-11 !rounded-none"
+                                                />
+                                                <span className="sr-only">
+                                                    {channelLabel(channel)}
+                                                </span>
+                                            </Button>
+                                        }
+                                    />
+                                    <TooltipContent>{channelLabel(channel)}</TooltipContent>
+                                </Tooltip>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className={cn(
+                                        'absolute -right-2 -top-2 z-10 size-6 rounded-full border-0 bg-surface-control p-0 text-muted-foreground shadow-control hover:bg-surface-control-hover hover:text-foreground [&_svg]:size-3',
+                                        activeTabId !== target.id &&
+                                            'max-sm:hidden [@media(pointer:coarse)]:hidden'
+                                    )}
+                                    aria-label={m.publication_new_remove_channel({
+                                        channel: channelLabel(channel),
+                                    })}
+                                    disabled={disabled}
+                                    onClick={() => removeChannel(target)}>
+                                    <CloseIcon aria-hidden="true" />
+                                </Button>
+                            </motion.div>
+                        )
+                    })}
+                </div>
+                {createChannel !== undefined ? <div className="py-1">{createChannel}</div> : null}
+                {availableChannels.length > 0 ? (
+                    <>
+                        <div
+                            className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-3 py-2"
+                            role="group"
+                            aria-label={m.publication_new_destinations()}>
+                            {availableChannels.map(channel => (
+                                <motion.div
+                                    key={channel.id}
+                                    layoutId={`channel-${channel.id}`}
+                                    transition={movement}
+                                    className="shrink-0">
+                                    <Tooltip>
+                                        <TooltipTrigger
+                                            render={
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    disabled={disabled}
+                                                    data-channel-available="true"
+                                                    data-channel-id={channel.id}
+                                                    aria-label={m.publication_new_add_channel_named(
+                                                        {
+                                                            channel: channelLabel(channel),
+                                                        }
+                                                    )}
+                                                    onClick={() => addChannel(channel.id)}
+                                                    title={channelLabel(channel)}
+                                                    className="size-11 overflow-hidden rounded-md bg-surface-inset/55 p-0 text-muted-foreground shadow-control grayscale transition-[filter,background-color,color] hover:bg-surface-control-hover hover:text-foreground hover:grayscale-0 focus-visible:text-foreground focus-visible:grayscale-0">
+                                                    <ChannelAvatar
+                                                        channel={channel}
+                                                        size="md"
+                                                        className="!h-full !w-11 !rounded-none opacity-65"
+                                                    />
+                                                    <span className="sr-only">
+                                                        {channelLabel(channel)}
+                                                    </span>
+                                                </Button>
+                                            }
+                                        />
+                                        <TooltipContent>{channelLabel(channel)}</TooltipContent>
+                                    </Tooltip>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </>
+                ) : null}
+            </div>
+        </LayoutGroup>
     )
 }
 
@@ -206,12 +366,10 @@ export interface PublicationChannelSettingsProps {
     readonly defaultDeliveryMode: DeliveryMode
     readonly defaultScheduledAt: string
     readonly disabled: boolean
-    readonly onActiveTargetChange: (targetId: string) => void
     readonly onDefaultDeliveryModeChange: (deliveryMode: DeliveryMode) => void
     readonly onDefaultScheduledAtChange: (scheduledAt: string) => void
     readonly onChange: Dispatch<SetStateAction<PublicationTargetDraft[]>>
     readonly onTargetCustomizationChange: (targetId: string, customized: boolean) => void
-    readonly onRemoveTarget: (targetId: string) => void
     readonly projectId: string
     readonly targets: readonly PublicationTargetDraft[]
     readonly timeZone: string
@@ -225,12 +383,10 @@ export function PublicationChannelSettings({
     defaultDeliveryMode,
     defaultScheduledAt,
     disabled,
-    onActiveTargetChange,
     onDefaultDeliveryModeChange,
     onDefaultScheduledAtChange,
     onChange,
     onTargetCustomizationChange,
-    onRemoveTarget,
     projectId,
     targets,
     timeZone,
@@ -266,16 +422,9 @@ export function PublicationChannelSettings({
     }
 
     return (
-        <div
-            data-publication-settings="true"
-            className="rounded-xl bg-surface-inset/60 px-4 py-3 sm:px-5">
+        <div data-publication-settings="true" className="min-w-0">
             <section data-publication-shared-settings="true">
-                <div className="flex justify-end">
-                    <span className="text-xs text-muted-foreground">
-                        {m.publication_new_project_time({ timeZone })}
-                    </span>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                     <TargetField
                         htmlFor="publication-default-delivery"
                         label={m.publication_new_default_delivery()}>
@@ -286,7 +435,9 @@ export function PublicationChannelSettings({
                                     ? { automatic: m.publication_new_automatic_publication() }
                                     : {}),
                             }}
-                            value={defaultDeliveryMode}
+                            value={
+                                automaticDeliveryAllowedForDefaults ? defaultDeliveryMode : 'manual'
+                            }
                             onValueChange={value =>
                                 onDefaultDeliveryModeChange(value as DeliveryMode)
                             }
@@ -371,27 +522,6 @@ export function PublicationChannelSettings({
                                 ) : null}
                             </div>
                         </div>
-                        {targets.length > 1 ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={m.publication_new_remove_destination({
-                                    index: String(targets.indexOf(activeTarget) + 1),
-                                })}
-                                disabled={disabled}
-                                onClick={() => {
-                                    const nextTargets = targets.filter(
-                                        target => target.id !== activeTarget.id
-                                    )
-                                    onRemoveTarget(activeTarget.id)
-                                    onActiveTargetChange(
-                                        nextTargets[0]?.id ?? publicationSharedTabId
-                                    )
-                                }}>
-                                <CloseIcon aria-hidden="true" />
-                            </Button>
-                        ) : null}
                     </div>
 
                     {customizedTargetIds.has(activeTarget.id) ? (

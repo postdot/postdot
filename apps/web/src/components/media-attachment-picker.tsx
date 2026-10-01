@@ -3,23 +3,13 @@ import { Button } from '@herald/ui/components/button'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@herald/ui/components/tooltip'
-import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
-import { AltArrowRightIcon } from '@solar-icons/react/linear/alt-arrow-right'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
 import { UploadIcon } from '@solar-icons/react/linear/upload'
 import type { Meta, UploadResult } from '@uppy/core'
 import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
-import {
-    lazy,
-    Suspense,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type DragEvent,
-    type ReactNode,
-} from 'react'
+import { Reorder, useDragControls, useReducedMotion } from 'motion/react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { EmptyState } from '@/components/empty-state'
 import {
@@ -61,7 +51,12 @@ import {
     type MediaLibraryViewMode,
     writeMediaLibraryViewMode,
 } from '@/lib/media-library-view'
-import { mediaSelectionsEqual, toggleMediaSelection, type MediaSelection } from '@/lib/target-media'
+import {
+    mediaSelectionsEqual,
+    reorderMediaSelections,
+    toggleMediaSelection,
+    type MediaSelection,
+} from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
 const MediaImageEditorDialog = lazy(async () => {
@@ -205,8 +200,6 @@ function MediaAttachmentPickerView({
     const [bulkSelectionResolutionPending, setBulkSelectionResolutionPending] = useState(false)
     const [bulkDeletionError, setBulkDeletionError] = useState<string | null>(null)
     const [bulkSelectionMode, setBulkSelectionMode] = useState(false)
-    const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null)
-    const [dragOverAssetId, setDragOverAssetId] = useState<string | null>(null)
     const [dragActive, setDragActive] = useState(false)
     const dragDepthRef = useRef(0)
     const [sourcePickerOpen, setSourcePickerOpen] = useState(false)
@@ -703,6 +696,7 @@ function MediaAttachmentPickerView({
     }
 
     function moveSelection(index: number, offset: -1 | 1) {
+        if (interactionLocked) return
         const nextIndex = index + offset
         if (nextIndex < 0 || nextIndex >= value.length) return
 
@@ -711,6 +705,12 @@ function MediaAttachmentPickerView({
         if (selection === undefined) return
         next.splice(nextIndex, 0, selection)
         onChange(next)
+    }
+
+    function reorderSelection(orderedAssetIds: string[]) {
+        if (interactionLocked) return
+        const next = reorderMediaSelections(value, orderedAssetIds)
+        if (!mediaSelectionsEqual(value, next)) onChange(next)
     }
 
     function removeSelection(assetId: string) {
@@ -1118,42 +1118,6 @@ function MediaAttachmentPickerView({
         }
     }
 
-    function startReorder(event: DragEvent<HTMLDivElement>, assetId: string) {
-        if (interactionLocked) return
-        event.dataTransfer.effectAllowed = 'move'
-        event.dataTransfer.setData('text/plain', assetId)
-        setDraggingAssetId(assetId)
-    }
-
-    function overReorder(event: DragEvent<HTMLDivElement>, assetId: string) {
-        const sourceAssetId = draggingAssetId ?? event.dataTransfer.getData('text/plain')
-        if (sourceAssetId === '' || sourceAssetId === assetId) return
-        event.preventDefault()
-        event.dataTransfer.dropEffect = 'move'
-        setDragOverAssetId(assetId)
-    }
-
-    function dropReorder(event: DragEvent<HTMLDivElement>, targetAssetId: string) {
-        event.preventDefault()
-        const sourceAssetId = draggingAssetId ?? event.dataTransfer.getData('text/plain')
-        if (sourceAssetId !== '') moveSelectionTo(sourceAssetId, targetAssetId)
-        setDraggingAssetId(null)
-        setDragOverAssetId(null)
-    }
-
-    function moveSelectionTo(sourceAssetId: string, targetAssetId: string) {
-        if (sourceAssetId === targetAssetId) return
-        const sourceIndex = value.findIndex(item => item.assetId === sourceAssetId)
-        const targetIndex = value.findIndex(item => item.assetId === targetAssetId)
-        if (sourceIndex < 0 || targetIndex < 0) return
-
-        const next = [...value]
-        const [selection] = next.splice(sourceIndex, 1)
-        if (selection === undefined) return
-        next.splice(targetIndex, 0, selection)
-        onChange(next)
-    }
-
     async function loadMoreAssets() {
         if (
             nextCursor === null ||
@@ -1443,7 +1407,12 @@ function MediaAttachmentPickerView({
                 ) : (
                     <>
                         {inline && !loading && selectedAssets.length > 0 ? (
-                            <div className="mb-2 flex flex-wrap gap-2">
+                            <Reorder.Group
+                                as="div"
+                                axis="xy"
+                                values={value.map(selection => selection.assetId)}
+                                onReorder={reorderSelection}
+                                className="mb-3 flex flex-wrap gap-3">
                                 {selectedAssets.map(({ asset, selection }, index) => (
                                     <CompactMediaPreview
                                         key={selection.assetId}
@@ -1458,18 +1427,9 @@ function MediaAttachmentPickerView({
                                         onMove={moveSelection}
                                         onRemove={removeSelection}
                                         onPreview={openViewer}
-                                        onDragStart={startReorder}
-                                        onDragOver={overReorder}
-                                        onDrop={dropReorder}
-                                        onDragEnd={() => {
-                                            setDraggingAssetId(null)
-                                            setDragOverAssetId(null)
-                                        }}
-                                        dragging={draggingAssetId === selection.assetId}
-                                        dragOver={dragOverAssetId === selection.assetId}
                                     />
                                 ))}
-                            </div>
+                            </Reorder.Group>
                         ) : null}
                         {!readOnly ? (
                             <div
@@ -1554,7 +1514,12 @@ function MediaAttachmentPickerView({
                                     {m.media_empty_publication_new()}
                                 </p>
                             ) : (
-                                <div className="mt-3 flex flex-wrap gap-2">
+                                <Reorder.Group
+                                    as="div"
+                                    axis="xy"
+                                    values={value.map(selection => selection.assetId)}
+                                    onReorder={reorderSelection}
+                                    className="mt-3 flex flex-wrap gap-3">
                                     {selectedAssets.map(({ asset, selection }, index) => (
                                         <CompactMediaPreview
                                             key={selection.assetId}
@@ -1569,18 +1534,9 @@ function MediaAttachmentPickerView({
                                             onMove={moveSelection}
                                             onRemove={removeSelection}
                                             onPreview={openViewer}
-                                            onDragStart={startReorder}
-                                            onDragOver={overReorder}
-                                            onDrop={dropReorder}
-                                            onDragEnd={() => {
-                                                setDraggingAssetId(null)
-                                                setDragOverAssetId(null)
-                                            }}
-                                            dragging={draggingAssetId === selection.assetId}
-                                            dragOver={dragOverAssetId === selection.assetId}
                                         />
                                     ))}
-                                </div>
+                                </Reorder.Group>
                             )
                         ) : assets.length === 0 ? (
                             normalizedSearchQuery !== '' ? (
@@ -1792,12 +1748,6 @@ function CompactMediaPreview({
     onMove,
     onRemove,
     onPreview,
-    onDragStart,
-    onDragOver,
-    onDrop,
-    onDragEnd,
-    dragging,
-    dragOver,
 }: {
     readonly asset: MediaReference | undefined
     readonly disabled: boolean
@@ -1810,41 +1760,35 @@ function CompactMediaPreview({
     readonly onMove: (index: number, offset: -1 | 1) => void
     readonly onRemove: (assetId: string) => void
     readonly onPreview: (asset: MediaReference) => void
-    readonly onDragStart: (event: DragEvent<HTMLDivElement>, assetId: string) => void
-    readonly onDragOver: (event: DragEvent<HTMLDivElement>, assetId: string) => void
-    readonly onDrop: (event: DragEvent<HTMLDivElement>, assetId: string) => void
-    readonly onDragEnd: () => void
-    readonly dragging: boolean
-    readonly dragOver: boolean
 }) {
     const filename = asset?.asset.originalFilename ?? m.media_file_type()
     const representation = asset === undefined ? undefined : readyRepresentation(asset)
+    const dragControls = useDragControls()
+    const reduceMotion = useReducedMotion()
 
     return (
-        <div
+        <Reorder.Item
+            as="div"
+            value={selection.assetId}
+            drag={asset !== undefined && total > 1 && !disabled}
+            dragListener={false}
+            dragControls={dragControls}
+            whileDrag={reduceMotion ? undefined : { scale: 1.06 }}
             data-media-selection-preview={asset !== undefined ? 'true' : undefined}
-            className="flex min-w-0 max-w-full flex-col items-start gap-2 sm:flex-row">
+            className="relative flex min-w-0 max-w-full flex-col items-start gap-2 pt-1.5 pr-1.5 sm:flex-row">
             <div
-                draggable={asset !== undefined && total > 1}
-                data-media-dragging={dragging || undefined}
-                data-media-drop-target={dragOver || undefined}
                 data-media-reorderable={asset !== undefined && total > 1 ? 'true' : undefined}
-                title={total > 1 ? m.media_reorder_hint() : undefined}
-                className={`group relative size-16 shrink-0 overflow-hidden rounded-md bg-surface-field ${
-                    dragging ? 'opacity-45' : ''
-                } ${dragOver ? 'ring-2 ring-primary' : ''}`}
-                onDragStart={event => {
-                    if (asset !== undefined) onDragStart(event, selection.assetId)
-                }}
-                onDragOver={event => onDragOver(event, selection.assetId)}
-                onDrop={event => onDrop(event, selection.assetId)}
-                onDragEnd={onDragEnd}>
+                className="group relative size-16 shrink-0 rounded-md bg-surface-field">
                 {asset !== undefined && representation !== undefined ? (
                     <button
                         type="button"
                         data-media-preview="true"
                         className="block size-16 cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                         aria-label={m.media_view_asset({ filename })}
+                        onDragStart={event => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                        }}
                         onClick={() => onPreview(asset)}>
                         <MediaPreview
                             projectId={projectId}
@@ -1859,33 +1803,40 @@ function CompactMediaPreview({
                     </span>
                 )}
                 {total > 1 ? (
-                    <div className="absolute inset-x-1 bottom-1 flex justify-between gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon-xs"
-                            aria-label={m.media_move_left({ filename })}
-                            disabled={disabled || index === 0}
-                            onClick={() => onMove(index, -1)}>
-                            <AltArrowLeftIcon aria-hidden="true" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon-xs"
-                            aria-label={m.media_move_right({ filename })}
-                            disabled={disabled || index === total - 1}
-                            onClick={() => onMove(index, 1)}>
-                            <AltArrowRightIcon aria-hidden="true" />
-                        </Button>
-                    </div>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        data-media-drag-handle="true"
+                        aria-label={m.media_reorder_handle({ filename })}
+                        aria-keyshortcuts="ArrowLeft ArrowRight"
+                        title={m.media_reorder_hint()}
+                        disabled={disabled}
+                        className="absolute bottom-1 left-1 size-5 cursor-grab rounded-sm bg-surface-overlay/90 text-foreground shadow-field active:cursor-grabbing"
+                        style={{ touchAction: 'none' }}
+                        onPointerDown={event => dragControls.start(event)}
+                        onKeyDown={event => {
+                            if (event.key === 'ArrowLeft' && index > 0) {
+                                event.preventDefault()
+                                onMove(index, -1)
+                            } else if (event.key === 'ArrowRight' && index < total - 1) {
+                                event.preventDefault()
+                                onMove(index, 1)
+                            }
+                        }}>
+                        <span aria-hidden="true" className="grid grid-cols-2 gap-0.5">
+                            {Array.from({ length: 6 }, (_, dot) => (
+                                <span key={dot} className="size-0.5 rounded-full bg-current" />
+                            ))}
+                        </span>
+                    </Button>
                 ) : null}
                 <Button
                     type="button"
                     variant="ghost"
                     size="icon-xs"
                     disabled={disabled}
-                    className="absolute top-1 right-1 bg-surface-overlay/95 text-foreground shadow-field hover:bg-surface-raised hover:text-destructive"
+                    className="absolute -top-1.5 -right-1.5 z-10 size-5 rounded-full bg-surface-overlay/95 text-foreground shadow-field hover:bg-surface-raised hover:text-destructive [&_svg]:size-3"
                     aria-label={m.media_remove({ filename })}
                     onClick={() => onRemove(selection.assetId)}>
                     <CloseIcon aria-hidden="true" />
@@ -1908,7 +1859,7 @@ function CompactMediaPreview({
                     />
                 </Field>
             ) : null}
-        </div>
+        </Reorder.Item>
     )
 }
 

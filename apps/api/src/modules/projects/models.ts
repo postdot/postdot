@@ -480,6 +480,7 @@ export const publicationComposerDraftContentSchema = Type.Object({
     customizedTargetIds: Type.Array(Type.String()),
     customizedContentTargetIds: Type.Array(Type.String()),
     activePublicationTabId: Type.String(),
+    activeContentScopeId: Type.Optional(Type.String()),
 })
 
 export const publicationComposerDraftSchema = Type.Unsafe<PublicationComposerDraft>(

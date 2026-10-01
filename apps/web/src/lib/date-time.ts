@@ -204,3 +204,20 @@ function parsePart(parts: Map<string, string>, name: string) {
     if (!Number.isSafeInteger(parsed)) throw new Error(`Invalid date-time part: ${name}`)
     return parsed
 }
+
+export function formatCivilSchedule(value: string, locale: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value)
+    if (match === null) return ''
+    const [, year, month, day, hour, minute] = match
+    const date = new Date(
+        Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute))
+    )
+    return new Intl.DateTimeFormat(locale, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+    }).format(date)
+}

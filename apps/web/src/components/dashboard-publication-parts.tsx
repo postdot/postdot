@@ -109,7 +109,12 @@ export function PublicationList({
     return (
         <TooltipProvider delay={450}>
             <div
-                className="mt-4 overflow-hidden rounded-lg bg-surface-inset/55 p-1 shadow-surface"
+                className={cn(
+                    'mt-4 overflow-hidden rounded-lg bg-surface-inset/55 p-1 shadow-surface lg:grid lg:gap-x-2',
+                    selectionEnabled
+                        ? 'lg:grid-cols-[auto_minmax(11rem,0.85fr)_minmax(0,1fr)_max-content]'
+                        : 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_max-content]'
+                )}
                 data-publication-list="true">
                 {selectionEnabled ? (
                     <PublicationTableHeader
@@ -119,7 +124,7 @@ export function PublicationList({
                         onToggleAll={onToggleAll}
                     />
                 ) : null}
-                <div className="space-y-1">
+                <div className="space-y-1 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:gap-y-1 lg:space-y-0">
                     {publications.map(publication => {
                         const selected = selectedPublicationIds?.has(publication.id) ?? false
                         return (
@@ -163,7 +168,7 @@ function PublicationTableHeader({
 }) {
     return (
         <div
-            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 rounded-md bg-surface-field/35 px-2 py-2 sm:px-3"
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 rounded-md bg-surface-field/35 px-2 py-2 sm:px-3 lg:col-span-full lg:grid-cols-subgrid"
             data-publication-table-header="true">
             <SelectionCheckbox
                 checked={allSelected}
@@ -173,19 +178,19 @@ function PublicationTableHeader({
                 label={allSelected ? m.queue_clear_selection() : m.queue_select_all_visible()}
                 onChange={() => onToggleAll?.()}
             />
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:gap-7">
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 lg:col-span-3 lg:grid-cols-subgrid lg:gap-7">
                 <div className="min-w-0">
-                    <span className="block truncate text-[0.65rem] font-semibold uppercase text-muted-foreground">
+                    <span className="block truncate text-xs font-medium text-muted-foreground">
                         {m.queue_column_publication()}
                     </span>
-                    <span className="mt-1 block truncate text-[0.65rem] font-semibold uppercase text-muted-foreground lg:hidden">
+                    <span className="mt-1 block truncate text-xs font-medium text-muted-foreground lg:hidden">
                         {m.queue_column_destination()}
                     </span>
                 </div>
-                <span className="hidden truncate text-[0.65rem] font-semibold uppercase text-muted-foreground lg:block">
+                <span className="hidden truncate text-xs font-medium text-muted-foreground lg:block">
                     {m.queue_column_destination()}
                 </span>
-                <span className="text-right text-[0.65rem] font-semibold uppercase text-muted-foreground">
+                <span className="text-right text-xs font-medium text-muted-foreground">
                     {m.queue_column_action()}
                 </span>
             </div>
@@ -234,12 +239,12 @@ function PublicationListItem({
             data-publication-selection-card="true"
             data-publication-selection-active={selected || undefined}
             className={cn(
-                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55',
+                'min-w-0 rounded-md transition-[background-color,box-shadow] hover:bg-surface-field/55 lg:col-span-full lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-x-2 lg:px-2 lg:py-3 sm:lg:px-3',
                 selected && 'bg-primary/[0.07]'
             )}>
             <div
                 className={cn(
-                    'grid min-w-0 items-start gap-x-2',
+                    'grid min-w-0 items-start gap-x-2 lg:contents',
                     selectionEnabled ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1'
                 )}>
                 {selectionEnabled ? (
@@ -255,48 +260,34 @@ function PublicationListItem({
                                       title: publicationIdentityLabel(publication),
                                   })
                         }
-                        className="mt-4 ml-2"
+                        className="mt-4 ml-2 lg:col-start-1 lg:row-start-1 lg:m-0"
                         onChange={() => onToggleSelection?.()}
                     />
                 ) : null}
                 <PublicationRow
+                    sharedColumns
+                    selectionEnabled={selectionEnabled}
                     action={
                         showRetryAction ? (
-                            <Tooltip>
-                                <TooltipTrigger
-                                    render={
-                                        <Button
-                                            aria-label={m.publication_retry_delivery()}
-                                            data-publication-action="retry"
-                                            disabled={pending}
-                                            onClick={() => void onRetry(publication.id)}
-                                            size="icon-sm"
-                                            type="button"
-                                            variant="secondary">
-                                            <RestartIcon aria-hidden="true" />
-                                        </Button>
-                                    }
-                                />
-                                <TooltipContent>{m.publication_retry_delivery()}</TooltipContent>
-                            </Tooltip>
+                            <Button
+                                data-publication-action="retry"
+                                disabled={pending}
+                                onClick={() => void onRetry(publication.id)}
+                                size="sm"
+                                type="button">
+                                <RestartIcon aria-hidden="true" />
+                                {m.publication_retry_delivery()}
+                            </Button>
                         ) : showManualAction ? (
-                            <Tooltip>
-                                <TooltipTrigger
-                                    render={
-                                        <Button
-                                            aria-label={m.publication_record_published()}
-                                            data-publication-action="record-published"
-                                            disabled={pending}
-                                            onClick={() => void onPublish(publication.id)}
-                                            size="icon-sm"
-                                            type="button"
-                                            variant="secondary">
-                                            <CheckIcon aria-hidden="true" />
-                                        </Button>
-                                    }
-                                />
-                                <TooltipContent>{m.publication_record_published()}</TooltipContent>
-                            </Tooltip>
+                            <Button
+                                data-publication-action="record-published"
+                                disabled={pending}
+                                onClick={() => void onPublish(publication.id)}
+                                size="sm"
+                                type="button">
+                                <CheckIcon aria-hidden="true" />
+                                {m.publication_record_published()}
+                            </Button>
                         ) : showReviewAction ? (
                             <Button
                                 aria-label={m.publication_review_outcome()}
@@ -475,9 +466,13 @@ export function PublicationRow({
     action,
     due = false,
     publication,
+    sharedColumns = false,
+    selectionEnabled = false,
     showCreationDate = false,
     timeZone,
 }: {
+    readonly sharedColumns?: boolean
+    readonly selectionEnabled?: boolean
     readonly action?: ReactNode
     readonly due?: boolean
     readonly publication: PublicationSummary
@@ -495,7 +490,8 @@ export function PublicationRow({
         <div
             className={cn(
                 'grid min-w-0 grid-cols-1 items-start gap-y-2 px-2 py-3 sm:px-3',
-                action
+                sharedColumns && 'lg:contents',
+                action && !sharedColumns
                     ? 'lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)_auto] lg:items-center lg:gap-7'
                     : ''
             )}>
@@ -505,37 +501,42 @@ export function PublicationRow({
                 data-publication-edit-link="true"
                 className={cn(
                     'col-span-full row-start-1 group min-w-0',
-                    action
-                        ? 'lg:col-span-2 lg:grid lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)] lg:items-center lg:gap-7'
-                        : ''
+                    sharedColumns && (selectionEnabled ? 'lg:col-start-2' : 'lg:col-start-1'),
+                    sharedColumns
+                        ? 'lg:col-span-2 lg:grid lg:grid-cols-subgrid lg:items-center lg:gap-7'
+                        : action
+                          ? 'lg:col-span-2 lg:grid lg:grid-cols-[minmax(11rem,0.85fr)_minmax(0,1fr)] lg:items-center lg:gap-7'
+                          : ''
                 )}>
                 <div className="flex min-w-0 items-start gap-2">
                     {publication.mediaCount > 0 ? (
                         <PublicationMediaThumbnail publication={publication} />
                     ) : null}
                     <div className="min-w-0">
-                        <h3 className="truncate text-sm font-medium" title={identityLabel}>
+                        <h2 className="truncate text-sm font-medium" title={identityLabel}>
                             {identityLabel}
-                        </h3>
+                        </h2>
                     </div>
                 </div>
                 <div className="min-w-0">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                        <span
-                            className={cn(
-                                'size-2 shrink-0 rounded-full bg-current',
-                                channelMarkerClass(
-                                    publication.deliveryMode === 'automatic'
-                                        ? 'automatic'
-                                        : 'manual-message'
-                                )
-                            )}
-                            aria-hidden="true"
-                        />
-                        <span
-                            className="truncate text-sm font-medium"
-                            title={publication.channelName}>
-                            {publication.channelName}
+                        <span className="inline-flex min-w-0 max-w-full items-center gap-2">
+                            <span
+                                className={cn(
+                                    'size-2 shrink-0 rounded-full bg-current',
+                                    channelMarkerClass(
+                                        publication.deliveryMode === 'automatic'
+                                            ? 'automatic'
+                                            : 'manual-message'
+                                    )
+                                )}
+                                aria-hidden="true"
+                            />
+                            <span
+                                className="min-w-0 truncate text-sm font-medium"
+                                title={publication.channelName}>
+                                {publication.channelName}
+                            </span>
                         </span>
                         {due ? (
                             <PublicationDueIndicator />
@@ -543,28 +544,36 @@ export function PublicationRow({
                             <PublicationStatus state={publication.state} />
                         )}
                     </div>
-                    <p
-                        className={cn(
-                            'mt-1 text-xs leading-5 text-muted-foreground',
-                            !showCreationDate && 'truncate'
-                        )}>
-                        {showCreationDate
-                            ? m.publication_draft_dates({
-                                  created: formatPublicationDateTime(createdAt, timeZone, locale),
-                                  edited: formatPublicationDateTime(lastEditedAt, timeZone, locale),
-                              })
-                            : formatSchedule(publication.scheduledAt, timeZone, locale)}
-                        {publication.draftDiffersFromTarget ? (
-                            <span className="text-state-attention">
-                                {' · '}
-                                {m.publication_draft_changes_pending()}
-                            </span>
-                        ) : null}
-                    </p>
+                    {showCreationDate || publication.scheduledAt !== null ? (
+                        <p
+                            className={cn(
+                                'mt-1 text-xs leading-5 text-muted-foreground',
+                                !showCreationDate && 'truncate'
+                            )}>
+                            {showCreationDate
+                                ? m.publication_draft_dates({
+                                      created: formatPublicationDateTime(
+                                          createdAt,
+                                          timeZone,
+                                          locale
+                                      ),
+                                      edited: formatPublicationDateTime(
+                                          lastEditedAt,
+                                          timeZone,
+                                          locale
+                                      ),
+                                  })
+                                : formatSchedule(publication.scheduledAt, timeZone, locale)}
+                        </p>
+                    ) : null}
                 </div>
             </Link>
             {action ? (
-                <div className="col-start-1 row-start-2 flex w-full min-w-0 items-center justify-end lg:col-start-3 lg:row-start-1 lg:w-auto">
+                <div
+                    className={cn(
+                        'col-start-1 row-start-2 flex w-full min-w-0 items-center justify-end lg:col-start-3 lg:row-start-1 lg:w-auto',
+                        sharedColumns && selectionEnabled && 'lg:col-start-4'
+                    )}>
                     {action}
                 </div>
             ) : null}

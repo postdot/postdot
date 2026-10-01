@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 
-import { mediaSelectionsEqual, toggleMediaSelection, updateTargetMedia } from './target-media'
+import {
+    mediaSelectionsEqual,
+    reorderMediaSelections,
+    toggleMediaSelection,
+    updateTargetMedia,
+} from './target-media'
 
 describe('media selection helpers', () => {
     it('toggles an asset without mutating the current selection or changing order', () => {
@@ -26,6 +31,19 @@ describe('media selection helpers', () => {
             mediaSelectionsEqual(selection, [{ assetId: 'asset-2', accessibilityText: 'A room' }])
         ).toBe(false)
         expect(mediaSelectionsEqual(selection, [])).toBe(false)
+    })
+
+    it('reorders existing attachments without duplicating or losing accessibility text', () => {
+        const current = [
+            { assetId: 'asset-1', accessibilityText: 'First image' },
+            { assetId: 'asset-2' },
+        ]
+        expect(reorderMediaSelections(current, ['asset-2', 'asset-1'])).toEqual([
+            { assetId: 'asset-2' },
+            { assetId: 'asset-1', accessibilityText: 'First image' },
+        ])
+        expect(reorderMediaSelections(current, ['asset-1', 'asset-1'])).toEqual(current)
+        expect(reorderMediaSelections(current, ['asset-2', 'unknown'])).toEqual(current)
     })
 })
 

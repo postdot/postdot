@@ -6,7 +6,7 @@ import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-mi
 import { formatSchedule, PublicationStatus } from '@/components/dashboard-publication-parts'
 import type { Publication } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
-import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
+import { isManualPublicationDue } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationLifecyclePanel({
@@ -29,7 +29,6 @@ export function PublicationLifecyclePanel({
     readonly timeZone: string
 }) {
     const { locale } = useLanguage()
-    const editable = canEditPublication(publication.state)
     const due = isManualPublicationDue(publication)
     const showManualAction = due && onPublish !== undefined
     const showCancelAction = publication.state === 'scheduled' && onCancel !== undefined
@@ -37,34 +36,36 @@ export function PublicationLifecyclePanel({
         publication.state === 'failed' &&
         publication.deliveryMode === 'automatic' &&
         onRetry !== undefined
+    const hasAction = showManualAction || showRetryAction || showCancelAction
 
     return (
         <>
             <div
                 data-publication-lifecycle="true"
-                className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-inset/70 px-4 py-3 shadow-surface">
+                className={
+                    hasAction
+                        ? 'mb-5 flex flex-col items-stretch gap-3 rounded-xl bg-surface-inset/70 px-4 py-3 shadow-surface sm:flex-row sm:items-center sm:justify-between'
+                        : 'mb-5 flex flex-wrap items-center gap-3'
+                }>
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                         <PublicationStatus due={due} state={publication.state} />
-                        <span className="text-xs text-muted-foreground">
-                            {formatSchedule(publication.scheduledAt, timeZone, locale)}
-                        </span>
-                        {!editable && publication.state !== 'ambiguous' ? (
+                        {publication.scheduledAt !== null ? (
                             <span className="text-xs text-muted-foreground">
-                                · {m.editor_lifecycle_read_only_title()}
+                                {formatSchedule(publication.scheduledAt, timeZone, locale)}
                             </span>
                         ) : null}
                     </div>
                     {publication.state === 'failed' && publication.errorMessage ? (
                         <p
-                            className="mt-1.5 max-w-2xl truncate text-xs text-state-failed"
+                            className="mt-1.5 max-w-2xl break-words text-xs text-state-failed"
                             data-publication-error="true">
                             {publication.errorMessage}
                         </p>
                     ) : null}
                 </div>
-                {showManualAction || showRetryAction || showCancelAction ? (
-                    <div className="flex flex-wrap items-center justify-end gap-2">
+                {hasAction ? (
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         {showRetryAction ? (
                             <Button
                                 data-publication-action="retry"
@@ -80,8 +81,7 @@ export function PublicationLifecyclePanel({
                                 data-publication-action="record-published"
                                 disabled={pending}
                                 onClick={() => void onPublish()}
-                                size="sm"
-                                variant="secondary">
+                                size="sm">
                                 <CheckIcon aria-hidden="true" />
                                 {m.publication_record_published()}
                             </Button>

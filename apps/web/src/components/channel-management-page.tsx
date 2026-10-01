@@ -1,5 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import { Button, buttonVariants } from '@herald/ui/components/button'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 import { LinkIcon } from '@solar-icons/react/linear/link'
@@ -12,9 +13,7 @@ import {
     type ChannelLifecycleAction,
 } from '@/components/channel-lifecycle-dialog'
 import { ChannelProfileEditorDialog } from '@/components/channel-profile-editor-dialog'
-import { ChannelRow } from '@/components/channel-row'
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
-import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { EmptyState } from '@/components/empty-state'
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
 import type { Channel } from '@/lib/api'
@@ -60,9 +59,6 @@ export function ChannelManagementPage({
         projectRole,
     } = useProjectDashboard()
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
-    const connectionsByChannel = new Map(
-        connections.map(connection => [connection.channelId, connection])
-    )
     const [profileChannel, setProfileChannel] = useState<Channel | null>(null)
     const [lifecycle, setLifecycle] = useState<{
         readonly action: ChannelLifecycleAction
@@ -91,12 +87,30 @@ export function ChannelManagementPage({
             <DashboardPageHeader
                 action={
                     canEditProject ? (
-                        <ChannelCreationDialog onCreate={onCreateChannel} pending={pending} />
+                        <ChannelCreationDialog
+                            channels={channels}
+                            onCreate={onCreateChannel}
+                            pending={pending}
+                        />
                     ) : undefined
                 }
-                title={m.channels_title()}>
-                <p className="mt-2 text-sm text-muted-foreground">{project.name}</p>
-            </DashboardPageHeader>
+                back={
+                    <Link
+                        aria-label={m.nav_back_to_overview()}
+                        className={buttonVariants({
+                            variant: 'ghost',
+                            size: 'icon',
+                            className:
+                                'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
+                        })}
+                        params={{ projectId: project.id }}
+                        to="/dashboard/projects/$projectId/overview">
+                        <AltArrowLeftIcon aria-hidden="true" />
+                        <span className="hidden lg:inline">{m.nav_back_to_overview()}</span>
+                    </Link>
+                }
+                title={m.channels_title()}
+            />
 
             {error ? (
                 <Alert
@@ -118,25 +132,24 @@ export function ChannelManagementPage({
             ) : null}
 
             <section id="channels" className="scroll-mt-20">
-                <DashboardSectionHeading
-                    meta={m.channels_project_count({ count: channels.length })}
-                    title={m.channels_project_title()}
-                />
-
                 {channels.length > 0 ? (
-                    <div className="mt-4 overflow-hidden rounded-md bg-surface-raised shadow-surface">
-                        {channels.map(channel => (
-                            <ChannelRow
-                                key={channel.id}
-                                channel={channel}
-                                disabled={pending}
-                                connection={connectionsByChannel.get(channel.id)}
-                                onEditProfile={() => setProfileChannel(channel)}
-                                onLifecycleAction={action => setLifecycle({ action, channel })}
-                                readOnly={!canEditProject}
-                            />
-                        ))}
-                    </div>
+                    <PublisherConnectionPanel
+                        channels={channels}
+                        connections={connections}
+                        pending={pending}
+                        onEditProfile={setProfileChannel}
+                        onLifecycleAction={(action, channel) => setLifecycle({ action, channel })}
+                        onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
+                        onStartLinkedInConnection={onStartLinkedInConnection}
+                        onStartBlueskyConnection={onStartBlueskyConnection}
+                        onStartMastodonConnection={onStartMastodonConnection}
+                        onStartXConnection={onStartXConnection}
+                        onConnectDiscordPublisher={onConnectDiscordPublisher}
+                        onConnectDevtoPublisher={onConnectDevtoPublisher}
+                        onDisconnectPublisher={onDisconnectPublisher}
+                        isInstanceAdmin={isInstanceAdmin}
+                        readOnly={!canEditProject}
+                    />
                 ) : (
                     <EmptyState
                         className="mt-4"
@@ -147,24 +160,6 @@ export function ChannelManagementPage({
                     />
                 )}
             </section>
-
-            <div className="mt-10">
-                <PublisherConnectionPanel
-                    channels={channels}
-                    connections={connections}
-                    pending={pending}
-                    onConnectCustomHttpPublisher={onConnectCustomHttpPublisher}
-                    onStartLinkedInConnection={onStartLinkedInConnection}
-                    onStartBlueskyConnection={onStartBlueskyConnection}
-                    onStartMastodonConnection={onStartMastodonConnection}
-                    onStartXConnection={onStartXConnection}
-                    onConnectDiscordPublisher={onConnectDiscordPublisher}
-                    onConnectDevtoPublisher={onConnectDevtoPublisher}
-                    onDisconnectPublisher={onDisconnectPublisher}
-                    isInstanceAdmin={isInstanceAdmin}
-                    readOnly={!canEditProject}
-                />
-            </div>
 
             {canEditProject ? (
                 <ChannelProfileEditorDialog

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 
+import { createManualChannelProfile } from '@herald/core'
+
+import * as m from '@/paraglide/messages.js'
+
 import {
     decodeTargetEnumValue,
     encodeTargetEnumValue,
@@ -10,6 +14,39 @@ import {
 } from './target-editor'
 
 describe('schema-aware target editor metadata', () => {
+    it('localizes only built-in field labels and preserves explicit schema titles', () => {
+        const profile = createManualChannelProfile()
+        const french = getTargetEditorFields(profile, 'fr')
+        expect(french.map(field => field.label)).toEqual([
+            m.profile_field_body({}, { locale: 'fr' }),
+            m.profile_field_headline({}, { locale: 'fr' }),
+            m.profile_field_language({}, { locale: 'fr' }),
+            m.profile_field_media({}, { locale: 'fr' }),
+        ])
+        expect(getTargetEditorFields(profile, 'en').map(field => field.label)).toEqual([
+            'Body',
+            'Headline',
+            'Language',
+            'Media',
+        ])
+        const custom = { ...profile, origin: 'custom' }
+        expect(getTargetEditorFields(custom, 'fr').map(field => field.label)).toEqual([
+            'Body',
+            'Headline',
+            'Language',
+            'Media',
+        ])
+        const titled = {
+            ...profile,
+            contentSchema: {
+                type: 'object',
+                properties: { body: { type: 'string', title: 'Editorial copy' } },
+            },
+        }
+        expect(getTargetEditorFields(titled, 'fr')[0]?.label).toBe('Editorial copy')
+        expect(profile.fieldBindings[0]?.path).toBe('/body')
+    })
+
     it('uses weighted counting for X instead of the legacy raw-length constraint', () => {
         const fields = getTargetEditorFields({
             execution: { kind: 'built_in', contractId: 'x', revision: 'post-v1' },

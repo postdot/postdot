@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
+
+import en from '../apps/web/messages/en.json' with { type: 'json' }
+import fr from '../apps/web/messages/fr.json' with { type: 'json' }
+import { calendarLocales } from '../packages/ui/src/components/calendar'
 
 type TestEventSourceController = {
     readonly url: string
@@ -101,7 +106,11 @@ test('refreshes an open publication editor after a worker state change', async (
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
 
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
+    await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
     await page.getByLabel('Content', { exact: true }).fill('E2E realtime editor content')
+    await expect(page.getByLabel('Content', { exact: true })).toHaveValue(
+        'E2E realtime editor content'
+    )
     const publicationResponse = page.waitForResponse(
         response => response.url().endsWith('/posts') && response.request().method() === 'POST'
     )
@@ -227,7 +236,9 @@ test('refreshes an open publication editor after a worker state change', async (
     ).toBeVisible()
 
     await page.locator('[data-publication-action="retry"]').click()
-    await expect(page.getByRole('alert')).toContainText('Delivery retry scheduled.')
+    await expect(
+        page.getByRole('status').filter({ hasText: 'Delivery retry scheduled.' })
+    ).toBeVisible()
     await expect(page.locator('[data-publication-action="retry"]')).toHaveCount(0)
     expect(retryCalls).toBe(1)
 })
@@ -351,6 +362,161 @@ test('shows unread notification count before opening the inbox', async ({ page }
     await expect(page.getByText('Publication delivered', { exact: true })).toBeVisible()
 })
 
+test('keeps operational labels localized without changing custom notification copy', async ({
+    page,
+}) => {
+    test.setTimeout(60_000)
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const templates = [
+        [
+            'publication_published',
+            'success',
+            'Publication delivered',
+            'Herald confirmed that the publication was delivered.',
+        ],
+        [
+            'publication_failed',
+            'error',
+            'Publication failed',
+            'The publication could not be delivered and needs attention.',
+        ],
+        [
+            'publication_ambiguous',
+            'warning',
+            'Publication outcome unknown',
+            'Herald could not confirm whether the publication was delivered.',
+        ],
+        [
+            'publication_failed',
+            'error',
+            'Custom integration report',
+            'Keep this integration-owned message unchanged.',
+        ],
+    ]
+    await page.route('**/api/notifications?*', async route => {
+        await route.fulfill({
+            json: {
+                notifications: templates.map(([kind, severity, title, body], index) => ({
+                    id: `locale-notification-${index}`,
+                    projectId,
+                    sourceEventId: `locale-event-${index}`,
+                    kind,
+                    severity,
+                    title,
+                    body,
+                    subject: { type: 'publication', id: `locale-publication-${index}` },
+                    readAt: null,
+                    archivedAt: null,
+                    createdAt: Date.now(),
+                })),
+                nextCursor: null,
+                unreadCount: 4,
+                totalUnreadCount: 4,
+            },
+        })
+    })
+    const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'Locale test destination', profile: 'manual-message' },
+    })
+    expect(channelResponse.ok()).toBe(true)
+    const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+    const postResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { format: 'plain_text', text: 'Localized field review' },
+                media: [],
+            },
+            publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+        },
+    })
+    expect(postResponse.ok()).toBe(true)
+    const { publications } = (await postResponse.json()) as { publications: { id: string }[] }
+    await page.reload()
+
+    for (const locale of ['en', 'fr'] as const) {
+        const copy = locale === 'fr' ? fr : en
+        if (locale === 'fr') {
+            await page.locator('[data-slot="language-switcher-trigger"]').click()
+            await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+        }
+        await expect(page.locator('html')).toHaveAttribute('lang', locale)
+        await page.setViewportSize({ width: locale === 'fr' ? 390 : 1280, height: 844 })
+        await page
+            .getByRole('button', {
+                name: copy.notifications_open_unread.replace('{count}', '4'),
+                exact: true,
+            })
+            .click()
+        await expect(
+            page.getByText(copy.notification_delivered_title, { exact: true })
+        ).toBeVisible()
+        await expect(page.getByText(copy.notification_failed_title, { exact: true })).toBeVisible()
+        await expect(
+            page.getByText(copy.notification_uncertain_body, { exact: true })
+        ).toBeVisible()
+        await expect(page.getByText('Custom integration report', { exact: true })).toBeVisible()
+        await expect(
+            page.getByText('Keep this integration-owned message unchanged.', { exact: true })
+        ).toBeVisible()
+        await expect(
+            page.getByRole('button', {
+                name: copy.notifications_mark_as_read.replace(
+                    '{title}',
+                    copy.notification_delivered_title
+                ),
+                exact: true,
+            })
+        ).toBeVisible()
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        expect(
+            await page.locator('body').evaluate(element => element.scrollWidth <= window.innerWidth)
+        ).toBe(true)
+        await page.keyboard.press('Escape')
+
+        await page.goto(`/dashboard/projects/${projectId}/publications/${publications[0]!.id}`)
+        await page.locator('summary').filter({ hasText: copy.editor_channel_details }).click()
+        const target = page.locator('[data-target-editor="true"]')
+        await expect(target.getByText(copy.profile_field_body, { exact: true })).toBeVisible()
+        await expect(target.getByText(copy.profile_field_headline, { exact: true })).toBeVisible()
+        await expect(target.getByText(copy.profile_field_language, { exact: true })).toBeVisible()
+        await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+        await page.locator('[data-publication-schedule-disclosure] > summary').click()
+        await page.locator('#publication-default-schedule').click()
+        const picker = page.getByRole('dialog', { name: copy.date_time_picker_date, exact: true })
+        const labels = calendarLocales[locale].labels
+        await expect(
+            picker.getByRole('combobox', {
+                name: calendarLabel(labels?.labelMonthDropdown),
+                exact: true,
+            })
+        ).toBeVisible()
+        await expect(
+            picker.getByRole('combobox', {
+                name: calendarLabel(labels?.labelYearDropdown),
+                exact: true,
+            })
+        ).toBeVisible()
+        await expect(
+            picker.getByRole('button', { name: calendarLabel(labels?.labelNext), exact: true })
+        ).toBeVisible()
+        await expect(
+            picker.getByRole('textbox', { name: copy.date_time_picker_time, exact: true })
+        ).toBeVisible()
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        await page.keyboard.press('Escape')
+        if (locale === 'fr') {
+            await page.getByRole('button', { name: copy.nav_toggle, exact: true }).click()
+            const navigation = page.getByRole('dialog', { name: copy.nav_aria_label, exact: true })
+            await expect(navigation).toBeVisible()
+            await expect(
+                navigation.getByRole('button', { name: copy.common_close, exact: true })
+            ).toBeVisible()
+            await expect(navigation.getByText('Displays the mobile sidebar.')).toHaveCount(0)
+            await page.keyboard.press('Escape')
+        }
+    }
+})
+
 async function installFakeEventSource(page: Page): Promise<void> {
     await page.addInitScript(() => {
         type Listener = (event: { readonly data: string }) => void
@@ -466,4 +632,9 @@ function projectIdFromUrl(value: string): string {
     }
 
     return match[1]
+}
+
+function calendarLabel(value: string | ((argument: undefined) => string) | undefined): string {
+    if (value === undefined) throw new Error('Expected a localized calendar label')
+    return typeof value === 'string' ? value : value(undefined)
 }

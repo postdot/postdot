@@ -7,8 +7,9 @@ test('shows X weighted text feedback in the publication composer', async ({ page
 
     const suffix = randomUUID().slice(0, 8)
     const projectId = await createAccountAndProject(page, suffix)
+    const channelName = `E2E X destination ${suffix}`
     const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
-        data: { name: `E2E X destination ${suffix}`, profile: 'x' },
+        data: { name: channelName, profile: 'x' },
     })
     expect(channelResponse.status()).toBe(201)
 
@@ -25,7 +26,7 @@ test('shows X weighted text feedback in the publication composer', async ({ page
     await expect(count).toHaveText('282 / 280 weighted characters')
     await expect(source).toHaveAttribute('aria-invalid', 'true')
 
-    await page.getByRole('button', { name: 'Customize for this channel', exact: true }).click()
+    await page.getByRole('button', { name: channelName, exact: true }).click()
     const targetContent = page.getByRole('textbox', { name: 'Channel content', exact: true })
     await targetContent.fill('日'.repeat(140))
     await expect(count).toHaveText('280 / 280 weighted characters')

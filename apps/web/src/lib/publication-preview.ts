@@ -25,8 +25,7 @@ export function getDraftPreviewModel({
     profileId,
     targetContent,
 }: DraftPreviewInput): DraftPreviewModel {
-    const targetText = targetContent?.trim() ?? ''
-    const body = targetText === '' ? postContent : (targetContent ?? '')
+    const body = targetContent === undefined ? postContent : targetContent
     const title = postTitle.trim()
 
     return {

@@ -1,74 +1,48 @@
-import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
 import { cn } from '@herald/ui/lib/utils'
+import { DangerTriangleIcon } from '@solar-icons/react/linear/danger-triangle'
+import { InfoCircleIcon } from '@solar-icons/react/linear/info-circle'
 
 import type { PublicationEditorSaveState } from '@/components/publication-editor-sidebar'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationEditorStatusProps {
-    readonly isRebasing: boolean
     readonly message: string | null
-    readonly recoveryAvailable: boolean
     readonly saveState: PublicationEditorSaveState
-    readonly onDiscardRecovery: () => void
-    readonly onRestoreRecovery: () => void
+    readonly onReviewConflict: () => void
 }
 
 export function PublicationEditorStatus({
-    isRebasing,
     message,
-    recoveryAvailable,
     saveState,
-    onDiscardRecovery,
-    onRestoreRecovery,
+    onReviewConflict,
 }: PublicationEditorStatusProps) {
     useLanguage()
+    const needsAttention = saveState === 'error' || saveState === 'conflict'
     return (
         <>
             {message ? (
-                <Alert
-                    variant={
-                        saveState === 'error' || saveState === 'conflict'
-                            ? 'destructive'
-                            : 'default'
-                    }
+                <div
+                    data-publication-editor-message="true"
+                    role={needsAttention ? 'alert' : 'status'}
                     className={cn(
-                        'mt-6 rounded-md',
-                        saveState === 'error' || saveState === 'conflict'
-                            ? 'border-destructive/35 bg-destructive/10'
-                            : 'border-border/70 bg-muted/35'
+                        'mt-4 flex min-w-0 flex-wrap items-start gap-2.5 rounded-md px-3 py-2.5 text-sm',
+                        needsAttention
+                            ? 'bg-state-failed/10 text-state-failed shadow-surface'
+                            : 'bg-surface-inset/35 text-muted-foreground'
                     )}>
-                    <AlertTitle>
-                        {saveState === 'error'
-                            ? m.editor_save_failed()
-                            : saveState === 'conflict'
-                              ? m.editor_sidebar_conflict_title()
-                              : m.editor_status()}
-                    </AlertTitle>
-                    <AlertDescription>{message}</AlertDescription>
-                </Alert>
-            ) : null}
-
-            {recoveryAvailable ? (
-                <div className="mt-4 flex flex-col gap-3 rounded-md bg-state-attention/10 px-4 py-3 text-sm ring-1 ring-state-attention/30 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-foreground">{m.editor_recovery_available()}</p>
-                    <div className="flex gap-2">
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={onRestoreRecovery}
-                            disabled={isRebasing}>
-                            {m.editor_restore_recovery()}
+                    {needsAttention ? (
+                        <DangerTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                    ) : (
+                        <InfoCircleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+                    )}
+                    <p className="min-w-0 flex-1 basis-48 break-words leading-5">{message}</p>
+                    {saveState === 'conflict' ? (
+                        <Button size="sm" variant="secondary" onClick={onReviewConflict}>
+                            {m.editor_sidebar_reconcile_title()}
                         </Button>
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={onDiscardRecovery}
-                            disabled={isRebasing}>
-                            {m.editor_discard_recovery()}
-                        </Button>
-                    </div>
+                    ) : null}
                 </div>
             ) : null}
         </>
@@ -79,10 +53,12 @@ export function PublicationEditorSaveIndicator({
     state,
     revision,
     showRevision = true,
+    compactOnMobile = false,
 }: {
     readonly state: PublicationEditorSaveState
     readonly revision: number
     readonly showRevision?: boolean
+    readonly compactOnMobile?: boolean
 }) {
     useLanguage()
     const label =
@@ -99,7 +75,11 @@ export function PublicationEditorSaveIndicator({
                     : m.editor_save_failed()
 
     return (
-        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <div
+            aria-label={label}
+            className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
+            role="status"
+            title={label}>
             <span
                 className={cn(
                     'size-1.5 rounded-full bg-current',
@@ -107,8 +87,10 @@ export function PublicationEditorSaveIndicator({
                 )}
                 aria-hidden="true"
             />
-            {label}
-            {showRevision ? ` · ${m.editor_draft_revision({ revision })}` : null}
+            <span className={compactOnMobile ? 'sr-only sm:not-sr-only' : undefined}>
+                {label}
+                {showRevision ? ` · ${m.editor_draft_revision({ revision })}` : null}
+            </span>
         </div>
     )
 }

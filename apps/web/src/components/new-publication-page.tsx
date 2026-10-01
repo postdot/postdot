@@ -1,20 +1,27 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
-import { Button } from '@herald/ui/components/button'
+import { Button, buttonVariants } from '@herald/ui/components/button'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogTitle,
+} from '@herald/ui/components/dialog'
 import { Input } from '@herald/ui/components/input'
 import { Textarea } from '@herald/ui/components/textarea'
-import {
-    X_MAX_WEIGHTED_POST_LENGTH,
-    parseXPostText,
-    type XWeightedTextResult,
-} from '@herald/x/text'
+import { cn } from '@herald/ui/lib/utils'
+import { parseXPostText } from '@herald/x/text'
+import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
+import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { FileTextIcon } from '@solar-icons/react/linear/file-text'
+import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 
+import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
 import { DashboardFormField } from '@/components/dashboard-form-field'
-import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
@@ -27,6 +34,7 @@ import {
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
 import { type PublicationCreationMode, useProjectDashboard } from '@/lib/dashboard-context'
+import { formatCivilSchedule } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import {
@@ -46,13 +54,15 @@ export function NewPublicationPage({
     readonly calendarDate?: string
     readonly calendarTime?: string
 }) {
-    useLanguage()
+    const { locale } = useLanguage()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/publications/new' })
     const {
         activeChannels,
+        channels,
         connections,
         error,
         onCreatePost,
+        onCreateChannel,
         onPostContentChange,
         onPostTitleChange,
         onPublicationTargetsChange,
@@ -61,13 +71,41 @@ export function NewPublicationPage({
         postContent,
         postTitle,
         project,
+        projectRole,
         projectTags,
         publicationTagIds,
         publicationTargets,
         sourceMedia,
         onPublicationTagIdsChange,
     } = useProjectDashboard()
+    const hasCurrentComposerContent = hasRecoverablePublicationContent({
+        postContent,
+        publicationTargets,
+        sourceMedia,
+    })
+    const [localRecoveryAtMount] = useState(() => readPublicationRecovery(project.id))
+    const currentRecovery = hasCurrentComposerContent ? localRecoveryAtMount : null
     const appliedCalendarSlot = useRef<string | undefined>(undefined)
+    const currentTargetIds = new Set(publicationTargets.map(target => target.id))
+    const initialCustomizedContentTargetIds = new Set(
+        currentRecovery === null
+            ? publicationTargets
+                  .filter(target => target.content.trim() !== '')
+                  .map(target => target.id)
+            : currentRecovery.customizedContentTargetIds.filter(id => currentTargetIds.has(id))
+    )
+    const initialContentTargetId = publicationTargets.find(
+        target => target.content.trim() !== ''
+    )?.id
+    const recoveredContentScopeId =
+        currentRecovery === null ? undefined : resolveRecoveredContentScope(currentRecovery)
+    const recoveredContentTargetExists =
+        recoveredContentScopeId === publicationSharedTabId ||
+        (recoveredContentScopeId !== undefined && currentTargetIds.has(recoveredContentScopeId))
+    const initialActiveContentScopeId =
+        recoveredContentTargetExists && recoveredContentScopeId !== undefined
+            ? recoveredContentScopeId
+            : (initialContentTargetId ?? publicationSharedTabId)
     const [defaultDeliveryMode, setDefaultDeliveryMode] = useState<DeliveryMode>(
         () => publicationTargets[0]?.deliveryMode ?? 'manual'
     )
@@ -76,25 +114,17 @@ export function NewPublicationPage({
     )
     const [customizedTargetIds, setCustomizedTargetIds] = useState<Set<string>>(() => new Set())
     const [customizedContentTargetIds, setCustomizedContentTargetIds] = useState<Set<string>>(
-        () =>
-            new Set(
-                publicationTargets
-                    .filter(target => target.content.trim() !== '')
-                    .map(target => target.id)
-            )
+        () => initialCustomizedContentTargetIds
     )
     const [activePublicationTabId, setActivePublicationTabId] = useState(
-        () =>
-            publicationTargets.find(target => target.channelId !== '')?.id ?? publicationSharedTabId
+        () => initialActiveContentScopeId
+    )
+    const [activeContentScopeId, setActiveContentScopeId] = useState(
+        () => initialActiveContentScopeId
     )
     const [availableMedia, setAvailableMedia] = useState<MediaReference[]>([])
-    const hasCurrentComposerContent = hasRecoverablePublicationContent({
-        postContent,
-        publicationTargets,
-        sourceMedia,
-    })
     const [recovery, setRecovery] = useState<PublicationRecoveryState | null>(() =>
-        hasCurrentComposerContent ? null : readPublicationRecovery(project.id)
+        hasCurrentComposerContent ? null : localRecoveryAtMount
     )
     const [serverDraft, setServerDraft] = useState<PublicationComposerDraft | null>(null)
     const [serverDraftReady, setServerDraftReady] = useState(false)
@@ -102,6 +132,14 @@ export function NewPublicationPage({
         'idle'
     )
     const [autosaveError, setAutosaveError] = useState<string | null>(null)
+    const [scheduleDetailsOpen, setScheduleDetailsOpen] = useState(() =>
+        publicationTargets.some(
+            target =>
+                target.deliveryMode === 'automatic' &&
+                connections.find(connection => connection.channelId === target.channelId)?.state !==
+                    'active'
+        )
+    )
     const recoveryPromptOpen = useRef(recovery !== null)
     const currentComposerHasContent = useRef(hasCurrentComposerContent)
     const serverDraftRef = useRef<PublicationComposerDraft | null>(null)
@@ -112,16 +150,24 @@ export function NewPublicationPage({
         activePublicationTabId === publicationSharedTabId
             ? undefined
             : publicationTargets.find(target => target.id === activePublicationTabId)
-    const activePreviewTarget = activeTarget ?? publicationTargets[0]
+    const activeContentTarget =
+        activeContentScopeId === publicationSharedTabId
+            ? undefined
+            : publicationTargets.find(target => target.id === activeContentScopeId)
+    const selectedPublicationCount = publicationTargets.filter(
+        target => target.channelId !== ''
+    ).length
+    const resolvedActiveContentScopeId = activeContentTarget?.id ?? publicationSharedTabId
+    const activePreviewTarget = activeContentTarget ?? activeTarget ?? publicationTargets[0]
     const activePreviewChannel = activeChannels.find(
         channel => channel.id === activePreviewTarget?.channelId
     )
-    const activeTargetUsesSharedContent =
-        activeTarget === undefined || !customizedContentTargetIds.has(activeTarget.id)
+    const activeContentTargetUsesSharedContent =
+        activeContentTarget === undefined || !customizedContentTargetIds.has(activeContentTarget.id)
     const usesXTextRules = activePreviewChannel?.profileId === 'x'
     const activeText =
-        activeTarget !== undefined && !activeTargetUsesSharedContent
-            ? activeTarget.content
+        activeContentTarget !== undefined && !activeContentTargetUsesSharedContent
+            ? activeContentTarget.content
             : postContent
     const activeTextValidation = usesXTextRules ? parseXPostText(activeText) : null
     const activeTextInvalid =
@@ -129,6 +175,16 @@ export function NewPublicationPage({
     const previewMedia = sourceMedia
         .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
         .filter((asset): asset is MediaReference => asset !== undefined)
+    const recoveryExcerpt = recovery
+        ? (
+              recovery.postTitle.trim() ||
+              recovery.postContent.trim() ||
+              recovery.publicationTargets
+                  .find(target => target.content.trim() !== '')
+                  ?.content.trim() ||
+              ''
+          ).replace(/\s+/g, ' ')
+        : ''
 
     currentComposerHasContent.current = hasCurrentComposerContent
     serverDraftRef.current = serverDraft
@@ -170,7 +226,9 @@ export function NewPublicationPage({
         setDefaultScheduledAt(recovery.defaultScheduledAt)
         setCustomizedTargetIds(new Set(recovery.customizedTargetIds))
         setCustomizedContentTargetIds(new Set(recovery.customizedContentTargetIds))
-        setActivePublicationTabId(recovery.activePublicationTabId)
+        const restoredScope = resolveRecoveredContentScope(recovery)
+        setActivePublicationTabId(restoredScope)
+        setActiveContentScopeId(restoredScope)
         clearPublicationRecovery(project.id)
         recoveryPromptOpen.current = false
         setRecovery(null)
@@ -200,6 +258,7 @@ export function NewPublicationPage({
 
     function composerDraftContent(): PublicationComposerDraftContent {
         return {
+            activeContentScopeId,
             activePublicationTabId,
             customizedContentTargetIds: [...customizedContentTargetIds],
             customizedTargetIds: [...customizedTargetIds],
@@ -298,6 +357,7 @@ export function NewPublicationPage({
             autosaveTimer.current = undefined
         }
     }, [
+        activeContentScopeId,
         activePublicationTabId,
         customizedContentTargetIds,
         customizedTargetIds,
@@ -317,6 +377,7 @@ export function NewPublicationPage({
     useEffect(() => {
         if (recoveryPromptOpen.current) return
         writePublicationRecovery(project.id, {
+            activeContentScopeId,
             activePublicationTabId,
             customizedContentTargetIds,
             customizedTargetIds,
@@ -329,6 +390,7 @@ export function NewPublicationPage({
             sourceMedia,
         })
     }, [
+        activeContentScopeId,
         activePublicationTabId,
         customizedContentTargetIds,
         customizedTargetIds,
@@ -374,7 +436,6 @@ export function NewPublicationPage({
                     : target
             )
         )
-        setActivePublicationTabId(firstTarget.id)
     }, [activeChannels, onPublicationTargetsChange, publicationTargets])
 
     useEffect(() => {
@@ -386,10 +447,20 @@ export function NewPublicationPage({
         ) {
             return
         }
-        setActivePublicationTabId(
-            publicationTargets.find(target => target.channelId !== '')?.id ?? publicationSharedTabId
-        )
+        setActivePublicationTabId(publicationSharedTabId)
     }, [activePublicationTabId, publicationTargets])
+
+    useEffect(() => {
+        if (activeContentScopeId === publicationSharedTabId) return
+        if (
+            publicationTargets.some(
+                target => target.id === activeContentScopeId && target.channelId !== ''
+            )
+        ) {
+            return
+        }
+        setActiveContentScopeId(publicationSharedTabId)
+    }, [activeContentScopeId, publicationTargets])
 
     useEffect(() => {
         if (
@@ -465,15 +536,6 @@ export function NewPublicationPage({
         )
     }
 
-    function customizeTargetContent(targetId: string) {
-        setCustomizedContentTargetIds(current => {
-            const next = new Set(current)
-            next.add(targetId)
-            return next
-        })
-        updateTargetContent(targetId, postContent)
-    }
-
     function useSharedTargetContent(targetId: string) {
         setCustomizedContentTargetIds(current => {
             const next = new Set(current)
@@ -481,6 +543,22 @@ export function NewPublicationPage({
             return next
         })
         updateTargetContent(targetId, '')
+    }
+
+    const [pendingRemovalId, setPendingRemovalId] = useState<string | null>(null)
+
+    function requestTargetRemoval(targetId: string) {
+        const target = publicationTargets.find(item => item.id === targetId)
+        if (target === undefined) return
+        if (
+            target.content !== '' ||
+            customizedContentTargetIds.has(targetId) ||
+            customizedTargetIds.has(targetId)
+        ) {
+            setPendingRemovalId(targetId)
+            return
+        }
+        removeTarget(targetId)
     }
 
     function removeTarget(targetId: string) {
@@ -492,54 +570,103 @@ export function NewPublicationPage({
         onPublicationTargetsChange(currentTargets =>
             currentTargets.filter(target => target.id !== targetId)
         )
+        if (activeContentScopeId === targetId) {
+            setActiveContentScopeId(publicationSharedTabId)
+        }
+        if (activePublicationTabId === targetId) {
+            setActivePublicationTabId(publicationSharedTabId)
+        }
+    }
+
+    function selectContentScope(scopeId: string) {
+        if (scopeId === publicationSharedTabId) {
+            setActiveContentScopeId(publicationSharedTabId)
+            setActivePublicationTabId(publicationSharedTabId)
+            return
+        }
+
+        const target = publicationTargets.find(item => item.id === scopeId)
+        if (target === undefined) return
+        setActiveContentScopeId(target.id)
+        setActivePublicationTabId(target.id)
+    }
+
+    function editActiveText(content: string) {
+        if (activeContentTarget === undefined) {
+            onPostContentChange(content)
+            return
+        }
+        setCustomizedContentTargetIds(current => new Set(current).add(activeContentTarget.id))
+        updateTargetContent(activeContentTarget.id, content)
     }
 
     return (
         <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-            <DashboardPageHeader
-                action={
-                    <Button
-                        className="gap-1.5 px-2 text-muted-foreground hover:text-foreground"
-                        nativeButton={false}
-                        render={
-                            <Link
-                                params={{ projectId: project.id }}
-                                to="/dashboard/projects/$projectId/overview"
-                            />
-                        }
-                        size="sm"
-                        variant="ghost">
-                        <AltArrowLeftIcon aria-hidden="true" />
-                        {m.publication_new_back_overview()}
-                    </Button>
-                }
-                title={m.publication_new_title()}>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    {project.name} · {project.timeZone}
-                </p>
-            </DashboardPageHeader>
+            <header className="mx-auto mb-6 grid max-w-6xl min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3">
+                <Link
+                    aria-label={m.publication_new_back_overview()}
+                    className={buttonVariants({
+                        variant: 'ghost',
+                        size: 'icon',
+                        className:
+                            'justify-self-start text-muted-foreground hover:text-foreground sm:w-auto sm:gap-1.5 sm:px-2.5',
+                    })}
+                    params={{ projectId: project.id }}
+                    to="/dashboard/projects/$projectId/overview">
+                    <AltArrowLeftIcon aria-hidden="true" />
+                    <span className="hidden sm:inline">{m.publication_new_back_overview()}</span>
+                </Link>
+                <h1 className="min-w-0 truncate text-center font-heading text-xl font-semibold leading-tight sm:text-2xl xl:text-3xl">
+                    {m.publication_new_title()}
+                </h1>
+            </header>
 
             {recovery !== null ? (
-                <Alert className="mb-4 rounded-md border-primary/25 bg-primary/5">
-                    <AlertTitle>{m.publication_new_recovery_title()}</AlertTitle>
-                    <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-                        <span>{m.publication_new_recovery_description()}</span>
-                        <span className="flex shrink-0 items-center gap-2">
+                <Dialog open onOpenChange={() => {}}>
+                    <DialogContent
+                        showCloseButton={false}
+                        data-new-publication-recovery="true"
+                        className="sm:max-w-md">
+                        <div className="flex items-start gap-3">
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                <FileTextIcon aria-hidden="true" className="size-5" />
+                            </span>
+                            <div className="min-w-0 space-y-1.5">
+                                <DialogTitle>{m.publication_new_recovery_title()}</DialogTitle>
+                                <DialogDescription>
+                                    {m.publication_new_recovery_choice()}
+                                </DialogDescription>
+                            </div>
+                        </div>
+                        {recoveryExcerpt ? (
+                            <p className="line-clamp-3 break-words rounded-md bg-surface-inset/50 p-3 text-sm text-muted-foreground">
+                                {recoveryExcerpt}
+                            </p>
+                        ) : null}
+                        {error ? (
+                            <p role="alert" className="break-words text-sm text-state-failed">
+                                {error}
+                            </p>
+                        ) : null}
+                        <DialogFooter>
                             <Button
+                                disabled={!serverDraftReady}
                                 onClick={() => void discardRecovery()}
-                                size="xs"
                                 type="button"
-                                variant="ghost">
+                                variant="secondary">
                                 {m.publication_new_recovery_discard()}
                             </Button>
-                            <Button onClick={restoreRecovery} size="xs" type="button">
+                            <Button
+                                disabled={!serverDraftReady}
+                                onClick={restoreRecovery}
+                                type="button">
                                 {m.publication_new_recovery_restore()}
                             </Button>
-                        </span>
-                    </AlertDescription>
-                </Alert>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             ) : null}
-            {error ? (
+            {error && recovery === null ? (
                 <Alert
                     variant="destructive"
                     className="mb-6 rounded-md border-state-failed/35 bg-state-failed/10">
@@ -548,20 +675,34 @@ export function NewPublicationPage({
                 </Alert>
             ) : null}
 
-            <form onSubmit={event => void handleSubmit(event)}>
+            <form
+                aria-busy={!serverDraftReady}
+                className={cn(recovery !== null && 'opacity-55')}
+                data-new-publication-form="true"
+                inert={!serverDraftReady || recovery !== null}
+                onSubmit={event => void handleSubmit(event)}>
                 <section data-new-publication-workspace="true">
                     <PublicationComposer
                         channelNavigation={
                             <PublicationChannelTabs
-                                activeTargetId={activePublicationTabId}
+                                createChannel={
+                                    projectRole === 'owner' || projectRole === 'editor' ? (
+                                        <ChannelCreationDialog
+                                            compact
+                                            channels={channels}
+                                            onCreate={onCreateChannel}
+                                            pending={pending}
+                                        />
+                                    ) : undefined
+                                }
+                                activeTabId={resolvedActiveContentScopeId}
                                 channels={activeChannels}
-                                connections={connections}
                                 defaultDeliveryMode={defaultDeliveryMode}
                                 defaultScheduledAt={defaultScheduledAt}
                                 disabled={pending}
-                                onActiveTargetChange={setActivePublicationTabId}
                                 onChange={onPublicationTargetsChange}
-                                onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
+                                onActiveTabChange={selectContentScope}
+                                onRemoveTarget={requestTargetRemoval}
                                 projectId={project.id}
                                 targets={publicationTargets}
                                 timeZone={project.timeZone}
@@ -587,67 +728,58 @@ export function NewPublicationPage({
                                 <div
                                     data-new-publication-editor="true"
                                     className="overflow-hidden rounded-xl bg-surface-field shadow-surface focus-within:shadow-control">
-                                    {activeTarget !== undefined &&
-                                    !activeTargetUsesSharedContent ? (
-                                        <PublicationChannelContentEditor
-                                            content={activeTarget.content}
-                                            disabled={pending}
-                                            id={activeTarget.id}
-                                            weightedLimit={
-                                                usesXTextRules ? X_MAX_WEIGHTED_POST_LENGTH : null
-                                            }
-                                            onChange={content =>
-                                                updateTargetContent(activeTarget.id, content)
-                                            }
-                                            onUseShared={() =>
-                                                useSharedTargetContent(activeTarget.id)
-                                            }
-                                        />
-                                    ) : (
-                                        <div>
-                                            {activeTarget !== undefined ? (
-                                                <div className="flex justify-end px-3 pt-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="xs"
-                                                        disabled={pending}
-                                                        onClick={() =>
-                                                            customizeTargetContent(activeTarget.id)
-                                                        }>
-                                                        {m.publication_new_customize_channel()}
-                                                    </Button>
-                                                </div>
-                                            ) : null}
-                                            <Textarea
-                                                id="new-post-content"
-                                                aria-label={m.publication_new_source_content()}
-                                                aria-describedby={
-                                                    usesXTextRules
-                                                        ? 'new-post-content-weighted-count'
-                                                        : undefined
-                                                }
-                                                aria-invalid={activeTextInvalid || undefined}
-                                                value={postContent}
+                                    {activeContentTarget !== undefined &&
+                                    !activeContentTargetUsesSharedContent ? (
+                                        <div className="flex justify-end px-3 pt-2">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon-xs"
                                                 disabled={pending}
-                                                onChange={event =>
-                                                    onPostContentChange(event.target.value)
-                                                }
-                                                placeholder={m.publication_new_source_placeholder()}
-                                                rows={9}
-                                                className="min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
-                                            />
-                                            {activeTextValidation !== null ? (
-                                                <div className="px-4 pb-3">
-                                                    <XWeightedTextCount
-                                                        id="new-post-content-weighted-count"
-                                                        invalid={activeTextInvalid}
-                                                        result={activeTextValidation}
-                                                    />
-                                                </div>
-                                            ) : null}
+                                                aria-label={m.publication_new_reset_channel_content(
+                                                    { channel: activePreviewChannel?.name ?? '' }
+                                                )}
+                                                title={m.publication_new_reset_channel_content({
+                                                    channel: activePreviewChannel?.name ?? '',
+                                                })}
+                                                onClick={() =>
+                                                    useSharedTargetContent(activeContentTarget.id)
+                                                }>
+                                                <RestartIcon aria-hidden="true" />
+                                            </Button>
                                         </div>
-                                    )}
+                                    ) : null}
+                                    <div>
+                                        <Textarea
+                                            id="new-post-content"
+                                            aria-label={
+                                                activeContentTarget === undefined
+                                                    ? m.publication_new_source_content()
+                                                    : m.publication_new_channel_copy()
+                                            }
+                                            aria-describedby={
+                                                usesXTextRules
+                                                    ? 'new-post-content-weighted-count'
+                                                    : undefined
+                                            }
+                                            aria-invalid={activeTextInvalid || undefined}
+                                            value={activeText}
+                                            disabled={pending}
+                                            onChange={event => editActiveText(event.target.value)}
+                                            placeholder={m.publication_new_source_placeholder()}
+                                            rows={9}
+                                            className="min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
+                                        />
+                                        {activeTextValidation !== null ? (
+                                            <div className="px-4 pb-3">
+                                                <XWeightedTextCount
+                                                    id="new-post-content-weighted-count"
+                                                    invalid={activeTextInvalid}
+                                                    result={activeTextValidation}
+                                                />
+                                            </div>
+                                        ) : null}
+                                    </div>
 
                                     <MediaAttachmentPicker
                                         variant="publication-new-inline"
@@ -685,31 +817,29 @@ export function NewPublicationPage({
                                     title={autosaveError ?? undefined}>
                                     {autosaveStatus}
                                 </span>
-                                <div className="flex flex-wrap justify-end gap-2">
-                                    <Button
-                                        name="publication-action"
-                                        type="submit"
-                                        value="draft"
-                                        variant="ghost"
-                                        disabled={pending || activeChannels.length === 0}>
-                                        <FileTextIcon aria-hidden="true" />
-                                        {m.publication_new_save_draft()}
-                                    </Button>
-                                    <Button
-                                        name="publication-action"
-                                        type="submit"
-                                        value="schedule"
-                                        disabled={pending || activeChannels.length === 0}>
-                                        <CalendarAddIcon aria-hidden="true" />
-                                        {publicationTargets.length === 1
-                                            ? publicationTargets[0]?.deliveryMode === 'automatic'
-                                                ? m.publication_new_schedule_automatic()
-                                                : m.publication_new_schedule_manual()
-                                            : m.publication_new_schedule_count({
-                                                  count: publicationTargets.length,
-                                              })}
-                                    </Button>
-                                </div>
+                                {selectedPublicationCount > 0 ? (
+                                    <div className="flex flex-wrap justify-end gap-2">
+                                        <Button
+                                            name="publication-action"
+                                            type="submit"
+                                            value="draft"
+                                            variant="ghost"
+                                            disabled={pending}>
+                                            <FileTextIcon aria-hidden="true" />
+                                            {m.publication_new_create_draft()}
+                                        </Button>
+                                        <Button
+                                            name="publication-action"
+                                            type="submit"
+                                            value="schedule"
+                                            disabled={pending}>
+                                            <CalendarAddIcon aria-hidden="true" />
+                                            {m.publication_new_schedule_count({
+                                                count: selectedPublicationCount,
+                                            })}
+                                        </Button>
+                                    </div>
+                                ) : null}
                             </div>
                         }
                         preview={
@@ -720,7 +850,7 @@ export function NewPublicationPage({
                                     postContent={postContent}
                                     postTitle={postTitle}
                                     targetContent={
-                                        activeTargetUsesSharedContent
+                                        activeContentTargetUsesSharedContent
                                             ? undefined
                                             : activePreviewTarget?.content
                                     }
@@ -728,88 +858,104 @@ export function NewPublicationPage({
                             ) : undefined
                         }
                         settings={
-                            <PublicationChannelSettings
-                                activeTargetId={activePublicationTabId}
-                                channels={activeChannels}
-                                connections={connections}
-                                customizedTargetIds={customizedTargetIds}
-                                defaultDeliveryMode={defaultDeliveryMode}
-                                defaultScheduledAt={defaultScheduledAt}
-                                disabled={pending}
-                                onActiveTargetChange={setActivePublicationTabId}
-                                onDefaultDeliveryModeChange={handleDefaultDeliveryModeChange}
-                                onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
-                                onChange={onPublicationTargetsChange}
-                                onRemoveTarget={removeTarget}
-                                onTargetCustomizationChange={handleTargetCustomizationChange}
-                                projectId={project.id}
-                                targets={publicationTargets}
-                                timeZone={project.timeZone}
-                            />
+                            <details
+                                data-publication-schedule-disclosure="true"
+                                className="group min-w-0 rounded-md bg-surface-inset/35 px-3 shadow-surface"
+                                open={scheduleDetailsOpen}
+                                onToggle={event =>
+                                    setScheduleDetailsOpen(event.currentTarget.open)
+                                }>
+                                <summary
+                                    aria-label={m.publication_new_schedule_settings()}
+                                    className="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3 text-sm marker:hidden [&::-webkit-details-marker]:hidden">
+                                    <CalendarMinimalisticIcon
+                                        aria-hidden="true"
+                                        className="size-4 shrink-0 text-muted-foreground"
+                                    />
+                                    <span className="min-w-0 flex-1 truncate font-medium">
+                                        {formatCivilSchedule(defaultScheduledAt, locale) ||
+                                            m.date_time_picker_placeholder()}
+                                    </span>
+                                    <span className="hidden shrink-0 text-muted-foreground sm:inline">
+                                        {defaultDeliveryMode === 'automatic'
+                                            ? m.publication_new_automatic_publication()
+                                            : m.publication_new_manual_publication()}
+                                    </span>
+                                    <AltArrowDownIcon
+                                        aria-hidden="true"
+                                        className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+                                    />
+                                </summary>
+                                <div className="pb-4 pt-1">
+                                    <PublicationChannelSettings
+                                        activeTargetId={activePublicationTabId}
+                                        channels={activeChannels}
+                                        connections={connections}
+                                        customizedTargetIds={customizedTargetIds}
+                                        defaultDeliveryMode={defaultDeliveryMode}
+                                        defaultScheduledAt={defaultScheduledAt}
+                                        disabled={pending}
+                                        onDefaultDeliveryModeChange={
+                                            handleDefaultDeliveryModeChange
+                                        }
+                                        onDefaultScheduledAtChange={handleDefaultScheduledAtChange}
+                                        onChange={onPublicationTargetsChange}
+                                        onTargetCustomizationChange={
+                                            handleTargetCustomizationChange
+                                        }
+                                        projectId={project.id}
+                                        targets={publicationTargets}
+                                        timeZone={project.timeZone}
+                                    />
+                                </div>
+                            </details>
                         }
                     />
                 </section>
             </form>
+            <Dialog
+                open={pendingRemovalId !== null}
+                onOpenChange={open => {
+                    if (!open) setPendingRemovalId(null)
+                }}>
+                <DialogContent>
+                    <DialogTitle>{m.publication_remove_customized_title()}</DialogTitle>
+                    <DialogDescription>
+                        {m.publication_remove_customized_description()}
+                    </DialogDescription>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setPendingRemovalId(null)}>
+                            {m.publication_remove_customized_cancel()}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() => {
+                                if (pendingRemovalId !== null) removeTarget(pendingRemovalId)
+                                setPendingRemovalId(null)
+                            }}>
+                            {m.publication_remove_customized_confirm()}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </main>
     )
 }
 
-function PublicationChannelContentEditor({
-    content,
-    disabled,
-    id,
-    weightedLimit,
-    onChange,
-    onUseShared,
-}: {
-    readonly content: string
-    readonly disabled: boolean
-    readonly id: string
-    readonly weightedLimit: number | null
-    readonly onChange: (content: string) => void
-    readonly onUseShared: () => void
-}) {
-    const weightedText: XWeightedTextResult | null =
-        weightedLimit === null ? null : parseXPostText(content)
-    const weightedTextInvalid =
-        weightedText !== null && content.trim().length > 0 && !weightedText.valid
+function resolveRecoveredContentScope(recovery: PublicationRecoveryState) {
+    if (recovery.activeContentScopeId === publicationSharedTabId) return publicationSharedTabId
+    if (
+        recovery.activeContentScopeId !== undefined &&
+        recovery.publicationTargets.some(target => target.id === recovery.activeContentScopeId)
+    ) {
+        return recovery.activeContentScopeId
+    }
 
-    return (
-        <section data-publication-channel-content="true" className="p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    disabled={disabled}
-                    onClick={onUseShared}>
-                    {m.publication_new_use_source()}
-                </Button>
-            </div>
-
-            <Textarea
-                aria-label={m.publication_new_channel_copy()}
-                id={`publication-target-${id}-content`}
-                value={content}
-                disabled={disabled}
-                onChange={event => onChange(event.target.value)}
-                aria-describedby={
-                    weightedLimit === null ? undefined : `publication-target-${id}-weighted-count`
-                }
-                aria-invalid={weightedTextInvalid || undefined}
-                placeholder={m.publication_new_optional_override()}
-                rows={9}
-                className="min-h-56 resize-y rounded-none border-0 bg-transparent text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
-            />
-            {weightedText !== null ? (
-                <div className="px-3 pb-3">
-                    <XWeightedTextCount
-                        id={`publication-target-${id}-weighted-count`}
-                        invalid={weightedTextInvalid}
-                        result={weightedText}
-                    />
-                </div>
-            ) : null}
-        </section>
-    )
+    return recovery.customizedContentTargetIds.includes(recovery.activePublicationTabId)
+        ? recovery.activePublicationTabId
+        : publicationSharedTabId
 }

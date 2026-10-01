@@ -1,5 +1,7 @@
-import { Button } from '@herald/ui/components/button'
+import { Button, buttonVariants } from '@herald/ui/components/button'
+import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { UploadIcon } from '@solar-icons/react/linear/upload'
+import { Link } from '@tanstack/react-router'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
@@ -20,6 +22,23 @@ export function MediaLibraryPage() {
                     projectId={project.id}
                     renderHeader={({ disabled, onImport, uploading, view }) => (
                         <DashboardPageHeader
+                            back={
+                                <Link
+                                    aria-label={m.nav_back_to_overview()}
+                                    className={buttonVariants({
+                                        variant: 'ghost',
+                                        size: 'icon',
+                                        className:
+                                            'justify-self-start text-muted-foreground hover:text-foreground lg:w-auto lg:gap-1.5 lg:px-2.5',
+                                    })}
+                                    params={{ projectId: project.id }}
+                                    to="/dashboard/projects/$projectId/overview">
+                                    <AltArrowLeftIcon aria-hidden="true" />
+                                    <span className="hidden lg:inline">
+                                        {m.nav_back_to_overview()}
+                                    </span>
+                                </Link>
+                            }
                             title={m.media_title()}
                             action={
                                 readOnly || view === 'trash' ? undefined : (

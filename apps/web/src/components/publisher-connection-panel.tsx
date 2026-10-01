@@ -7,8 +7,9 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { BlueskyConnectionDialog } from '@/components/bluesky-connection-dialog'
+import type { ChannelLifecycleAction } from '@/components/channel-lifecycle-dialog'
+import { ChannelActionsMenu, ChannelRow } from '@/components/channel-row'
 import { CustomHttpConnectionDialog } from '@/components/custom-http-connection-dialog'
-import { DashboardSectionHeading } from '@/components/dashboard-section-heading'
 import { DevtoConnectionDialog } from '@/components/devto-connection-dialog'
 import { DiscordConnectionDialog } from '@/components/discord-connection-dialog'
 import { ChannelAvatar } from '@/components/identity-visuals'
@@ -30,6 +31,8 @@ interface PublisherConnectionPanelProps {
     readonly channels: readonly Channel[]
     readonly connections: readonly PublisherConnection[]
     readonly pending: boolean
+    readonly onEditProfile: (channel: Channel) => void
+    readonly onLifecycleAction: (action: ChannelLifecycleAction, channel: Channel) => void
     readonly onConnectCustomHttpPublisher: (
         channelId: string,
         input: {
@@ -68,6 +71,8 @@ export function PublisherConnectionPanel({
     channels,
     connections,
     pending,
+    onEditProfile,
+    onLifecycleAction,
     onConnectCustomHttpPublisher,
     onStartLinkedInConnection,
     onStartBlueskyConnection,
@@ -158,27 +163,26 @@ export function PublisherConnectionPanel({
     const connectionsByChannel = new Map(
         connections.map(connection => [connection.channelId, connection])
     )
-    const activeConnectionCount = connectableChannels.filter(
-        channel => connectionsByChannel.get(channel.id)?.state === 'active'
-    ).length
-
-    if (connectableChannels.length === 0) return null
+    if (channels.length === 0) return null
 
     return (
-        <section id="publisher-connections" className="pt-1">
-            <DashboardSectionHeading
-                description={
-                    connectableChannels.some(channel => channel.state === 'active')
-                        ? m.publisher_connections_description()
-                        : undefined
-                }
-                meta={m.common_connection_count({ count: activeConnectionCount })}
-                title={m.publisher_connections_title()}
-            />
-
-            <div className="mt-4 overflow-hidden rounded-md bg-surface-raised shadow-surface">
-                {connectableChannels.map(channel => {
+        <section id="publisher-connections">
+            <div className="overflow-hidden rounded-md bg-surface-raised shadow-surface">
+                {channels.map(channel => {
                     const connection = connectionsByChannel.get(channel.id)
+                    if (channel.profileId === 'manual-message') {
+                        return (
+                            <ChannelRow
+                                key={channel.id}
+                                channel={channel}
+                                connection={connection}
+                                disabled={pending}
+                                onEditProfile={() => onEditProfile(channel)}
+                                onLifecycleAction={action => onLifecycleAction(action, channel)}
+                                readOnly={readOnly}
+                            />
+                        )
+                    }
                     const canConnect = connection === undefined || connection.state !== 'active'
                     const connectionLabel =
                         channel.state === 'archived'
@@ -201,11 +205,11 @@ export function PublisherConnectionPanel({
                         <article
                             id={`publisher-connection-${channel.id}`}
                             key={channel.id}
-                            className="flex min-w-0 flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted/35 sm:flex-row sm:items-start sm:justify-between sm:gap-5 sm:px-5">
-                            <div className="min-w-0 flex-1">
+                            className="relative flex min-w-0 flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted/35 sm:px-5 lg:flex-row lg:items-start lg:justify-between lg:gap-5 lg:pr-16">
+                            <div className="min-w-0 flex-1 pr-9 lg:pr-0">
                                 <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                                     <ChannelAvatar channel={channel} size="md" />
-                                    <span className="min-w-0 truncate">{channel.name}</span>
+                                    <p className="min-w-0 truncate">{channel.name}</p>
                                     <Badge
                                         className={connectionBadgeClass}
                                         variant={
@@ -221,31 +225,20 @@ export function PublisherConnectionPanel({
                                     <p className="mt-2 text-sm text-muted-foreground">
                                         {m.publisher_archived_restore()}
                                     </p>
-                                ) : connection === undefined ? (
+                                ) : connection === undefined &&
+                                  ![
+                                      'linkedin',
+                                      'bluesky',
+                                      'mastodon',
+                                      'discord',
+                                      'devto',
+                                      'x',
+                                  ].includes(channel.profileId) ? (
                                     <p className="mt-2 text-sm text-muted-foreground">
-                                        {channel.profileId === 'bluesky'
-                                            ? m.publisher_connect_account({
-                                                  provider: 'Bluesky',
-                                              })
-                                            : channel.profileId === 'mastodon'
-                                              ? m.publisher_connect_account({
-                                                    provider: 'Mastodon',
-                                                })
-                                              : channel.profileId === 'discord'
-                                                ? m.publisher_connect_bot({
-                                                      provider: 'Discord',
-                                                  })
-                                                : channel.profileId === 'devto'
-                                                  ? m.publisher_connect_api_key({
-                                                        provider: 'DEV.to',
-                                                    })
-                                                  : channel.profileId === 'x'
-                                                    ? m.publisher_connect_account({ provider: 'X' })
-                                                    : channel.profileId === 'linkedin'
-                                                      ? m.publisher_no_automatic()
-                                                      : m.publisher_custom_profile()}
+                                        {m.publisher_custom_profile()}
                                     </p>
-                                ) : connection.kind !== 'custom_http' ? (
+                                ) : connection === undefined ? null : connection.kind !==
+                                  'custom_http' ? (
                                     <p className="mt-2 text-sm text-muted-foreground">
                                         {connection.providerId === 'bluesky'
                                             ? m.publisher_account({
@@ -315,7 +308,7 @@ export function PublisherConnectionPanel({
 
                             {readOnly || channel.state === 'archived' ? null : channel.profileId ===
                                   'linkedin' && canConnect ? (
-                                <div className="mt-4 grid w-full gap-4 sm:mt-0 sm:w-80 sm:shrink-0">
+                                <div className="grid w-full gap-3 lg:w-80 lg:shrink-0">
                                     <ProviderApplicationSelect
                                         applications={linkedInApplications}
                                         disabled={pending}
@@ -342,55 +335,61 @@ export function PublisherConnectionPanel({
                                                   provider: 'LinkedIn',
                                               })}
                                     </Button>
-                                    <form
-                                        className="grid gap-2"
-                                        onSubmit={event => {
-                                            event.preventDefault()
-                                            const id = organizationIds[channel.id]?.trim()
-                                            if (id === undefined || id.length === 0) return
-                                            void onStartLinkedInConnection(
-                                                channel.id,
-                                                {
-                                                    type: 'organization',
-                                                    id,
-                                                },
-                                                linkedInApplicationId
-                                            )
-                                        }}>
-                                        <label
-                                            className="text-xs text-muted-foreground"
-                                            htmlFor={`linkedin-organization-${channel.id}`}>
+                                    <details className="group">
+                                        <summary className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground">
                                             {m.publisher_connect_page()}
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                id={`linkedin-organization-${channel.id}`}
-                                                inputMode="numeric"
-                                                pattern="[0-9]+"
-                                                placeholder={m.publisher_organization_id()}
-                                                value={organizationIds[channel.id] ?? ''}
-                                                onChange={event =>
-                                                    setOrganizationIds(current => ({
-                                                        ...current,
-                                                        [channel.id]: event.target.value,
-                                                    }))
-                                                }
-                                                aria-describedby={`linkedin-organization-help-${channel.id}`}
-                                            />
-                                            <Button
-                                                type="submit"
-                                                size="sm"
-                                                variant="outline"
-                                                disabled={pending}>
-                                                {m.publisher_connect_page_button()}
-                                            </Button>
-                                        </div>
-                                        <p
-                                            id={`linkedin-organization-help-${channel.id}`}
-                                            className="text-xs text-muted-foreground">
-                                            {m.publisher_page_checked()}
-                                        </p>
-                                    </form>
+                                        </summary>
+                                        <form
+                                            className="mt-3 grid gap-2"
+                                            onSubmit={event => {
+                                                event.preventDefault()
+                                                const id = organizationIds[channel.id]?.trim()
+                                                if (id === undefined || id.length === 0) return
+                                                void onStartLinkedInConnection(
+                                                    channel.id,
+                                                    {
+                                                        type: 'organization',
+                                                        id,
+                                                    },
+                                                    linkedInApplicationId
+                                                )
+                                            }}>
+                                            <label
+                                                className="sr-only"
+                                                htmlFor={`linkedin-organization-${channel.id}`}>
+                                                {m.publisher_connect_page()}
+                                            </label>
+                                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                <Input
+                                                    id={`linkedin-organization-${channel.id}`}
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]+"
+                                                    placeholder={m.publisher_organization_id()}
+                                                    value={organizationIds[channel.id] ?? ''}
+                                                    onChange={event =>
+                                                        setOrganizationIds(current => ({
+                                                            ...current,
+                                                            [channel.id]: event.target.value,
+                                                        }))
+                                                    }
+                                                    aria-describedby={`linkedin-organization-help-${channel.id}`}
+                                                />
+                                                <Button
+                                                    type="submit"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="w-full sm:w-auto"
+                                                    disabled={pending}>
+                                                    {m.publisher_connect_page_button()}
+                                                </Button>
+                                            </div>
+                                            <p
+                                                id={`linkedin-organization-help-${channel.id}`}
+                                                className="text-xs text-muted-foreground">
+                                                {m.publisher_page_checked()}
+                                            </p>
+                                        </form>
+                                    </details>
                                 </div>
                             ) : channel.profileId === 'bluesky' && canConnect ? (
                                 <BlueskyConnectionDialog
@@ -412,7 +411,7 @@ export function PublisherConnectionPanel({
                                     reconnect={connection !== undefined}
                                 />
                             ) : channel.profileId === 'x' && canConnect ? (
-                                <div className="mt-4 grid w-full gap-3 sm:mt-0 sm:w-80 sm:shrink-0">
+                                <div className="grid w-full gap-3 lg:w-80 lg:shrink-0">
                                     {isInstanceAdmin ? (
                                         <ProviderApplicationSelect
                                             applications={xApplications}
@@ -499,6 +498,18 @@ export function PublisherConnectionPanel({
                                     {m.publisher_disconnect()}
                                 </Button>
                             ) : null}
+                            {readOnly ? null : (
+                                <div className="absolute top-4 right-4 sm:right-5">
+                                    <ChannelActionsMenu
+                                        channel={channel}
+                                        disabled={pending}
+                                        onEditProfile={() => onEditProfile(channel)}
+                                        onLifecycleAction={action =>
+                                            onLifecycleAction(action, channel)
+                                        }
+                                    />
+                                </div>
+                            )}
                         </article>
                     )
                 })}

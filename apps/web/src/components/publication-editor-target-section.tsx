@@ -47,36 +47,35 @@ export function PublicationEditorTargetSection({
     return (
         <section className="min-w-0">
             <details
-                className="group rounded-xl bg-surface-inset/35 p-1 shadow-surface"
+                data-publication-customization="true"
+                className="group rounded-md bg-surface-inset/35 px-3 shadow-surface"
                 open={open}
                 onToggle={event => onOpenChange?.(event.currentTarget.open)}>
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-3 py-3 [&::-webkit-details-marker]:hidden">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm [&::-webkit-details-marker]:hidden">
                     <span className="min-w-0">
                         <span className="block font-medium">{m.editor_channel_details()}</span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {m.editor_channel_details_hint()}
-                        </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
-                        <Badge
-                            variant="outline"
-                            className={
-                                reviewState === 'compatible'
-                                    ? 'border-0 bg-transparent px-0 text-state-published'
-                                    : 'border-0 bg-transparent px-0 text-state-attention'
-                            }>
-                            <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                            {reviewState === 'compatible'
-                                ? m.editor_target_compatible()
-                                : m.editor_target_review_required()}
-                        </Badge>
+                        {reviewState !== 'compatible' ||
+                        validationIssues.length > 0 ||
+                        targetError !== null ? (
+                            <Badge
+                                variant="outline"
+                                className="border-0 bg-transparent px-0 text-state-attention">
+                                <span
+                                    className="size-1.5 rounded-full bg-current"
+                                    aria-hidden="true"
+                                />
+                                {m.editor_target_review_required()}
+                            </Badge>
+                        ) : null}
                         <AltArrowDownIcon
                             aria-hidden="true"
-                            className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+                            className="size-4 text-muted-foreground transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
                         />
                     </span>
                 </summary>
-                <div className="mt-1 px-3 pb-3 sm:px-4 sm:pb-4">
+                <div className="pb-4 pt-1">
                     <PublicationTargetEditor
                         profile={profile}
                         target={target}
@@ -88,13 +87,15 @@ export function PublicationEditorTargetSection({
                         compact
                     />
                     {targetError ? (
-                        <Alert variant="destructive" className="mt-4 rounded-md">
+                        <Alert
+                            variant="destructive"
+                            className="mt-4 rounded-md border-0 bg-state-failed/10 shadow-surface">
                             <AlertTitle>{m.editor_target_invalid_json()}</AlertTitle>
                             <AlertDescription>{targetError}</AlertDescription>
                         </Alert>
                     ) : null}
                     {validationIssues.length > 0 ? (
-                        <Alert className="mt-4 rounded-md border-state-attention/35 bg-state-attention/10">
+                        <Alert className="mt-4 rounded-md border-0 bg-state-attention/10">
                             <AlertTitle>{m.editor_target_validation_issues()}</AlertTitle>
                             <AlertDescription>
                                 <ul className="mt-1 space-y-1">
