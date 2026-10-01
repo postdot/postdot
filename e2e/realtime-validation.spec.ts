@@ -241,6 +241,7 @@ test('refreshes an open publication editor after a worker state change', async (
     ).toBeVisible()
     await expect(page.locator('[data-publication-action="retry"]')).toHaveCount(0)
     expect(retryCalls).toBe(1)
+    await page.unrouteAll({ behavior: 'wait' })
 })
 
 test('shows notification loading, error, and retry states', async ({ page }) => {
