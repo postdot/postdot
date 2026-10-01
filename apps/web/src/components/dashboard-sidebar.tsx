@@ -218,10 +218,10 @@ export function DashboardSidebar({
                     <>
                         <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                             <SidebarGroupLabel className="px-2">
-                                {m.nav_preferences()}
+                                {m.nav_personal_settings()}
                             </SidebarGroupLabel>
                             <SidebarGroupContent>
-                                <nav aria-label={m.nav_preferences()}>
+                                <nav aria-label={m.nav_personal_settings()}>
                                     <SidebarMenu>
                                         <WorkspaceMenuItem
                                             active={activeSection === 'preferences'}
@@ -254,19 +254,11 @@ export function DashboardSidebar({
                         {isInstanceAdmin ? (
                             <SidebarGroup className="px-3 py-1 group-data-[collapsible=icon]:px-2">
                                 <SidebarGroupLabel className="px-2">
-                                    {m.nav_instance()}
+                                    {m.nav_installation()}
                                 </SidebarGroupLabel>
                                 <SidebarGroupContent>
                                     <nav aria-label={m.nav_instance_navigation()}>
                                         <SidebarMenu>
-                                            <WorkspaceMenuItem
-                                                active={activeSection === 'settings'}
-                                                destination="settings"
-                                                icon={<SettingsIcon aria-hidden="true" />}
-                                                label={m.nav_instance_configuration()}
-                                                projectId={selectedProjectId}
-                                                workspaceId={selectedWorkspaceId}
-                                            />
                                             <WorkspaceMenuItem
                                                 active={activeSection === 'settings-access'}
                                                 destination="settings-access"

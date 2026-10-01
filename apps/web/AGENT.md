@@ -8,3 +8,6 @@
 - **Preview icons:** Platform post simulations may use destination-specific SVG glyphs instead of Solar when fidelity requires it; retain source attribution and licenses for copied assets. Application controls continue to use Solar.
 - **Motion:** Follow [ADR-024](../../.autonomos/decisions/ADR-024-adopt-a-native-first-motion-policy.md); prefer targeted native CSS transitions, never use `transition-all`, and keep state understandable with reduced motion enabled.
 - **Constraints:** Keep this app client-first and browser-focused. Do not introduce a second server architecture, use Radix UI primitives, or use React hooks inside TanStack Router loaders or guards.
+
+- **Configuration context:** Personal settings and installation administration retain the current page when the workspace selector changes; record the workspace in search parameters and clear the previous project with `projectId=none`. Header context does not grant permissions or turn person-owned settings into workspace-owned state. Keep operational project selection consistent with the established project-navigation contract.
+- **Browser gate stability:** Freeze files under this app during isolated Vite browser tests. Even an AGENT.md update can reload the active page and legitimately reopen draft recovery, invalidating an in-progress authoring scenario.

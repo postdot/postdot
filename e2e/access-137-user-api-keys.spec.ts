@@ -15,7 +15,7 @@ test('creates and edits user-owned API keys with bounded project and action acce
     await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
     await expect(page).toHaveURL(/\/dashboard\/preferences(?:\?.*)?$/)
     await page
-        .getByRole('navigation', { name: 'Settings', exact: true })
+        .getByRole('navigation', { name: 'Personal', exact: true })
         .getByRole('link', { name: 'API keys', exact: true })
         .first()
         .click()

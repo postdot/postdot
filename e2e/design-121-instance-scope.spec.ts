@@ -11,16 +11,12 @@ test('keeps instance settings separate from project navigation', async ({ page }
     await page.setViewportSize({ width: 1280, height: 720 })
     await page.getByRole('button', { name: 'Open account menu', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
-    await page
-        .getByRole('navigation', { name: 'Administration navigation', exact: true })
-        .getByRole('link', { name: 'Overview', exact: true })
-        .first()
-        .click()
+    await page.goto(`/dashboard/settings?projectId=${projectId}`)
 
     await expect(page).toHaveURL(/\/dashboard\/settings(?:\?.*)?$/)
     await expect(page.getByRole('heading', { name: 'Administration', exact: true })).toBeVisible()
     await expect(
-        page.getByRole('navigation', { name: 'Administration navigation', exact: true })
+        page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Work navigation', exact: true })
@@ -39,7 +35,7 @@ test('keeps instance settings separate from project navigation', async ({ page }
         page.getByRole('heading', { name: 'OAuth applications', exact: true })
     ).toBeVisible()
     await expect(
-        page.getByRole('navigation', { name: 'Administration navigation', exact: true })
+        page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Work navigation', exact: true })
@@ -57,7 +53,7 @@ test('keeps instance settings separate from project navigation', async ({ page }
         page.getByRole('navigation', { name: 'Workspace navigation', exact: true })
     ).toBeVisible()
     await expect(
-        page.getByRole('navigation', { name: 'Administration navigation', exact: true })
+        page.getByRole('navigation', { name: 'Installation administration', exact: true })
     ).toBeVisible()
     await expect(
         page.getByRole('navigation', { name: 'Work navigation', exact: true })

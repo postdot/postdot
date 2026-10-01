@@ -59,6 +59,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'media_source_webcam',
             'media_supported_types',
             'nav_channel_tooltip',
+            'nav_installation',
             'nav_instance',
             'nav_instance_settings',
             'nav_publications',

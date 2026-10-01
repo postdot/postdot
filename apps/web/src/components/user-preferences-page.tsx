@@ -13,7 +13,7 @@ export function UserPreferencesPage() {
                 <DashboardPageHeader centered title={m.nav_preferences_general()} />
 
                 <div className="mx-auto grid w-full max-w-xl gap-3">
-                    <section className="flex items-center justify-between gap-4 rounded-md bg-surface-inset/45 px-4 py-3 shadow-surface">
+                    <section className="flex items-center justify-between gap-4 rounded-md bg-surface-raised px-4 py-3 shadow-surface">
                         <div className="min-w-0">
                             <h2 className="font-heading text-base font-medium">
                                 {m.preferences_appearance()}
@@ -22,7 +22,7 @@ export function UserPreferencesPage() {
                         <ThemeToggle />
                     </section>
 
-                    <section className="flex items-center justify-between gap-4 rounded-md bg-surface-inset/45 px-4 py-3 shadow-surface">
+                    <section className="flex items-center justify-between gap-4 rounded-md bg-surface-raised px-4 py-3 shadow-surface">
                         <div className="min-w-0">
                             <h2 className="font-heading text-base font-medium">
                                 {m.preferences_language()}

@@ -199,17 +199,10 @@ function DashboardPage() {
 
     async function handleWorkspaceChange(workspaceId: string) {
         setError(null)
-        if (isSettingsPath(pathname)) {
+        if (isSettingsPath(pathname) || isPreferencesPath(pathname)) {
             await navigate({
-                to: '/dashboard/settings/workspace',
-                search: { workspaceId, projectId: undefined },
-            })
-            return
-        }
-        if (isPreferencesPath(pathname)) {
-            await navigate({
-                to: '/dashboard/preferences',
-                search: { workspaceId, projectId: undefined },
+                to: '.',
+                search: previous => ({ ...previous, workspaceId, projectId: 'none' }),
             })
             return
         }
