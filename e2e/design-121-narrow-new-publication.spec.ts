@@ -305,6 +305,7 @@ test('keeps narrow new-publication flow and queue usable with long channel names
 })
 
 async function createChannel(page: Page, name: string): Promise<void> {
+    await expect(page.getByRole('heading', { name: 'Channels', exact: true })).toBeVisible()
     const addChannelButton = page.getByRole('button', { name: 'Add channel', exact: true })
     await expect(addChannelButton).toBeEnabled()
     await addChannelButton.click()
