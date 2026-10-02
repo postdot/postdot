@@ -19,6 +19,7 @@ import { LinkIcon } from '@solar-icons/react/linear/link'
 import { ListIcon } from '@solar-icons/react/linear/list'
 import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
+import { UserCircleIcon } from '@solar-icons/react/linear/user-circle'
 import { UserPlusRoundedIcon } from '@solar-icons/react/linear/user-plus-rounded'
 import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-two-rounded'
 import { Widget2Icon } from '@solar-icons/react/linear/widget-2'
@@ -234,7 +235,7 @@ export function DashboardSidebar({
                                         <WorkspaceMenuItem
                                             active={activeSection === 'preferences-account'}
                                             destination="preferences-account"
-                                            icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
+                                            icon={<UserCircleIcon aria-hidden="true" />}
                                             label={m.nav_preferences_account()}
                                             projectId={selectedProjectId}
                                             workspaceId={selectedWorkspaceId}
@@ -262,9 +263,7 @@ export function DashboardSidebar({
                                             <WorkspaceMenuItem
                                                 active={activeSection === 'settings-access'}
                                                 destination="settings-access"
-                                                icon={
-                                                    <UsersGroupTwoRoundedIcon aria-hidden="true" />
-                                                }
+                                                icon={<UserPlusRoundedIcon aria-hidden="true" />}
                                                 label={m.nav_instance_access()}
                                                 projectId={selectedProjectId}
                                                 workspaceId={selectedWorkspaceId}
