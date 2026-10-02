@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import {
+    getTargetMediaSelections,
     mediaSelectionsEqual,
     reorderMediaSelections,
     toggleMediaSelection,
@@ -135,5 +136,40 @@ describe('target media updates', () => {
         expect(
             updateTargetMedia({ fieldBindings: [{ semantic: 'primary_text' }] }, target, [])
         ).toEqual(target)
+    })
+})
+
+describe('target media preview', () => {
+    const profile = {
+        fieldBindings: [
+            {
+                semantic: 'ordered_media',
+                path: '/payload/photos',
+                item: { assetIdPath: '/id', accessibilityTextPath: '/alt' },
+            },
+        ],
+    }
+    it('keeps destination order and descriptions using custom binding paths', () => {
+        expect(
+            getTargetMediaSelections(profile, {
+                payload: {
+                    photos: [{ id: 'second', alt: 'Destination description' }, { id: 'first' }],
+                },
+            })
+        ).toEqual([
+            { assetId: 'second', accessibilityText: 'Destination description' },
+            { assetId: 'first' },
+        ])
+    })
+    it('does not restore source images when destination attachments are empty or absent', () => {
+        expect(getTargetMediaSelections(profile, { payload: { photos: [] } })).toEqual([])
+        expect(getTargetMediaSelections(profile, {})).toEqual([])
+    })
+    it('ignores invalid media entries without throwing during raw target editing', () => {
+        expect(
+            getTargetMediaSelections(profile, {
+                payload: { photos: [null, { id: 12 }, { id: 'image', alt: 12 }] },
+            })
+        ).toEqual([{ assetId: 'image' }])
     })
 })

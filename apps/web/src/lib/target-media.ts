@@ -40,6 +40,36 @@ export function reorderMediaSelections(
     return reordered as MediaSelection[]
 }
 
+/** Read ordered attachments using the same profile bindings as target editing. */
+export function getTargetMediaSelections(
+    profile: unknown,
+    target: Record<string, unknown>
+): MediaSelection[] {
+    if (!isRecord(profile) || !Array.isArray(profile.fieldBindings)) return []
+    return profile.fieldBindings.flatMap(binding => {
+        if (!isRecord(binding) || binding.semantic !== 'ordered_media') return []
+        if (typeof binding.path !== 'string' || !isRecord(binding.item)) return []
+        const { assetIdPath, accessibilityTextPath } = binding.item
+        if (typeof assetIdPath !== 'string') return []
+        const items = readJsonPointer(target, binding.path)
+        if (!Array.isArray(items)) return []
+        return items.flatMap(item => {
+            const assetId = readJsonPointer(item, assetIdPath)
+            if (typeof assetId !== 'string') return []
+            const description =
+                typeof accessibilityTextPath === 'string'
+                    ? readJsonPointer(item, accessibilityTextPath)
+                    : undefined
+            return [
+                {
+                    assetId,
+                    ...(typeof description === 'string' ? { accessibilityText: description } : {}),
+                },
+            ]
+        })
+    })
+}
+
 export function updateTargetMedia(
     profile: unknown,
     target: Record<string, unknown>,

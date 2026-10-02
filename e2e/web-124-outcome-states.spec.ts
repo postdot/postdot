@@ -789,6 +789,19 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
     ).toBe(true)
     await page.goto(`/dashboard/projects/${id}/publications/new`)
     await page.getByRole('button', { name: 'Article preview', exact: true }).click()
+    const description = 'A landscape at sunset'
+    await page.route(`**/api/projects/${id}/media/uploads`, async route => {
+        const request = route.request()
+        const data = request.postDataJSON()
+        await route.continue({
+            postData: JSON.stringify({
+                ...data,
+                ...(data.originalFilename === 'article-0.png'
+                    ? { defaultAccessibilityText: description }
+                    : {}),
+            }),
+        })
+    })
     for (let index = 0; index < 4; index++) {
         const png = await page.evaluate(index => {
             const canvas = document.createElement('canvas')
@@ -809,6 +822,10 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
         })
         await expect(page.locator('[data-publication-preview-media] img')).toHaveCount(index + 1)
     }
+    await expect(page.locator('[data-publication-preview-media] img').first()).toHaveAttribute(
+        'alt',
+        description
+    )
     for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 })
         const preview = page.locator('[data-composer-preview]')
@@ -835,4 +852,60 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
         await assertNoOverflow(page)
         await page.screenshot({ path: info.outputPath(`article-preview-layout-${width}.png`) })
     }
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.getByLabel(en.publication_new_post_title, { exact: true }).fill('Media adaptation')
+    const created = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: en.publication_new_create_draft, exact: true }).click()
+    const result = (await (await created).json()) as { publications: { id: string }[] }
+    const publicationId = result.publications[0]!.id
+    await expect(page).toHaveURL(new RegExp(`/publications/${publicationId}$`))
+    const endpoint = `/api/projects/${id}/publications/${publicationId}`
+    const editorResponse = await page.request.get(`${endpoint}/editor`)
+    const { editor } = (await editorResponse.json()) as {
+        editor: {
+            draft: {
+                revision: number
+                content: Record<string, unknown> & { media: { assetId: string }[] }
+            }
+        }
+    }
+    const adaptedDescription = 'The destination image description'
+    const adapted = await page.request.patch(`${endpoint}/draft`, {
+        data: {
+            expectedRevision: editor.draft.revision,
+            targetContent: {
+                ...editor.draft.content,
+                media: [
+                    {
+                        assetId: editor.draft.content.media[1]!.assetId,
+                        accessibilityText: adaptedDescription,
+                    },
+                ],
+            },
+        },
+    })
+    expect(adapted.ok()).toBe(true)
+    await page.reload()
+    await expect(page.locator('[data-publication-preview-media] img')).toHaveCount(1)
+    await expect(page.locator('[data-publication-preview-media] img')).toHaveAttribute(
+        'alt',
+        adaptedDescription
+    )
+    const adaptedEditor = (await adapted.json()) as {
+        editor: { draft: { revision: number; content: Record<string, unknown> } }
+    }
+    expect(
+        (
+            await page.request.patch(`${endpoint}/draft`, {
+                data: {
+                    expectedRevision: adaptedEditor.editor.draft.revision,
+                    targetContent: { ...adaptedEditor.editor.draft.content, media: [] },
+                },
+            })
+        ).ok()
+    ).toBe(true)
+    await page.reload()
+    await expect(page.locator('[data-publication-preview-media] img')).toHaveCount(0)
 })

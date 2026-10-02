@@ -847,6 +847,7 @@ export function NewPublicationPage({
                                 <PublicationDraftPreview
                                     channel={activePreviewChannel}
                                     media={previewMedia}
+                                    mediaSelections={sourceMedia}
                                     postContent={postContent}
                                     postTitle={postTitle}
                                     targetContent={

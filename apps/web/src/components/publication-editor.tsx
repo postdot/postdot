@@ -60,7 +60,7 @@ import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
-import { updateTargetMedia } from '@/lib/target-media'
+import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
 type SourceContent = PublicationEditorState['post']['sourceContent']
@@ -288,7 +288,16 @@ export function PublicationEditor({
         () => new Set(editorChannels.map(channel => channel.id)),
         [editorChannels]
     )
-    const readOnlyMediaIds = sourceContent.media.map(selection => selection.assetId).join('\u0000')
+    const previewMediaSelections = useMemo(
+        () =>
+            targetResult.value === null
+                ? sourceContent.media
+                : getTargetMediaSelections(editor.profile.profile, targetResult.value),
+        [editor.profile.profile, sourceContent.media, targetResult.value]
+    )
+    const readOnlyMediaIds = previewMediaSelections
+        .map(selection => selection.assetId)
+        .join('\u0000')
     useEffect(() => {
         if (publicationEditable || readOnlyMediaIds === '') return
 
@@ -307,14 +316,14 @@ export function PublicationEditor({
     }, [projectId, publicationEditable, readOnlyMediaIds])
     const previewMedia = useMemo(
         () =>
-            sourceContent.media
+            previewMediaSelections
                 .map(
                     selection =>
                         availableMedia.find(asset => asset.asset.id === selection.assetId) ??
                         readOnlyMedia.find(asset => asset.asset.id === selection.assetId)
                 )
                 .filter((asset): asset is MediaReference => asset !== undefined),
-        [availableMedia, readOnlyMedia, sourceContent.media]
+        [availableMedia, readOnlyMedia, previewMediaSelections]
     )
     const previewContent = useMemo(
         () => getTargetPreviewText(targetResult.value) ?? sourceContent.body?.text ?? '',
@@ -953,6 +962,7 @@ export function PublicationEditor({
             channel={editor.channel}
             identityMode={publicationEditable ? 'sample' : 'channel'}
             media={previewMedia}
+            mediaSelections={previewMediaSelections}
             postContent={previewContent}
             postTitle={editor.post.title ?? ''}
         />

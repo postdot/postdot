@@ -15,6 +15,7 @@ import { PublicationDiscordBody } from '@/components/publication-discord-body'
 import type { Channel, MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { getDraftPreviewModel } from '@/lib/publication-preview'
+import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationDraftPreviewProps {
@@ -22,6 +23,7 @@ interface PublicationDraftPreviewProps {
     readonly className?: string
     readonly identityMode?: 'sample' | 'channel'
     readonly media: readonly MediaReference[]
+    readonly mediaSelections?: readonly MediaSelection[]
     readonly postContent: string
     readonly postTitle: string
     readonly targetContent?: string
@@ -32,6 +34,7 @@ export function PublicationDraftPreview({
     className,
     identityMode = 'sample',
     media,
+    mediaSelections,
     postContent,
     postTitle,
     targetContent,
@@ -182,6 +185,13 @@ export function PublicationDraftPreview({
                                         linkedIn ? 'rounded-sm' : 'rounded-md'
                                     )}>
                                     <MediaPreview
+                                        alt={
+                                            mediaSelections?.find(
+                                                selection => selection.assetId === asset.asset.id
+                                            )?.accessibilityText ??
+                                            asset.asset.defaultAccessibilityText ??
+                                            ''
+                                        }
                                         projectId={asset.asset.projectId}
                                         asset={asset}
                                         representation={readyRepresentation(asset)}

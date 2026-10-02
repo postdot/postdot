@@ -533,6 +533,7 @@ function mediaSummary(
 }
 
 export function MediaPreview({
+    alt = '',
     projectId,
     asset,
     representation,
@@ -540,6 +541,7 @@ export function MediaPreview({
     draggable,
     src,
 }: {
+    readonly alt?: string
     readonly projectId: string
     readonly asset: MediaReference
     readonly representation: ReturnType<typeof readyRepresentation>
@@ -551,7 +553,7 @@ export function MediaPreview({
         return (
             <img
                 src={src ?? api.mediaContentUrl(projectId, asset.asset.id)}
-                alt=""
+                alt={alt}
                 loading="lazy"
                 draggable={draggable}
                 className={className ?? 'size-12 rounded-md object-cover shadow-field'}
