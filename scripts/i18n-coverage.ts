@@ -32,6 +32,7 @@ const allowedUnchangedByLocale = new Map<string, ReadonlySet<string>>([
             'access_project_access_via_group',
             'api_keys_expiration',
             'api_keys_active',
+            'api_keys_actions_label',
             'calendar_event',
             'calendar_events',
             'calendar_view_agenda',

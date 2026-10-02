@@ -1880,5 +1880,7 @@
     "account_password_changed": "Password changed",
     "account_password_invalid": "The current password is incorrect.",
     "account_password_failed": "The password could not be changed. Check its length or sign in again if your session has expired.",
-    "provider_apps_secret_keep": "Leave blank to keep the current secret."
+    "provider_apps_secret_keep": "Leave blank to keep the current secret.",
+    "api_keys_projects_label": "Projects",
+    "api_keys_actions_label": "Actions"
 }

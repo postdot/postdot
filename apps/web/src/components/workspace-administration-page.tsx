@@ -76,45 +76,47 @@ export function WorkspaceAdministrationPage({
 
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-            <div className="w-full">
+            <div className="mx-auto w-full max-w-6xl">
                 <AccessPageHeader title={m.access_workspace_title()} />
 
-                {error ? (
-                    <Alert className="mb-6" variant="destructive">
-                        <AlertTitle>{m.access_action_failed()}</AlertTitle>
-                        <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                            <span>{error}</span>
-                            <Button
-                                className="shrink-0"
-                                disabled={loading}
-                                onClick={() => setReloadVersion(current => current + 1)}
-                                size="sm"
-                                type="button"
-                                variant="ghost">
-                                <RefreshIcon aria-hidden="true" />
-                                {m.common_retry()}
-                            </Button>
-                        </AlertDescription>
-                    </Alert>
-                ) : null}
+                <div className="mx-auto w-full max-w-xl">
+                    {error ? (
+                        <Alert className="mb-6" variant="destructive">
+                            <AlertTitle>{m.access_action_failed()}</AlertTitle>
+                            <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                <span>{error}</span>
+                                <Button
+                                    className="shrink-0"
+                                    disabled={loading}
+                                    onClick={() => setReloadVersion(current => current + 1)}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost">
+                                    <RefreshIcon aria-hidden="true" />
+                                    {m.common_retry()}
+                                </Button>
+                            </AlertDescription>
+                        </Alert>
+                    ) : null}
 
-                {loading ? (
-                    <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
-                        <p className="text-sm text-muted-foreground" role="status">
-                            {m.access_workspace_loading()}
-                        </p>
-                    </section>
-                ) : error !== null ? null : workspaceId === null ? (
-                    <EmptyState
-                        className="mt-2"
-                        description={null}
-                        icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
-                        layout="compact"
-                        title={m.access_workspace_unavailable()}
-                    />
-                ) : (
-                    <WorkspaceGroupsSection workspaceId={workspaceId} />
-                )}
+                    {loading ? (
+                        <section className="bg-surface-raised p-5 shadow-surface sm:p-6">
+                            <p className="text-sm text-muted-foreground" role="status">
+                                {m.access_workspace_loading()}
+                            </p>
+                        </section>
+                    ) : error !== null ? null : workspaceId === null ? (
+                        <EmptyState
+                            className="mt-2"
+                            description={null}
+                            icon={<UsersGroupTwoRoundedIcon aria-hidden="true" />}
+                            layout="compact"
+                            title={m.access_workspace_unavailable()}
+                        />
+                    ) : (
+                        <WorkspaceGroupsSection workspaceId={workspaceId} />
+                    )}
+                </div>
             </div>
         </main>
     )

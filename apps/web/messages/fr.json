@@ -1880,5 +1880,7 @@
     "account_password_changed": "Mot de passe modifié",
     "account_password_invalid": "Le mot de passe actuel est incorrect.",
     "account_password_failed": "Le mot de passe n’a pas pu être modifié. Vérifiez sa longueur ou reconnectez-vous si votre session a expiré.",
-    "provider_apps_secret_keep": "Laisser vide pour conserver le secret actuel."
+    "provider_apps_secret_keep": "Laisser vide pour conserver le secret actuel.",
+    "api_keys_projects_label": "Projets",
+    "api_keys_actions_label": "Actions"
 }

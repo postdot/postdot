@@ -35,6 +35,7 @@ test('a workspace invitation joins the selected group and unlocks its project ac
     ).toBe(false)
     await page.setViewportSize({ width: 1280, height: 844 })
 
+    await page.getByRole('tab', { name: 'Groups', exact: true }).click()
     const editorsGroup = page
         .locator('article')
         .filter({ hasText: /^Editors/ })
@@ -66,6 +67,7 @@ test('a workspace invitation joins the selected group and unlocks its project ac
         )
     })
 
+    await page.getByRole('tab', { name: 'Members', exact: true }).click()
     await page.getByRole('button', { name: 'Add a member', exact: true }).click()
     const inviteDialog = page.getByRole('dialog')
     await inviteDialog.getByLabel('Email address', { exact: true }).fill(memberEmail)
@@ -115,6 +117,20 @@ test('a workspace invitation joins the selected group and unlocks its project ac
                 path: testInfo.outputPath(`workspace-${theme}-${width}.png`),
                 fullPage: true,
             })
+            await page.getByRole('tab', { name: 'Groups', exact: true }).click()
+            await expect(page.getByRole('tab', { name: 'Groups', exact: true })).toHaveAttribute(
+                'aria-selected',
+                'true'
+            )
+            expect(
+                await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+            ).toBe(false)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            await page.screenshot({
+                path: testInfo.outputPath(`groups-${theme}-${width}.png`),
+                fullPage: true,
+            })
+            await page.getByRole('tab', { name: 'Members', exact: true }).click()
         }
     }
     await page.getByRole('button', { name: 'Add a member', exact: true }).click()
@@ -176,6 +192,7 @@ test('a workspace invitation joins the selected group and unlocks its project ac
             page.getByRole('heading', { name: 'Members & groups', exact: true })
         ).toBeVisible()
         const memberName = `E2E-135 member ${suffix}`
+        await page.getByRole('tab', { name: 'Groups', exact: true }).click()
         const refreshedEditorsGroup = page
             .locator('article')
             .filter({ hasText: /^Editors/ })
@@ -204,6 +221,9 @@ test('a workspace invitation joins the selected group and unlocks its project ac
             memberPage.getByRole('heading', { name: 'Create your first project', exact: true })
         ).toBeVisible()
         await expect(memberPage).toHaveURL(/\/dashboard\?projectId=none$/)
+        await refreshedEditorsGroup
+            .getByRole('button', { name: 'Add a member', exact: true })
+            .click()
         await refreshedEditorsGroup
             .getByRole('combobox', { name: 'Add a group member', exact: true })
             .click()

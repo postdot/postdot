@@ -18,9 +18,8 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
         page.getByRole('heading', { name: 'Members & invitations', exact: true }).first()
     ).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Your access', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: 'Herald users', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible()
     await expect(page.getByText('Administrator', { exact: true }).first()).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toHaveCount(0)
     await expect(page.getByText(account.email, { exact: true }).first()).toBeVisible()
     await expect(
         page.getByRole('group', { name: `Role for ${account.email}`, exact: true })
@@ -31,7 +30,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     ).toContainText('Enabled')
     await expect(page.getByRole('combobox', { name: `Status for ${account.email}` })).toHaveCount(0)
 
-    await expect(page.getByRole('form', { name: 'Invite to Herald', exact: true })).toBeVisible()
+    await expect(page.getByRole('form', { name: 'Invite to Herald', exact: true })).toHaveCount(0)
     await expect(
         page.getByRole('heading', { name: 'Pending invitations', exact: true })
     ).toHaveCount(0)
@@ -75,6 +74,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     }
     await page.setViewportSize({ width: 1280, height: 844 })
     const pendingEmail = `pending-${suffix}@herald.local`
+    await page.getByRole('button', { name: 'Invite', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill(pendingEmail)
     await page.getByRole('button', { name: 'Invite', exact: true }).click()
     await expect(page.getByText(`Invitation for ${pendingEmail}`, { exact: true })).toBeVisible()
@@ -92,6 +92,7 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     await expect(pendingInvitation).toHaveCount(0)
     await expect(page.locator('code')).toHaveCount(0)
 
+    await page.getByRole('button', { name: 'Invite', exact: true }).click()
     await page.getByLabel('Email', { exact: true }).fill(account.email)
     await page.getByRole('button', { name: 'Invite', exact: true }).click()
     await expect(page.getByText(`Invitation for ${account.email}`, { exact: true })).toBeVisible()

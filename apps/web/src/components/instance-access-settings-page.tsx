@@ -1,6 +1,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@herald/ui/components/dialog'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import {
@@ -68,6 +69,7 @@ export function InstanceAccessSettingsPage({
     const [error, setError] = useState<string | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
+    const [inviteOpen, setInviteOpen] = useState(false)
     const [reloadVersion, setReloadVersion] = useState(0)
 
     useEffect(() => {
@@ -131,6 +133,7 @@ export function InstanceAccessSettingsPage({
             setCopied(false)
             setCopyError(false)
             setEmail('')
+            setInviteOpen(false)
             setInvitations(current =>
                 current === null ? [response.invitation] : [response.invitation, ...current]
             )
@@ -232,7 +235,7 @@ export function InstanceAccessSettingsPage({
                 <AccessPageHeader title={m.access_instance_title()} />
 
                 <div className="mx-auto w-full max-w-xl">
-                    {error ? (
+                    {error && !inviteOpen ? (
                         <Alert className="mt-6" variant="destructive">
                             <AlertTitle>{m.access_action_failed()}</AlertTitle>
                             <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -388,9 +391,13 @@ export function InstanceAccessSettingsPage({
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
                                                 <h2 className="font-heading text-base font-medium">
-                                                    {m.access_admin_title()}
+                                                    {m.access_members_title()}
                                                 </h2>
                                             </div>
+                                            <Button size="sm" onClick={() => setInviteOpen(true)}>
+                                                <AddIcon aria-hidden="true" />
+                                                {m.access_invite_button()}
+                                            </Button>
                                         </div>
 
                                         <div className="mt-4">
@@ -584,30 +591,56 @@ export function InstanceAccessSettingsPage({
                                             )}
                                         </div>
 
-                                        <form
-                                            className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
-                                            aria-label={m.access_invite_to_scope({
-                                                name: 'Herald',
-                                            })}
-                                            onSubmit={handleCreateInvitation}>
-                                            <Field className="min-w-0 flex-1 gap-1.5">
-                                                <FieldLabel htmlFor="instance-access-email">
-                                                    {m.access_invite_email()}
-                                                </FieldLabel>
-                                                <Input
-                                                    id="instance-access-email"
-                                                    type="email"
-                                                    required
-                                                    value={email}
-                                                    onChange={event => setEmail(event.target.value)}
-                                                    placeholder={m.access_invite_email_placeholder()}
-                                                />
-                                            </Field>
-                                            <Button type="submit" disabled={pendingAction !== null}>
-                                                <AddIcon aria-hidden="true" />
-                                                {m.access_invite_button()}
-                                            </Button>
-                                        </form>
+                                        <Dialog
+                                            open={inviteOpen}
+                                            onOpenChange={open => {
+                                                if (pendingAction === null) setInviteOpen(open)
+                                            }}>
+                                            <DialogContent
+                                                className="bg-surface-raised"
+                                                showCloseButton={pendingAction === null}>
+                                                <DialogHeader>
+                                                    <DialogTitle>
+                                                        {m.access_invite_to_scope({
+                                                            name: 'Herald',
+                                                        })}
+                                                    </DialogTitle>
+                                                </DialogHeader>
+                                                {error ? (
+                                                    <Alert variant="destructive">
+                                                        <AlertDescription>{error}</AlertDescription>
+                                                    </Alert>
+                                                ) : null}
+                                                <form
+                                                    className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
+                                                    aria-label={m.access_invite_to_scope({
+                                                        name: 'Herald',
+                                                    })}
+                                                    onSubmit={handleCreateInvitation}>
+                                                    <Field className="min-w-0 flex-1 gap-1.5">
+                                                        <FieldLabel htmlFor="instance-access-email">
+                                                            {m.access_invite_email()}
+                                                        </FieldLabel>
+                                                        <Input
+                                                            id="instance-access-email"
+                                                            type="email"
+                                                            required
+                                                            value={email}
+                                                            onChange={event =>
+                                                                setEmail(event.target.value)
+                                                            }
+                                                            placeholder={m.access_invite_email_placeholder()}
+                                                        />
+                                                    </Field>
+                                                    <Button
+                                                        type="submit"
+                                                        disabled={pendingAction !== null}>
+                                                        <AddIcon aria-hidden="true" />
+                                                        {m.access_invite_button()}
+                                                    </Button>
+                                                </form>
+                                            </DialogContent>
+                                        </Dialog>
 
                                         {invitations === null || pendingInvitations.length > 0 ? (
                                             <div className="mt-6">
