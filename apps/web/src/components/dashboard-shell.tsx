@@ -102,7 +102,8 @@ export function DashboardShell({
                         hasPageBack={
                             isProjectSettings ||
                             isWorkspaceSettings ||
-                            activeSection === 'settings-access'
+                            activeSection === 'settings-access' ||
+                            activeSection === 'settings-provider-applications'
                         }
                         canCreateWorkspace={global.canCreateWorkspace}
                         categories={global.categories}

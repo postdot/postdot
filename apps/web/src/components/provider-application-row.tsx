@@ -1,6 +1,7 @@
 import { Badge } from '@herald/ui/components/badge'
 import { Button } from '@herald/ui/components/button'
 import { Card, CardContent } from '@herald/ui/components/card'
+import { DialogTrigger } from '@herald/ui/components/dialog'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 
 import { type ProviderApplication, type ProviderApplicationProvider } from '@/lib/api'
@@ -21,13 +22,19 @@ export function ProviderApplicationRow({
 }) {
     return (
         <Card size="sm" className="rounded-md">
-            <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
+            <CardContent className="flex flex-wrap items-center gap-3">
+                <div className="min-w-0 flex-1 basis-56">
                     <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate font-heading text-base font-medium">
+                        <h2 className="truncate font-heading text-base font-medium">
                             {application.name}
-                        </h3>
-                        <Badge variant={application.state === 'active' ? 'default' : 'secondary'}>
+                        </h2>
+                        <Badge
+                            variant="secondary"
+                            className={
+                                application.state === 'active'
+                                    ? 'bg-transparent text-state-success'
+                                    : undefined
+                            }>
                             {application.state === 'active'
                                 ? m.provider_apps_active()
                                 : m.provider_apps_disabled()}
@@ -48,16 +55,15 @@ export function ProviderApplicationRow({
                               : m.provider_apps_not_configured()}
                     </p>
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
+                <div className="flex flex-wrap gap-2">
+                    <DialogTrigger
                         onClick={() => onEdit(application)}
-                        disabled={disabled}>
+                        render={
+                            <Button type="button" size="sm" variant="ghost" disabled={disabled} />
+                        }>
                         <PenIcon aria-hidden="true" />
                         {m.provider_apps_edit_action()}
-                    </Button>
+                    </DialogTrigger>
                     {!application.isDefault && application.state === 'active' ? (
                         <Button
                             type="button"

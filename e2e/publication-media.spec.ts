@@ -298,10 +298,17 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await page.getByRole('dialog').getByRole('button', { name: 'Revoke', exact: true }).click()
     await expect(page.getByText(tokenName, { exact: true })).toHaveCount(0)
 
+    await page.route('**/api/settings/provider-applications', route =>
+        route.fulfill({
+            status: 200,
+            json: { applications: [], xCallbackUri: 'http://127.0.0.1/oauth/x/callback' },
+        })
+    )
     await page.goto('/dashboard/settings/provider-applications')
     await expect(page).toHaveURL(/\/dashboard\/settings\/provider-applications$/)
     await expect(page.getByRole('heading', { name: 'OAuth applications', level: 1 })).toBeVisible()
     await expect(page.getByText('No provider applications', { exact: true })).toBeVisible()
+    await page.unroute('**/api/settings/provider-applications')
 
     await page.goto('/dashboard')
     await page.getByRole('link', { name: 'Overview', exact: true }).click()

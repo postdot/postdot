@@ -65,6 +65,23 @@ export function ProviderApplicationFormFields({
                 </Select>
             </Field>
 
+            <Field className="gap-1.5">
+                <FieldLabel htmlFor="provider-application-name">
+                    {m.provider_apps_name()}
+                </FieldLabel>
+                <Input
+                    id="provider-application-name"
+                    value={form.name}
+                    onChange={event =>
+                        onFormChange(current => ({
+                            ...current,
+                            name: event.target.value,
+                        }))
+                    }
+                    placeholder={m.provider_apps_name_placeholder()}
+                />
+            </Field>
+
             {form.providerId === 'bluesky' ? (
                 <>
                     <Field className="gap-1.5">

@@ -84,7 +84,7 @@ test('connects and recovers an X channel from the web workflow', async ({ page }
         callbackUri
     )
     await expect(page.getByText(/Authorization Code with PKCE/)).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel edit', exact: true }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
 
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()

@@ -1,12 +1,5 @@
 import { Button } from '@herald/ui/components/button'
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@herald/ui/components/card'
-import {
     Field,
     FieldContent,
     FieldDescription,
@@ -14,7 +7,6 @@ import {
     FieldLabel,
     FieldTitle,
 } from '@herald/ui/components/field'
-import { Input } from '@herald/ui/components/input'
 import { Switch } from '@herald/ui/components/switch'
 import { type Dispatch, type FormEvent, type SetStateAction } from 'react'
 
@@ -81,83 +73,50 @@ export function ProviderApplicationForm({
             : form.clientId.trim() !== '' && (!requiresSecret || form.clientSecret.trim() !== ''))
 
     return (
-        <Card className="rounded-md">
-            <CardHeader>
-                <CardTitle>
-                    {editingId === null ? m.provider_apps_new() : m.provider_apps_edit()}
-                </CardTitle>
-                <CardDescription>{m.provider_apps_setup_note()}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <form className="space-y-5" onSubmit={onSubmit}>
-                    <FieldGroup className="gap-4">
-                        <Field className="gap-1.5">
-                            <FieldLabel htmlFor="provider-application-name">
-                                {m.provider_apps_name()}
-                            </FieldLabel>
-                            <Input
-                                id="provider-application-name"
-                                value={form.name}
-                                onChange={event =>
-                                    onFormChange(current => ({
-                                        ...current,
-                                        name: event.target.value,
-                                    }))
-                                }
-                                placeholder={m.provider_apps_name_placeholder()}
-                            />
-                        </Field>
+        <form className="space-y-5" onSubmit={onSubmit}>
+            <fieldset disabled={pending} className="min-w-0 space-y-5">
+                <FieldGroup className="gap-4">
+                    <ProviderApplicationFormFields
+                        editingId={editingId}
+                        form={form}
+                        onFormChange={onFormChange}
+                        xCallbackUri={xCallbackUri}
+                    />
 
-                        <ProviderApplicationFormFields
-                            editingId={editingId}
-                            form={form}
-                            onFormChange={onFormChange}
-                            xCallbackUri={xCallbackUri}
+                    <Field orientation="horizontal" className="items-start">
+                        <Switch
+                            id="provider-application-default"
+                            checked={form.isDefault}
+                            onCheckedChange={checked =>
+                                onFormChange(current => ({
+                                    ...current,
+                                    isDefault: checked,
+                                }))
+                            }
+                            disabled={
+                                pending ||
+                                (editingApplication?.isDefault === true && form.isDefault)
+                            }
                         />
+                        <FieldContent>
+                            <FieldLabel htmlFor="provider-application-default">
+                                <FieldTitle>{m.provider_apps_default()}</FieldTitle>
+                            </FieldLabel>
+                            <FieldDescription>{m.provider_apps_default_help()}</FieldDescription>
+                        </FieldContent>
+                    </Field>
+                </FieldGroup>
 
-                        <Field orientation="horizontal" className="items-start">
-                            <Switch
-                                id="provider-application-default"
-                                checked={form.isDefault}
-                                onCheckedChange={checked =>
-                                    onFormChange(current => ({
-                                        ...current,
-                                        isDefault: checked,
-                                    }))
-                                }
-                                disabled={
-                                    pending ||
-                                    (editingApplication?.isDefault === true && form.isDefault)
-                                }
-                            />
-                            <FieldContent>
-                                <FieldLabel htmlFor="provider-application-default">
-                                    <FieldTitle>{m.provider_apps_default()}</FieldTitle>
-                                </FieldLabel>
-                                <FieldDescription>
-                                    {m.provider_apps_default_help()}
-                                </FieldDescription>
-                            </FieldContent>
-                        </Field>
-                    </FieldGroup>
-
-                    <div className="flex flex-wrap gap-2 pt-1">
-                        <Button type="submit" disabled={!canSubmit || pending}>
-                            {editingId === null ? m.provider_apps_create() : m.provider_apps_save()}
-                        </Button>
-                        {editingId !== null ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={onCancel}
-                                disabled={pending}>
-                                {m.provider_apps_cancel_edit()}
-                            </Button>
-                        ) : null}
-                    </div>
-                </form>
-            </CardContent>
-        </Card>
+                <div className="flex flex-wrap justify-end gap-2 pt-1">
+                    <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
+                        {m.common_cancel()}
+                    </Button>
+                    <Button type="submit" disabled={!canSubmit || pending}>
+                        {editingId === null ? m.provider_apps_create() : m.provider_apps_save()}
+                    </Button>
+                </div>
+            </fieldset>
+        </form>
     )
 }
 

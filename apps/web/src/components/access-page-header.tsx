@@ -1,6 +1,7 @@
 import { Button } from '@herald/ui/components/button'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { Link, useSearch } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { useDashboardGlobal } from '@/lib/dashboard-context'
@@ -9,8 +10,10 @@ import * as m from '@/paraglide/messages.js'
 export function AccessPageHeader({
     title,
     projectId,
+    action,
 }: {
     readonly title: string
+    readonly action?: ReactNode
     readonly projectId?: string
 }) {
     const global = useDashboardGlobal()
@@ -25,6 +28,7 @@ export function AccessPageHeader({
     const label = returnProjectId ? m.nav_back_to_project() : m.nav_back_to_workspace()
     return (
         <DashboardPageHeader
+            action={action}
             title={title}
             back={
                 <Button
