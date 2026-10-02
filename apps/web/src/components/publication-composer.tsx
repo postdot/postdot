@@ -27,20 +27,39 @@ export function PublicationComposer({
     return (
         <div
             data-publication-composer="true"
-            className={cn('mx-auto min-w-0 max-w-6xl space-y-5', className)}>
-            {channelNavigation ? <div className="min-w-0">{channelNavigation}</div> : null}
-
-            <div
-                className={cn(
-                    'grid min-w-0 items-start gap-5',
-                    preview ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(17rem,0.8fr)]' : 'grid-cols-1'
-                )}>
-                <div className="min-w-0">{editor}</div>
-                {preview ? <div className="min-w-0 lg:sticky lg:top-6">{preview}</div> : null}
+            className={cn(
+                'mx-auto grid min-w-0 max-w-6xl items-start gap-5',
+                preview ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(17rem,0.8fr)]' : 'grid-cols-1',
+                className
+            )}>
+            {channelNavigation ? (
+                <div className="min-w-0 lg:col-span-full">{channelNavigation}</div>
+            ) : null}
+            <div data-composer-editor="true" className="min-w-0">
+                {editor}
             </div>
-
-            {settings ? <div className="min-w-0">{settings}</div> : null}
-            {footer ? <div className="flex justify-end">{footer}</div> : null}
+            {settings ? (
+                <div data-composer-settings="true" className="min-w-0 lg:col-span-full">
+                    {settings}
+                </div>
+            ) : null}
+            {footer ? (
+                <div
+                    data-composer-actions="true"
+                    className="flex min-w-0 justify-end lg:col-span-full">
+                    {footer}
+                </div>
+            ) : null}
+            {preview ? (
+                <div
+                    data-composer-preview="true"
+                    className={cn(
+                        'min-w-0 lg:sticky lg:col-start-2 lg:top-6',
+                        channelNavigation ? 'lg:row-start-2' : 'lg:row-start-1'
+                    )}>
+                    {preview}
+                </div>
+            ) : null}
         </div>
     )
 }

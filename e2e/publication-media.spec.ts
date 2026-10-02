@@ -429,6 +429,41 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
         )
     ).toBeVisible()
 
+    for (const width of [1440, 820, 390]) {
+        await page.setViewportSize({ width, height: 844 })
+        const layout = await page
+            .locator('[data-publication-composer="true"]')
+            .evaluate(composer => {
+                const rect = (name: string) =>
+                    composer
+                        .querySelector(`[data-composer-${name}="true"]`)!
+                        .getBoundingClientRect()
+                const editor = rect('editor')
+                const settings = rect('settings')
+                const actions = rect('actions')
+                const preview = rect('preview')
+                return {
+                    editorBottom: editor.bottom,
+                    settingsTop: settings.top,
+                    actionsBottom: actions.bottom,
+                    previewTop: preview.top,
+                    editorTop: editor.top,
+                    previewLeft: preview.left,
+                    editorRight: editor.right,
+                    overflow: document.documentElement.scrollWidth > window.innerWidth,
+                }
+            })
+        expect(layout.overflow).toBe(false)
+        if (width < 1024) {
+            expect(layout.settingsTop).toBeGreaterThanOrEqual(layout.editorBottom)
+            expect(layout.previewTop).toBeGreaterThanOrEqual(layout.actionsBottom)
+        } else {
+            expect(Math.abs(layout.editorTop - layout.previewTop)).toBeLessThan(2)
+            expect(layout.previewLeft).toBeGreaterThanOrEqual(layout.editorRight)
+        }
+    }
+    await page.setViewportSize({ width: 1280, height: 844 })
+
     const selectedMediaPreview = newPublicationEditor.locator('[data-media-preview="true"]').first()
     await selectedMediaPreview.click()
     const mediaViewer = page.getByRole('dialog').filter({ hasText: mediaFilename }).last()
