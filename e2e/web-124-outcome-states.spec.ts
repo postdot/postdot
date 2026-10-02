@@ -565,6 +565,24 @@ test('keeps draft content truthful in destination-specific preview compositions'
             page.getByRole('textbox', { name: en.publication_new_source_content, exact: true })
         ).toHaveValue(body)
     }
+    await page
+        .getByRole('textbox', { name: en.publication_new_source_content, exact: true })
+        .fill(
+            '## Update\n\n__Underlined__ **Bold** __*Both*__\nNext line\n\n- First\n- Second\n\n```\n__literal__\n```'
+        )
+    await page.getByRole('button', { name: 'Destination discord', exact: true }).click()
+    const messagePreview = page.locator('[data-preview-platform="discord"]')
+    await expect(messagePreview.locator('u').first()).toHaveText('Underlined')
+    await expect(messagePreview.locator('strong')).toHaveText('Bold')
+    await expect(messagePreview.locator('u em')).toHaveText('Both')
+    await expect(messagePreview.locator('pre code')).toContainText('__literal__')
+    for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        await assertNoOverflow(page)
+        await messagePreview.screenshot({
+            path: testInfo.outputPath(`preview-discord-rich-${width}.png`),
+        })
+    }
 })
 
 test('keeps performance refresh failures local and cached metrics truthful', async ({

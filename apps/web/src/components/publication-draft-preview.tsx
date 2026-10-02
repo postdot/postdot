@@ -11,6 +11,7 @@ import sampleSocialPortrait from '@/assets/sample-social-portrait.jpg'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { PublicationArticleBody } from '@/components/publication-article-body'
+import { PublicationDiscordBody } from '@/components/publication-discord-body'
 import type { Channel, MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { getDraftPreviewModel } from '@/lib/publication-preview'
@@ -151,6 +152,8 @@ export function PublicationDraftPreview({
 
                     {preview.hasText && article ? (
                         <PublicationArticleBody body={preview.body} />
+                    ) : preview.hasText && message ? (
+                        <PublicationDiscordBody body={preview.body} />
                     ) : preview.hasText ? (
                         <p
                             data-publication-preview-content="true"
