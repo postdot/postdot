@@ -774,7 +774,16 @@ function MediaAttachmentPickerView({
         }
 
         setViewerAllowsFileActions(!previewOnly && !readOnly && mediaView === 'library')
-        setViewerAssets(assets.length > 0 ? assets : [asset])
+        const collection =
+            compact && !libraryOpen
+                ? value.flatMap(selection => {
+                      const selected = assets.find(
+                          candidate => candidate.asset.id === selection.assetId
+                      )
+                      return selected === undefined ? [] : [selected]
+                  })
+                : assets
+        setViewerAssets(collection.length > 0 ? collection : [asset])
         setViewerAsset(asset)
     }
 
@@ -1661,6 +1670,18 @@ function MediaAttachmentPickerView({
                         assets={viewerAssets}
                         asset={viewerAsset}
                         allowDelete={canManageLibrary}
+                        descriptionEditor={
+                            compact && !readOnly && selectedAssetById.has(viewerAsset.asset.id)
+                                ? {
+                                      value:
+                                          selectedAssetById.get(viewerAsset.asset.id)
+                                              ?.accessibilityText ?? '',
+                                      disabled: interactionLocked,
+                                      onChange: text =>
+                                          updateAccessibilityText(viewerAsset.asset.id, text),
+                                  }
+                                : undefined
+                        }
                         open
                         onOpenChange={open => {
                             if (!open) closeViewer()

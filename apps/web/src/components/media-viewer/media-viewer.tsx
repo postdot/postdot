@@ -7,7 +7,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@herald/ui/components/dialog'
+import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Kbd } from '@herald/ui/components/kbd'
+import { Textarea } from '@herald/ui/components/textarea'
 import {
     Tooltip,
     TooltipContent,
@@ -22,7 +24,7 @@ import { GalleryEditIcon } from '@solar-icons/react/linear/gallery-edit'
 import { QuitFullScreenIcon } from '@solar-icons/react/linear/quit-full-screen'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import { AnimatePresence, motion, type PanInfo, useReducedMotion, wrap } from 'motion/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react'
 import { FullScreen, useFullScreenHandle } from 'react-full-screen'
 
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
@@ -76,6 +78,11 @@ export interface MediaViewerProps {
     readonly open: boolean
     readonly onAssetChange: (asset: MediaReference) => void
     readonly onOpenChange: (open: boolean) => void
+    readonly descriptionEditor?: {
+        readonly value: string
+        readonly disabled: boolean
+        readonly onChange: (value: string) => void
+    }
     readonly onEdit?: (asset: MediaReference) => void
     readonly onRequestDelete?: (asset: MediaReference) => void
 }
@@ -87,11 +94,13 @@ export function MediaViewer({
     open,
     onAssetChange,
     onOpenChange,
+    descriptionEditor,
     onEdit,
     onRequestDelete,
 }: MediaViewerProps) {
     useLanguage()
 
+    const descriptionId = useId()
     const fullScreenHandle = useFullScreenHandle()
     const reduceMotion = useReducedMotion()
     const [direction, setDirection] = useState<1 | -1>(1)
@@ -316,7 +325,9 @@ export function MediaViewer({
                         </DialogHeader>
 
                         <main className="flex min-h-0 flex-1 flex-col">
-                            <div className="group/media-stage relative min-h-0 flex-1 overflow-hidden bg-background">
+                            <div
+                                data-media-viewer-image-stage="true"
+                                className="group/media-stage relative min-h-0 flex-1 overflow-hidden bg-background">
                                 <AnimatePresence initial={false} custom={direction} mode="sync">
                                     <motion.div
                                         key={currentAsset.asset.id}
@@ -339,7 +350,9 @@ export function MediaViewer({
                                                     currentAsset.asset.id
                                                 )}
                                                 alt={
-                                                    currentAsset.asset.defaultAccessibilityText ??
+                                                    (descriptionEditor?.value ||
+                                                        currentAsset.asset
+                                                            .defaultAccessibilityText) ??
                                                     currentAsset.asset.originalFilename
                                                 }
                                                 reduceMotion={reduceMotion}
@@ -429,6 +442,26 @@ export function MediaViewer({
                                 />
                             ) : null}
                         </main>
+
+                        {descriptionEditor !== undefined ? (
+                            <Field className="shrink-0 gap-2 bg-surface-canvas px-4 py-3 sm:px-5">
+                                <FieldLabel htmlFor={descriptionId}>
+                                    {m.media_accessibility_text()}
+                                </FieldLabel>
+                                <Textarea
+                                    id={descriptionId}
+                                    value={descriptionEditor.value}
+                                    onChange={event =>
+                                        descriptionEditor.onChange(event.target.value)
+                                    }
+                                    disabled={descriptionEditor.disabled}
+                                    placeholder={m.media_accessibility_placeholder()}
+                                    maxLength={10000}
+                                    rows={2}
+                                    className="min-h-16 max-h-32 resize-y"
+                                />
+                            </Field>
+                        ) : null}
 
                         {allowDelete || (image && onEdit !== undefined) ? (
                             <footer className="flex shrink-0 justify-end gap-1 border-t border-border/60 bg-muted px-4 py-3 sm:px-5">

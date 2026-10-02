@@ -851,6 +851,40 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
         }
         await assertNoOverflow(page)
         await page.screenshot({ path: info.outputPath(`article-preview-layout-${width}.png`) })
+        await page.getByRole('button', { name: 'View article-0.png', exact: true }).click()
+        const viewer = page.locator('[data-media-viewer="true"]')
+        const descriptionField = viewer.getByRole('textbox', {
+            name: en.media_accessibility_text,
+            exact: true,
+        })
+        await expect(descriptionField).toHaveValue(
+            width === 1280 ? description : 'First image at sunset'
+        )
+        await descriptionField.fill('First image at sunset')
+        await descriptionField.press('ArrowRight')
+        await expect(
+            viewer.getByRole('heading', { name: 'article-0.png', exact: true })
+        ).toBeVisible()
+        await viewer.locator('[data-media-viewer-next]').click()
+        await expect(
+            viewer.getByRole('heading', { name: 'article-1.png', exact: true })
+        ).toBeVisible()
+        await expect(descriptionField).toHaveValue('')
+        await viewer.locator('[data-media-viewer-previous]').click()
+        await expect(descriptionField).toHaveValue('First image at sunset')
+        await expect(viewer.locator('[data-media-viewer-image-stage] img')).toHaveCount(1)
+        await expect(viewer.locator('[data-media-viewer-image-stage] img').first()).toHaveAttribute(
+            'alt',
+            'First image at sunset'
+        )
+        await assertNoOverflow(page)
+        await page.screenshot({ path: info.outputPath(`article-description-editor-${width}.png`) })
+        await viewer.locator('[data-media-viewer-close]').click()
+        await expect(viewer).toHaveCount(0)
+        await expect(page.locator('[data-publication-preview-media] img').first()).toHaveAttribute(
+            'alt',
+            'First image at sunset'
+        )
     }
     await page.setViewportSize({ width: 1280, height: 900 })
     await page.getByLabel(en.publication_new_post_title, { exact: true }).fill('Media adaptation')
@@ -865,6 +899,7 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
     const editorResponse = await page.request.get(`${endpoint}/editor`)
     const { editor } = (await editorResponse.json()) as {
         editor: {
+            post: { sourceContent: Record<string, unknown> & { media: { assetId: string }[] } }
             draft: {
                 revision: number
                 content: Record<string, unknown> & { media: { assetId: string }[] }
@@ -875,6 +910,10 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
     const adapted = await page.request.patch(`${endpoint}/draft`, {
         data: {
             expectedRevision: editor.draft.revision,
+            sourceContent: {
+                ...editor.post.sourceContent,
+                media: [editor.post.sourceContent.media[0]],
+            },
             targetContent: {
                 ...editor.draft.content,
                 media: [
@@ -887,7 +926,24 @@ test('keeps article images compact and clear of delivery settings', async ({ pag
         },
     })
     expect(adapted.ok()).toBe(true)
+    const targetAssetId = editor.draft.content.media[1]!.assetId
+    await page.route(new RegExp(`/api/projects/${id}/media(?:\\?.*)?$`), async route => {
+        const response = await route.fetch()
+        const payload = (await response.json()) as { media: { asset: { id: string } }[] }
+        await route.fulfill({
+            response,
+            json: {
+                ...payload,
+                media: payload.media.filter(asset => asset.asset.id !== targetAssetId),
+            },
+        })
+    })
+    const loadedTarget = page.waitForResponse(
+        response =>
+            new URL(response.url()).pathname === `/api/projects/${id}/media/${targetAssetId}`
+    )
     await page.reload()
+    expect((await loadedTarget).ok()).toBe(true)
     await expect(page.locator('[data-publication-preview-media] img')).toHaveCount(1)
     await expect(page.locator('[data-publication-preview-media] img')).toHaveAttribute(
         'alt',

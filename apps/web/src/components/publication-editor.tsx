@@ -296,10 +296,11 @@ export function PublicationEditor({
         [editor.profile.profile, sourceContent.media, targetResult.value]
     )
     const readOnlyMediaIds = previewMediaSelections
+        .filter(selection => !availableMedia.some(asset => asset.asset.id === selection.assetId))
         .map(selection => selection.assetId)
         .join('\u0000')
     useEffect(() => {
-        if (publicationEditable || readOnlyMediaIds === '') return
+        if (readOnlyMediaIds === '') return
 
         let active = true
         void Promise.allSettled(
@@ -313,7 +314,7 @@ export function PublicationEditor({
         return () => {
             active = false
         }
-    }, [projectId, publicationEditable, readOnlyMediaIds])
+    }, [projectId, readOnlyMediaIds])
     const previewMedia = useMemo(
         () =>
             previewMediaSelections
