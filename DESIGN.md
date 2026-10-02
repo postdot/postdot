@@ -73,6 +73,11 @@ future landing-page decisions remain explicit below.
   the page title independently of the optional action at the right. At narrow
   widths, keep the return and action controls on one row and give the centered
   title its own row so controls cannot compress it.
+- Configuration composition: use the compact centered content column established
+  by General and Account for personal and installation settings. Keep the shared
+  page heading independent of that body width. A wider body needs a concrete
+  comparison or management task, not merely a longer resource list. Group related
+  fields and actions without enclosing every section and row in another box.
 - Current shell candidate: the authenticated navigation uses the accessible
   shadcn/Base UI Sidebar primitive for project context, workspace navigation,
   channels, account actions, and a mobile drawer. Its default width, collapse

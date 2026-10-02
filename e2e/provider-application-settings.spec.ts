@@ -63,7 +63,7 @@ test('keeps publisher application configuration in a focused and recoverable for
     await dialog.getByRole('button', { name: en.provider_apps_create, exact: true }).click()
     await expect(dialog).toHaveCount(0)
     const row = page
-        .locator('[data-slot="card"]')
+        .getByRole('article')
         .filter({ has: page.getByRole('heading', { name: 'Publishing application', exact: true }) })
     await expect(row).toBeVisible()
     await row.getByRole('button', { name: en.provider_apps_edit_action, exact: true }).click()

@@ -2,7 +2,6 @@ import { Button } from '@herald/ui/components/button'
 import {
     Field,
     FieldContent,
-    FieldDescription,
     FieldGroup,
     FieldLabel,
     FieldTitle,
@@ -81,6 +80,7 @@ export function ProviderApplicationForm({
                         form={form}
                         onFormChange={onFormChange}
                         xCallbackUri={xCallbackUri}
+                        preserveSecret={editingApplication?.hasClientSecret === true}
                     />
 
                     <Field orientation="horizontal" className="items-start">
@@ -102,7 +102,6 @@ export function ProviderApplicationForm({
                             <FieldLabel htmlFor="provider-application-default">
                                 <FieldTitle>{m.provider_apps_default()}</FieldTitle>
                             </FieldLabel>
-                            <FieldDescription>{m.provider_apps_default_help()}</FieldDescription>
                         </FieldContent>
                     </Field>
                 </FieldGroup>

@@ -35,7 +35,7 @@ import {
 } from '@herald/ui/components/select'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CopyIcon } from '@solar-icons/react/linear/copy'
-import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
+import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
 import {
     useEffect,
@@ -69,6 +69,7 @@ type ActionScope = 'all' | 'selected'
 export function UserApiKeysPage() {
     const { locale } = useLanguage()
     const { projects } = useDashboardGlobal()
+    const [reloadVersion, setReloadVersion] = useState(0)
     const [keys, setKeys] = useState<UserApiKey[] | null>(null)
     const [name, setName] = useState('')
     const [scope, setScope] = useState<KeyScope>('all')
@@ -109,7 +110,7 @@ export function UserApiKeysPage() {
         return () => {
             cancelled = true
         }
-    }, [])
+    }, [reloadVersion])
 
     function resetCreateForm() {
         setName('')
@@ -157,6 +158,7 @@ export function UserApiKeysPage() {
     }
 
     function beginEditActions(key: UserApiKey) {
+        setError(null)
         setKeyToEditActions(key)
         setActionScope(key.actionAccess === 'all' ? 'all' : 'selected')
         setSelectedCapabilities(key.actionAccess === 'all' ? [] : [...key.actionAccess])
@@ -210,153 +212,159 @@ export function UserApiKeysPage() {
                 <DashboardPageHeader
                     centered
                     action={
-                        <Button type="button" onClick={() => setCreateOpen(true)}>
+                        <Button
+                            type="button"
+                            onClick={() => {
+                                setError(null)
+                                setCreateOpen(true)
+                            }}>
                             <AddIcon aria-hidden="true" />
                             {m.api_keys_create()}
                         </Button>
                     }
-                    description={m.api_keys_description()}
                     title={m.api_keys_title()}
                 />
 
-                {error ? (
-                    <Alert className="mb-6" variant="destructive">
-                        <AlertTitle>{m.access_action_failed()}</AlertTitle>
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                ) : null}
+                <div className="mx-auto w-full max-w-xl">
+                    {error && !createOpen && keyToEditActions === null && keyToRevoke === null ? (
+                        <Alert className="mb-6" variant="destructive">
+                            <AlertTitle>{m.access_action_failed()}</AlertTitle>
+                            <AlertDescription className="flex flex-wrap items-center gap-2">
+                                <span>{error}</span>
+                                {keys === null ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setReloadVersion(current => current + 1)}>
+                                        <RefreshIcon aria-hidden="true" />
+                                        {m.common_retry()}
+                                    </Button>
+                                ) : null}
+                            </AlertDescription>
+                        </Alert>
+                    ) : null}
 
-                {createdKey ? (
-                    <section className="mb-8 bg-primary/10 p-5 shadow-surface sm:p-6">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <h2 className="font-heading text-base font-medium">
-                                    {m.api_keys_created_for({ name: createdKey.name })}
-                                </h2>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    {m.api_keys_show_once()}
-                                </p>
+                    {createdKey ? (
+                        <section className="mb-6 rounded-md bg-surface-raised p-4 shadow-surface">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h2 className="font-heading text-base font-medium">
+                                        {m.api_keys_created_for({ name: createdKey.name })}
+                                    </h2>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        {m.api_keys_show_once()}
+                                    </p>
+                                </div>
                             </div>
-                            <Badge>{m.api_keys_shown_once()}</Badge>
-                        </div>
-                        <code className="mt-4 block overflow-x-auto bg-background px-3 py-3 text-xs leading-5 shadow-field">
-                            {createdKey.token}
-                        </code>
-                        {copyError ? (
-                            <p className="mt-2 text-sm text-state-failed" role="alert">
-                                {copyError}
-                            </p>
-                        ) : null}
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            <Button type="button" size="sm" onClick={() => void handleCopy()}>
-                                <CopyIcon aria-hidden="true" />
-                                {copied ? m.api_keys_copied() : m.api_keys_copy()}
-                            </Button>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setCreatedKey(null)}>
-                                {m.api_keys_done()}
-                            </Button>
-                        </div>
-                    </section>
-                ) : null}
+                            <code className="mt-4 block overflow-x-auto bg-background px-3 py-3 text-xs leading-5 shadow-field">
+                                {createdKey.token}
+                            </code>
+                            {copyError ? (
+                                <p className="mt-2 text-sm text-state-failed" role="alert">
+                                    {copyError}
+                                </p>
+                            ) : null}
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                <Button type="button" size="sm" onClick={() => void handleCopy()}>
+                                    <CopyIcon aria-hidden="true" />
+                                    {copied ? m.api_keys_copied() : m.api_keys_copy()}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setCreatedKey(null)}>
+                                    {m.api_keys_done()}
+                                </Button>
+                            </div>
+                        </section>
+                    ) : null}
 
-                {keys === null ? (
-                    <p className="text-sm text-muted-foreground" role="status">
-                        {m.api_keys_loading()}
-                    </p>
-                ) : keys.length === 0 ? (
-                    <EmptyState
-                        description={m.api_keys_empty_description()}
-                        illustration="access"
-                        title={m.api_keys_empty()}
-                    />
-                ) : (
-                    <section aria-labelledby="user-api-keys-list" className="min-w-0">
-                        <div className="flex items-center gap-3">
-                            <KeyMinimalisticIcon
-                                aria-hidden="true"
-                                className="size-5 text-primary"
-                            />
-                            <h2
-                                id="user-api-keys-list"
-                                className="font-heading text-lg font-medium">
-                                {m.api_keys_title()}
-                            </h2>
-                            <span className="text-xs tabular-nums text-muted-foreground">
-                                {keys.length}
-                            </span>
-                        </div>
-                        <ul className="mt-4 grid gap-2">
-                            {keys.map(key => (
-                                <li
-                                    key={key.id}
-                                    className="flex min-w-0 flex-col gap-4 bg-surface-inset/45 px-4 py-4 shadow-surface sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="min-w-0">
-                                        <div className="flex min-w-0 items-center gap-2">
-                                            <span className="truncate text-sm font-medium">
-                                                {key.name}
-                                            </span>
-                                            <Badge>{m.api_keys_active()}</Badge>
+                    {keys === null && !error ? (
+                        <p className="text-sm text-muted-foreground" role="status">
+                            {m.api_keys_loading()}
+                        </p>
+                    ) : keys === null ? null : keys.length === 0 ? (
+                        <EmptyState
+                            description={m.api_keys_empty_description()}
+                            illustration="access"
+                            title={m.api_keys_empty()}
+                        />
+                    ) : (
+                        <section aria-label={m.api_keys_title()} className="min-w-0">
+                            <ul className="divide-y divide-border/40">
+                                {keys.map(key => (
+                                    <li key={key.id} className="flex min-w-0 flex-col gap-3 py-4">
+                                        <div className="min-w-0">
+                                            <div className="flex min-w-0 items-center gap-2">
+                                                <span className="truncate text-sm font-medium">
+                                                    {key.name}
+                                                </span>
+                                                <Badge variant="secondary">
+                                                    {m.api_keys_active()}
+                                                </Badge>
+                                            </div>
+                                            <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                                                {key.tokenPrefix} ·{' '}
+                                                {key.expiresAt === null
+                                                    ? m.common_never_expires()
+                                                    : m.common_expires_on({
+                                                          date: formatDateTime(
+                                                              key.expiresAt,
+                                                              'UTC',
+                                                              locale
+                                                          ),
+                                                      })}
+                                            </p>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                {key.projectAccess === 'all'
+                                                    ? m.api_keys_scope_all()
+                                                    : m.api_keys_scope_selected({
+                                                          count: key.projectAccess.length,
+                                                          projects: key.projectAccess
+                                                              .map(id => projectNames.get(id) ?? id)
+                                                              .join(', '),
+                                                      })}
+                                            </p>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                {key.actionAccess === 'all'
+                                                    ? m.api_keys_action_access_all_summary()
+                                                    : m.api_keys_action_access_summary({
+                                                          actions: key.actionAccess
+                                                              .map(capabilityLabel)
+                                                              .join(', '),
+                                                      })}
+                                            </p>
                                         </div>
-                                        <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
-                                            {key.tokenPrefix} ·{' '}
-                                            {key.expiresAt === null
-                                                ? m.common_never_expires()
-                                                : m.common_expires_on({
-                                                      date: formatDateTime(
-                                                          key.expiresAt,
-                                                          'UTC',
-                                                          locale
-                                                      ),
-                                                  })}
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            {key.projectAccess === 'all'
-                                                ? m.api_keys_scope_all()
-                                                : m.api_keys_scope_selected({
-                                                      count: key.projectAccess.length,
-                                                      projects: key.projectAccess
-                                                          .map(id => projectNames.get(id) ?? id)
-                                                          .join(', '),
-                                                  })}
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            {key.actionAccess === 'all'
-                                                ? m.api_keys_action_access_all_summary()
-                                                : m.api_keys_action_access_summary({
-                                                      actions: key.actionAccess
-                                                          .map(capabilityLabel)
-                                                          .join(', '),
-                                                  })}
-                                        </p>
-                                    </div>
-                                    <div className="flex shrink-0 flex-wrap gap-2">
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="ghost"
-                                            disabled={pending}
-                                            onClick={() => beginEditActions(key)}>
-                                            {m.api_keys_edit_actions()}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="ghost"
-                                            disabled={pending}
-                                            onClick={() => setKeyToRevoke(key)}>
-                                            <TrashBinMinimalisticIcon aria-hidden="true" />
-                                            {m.api_keys_revoke()}
-                                        </Button>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    </section>
-                )}
+                                        <div className="flex shrink-0 flex-wrap gap-2">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                disabled={pending}
+                                                onClick={() => beginEditActions(key)}>
+                                                {m.api_keys_edit_actions()}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                disabled={pending}
+                                                onClick={() => {
+                                                    setError(null)
+                                                    setKeyToRevoke(key)
+                                                }}>
+                                                <TrashBinMinimalisticIcon aria-hidden="true" />
+                                                {m.api_keys_revoke()}
+                                            </Button>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    )}
+                </div>
             </div>
 
             <Dialog
@@ -367,13 +375,19 @@ export function UserApiKeysPage() {
                         resetCreateForm()
                     }
                 }}>
-                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface-raised sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>{m.api_keys_create()}</DialogTitle>
                         <DialogDescription className="sr-only">
                             {m.api_keys_create_description()}
                         </DialogDescription>
                     </DialogHeader>
+                    {error ? (
+                        <Alert variant="destructive">
+                            <AlertTitle>{m.access_action_failed()}</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    ) : null}
                     <form className="grid gap-4" onSubmit={handleCreate}>
                         <Field className="gap-1.5">
                             <FieldLabel htmlFor="user-api-key-name">{m.api_keys_name()}</FieldLabel>
@@ -542,11 +556,17 @@ export function UserApiKeysPage() {
             <Dialog
                 open={keyToEditActions !== null}
                 onOpenChange={open => !open && !pending && setKeyToEditActions(null)}>
-                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+                <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface-raised sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>{m.api_keys_edit_actions_title()}</DialogTitle>
                         <DialogDescription>{keyToEditActions?.name ?? ''}</DialogDescription>
                     </DialogHeader>
+                    {error ? (
+                        <Alert variant="destructive">
+                            <AlertTitle>{m.access_action_failed()}</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    ) : null}
                     <form className="grid gap-4" onSubmit={handleUpdateActions}>
                         <ApiKeyActionAccessFieldset
                             name="edit"
@@ -580,13 +600,19 @@ export function UserApiKeysPage() {
             <Dialog
                 open={keyToRevoke !== null}
                 onOpenChange={open => !open && setKeyToRevoke(null)}>
-                <DialogContent>
+                <DialogContent className="bg-surface-raised">
                     <DialogHeader>
                         <DialogTitle>{m.api_keys_revoke_title()}</DialogTitle>
                         <DialogDescription>
                             {m.api_keys_revoke_description({ name: keyToRevoke?.name ?? '' })}
                         </DialogDescription>
                     </DialogHeader>
+                    {error ? (
+                        <Alert variant="destructive">
+                            <AlertTitle>{m.access_action_failed()}</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    ) : null}
                     <DialogFooter>
                         <DialogClose render={<Button type="button" variant="ghost" />}>
                             {m.common_cancel()}

@@ -287,7 +287,9 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     ).toBeVisible()
     const tokenSecret = await page.locator('code').innerText()
     expect(tokenSecret).toMatch(/^herald_pat_[A-Za-z0-9]+$/)
-    await expect(page.getByText('Shown once', { exact: true })).toBeVisible()
+    await expect(
+        page.getByText('Copy this key now. It will not be shown again.', { exact: true })
+    ).toBeVisible()
     await page.getByRole('button', { name: 'Done', exact: true }).click()
     await expect(page.locator('code')).toHaveCount(0)
     await expect(page.getByText(tokenName, { exact: true })).toBeVisible()

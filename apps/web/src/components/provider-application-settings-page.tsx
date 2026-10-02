@@ -1,12 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogTitle,
-    DialogTrigger,
-} from '@herald/ui/components/dialog'
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@herald/ui/components/dialog'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
@@ -173,7 +167,7 @@ export function ProviderApplicationSettingsPage() {
                 if (!open && !pending) cancelEdit()
             }}>
             <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-                <div className="w-full">
+                <div className="mx-auto w-full max-w-6xl">
                     <AccessPageHeader
                         title={m.provider_apps_title()}
                         action={
@@ -188,79 +182,82 @@ export function ProviderApplicationSettingsPage() {
                         }
                     />
 
-                    {error && !formOpen ? (
-                        <Alert className="mt-6" variant="destructive">
-                            <AlertTitle>{m.provider_apps_action_failed()}</AlertTitle>
-                            <AlertDescription className="flex flex-wrap items-center gap-2">
-                                <span>{error}</span>
-                                {applications === null ? (
-                                    <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => setReloadVersion(current => current + 1)}>
-                                        <RefreshIcon aria-hidden="true" />
-                                        {m.common_retry()}
-                                    </Button>
-                                ) : null}
-                            </AlertDescription>
-                        </Alert>
-                    ) : null}
-                    {notice ? (
-                        <div
-                            className="mt-6 flex items-center gap-2 text-sm text-state-success"
-                            role="status">
-                            <CheckIcon aria-hidden="true" className="size-4" />
-                            <span>{notice}</span>
-                        </div>
-                    ) : null}
+                    <div className="mx-auto w-full max-w-xl">
+                        {error && !formOpen ? (
+                            <Alert className="mt-6" variant="destructive">
+                                <AlertTitle>{m.provider_apps_action_failed()}</AlertTitle>
+                                <AlertDescription className="flex flex-wrap items-center gap-2">
+                                    <span>{error}</span>
+                                    {applications === null ? (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() =>
+                                                setReloadVersion(current => current + 1)
+                                            }>
+                                            <RefreshIcon aria-hidden="true" />
+                                            {m.common_retry()}
+                                        </Button>
+                                    ) : null}
+                                </AlertDescription>
+                            </Alert>
+                        ) : null}
+                        {notice ? (
+                            <div
+                                className="mt-6 flex items-center gap-2 text-sm text-state-success"
+                                role="status">
+                                <CheckIcon aria-hidden="true" className="size-4" />
+                                <span>{notice}</span>
+                            </div>
+                        ) : null}
 
-                    <div className="mt-8 grid gap-8">
-                        <section aria-label={m.provider_apps_title()} className="min-w-0">
-                            {applications === null && !error ? (
-                                <p className="mt-4 text-sm text-muted-foreground" role="status">
-                                    {m.provider_apps_loading()}
-                                </p>
-                            ) : applications === null ? null : applications.length === 0 ? (
-                                <EmptyState
-                                    action={
-                                        <DialogTrigger
-                                            onClick={beginCreate}
-                                            render={<Button disabled={pending} />}>
-                                            <AddIcon aria-hidden="true" />
-                                            {m.provider_apps_new()}
-                                        </DialogTrigger>
-                                    }
-                                    className="mt-4"
-                                    description={m.provider_apps_empty_description()}
-                                    icon={<SettingsIcon aria-hidden="true" />}
-                                    layout="compact"
-                                    title={m.provider_apps_empty()}
-                                />
-                            ) : (
-                                <div className="mt-4 space-y-3">
-                                    {applications.map(application => (
-                                        <ProviderApplicationRow
-                                            key={application.id}
-                                            application={application}
-                                            disabled={pending}
-                                            onEdit={beginEdit}
-                                            onMakeDefault={makeDefault}
-                                            onToggleState={toggleState}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </section>
+                        <div className="mt-2 grid gap-5">
+                            <section aria-label={m.provider_apps_title()} className="min-w-0">
+                                {applications === null && !error ? (
+                                    <p className="mt-4 text-sm text-muted-foreground" role="status">
+                                        {m.provider_apps_loading()}
+                                    </p>
+                                ) : applications === null ? null : applications.length === 0 ? (
+                                    <EmptyState
+                                        action={
+                                            <DialogTrigger
+                                                onClick={beginCreate}
+                                                render={<Button disabled={pending} />}>
+                                                <AddIcon aria-hidden="true" />
+                                                {m.provider_apps_new()}
+                                            </DialogTrigger>
+                                        }
+                                        className="mt-4"
+                                        description={m.provider_apps_empty_description()}
+                                        icon={<SettingsIcon aria-hidden="true" />}
+                                        layout="compact"
+                                        title={m.provider_apps_empty()}
+                                    />
+                                ) : (
+                                    <div className="divide-y divide-border/40">
+                                        {applications.map(application => (
+                                            <ProviderApplicationRow
+                                                key={application.id}
+                                                application={application}
+                                                disabled={pending}
+                                                onEdit={beginEdit}
+                                                onMakeDefault={makeDefault}
+                                                onToggleState={toggleState}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+                        </div>
                     </div>
                 </div>
             </main>
             <DialogContent
-                className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl"
+                className="max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface-raised sm:max-w-xl"
                 showCloseButton={!pending}>
                 <DialogTitle className="pr-6">
                     {editingId === null ? m.provider_apps_new() : m.provider_apps_edit()}
                 </DialogTitle>
-                <DialogDescription>{m.provider_apps_description()}</DialogDescription>
                 {error ? (
                     <Alert variant="destructive">
                         <AlertTitle>{m.provider_apps_action_failed()}</AlertTitle>

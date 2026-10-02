@@ -299,7 +299,7 @@
     "provider_apps_provider_bluesky": "Bluesky",
     "provider_apps_provider_x": "X",
     "provider_apps_x_callback_uri": "URI de redirection OAuth 2.0",
-    "provider_apps_x_callback_help": "Enregistrez cette URL dans votre application développeur X. Herald utilise OAuth 2.0 Authorization Code avec PKCE.",
+    "provider_apps_x_callback_help": "À enregistrer dans votre application X (OAuth 2.0 avec PKCE).",
     "provider_apps_client_id": "Identifiant client",
     "provider_apps_client_id_placeholder": "Saisissez l’identifiant client de la plateforme",
     "provider_apps_client_metadata_url": "URL des métadonnées client",
@@ -307,8 +307,8 @@
     "provider_apps_bluesky_oauth_mode": "Mode OAuth Bluesky",
     "provider_apps_bluesky_oauth_mode_loopback": "Boucle locale",
     "provider_apps_bluesky_oauth_mode_web": "HTTPS public",
-    "provider_apps_bluesky_loopback_help": "Utilisez OAuth en boucle locale selon l’AT Protocol, sans tunnel. Ouvrez Herald avec la même adresse 127.0.0.1 que l’API.",
-    "provider_apps_bluesky_web_help": "Pour une application déployée, fournissez une URL HTTPS stable de métadonnées que Bluesky peut lire. Le callback doit utiliser le même déploiement HTTPS public.",
+    "provider_apps_bluesky_loopback_help": "OAuth local : ouvrez Herald à la même adresse 127.0.0.1 que l’API.",
+    "provider_apps_bluesky_web_help": "Métadonnées et callback doivent utiliser le même déploiement HTTPS public.",
     "provider_apps_handle_resolver": "Résolveur de handle",
     "provider_apps_handle_resolver_placeholder": "https://bsky.social",
     "provider_apps_client_secret": "Secret client",
@@ -1278,7 +1278,7 @@
     "access_invite_button": "Inviter",
     "access_invitation_created": "Invitation créée.",
     "access_invitation_created_for": "Invitation pour {email}",
-    "access_invitation_copy_once": "Copiez le lien maintenant. Herald ne le conserve pas.",
+    "access_invitation_copy_once": "Copiez le lien : il ne sera plus affiché ensuite.",
     "access_pending": "En attente",
     "access_copied": "Copié",
     "access_copy_link": "Copier le lien d’invitation",
@@ -1879,5 +1879,6 @@
     "account_password_consequence": "Vos autres sessions seront déconnectées. Cette session restera ouverte.",
     "account_password_changed": "Mot de passe modifié",
     "account_password_invalid": "Le mot de passe actuel est incorrect.",
-    "account_password_failed": "Le mot de passe n’a pas pu être modifié. Vérifiez sa longueur ou reconnectez-vous si votre session a expiré."
+    "account_password_failed": "Le mot de passe n’a pas pu être modifié. Vérifiez sa longueur ou reconnectez-vous si votre session a expiré.",
+    "provider_apps_secret_keep": "Laisser vide pour conserver le secret actuel."
 }

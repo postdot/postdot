@@ -3,8 +3,12 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
-test('an instance admin can create, copy, revoke, and accept invitations', async ({ page }) => {
-    test.setTimeout(60_000)
+import en from '../apps/web/messages/en.json' with { type: 'json' }
+
+test('an instance admin can create, copy, revoke, and accept invitations', async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(120_000)
 
     const suffix = randomUUID().slice(0, 8)
     const account = await createAccountAndProject(page, suffix)
@@ -18,10 +22,16 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     await expect(page.getByText('Administrator', { exact: true }).first()).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Members', exact: true })).toHaveCount(0)
     await expect(page.getByText(account.email, { exact: true }).first()).toBeVisible()
-    await expect(page.getByRole('combobox', { name: `Role for ${account.email}` })).toBeDisabled()
-    await expect(page.getByRole('combobox', { name: `Status for ${account.email}` })).toBeDisabled()
+    await expect(
+        page.getByRole('group', { name: `Role for ${account.email}`, exact: true })
+    ).toContainText('Administrator')
+    await expect(page.getByRole('combobox', { name: `Role for ${account.email}` })).toHaveCount(0)
+    await expect(
+        page.getByRole('group', { name: `Status for ${account.email}`, exact: true })
+    ).toContainText('Enabled')
+    await expect(page.getByRole('combobox', { name: `Status for ${account.email}` })).toHaveCount(0)
 
-    await expect(page.getByRole('heading', { name: 'Invite to Herald', exact: true })).toBeVisible()
+    await expect(page.getByRole('form', { name: 'Invite to Herald', exact: true })).toBeVisible()
     await expect(
         page.getByRole('heading', { name: 'Pending invitations', exact: true })
     ).toHaveCount(0)
@@ -42,18 +52,45 @@ test('an instance admin can create, copy, revoke, and accept invitations', async
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
     await page.setViewportSize({ width: 1280, height: 844 })
 
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+            await page
+                .getByRole('button', {
+                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                    exact: true,
+                })
+                .click()
+        }
+        for (const width of [1280, 820, 390]) {
+            await page.setViewportSize({ width, height: 844 })
+            expect(
+                await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+            ).toBe(false)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            await page.screenshot({
+                path: testInfo.outputPath(`members-${theme}-${width}.png`),
+                fullPage: true,
+            })
+        }
+    }
+    await page.setViewportSize({ width: 1280, height: 844 })
     const pendingEmail = `pending-${suffix}@herald.local`
     await page.getByLabel('Email', { exact: true }).fill(pendingEmail)
     await page.getByRole('button', { name: 'Invite', exact: true }).click()
     await expect(page.getByText(`Invitation for ${pendingEmail}`, { exact: true })).toBeVisible()
 
     const pendingLink = await readInvitationLink(page)
+    await page.screenshot({
+        path: testInfo.outputPath('members-invitation-link.png'),
+        fullPage: true,
+    })
     expect(pendingLink).toContain('/invite?token=')
     await page.getByRole('button', { name: 'Copy invitation link', exact: true }).click()
 
     const pendingInvitation = page.locator('li').filter({ hasText: pendingEmail })
     await pendingInvitation.getByRole('button', { name: 'Revoke', exact: true }).click()
     await expect(pendingInvitation).toHaveCount(0)
+    await expect(page.locator('code')).toHaveCount(0)
 
     await page.getByLabel('Email', { exact: true }).fill(account.email)
     await page.getByRole('button', { name: 'Invite', exact: true }).click()

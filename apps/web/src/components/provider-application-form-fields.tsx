@@ -17,10 +17,12 @@ export function ProviderApplicationFormFields({
     form,
     onFormChange,
     xCallbackUri,
+    preserveSecret,
 }: {
     readonly editingId: string | null
     readonly form: ProviderApplicationFormState
     readonly onFormChange: Dispatch<SetStateAction<ProviderApplicationFormState>>
+    readonly preserveSecret: boolean
     readonly xCallbackUri: string
 }) {
     function selectProvider(value: string | null) {
@@ -155,7 +157,6 @@ export function ProviderApplicationFormFields({
                             placeholder={m.provider_apps_handle_resolver_placeholder()}
                         />
                     </Field>
-                    <FieldDescription>{m.provider_apps_no_secret_for_bluesky()}</FieldDescription>
                 </>
             ) : (
                 <>
@@ -196,7 +197,9 @@ export function ProviderApplicationFormFields({
                                     : m.provider_apps_client_secret_placeholder()
                             }
                         />
-                        <FieldDescription>{m.provider_apps_secret_help()}</FieldDescription>
+                        {preserveSecret ? (
+                            <FieldDescription>{m.provider_apps_secret_keep()}</FieldDescription>
+                        ) : null}
                     </Field>
                     {form.providerId === 'x' ? (
                         <Field className="gap-1.5">

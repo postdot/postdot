@@ -299,7 +299,7 @@
     "provider_apps_provider_bluesky": "Bluesky",
     "provider_apps_provider_x": "X",
     "provider_apps_x_callback_uri": "OAuth 2.0 redirect URI",
-    "provider_apps_x_callback_help": "Register this URL in your X Developer App. Herald uses OAuth 2.0 Authorization Code with PKCE.",
+    "provider_apps_x_callback_help": "Register this URL in your X app (OAuth 2.0 Authorization Code with PKCE).",
     "provider_apps_client_id": "Client ID",
     "provider_apps_client_id_placeholder": "Enter the provider client ID",
     "provider_apps_client_metadata_url": "Client metadata URL",
@@ -307,8 +307,8 @@
     "provider_apps_bluesky_oauth_mode": "Bluesky OAuth mode",
     "provider_apps_bluesky_oauth_mode_loopback": "Local loopback",
     "provider_apps_bluesky_oauth_mode_web": "Public HTTPS",
-    "provider_apps_bluesky_loopback_help": "Use AT Protocol loopback OAuth locally without a tunnel. Open Herald through the same 127.0.0.1 address as the API.",
-    "provider_apps_bluesky_web_help": "For a deployed web app, provide a stable HTTPS metadata URL that Bluesky can fetch. The callback must use the same public HTTPS deployment.",
+    "provider_apps_bluesky_loopback_help": "Local OAuth: open Herald at the API’s 127.0.0.1 address.",
+    "provider_apps_bluesky_web_help": "Use a public HTTPS metadata URL and callback from the same deployment.",
     "provider_apps_handle_resolver": "Handle resolver",
     "provider_apps_handle_resolver_placeholder": "https://bsky.social",
     "provider_apps_client_secret": "Client secret",
@@ -1278,7 +1278,7 @@
     "access_invite_button": "Invite",
     "access_invitation_created": "Invitation created.",
     "access_invitation_created_for": "Invitation for {email}",
-    "access_invitation_copy_once": "Copy the link now. It is not stored by Herald.",
+    "access_invitation_copy_once": "Copy this link now. It is shown once.",
     "access_pending": "Pending",
     "access_copied": "Copied",
     "access_copy_link": "Copy invitation link",
@@ -1879,5 +1879,6 @@
     "account_password_consequence": "Your other sessions will be signed out. This session stays open.",
     "account_password_changed": "Password changed",
     "account_password_invalid": "The current password is incorrect.",
-    "account_password_failed": "The password could not be changed. Check its length or sign in again if your session has expired."
+    "account_password_failed": "The password could not be changed. Check its length or sign in again if your session has expired.",
+    "provider_apps_secret_keep": "Leave blank to keep the current secret."
 }

@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+
+import en from '../apps/web/messages/en.json' with { type: 'json' }
 
 test('creates and edits user-owned API keys with bounded project and action access', async ({
     page,
-}) => {
-    test.setTimeout(60_000)
+}, testInfo) => {
+    test.setTimeout(120_000)
 
     const suffix = randomUUID().slice(0, 8)
     const projectName = `E2E-137 project ${suffix}`
@@ -26,6 +29,20 @@ test('creates and edits user-owned API keys with bounded project and action acce
     await page.getByRole('button', { name: 'Create an API key', exact: true }).click()
     const allProjectsDialog = page.getByRole('dialog')
     await expect(allProjectsDialog.getByRole('radio', { name: 'All projects' })).toBeChecked()
+    await allProjectsDialog.getByLabel('Name (optional)', { exact: true }).fill('Retry key')
+    const keyEndpoint = '**/api/api-keys'
+    await page.route(keyEndpoint, async route => {
+        if (route.request().method() === 'POST')
+            await route.fulfill({ status: 503, json: { error: 'internal_error' } })
+        else await route.continue()
+    })
+    await allProjectsDialog.getByRole('button', { name: 'Create an API key', exact: true }).click()
+    await expect(allProjectsDialog.getByRole('alert')).toBeVisible()
+    await expect(allProjectsDialog.getByLabel('Name (optional)', { exact: true })).toHaveValue(
+        'Retry key'
+    )
+    await page.unroute(keyEndpoint)
+    await allProjectsDialog.getByLabel('Name (optional)', { exact: true }).fill('')
     await submitCreateKey(allProjectsDialog, page)
 
     const generatedKeyHeading = page.getByRole('heading', {
@@ -100,6 +117,37 @@ test('creates and edits user-owned API keys with bounded project and action acce
         )
     ).toBeVisible()
 
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+            await page
+                .getByRole('button', {
+                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                    exact: true,
+                })
+                .click()
+        }
+        for (const width of [1280, 820, 390]) {
+            await page.setViewportSize({ width, height: 844 })
+            expect(
+                await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+            ).toBe(false)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            await page.screenshot({
+                path: testInfo.outputPath(`api-keys-${theme}-${width}.png`),
+                fullPage: true,
+            })
+        }
+    }
+    await page.setViewportSize({ width: 1280, height: 844 })
+    await page.route('**/api/api-keys', route =>
+        route.fulfill({ status: 503, json: { error: 'internal_error' } })
+    )
+    await page.reload()
+    await expect(page.getByRole('alert')).toBeVisible()
+    await expect(page.getByText(en.api_keys_loading, { exact: true })).toHaveCount(0)
+    await page.unroute('**/api/api-keys')
+    await page.getByRole('button', { name: en.common_retry, exact: true }).click()
+    await expect(page.getByText(limitedKeyName, { exact: true })).toBeVisible()
     const projectRoute = `/dashboard/projects/${projectId}/overview`
     await page.goto(projectRoute)
     await expect(page).toHaveURL(new RegExp(`${projectRoute}$`))
