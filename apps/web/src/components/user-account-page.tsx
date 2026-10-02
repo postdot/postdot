@@ -13,6 +13,8 @@ import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import { CameraIcon } from '@solar-icons/react/linear/camera'
 import { CloseIcon } from '@solar-icons/react/linear/close'
+import { EyeIcon } from '@solar-icons/react/linear/eye'
+import { EyeClosedIcon } from '@solar-icons/react/linear/eye-closed'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
 import { useRouter } from '@tanstack/react-router'
 import { useRef, useState, type FormEvent } from 'react'
@@ -243,6 +245,7 @@ function PasswordChangeDialog() {
                     {m.account_change_password()}
                 </DialogTrigger>
                 <DialogContent
+                    className="bg-surface-raised"
                     aria-describedby="account-password-consequence"
                     showCloseButton={false}>
                     {!pending ? (
@@ -269,58 +272,40 @@ function PasswordChangeDialog() {
                         aria-busy={pending}
                         className="grid gap-4"
                         onSubmit={event => void submit(event)}>
-                        <Field>
-                            <FieldLabel htmlFor="account-current-password">
-                                {m.account_current_password()}
-                            </FieldLabel>
-                            <Input
-                                autoComplete="current-password"
-                                disabled={pending}
-                                id="account-current-password"
-                                onChange={event => setCurrentPassword(event.target.value)}
-                                required
-                                type="password"
-                                value={currentPassword}
-                            />
-                        </Field>
-                        <Field>
-                            <FieldLabel htmlFor="account-new-password">
-                                {m.account_new_password()}
-                            </FieldLabel>
-                            <Input
-                                autoComplete="new-password"
-                                disabled={pending}
-                                id="account-new-password"
-                                maxLength={128}
-                                minLength={8}
-                                onChange={event => setNewPassword(event.target.value)}
-                                required
-                                type="password"
-                                value={newPassword}
-                            />
-                        </Field>
-                        <Field>
-                            <FieldLabel htmlFor="account-confirm-password">
-                                {m.account_confirm_password()}
-                            </FieldLabel>
-                            <Input
-                                autoComplete="new-password"
-                                disabled={pending}
-                                id="account-confirm-password"
-                                maxLength={128}
-                                minLength={8}
-                                onChange={event => setConfirmation(event.target.value)}
-                                required
-                                type="password"
-                                value={confirmation}
-                            />
-                        </Field>
+                        <AccountPasswordField
+                            id="account-current-password"
+                            label={m.account_current_password()}
+                            autoComplete="current-password"
+                            value={currentPassword}
+                            onChange={setCurrentPassword}
+                            disabled={pending}
+                        />
+                        <AccountPasswordField
+                            id="account-new-password"
+                            label={m.account_new_password()}
+                            autoComplete="new-password"
+                            value={newPassword}
+                            onChange={setNewPassword}
+                            disabled={pending}
+                            minLength={8}
+                            maxLength={128}
+                        />
+                        <AccountPasswordField
+                            id="account-confirm-password"
+                            label={m.account_confirm_password()}
+                            autoComplete="new-password"
+                            value={confirmation}
+                            onChange={setConfirmation}
+                            disabled={pending}
+                            minLength={8}
+                            maxLength={128}
+                        />
                         {error ? (
                             <p className="text-sm text-state-failed" role="alert">
                                 {error}
                             </p>
                         ) : null}
-                        <DialogFooter>
+                        <DialogFooter className="bg-transparent">
                             <Button disabled={pending} type="submit">
                                 {m.account_change_password()}
                             </Button>
@@ -334,5 +319,62 @@ function PasswordChangeDialog() {
                 </p>
             ) : null}
         </div>
+    )
+}
+
+function AccountPasswordField({
+    id,
+    label,
+    autoComplete,
+    value,
+    onChange,
+    disabled,
+    minLength,
+    maxLength,
+}: {
+    readonly id: string
+    readonly label: string
+    readonly autoComplete: 'current-password' | 'new-password'
+    readonly value: string
+    readonly onChange: (value: string) => void
+    readonly disabled: boolean
+    readonly minLength?: number
+    readonly maxLength?: number
+}) {
+    const [visible, setVisible] = useState(false)
+    return (
+        <Field>
+            <FieldLabel htmlFor={id}>{label}</FieldLabel>
+            <div className="relative">
+                <Input
+                    id={id}
+                    autoComplete={autoComplete}
+                    value={value}
+                    onChange={event => onChange(event.target.value)}
+                    type={visible ? 'text' : 'password'}
+                    required
+                    disabled={disabled}
+                    minLength={minLength}
+                    maxLength={maxLength}
+                    className="pr-10"
+                />
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={disabled}
+                    aria-controls={id}
+                    aria-pressed={visible}
+                    aria-label={`${visible ? m.auth_hide_password() : m.auth_show_password()}: ${label}`}
+                    className="absolute top-1 right-1 z-10 text-muted-foreground"
+                    onClick={() => setVisible(current => !current)}>
+                    {visible ? (
+                        <EyeClosedIcon aria-hidden="true" />
+                    ) : (
+                        <EyeIcon aria-hidden="true" />
+                    )}
+                </Button>
+            </div>
+        </Field>
     )
 }

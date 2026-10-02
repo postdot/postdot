@@ -99,6 +99,27 @@ test('edits personal identity and safely changes the password across settings la
                 const dialog = page.getByRole('dialog')
                 await expect(dialog).toBeVisible()
                 await expect(dialog).toHaveAttribute('data-open', '')
+                const currentField = dialog.getByLabel(copy.account_current_password, {
+                    exact: true,
+                })
+                await expect(currentField).toHaveAttribute('type', 'password')
+                await dialog
+                    .getByRole('button', {
+                        name: `${copy.auth_show_password}: ${copy.account_current_password}`,
+                        exact: true,
+                    })
+                    .click()
+                await expect(currentField).toHaveAttribute('type', 'text')
+                await expect(
+                    dialog.getByLabel(copy.account_new_password, { exact: true })
+                ).toHaveAttribute('type', 'password')
+                await dialog
+                    .getByRole('button', {
+                        name: `${copy.auth_hide_password}: ${copy.account_current_password}`,
+                        exact: true,
+                    })
+                    .click()
+                await expect(currentField).toHaveAttribute('type', 'password')
                 expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
                 await page.screenshot({
                     path: testInfo.outputPath(`password-${locale}-${theme}-${width}.png`),
@@ -117,6 +138,23 @@ test('edits personal identity and safely changes the password across settings la
         .fill('replacement-password')
     await dialog.getByRole('button', { name: fr.account_change_password, exact: true }).click()
     await expect(dialog.getByRole('alert')).toHaveText(fr.account_password_invalid)
+    await expect(dialog.getByLabel(fr.account_new_password, { exact: true })).toHaveValue(
+        'replacement-password'
+    )
+    await dialog
+        .getByRole('button', {
+            name: `${fr.auth_show_password}: ${fr.account_new_password}`,
+            exact: true,
+        })
+        .click()
+    await expect(dialog.getByLabel(fr.account_new_password, { exact: true })).toHaveAttribute(
+        'type',
+        'text'
+    )
+    await expect(dialog.getByLabel(fr.account_confirm_password, { exact: true })).toHaveAttribute(
+        'type',
+        'password'
+    )
     await dialog
         .getByLabel(fr.account_current_password, { exact: true })
         .fill('original-account-password')

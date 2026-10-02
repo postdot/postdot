@@ -3844,20 +3844,20 @@ posture` is an exact patch duplicate of `aa889111`, and
   agent; the boundary is expressed through generic user-owned API-key actions
   and an explicit approval workflow.
 - Accepted requirements:
-  - A client with `publication:manage` but without `publication:dispatch` may
-    prepare content and submit a proposed delivery time for human review.
-  - A proposed time is not a schedule: while approval is pending it must not
-    populate the executable schedule, create a worker job, or trigger provider
-    activity.
-  - Only an authenticated human session with project editing authority may
-    approve, reject, or authorize dispatch. A bearer API key cannot approve.
-  - If the proposed time passes without approval, nothing is published or
-    scheduled automatically; the request remains visibly pending.
-  - Approval must refer to the exact content revision reviewed. A later edit
-    invalidates that approval and requires another review.
-  - Ordinary human-authored publications retain the existing direct schedule
-    and publish flow unless explicitly submitted for approval.
-  - No new CLI/MCP client or agent-specific identity is part of this work.
+    - A client with `publication:manage` but without `publication:dispatch` may
+      prepare content and submit a proposed delivery time for human review.
+    - A proposed time is not a schedule: while approval is pending it must not
+      populate the executable schedule, create a worker job, or trigger provider
+      activity.
+    - Only an authenticated human session with project editing authority may
+      approve, reject, or authorize dispatch. A bearer API key cannot approve.
+    - If the proposed time passes without approval, nothing is published or
+      scheduled automatically; the request remains visibly pending.
+    - Approval must refer to the exact content revision reviewed. A later edit
+      invalidates that approval and requires another review.
+    - Ordinary human-authored publications retain the existing direct schedule
+      and publish flow unless explicitly submitted for approval.
+    - No new CLI/MCP client or agent-specific identity is part of this work.
 - Specification recommendation: If approval happens after the proposed time,
   require the human to choose a new time or explicitly publish now; never
   silently catch up a missed request. Rejection returns the publication to an
@@ -4036,7 +4036,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-148] Keep account credential editing consistent and inspectable
 
 - Type: interface problem
-- Status: accepted for bounded correction using existing patterns
+- Status: resolved by UX-274; see worklogs/2026-10-02-UX-274.md
 - Evidence: Current account/password isolated captures show a bright default dialog body and contrasting footer, while OAuth/API-key dialogs use a subdued raised surface. PasswordChangeDialog uses three password Input fields without the visibility controls already present in AuthForm.
 - Impact: Credential editing has an inconsistent material hierarchy; mobile users cannot inspect typing before committing a password change.
 - Desired outcome: A coherent account dialog with deliberate credential visibility controls; retain current-password verification, confirmation, pending guards and session consequences.
