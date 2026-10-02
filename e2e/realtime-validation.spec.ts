@@ -365,7 +365,7 @@ test('shows unread notification count before opening the inbox', async ({ page }
 
 test('keeps operational labels localized without changing custom notification copy', async ({
     page,
-}) => {
+}, testInfo) => {
     test.setTimeout(60_000)
     const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
     const templates = [
@@ -468,6 +468,33 @@ test('keeps operational labels localized without changing custom notification co
                 exact: true,
             })
         ).toBeVisible()
+        const readAction = page.getByRole('button', {
+            name: copy.notifications_mark_as_read.replace(
+                '{title}',
+                copy.notification_delivered_title
+            ),
+            exact: true,
+        })
+        const archiveAction = page.getByRole('button', {
+            name: copy.notifications_archive_item.replace(
+                '{title}',
+                copy.notification_delivered_title
+            ),
+            exact: true,
+        })
+        const minimumTarget = locale === 'fr' ? 44 : 32
+        await expect
+            .poll(async () => (await readAction.boundingBox())?.width ?? 0)
+            .toBeGreaterThanOrEqual(minimumTarget)
+        const readBounds = await readAction.boundingBox()
+        const archiveBounds = await archiveAction.boundingBox()
+        expect(readBounds).not.toBeNull()
+        expect(archiveBounds).not.toBeNull()
+        expect(readBounds!.width).toBeGreaterThanOrEqual(minimumTarget)
+        expect(readBounds!.height).toBeGreaterThanOrEqual(minimumTarget)
+        expect(archiveBounds!.width).toBeGreaterThanOrEqual(minimumTarget)
+        expect(archiveBounds!.x).toBeGreaterThanOrEqual(readBounds!.x + readBounds!.width + 4)
+        await page.screenshot({ path: testInfo.outputPath(`notifications-${locale}.png`) })
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
         expect(
             await page.locator('body').evaluate(element => element.scrollWidth <= window.innerWidth)
@@ -593,6 +620,183 @@ async function emitEventSourceSignal(page: Page, type: string, data = ''): Promi
         { type, data }
     )
 }
+
+test('opens notification subjects without acknowledgement and handles unavailable publications', async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(90_000)
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'Notification destination', profile: 'manual-message' },
+    })
+    expect(channelResponse.ok()).toBe(true)
+    const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+    const postResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { format: 'plain_text', text: 'Notification follow-up' },
+                media: [],
+            },
+            publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+        },
+    })
+    expect(postResponse.ok()).toBe(true)
+    const { publications } = (await postResponse.json()) as { publications: { id: string }[] }
+    const publicationId = publications[0]!.id
+    if ((await page.locator('html').getAttribute('class'))?.split(' ').includes('dark')) {
+        await page
+            .getByRole('button', {
+                name: en.theme_switch_to.replace('{theme}', en.theme_light),
+                exact: true,
+            })
+            .click()
+    }
+    const titles = ['Delivered subject', 'Failed subject', 'Uncertain subject']
+    await page.route('**/api/notifications?*', route =>
+        route.fulfill({
+            json: {
+                notifications: titles
+                    .map((title, index) => ({
+                        id: `follow-up-${index}`,
+                        projectId,
+                        sourceEventId: `follow-up-event-${index}`,
+                        kind: [
+                            'publication_published',
+                            'publication_failed',
+                            'publication_ambiguous',
+                        ][index],
+                        severity: ['success', 'error', 'warning'][index],
+                        title,
+                        body: null,
+                        subject: { type: 'publication', id: publicationId },
+                        readAt: null,
+                        archivedAt: null,
+                        createdAt: Date.now(),
+                    }))
+                    .concat([
+                        {
+                            id: 'unsupported',
+                            projectId,
+                            sourceEventId: 'unsupported-event',
+                            kind: 'custom',
+                            severity: 'info',
+                            title: 'Unknown subject',
+                            body: null,
+                            subject: { type: 'unknown', id: 'unknown' },
+                            readAt: null,
+                            archivedAt: null,
+                            createdAt: Date.now(),
+                        },
+                    ]),
+                unreadCount: 4,
+                totalUnreadCount: 4,
+                nextCursor: null,
+            },
+        })
+    )
+    let mutations = 0
+    page.on('request', request => {
+        if (
+            request.method() === 'POST' &&
+            /\/notifications\/[^/]+\/(read|archive)/.test(request.url())
+        )
+            mutations += 1
+    })
+    const openInbox = async () => {
+        await page
+            .getByRole('button', {
+                name: en.notifications_open_unread.replace('{count}', '4'),
+                exact: true,
+            })
+            .click()
+    }
+    for (const title of titles) {
+        await page.goto(`/dashboard/projects/${projectId}/overview`)
+        await openInbox()
+        await page
+            .getByRole('button', {
+                name: en.notifications_open_subject.replace('{title}', title),
+                exact: true,
+            })
+            .focus()
+        await page.keyboard.press('Enter')
+        await expect(page).toHaveURL(new RegExp(`/publications/${publicationId}$`))
+        await expect(
+            page.getByText('Notification follow-up', { exact: true }).first()
+        ).toBeVisible()
+        expect(mutations).toBe(0)
+    }
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
+    await page.setViewportSize({ width: 390, height: 844 })
+    let mode: 'missing' | 'forbidden' | 'temporary' | 'race' = 'missing'
+    let editorRequests = 0
+    await page.route(
+        `**/api/projects/${projectId}/publications/${publicationId}/editor`,
+        async route => {
+            editorRequests += 1
+            if (mode === 'race' && editorRequests === 1) {
+                await route.continue()
+                return
+            }
+            const status = mode === 'forbidden' ? 403 : mode === 'temporary' ? 503 : 404
+            await route.fulfill({
+                status,
+                json: {
+                    error: {
+                        code:
+                            status === 404
+                                ? 'not_found'
+                                : status === 403
+                                  ? 'forbidden'
+                                  : 'provider_unavailable',
+                        message: 'Subject lookup failed',
+                    },
+                },
+            })
+        }
+    )
+    await openInbox()
+    await expect(
+        page.getByRole('button', { name: 'Open publication: Unknown subject', exact: true })
+    ).toHaveCount(0)
+    const subject = page.getByRole('button', {
+        name: en.notifications_open_subject.replace('{title}', titles[1]!),
+        exact: true,
+    })
+    for (const nextMode of ['missing', 'forbidden', 'temporary'] as const) {
+        mode = nextMode
+        await subject.click()
+        await expect(page.getByRole('alert')).toBeVisible()
+        if (mode !== 'temporary')
+            await expect(page.getByRole('alert')).toHaveText(en.notifications_subject_unavailable)
+        await expect(page).toHaveURL(/\/overview$/)
+        expect(mutations).toBe(0)
+    }
+    await page.screenshot({ path: testInfo.outputPath('notification-unavailable-mobile.png') })
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await page.keyboard.press('Escape')
+    await page
+        .getByRole('button', {
+            name: en.theme_switch_to.replace('{theme}', en.theme_dark),
+            exact: true,
+        })
+        .click()
+    await openInbox()
+    mode = 'forbidden'
+    await subject.click()
+    await expect(page.getByRole('alert')).toHaveText(en.notifications_subject_unavailable)
+    await page.screenshot({ path: testInfo.outputPath('notification-unavailable-dark-mobile.png') })
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    mode = 'race'
+    editorRequests = 0
+    await subject.click()
+    await expect(
+        page.getByRole('heading', { name: en.notifications_subject_unavailable, exact: true })
+    ).toBeVisible()
+    await page.getByRole('link', { name: en.nav_overview, exact: true }).click()
+    await expect(page).toHaveURL(/\/overview$/)
+    expect(mutations).toBe(0)
+})
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')

@@ -4046,7 +4046,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-149] Make notification follow-up reachable and touch-friendly
 
 - Type: interaction problem
-- Status: accepted for review; navigation behavior remains a proposal
+- Status: resolved by UX-275; owner selected opening without marking read; see worklogs/2026-10-02-UX-275.md
 - Evidence: NotificationItem presents its title as plain text and exposes only mark-read/archive buttons. These buttons use icon-xs, which is a 24-pixel square in the shared primitive. Notification subjects and project context exist in the domain; the component currently has no route-opening action.
 - Impact: A failure notification does not provide a direct path to inspect the affected work; small adjacent targets can be awkward on touch screens.
 - Desired outcome: An operator can identify a relevant notification and reach actionable context while read/archive remain unambiguous and safe. Revoked access and removed subjects must not produce broken links or disclose restricted content.

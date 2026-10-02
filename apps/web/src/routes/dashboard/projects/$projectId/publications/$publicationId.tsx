@@ -1,9 +1,16 @@
+import { Button, buttonVariants } from '@herald/ui/components/button'
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import {
+    createFileRoute,
+    Link,
+    redirect,
+    useRouter,
+    type ErrorComponentProps,
+} from '@tanstack/react-router'
 import { useId } from 'react'
 
 import { PublicationEditor } from '@/components/publication-editor'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import { isCalendarDateKey } from '@/lib/publication-calendar'
@@ -11,6 +18,7 @@ import {
     isPublicationCalendarView,
     type PublicationCalendarView,
 } from '@/lib/publication-calendar-events'
+import * as m from '@/paraglide/messages.js'
 
 export interface PublicationEditorSearch {
     from?: 'calendar'
@@ -43,6 +51,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
         return { editor, projectTags, publicationTags, relatedPublications }
     },
     component: PublicationEditorRoute,
+    errorComponent: PublicationUnavailable,
 })
 
 function PublicationEditorRoute() {
@@ -87,5 +96,38 @@ function PublicationEditorRoute() {
             backToCalendar={from === 'calendar' ? { date, view } : undefined}
             timeZone={project.timeZone}
         />
+    )
+}
+
+function PublicationUnavailable({ error, reset }: ErrorComponentProps) {
+    const { projectId } = Route.useParams()
+    const router = useRouter()
+    const unavailable = error instanceof ApiError && (error.status === 403 || error.status === 404)
+    return (
+        <div className="mx-auto grid max-w-md justify-items-center gap-4 px-6 py-12 text-center">
+            <h1 className="font-heading text-xl font-semibold">
+                {unavailable ? m.notifications_subject_unavailable() : m.common_error_title()}
+            </h1>
+            {unavailable ? null : (
+                <p className="text-sm text-muted-foreground">{m.common_error_description()}</p>
+            )}
+            <div className="flex flex-wrap justify-center gap-3">
+                <Link
+                    className={buttonVariants({ variant: 'secondary' })}
+                    to="/dashboard/projects/$projectId/overview"
+                    params={{ projectId }}>
+                    {m.nav_overview()}
+                </Link>
+                {unavailable ? null : (
+                    <Button
+                        onClick={() => {
+                            reset()
+                            void router.invalidate()
+                        }}>
+                        {m.common_retry()}
+                    </Button>
+                )}
+            </div>
+        </div>
     )
 }

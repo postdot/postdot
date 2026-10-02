@@ -1882,5 +1882,7 @@
     "account_password_failed": "Le mot de passe n’a pas pu être modifié. Vérifiez sa longueur ou reconnectez-vous si votre session a expiré.",
     "provider_apps_secret_keep": "Laisser vide pour conserver le secret actuel.",
     "api_keys_projects_label": "Projets",
-    "api_keys_actions_label": "Actions"
+    "api_keys_actions_label": "Actions",
+    "notifications_open_subject": "Ouvrir la publication : {title}",
+    "notifications_subject_unavailable": "Cette publication n’est plus accessible."
 }

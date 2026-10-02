@@ -17,11 +17,13 @@ import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { SettingsIcon } from '@solar-icons/react/linear/settings'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { EmptyState } from '@/components/empty-state'
 import {
     api,
+    ApiError,
     formatApiError,
     type Notification,
     type NotificationInbox as NotificationInboxState,
@@ -44,6 +46,9 @@ type NotificationPanel = 'inbox' | 'preferences'
 export function NotificationInbox({ projectId, projects }: NotificationInboxProps) {
     const { locale } = useLanguage()
     const queryClient = useQueryClient()
+    const navigate = useNavigate()
+    const [openingId, setOpeningId] = useState<string | null>(null)
+    const [subjectError, setSubjectError] = useState<{ id: string; message: string } | null>(null)
     const [open, setOpen] = useState(false)
     const [panel, setPanel] = useState<NotificationPanel>('inbox')
     const [workingId, setWorkingId] = useState<string | null>(null)
@@ -76,7 +81,41 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
     useEffect(() => {
         setPanel('inbox')
         setActionError(null)
+        setSubjectError(null)
     }, [projectId])
+
+    const openSubject = async (notification: Notification) => {
+        if (
+            openingId !== null ||
+            notification.projectId === null ||
+            notification.subject.type !== 'publication'
+        )
+            return
+        setOpeningId(notification.id)
+        setSubjectError(null)
+        try {
+            await api.getPublicationEditor(notification.projectId, notification.subject.id)
+            await navigate({
+                to: '/dashboard/projects/$projectId/publications/$publicationId',
+                params: {
+                    projectId: notification.projectId,
+                    publicationId: notification.subject.id,
+                },
+                search: { from: undefined, date: undefined, view: undefined },
+            })
+            setOpen(false)
+        } catch (error) {
+            setSubjectError({
+                id: notification.id,
+                message:
+                    error instanceof ApiError && (error.status === 403 || error.status === 404)
+                        ? m.notifications_subject_unavailable()
+                        : formatApiError(error),
+            })
+        } finally {
+            setOpeningId(null)
+        }
+    }
 
     const markRead = async (notification: Notification) => {
         if (notification.readAt !== null) return
@@ -324,6 +363,14 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                                                       )?.name ?? null)
                                             }
                                             locale={locale}
+                                            opening={openingId === notification.id}
+                                            navigationDisabled={openingId !== null}
+                                            subjectError={
+                                                subjectError?.id === notification.id
+                                                    ? subjectError.message
+                                                    : null
+                                            }
+                                            onOpen={openSubject}
                                             onArchive={archive}
                                             onMarkRead={markRead}
                                         />
@@ -352,7 +399,15 @@ function NotificationItem({
     projectName,
     onArchive,
     onMarkRead,
+    onOpen,
+    opening,
+    navigationDisabled,
+    subjectError,
 }: {
+    readonly opening: boolean
+    readonly navigationDisabled: boolean
+    readonly subjectError: string | null
+    readonly onOpen: (notification: Notification) => Promise<void>
     readonly disabled: boolean
     readonly notification: Notification
     readonly projectName: string | null
@@ -362,6 +417,7 @@ function NotificationItem({
 }) {
     const unread = notification.readAt === null
     const copy = notificationContent(notification, locale)
+    const canOpen = notification.projectId !== null && notification.subject.type === 'publication'
 
     return (
         <li
@@ -376,9 +432,26 @@ function NotificationItem({
                     aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-5 font-medium break-words text-foreground">
-                        {copy.title}
-                    </p>
+                    {canOpen ? (
+                        <button
+                            type="button"
+                            aria-label={m.notifications_open_subject({ title: copy.title })}
+                            aria-busy={opening}
+                            disabled={navigationDisabled}
+                            className="block min-h-11 w-full rounded-sm text-left text-sm leading-5 font-medium break-words text-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 sm:min-h-0"
+                            onClick={() => void onOpen(notification)}>
+                            {copy.title}
+                        </button>
+                    ) : (
+                        <p className="text-sm leading-5 font-medium break-words text-foreground">
+                            {copy.title}
+                        </p>
+                    )}
+                    {subjectError !== null ? (
+                        <p role="alert" className="mt-1 text-xs leading-5 text-state-failed">
+                            {subjectError}
+                        </p>
+                    ) : null}
                     {copy.body !== null ? (
                         <p className="mt-1 text-xs leading-5 break-words text-muted-foreground">
                             {copy.body}
@@ -398,7 +471,8 @@ function NotificationItem({
                                 <Button
                                     aria-label={m.notifications_mark_as_read({ title: copy.title })}
                                     disabled={disabled}
-                                    size="icon-xs"
+                                    size="icon"
+                                    className="size-11 sm:size-8"
                                     title={m.notifications_read_short()}
                                     variant="ghost"
                                     onClick={() => void onMarkRead(notification)}>
@@ -409,7 +483,8 @@ function NotificationItem({
                             <Button
                                 aria-label={m.notifications_archive_item({ title: copy.title })}
                                 disabled={disabled}
-                                size="icon-xs"
+                                size="icon"
+                                className="size-11 sm:size-8"
                                 title={m.notifications_archive_short()}
                                 variant="ghost"
                                 onClick={() => void onArchive(notification)}>
