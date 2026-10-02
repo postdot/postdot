@@ -50,7 +50,8 @@
         "react-easy-crop": "6.2.3",
         "react-full-screen": "1.1.1",
         "react-markdown": "10.1.0",
-        "react-zoom-pan-pinch": "4.2.0"
+        "react-zoom-pan-pinch": "4.2.0",
+        "remark-inline-spoiler": "2.1.0"
     },
     "devDependencies": {
         "@inlang/paraglide-js": "2.25.4",

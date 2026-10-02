@@ -62,3 +62,21 @@ test('leaves escaped strikethrough markers and code untouched', () => {
     expect(html).toContain('<code>~~inline~~</code>')
     expect(html).toContain('<pre><code>~~code~~')
 })
+
+test('hides spoilers while preserving nested formatting and literal code', () => {
+    const html = renderToStaticMarkup(
+        <PublicationDiscordBody
+            body={
+                '||**secret** __detail__|| \\|\\|escaped\\|\\| `||inline||`\n\n```\n||code||\n```'
+            }
+        />
+    )
+    expect(html).toContain('data-discord-spoiler="true"')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('aria-hidden="true" class="invisible"')
+    expect(html).toContain('<strong>secret</strong> <u>detail</u>')
+    expect(html).toContain('||escaped||')
+    expect(html).toContain('<code>||inline||</code>')
+    expect(html).toContain('<pre><code>||code||')
+    expect(html.match(/data-discord-spoiler/g)).toHaveLength(1)
+})

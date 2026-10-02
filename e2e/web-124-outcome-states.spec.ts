@@ -599,6 +599,35 @@ test('keeps draft content truthful in destination-specific preview compositions'
     await messagePreview.screenshot({
         path: testInfo.outputPath('preview-discord-rich-light-390.png'),
     })
+    await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
+    const source = page.getByRole('textbox', {
+        name: en.publication_new_source_content,
+        exact: true,
+    })
+    await source.fill('Before ||**Secret**|| and ||Second|| after `||literal||`')
+    await page.getByRole('button', { name: 'Destination discord', exact: true }).click()
+    const spoilers = messagePreview.locator('[data-discord-spoiler]')
+    await expect(spoilers).toHaveCount(2)
+    await expect(spoilers.first()).toHaveAttribute('aria-expanded', 'false')
+    await expect(spoilers.first().locator('span')).toBeHidden()
+    await spoilers.first().focus()
+    await spoilers.first().press('Enter')
+    await expect(spoilers.first()).toHaveAttribute('aria-expanded', 'true')
+    await expect(spoilers.first().locator('strong')).toBeVisible()
+    await expect(spoilers.nth(1)).toHaveAttribute('aria-expanded', 'false')
+    await spoilers.first().press('Space')
+    await expect(spoilers.first()).toHaveAttribute('aria-expanded', 'false')
+    await spoilers.nth(1).click()
+    await expect(spoilers.nth(1)).toHaveAttribute('aria-expanded', 'true')
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await messagePreview.screenshot({
+        path: testInfo.outputPath('preview-discord-spoilers-390.png'),
+    })
+    await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
+    await expect(source).toHaveValue('Before ||**Secret**|| and ||Second|| after `||literal||`')
+    await source.fill('Before ||**Secret**|| and ||Second|| after `||literal||` updated')
+    await page.getByRole('button', { name: 'Destination discord', exact: true }).click()
+    await expect(spoilers.nth(1)).toHaveAttribute('aria-expanded', 'false')
 })
 
 test('keeps performance refresh failures local and cached metrics truthful', async ({
