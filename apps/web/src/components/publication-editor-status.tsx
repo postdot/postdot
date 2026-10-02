@@ -8,6 +8,7 @@ import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationEditorStatusProps {
+    readonly passive?: boolean
     readonly message: string | null
     readonly saveState: PublicationEditorSaveState
     readonly onReviewConflict: () => void
@@ -15,11 +16,23 @@ interface PublicationEditorStatusProps {
 
 export function PublicationEditorStatus({
     message,
+    passive = false,
     saveState,
     onReviewConflict,
 }: PublicationEditorStatusProps) {
     useLanguage()
     const needsAttention = saveState === 'error' || saveState === 'conflict'
+    if (message !== null && passive && !needsAttention) {
+        return (
+            <p
+                data-publication-editor-message="true"
+                data-passive-update="true"
+                role="status"
+                className="mt-3 px-1 text-xs leading-5 break-words text-muted-foreground">
+                {message}
+            </p>
+        )
+    }
     return (
         <>
             {message ? (

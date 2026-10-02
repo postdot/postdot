@@ -235,6 +235,17 @@ test('refreshes an open publication editor after a worker state change', async (
         page.getByText('The publication changed in the background.', { exact: false })
     ).toBeVisible()
 
+    const passiveNotice = page.locator('[data-passive-update="true"]')
+    await expect(passiveNotice).toHaveAttribute('role', 'status')
+    const sourcePrecedesNotice = await passiveNotice.evaluate(notice => {
+        const source = document.querySelector('[data-publication-composer="true"]')
+        return (
+            source !== null &&
+            Boolean(source.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING)
+        )
+    })
+    expect(sourcePrecedesNotice).toBe(true)
+
     await page.locator('[data-publication-action="retry"]').click()
     await expect(
         page.getByRole('status').filter({ hasText: 'Delivery retry scheduled.' })

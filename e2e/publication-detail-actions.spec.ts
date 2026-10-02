@@ -174,6 +174,16 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await page.reload()
     const conflict = page.locator('[data-publication-conflict]')
     await expect(editorNotice).toHaveAttribute('role', 'alert')
+    await expect(editorNotice).not.toHaveAttribute('data-passive-update', 'true')
+    expect(
+        await editorNotice.evaluate(notice => {
+            const composer = document.querySelector('[data-publication-composer="true"]')
+            return (
+                composer !== null &&
+                Boolean(notice.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING)
+            )
+        })
+    ).toBe(true)
     await expect(editorNotice).toContainText('Rebase it before saving or promoting.')
     await expect(editorNotice).not.toContainText('The latest server state is shown.')
     await editorNotice.getByRole('button').click()

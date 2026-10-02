@@ -11,7 +11,7 @@ import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { AltArrowLeftIcon } from '@solar-icons/react/linear/alt-arrow-left'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type MediaSelection } from '@/components/media-attachment-picker'
 import { PublicationActivityTimeline } from '@/components/publication-activity-timeline'
@@ -158,7 +158,7 @@ export function PublicationEditor({
                 ? 'conflict'
                 : 'saved'
     )
-    const [message, setMessage] = useState<string | null>(
+    const [message, setMessageValue] = useState<string | null>(
         !initialPublicationEditable
             ? null
             : recoveredContentDiffers || recoveredScheduleDiffers
@@ -172,6 +172,11 @@ export function PublicationEditor({
                   ? null
                   : m.editor_previous_local_newer()
     )
+    const [passiveMessage, setPassiveMessage] = useState(false)
+    const setMessage = useCallback((value: string | null, passive = false) => {
+        setMessageValue(value)
+        setPassiveMessage(passive)
+    }, [])
     const [recoveryAvailable, setRecoveryAvailable] = useState(
         initialPublicationEditable && initialRecovery !== null && !shouldRestoreInitialRecovery
     )
@@ -345,7 +350,8 @@ export function PublicationEditor({
                       draftRevision: initialEditor.draft.sourceRevision,
                       currentRevision: initialEditor.post.sourceRevision,
                   })
-                : m.editor_background_update()
+                : m.editor_background_update(),
+            !incomingSourceConflict
         )
     }, [
         currentEditorFingerprint,
@@ -881,6 +887,23 @@ export function PublicationEditor({
         invalidatePublicationQueries()
     }
 
+    const passiveStatus = passiveMessage && saveState !== 'error' && saveState !== 'conflict'
+    const editorStatus = (
+        <PublicationEditorStatus
+            passive={passiveStatus}
+            message={message}
+            saveState={saveState}
+            onReviewConflict={() => {
+                setTechnicalDetailsOpen(true)
+                const details = technicalDetailsRef.current
+                if (details === null) return
+                details.open = true
+                details.querySelector('summary')?.focus()
+                details.scrollIntoView({ block: 'start' })
+            }}
+        />
+    )
+
     const sourceSection = (
         <PublicationEditorSourceSection
             projectId={projectId}
@@ -1045,18 +1068,7 @@ export function PublicationEditor({
                     />
                 ) : null}
 
-                <PublicationEditorStatus
-                    message={message}
-                    saveState={saveState}
-                    onReviewConflict={() => {
-                        setTechnicalDetailsOpen(true)
-                        const details = technicalDetailsRef.current
-                        if (details === null) return
-                        details.open = true
-                        details.querySelector('summary')?.focus()
-                        details.scrollIntoView({ block: 'start' })
-                    }}
-                />
+                {!passiveStatus ? editorStatus : null}
 
                 <PublicationOutcomePanel
                     publication={editor.publication}
@@ -1127,6 +1139,8 @@ export function PublicationEditor({
                     }
                     preview={publicationEditable ? draftPreview : undefined}
                 />
+
+                {passiveStatus ? editorStatus : null}
 
                 <div
                     className={`mt-5 grid min-w-0 gap-3 ${publicationEditable ? '' : 'mx-auto max-w-2xl'}`}>

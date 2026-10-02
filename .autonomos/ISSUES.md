@@ -3998,6 +3998,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - UX-246 review: Long detail titles now remain centered separately from return controls on narrow screens, and mobile lifecycle actions no longer squeeze errors into a narrow column. The expanded editable Delivery form remains part of the ongoing UX-250 composition review.
 
+- Latest scoped correction (2026-10-02): Background freshness now appears as a quiet line after the composer, while save errors and conflicts retain their priority and resolution action. Detail and realtime tests verify the distinct ordering and announcement roles. See worklogs/2026-10-02-UX-250-hierarchy.md.
+
 ## [ISSUE-145] Reduce Queue scan noise while preserving lifecycle lookup
 
 - Type: design problem
