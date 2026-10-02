@@ -58,6 +58,7 @@ export function PublicationDraftPreview({
     const sampleIdentity = accountDriven && identityMode === 'sample'
     const authorName = sampleIdentity ? m.publication_preview_sample_author() : channel.name
     const hasPreviewBody = preview.hasText || media.length > 0
+    const stackedMedia = article || !accountDriven
 
     return (
         <section
@@ -165,7 +166,7 @@ export function PublicationDraftPreview({
                     {media.length > 0 ? (
                         <div
                             data-publication-preview-media="true"
-                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 gap-2 ${media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 gap-2 ${media.length === 1 || stackedMedia ? 'grid-cols-1' : 'grid-cols-2'}`}>
                             {media.map(asset => (
                                 <div
                                     key={asset.asset.id}
@@ -179,7 +180,7 @@ export function PublicationDraftPreview({
                                         representation={readyRepresentation(asset)}
                                         className={cn(
                                             'flex w-full items-center justify-center text-xs font-medium uppercase text-muted-foreground',
-                                            media.length === 1
+                                            media.length === 1 || stackedMedia
                                                 ? 'h-auto max-h-[420px] object-contain'
                                                 : 'aspect-[4/3] object-cover'
                                         )}
