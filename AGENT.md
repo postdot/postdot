@@ -16,6 +16,7 @@ content generator.
 ## ⚙️ Workflow & Preferences
 
 - **Commits:** Conventional Commits
+- **Skills maintenance:** Periodically refresh installed skills with `npx skills update`, review the resulting changes, and use the Solar catalog when choosing icons rather than guessing glyph names.
 - **Integration (temporary owner direction):** Until the owner changes this
   direction, run the repository's full `bun run check` locally and merge
   completed work directly into local `main`. Do not open pull requests or wait

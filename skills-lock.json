@@ -5,7 +5,7 @@
       "source": "better-auth/skills",
       "sourceType": "github",
       "skillPath": "better-auth/best-practices/SKILL.md",
-      "computedHash": "61ba0ef64ed2e7c424401cc848ca33dd6d790a720c44727717dc0c5cba5fc122"
+      "computedHash": "0c30be0e118c2b7a0c4c57bd9e63bf110c7e420a79ec6ce7997153f3b1e066ee"
     },
     "bun-drizzle-integration": {
       "source": "secondsky/claude-skills",
@@ -53,7 +53,7 @@
       "source": "saoudi-h/solar-icons",
       "sourceType": "github",
       "skillPath": "skills/solar-icons/SKILL.md",
-      "computedHash": "95c9b8274e8ebb96f98bf580e3b12836b628ecf76b315497c454cd51e0088a3e"
+      "computedHash": "0e3e4853987b9a1f7782d39078b725bfd5c1cc051d73d95a8e9a65cf007c30d3"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
