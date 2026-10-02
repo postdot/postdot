@@ -4,6 +4,7 @@ import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
 import { EmptyState } from '@/components/empty-state'
@@ -102,6 +103,7 @@ export function PublicationPerformancePage() {
     const { locale } = useLanguage()
     const { channels, project, projectRole } = useProjectDashboard()
     const queryClient = useQueryClient()
+    const [refreshErrors, setRefreshErrors] = useState<Record<string, true>>({})
     const canRefresh = projectRole === 'owner' || projectRole === 'editor'
     const publicationsQuery = useInfiniteQuery({
         queryKey: [...projectQueryKeys.publicationQueues(project.id), 'performance'],
@@ -146,6 +148,19 @@ export function PublicationPerformancePage() {
                 input.channelId,
                 input.publicationId
             ),
+        onMutate: input => {
+            setRefreshErrors(current => {
+                const next = { ...current }
+                delete next[input.publicationId]
+                return next
+            })
+        },
+        onError: (_error, input) => {
+            setRefreshErrors(current => ({
+                ...current,
+                [input.publicationId]: true,
+            }))
+        },
         onSuccess: async (_response, input) => {
             await queryClient.invalidateQueries({
                 queryKey: projectQueryKeys.providerAnalytics(project.id, input.provider),
@@ -209,6 +224,11 @@ export function PublicationPerformancePage() {
                             ? ''
                             : ` · ${formatDate(publication.publishedAt)}`}
                     </p>
+                    {refreshErrors[publication.id] !== undefined ? (
+                        <p role="alert" className="mt-2 text-xs leading-5 text-state-failed">
+                            {m.performance_refresh_failed()}
+                        </p>
+                    ) : null}
                 </div>
                 <div className="flex min-w-0 flex-wrap gap-x-4 gap-y-2">
                     {metrics.map(metric => {
@@ -248,7 +268,8 @@ export function PublicationPerformancePage() {
                                     publicationId: publication.id,
                                 })
                             }
-                            size="sm"
+                            size="icon"
+                            className="size-11 sm:h-7 sm:w-auto sm:gap-1 sm:px-2.5"
                             variant="ghost">
                             <RefreshIcon
                                 aria-hidden="true"
@@ -318,11 +339,6 @@ export function PublicationPerformancePage() {
                 />
             ) : (
                 <>
-                    {refreshMutation.isError ? (
-                        <p className="mb-3 text-sm text-state-failed" role="alert">
-                            {m.performance_refresh_failed()}
-                        </p>
-                    ) : null}
                     {blueskyQuery.isError || devtoQuery.isError ? (
                         <QueryErrorState
                             className="mb-3"

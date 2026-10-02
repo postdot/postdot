@@ -4014,12 +4014,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-146] Make Performance meaningful when provider data is unavailable
 
 - Type: design question
-- Status: proposed
+- Status: resolved by UX-252; current route retained, unsupported rows excluded and collection errors localized per publication
 - Evidence: The authenticated project has one published manual publication and no supported connected statistics provider. Performance still shows a permanent subtitle naming Bluesky and DEV.to, then one wide row whose main outcome is “stats are not available for this platform,” leaving the rest of the page blank. Its tab remains a peer to Overview and Queue.
 - Impact: The route's current first frame offers neither a metric nor an actionable decision for this project, while calling attention to capability limits that the operator cannot change from this screen.
 - Desired outcome: Decide whether unsupported publications should be hidden, grouped as context, or given a useful route to connection setup, and when the Performance navigation entry earns persistent prominence. Preserve truthful provider support and access to any collected stats.
 - Tasks: UX-252
-- Review update (2026-10-02): The permanent provider subtitle is no longer present. The current source still renders all published publications, including unsupported ones, in the principal list; missing metrics use dashes and failed refresh reports a page-level error. Separate these current findings from the older visit evidence.
+- Review correction (2026-10-02): The September 29 implementation already excludes unsupported publications. The previous source review overstated that finding. This pass verifies empty, unsupported, uncollected, disconnected and populated states, retains measured zero versus absent data, and attaches collection failures to their publication. See worklogs/2026-10-02-UX-252.md. Separate these current findings from the older visit evidence.
 - Related issues: ISSUE-063, ISSUE-135
 - Acceptance: Compare no-data, unsupported-only, supported-but-unconnected, and populated provider cases before choosing a layout or navigation change. Do not imply that manual or unsupported platforms expose metrics they do not provide.
 

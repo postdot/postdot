@@ -567,6 +567,163 @@ test('keeps draft content truthful in destination-specific preview compositions'
     }
 })
 
+test('keeps performance refresh failures local and cached metrics truthful', async ({
+    page,
+}, testInfo) => {
+    test.setTimeout(90_000)
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const channels: { id: string; name: string }[] = []
+    for (const profile of ['devto', 'bluesky', 'manual-message']) {
+        const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: { name: `Performance ${profile}`, profile },
+        })
+        expect(response.ok()).toBe(true)
+        channels.push((await response.json()).channel)
+    }
+    const now = Date.now()
+    const publications = channels.map((channel, index) => ({
+        ...publicationFixture({
+            channelName: channel.name,
+            errorMessage: '',
+            id: `performance-${index}`,
+            postTitle: `Provider publication ${index}`,
+            projectId,
+            scheduledAt: now,
+            state: 'failed',
+        }),
+        channelId: channel.id,
+        state: 'published',
+        publishedAt: now,
+        errorMessage: null,
+    }))
+    await page.route(`**/api/projects/${projectId}/publications?*`, route =>
+        route.fulfill({ json: { publications, nextCursor: null } })
+    )
+    let availability: 'measured' | 'not_configured' | 'empty' = 'empty'
+    await page.route(`**/api/projects/${projectId}/analytics/provider/*?*`, route => {
+        const devto = route.request().url().includes('/devto?')
+        return route.fulfill({
+            json: {
+                observations:
+                    availability === 'empty'
+                        ? []
+                        : [
+                              {
+                                  id: devto ? 'devto-views' : 'bluesky-likes',
+                                  projectId,
+                                  provider: devto ? 'devto' : 'bluesky',
+                                  subjectType: 'content',
+                                  providerSubjectId: 'provider-content',
+                                  providerSubjectLabel: null,
+                                  providerContentRevisionId: null,
+                                  heraldEntityType: 'publication',
+                                  heraldEntityId: publications[devto ? 0 : 1]!.id,
+                                  metricName: devto ? 'page_views' : 'likeCount',
+                                  value: availability === 'measured' ? (devto ? 123 : 0) : null,
+                                  unit: 'count',
+                                  aggregation: 'total',
+                                  reportingPeriodStart: null,
+                                  reportingPeriodEnd: null,
+                                  observedAt: now,
+                                  fetchedAt: now,
+                                  availability,
+                                  freshness: 'fresh',
+                                  provenance: 'isolated browser fixture',
+                              },
+                          ],
+                nextCursor: null,
+            },
+        })
+    })
+    let collectSucceeds = false
+    await page.route(`**/api/projects/${projectId}/analytics/provider/*/collect`, route =>
+        route.fulfill({
+            status: collectSucceeds ? 200 : 503,
+            json: collectSucceeds
+                ? {}
+                : { error: { code: 'provider_unavailable', message: 'Collection failed' } },
+        })
+    )
+    const visit = () => page.goto(`/dashboard/projects/${projectId}/performance`)
+    await visit()
+    const first = page.locator('[data-performance-publication="performance-0"]')
+    const second = page.locator('[data-performance-publication="performance-1"]')
+    await expect(first.getByText(en.performance_not_collected, { exact: true })).toBeVisible()
+    await expect(first.getByText('—', { exact: true })).toHaveCount(3)
+    await expect(page.locator('[data-performance-publication="performance-2"]')).toHaveCount(0)
+    availability = 'not_configured'
+    await page.reload()
+    await expect(
+        first.getByText(en.performance_status_not_configured, { exact: true })
+    ).toBeVisible()
+    await expect(first.getByText('—', { exact: true })).toHaveCount(3)
+    availability = 'measured'
+    await page.reload()
+    await expect(first.getByText('123', { exact: true })).toBeVisible()
+    await expect(second.getByText('0', { exact: true })).toBeVisible()
+    await expect(second.getByText('—', { exact: true })).toHaveCount(4)
+    await first
+        .getByRole('button', {
+            name: `${en.performance_refresh}: Provider publication 0`,
+            exact: true,
+        })
+        .click()
+    await expect(first.getByRole('alert')).toHaveText(en.performance_refresh_failed)
+    await expect(second.getByRole('alert')).toHaveCount(0)
+    await expect(first.getByText('123', { exact: true })).toBeVisible()
+    await second
+        .getByRole('button', {
+            name: `${en.performance_refresh}: Provider publication 1`,
+            exact: true,
+        })
+        .click()
+    await expect(second.getByRole('alert')).toHaveText(en.performance_refresh_failed)
+    await expect(first.getByRole('alert')).toBeVisible()
+    collectSucceeds = true
+    await first
+        .getByRole('button', {
+            name: `${en.performance_refresh}: Provider publication 0`,
+            exact: true,
+        })
+        .click()
+    await expect(first.getByRole('alert')).toHaveCount(0)
+    await expect(second.getByRole('alert')).toBeVisible()
+    await expect(first.getByText('123', { exact: true })).toBeVisible()
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+            await page
+                .getByRole('button', {
+                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                    exact: true,
+                })
+                .click()
+        }
+        for (const width of [1280, 820, 390]) {
+            await page.setViewportSize({ width, height: 844 })
+            if (width === 390) {
+                const refresh = second.getByRole('button', {
+                    name: `${en.performance_refresh}: Provider publication 1`,
+                    exact: true,
+                })
+                await expect(refresh).toHaveCSS('width', '44px')
+                await expect(refresh).toHaveCSS('height', '44px')
+            }
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            expect(
+                await page
+                    .locator('[data-dashboard-scroll]')
+                    .evaluate(element => element.scrollWidth <= element.clientWidth)
+            ).toBe(true)
+            await page.screenshot({
+                path: testInfo.outputPath(`performance-${theme}-${width}.png`),
+            })
+        }
+    }
+    await page.locator('[data-slot="language-switcher-trigger"]').click()
+    await page.getByRole('menuitem', { name: en.language_french, exact: true }).click()
+    await expect(second.getByRole('alert')).toHaveText(fr.performance_refresh_failed)
+})
+
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
