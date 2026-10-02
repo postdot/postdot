@@ -776,3 +776,64 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
         throw new Error(`Expected a project route, received ${page.url()}`)
     return match[1]
 }
+
+test('keeps a tall article preview clear of delivery settings', async ({ page }, info) => {
+    test.setTimeout(60000)
+    const id = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    expect(
+        (
+            await page.request.post(`/api/projects/${id}/channels`, {
+                data: { name: 'Article preview', profile: 'devto' },
+            })
+        ).ok()
+    ).toBe(true)
+    await page.goto(`/dashboard/projects/${id}/publications/new`)
+    await page.getByRole('button', { name: 'Article preview', exact: true }).click()
+    for (let index = 0; index < 4; index++) {
+        const png = await page.evaluate(index => {
+            const canvas = document.createElement('canvas')
+            canvas.width = 600
+            canvas.height = 400
+            const context = canvas.getContext('2d')!
+            context.fillStyle = ['#cd5268', '#488fc4', '#63a06b', '#cc983b'][index]!
+            context.fillRect(0, 0, 600, 400)
+            context.fillStyle = 'white'
+            context.font = 'bold 120px sans-serif'
+            context.fillText(String(index + 1), 240, 240)
+            return canvas.toDataURL().split(',')[1]!
+        }, index)
+        await page.locator('input[type=file]').setInputFiles({
+            name: `article-${index}.png`,
+            mimeType: 'image/png',
+            buffer: Buffer.from(png, 'base64'),
+        })
+        await expect(page.locator('[data-publication-preview-media] img')).toHaveCount(index + 1)
+    }
+    for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        const preview = page.locator('[data-composer-preview]')
+        const settings = page.locator('[data-composer-settings]')
+        const bounds = await preview.boundingBox()
+        const settingsBounds = await settings.boundingBox()
+        if (width === 1280) {
+            expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(settingsBounds!.y)
+            const scrolling = await preview.evaluate(
+                element => element.scrollHeight > element.clientHeight
+            )
+            expect(scrolling).toBe(true)
+            await preview.focus()
+            await page.keyboard.press('End')
+            await expect
+                .poll(() => preview.evaluate(element => element.scrollTop))
+                .toBeGreaterThan(0)
+            await settings.scrollIntoViewIfNeeded()
+            const scrolledPreview = await preview.boundingBox()
+            const scrolledSettings = await settings.boundingBox()
+            expect(scrolledPreview!.y + scrolledPreview!.height).toBeLessThanOrEqual(
+                scrolledSettings!.y
+            )
+        }
+        await assertNoOverflow(page)
+        await page.screenshot({ path: info.outputPath(`article-preview-layout-${width}.png`) })
+    }
+})

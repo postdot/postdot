@@ -1,6 +1,8 @@
 import { cn } from '@herald/ui/lib/utils'
 import type { ReactNode } from 'react'
 
+import * as m from '@/paraglide/messages.js'
+
 export interface PublicationComposerProps {
     readonly channelNavigation?: ReactNode
     readonly editor: ReactNode
@@ -53,8 +55,11 @@ export function PublicationComposer({
             {preview ? (
                 <div
                     data-composer-preview="true"
+                    role="group"
+                    aria-label={m.publication_new_preview()}
+                    tabIndex={0}
                     className={cn(
-                        'min-w-0 lg:sticky lg:col-start-2 lg:top-6',
+                        'min-w-0 rounded-md focus-visible:outline-2 focus-visible:outline-primary lg:col-start-2 lg:max-h-[calc(100dvh-12rem)] lg:overflow-y-auto lg:overscroll-contain',
                         channelNavigation ? 'lg:row-start-2' : 'lg:row-start-1'
                     )}>
                     {preview}
