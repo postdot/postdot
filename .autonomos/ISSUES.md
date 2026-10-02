@@ -3992,6 +3992,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: The operator must scan repeated identity and content before finding the publication's state or next action. The same page behaves like a form even when the publication cannot be edited, and its information hierarchy differs from the accepted new-publication composer.
 - Desired outcome: Give published, draft, scheduled, due-manual, and failed states a clear primary object, status, and next meaningful action. Reuse the recognizable post presentation where it helps inspection, preserve editable controls only where needed, and move revision, format, payload, and history into deliberate secondary access. Keep the return path and source-to-destination relationship intact.
 - Tasks: UX-250
+- Review update (2026-10-02): Current simulated failed-detail mobile captures retain stacked lifecycle and background-update notices before the source editor. Further hierarchy review should distinguish urgent delivery failure from passive freshness information while keeping conflict/recovery decisions explicit.
 - Related issues: ISSUE-063, ISSUE-099, ISSUE-100, ISSUE-141
 - Acceptance: Review representative states at wide and narrow widths before implementation; no duplicated content or status in the first frame; editable and read-only modes have distinct hierarchy without losing capability; real lifecycle actions, media, accessibility, and route continuity pass browser checks.
 
@@ -4018,6 +4019,7 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: The route's current first frame offers neither a metric nor an actionable decision for this project, while calling attention to capability limits that the operator cannot change from this screen.
 - Desired outcome: Decide whether unsupported publications should be hidden, grouped as context, or given a useful route to connection setup, and when the Performance navigation entry earns persistent prominence. Preserve truthful provider support and access to any collected stats.
 - Tasks: UX-252
+- Review update (2026-10-02): The permanent provider subtitle is no longer present. The current source still renders all published publications, including unsupported ones, in the principal list; missing metrics use dashes and failed refresh reports a page-level error. Separate these current findings from the older visit evidence.
 - Related issues: ISSUE-063, ISSUE-135
 - Acceptance: Compare no-data, unsupported-only, supported-but-unconnected, and populated provider cases before choosing a layout or navigation change. Do not imply that manual or unsupported platforms expose metrics they do not provide.
 
@@ -4030,3 +4032,23 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Compact, recognizable channel selection with a persistent non-notification identity cue for repeated platforms, meaningful custom identities, guided naming, and channel creation that preserves the composition in place.
 - Tasks: UX-256
 - Boundaries: Preserve existing stored names and API contracts. Suggested naming and creation-dialog collision validation do not claim a database-wide uniqueness constraint; such a constraint needs a separately accepted migration policy for existing duplicates. Owner permits alternative solutions and name customization. Color customization remains an optional future proposal, not a hidden new persisted setting.
+
+## [ISSUE-148] Keep account credential editing consistent and inspectable
+
+- Type: interface problem
+- Status: accepted for bounded correction using existing patterns
+- Evidence: Current account/password isolated captures show a bright default dialog body and contrasting footer, while OAuth/API-key dialogs use a subdued raised surface. PasswordChangeDialog uses three password Input fields without the visibility controls already present in AuthForm.
+- Impact: Credential editing has an inconsistent material hierarchy; mobile users cannot inspect typing before committing a password change.
+- Desired outcome: A coherent account dialog with deliberate credential visibility controls; retain current-password verification, confirmation, pending guards and session consequences.
+- Tasks: UX-274
+- Acceptance: Review both themes at desktop/mobile widths, preserve autocomplete, masked defaults and keyboard labels; verify failed submission retains input and success preserves the accepted session contract. Do not generalize this correction into another global palette change.
+
+## [ISSUE-149] Make notification follow-up reachable and touch-friendly
+
+- Type: interaction problem
+- Status: accepted for review; navigation behavior remains a proposal
+- Evidence: NotificationItem presents its title as plain text and exposes only mark-read/archive buttons. These buttons use icon-xs, which is a 24-pixel square in the shared primitive. Notification subjects and project context exist in the domain; the component currently has no route-opening action.
+- Impact: A failure notification does not provide a direct path to inspect the affected work; small adjacent targets can be awkward on touch screens.
+- Desired outcome: An operator can identify a relevant notification and reach actionable context while read/archive remain unambiguous and safe. Revoked access and removed subjects must not produce broken links or disclose restricted content.
+- Tasks: UX-275 (review first)
+- Acceptance: Test published, failed and ambiguous subjects, removed/inaccessible projects, narrow touch layouts and keyboard behavior. Resolve whether opening also marks read before implementation; preserve recipient-owned notifications and server authorization.
