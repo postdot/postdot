@@ -47,6 +47,7 @@
         "react-dom": "19.3.0",
         "react-easy-crop": "6.2.3",
         "react-full-screen": "1.1.1",
+        "react-markdown": "10.1.0",
         "react-zoom-pan-pinch": "4.2.0"
     },
     "devDependencies": {

@@ -10,6 +10,7 @@ import previewPaths from '@/assets/platform-preview-icons/paths.json'
 import sampleSocialPortrait from '@/assets/sample-social-portrait.jpg'
 import { ChannelAvatar } from '@/components/identity-visuals'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
+import { PublicationArticleBody } from '@/components/publication-article-body'
 import type { Channel, MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { getDraftPreviewModel } from '@/lib/publication-preview'
@@ -148,7 +149,9 @@ export function PublicationDraftPreview({
                         </h2>
                     ) : null}
 
-                    {preview.hasText ? (
+                    {preview.hasText && article ? (
+                        <PublicationArticleBody body={preview.body} />
+                    ) : preview.hasText ? (
                         <p
                             data-publication-preview-content="true"
                             className={`${preview.showTitle && preview.title !== '' ? 'mt-3' : ''} whitespace-pre-wrap break-words text-sm ${linkedIn ? 'leading-5' : 'leading-6'}`}>
