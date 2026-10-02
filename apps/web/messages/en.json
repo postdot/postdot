@@ -1,4 +1,7 @@
 {
+    "publication_emoji_insert": "Insert emoji",
+    "publication_emoji_search": "Search emojis",
+    "publication_emoji_empty": "No emoji found",
     "publication_spoiler_reveal": "Reveal spoiler",
     "publication_spoiler_hide": "Hide spoiler",
     "language_menu_label": "Language",

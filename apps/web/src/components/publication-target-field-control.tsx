@@ -9,12 +9,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@herald/ui/components/select'
-import { Textarea } from '@herald/ui/components/textarea'
 import { X_TEXT_COUNTING_ALGORITHM, parseXPostText } from '@herald/x/text'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { useEffect, useState } from 'react'
 
+import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
@@ -109,11 +109,11 @@ export function TargetFieldControl({
                 {field.kind === 'text' ? (
                     field.semantic === 'primary_text' ? (
                         <div className="grid min-w-0 gap-1.5">
-                            <Textarea
+                            <PublicationTextEditor
                                 id={fieldId}
                                 value={typeof value === 'string' ? value : ''}
-                                onChange={event =>
-                                    onChange(optionalTextValue(event.target.value, field.required))
+                                onValueChange={text =>
+                                    onChange(optionalTextValue(text, field.required))
                                 }
                                 disabled={disabled}
                                 minLength={field.minLength ?? undefined}

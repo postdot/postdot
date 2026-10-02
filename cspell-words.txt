@@ -93,3 +93,6 @@ webfonts
 wireframes
 workstream
 workstreams
+
+emojibase
+frimousse

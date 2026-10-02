@@ -8,11 +8,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@herald/ui/components/select'
-import { Textarea } from '@herald/ui/components/textarea'
 import { PenIcon } from '@solar-icons/react/linear/pen'
 import { useState } from 'react'
 
 import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
+import { PublicationTextEditor } from '@/components/publication-text-editor'
 import type { MediaReference, PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -88,10 +88,10 @@ export function PublicationEditorSourceSection({
                             <FieldLabel className="sr-only" htmlFor="source-body">
                                 {m.editor_source_body()}
                             </FieldLabel>
-                            <Textarea
+                            <PublicationTextEditor
                                 id="source-body"
                                 value={body?.text ?? ''}
-                                onChange={event => onTextChange(event.target.value)}
+                                onValueChange={onTextChange}
                                 disabled={disabled}
                                 rows={sourceContent.media.length > 0 && !body?.text ? 3 : 7}
                                 placeholder={m.editor_source_body_placeholder()}

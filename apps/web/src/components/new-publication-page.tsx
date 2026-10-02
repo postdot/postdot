@@ -8,7 +8,6 @@ import {
     DialogTitle,
 } from '@herald/ui/components/dialog'
 import { Input } from '@herald/ui/components/input'
-import { Textarea } from '@herald/ui/components/textarea'
 import { cn } from '@herald/ui/lib/utils'
 import { parseXPostText } from '@herald/x/text'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
@@ -31,6 +30,7 @@ import {
     PublicationChannelTabs,
     publicationSharedTabId,
 } from '@/components/publication-target-list'
+import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
 import { type PublicationCreationMode, useProjectDashboard } from '@/lib/dashboard-context'
@@ -750,7 +750,7 @@ export function NewPublicationPage({
                                         </div>
                                     ) : null}
                                     <div>
-                                        <Textarea
+                                        <PublicationTextEditor
                                             id="new-post-content"
                                             aria-label={
                                                 activeContentTarget === undefined
@@ -765,7 +765,7 @@ export function NewPublicationPage({
                                             aria-invalid={activeTextInvalid || undefined}
                                             value={activeText}
                                             disabled={pending}
-                                            onChange={event => editActiveText(event.target.value)}
+                                            onValueChange={editActiveText}
                                             placeholder={m.publication_new_source_placeholder()}
                                             rows={9}
                                             className="min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
