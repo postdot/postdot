@@ -58,7 +58,7 @@ export function PublicationDraftPreview({
     const sampleIdentity = accountDriven && identityMode === 'sample'
     const authorName = sampleIdentity ? m.publication_preview_sample_author() : channel.name
     const hasPreviewBody = preview.hasText || media.length > 0
-    const stackedMedia = article || !accountDriven
+    const stackedMedia = !accountDriven
     const blueskyMosaic = channel.profileId === 'bluesky' && media.length >= 2 && media.length <= 4
     const mastodonMosaic = mastodon && media.length >= 2 && media.length <= 4
     const fittedMosaic = blueskyMosaic || mastodonMosaic
@@ -187,11 +187,15 @@ export function PublicationDraftPreview({
                                         representation={readyRepresentation(asset)}
                                         className={cn(
                                             'flex w-full items-center justify-center text-xs font-medium uppercase text-muted-foreground',
-                                            fittedMosaic
-                                                ? 'h-full object-cover'
-                                                : media.length === 1 || stackedMedia
-                                                  ? 'h-auto max-h-[420px] object-contain'
-                                                  : 'aspect-[4/3] object-cover'
+                                            article
+                                                ? media.length === 1
+                                                    ? 'h-auto max-h-44 object-contain'
+                                                    : 'h-28 object-cover'
+                                                : fittedMosaic
+                                                  ? 'h-full object-cover'
+                                                  : media.length === 1 || stackedMedia
+                                                    ? 'h-auto max-h-[420px] object-contain'
+                                                    : 'aspect-[4/3] object-cover'
                                         )}
                                     />
                                 </div>

@@ -777,7 +777,7 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     return match[1]
 }
 
-test('keeps a tall article preview clear of delivery settings', async ({ page }, info) => {
+test('keeps article images compact and clear of delivery settings', async ({ page }, info) => {
     test.setTimeout(60000)
     const id = await createAccountAndProject(page, randomUUID().slice(0, 8))
     expect(
@@ -817,15 +817,14 @@ test('keeps a tall article preview clear of delivery settings', async ({ page },
         const settingsBounds = await settings.boundingBox()
         if (width === 1280) {
             expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(settingsBounds!.y)
-            const scrolling = await preview.evaluate(
-                element => element.scrollHeight > element.clientHeight
-            )
-            expect(scrolling).toBe(true)
-            await preview.focus()
-            await page.keyboard.press('End')
-            await expect
-                .poll(() => preview.evaluate(element => element.scrollTop))
-                .toBeGreaterThan(0)
+            expect(
+                await preview.evaluate(element => element.scrollHeight <= element.clientHeight)
+            ).toBe(true)
+            const galleryBounds = await preview
+                .locator('[data-publication-preview-media]')
+                .boundingBox()
+            expect(galleryBounds!.height).toBeLessThanOrEqual(240)
+            expect(bounds!.height).toBeLessThan(500)
             await settings.scrollIntoViewIfNeeded()
             const scrolledPreview = await preview.boundingBox()
             const scrolledSettings = await settings.boundingBox()
