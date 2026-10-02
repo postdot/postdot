@@ -18,7 +18,10 @@ import { PublicationActivityTimeline } from '@/components/publication-activity-t
 import { PublicationCancellationDialog } from '@/components/publication-cancellation-dialog'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
-import { PublicationEditorPromotionSection } from '@/components/publication-editor-promotion-section'
+import {
+    PublicationEditorDeliverySettings,
+    PublicationEditorPromotionAction,
+} from '@/components/publication-editor-promotion-section'
 import {
     type CapabilitySummary,
     PublicationEditorSidebar,
@@ -1114,28 +1117,39 @@ export function PublicationEditor({
                             <div className="min-w-0 space-y-5">
                                 {sourceSection}
                                 {targetSection}
-                                <PublicationEditorPromotionSection
-                                    timeZone={timeZone}
-                                    scheduleValue={scheduleValue}
-                                    disabled={promotionBlocked}
-                                    draftRequiresReview={draftRequiresReview}
-                                    draftDiffersFromTarget={draftDiffersFromTarget || scheduleDirty}
-                                    onScheduleChange={value => {
-                                        setScheduleValue(value)
-                                        setScheduleDirty(
-                                            value !==
-                                                toDateTimeLocal(
-                                                    editor.publication.scheduledAt,
-                                                    timeZone
-                                                )
-                                        )
-                                    }}
-                                    onPromote={() => void promoteDraft()}
-                                />
                             </div>
                         ) : (
                             <div className="mx-auto max-w-2xl">{draftPreview}</div>
                         )
+                    }
+                    settings={
+                        publicationEditable ? (
+                            <PublicationEditorDeliverySettings
+                                timeZone={timeZone}
+                                scheduleValue={scheduleValue}
+                                disabled={promotionBlocked}
+                                onScheduleChange={value => {
+                                    setScheduleValue(value)
+                                    setScheduleDirty(
+                                        value !==
+                                            toDateTimeLocal(
+                                                editor.publication.scheduledAt,
+                                                timeZone
+                                            )
+                                    )
+                                }}
+                            />
+                        ) : undefined
+                    }
+                    footer={
+                        publicationEditable ? (
+                            <PublicationEditorPromotionAction
+                                disabled={promotionBlocked}
+                                draftRequiresReview={draftRequiresReview}
+                                draftDiffersFromTarget={draftDiffersFromTarget || scheduleDirty}
+                                onPromote={() => void promoteDraft()}
+                            />
+                        ) : undefined
                     }
                     preview={publicationEditable ? draftPreview : undefined}
                 />

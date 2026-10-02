@@ -4000,6 +4000,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Latest scoped correction (2026-10-02): Background freshness now appears as a quiet line after the composer, while save errors and conflicts retain their priority and resolution action. Detail and realtime tests verify the distinct ordering and announcement roles. See worklogs/2026-10-02-UX-250-hierarchy.md.
 
+- Delivery composition update (2026-10-02): Detail scheduling and promotion use the existing shared composer settings/action slots instead of nesting inside the source column. Disclosure and lifecycle behavior are unchanged; full browser/build validation passed. See worklogs/2026-10-02-UX-250-delivery.md.
+
 ## [ISSUE-145] Reduce Queue scan noise while preserving lifecycle lookup
 
 - Type: design problem

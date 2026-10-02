@@ -58,6 +58,17 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(delivery).not.toHaveAttribute('open', '')
     await expect(page.locator('#deliver-at')).not.toBeVisible()
     await expect(page.getByRole('button', { name: 'Apply to channel', exact: true })).toBeVisible()
+    await expect(
+        page.locator('[data-composer-settings]').locator('[data-publication-delivery-disclosure]')
+    ).toBeVisible()
+    await expect(
+        page
+            .locator('[data-composer-actions]')
+            .getByRole('button', { name: 'Apply to channel', exact: true })
+    ).toBeVisible()
+    await expect(
+        page.locator('[data-composer-editor]').locator('[data-publication-delivery-disclosure]')
+    ).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Content', exact: true })).toHaveCount(0)
     await expect(page.locator('#source-body')).toBeVisible()
     await expect(page.locator('#source-body')).toHaveAccessibleName('Body')
