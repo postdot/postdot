@@ -77,6 +77,13 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await customization.locator(':scope > summary').focus()
     await page.keyboard.press('Enter')
     await expect(customization.locator('[data-target-editor]')).toBeVisible()
+    const advancedSummary = customization.locator('[data-target-advanced] > summary')
+    await advancedSummary.focus()
+    await page.keyboard.press('Enter')
+    await expect(customization.locator('#target-json')).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect(customization.locator('#target-json')).not.toBeVisible()
+    await customization.locator(':scope > summary').focus()
     await page.keyboard.press('Enter')
     await expect(customization.locator('[data-target-editor]')).not.toBeVisible()
 

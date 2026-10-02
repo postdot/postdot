@@ -4002,6 +4002,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 
 - Delivery composition update (2026-10-02): Detail scheduling and promotion use the existing shared composer settings/action slots instead of nesting inside the source column. Disclosure and lifecycle behavior are unchanged; full browser/build validation passed. See worklogs/2026-10-02-UX-250-delivery.md.
 
+- Destination inspection update (2026-10-02): Read-only fields use a responsive description list instead of individual cards. Advanced JSON disclosures share keyboard behavior and a right chevron. Full repository validation passed. See worklogs/2026-10-02-UX-250-readonly.md.
+
 ## [ISSUE-145] Reduce Queue scan noise while preserving lifecycle lookup
 
 - Type: design problem
