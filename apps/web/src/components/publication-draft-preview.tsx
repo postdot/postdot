@@ -60,6 +60,8 @@ export function PublicationDraftPreview({
     const hasPreviewBody = preview.hasText || media.length > 0
     const stackedMedia = article || !accountDriven
     const blueskyMosaic = channel.profileId === 'bluesky' && media.length >= 2 && media.length <= 4
+    const mastodonMosaic = mastodon && media.length >= 2 && media.length <= 4
+    const fittedMosaic = blueskyMosaic || mastodonMosaic
 
     return (
         <section
@@ -167,13 +169,13 @@ export function PublicationDraftPreview({
                     {media.length > 0 ? (
                         <div
                             data-publication-preview-media="true"
-                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 ${blueskyMosaic ? 'gap-1' : 'gap-2'} ${blueskyMosaic && media.length < 4 ? 'aspect-[2/1]' : ''} ${blueskyMosaic && media.length === 3 ? 'grid-rows-2' : ''} ${media.length === 1 || stackedMedia ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 ${mastodonMosaic ? 'gap-0.5' : blueskyMosaic ? 'gap-1' : 'gap-2'} ${mastodonMosaic ? 'aspect-[3/2]' : blueskyMosaic && media.length < 4 ? 'aspect-[2/1]' : ''} ${(fittedMosaic && media.length === 3) || (mastodonMosaic && media.length === 4) ? 'grid-rows-2' : ''} ${media.length === 1 || stackedMedia ? 'grid-cols-1' : 'grid-cols-2'}`}>
                             {media.map((asset, index) => (
                                 <div
                                     key={asset.asset.id}
                                     className={cn(
                                         'min-h-0 min-w-0 overflow-hidden bg-surface-inset',
-                                        blueskyMosaic && media.length === 3 && index === 0
+                                        fittedMosaic && media.length === 3 && index === 0
                                             ? 'row-span-2'
                                             : '',
                                         blueskyMosaic && media.length === 4 ? 'aspect-[3/2]' : '',
@@ -185,7 +187,7 @@ export function PublicationDraftPreview({
                                         representation={readyRepresentation(asset)}
                                         className={cn(
                                             'flex w-full items-center justify-center text-xs font-medium uppercase text-muted-foreground',
-                                            blueskyMosaic
+                                            fittedMosaic
                                                 ? 'h-full object-cover'
                                                 : media.length === 1 || stackedMedia
                                                   ? 'h-auto max-h-[420px] object-contain'
