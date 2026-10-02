@@ -61,7 +61,7 @@ export function PublicationDraftPreview({
     const sampleIdentity = accountDriven && identityMode === 'sample'
     const authorName = sampleIdentity ? m.publication_preview_sample_author() : channel.name
     const hasPreviewBody = preview.hasText || media.length > 0
-    const stackedMedia = !accountDriven
+    const compactMedia = article || !accountDriven
     const blueskyMosaic = channel.profileId === 'bluesky' && media.length >= 2 && media.length <= 4
     const mastodonMosaic = mastodon && media.length >= 2 && media.length <= 4
     const fittedMosaic = blueskyMosaic || mastodonMosaic
@@ -172,7 +172,7 @@ export function PublicationDraftPreview({
                     {media.length > 0 ? (
                         <div
                             data-publication-preview-media="true"
-                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 ${mastodonMosaic ? 'gap-0.5' : blueskyMosaic ? 'gap-1' : 'gap-2'} ${mastodonMosaic ? 'aspect-[3/2]' : blueskyMosaic && media.length < 4 ? 'aspect-[2/1]' : ''} ${(fittedMosaic && media.length === 3) || (mastodonMosaic && media.length === 4) ? 'grid-rows-2' : ''} ${media.length === 1 || stackedMedia ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 ${mastodonMosaic ? 'gap-0.5' : blueskyMosaic ? 'gap-1' : 'gap-2'} ${mastodonMosaic ? 'aspect-[3/2]' : blueskyMosaic && media.length < 4 ? 'aspect-[2/1]' : ''} ${(fittedMosaic && media.length === 3) || (mastodonMosaic && media.length === 4) ? 'grid-rows-2' : ''} ${media.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                             {media.map((asset, index) => (
                                 <div
                                     key={asset.asset.id}
@@ -197,13 +197,13 @@ export function PublicationDraftPreview({
                                         representation={readyRepresentation(asset)}
                                         className={cn(
                                             'flex w-full items-center justify-center text-xs font-medium uppercase text-muted-foreground',
-                                            article
+                                            compactMedia
                                                 ? media.length === 1
                                                     ? 'h-auto max-h-44 object-contain'
                                                     : 'h-28 object-cover'
                                                 : fittedMosaic
                                                   ? 'h-full object-cover'
-                                                  : media.length === 1 || stackedMedia
+                                                  : media.length === 1
                                                     ? 'h-auto max-h-[420px] object-contain'
                                                     : 'aspect-[4/3] object-cover'
                                         )}

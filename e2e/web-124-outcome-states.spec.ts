@@ -793,6 +793,55 @@ async function createAccountAndProject(page: Page, suffix: string): Promise<stri
     return match[1]
 }
 
+test('keeps manual channel images compact without internal scrolling', async ({ page }, info) => {
+    const id = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    await createTestChannel(page, id, 'Manual preview')
+    await page.goto(`/dashboard/projects/${id}/publications/new`)
+    await page.getByRole('button', { name: 'Manual preview', exact: true }).click()
+    for (let index = 0; index < 4; index++) {
+        const png = await page.evaluate(index => {
+            const canvas = document.createElement('canvas')
+            canvas.width = 600
+            canvas.height = 400
+            const context = canvas.getContext('2d')!
+            context.fillStyle = ['#cd5268', '#488fc4', '#63a06b', '#cc983b'][index]!
+            context.fillRect(0, 0, 600, 400)
+            return canvas.toDataURL().split(',')[1]!
+        }, index)
+        await page.locator('input[type=file]').setInputFiles({
+            name: `manual-${index}.png`,
+            mimeType: 'image/png',
+            buffer: Buffer.from(png, 'base64'),
+        })
+        await expect(page.locator('[data-publication-preview-media] img')).toHaveCount(index + 1)
+        if (index === 0) {
+            expect(
+                (await page.locator('[data-publication-preview-media]').boundingBox())!.height
+            ).toBeLessThanOrEqual(176)
+        }
+    }
+    for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        const preview = page.locator('[data-composer-preview]')
+        const gallery = preview.locator('[data-publication-preview-media]')
+        expect(
+            await gallery.evaluate(
+                element => getComputedStyle(element).gridTemplateColumns.split(' ').length
+            )
+        ).toBe(2)
+        expect((await gallery.boundingBox())!.height).toBeLessThanOrEqual(240)
+        expect(
+            await preview.evaluate(element => element.scrollHeight <= element.clientHeight)
+        ).toBe(true)
+        const bounds = await preview.boundingBox()
+        const settings = await page.locator('[data-composer-settings]').boundingBox()
+        if (width === 1280) expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(settings!.y)
+        else expect(settings!.y + settings!.height).toBeLessThanOrEqual(bounds!.y)
+        await assertNoOverflow(page)
+        await page.screenshot({ path: info.outputPath(`manual-preview-layout-${width}.png`) })
+    }
+})
+
 test('keeps article images compact and clear of delivery settings', async ({ page }, info) => {
     test.setTimeout(60000)
     const id = await createAccountAndProject(page, randomUUID().slice(0, 8))
