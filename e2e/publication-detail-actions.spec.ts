@@ -106,11 +106,15 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     let lifecycleState: 'due' | 'failed' = 'due'
     let sourceConflict = false
     let olderRecovery = false
+    const baselineResponse = await page.request.get(
+        `/api/projects/${projectId}/publications/${publicationId}/editor`
+    )
+    expect(baselineResponse.status()).toBe(200)
+    const baselineEditor = await baselineResponse.json()
     await page.route(
         `**/api/projects/${projectId}/publications/${publicationId}/editor`,
         async route => {
-            const response = await route.fetch()
-            const payload = (await response.json()) as {
+            const payload = structuredClone(baselineEditor) as {
                 editor: {
                     publication: Record<string, unknown>
                     draft: { sourceRevision: number; revision: number }
@@ -131,7 +135,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
             if (sourceConflict) {
                 payload.editor.post.sourceRevision = payload.editor.draft.sourceRevision + 1
             }
-            await route.fulfill({ response, json: payload })
+            await route.fulfill({ status: 200, json: payload })
         }
     )
 
