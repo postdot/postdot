@@ -568,13 +568,14 @@ test('keeps draft content truthful in destination-specific preview compositions'
     await page
         .getByRole('textbox', { name: en.publication_new_source_content, exact: true })
         .fill(
-            '## Update\n\n__Underlined__ **Bold** __*Both*__\nNext line\n\n- First\n- Second\n\n```\n__literal__\n```'
+            '## Update\n\n__Underlined__ **Bold** __*Both*__ ~~Outdated~~\nNext line\n\n- First\n- Second\n\n```\n__literal__\n```'
         )
     await page.getByRole('button', { name: 'Destination discord', exact: true }).click()
     const messagePreview = page.locator('[data-preview-platform="discord"]')
     await expect(messagePreview.locator('u').first()).toHaveText('Underlined')
     await expect(messagePreview.locator('strong')).toHaveText('Bold')
     await expect(messagePreview.locator('u em')).toHaveText('Both')
+    await expect(messagePreview.locator('del')).toHaveText('Outdated')
     await expect(messagePreview.locator('pre code')).toContainText('__literal__')
     for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 })
@@ -583,6 +584,21 @@ test('keeps draft content truthful in destination-specific preview compositions'
             path: testInfo.outputPath(`preview-discord-rich-${width}.png`),
         })
     }
+    await page
+        .getByRole('button', {
+            name: en.theme_switch_to.replace('{theme}', en.theme_light),
+            exact: true,
+        })
+        .click()
+    await expect(page.locator('html')).toHaveClass(/\blight\b/)
+    expect(
+        await messagePreview
+            .locator('del')
+            .evaluate(element => getComputedStyle(element).textDecorationLine)
+    ).toBe('line-through')
+    await messagePreview.screenshot({
+        path: testInfo.outputPath('preview-discord-rich-light-390.png'),
+    })
 })
 
 test('keeps performance refresh failures local and cached metrics truthful', async ({

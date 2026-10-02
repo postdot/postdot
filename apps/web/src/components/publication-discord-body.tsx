@@ -1,3 +1,5 @@
+import { gfmStrikethroughFromMarkdown } from 'mdast-util-gfm-strikethrough'
+import { gfmStrikethrough } from 'micromark-extension-gfm-strikethrough'
 import Markdown from 'react-markdown'
 
 interface MessageNode {
@@ -9,7 +11,15 @@ interface MessageNode {
 }
 
 /** Adapt parsed emphasis without rewriting escaped text or code. */
-function discordMessageFormatting() {
+function discordMessageFormatting(this: { data(): object }) {
+    const data = this.data() as {
+        micromarkExtensions?: ReturnType<typeof gfmStrikethrough>[]
+        fromMarkdownExtensions?: ReturnType<typeof gfmStrikethroughFromMarkdown>[]
+    }
+    const syntax = data.micromarkExtensions ?? (data.micromarkExtensions = [])
+    const nodes = data.fromMarkdownExtensions ?? (data.fromMarkdownExtensions = [])
+    syntax.push(gfmStrikethrough({ singleTilde: false }))
+    nodes.push(gfmStrikethroughFromMarkdown())
     return (tree: MessageNode, file: { value: unknown }) => {
         const source = String(file.value)
         function visit(node: MessageNode) {

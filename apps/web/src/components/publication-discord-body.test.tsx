@@ -42,3 +42,23 @@ test('does not execute HTML, load remote images or navigate from preview links',
     expect(html).not.toContain('<img')
     expect(html).not.toContain('href=')
 })
+
+test('renders double-tilde strikethrough with nested emphasis and underline', () => {
+    const html = renderToStaticMarkup(
+        <PublicationDiscordBody body={'~~outdated~~ ~~*emphasis*~~ ~~__underline__~~ ~literal~'} />
+    )
+    expect(html).toContain('<del>outdated</del>')
+    expect(html).toContain('<del><em>emphasis</em></del>')
+    expect(html).toContain('<del><u>underline</u></del>')
+    expect(html).toContain('~literal~')
+})
+
+test('leaves escaped strikethrough markers and code untouched', () => {
+    const html = renderToStaticMarkup(
+        <PublicationDiscordBody body={'\\~\\~escaped\\~\\~ `~~inline~~`\n\n```\n~~code~~\n```'} />
+    )
+    expect(html).not.toContain('<del>')
+    expect(html).toContain('~~escaped~~')
+    expect(html).toContain('<code>~~inline~~</code>')
+    expect(html).toContain('<pre><code>~~code~~')
+})
