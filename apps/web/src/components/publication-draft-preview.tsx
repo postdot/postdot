@@ -59,6 +59,7 @@ export function PublicationDraftPreview({
     const authorName = sampleIdentity ? m.publication_preview_sample_author() : channel.name
     const hasPreviewBody = preview.hasText || media.length > 0
     const stackedMedia = article || !accountDriven
+    const blueskyMosaic = channel.profileId === 'bluesky' && media.length >= 2 && media.length <= 4
 
     return (
         <section
@@ -166,12 +167,16 @@ export function PublicationDraftPreview({
                     {media.length > 0 ? (
                         <div
                             data-publication-preview-media="true"
-                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 gap-2 ${media.length === 1 || stackedMedia ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                            {media.map(asset => (
+                            className={`${preview.hasText || (preview.showTitle && preview.title !== '') ? 'mt-4' : ''} grid min-w-0 ${blueskyMosaic ? 'gap-1' : 'gap-2'} ${blueskyMosaic && media.length < 4 ? 'aspect-[2/1]' : ''} ${blueskyMosaic && media.length === 3 ? 'grid-rows-2' : ''} ${media.length === 1 || stackedMedia ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                            {media.map((asset, index) => (
                                 <div
                                     key={asset.asset.id}
                                     className={cn(
-                                        'min-w-0 overflow-hidden bg-surface-inset',
+                                        'min-h-0 min-w-0 overflow-hidden bg-surface-inset',
+                                        blueskyMosaic && media.length === 3 && index === 0
+                                            ? 'row-span-2'
+                                            : '',
+                                        blueskyMosaic && media.length === 4 ? 'aspect-[3/2]' : '',
                                         linkedIn ? 'rounded-sm' : 'rounded-md'
                                     )}>
                                     <MediaPreview
@@ -180,9 +185,11 @@ export function PublicationDraftPreview({
                                         representation={readyRepresentation(asset)}
                                         className={cn(
                                             'flex w-full items-center justify-center text-xs font-medium uppercase text-muted-foreground',
-                                            media.length === 1 || stackedMedia
-                                                ? 'h-auto max-h-[420px] object-contain'
-                                                : 'aspect-[4/3] object-cover'
+                                            blueskyMosaic
+                                                ? 'h-full object-cover'
+                                                : media.length === 1 || stackedMedia
+                                                  ? 'h-auto max-h-[420px] object-contain'
+                                                  : 'aspect-[4/3] object-cover'
                                         )}
                                     />
                                 </div>
