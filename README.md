@@ -20,6 +20,12 @@ cp apps/web/.env.example apps/web/.env
 bun run dev
 ```
 
+The development API launcher watches API and package sources, then waits for
+graceful process exit before restarting. It preserves the runtime lock; a forced
+stop can still require operator inspection of a leftover lock. Invalid startup
+configuration remains visible in the terminal; fix it and save a watched file
+to retry. The production server does not use this launcher.
+
 The API publishes interactive documentation at <http://localhost:3000/openapi>
 and its machine-readable specification at <http://localhost:3000/openapi/json>.
 The API validates its required runtime configuration at startup.
