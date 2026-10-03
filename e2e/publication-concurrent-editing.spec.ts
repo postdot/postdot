@@ -162,6 +162,93 @@ test('recovers unsaved destination changes after another session saves a newer d
     }
 })
 
+test('exposes reconciliation when a server refresh overtakes an in-flight autosave', async ({
+    page,
+    browser,
+}) => {
+    test.setTimeout(90_000)
+    const pair = await createDraftPair(page)
+    const otherContext = await browser.newContext({
+        storageState: await page.context().storageState(),
+    })
+    const other = await otherContext.newPage()
+    let releaseSave: (() => void) | undefined
+    const heldSave = new Promise<void>(resolve => {
+        releaseSave = resolve
+    })
+    let saveStarted: (() => void) | undefined
+    const startedSave = new Promise<void>(resolve => {
+        saveStarted = resolve
+    })
+    try {
+        await other.goto(pair.pageUrl(pair.first))
+        await openCustomization(other)
+        await other.route(
+            `**/api/projects/${pair.id}/publications/${pair.first}/draft`,
+            async route => {
+                saveStarted?.()
+                await heldSave
+                await route.continue()
+            }
+        )
+        const local = other.locator('[data-target-field="text"] [contenteditable="true"]')
+        await local.fill('In-flight local destination')
+        await startedSave
+        const before = await pair.read(page, pair.first)
+        const remoteSave = await page.request.patch(
+            `/api/projects/${pair.id}/publications/${pair.first}/draft`,
+            {
+                data: {
+                    expectedRevision: before.draft.revision,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { format: 'plain_text', text: 'Concurrent source' },
+                    },
+                    targetContent: {
+                        ...before.draft.content,
+                        text: 'Concurrent saved destination',
+                    },
+                },
+            }
+        )
+        expect(remoteSave.ok()).toBe(true)
+        const incoming = other.waitForResponse(async response => {
+            if (!response.url().endsWith(`/publications/${pair.first}/editor`)) return false
+            return (await response.json()).editor.draft.revision > before.draft.revision
+        })
+        const sibling = await pair.read(page, pair.second)
+        const rebased = await page.request.post(
+            `/api/projects/${pair.id}/publications/${pair.second}/draft/rebase`,
+            {
+                data: { expectedRevision: sibling.draft.revision },
+            }
+        )
+        expect(rebased.ok()).toBe(true)
+        await incoming
+        releaseSave?.()
+        await expect(other.locator('[data-publication-conflict="true"]')).toBeVisible()
+        await expect(local).toHaveText('In-flight local destination')
+        await expect(
+            other.getByRole('button', { name: 'Apply to channel', exact: true })
+        ).toBeDisabled()
+        expect((await pair.read(page, pair.first)).draft.content.text).toBe(
+            'Concurrent saved destination'
+        )
+        const key = `herald:publication-editor:v3:${pair.id}:${pair.first}`
+        await expect
+            .poll(async () =>
+                other.evaluate(
+                    key => JSON.parse(localStorage.getItem(key) ?? 'null')?.targetText,
+                    key
+                )
+            )
+            .toContain('In-flight local destination')
+    } finally {
+        releaseSave?.()
+        await otherContext.close()
+    }
+})
+
 async function openCustomization(page: Page) {
     const details = page.locator('[data-publication-customization="true"]')
     if ((await details.getAttribute('open')) === null)

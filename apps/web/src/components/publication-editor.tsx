@@ -353,7 +353,7 @@ export function PublicationEditor({
 
         requestGeneration.current += 1
         if (hasLocalChanges) {
-            setSaveState(current => (current === 'saving' ? current : 'conflict'))
+            setSaveState('conflict')
             setMessage(m.editor_server_newer_local())
             return
         }
