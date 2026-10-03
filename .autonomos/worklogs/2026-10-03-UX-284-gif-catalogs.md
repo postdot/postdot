@@ -84,3 +84,10 @@ to use independently sourced/imported GIFs instead. UX-283 stays proposed.
 
 - [Official GIPHY JavaScript primitives and license](https://github.com/Giphy/giphy-js)
 - [KLIPY integration examples](https://github.com/KLIPY-com/Klipy-GIF-API)
+
+## Owner disposition
+
+The owner deferred catalog implementation and animated-media extras in favor of
+core workflow reliability. This supersedes the pending provider-choice question;
+no answer or approval is required to continue core work. Reassessment stays open
+under UX-287. See [decision and reopening criteria](2026-10-03-UX-286-gif-deferral.md).
