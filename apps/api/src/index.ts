@@ -294,6 +294,7 @@ async function startServerWithRuntimeLock(
 
     process.once('SIGINT', () => void shutdown())
     process.once('SIGTERM', () => void shutdown())
+    process.once('SIGHUP', () => void shutdown())
 }
 
 if (import.meta.main) {

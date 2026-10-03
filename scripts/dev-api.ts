@@ -45,25 +45,48 @@ export function createRestartCoordinator(spawn: () => Child) {
     return { restart, stop }
 }
 
-async function run() {
-    const root = join(import.meta.dir, '..')
+export async function runDevelopmentApi(root = join(import.meta.dir, '..')) {
     const apiDirectory = join(root, 'apps/api')
-    const coordinator = createRestartCoordinator(() =>
-        Bun.spawn([process.execPath, '--env-file=.env', './src/index.ts'], {
+    const coordinator = createRestartCoordinator(() => {
+        const child = Bun.spawn([process.execPath, '--env-file=.env', './src/index.ts'], {
             cwd: apiDirectory,
             env: { ...process.env },
             stdin: 'inherit',
             stdout: 'inherit',
             stderr: 'inherit',
         })
-    )
+        let expectedExit = false
+        let exited = false
+        console.info(`[herald-dev] API started (pid ${child.pid})`)
+        return {
+            exited: child.exited.then(code => {
+                exited = true
+                if (expectedExit) {
+                    console.info(`[herald-dev] API stopped (pid ${child.pid}, code ${code})`)
+                } else {
+                    console.error(
+                        `[herald-dev] API exited unexpectedly (pid ${child.pid}, code ${code}); waiting for a watched edit. No runtime lock was removed.`
+                    )
+                }
+                return code
+            }),
+            kill(signal: NodeJS.Signals) {
+                if (exited) return
+                expectedExit = true
+                child.kill(signal)
+            },
+        }
+    })
     const watchers: FSWatcher[] = []
     let timer: ReturnType<typeof setTimeout> | undefined
     let closing = false
     const schedule = () => {
         if (closing) return
         clearTimeout(timer)
-        timer = setTimeout(() => void coordinator.restart(), 150)
+        timer = setTimeout(() => {
+            console.info('[herald-dev] Watched change: restarting API after graceful exit')
+            void coordinator.restart()
+        }, 150)
     }
 
     const packages = await readdir(join(root, 'packages'), { withFileTypes: true })
@@ -88,13 +111,17 @@ async function run() {
     const stop = async (signal: NodeJS.Signals) => {
         if (closing) return
         closing = true
+        console.info(`[herald-dev] Launcher stopping (${signal})`)
+        process.exitCode = signal === 'SIGINT' ? 130 : signal === 'SIGHUP' ? 129 : 143
         clearTimeout(timer)
         for (const watcher of watchers) watcher.close()
-        await coordinator.stop(signal)
+        // The API handles SIGTERM; translate terminal hangup into its graceful path.
+        await coordinator.stop(signal === 'SIGHUP' ? 'SIGTERM' : signal)
     }
     process.once('SIGINT', () => void stop('SIGINT'))
     process.once('SIGTERM', () => void stop('SIGTERM'))
+    process.once('SIGHUP', () => void stop('SIGHUP'))
     await coordinator.restart()
 }
 
-if (import.meta.main) await run()
+if (import.meta.main) await runDevelopmentApi()
