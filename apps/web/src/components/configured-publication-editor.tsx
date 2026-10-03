@@ -1,6 +1,8 @@
 import { Button } from '@herald/ui/components/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@herald/ui/components/popover'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
+import { Extension } from '@tiptap/core'
+import { Plugin } from '@tiptap/pm/state'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -27,6 +29,9 @@ export function ConfiguredPublicationEditor({
     disabled,
     describedBy,
     invalid,
+    id,
+    maxLength,
+    compact = false,
 }: {
     readonly profile: EditorProfile
     readonly value: string
@@ -35,6 +40,9 @@ export function ConfiguredPublicationEditor({
     readonly disabled?: boolean
     readonly describedBy?: string
     readonly invalid?: boolean
+    readonly id?: string
+    readonly maxLength?: number
+    readonly compact?: boolean
 }) {
     const codec = useMemo(
         () => (profile === 'plain' ? undefined : markdownCodec(profile)),
@@ -54,7 +62,33 @@ export function ConfiguredPublicationEditor({
         () => requiresSourceMode(profile, output, codec),
         [profile, output, codec]
     )
-    const extensions = useMemo(() => editorExtensions(profile), [profile])
+    const extensions = useMemo(
+        () => [
+            ...editorExtensions(profile),
+            Extension.create({
+                // Provider limits count serialized delimiters, not only visible text.
+                name: 'serializedLengthLimit',
+                addProseMirrorPlugins: () => [
+                    new Plugin({
+                        filterTransaction: (transaction, previous) => {
+                            if (
+                                !transaction.docChanged ||
+                                maxLength === undefined ||
+                                transaction.getMeta('heraldExternalContent')
+                            )
+                                return true
+                            const length = (doc: typeof transaction.doc) =>
+                                (codec ? codec.serialize(doc.toJSON()) : plainText(doc.toJSON()))
+                                    .length
+                            const next = length(transaction.doc)
+                            return next <= maxLength || next <= length(previous.doc)
+                        },
+                    }),
+                ],
+            }),
+        ],
+        [profile, codec, maxLength]
+    )
     const editor = useEditor({
         extensions,
         editable: !disabled,
@@ -66,12 +100,13 @@ export function ConfiguredPublicationEditor({
         editorProps: {
             attributes: {
                 role: 'textbox',
+                ...(id && !source ? { id } : {}),
                 'aria-label': label,
                 ...(describedBy ? { 'aria-describedby': describedBy } : {}),
                 ...(invalid ? { 'aria-invalid': 'true' } : {}),
                 'aria-disabled': String(Boolean(disabled)),
                 'aria-multiline': 'true',
-                class: 'min-h-64 p-4 outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md [&_p]:min-h-6 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_h2]:text-xl [&_h3]:text-lg [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_pre]:bg-surface-inset [&_pre]:p-3 [&_a]:text-primary [&_a]:underline [&_mark]:bg-primary/20',
+                class: `${compact ? 'min-h-32' : 'min-h-64'} whitespace-pre-wrap p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary rounded-md [&_p]:min-h-6 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_h2]:text-xl [&_h3]:text-lg [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_pre]:bg-surface-inset [&_pre]:p-3 [&_a]:text-primary [&_a]:underline [&_mark]:bg-primary/20`,
             },
             transformPastedText: text => text,
         },
@@ -86,6 +121,10 @@ export function ConfiguredPublicationEditor({
             bold: current?.isActive('bold') ?? false,
             italic: current?.isActive('italic') ?? false,
             underline: current?.isActive('discordUnderline') ?? false,
+            heading: current?.isActive('heading') ?? false,
+            list: current?.isActive('bulletList') ?? false,
+            strike: current?.isActive('strike') ?? false,
+            code: current?.isActive('code') ?? false,
             spoiler: current?.isActive('discordSpoiler') ?? false,
         }),
     })
@@ -94,9 +133,16 @@ export function ConfiguredPublicationEditor({
         lastEmitted.current = value
         const raw = requiresSourceMode(profile, value, codec)
         setSource(raw)
-        editor.commands.setContent(codec && !raw ? codec.parse(value) : plainDocument(value), {
-            emitUpdate: false,
-        })
+        editor
+            .chain()
+            .command(({ tr }) => {
+                tr.setMeta('heraldExternalContent', true)
+                return true
+            })
+            .setContent(codec && !raw ? codec.parse(value) : plainDocument(value), {
+                emitUpdate: false,
+            })
+            .run()
     }, [editor, profile, value, codec])
     useEffect(() => {
         editor?.setEditable(!disabled, false)
@@ -114,6 +160,18 @@ export function ConfiguredPublicationEditor({
             glyph: <em>I</em>,
             active: state?.italic,
             run: () => editor.chain().focus().toggleItalic().run(),
+        },
+        {
+            label: m.editor_format_strike(),
+            glyph: <s>S</s>,
+            active: state?.strike,
+            run: () => editor.chain().focus().toggleStrike().run(),
+        },
+        {
+            label: m.editor_format_code(),
+            glyph: '</>',
+            active: state?.code,
+            run: () => editor.chain().focus().toggleCode().run(),
         },
         ...(profile === 'discord'
             ? [
@@ -136,13 +194,13 @@ export function ConfiguredPublicationEditor({
                   {
                       label: m.editor_lab_heading(),
                       glyph: 'H2',
-                      active: editor.isActive('heading'),
+                      active: state?.heading,
                       run: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
                   },
                   {
                       label: m.editor_lab_list(),
                       glyph: '•',
-                      active: editor.isActive('bulletList'),
+                      active: state?.list,
                       run: () => editor.chain().focus().toggleBulletList().run(),
                   },
               ]
@@ -214,23 +272,25 @@ export function ConfiguredPublicationEditor({
                             </PopoverContent>
                         </Popover>
                     ) : null}
-                    <Button
-                        type="button"
-                        className="ml-auto"
-                        variant="ghost"
-                        aria-pressed={source}
-                        disabled={disabled || (source && blocked)}
-                        onClick={() => {
-                            if (source && output !== sourceEntry.current)
-                                editor.commands.setContent(
-                                    codec ? codec.parse(output) : plainDocument(output),
-                                    { emitUpdate: false }
-                                )
-                            if (!source) sourceEntry.current = output
-                            setSource(value => !value)
-                        }}>
-                        {m.editor_lab_source()}
-                    </Button>
+                    {profile !== 'plain' ? (
+                        <Button
+                            type="button"
+                            className="ml-auto"
+                            variant="ghost"
+                            aria-pressed={source}
+                            disabled={disabled || (source && blocked)}
+                            onClick={() => {
+                                if (source && output !== sourceEntry.current)
+                                    editor.commands.setContent(
+                                        codec ? codec.parse(output) : plainDocument(output),
+                                        { emitUpdate: false }
+                                    )
+                                if (!source) sourceEntry.current = output
+                                setSource(value => !value)
+                            }}>
+                            {m.editor_lab_source()}
+                        </Button>
+                    ) : null}
                 </div>
                 <div hidden={source} className="relative">
                     <EditorContent editor={editor} />
@@ -244,12 +304,14 @@ export function ConfiguredPublicationEditor({
                 </div>
                 {source ? (
                     <PublicationTextEditor
+                        id={id}
+                        maxLength={maxLength}
                         aria-label={m.editor_lab_raw()}
                         aria-describedby={describedBy}
                         aria-invalid={invalid || undefined}
                         value={output}
                         disabled={disabled}
-                        className="min-h-64 font-mono"
+                        className={`${compact ? 'min-h-32' : 'min-h-64'} font-mono`}
                         onValueChange={publish}
                     />
                 ) : null}

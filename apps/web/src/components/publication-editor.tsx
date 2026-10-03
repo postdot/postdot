@@ -67,6 +67,7 @@ type SourceContent = PublicationEditorState['post']['sourceContent']
 type Profile = PublicationEditorState['profile']['profile']
 
 interface PublicationEditorProps {
+    readonly experimentalEditor?: boolean
     readonly channels?: readonly Channel[]
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
@@ -98,6 +99,7 @@ type SaveState = PublicationEditorSaveState
 const recoveryVersion = 3 as const
 
 export function PublicationEditor({
+    experimentalEditor = false,
     channels = [],
     initialEditor,
     initialPublicationTags,
@@ -919,6 +921,7 @@ export function PublicationEditor({
 
     const sourceSection = (
         <PublicationEditorSourceSection
+            experimentalEditor={experimentalEditor}
             projectId={projectId}
             sourceContent={sourceContent}
             sourceRevision={editor.post.sourceRevision}
@@ -936,6 +939,7 @@ export function PublicationEditor({
     )
     const targetSection = (
         <PublicationEditorTargetSection
+            experimentalEditor={experimentalEditor}
             profile={editor.profile.profile}
             reviewState={editor.draft.reviewState}
             validationIssues={editor.draft.validationIssues}

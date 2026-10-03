@@ -21,6 +21,7 @@ import {
 import * as m from '@/paraglide/messages.js'
 
 export interface PublicationEditorSearch {
+    editor?: 'tiptap'
     from?: 'calendar'
     date?: string
     view?: PublicationCalendarView
@@ -28,6 +29,7 @@ export interface PublicationEditorSearch {
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/publications/$publicationId')({
     validateSearch: (search: Record<string, unknown>): PublicationEditorSearch => ({
+        ...(import.meta.env.DEV && search.editor === 'tiptap' ? { editor: 'tiptap' as const } : {}),
         ...(search.from === 'calendar' ? { from: 'calendar' as const } : {}),
         ...(isCalendarDateKey(search.date) ? { date: search.date } : {}),
         ...(isPublicationCalendarView(search.view) ? { view: search.view } : {}),
@@ -56,7 +58,7 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
 
 function PublicationEditorRoute() {
     const { projectId, publicationId } = Route.useParams()
-    const { date, from, view } = Route.useSearch()
+    const { date, from, view, editor: editorEngine } = Route.useSearch()
     const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
     const {
         activeChannels,
@@ -82,6 +84,7 @@ function PublicationEditorRoute() {
         <PublicationEditor
             key={currentEditor.draft.id}
             projectId={projectId}
+            experimentalEditor={import.meta.env.DEV && editorEngine === 'tiptap'}
             initialEditor={currentEditor}
             initialPublicationTags={publicationTags}
             onCancel={

@@ -9,7 +9,7 @@ import {
     SelectValue,
 } from '@herald/ui/components/select'
 import { PenIcon } from '@solar-icons/react/linear/pen'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 
 import { MediaAttachmentPicker, type MediaSelection } from '@/components/media-attachment-picker'
 import { PublicationTextEditor } from '@/components/publication-text-editor'
@@ -17,9 +17,16 @@ import type { MediaReference, PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
+const ConfiguredEditor = lazy(() =>
+    import('./configured-publication-editor').then(module => ({
+        default: module.ConfiguredPublicationEditor,
+    }))
+)
+
 type SourceContent = PublicationEditorState['post']['sourceContent']
 
 interface PublicationEditorSourceSectionProps {
+    readonly experimentalEditor?: boolean
     readonly projectId: string
     readonly sourceContent: SourceContent
     readonly sourceRevision: number
@@ -34,6 +41,7 @@ interface PublicationEditorSourceSectionProps {
 }
 
 export function PublicationEditorSourceSection({
+    experimentalEditor = false,
     projectId,
     sourceContent,
     sourceRevision,
@@ -88,15 +96,30 @@ export function PublicationEditorSourceSection({
                             <FieldLabel className="sr-only" htmlFor="source-body">
                                 {m.editor_source_body()}
                             </FieldLabel>
-                            <PublicationTextEditor
-                                id="source-body"
-                                value={body?.text ?? ''}
-                                onValueChange={onTextChange}
-                                disabled={disabled}
-                                rows={sourceContent.media.length > 0 && !body?.text ? 3 : 7}
-                                placeholder={m.editor_source_body_placeholder()}
-                                className={`${sourceContent.media.length > 0 && !body?.text ? 'min-h-24' : 'min-h-40'} min-w-0 max-w-full border-0 bg-transparent p-0 text-sm leading-6 shadow-none dark:bg-transparent`}
-                            />
+                            {experimentalEditor ? (
+                                <Suspense fallback={null}>
+                                    <ConfiguredEditor
+                                        compact
+                                        key={body?.format ?? 'plain_text'}
+                                        id="source-body"
+                                        profile={body?.format === 'markdown' ? 'article' : 'plain'}
+                                        label={m.editor_source_body()}
+                                        value={body?.text ?? ''}
+                                        onValueChange={onTextChange}
+                                        disabled={disabled}
+                                    />
+                                </Suspense>
+                            ) : (
+                                <PublicationTextEditor
+                                    id="source-body"
+                                    value={body?.text ?? ''}
+                                    onValueChange={onTextChange}
+                                    disabled={disabled}
+                                    rows={sourceContent.media.length > 0 && !body?.text ? 3 : 7}
+                                    placeholder={m.editor_source_body_placeholder()}
+                                    className={`${sourceContent.media.length > 0 && !body?.text ? 'min-h-24' : 'min-h-40'} min-w-0 max-w-full border-0 bg-transparent p-0 text-sm leading-6 shadow-none dark:bg-transparent`}
+                                />
+                            )}
                         </Field>
                     ) : (
                         <Button

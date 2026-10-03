@@ -1905,6 +1905,8 @@
     "editor_lab_underline": "Underline",
     "editor_lab_spoiler": "Spoiler",
     "editor_lab_heading": "Heading",
+    "editor_format_strike": "Strikethrough",
+    "editor_format_code": "Inline code",
     "editor_lab_list": "Bullet list",
     "editor_lab_unsupported": "This syntax stays in source mode to preserve the content."
 }

@@ -147,6 +147,100 @@ test('recovers experimental composition text, target formatting and media throug
     const { editor } = await editorResponse.json()
     expect(editor.draft.content.body_markdown).toBe('## Shared 👋 draft')
     expect(editor.draft.content.media).toEqual(created.post.sourceContent.media)
+
+    await page.goto(`/dashboard/projects/${id}/publications/${article.id}?editor=tiptap`)
+    const sourceBody = page.locator('#source-body')
+    await expect(sourceBody).toHaveAttribute('contenteditable', 'true')
+    await expect(
+        sourceBody
+            .locator('xpath=ancestor::section[1]')
+            .getByRole('button', { name: 'Source', exact: true })
+    ).toHaveCount(0)
+    const sourceSaved = page.waitForResponse(
+        response =>
+            response.url().endsWith(`/publications/${article.id}/draft`) &&
+            response.request().method() === 'PATCH' &&
+            response.ok()
+    )
+    await sourceBody.fill('Updated common copy')
+    await sourceSaved
+    const articleField = page.locator('[data-target-field="body_markdown"]')
+    const articleBody = articleField.locator('[contenteditable="true"]')
+    await openCustomization(page, articleField)
+    await expect(articleBody.locator('h2')).toHaveText('Shared 👋 draft')
+    const targetSaved = page.waitForResponse(
+        response =>
+            response.url().endsWith(`/publications/${article.id}/draft`) &&
+            response.request().method() === 'PATCH' &&
+            response.ok()
+    )
+    await articleBody.fill('Updated article')
+    await articleBody.press('Control+a')
+    await articleField.getByRole('button', { name: 'Strikethrough', exact: true }).click()
+    await expect(
+        articleField.getByRole('button', { name: 'Strikethrough', exact: true })
+    ).toHaveAttribute('aria-pressed', 'true')
+    await targetSaved
+    await expect
+        .poll(async () => {
+            const response = await page.request.get(
+                `/api/projects/${id}/publications/${article.id}/editor`
+            )
+            const { editor } = await response.json()
+            return {
+                source: editor.post.sourceContent.body.text,
+                target: editor.draft.content.body_markdown,
+                media: editor.draft.content.media.length,
+            }
+        })
+        .toEqual({ source: 'Updated common copy', target: '## ~~Updated article~~', media: 1 })
+    await page.reload()
+    await expect(sourceBody).toHaveText('Updated common copy')
+    await openCustomization(page, articleField)
+    await expect(articleBody.locator('s')).toHaveText('Updated article')
+    for (const width of [1280, 820, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        await page.screenshot({
+            path: info.outputPath(`existing-pilot-${width}.png`),
+            fullPage: true,
+        })
+    }
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto(`/dashboard/projects/${id}/publications/${article.id}`)
+    await expect(sourceBody).toHaveValue('Updated common copy')
+    await openCustomization(page, articleField)
+    await expect(articleField.locator('textarea')).toHaveValue('## ~~Updated article~~')
+
+    // Identify the Discord contract, rather than relying on selected destination ordering.
+    let discordId: string | undefined
+    for (const publication of created.publications) {
+        const response = await page.request.get(
+            `/api/projects/${id}/publications/${publication.id}/editor`
+        )
+        if ((await response.json()).editor.profile.profile.id === 'discord')
+            discordId = publication.id
+    }
+    expect(discordId).toBeDefined()
+    await page.goto(`/dashboard/projects/${id}/publications/${discordId}?editor=tiptap`)
+    await expect(
+        page.getByRole('button', { name: 'Reconcile before continuing', exact: true })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Rebase draft to current source', exact: true }).click()
+    const discordField = page.locator('[data-target-field="text"]')
+    await openCustomization(page, discordField)
+    await discordField.getByRole('button', { name: 'Source', exact: true }).click()
+    await discordField
+        .getByRole('textbox', { name: 'Source text', exact: true })
+        .fill('x'.repeat(2000))
+    await discordField.getByRole('button', { name: 'Source', exact: true }).click()
+    const discordBody = discordField.locator('[contenteditable="true"]')
+    await discordBody.press('Control+End')
+    await discordBody.pressSequentially('a')
+    await expect(discordBody).toHaveText('x'.repeat(2000))
+    await discordBody.press('Control+a')
+    await discordField.getByRole('button', { name: 'Bold', exact: true }).click()
+    await expect(discordBody.locator('strong')).toHaveCount(0)
 })
 
 test('keeps a native editor draft byte-for-byte when restored into the pilot and back', async ({
@@ -220,4 +314,12 @@ async function createProject(page: Page) {
     const id = new URL(page.url()).pathname.split('/')[3]
     if (!id) throw new Error('Missing pilot project')
     return id
+}
+
+async function openCustomization(page: Page, field: ReturnType<Page['locator']>) {
+    await expect(field).toBeAttached()
+    const details = page.locator('[data-publication-customization="true"]')
+    if ((await details.getAttribute('open')) === null)
+        await details.locator(':scope > summary').click()
+    await expect(field).toBeVisible()
 }

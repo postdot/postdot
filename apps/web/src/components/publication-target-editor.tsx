@@ -15,6 +15,7 @@ import {
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationTargetEditorProps {
+    readonly experimentalEditor?: boolean
     readonly profile: unknown
     readonly target: Record<string, unknown> | null
     readonly rawText: string
@@ -26,6 +27,7 @@ interface PublicationTargetEditorProps {
 }
 
 export function PublicationTargetEditor({
+    experimentalEditor = false,
     profile,
     target,
     rawText,
@@ -77,6 +79,18 @@ export function PublicationTargetEditor({
                 <div className="grid min-w-0 gap-5">
                     {fields.map((field, index) => (
                         <TargetFieldControl
+                            editorProfile={
+                                experimentalEditor &&
+                                typeof profile === 'object' &&
+                                profile !== null &&
+                                'id' in profile
+                                    ? profile.id === 'discord'
+                                        ? 'discord'
+                                        : profile.id === 'devto'
+                                          ? 'article'
+                                          : undefined
+                                    : undefined
+                            }
                             key={`${field.bindingId}-${field.path}`}
                             field={field}
                             fieldId={targetFieldId(field, index)}

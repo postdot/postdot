@@ -12,7 +12,7 @@ import {
 import { X_TEXT_COUNTING_ALGORITHM, parseXPostText } from '@herald/x/text'
 import { AddIcon } from '@solar-icons/react/linear/add'
 import { CloseIcon } from '@solar-icons/react/linear/close'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 
 import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
@@ -27,7 +27,14 @@ import {
 } from '@/lib/target-editor'
 import * as m from '@/paraglide/messages.js'
 
+const ConfiguredEditor = lazy(() =>
+    import('./configured-publication-editor').then(module => ({
+        default: module.ConfiguredPublicationEditor,
+    }))
+)
+
 interface TargetFieldControlProps {
+    readonly editorProfile?: 'discord' | 'article'
     readonly field: TargetEditorField
     readonly fieldId: string
     readonly value: unknown
@@ -37,6 +44,7 @@ interface TargetFieldControlProps {
 }
 
 export function TargetFieldControl({
+    editorProfile,
     field,
     fieldId,
     value,
@@ -109,22 +117,41 @@ export function TargetFieldControl({
                 {field.kind === 'text' ? (
                     field.semantic === 'primary_text' ? (
                         <div className="grid min-w-0 gap-1.5">
-                            <PublicationTextEditor
-                                id={fieldId}
-                                value={typeof value === 'string' ? value : ''}
-                                onValueChange={text =>
-                                    onChange(optionalTextValue(text, field.required))
-                                }
-                                disabled={disabled}
-                                minLength={field.minLength ?? undefined}
-                                maxLength={field.maxLength ?? undefined}
-                                aria-invalid={weightedTextInvalid || undefined}
-                                aria-describedby={
-                                    weightedText === null ? undefined : `${fieldId}-weighted-count`
-                                }
-                                rows={6}
-                                className="min-h-32 min-w-0 max-w-full text-sm leading-6"
-                            />
+                            {editorProfile ? (
+                                <Suspense fallback={null}>
+                                    <ConfiguredEditor
+                                        compact
+                                        id={fieldId}
+                                        profile={editorProfile}
+                                        label={field.label}
+                                        value={typeof value === 'string' ? value : ''}
+                                        onValueChange={text =>
+                                            onChange(optionalTextValue(text, field.required))
+                                        }
+                                        disabled={disabled}
+                                        maxLength={field.maxLength ?? undefined}
+                                    />
+                                </Suspense>
+                            ) : (
+                                <PublicationTextEditor
+                                    id={fieldId}
+                                    value={typeof value === 'string' ? value : ''}
+                                    onValueChange={text =>
+                                        onChange(optionalTextValue(text, field.required))
+                                    }
+                                    disabled={disabled}
+                                    minLength={field.minLength ?? undefined}
+                                    maxLength={field.maxLength ?? undefined}
+                                    aria-invalid={weightedTextInvalid || undefined}
+                                    aria-describedby={
+                                        weightedText === null
+                                            ? undefined
+                                            : `${fieldId}-weighted-count`
+                                    }
+                                    rows={6}
+                                    className="min-h-32 min-w-0 max-w-full text-sm leading-6"
+                                />
+                            )}
                             {weightedText !== null ? (
                                 <XWeightedTextCount
                                     id={`${fieldId}-weighted-count`}

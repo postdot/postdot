@@ -1905,6 +1905,8 @@
     "editor_lab_underline": "Souligné",
     "editor_lab_spoiler": "Masquer",
     "editor_lab_heading": "Titre",
+    "editor_format_strike": "Barré",
+    "editor_format_code": "Code en ligne",
     "editor_lab_list": "Liste à puces",
     "editor_lab_unsupported": "Cette syntaxe reste en mode source pour préserver le contenu."
 }
