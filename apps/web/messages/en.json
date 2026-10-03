@@ -1889,5 +1889,22 @@
     "api_keys_projects_label": "Projects",
     "api_keys_actions_label": "Actions",
     "notifications_open_subject": "Open publication: {title}",
-    "notifications_subject_unavailable": "This publication is no longer accessible."
+    "notifications_subject_unavailable": "This publication is no longer accessible.",
+    "editor_lab_title": "Editor experiment",
+    "editor_lab_scope": "Development sandbox. No real drafts or publications are changed.",
+    "editor_lab_profile": "Editing configuration",
+    "editor_lab_plain": "Plain text",
+    "editor_lab_restore": "Restore test snapshot",
+    "editor_lab_saved": "Test snapshot saved in this browser.",
+    "editor_lab_content": "Test content",
+    "editor_lab_source": "Source",
+    "editor_lab_raw": "Source text",
+    "editor_lab_output": "Serialized output",
+    "editor_lab_bold": "Bold",
+    "editor_lab_italic": "Italic",
+    "editor_lab_underline": "Underline",
+    "editor_lab_spoiler": "Spoiler",
+    "editor_lab_heading": "Heading",
+    "editor_lab_list": "Bullet list",
+    "editor_lab_unsupported": "This syntax stays in source mode to preserve the content."
 }

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as EditorLabRouteImport } from './routes/editor-lab'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as InviteRouteImport } from './routes/invite'
 import { Route as LoginRouteImport } from './routes/login'
@@ -44,6 +45,11 @@ const IndexRoute = IndexRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EditorLabRoute = EditorLabRouteImport.update({
+  id: '/editor-lab',
+  path: '/editor-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -186,6 +192,7 @@ const DashboardProjectsProjectIdPublicationsNewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/editor-lab': typeof EditorLabRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
@@ -214,6 +221,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/editor-lab': typeof EditorLabRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/editor-lab': typeof EditorLabRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/invite': typeof InviteRoute
   '/login': typeof LoginRoute
@@ -272,6 +281,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/editor-lab'
     | '/forgot-password'
     | '/invite'
     | '/login'
@@ -300,6 +310,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/editor-lab'
     | '/forgot-password'
     | '/invite'
     | '/login'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/editor-lab'
     | '/forgot-password'
     | '/invite'
     | '/login'
@@ -356,6 +368,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
+  EditorLabRoute: typeof EditorLabRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   InviteRoute: typeof InviteRoute
   LoginRoute: typeof LoginRoute
@@ -377,6 +390,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/editor-lab': {
+      id: '/editor-lab'
+      path: '/editor-lab'
+      fullPath: '/editor-lab'
+      preLoaderRoute: typeof EditorLabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -631,6 +651,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
+  EditorLabRoute: EditorLabRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   InviteRoute: InviteRoute,
   LoginRoute: LoginRoute,

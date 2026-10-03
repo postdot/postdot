@@ -1889,5 +1889,22 @@
     "api_keys_projects_label": "Projets",
     "api_keys_actions_label": "Actions",
     "notifications_open_subject": "Ouvrir la publication : {title}",
-    "notifications_subject_unavailable": "Cette publication n’est plus accessible."
+    "notifications_subject_unavailable": "Cette publication n’est plus accessible.",
+    "editor_lab_title": "Essai de l’éditeur",
+    "editor_lab_scope": "Espace d’essai. Aucun brouillon ni publication réelle n’est modifié.",
+    "editor_lab_profile": "Configuration d’édition",
+    "editor_lab_plain": "Texte brut",
+    "editor_lab_restore": "Restaurer l’essai",
+    "editor_lab_saved": "Essai enregistré dans ce navigateur.",
+    "editor_lab_content": "Contenu d’essai",
+    "editor_lab_source": "Texte source",
+    "editor_lab_raw": "Texte source",
+    "editor_lab_output": "Contenu exporté",
+    "editor_lab_bold": "Gras",
+    "editor_lab_italic": "Italique",
+    "editor_lab_underline": "Souligné",
+    "editor_lab_spoiler": "Masquer",
+    "editor_lab_heading": "Titre",
+    "editor_lab_list": "Liste à puces",
+    "editor_lab_unsupported": "Cette syntaxe reste en mode source pour préserver le contenu."
 }
