@@ -38,6 +38,21 @@ Client-side search exposes the query and client IP to the selected provider;
 media previews add CDN requests. A server proxy would alter that exposure but is
 not permitted by the standard integrations. No proxy was introduced.
 
+## Existing primitives
+
+GIPHY's official JavaScript monorepo is MIT-licensed and offers React components,
+framework-independent UI components and a fetch-only package. Its README states
+that the UI SDK sends analytics events; the fetch-only option does not include
+SDK analytics. Client requests still expose their normal network information.
+The package license does not override catalog/API terms. If GIPHY is approved,
+assess these primitives before building a picker from scratch; preserve Herald's
+shared input, tooltip and popover material rather than importing unrelated UI.
+
+The reviewed KLIPY repository and docs provide integration examples. They do not
+establish an equivalent production-ready React picker with Herald's keyboard,
+focus, loading and reduced-motion requirements. Do not infer that none exists;
+that verification belongs after provider approval.
+
 ## Recommendation
 
 Do not choose a default provider or ship a decorative picker yet. KLIPY and GIPHY
@@ -66,3 +81,6 @@ to use independently sourced/imported GIFs instead. UX-283 stays proposed.
 - [GIPHY API terms](https://support.giphy.com/hc/en-us/articles/360028134111-GIPHY-API-Terms-of-Service)
 - [KLIPY integration requirements](https://docs.klipy.com/)
 - [KLIPY production access and optional ads](https://klipy.com/developers)
+
+- [Official GIPHY JavaScript primitives and license](https://github.com/Giphy/giphy-js)
+- [KLIPY integration examples](https://github.com/KLIPY-com/Klipy-GIF-API)
