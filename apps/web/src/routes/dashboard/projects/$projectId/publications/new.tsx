@@ -7,6 +7,7 @@ import { parseCalendarDate, parseCalendarTime } from '@/lib/publication-authorin
 export interface NewPublicationSearch {
     date?: string
     time?: string
+    editor?: 'tiptap'
 }
 
 export const Route = createFileRoute('/dashboard/projects/$projectId/publications/new')({
@@ -16,13 +17,16 @@ export const Route = createFileRoute('/dashboard/projects/$projectId/publication
         return {
             ...(date === undefined ? {} : { date }),
             ...(time === undefined ? {} : { time }),
+            ...(import.meta.env.DEV && search.editor === 'tiptap'
+                ? { editor: 'tiptap' as const }
+                : {}),
         }
     },
     component: NewPublicationRoute,
 })
 
 function NewPublicationRoute() {
-    const { date, time } = Route.useSearch()
+    const { date, time, editor } = Route.useSearch()
     const { activeChannels, project, projectRole } = useProjectDashboard()
     if (projectRole === 'viewer') {
         return (
@@ -43,5 +47,11 @@ function NewPublicationRoute() {
             />
         )
     }
-    return <NewPublicationPage calendarDate={date} calendarTime={time} />
+    return (
+        <NewPublicationPage
+            calendarDate={date}
+            calendarTime={time}
+            experimentalEditor={editor === 'tiptap' && import.meta.env.DEV}
+        />
+    )
 }

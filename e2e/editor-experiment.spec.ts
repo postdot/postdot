@@ -61,11 +61,16 @@ test('restricts paste and keyboard formatting and protects unsupported source sy
     await raw.fill(unsupported)
     await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeDisabled()
     await expect(output).toHaveValue(unsupported)
+    await raw.press('Control+End')
+    await page.getByRole('button', { name: 'Insert emoji', exact: true }).click()
+    await page.getByRole('searchbox', { name: 'Search emojis', exact: true }).fill('grinning face')
+    await page.locator('[frimousse-emoji]').filter({ hasText: '😀' }).first().click()
+    await expect(raw).toHaveValue(`${unsupported}😀`)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.reload()
     await page.getByRole('button', { name: 'Restore test snapshot' }).click()
     await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
-    await expect(raw).toHaveValue(unsupported)
+    await expect(raw).toHaveValue(`${unsupported}😀`)
 })
 
 test('supports rich editing and emoji undo at desktop and mobile widths', async ({

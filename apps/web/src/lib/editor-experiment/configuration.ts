@@ -93,9 +93,13 @@ export function markdownCodec(profile: Exclude<EditorProfile, 'plain'>) {
 }
 
 /** Keep unsupported imported syntax in source mode instead of silently dropping it. */
-export function requiresSourceMode(profile: EditorProfile, text: string): boolean {
+export function requiresSourceMode(
+    profile: EditorProfile,
+    text: string,
+    manager?: MarkdownManager
+): boolean {
     if (profile === 'plain') return false
-    const codec = markdownCodec(profile)
+    const codec = manager ?? markdownCodec(profile)
     function unsupported(token: unknown): boolean {
         if (typeof token !== 'object' || token === null) return false
         const item = token as Record<string, unknown>
@@ -105,7 +109,11 @@ export function requiresSourceMode(profile: EditorProfile, text: string): boolea
             (profile === 'discord' || ![2, 3].includes(Number(item.depth)))
         )
             return true
-        if (profile === 'discord' && ['list', 'link'].includes(String(item.type))) return true
+        if (
+            profile === 'discord' &&
+            (item.type === 'list' || (item.type === 'link' && item.text !== item.href))
+        )
+            return true
         return ['tokens', 'items'].some(
             key => Array.isArray(item[key]) && item[key].some(unsupported)
         )

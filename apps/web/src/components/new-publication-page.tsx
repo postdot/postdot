@@ -17,7 +17,7 @@ import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-min
 import { FileTextIcon } from '@solar-icons/react/linear/file-text'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
 import { DashboardFormField } from '@/components/dashboard-form-field'
@@ -47,12 +47,20 @@ import {
 } from '@/lib/publication-recovery'
 import * as m from '@/paraglide/messages.js'
 
+const ConfiguredPublicationEditor = lazy(() =>
+    import('./configured-publication-editor').then(module => ({
+        default: module.ConfiguredPublicationEditor,
+    }))
+)
+
 export function NewPublicationPage({
     calendarDate,
     calendarTime,
+    experimentalEditor = false,
 }: {
     readonly calendarDate?: string
     readonly calendarTime?: string
+    readonly experimentalEditor?: boolean
 }) {
     const { locale } = useLanguage()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/publications/new' })
@@ -158,6 +166,18 @@ export function NewPublicationPage({
         target => target.channelId !== ''
     ).length
     const resolvedActiveContentScopeId = activeContentTarget?.id ?? publicationSharedTabId
+    const [visitedEditorScopes, setVisitedEditorScopes] = useState<Set<string>>(
+        () => new Set([publicationSharedTabId])
+    )
+    useEffect(() => {
+        if (!experimentalEditor) return
+        setVisitedEditorScopes(current =>
+            current.has(resolvedActiveContentScopeId)
+                ? current
+                : new Set(current).add(resolvedActiveContentScopeId)
+        )
+    }, [experimentalEditor, resolvedActiveContentScopeId])
+    const renderedEditorScopes = new Set([...visitedEditorScopes, resolvedActiveContentScopeId])
     const activePreviewTarget = activeContentTarget ?? activeTarget ?? publicationTargets[0]
     const activePreviewChannel = activeChannels.find(
         channel => channel.id === activePreviewTarget?.channelId
@@ -591,13 +611,17 @@ export function NewPublicationPage({
         setActivePublicationTabId(target.id)
     }
 
-    function editActiveText(content: string) {
-        if (activeContentTarget === undefined) {
+    function editScopeText(scopeId: string, content: string) {
+        if (scopeId === publicationSharedTabId) {
             onPostContentChange(content)
             return
         }
-        setCustomizedContentTargetIds(current => new Set(current).add(activeContentTarget.id))
-        updateTargetContent(activeContentTarget.id, content)
+        setCustomizedContentTargetIds(current => new Set(current).add(scopeId))
+        updateTargetContent(scopeId, content)
+    }
+
+    function editActiveText(content: string) {
+        editScopeText(resolvedActiveContentScopeId, content)
     }
 
     return (
@@ -750,26 +774,106 @@ export function NewPublicationPage({
                                         </div>
                                     ) : null}
                                     <div>
-                                        <PublicationTextEditor
-                                            id="new-post-content"
-                                            aria-label={
-                                                activeContentTarget === undefined
-                                                    ? m.publication_new_source_content()
-                                                    : m.publication_new_channel_copy()
-                                            }
-                                            aria-describedby={
-                                                usesXTextRules
-                                                    ? 'new-post-content-weighted-count'
-                                                    : undefined
-                                            }
-                                            aria-invalid={activeTextInvalid || undefined}
-                                            value={activeText}
-                                            disabled={pending}
-                                            onValueChange={editActiveText}
-                                            placeholder={m.publication_new_source_placeholder()}
-                                            rows={9}
-                                            className="min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
-                                        />
+                                        {experimentalEditor ? (
+                                            <Suspense
+                                                fallback={
+                                                    <div className="min-h-56 p-4 text-muted-foreground">
+                                                        {m.common_loading()}
+                                                    </div>
+                                                }>
+                                                {[
+                                                    {
+                                                        id: publicationSharedTabId,
+                                                        channelId: '',
+                                                        content: postContent,
+                                                    },
+                                                    ...publicationTargets,
+                                                ]
+                                                    .filter(scope =>
+                                                        renderedEditorScopes.has(scope.id)
+                                                    )
+                                                    .map(scope => {
+                                                        const channel = activeChannels.find(
+                                                            item => item.id === scope.channelId
+                                                        )
+                                                        const profile =
+                                                            scope.id === publicationSharedTabId
+                                                                ? 'plain'
+                                                                : channel?.profileId === 'discord'
+                                                                  ? 'discord'
+                                                                  : channel?.profileId === 'devto'
+                                                                    ? 'article'
+                                                                    : 'plain'
+                                                        const shared =
+                                                            scope.id === publicationSharedTabId ||
+                                                            !customizedContentTargetIds.has(
+                                                                scope.id
+                                                            )
+                                                        const visible =
+                                                            scope.id ===
+                                                            resolvedActiveContentScopeId
+                                                        return (
+                                                            <div
+                                                                key={`${project.id}:${scope.id}:${profile}`}
+                                                                hidden={!visible}
+                                                                data-editor-scope={scope.id}>
+                                                                <ConfiguredPublicationEditor
+                                                                    profile={profile}
+                                                                    value={
+                                                                        shared
+                                                                            ? postContent
+                                                                            : scope.content
+                                                                    }
+                                                                    label={
+                                                                        scope.id ===
+                                                                        publicationSharedTabId
+                                                                            ? m.publication_new_source_content()
+                                                                            : m.publication_new_channel_copy()
+                                                                    }
+                                                                    disabled={
+                                                                        pending || recovery !== null
+                                                                    }
+                                                                    describedBy={
+                                                                        visible && usesXTextRules
+                                                                            ? 'new-post-content-weighted-count'
+                                                                            : undefined
+                                                                    }
+                                                                    invalid={
+                                                                        visible && activeTextInvalid
+                                                                    }
+                                                                    onValueChange={text =>
+                                                                        editScopeText(
+                                                                            scope.id,
+                                                                            text
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        )
+                                                    })}
+                                            </Suspense>
+                                        ) : (
+                                            <PublicationTextEditor
+                                                id="new-post-content"
+                                                aria-label={
+                                                    activeContentTarget === undefined
+                                                        ? m.publication_new_source_content()
+                                                        : m.publication_new_channel_copy()
+                                                }
+                                                aria-describedby={
+                                                    usesXTextRules
+                                                        ? 'new-post-content-weighted-count'
+                                                        : undefined
+                                                }
+                                                aria-invalid={activeTextInvalid || undefined}
+                                                value={activeText}
+                                                disabled={pending}
+                                                onValueChange={editActiveText}
+                                                placeholder={m.publication_new_source_placeholder()}
+                                                rows={9}
+                                                className="min-h-56 resize-y rounded-none border-0 bg-transparent p-4 text-base leading-7 shadow-none focus-visible:ring-0 dark:bg-transparent"
+                                            />
+                                        )}
                                         {activeTextValidation !== null ? (
                                             <div className="px-4 pb-3">
                                                 <XWeightedTextCount

@@ -31,6 +31,7 @@ describe('experimental editor publishing formats', () => {
         expect(requiresSourceMode('discord', '## Title')).toBe(true)
         expect(requiresSourceMode('discord', '[Link](https://example.com)')).toBe(true)
         expect(requiresSourceMode('article', '## Title')).toBe(false)
+        expect(requiresSourceMode('discord', 'https://example.com')).toBe(false)
         expect(requiresSourceMode('plain', '**literal**')).toBe(false)
     })
 
