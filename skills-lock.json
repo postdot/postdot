@@ -55,6 +55,12 @@
       "skillPath": "skills/solar-icons/SKILL.md",
       "computedHash": "0e3e4853987b9a1f7782d39078b725bfd5c1cc051d73d95a8e9a65cf007c30d3"
     },
+    "tiptap": {
+      "source": "ueberdosis/tiptap",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/tiptap/SKILL.md",
+      "computedHash": "88ea00fb5ca1fed01160dc0baec4767fa0279d037ed9c8ee20a6ea43eb28b8ea"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
