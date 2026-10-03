@@ -185,9 +185,18 @@ export function PublicationEditor({
     const [recoveryAvailable, setRecoveryAvailable] = useState(
         initialPublicationEditable && initialRecovery !== null && !shouldRestoreInitialRecovery
     )
-    const pendingRecoveryExcerpt = recoveryAvailable
-        ? readRecovery(recoveryKey, timeZone)?.sourceContent.body?.text?.trim().slice(0, 180)
-        : undefined
+    const pendingRecovery = recoveryAvailable ? readRecovery(recoveryKey, timeZone) : null
+    const pendingRecoveryTarget = pendingRecovery
+        ? parseTargetText(pendingRecovery.targetText).value
+        : null
+    const pendingRecoveryExcerpt = (
+        pendingRecoveryTarget &&
+        JSON.stringify(pendingRecoveryTarget) !== JSON.stringify(editor.draft.content)
+            ? getTargetPreviewText(pendingRecoveryTarget)
+            : pendingRecovery?.sourceContent.body?.text
+    )
+        ?.trim()
+        .slice(0, 180)
     const [scheduleValue, setScheduleValue] = useState(
         shouldRestoreInitialRecovery && initialRecovery !== null
             ? initialRecovery.scheduleValue

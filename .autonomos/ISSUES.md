@@ -4058,3 +4058,12 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: An operator can identify a relevant notification and reach actionable context while read/archive remain unambiguous and safe. Revoked access and removed subjects must not produce broken links or disclose restricted content.
 - Tasks: UX-275 (review first)
 - Acceptance: Test published, failed and ambiguous subjects, removed/inaccessible projects, narrow touch layouts and keyboard behavior. Resolve whether opening also marks read before implementation; preserve recipient-owned notifications and server authorization.
+
+## [ISSUE-150] Refresh publication editors after concurrent draft saves
+
+- Type: problem
+- Status: open
+- Evidence: UX-291 opened two authenticated browser contexts on sibling publications. Saving a changed shared source advanced the server source revision, but the other open editor did not display the stale-source conflict until reloaded. Normal draft saves currently emit no journal fact in publication-authoring-store; the project SSE allowlist includes rebase, but not draft saves.
+- Impact: Server revision guards prevent stale writes, but an operator can keep seeing apparently actionable controls before discovering the conflict on save or reload.
+- Desired outcome: Open editors discover concurrent changes promptly, preserve unsaved local work, and expose the explicit reconciliation decision. Decide on a bounded refresh mechanism without logging every autosave indiscriminately or introducing automatic content merges.
+- Tasks: UX-291 (evidence); implementation approach pending review.
