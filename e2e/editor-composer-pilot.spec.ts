@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
-test('recovers experimental composition text, target formatting and media through the existing draft contract', async ({
+test('recovers composition text, target formatting and media through the existing draft contract', async ({
     page,
 }, info) => {
     test.setTimeout(90_000)
@@ -19,7 +19,7 @@ test('recovers experimental composition text, target formatting and media throug
         expect(response.ok()).toBe(true)
         if (channel.profile === 'devto') articleChannelId = (await response.json()).channel.id
     }
-    const url = `/dashboard/projects/${id}/publications/new?editor=tiptap`
+    const url = `/dashboard/projects/${id}/publications/new`
     await page.goto(url)
     const common = page.getByRole('textbox', { name: 'Content', exact: true })
     const target = page.getByRole('textbox', { name: 'Channel content', exact: true })
@@ -207,7 +207,7 @@ test('recovers experimental composition text, target formatting and media throug
         })
     }
     await page.setViewportSize({ width: 1280, height: 900 })
-    await page.goto(`/dashboard/projects/${id}/publications/${article.id}`)
+    await page.goto(`/dashboard/projects/${id}/publications/${article.id}?editor=legacy`)
     await expect(sourceBody).toHaveValue('Updated common copy')
     await openCustomization(page, articleField)
     await expect(articleField.locator('textarea')).toHaveValue('## ~~Updated article~~')
@@ -243,7 +243,7 @@ test('recovers experimental composition text, target formatting and media throug
     await expect(discordBody.locator('strong')).toHaveCount(0)
 })
 
-test('keeps a native editor draft byte-for-byte when restored into the pilot and back', async ({
+test('keeps a native editor draft byte-for-byte when restored into the configured editor and back', async ({
     page,
 }) => {
     const id = await createProject(page)
@@ -255,7 +255,7 @@ test('keeps a native editor draft byte-for-byte when restored into the pilot and
         ).ok()
     ).toBe(true)
     const base = `/dashboard/projects/${id}/publications/new`
-    await page.goto(base)
+    await page.goto(`${base}?editor=legacy`)
     const text = '  Original 👋\n\n**literal**\n'
     const saved = page.waitForResponse(
         response =>
@@ -281,7 +281,7 @@ test('keeps a native editor draft byte-for-byte when restored into the pilot and
         .locator('[data-new-publication-recovery="true"]')
         .getByRole('button', { name: 'Restore', exact: true })
         .click()
-    await page.goto(base)
+    await page.goto(`${base}?editor=legacy`)
     await page
         .locator('[data-new-publication-recovery="true"]')
         .getByRole('button', { name: 'Restore', exact: true })

@@ -15,7 +15,7 @@ import {
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationTargetEditorProps {
-    readonly experimentalEditor?: boolean
+    readonly configuredEditor?: boolean
     readonly profile: unknown
     readonly target: Record<string, unknown> | null
     readonly rawText: string
@@ -27,7 +27,7 @@ interface PublicationTargetEditorProps {
 }
 
 export function PublicationTargetEditor({
-    experimentalEditor = false,
+    configuredEditor = true,
     profile,
     target,
     rawText,
@@ -80,7 +80,7 @@ export function PublicationTargetEditor({
                     {fields.map((field, index) => (
                         <TargetFieldControl
                             editorProfile={
-                                experimentalEditor &&
+                                configuredEditor &&
                                 typeof profile === 'object' &&
                                 profile !== null &&
                                 'id' in profile

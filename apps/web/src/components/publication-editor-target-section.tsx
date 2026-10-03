@@ -11,7 +11,7 @@ type Profile = PublicationEditorState['profile']['profile']
 type ReviewState = PublicationEditorState['draft']['reviewState']
 
 interface PublicationEditorTargetSectionProps {
-    readonly experimentalEditor?: boolean
+    readonly configuredEditor?: boolean
     readonly profile: Profile
     readonly reviewState: ReviewState
     readonly validationIssues: readonly Record<string, unknown>[]
@@ -29,7 +29,7 @@ interface PublicationEditorTargetSectionProps {
 }
 
 export function PublicationEditorTargetSection({
-    experimentalEditor = false,
+    configuredEditor = true,
     profile,
     reviewState,
     validationIssues,
@@ -79,7 +79,7 @@ export function PublicationEditorTargetSection({
                 </summary>
                 <div className="pb-4 pt-1">
                     <PublicationTargetEditor
-                        experimentalEditor={experimentalEditor}
+                        configuredEditor={configuredEditor}
                         profile={profile}
                         target={target}
                         rawText={targetText}

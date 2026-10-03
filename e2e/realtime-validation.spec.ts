@@ -108,7 +108,7 @@ test('refreshes an open publication editor after a worker state change', async (
     await page.getByRole('link', { name: 'New publication', exact: true }).click()
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
     await page.getByLabel('Content', { exact: true }).fill('E2E realtime editor content')
-    await expect(page.getByLabel('Content', { exact: true })).toHaveValue(
+    await expect(page.getByLabel('Content', { exact: true })).toHaveText(
         'E2E realtime editor content'
     )
     const publicationResponse = page.waitForResponse(

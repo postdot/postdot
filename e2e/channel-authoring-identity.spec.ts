@@ -93,7 +93,7 @@ test('distinguishes repeated platforms and creates a channel without leaving the
     await dialog.getByRole('button', { name: en.channel_create_button, exact: true }).click()
     await expect(dialog).toHaveCount(0)
     await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
-    await expect(content).toHaveValue(body)
+    await expect(content).toHaveText(body)
     await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/publications/new$`))
     await expect(
         rail.getByRole('button', {
@@ -164,14 +164,14 @@ test('distinguishes repeated platforms and creates a channel without leaving the
     await removal
         .getByRole('button', { name: en.publication_remove_customized_cancel, exact: true })
         .click()
-    await expect(channelCopy).toHaveValue(`${body} A destination-only sentence.`)
+    await expect(channelCopy).toHaveText(`${body} A destination-only sentence.`)
     await removeA.click()
     await removal
         .getByRole('button', { name: en.publication_remove_customized_confirm, exact: true })
         .click()
     await expect(rail.getByRole('button', { name: 'X.com · A', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
-    await expect(content).toHaveValue(body)
+    await expect(content).toHaveText(body)
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {

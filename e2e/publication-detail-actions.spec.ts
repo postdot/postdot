@@ -248,7 +248,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     })
     await recoveryDecision.getByRole('button', { name: 'Restore local copy', exact: true }).click()
     await expect(recoveryDecision).toHaveCount(0)
-    await expect(page.locator('#source-body')).toHaveValue('Unsent local draft')
+    await expect(page.locator('#source-body')).toHaveText('Unsent local draft')
     await page.addInitScript(({ key, copy }) => localStorage.setItem(key, JSON.stringify(copy)), {
         key: recoveryKey,
         copy: localCopy,
@@ -257,7 +257,7 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(recoveryDecision).toBeVisible()
     await recoveryDecision.getByRole('button', { name: 'Discard local copy', exact: true }).click()
     await expect(recoveryDecision).toHaveCount(0)
-    await expect(page.locator('#source-body')).toHaveValue('E2E detail lifecycle content')
+    await expect(page.locator('#source-body')).toHaveText('E2E detail lifecycle content')
 })
 
 async function createAccountAndProject(page: Page, suffix: string) {

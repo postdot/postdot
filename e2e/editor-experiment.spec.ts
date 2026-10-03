@@ -110,3 +110,61 @@ test('supports rich editing and emoji undo at desktop and mobile widths', async 
         }
     }
 })
+
+test('edits article links without losing selection or allowing unsafe addresses', async ({
+    page,
+}) => {
+    await page.goto('/editor-lab')
+    await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
+    const content = page.getByRole('textbox', { name: 'Test content', exact: true })
+    const output = page.getByRole('textbox', { name: /^Serialized output/ })
+    await content.fill('Read this article')
+    await page.getByRole('button', { name: 'Heading', exact: true }).click()
+    await expect(content).toBeFocused()
+    const selectWord = async () => {
+        await content.evaluate(element => {
+            const text = element.querySelector('p')?.firstChild
+            if (!text || text.nodeType !== Node.TEXT_NODE)
+                throw new Error('Expected paragraph text')
+            element.ownerDocument.getSelection()?.setBaseAndExtent(text, 0, text, 4)
+        })
+        await expect
+            .poll(() =>
+                content.evaluate(element => element.ownerDocument.getSelection()?.toString())
+            )
+            .toBe('Read')
+    }
+    await selectWord()
+    await page.getByRole('button', { name: 'Link', exact: true }).click()
+    const address = page.getByRole('textbox', { name: 'Link address', exact: true })
+    await address.fill('javascript:alert(1)')
+    await page.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(page.getByRole('alert')).toHaveText('Enter a valid HTTP, HTTPS or mailto address.')
+    await expect(content.locator('a')).toHaveCount(0)
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await address.fill('https://example.com/article')
+    await address.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'Link', exact: true })).toHaveCount(0)
+    await expect(content).toBeFocused()
+    await expect(content.locator('a')).toHaveText('Read')
+    await expect(content.locator('a')).toHaveAttribute('href', 'https://example.com/article')
+    await expect(output).toHaveValue('[Read](https://example.com/article) this article')
+    await content.press('Control+z')
+    await expect(content.locator('a')).toHaveCount(0)
+    await expect(output).toHaveValue('Read this article')
+    await selectWord()
+    await page.getByRole('button', { name: 'Link', exact: true }).click()
+    await address.fill('https://example.com/article')
+    await address.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'Link', exact: true })).toHaveCount(0)
+    await expect(content).toBeFocused()
+    const linkButton = page.getByRole('button', { name: 'Link', exact: true })
+    await linkButton.focus()
+    await linkButton.press('Enter')
+    await expect(address).toHaveValue('https://example.com/article')
+    await page.getByRole('button', { name: 'Remove link', exact: true }).click()
+    await expect(output).toHaveValue('Read this article')
+    await expect(content).toBeFocused()
+    await page.getByRole('button', { name: 'Discord', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Link', exact: true })).toHaveCount(0)
+})

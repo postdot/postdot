@@ -967,7 +967,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
 
     await page.getByLabel('Content', { exact: true }).fill(sourceText)
-    await expect(page.getByLabel('Content', { exact: true })).toHaveValue(sourceText)
+    await expect(page.getByLabel('Content', { exact: true })).toHaveText(sourceText)
     await page.getByRole('button', { name: 'Add media', exact: true }).click()
     const mixedAttachmentLibrary = page.locator('[data-media-library="true"]')
     const mixedAttachmentSearch = mixedAttachmentLibrary.getByRole('searchbox', {
@@ -991,7 +991,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.locator('[data-publication-schedule-disclosure="true"] > summary').click()
     const defaultSchedule = await page.getByLabel('Schedule', { exact: true }).first().innerText()
     await page.getByRole('button', { name: channelName, exact: true }).click()
-    await page.getByLabel('Channel content', { exact: true }).fill(targetText)
+    await page.getByRole('textbox', { name: 'Channel content', exact: true }).fill(targetText)
     await page.getByRole('button', { name: `Add ${secondChannelName}`, exact: true }).click()
     await page.getByRole('button', { name: secondChannelName, exact: true }).click()
     await expect(
@@ -1005,7 +1005,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await expect(page.getByLabel('Channel schedule', { exact: true })).toContainText(
         defaultSchedule.trim()
     )
-    await page.getByLabel('Channel content', { exact: true }).fill(secondTargetText)
+    await page.getByRole('textbox', { name: 'Channel content', exact: true }).fill(secondTargetText)
     const secondPublicationDelivery = page.getByRole('combobox', {
         name: 'Channel delivery',
         exact: true,
@@ -1409,7 +1409,7 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     await mixedPublications.filter({ hasText: channelName }).first().click()
     await expect(page.getByRole('heading', { name: sourceText, level: 1 })).toBeVisible()
-    await expect(page.locator('#source-body')).toHaveValue(sourceText)
+    await expect(page.locator('#source-body')).toHaveText(sourceText)
     await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
     const publicationChannelRail = page.locator('[data-publication-channel-selection="true"]')
     await expect(publicationChannelRail).toBeVisible()
@@ -1503,7 +1503,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.locator(mediaOnlySelector).first().click()
     await expect(page.getByRole('heading', { name: 'Media · 1' })).toBeVisible()
     await page.getByRole('button', { name: 'Add text', exact: true }).click()
-    await expect(page.locator('#source-body')).toHaveValue('')
+    await expect(page.locator('#source-body')).toHaveText('')
     await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
 
     const mediaOnlyTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())

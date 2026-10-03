@@ -1,10 +1,12 @@
 import { Button } from '@herald/ui/components/button'
+import { Input } from '@herald/ui/components/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@herald/ui/components/popover'
+import { LinkIcon } from '@solar-icons/react/linear/link'
 import { SmileCircleIcon } from '@solar-icons/react/linear/smile-circle'
 import { Extension } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from 'react'
 
 import {
     editorExtensions,
@@ -57,6 +59,11 @@ export function ConfiguredPublicationEditor({
     }
     const sourceEntry = useRef(initial)
     const [emojiOpen, setEmojiOpen] = useState(false)
+    const [linkOpen, setLinkOpen] = useState(false)
+    const [linkValue, setLinkValue] = useState('')
+    const [linkError, setLinkError] = useState(false)
+    const linkErrorId = useId()
+    const linkSelection = useRef({ from: 1, to: 1 })
     const [source, setSource] = useState(() => requiresSourceMode(profile, initial))
     const blocked = useMemo(
         () => requiresSourceMode(profile, output, codec),
@@ -121,7 +128,8 @@ export function ConfiguredPublicationEditor({
             bold: current?.isActive('bold') ?? false,
             italic: current?.isActive('italic') ?? false,
             underline: current?.isActive('discordUnderline') ?? false,
-            heading: current?.isActive('heading') ?? false,
+            link: current?.isActive('link') ?? false,
+            heading: current?.isActive('heading', { level: 2 }) ?? false,
             list: current?.isActive('bulletList') ?? false,
             strike: current?.isActive('strike') ?? false,
             code: current?.isActive('code') ?? false,
@@ -148,6 +156,58 @@ export function ConfiguredPublicationEditor({
         editor?.setEditable(!disabled, false)
     }, [editor, disabled])
     if (!editor) return null
+    function prepareLink() {
+        if (!editor) return
+        let selection = { from: editor.state.selection.from, to: editor.state.selection.to }
+        const view = editor.view
+        const visibleSelection = view.dom.ownerDocument.getSelection()
+        if (
+            visibleSelection?.anchorNode &&
+            visibleSelection.focusNode &&
+            view.dom.contains(visibleSelection.anchorNode) &&
+            view.dom.contains(visibleSelection.focusNode)
+        ) {
+            // DOM selection can precede ProseMirror's selection observer on a fast toolbar click.
+            const anchor = view.posAtDOM(visibleSelection.anchorNode, visibleSelection.anchorOffset)
+            const focus = view.posAtDOM(visibleSelection.focusNode, visibleSelection.focusOffset)
+            selection = { from: Math.min(anchor, focus), to: Math.max(anchor, focus) }
+            editor.commands.setTextSelection(selection)
+        }
+        linkSelection.current = selection
+        setLinkValue(String(editor.getAttributes('link').href ?? ''))
+        setLinkError(false)
+    }
+    function applyLink(remove = false) {
+        if (!editor) return
+        const href = linkValue.trim()
+        if (!remove) {
+            try {
+                const url = new URL(href)
+                if (
+                    !['https:', 'http:', 'mailto:'].includes(url.protocol) ||
+                    url.username ||
+                    url.password
+                )
+                    throw new Error('invalid_link')
+            } catch {
+                setLinkError(true)
+                return
+            }
+        }
+        const selection = linkSelection.current
+        const chain = editor.chain().setTextSelection(selection).extendMarkRange('link')
+        if (remove) chain.unsetLink().run()
+        else if (selection.from === selection.to && !editor.isActive('link'))
+            chain
+                .insertContent({
+                    type: 'text',
+                    text: href,
+                    marks: [{ type: 'link', attrs: { href } }],
+                })
+                .run()
+        else chain.setLink({ href }).run()
+        setLinkOpen(false)
+    }
     const commands = [
         {
             label: m.editor_lab_bold(),
@@ -226,11 +286,83 @@ export function ConfiguredPublicationEditor({
                                   title={command.label}
                                   aria-pressed={Boolean(command.active)}
                                   disabled={source || disabled}
+                                  onMouseDown={event => event.preventDefault()}
                                   onClick={command.run}>
                                   {command.glyph}
                               </Button>
                           ))
                         : null}
+                    {profile === 'article' ? (
+                        <Popover open={linkOpen} onOpenChange={setLinkOpen}>
+                            <PopoverTrigger
+                                onPointerDown={prepareLink}
+                                onKeyDown={event => {
+                                    if (event.key === 'Enter' || event.key === ' ') prepareLink()
+                                }}
+                                render={
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant={state?.link ? 'secondary' : 'ghost'}
+                                        aria-label={m.editor_format_link()}
+                                        title={m.editor_format_link()}
+                                        disabled={source || disabled}
+                                    />
+                                }>
+                                <LinkIcon aria-hidden="true" />
+                            </PopoverTrigger>
+                            <PopoverContent
+                                aria-label={m.editor_format_link()}
+                                className="w-80 max-w-[calc(100vw-2rem)] p-3"
+                                align="start"
+                                finalFocus={() => {
+                                    editor.view.focus()
+                                    return false
+                                }}>
+                                <Input
+                                    aria-label={m.editor_link_address()}
+                                    value={linkValue}
+                                    inputMode="url"
+                                    autoComplete="url"
+                                    placeholder="https://"
+                                    aria-invalid={linkError || undefined}
+                                    aria-describedby={linkError ? linkErrorId : undefined}
+                                    onChange={event => {
+                                        setLinkValue(event.target.value)
+                                        setLinkError(false)
+                                    }}
+                                    onKeyDown={event => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault()
+                                            applyLink()
+                                        }
+                                    }}
+                                />
+                                {linkError ? (
+                                    <p
+                                        id={linkErrorId}
+                                        role="alert"
+                                        className="mt-2 text-xs text-foreground">
+                                        {m.editor_link_invalid()}
+                                    </p>
+                                ) : null}
+                                <div className="mt-3 flex justify-end gap-2">
+                                    {state?.link ? (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => applyLink(true)}>
+                                            {m.editor_link_remove()}
+                                        </Button>
+                                    ) : null}
+                                    <Button type="button" size="sm" onClick={() => applyLink()}>
+                                        {m.common_apply()}
+                                    </Button>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    ) : null}
                     {!source ? (
                         <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
                             <PopoverTrigger
@@ -247,24 +379,23 @@ export function ConfiguredPublicationEditor({
                                 <SmileCircleIcon aria-hidden="true" />
                             </PopoverTrigger>
                             <PopoverContent
+                                aria-label={m.publication_emoji_insert()}
                                 side="bottom"
                                 align="start"
-                                className="w-80 max-w-[calc(100vw-2rem)]">
+                                className="w-80 max-w-[calc(100vw-2rem)]"
+                                finalFocus={() => {
+                                    editor.view.focus()
+                                    return false
+                                }}>
                                 <Suspense fallback={<p>{m.common_loading()}</p>}>
                                     {emojiOpen ? (
                                         <EmojiPicker
                                             onSelect={emoji => {
+                                                editor.commands.insertContent({
+                                                    type: 'text',
+                                                    text: emoji,
+                                                })
                                                 setEmojiOpen(false)
-                                                requestAnimationFrame(() =>
-                                                    editor
-                                                        .chain()
-                                                        .focus()
-                                                        .insertContent({
-                                                            type: 'text',
-                                                            text: emoji,
-                                                        })
-                                                        .run()
-                                                )
                                             }}
                                         />
                                     ) : null}

@@ -26,7 +26,7 @@ const ConfiguredEditor = lazy(() =>
 type SourceContent = PublicationEditorState['post']['sourceContent']
 
 interface PublicationEditorSourceSectionProps {
-    readonly experimentalEditor?: boolean
+    readonly configuredEditor?: boolean
     readonly projectId: string
     readonly sourceContent: SourceContent
     readonly sourceRevision: number
@@ -41,7 +41,7 @@ interface PublicationEditorSourceSectionProps {
 }
 
 export function PublicationEditorSourceSection({
-    experimentalEditor = false,
+    configuredEditor = true,
     projectId,
     sourceContent,
     sourceRevision,
@@ -96,7 +96,7 @@ export function PublicationEditorSourceSection({
                             <FieldLabel className="sr-only" htmlFor="source-body">
                                 {m.editor_source_body()}
                             </FieldLabel>
-                            {experimentalEditor ? (
+                            {configuredEditor ? (
                                 <Suspense fallback={null}>
                                     <ConfiguredEditor
                                         compact

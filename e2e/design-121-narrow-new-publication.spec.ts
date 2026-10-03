@@ -54,7 +54,7 @@ test('resolves an interrupted composition before a new one can replace it', asyn
     await expectNoHorizontalOverflow(page)
     await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
     await expect(recovery).toHaveCount(0)
-    await expect(editor).toHaveValue(original)
+    await expect(editor).toHaveText(original)
 
     const secondSave = page.waitForResponse(
         response =>
@@ -68,7 +68,7 @@ test('resolves an interrupted composition before a new one can replace it', asyn
     await expect(recovery).toContainText(`Current composition ${suffix}`)
     await recovery.getByRole('button', { name: 'Discard', exact: true }).click()
     await expect(recovery).toHaveCount(0)
-    await expect(editor).toHaveValue('')
+    await expect(editor).toHaveText('')
     await expect(page.locator('[data-new-publication-form="true"]')).not.toHaveAttribute(
         'inert',
         ''
@@ -108,7 +108,7 @@ test('offers local recovery when composition autosave is unavailable', async ({ 
     await expect(recovery).toContainText(text)
     await expect(form).toHaveAttribute('inert', '')
     await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
-    await expect(editor).toHaveValue(text)
+    await expect(editor).toHaveText(text)
 })
 
 test('keeps narrow new-publication flow and queue usable with long channel names', async ({

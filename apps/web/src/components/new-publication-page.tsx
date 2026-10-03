@@ -56,11 +56,11 @@ const ConfiguredPublicationEditor = lazy(() =>
 export function NewPublicationPage({
     calendarDate,
     calendarTime,
-    experimentalEditor = false,
+    configuredEditor = true,
 }: {
     readonly calendarDate?: string
     readonly calendarTime?: string
-    readonly experimentalEditor?: boolean
+    readonly configuredEditor?: boolean
 }) {
     const { locale } = useLanguage()
     const navigate = useNavigate({ from: '/dashboard/projects/$projectId/publications/new' })
@@ -170,13 +170,13 @@ export function NewPublicationPage({
         () => new Set([publicationSharedTabId])
     )
     useEffect(() => {
-        if (!experimentalEditor) return
+        if (!configuredEditor) return
         setVisitedEditorScopes(current =>
             current.has(resolvedActiveContentScopeId)
                 ? current
                 : new Set(current).add(resolvedActiveContentScopeId)
         )
-    }, [experimentalEditor, resolvedActiveContentScopeId])
+    }, [configuredEditor, resolvedActiveContentScopeId])
     const renderedEditorScopes = new Set([...visitedEditorScopes, resolvedActiveContentScopeId])
     const activePreviewTarget = activeContentTarget ?? activeTarget ?? publicationTargets[0]
     const activePreviewChannel = activeChannels.find(
@@ -774,7 +774,7 @@ export function NewPublicationPage({
                                         </div>
                                     ) : null}
                                     <div>
-                                        {experimentalEditor ? (
+                                        {configuredEditor ? (
                                             <Suspense
                                                 fallback={
                                                     <div className="min-h-56 p-4 text-muted-foreground">
@@ -818,6 +818,11 @@ export function NewPublicationPage({
                                                                 hidden={!visible}
                                                                 data-editor-scope={scope.id}>
                                                                 <ConfiguredPublicationEditor
+                                                                    id={
+                                                                        visible
+                                                                            ? 'new-post-content'
+                                                                            : undefined
+                                                                    }
                                                                     profile={profile}
                                                                     value={
                                                                         shared

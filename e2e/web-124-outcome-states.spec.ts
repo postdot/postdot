@@ -563,7 +563,7 @@ test('keeps draft content truthful in destination-specific preview compositions'
         await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
         await expect(
             page.getByRole('textbox', { name: en.publication_new_source_content, exact: true })
-        ).toHaveValue(body)
+        ).toHaveText(body, { useInnerText: true })
     }
     await page
         .getByRole('textbox', { name: en.publication_new_source_content, exact: true })
@@ -624,7 +624,7 @@ test('keeps draft content truthful in destination-specific preview compositions'
         path: testInfo.outputPath('preview-discord-spoilers-390.png'),
     })
     await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
-    await expect(source).toHaveValue('Before ||**Secret**|| and ||Second|| after `||literal||`')
+    await expect(source).toHaveText('Before ||**Secret**|| and ||Second|| after `||literal||`')
     await source.fill('Before ||**Secret**|| and ||Second|| after `||literal||` updated')
     await page.getByRole('button', { name: 'Destination discord', exact: true }).click()
     await expect(spoilers.nth(1)).toHaveAttribute('aria-expanded', 'false')
