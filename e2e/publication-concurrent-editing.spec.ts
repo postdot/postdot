@@ -26,9 +26,9 @@ test('rebases a stale sibling draft without replacing destination text or attach
         await expect
             .poll(async () => (await pair.read(page, pair.first)).post.sourceRevision)
             .toBe(2)
-        await other.reload()
+        await expect(page.locator('[data-publication-conflict="true"]')).toHaveCount(0)
         const conflict = other.locator('[data-publication-conflict="true"]')
-        await expect(conflict).toBeVisible()
+        await expect(conflict).toBeVisible({ timeout: 10_000 })
         await expect(conflict).toContainText('Initial common source')
         await expect(conflict).toContainText('New common source')
         await expect(
@@ -195,6 +195,10 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
         await local.fill('In-flight local destination')
         await startedSave
         const before = await pair.read(page, pair.first)
+        const incoming = other.waitForResponse(async response => {
+            if (!response.url().endsWith(`/publications/${pair.first}/editor`)) return false
+            return (await response.json()).editor.draft.revision > before.draft.revision
+        })
         const remoteSave = await page.request.patch(
             `/api/projects/${pair.id}/publications/${pair.first}/draft`,
             {
@@ -212,18 +216,6 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
             }
         )
         expect(remoteSave.ok()).toBe(true)
-        const incoming = other.waitForResponse(async response => {
-            if (!response.url().endsWith(`/publications/${pair.first}/editor`)) return false
-            return (await response.json()).editor.draft.revision > before.draft.revision
-        })
-        const sibling = await pair.read(page, pair.second)
-        const rebased = await page.request.post(
-            `/api/projects/${pair.id}/publications/${pair.second}/draft/rebase`,
-            {
-                data: { expectedRevision: sibling.draft.revision },
-            }
-        )
-        expect(rebased.ok()).toBe(true)
         await incoming
         releaseSave?.()
         await expect(other.locator('[data-publication-conflict="true"]')).toBeVisible()
@@ -246,6 +238,84 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
     } finally {
         releaseSave?.()
         await otherContext.close()
+    }
+})
+
+test('catches up missed draft signals on visibility return and SSE reconnect', async ({
+    page,
+    browser,
+}) => {
+    test.setTimeout(90_000)
+    const pair = await createDraftPair(page)
+    const context = await browser.newContext({ storageState: await page.context().storageState() })
+    const other = await context.newPage()
+    const editorUrl = `/publications/${pair.first}/editor`
+    try {
+        let reads = 0
+        other.on('request', request => {
+            if (request.url().endsWith(editorUrl)) reads += 1
+        })
+        await other.goto(pair.pageUrl(pair.first))
+        await expect.poll(() => reads).toBeGreaterThanOrEqual(1)
+        await expect(other.locator('#source-body')).toHaveText('Initial common source')
+        // Let the existing journal replay refresh retries settle before measuring hidden draft reads.
+        await other.waitForTimeout(1500)
+        reads = 0
+        await other.evaluate(() =>
+            Object.defineProperty(document, 'visibilityState', {
+                configurable: true,
+                get: () => 'hidden',
+            })
+        )
+        const before = await pair.read(page, pair.first)
+        const saved = await page.request.patch(
+            `/api/projects/${pair.id}/publications/${pair.first}/draft`,
+            {
+                data: {
+                    expectedRevision: before.draft.revision,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { format: 'plain_text', text: 'Changed while hidden' },
+                    },
+                    targetContent: before.draft.content,
+                },
+            }
+        )
+        expect(saved.ok()).toBe(true)
+        await other.waitForTimeout(700)
+        expect(reads).toBe(0)
+        await other.evaluate(() => {
+            Object.defineProperty(document, 'visibilityState', {
+                configurable: true,
+                get: () => 'visible',
+            })
+            document.dispatchEvent(new Event('visibilitychange'))
+        })
+        await expect(other.locator('#source-body')).toHaveText('Changed while hidden')
+        await context.setOffline(true)
+        await other.waitForTimeout(700)
+        const newer = await pair.read(page, pair.first)
+        const offlineSave = await page.request.patch(
+            `/api/projects/${pair.id}/publications/${pair.first}/draft`,
+            {
+                data: {
+                    expectedRevision: newer.draft.revision,
+                    sourceContent: {
+                        ...pair.source,
+                        body: { format: 'plain_text', text: 'Changed while disconnected' },
+                    },
+                    targetContent: newer.draft.content,
+                },
+            }
+        )
+        expect(offlineSave.ok()).toBe(true)
+        await context.setOffline(false)
+        await expect(other.locator('#source-body')).toHaveText('Changed while disconnected', {
+            timeout: 15_000,
+        })
+        await expect(other.locator('[data-publication-conflict="true"]')).toHaveCount(0)
+    } finally {
+        await context.close()
     }
 })
 

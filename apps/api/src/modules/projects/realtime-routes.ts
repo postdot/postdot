@@ -13,7 +13,12 @@ import type { OpenAPIV3 } from 'openapi-types'
 
 import { sessionSecurity } from '../../plugins/auth'
 import { errorResponse, projectParams } from './models'
-import type { RealtimeHub, UserRealtimeHub } from './realtime-runtime'
+import type {
+    DraftChangeSignal,
+    ProjectRealtimeHub,
+    RealtimeHub,
+    UserRealtimeHub,
+} from './realtime-runtime'
 import type { AuthenticatedElysia } from './types'
 
 const supportedProjectEventSubjects = {
@@ -85,7 +90,7 @@ interface ProjectEventStreamInput {
     readonly projectId: string
     readonly journal: Pick<EventJournalStore, 'readAfter'>
     readonly after: EventJournalCursor | null
-    readonly projectChanges?: RealtimeHub
+    readonly projectChanges?: ProjectRealtimeHub
     readonly isAuthorized?: () => boolean | Promise<boolean>
     readonly options?: ProjectEventStreamOptions
 }
@@ -334,9 +339,25 @@ export function createProjectEventStream({
     let closed = false
     let releaseWait: (() => void) | undefined
 
+    const pendingDraftChanges = new Map<string, DraftChangeSignal>()
+    const unsubscribeDraftChanges = projectChanges?.subscribeDraftChanges?.(projectId, change => {
+        const previous = pendingDraftChanges.get(change.publicationId)
+        pendingDraftChanges.set(change.publicationId, {
+            ...change,
+            sourceChanged: change.sourceChanged || previous?.sourceChanged === true,
+        })
+    })
+    const cleanupDraftChanges = () => {
+        unsubscribeDraftChanges?.()
+        pendingDraftChanges.clear()
+        request.signal.removeEventListener('abort', cleanupDraftChanges)
+    }
+    request.signal.addEventListener('abort', cleanupDraftChanges, { once: true })
+
     function close(controller: ReadableStreamDefaultController<Uint8Array>) {
         if (closed) return
         closed = true
+        cleanupDraftChanges()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -352,6 +373,7 @@ export function createProjectEventStream({
     ) {
         if (closed) return
         closed = true
+        cleanupDraftChanges()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -369,6 +391,7 @@ export function createProjectEventStream({
     function closeWithAccessRevoked(controller: ReadableStreamDefaultController<Uint8Array>) {
         if (closed) return
         closed = true
+        cleanupDraftChanges()
         releaseWait?.()
         releaseWait = undefined
         try {
@@ -423,7 +446,10 @@ export function createProjectEventStream({
 
                 if (!(await ensureAuthorized(controller))) return
 
-                const frames: string[] = []
+                const frames: string[] = [...pendingDraftChanges.values()].map(
+                    change => `event: project.draft-changed\ndata: ${JSON.stringify(change)}\n\n`
+                )
+                pendingDraftChanges.clear()
                 for (const entry of entries) {
                     if (entry.projectId !== projectId) {
                         closeWithResync(controller, 'cursor_gap')
@@ -452,6 +478,7 @@ export function createProjectEventStream({
                         controller.enqueue(encoder.encode(frames.join('')))
                     } catch {
                         closed = true
+                        cleanupDraftChanges()
                         return
                     }
                     heartbeatAt = Date.now() + streamOptions.heartbeatIntervalMs
@@ -466,6 +493,7 @@ export function createProjectEventStream({
                         controller.enqueue(encoder.encode(': heartbeat\n\n'))
                     } catch {
                         closed = true
+                        cleanupDraftChanges()
                         return
                     }
                     heartbeatAt = now + streamOptions.heartbeatIntervalMs
@@ -492,6 +520,7 @@ export function createProjectEventStream({
         },
         cancel() {
             closed = true
+            cleanupDraftChanges()
             releaseWait?.()
             releaseWait = undefined
         },

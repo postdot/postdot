@@ -220,6 +220,7 @@ export function PublicationEditor({
     )
     const technicalDetailsRef = useRef<HTMLDetailsElement>(null)
     const requestGeneration = useRef(0)
+    const [pendingSaveGeneration, setPendingSaveGeneration] = useState<number | null>(null)
 
     const availableTags = useMemo(() => {
         const byId = new Map<string, ProjectTag>()
@@ -348,6 +349,7 @@ export function PublicationEditor({
     useEffect(() => {
         if (initialEditor.publication.id !== editor.publication.id) return
         if (incomingEditorFingerprint === lastIncomingEditorFingerprint.current) return
+        if (pendingSaveGeneration !== null) return
         lastIncomingEditorFingerprint.current = incomingEditorFingerprint
         if (incomingEditorFingerprint === currentEditorFingerprint) return
 
@@ -382,6 +384,7 @@ export function PublicationEditor({
         editor.publication.id,
         hasLocalChanges,
         incomingEditorFingerprint,
+        pendingSaveGeneration,
         initialEditor,
         timeZone,
     ])
@@ -472,6 +475,7 @@ export function PublicationEditor({
 
         setSaveState('saving')
         const timer = window.setTimeout(() => {
+            setPendingSaveGeneration(generation)
             void api
                 .savePublicationDraft(projectId, editor.publication.id, {
                     expectedRevision,
@@ -497,6 +501,9 @@ export function PublicationEditor({
                     }
                     setSaveState('error')
                     setMessage(errorMessage(caughtError))
+                })
+                .finally(() => {
+                    setPendingSaveGeneration(current => (current === generation ? null : current))
                 })
         }, 650)
 
@@ -1436,6 +1443,7 @@ function publicationEditorFingerprint(editor: PublicationEditorState): string {
         draft.revision,
         draft.updatedAt,
         draft.sourceRevision,
+        editor.post.sourceRevision,
         draft.profileVersionId,
         draft.reviewState,
         target?.id ?? '',

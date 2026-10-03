@@ -164,6 +164,7 @@ export function createProjectModule(options: ProjectModuleOptions) {
         options.access,
         {
             onWorkScheduled: options.onWorkScheduled,
+            projectChanges: options.projectChanges,
         }
     )
     const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media, options.access, {

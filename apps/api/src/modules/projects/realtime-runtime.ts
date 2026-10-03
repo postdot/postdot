@@ -2,7 +2,20 @@ export interface RealtimeHub {
     waitForChange(projectId: string, signal: AbortSignal): Promise<void>
 }
 
-export interface ProjectRealtimeHub extends RealtimeHub {}
+export interface DraftChangeSignal {
+    readonly projectId: string
+    readonly postId: string
+    readonly publicationId: string
+    readonly sourceChanged: boolean
+}
+
+export interface ProjectRealtimeHub extends RealtimeHub {
+    subscribeDraftChanges?(
+        projectId: string,
+        listener: (change: DraftChangeSignal) => void
+    ): () => void
+    publishDraftChange?(change: DraftChangeSignal): void
+}
 export interface UserRealtimeHub extends RealtimeHub {}
 
 export interface ProjectRealtimeRuntime {
@@ -33,6 +46,7 @@ interface Waiter {
 export function createProjectRealtimeRuntime(
     options: ProjectRealtimeRuntimeOptions = {}
 ): ProjectRealtimeRuntime {
+    const draftListeners = new Map<string, Set<(change: DraftChangeSignal) => void>>()
     const projectWaiters = new Map<string, Set<Waiter>>()
     const userWaiters = new Map<string, Set<Waiter>>()
     let stopped = false
@@ -127,6 +141,7 @@ export function createProjectRealtimeRuntime(
     function stop(): void {
         if (stopped) return
         stopped = true
+        draftListeners.clear()
         for (const [projectId, waiters] of projectWaiters) {
             for (const waiter of waiters) waiter.resolve()
             projectWaiters.delete(projectId)
@@ -139,6 +154,26 @@ export function createProjectRealtimeRuntime(
 
     return {
         hub: {
+            subscribeDraftChanges: (projectId, listener) => {
+                const listeners = draftListeners.get(projectId) ?? new Set()
+                listeners.add(listener)
+                draftListeners.set(projectId, listeners)
+                return () => {
+                    listeners.delete(listener)
+                    if (listeners.size === 0) draftListeners.delete(projectId)
+                }
+            },
+            publishDraftChange: change => {
+                if (stopped) return
+                for (const listener of draftListeners.get(change.projectId) ?? []) {
+                    try {
+                        listener(change)
+                    } catch (error) {
+                        reportError(error)
+                    }
+                }
+                notify(projectWaiters, [change.projectId])
+            },
             waitForChange: (projectId, signal) => waitForChange(projectWaiters, projectId, signal),
         },
         userHub: {

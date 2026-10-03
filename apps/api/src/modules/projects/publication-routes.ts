@@ -32,9 +32,11 @@ import {
     approvePublicationRequestBody,
     rejectPublicationRequestBody,
 } from './models'
+import type { ProjectRealtimeHub } from './realtime-runtime'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
 export interface PublicationRouteOptions {
+    readonly projectChanges?: ProjectRealtimeHub
     readonly onWorkScheduled?: () => void
 }
 
@@ -732,6 +734,11 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     )
                 }
 
+                const previous = manualStore.getPublicationEditorState(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
                 const draft = manualStore.savePublicationDraft({
                     projectId: params.projectId,
                     publicationId: params.publicationId,
@@ -756,6 +763,12 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                         error: { code: 'not_found', message: 'Publication not found' },
                     })
                 }
+                options.projectChanges?.publishDraftChange?.({
+                    projectId: params.projectId,
+                    postId: editor.post.id,
+                    publicationId: params.publicationId,
+                    sourceChanged: previous?.post.sourceRevision !== editor.post.sourceRevision,
+                })
                 return { editor }
             }
         )

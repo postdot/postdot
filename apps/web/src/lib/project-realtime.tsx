@@ -1,3 +1,4 @@
+import type { PublicationEditorState } from '@herald/client'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type ReactNode } from 'react'
 
@@ -80,7 +81,15 @@ export interface ProjectRealtimeEvent {
     readonly payload: Record<string, never>
 }
 
+export interface DraftChangeSignal {
+    readonly projectId: string
+    readonly postId: string
+    readonly publicationId: string
+    readonly sourceChanged: boolean
+}
+
 export type ProjectRealtimeSignal =
+    | { readonly kind: 'draft-changed'; readonly change: DraftChangeSignal }
     | { readonly kind: 'update'; readonly event: ProjectRealtimeEvent }
     | { readonly kind: 'resync-required'; readonly reason: string }
     | { readonly kind: 'access-revoked' }
@@ -143,6 +152,25 @@ export class BrowserProjectRealtimeEventSource implements ProjectRealtimeEventSo
             const parsed = parseProjectRealtimeEvent(event.data, this.projectId)
             if (parsed === null) return
             for (const listener of this.listeners) listener({ kind: 'update', event: parsed })
+        })
+        this.eventSource.addEventListener('project.draft-changed', event => {
+            const value = parseJsonObject(event.data)
+            if (
+                value?.projectId !== this.projectId ||
+                typeof value.postId !== 'string' ||
+                value.postId.length === 0 ||
+                typeof value.publicationId !== 'string' ||
+                value.publicationId.length === 0 ||
+                typeof value.sourceChanged !== 'boolean'
+            )
+                return
+            const change = {
+                projectId: this.projectId,
+                postId: value.postId,
+                publicationId: value.publicationId,
+                sourceChanged: value.sourceChanged,
+            }
+            for (const listener of this.listeners) listener({ kind: 'draft-changed', change })
         })
         this.eventSource.addEventListener('project.resync-required', event => {
             const value = parseJsonObject(event.data)
@@ -421,8 +449,66 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
             return operation
         }
 
+        const draftChanges = new Map<string, DraftChangeSignal>()
+        let draftRefreshTimer: ReturnType<typeof setTimeout> | undefined
+        let refreshingDrafts = false
+        const refreshDrafts = async () => {
+            draftRefreshTimer = undefined
+            if (refreshingDrafts || stopped || document.visibilityState === 'hidden') return
+            refreshingDrafts = true
+            const changes = [...draftChanges.values()]
+            draftChanges.clear()
+            try {
+                await queryClient.invalidateQueries({
+                    queryKey: projectQueryKeys.publicationEditors(projectId),
+                    predicate: query => {
+                        const data = query.state.data as
+                            | { editor?: PublicationEditorState }
+                            | undefined
+                        return changes.some(
+                            change =>
+                                query.queryKey[3] === change.publicationId ||
+                                (change.sourceChanged && data?.editor?.post.id === change.postId)
+                        )
+                    },
+                })
+            } finally {
+                refreshingDrafts = false
+                if (draftChanges.size > 0 && !stopped) scheduleDraftRefresh()
+            }
+        }
+        const scheduleDraftRefresh = () => {
+            if (
+                draftRefreshTimer !== undefined ||
+                refreshingDrafts ||
+                document.visibilityState === 'hidden'
+            )
+                return
+            draftRefreshTimer = setTimeout(() => {
+                void refreshDrafts()
+            }, 100)
+        }
+        const refreshVisibleEditors = () => {
+            if (document.visibilityState === 'hidden') return
+            draftChanges.clear()
+            void queryClient.invalidateQueries({
+                queryKey: projectQueryKeys.publicationEditors(projectId),
+            })
+        }
+        document.addEventListener('visibilitychange', refreshVisibleEditors)
+
         const unsubscribe = source.subscribe(
             signal => {
+                if (signal.kind === 'draft-changed') {
+                    const previous = draftChanges.get(signal.change.publicationId)
+                    draftChanges.set(signal.change.publicationId, {
+                        ...signal.change,
+                        sourceChanged:
+                            signal.change.sourceChanged || previous?.sourceChanged === true,
+                    })
+                    scheduleDraftRefresh()
+                    return
+                }
                 if (signal.kind === 'resync-required') {
                     void refresh('project', true, true)
                     void refresh('notifications', true)
@@ -446,6 +532,9 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                     wasDisconnected = true
                     return
                 }
+                void queryClient.invalidateQueries({
+                    queryKey: projectQueryKeys.publicationEditors(projectId),
+                })
                 if (!wasDisconnected) return
                 wasDisconnected = false
                 void refresh('project', true, true)
@@ -455,6 +544,9 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
 
         return () => {
             stopped = true
+            document.removeEventListener('visibilitychange', refreshVisibleEditors)
+            if (draftRefreshTimer !== undefined) clearTimeout(draftRefreshTimer)
+            draftChanges.clear()
             unsubscribe()
             source.close()
             pendingRefreshes.clear()

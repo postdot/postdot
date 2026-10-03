@@ -8,6 +8,7 @@ import {
     toProjectRealtimeEvent,
     type ProjectRealtimeEventType,
 } from './realtime-routes'
+import { createProjectRealtimeRuntime } from './realtime-runtime'
 
 function journalEntry(input: {
     readonly id: string
@@ -347,5 +348,71 @@ describe('project event stream', () => {
         expect(result.text).toContain('"reason":"cursor_gap"')
         expect(result.text).not.toContain('project-2')
         expect(terminal.done).toBe(true)
+    })
+})
+
+describe('ephemeral draft changes', () => {
+    it('targets project subscribers and coalesces changes without durable ids', async () => {
+        const runtime = createProjectRealtimeRuntime()
+        const controller = new AbortController()
+        const reader = createProjectEventStream({
+            request: new Request('http://localhost/events', { signal: controller.signal }),
+            projectId: 'project-1',
+            journal: { readAfter: () => [] },
+            after: null,
+            projectChanges: runtime.hub,
+            options: { heartbeatIntervalMs: 1000 },
+        }).getReader()
+        const next = readText(reader)
+        runtime.hub.publishDraftChange?.({
+            projectId: 'project-2',
+            postId: 'foreign',
+            publicationId: 'foreign',
+            sourceChanged: true,
+        })
+        runtime.hub.publishDraftChange?.({
+            projectId: 'project-1',
+            postId: 'post-1',
+            publicationId: 'publication-1',
+            sourceChanged: true,
+        })
+        runtime.hub.publishDraftChange?.({
+            projectId: 'project-1',
+            postId: 'post-1',
+            publicationId: 'publication-1',
+            sourceChanged: false,
+        })
+        const frame = (await next).text
+        expect(frame).toContain('event: project.draft-changed')
+        expect(frame).toContain('"sourceChanged":true')
+        expect(frame.match(/event: project.draft-changed/g)).toHaveLength(1)
+        expect(frame).not.toContain('foreign')
+        expect(frame).not.toContain('id:')
+        await reader.cancel()
+        runtime.stop()
+    })
+
+    it('checks authorization before delivering a queued draft change', async () => {
+        const runtime = createProjectRealtimeRuntime()
+        const reader = createProjectEventStream({
+            request: new Request('http://localhost/events'),
+            projectId: 'project-1',
+            journal: { readAfter: () => [] },
+            after: null,
+            projectChanges: runtime.hub,
+            isAuthorized: () => false,
+        }).getReader()
+        runtime.hub.publishDraftChange?.({
+            projectId: 'project-1',
+            postId: 'private-post',
+            publicationId: 'private-publication',
+            sourceChanged: true,
+        })
+        const frame = (await readText(reader)).text
+        expect(frame).toContain('project.access-revoked')
+        expect(frame).not.toContain('private-post')
+        expect(frame).not.toContain('project.draft-changed')
+        expect((await readText(reader)).done).toBe(true)
+        runtime.stop()
     })
 })

@@ -4062,8 +4062,8 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-150] Refresh publication editors after concurrent draft saves
 
 - Type: problem
-- Status: open
+- Status: resolved by UX-292
 - Evidence: UX-291 opened two authenticated browser contexts on sibling publications. Saving a changed shared source advanced the server source revision, but the other open editor did not display the stale-source conflict until reloaded. Normal draft saves currently emit no journal fact in publication-authoring-store; the project SSE allowlist includes rebase, but not draft saves.
 - Impact: Server revision guards prevent stale writes, but an operator can keep seeing apparently actionable controls before discovering the conflict on save or reload.
 - Desired outcome: Open editors discover concurrent changes promptly, preserve unsaved local work, and expose the explicit reconciliation decision. Decide on a bounded refresh mechanism without logging every autosave indiscriminately or introducing automatic content merges.
-- Tasks: UX-291 (evidence), UX-292 (in-flight save correction and mechanism review). The new deterministic incoming-SSE test exposed a stuck saving state; corrected without changing draft-save transport. Refresh implementation remains pending the owner choice.
+- Tasks: UX-291 (evidence), UX-292 (in-flight save correction and mechanism review). The new deterministic incoming-SSE test exposed a stuck saving state; corrected without changing draft-save transport. Owner accepted ephemeral SSE draft hints. Implementation, focused visibility/reconnection journeys and the full root gate pass (69 browser journeys, two password-reset journeys, 17 builds). See ADR-076 and UX-292.

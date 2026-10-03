@@ -210,3 +210,26 @@ describe('project realtime event source', () => {
         source.close()
     })
 })
+
+test('accepts scoped draft hints without treating them as durable events', () => {
+    const fake = new FakeEventSource()
+    const signals: unknown[] = []
+    const source = createProjectRealtimeClient('project-1', () => fake)
+    source.subscribe(signal => signals.push(signal))
+    const change = {
+        projectId: 'project-1',
+        postId: 'post-1',
+        publicationId: 'publication-1',
+        sourceChanged: true,
+    }
+    fake.emit('project.draft-changed', JSON.stringify({ ...change, projectId: 'project-2' }))
+    fake.emit('project.draft-changed', JSON.stringify({ ...change, sourceChanged: 'true' }))
+    fake.emit('project.draft-changed', JSON.stringify({ ...change, postId: '' }))
+    expect(signals).toEqual([])
+    fake.emit(
+        'project.draft-changed',
+        JSON.stringify({ ...change, content: 'not forwarded', cursor: 'not durable' })
+    )
+    expect(signals).toEqual([{ kind: 'draft-changed', change }])
+    source.close()
+})
