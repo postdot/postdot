@@ -2,14 +2,15 @@ import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert
 import { Button } from '@herald/ui/components/button'
 import { Field, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
-import { Tooltip, TooltipTrigger, TooltipContent } from '@herald/ui/components/tooltip'
 import { CloseIcon } from '@solar-icons/react/linear/close'
 import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
+import { PaperclipIcon } from '@solar-icons/react/linear/paperclip'
 import { UploadIcon } from '@solar-icons/react/linear/upload'
 import type { Meta, UploadResult } from '@uppy/core'
 import { UppyContextProvider, useDropzone, useFileInput, useUppyState } from '@uppy/react'
 import { Reorder, useDragControls, useReducedMotion } from 'motion/react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 import { EmptyState } from '@/components/empty-state'
 import {
@@ -59,6 +60,8 @@ import {
 } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
+import { ActionTooltip } from './action-tooltip'
+
 const MediaImageEditorDialog = lazy(async () => {
     const module = await import('@/components/media-image-editor-dialog')
     return { default: module.MediaImageEditorDialog }
@@ -93,6 +96,7 @@ export interface MediaAttachmentPickerProps {
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
     readonly onAssetsChange?: (assets: MediaReference[]) => void
+    readonly triggerContainer?: HTMLElement | null
     readonly renderHeader?: (actions: {
         readonly disabled: boolean
         readonly onImport: () => void
@@ -140,6 +144,7 @@ function MediaAttachmentPickerView({
     onChange,
     onAssetsChange,
     renderHeader,
+    triggerContainer,
     disabled = false,
     readOnly = false,
     emptyDescription,
@@ -1308,6 +1313,20 @@ function MediaAttachmentPickerView({
         uploading,
     })
 
+    const attachmentTrigger = (
+        <ActionTooltip label={m.media_upload()}>
+            <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={m.media_upload()}
+                disabled={interactionLocked}
+                onClick={openAttachmentLibrary}>
+                <PaperclipIcon aria-hidden="true" />
+            </Button>
+        </ActionTooltip>
+    )
+
     return (
         <>
             {header}
@@ -1463,22 +1482,11 @@ function MediaAttachmentPickerView({
                                     </div>
                                 ) : null}
                                 {inline ? (
-                                    <Tooltip>
-                                        <TooltipTrigger
-                                            render={
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon-sm"
-                                                    aria-label={m.media_upload()}
-                                                    disabled={interactionLocked}
-                                                    onClick={openAttachmentLibrary}>
-                                                    <GalleryAddIcon aria-hidden="true" />
-                                                </Button>
-                                            }
-                                        />
-                                        <TooltipContent>{m.media_upload()}</TooltipContent>
-                                    </Tooltip>
+                                    triggerContainer === undefined ? (
+                                        attachmentTrigger
+                                    ) : triggerContainer ? (
+                                        createPortal(attachmentTrigger, triggerContainer)
+                                    ) : null
                                 ) : (
                                     <Button
                                         type="button"
@@ -1824,44 +1832,47 @@ function CompactMediaPreview({
                     </span>
                 )}
                 {total > 1 ? (
+                    <ActionTooltip label={m.media_reorder_hint()}>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-xs"
+                            data-media-drag-handle="true"
+                            aria-label={m.media_reorder_handle({ filename })}
+                            aria-keyshortcuts="ArrowLeft ArrowRight"
+                            disabled={disabled}
+                            className="absolute bottom-1 left-1 size-5 cursor-grab rounded-sm bg-surface-overlay/90 text-foreground shadow-field active:cursor-grabbing"
+                            style={{ touchAction: 'none' }}
+                            onPointerDown={event => dragControls.start(event)}
+                            onKeyDown={event => {
+                                if (event.key === 'ArrowLeft' && index > 0) {
+                                    event.preventDefault()
+                                    onMove(index, -1)
+                                } else if (event.key === 'ArrowRight' && index < total - 1) {
+                                    event.preventDefault()
+                                    onMove(index, 1)
+                                }
+                            }}>
+                            <span aria-hidden="true" className="grid grid-cols-2 gap-0.5">
+                                {Array.from({ length: 6 }, (_, dot) => (
+                                    <span key={dot} className="size-0.5 rounded-full bg-current" />
+                                ))}
+                            </span>
+                        </Button>
+                    </ActionTooltip>
+                ) : null}
+                <ActionTooltip label={m.media_remove({ filename })}>
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        data-media-drag-handle="true"
-                        aria-label={m.media_reorder_handle({ filename })}
-                        aria-keyshortcuts="ArrowLeft ArrowRight"
-                        title={m.media_reorder_hint()}
                         disabled={disabled}
-                        className="absolute bottom-1 left-1 size-5 cursor-grab rounded-sm bg-surface-overlay/90 text-foreground shadow-field active:cursor-grabbing"
-                        style={{ touchAction: 'none' }}
-                        onPointerDown={event => dragControls.start(event)}
-                        onKeyDown={event => {
-                            if (event.key === 'ArrowLeft' && index > 0) {
-                                event.preventDefault()
-                                onMove(index, -1)
-                            } else if (event.key === 'ArrowRight' && index < total - 1) {
-                                event.preventDefault()
-                                onMove(index, 1)
-                            }
-                        }}>
-                        <span aria-hidden="true" className="grid grid-cols-2 gap-0.5">
-                            {Array.from({ length: 6 }, (_, dot) => (
-                                <span key={dot} className="size-0.5 rounded-full bg-current" />
-                            ))}
-                        </span>
+                        className="absolute -top-1.5 -right-1.5 z-10 size-5 rounded-full bg-surface-overlay/95 text-foreground shadow-field hover:bg-surface-raised hover:text-destructive [&_svg]:size-3"
+                        aria-label={m.media_remove({ filename })}
+                        onClick={() => onRemove(selection.assetId)}>
+                        <CloseIcon aria-hidden="true" />
                     </Button>
-                ) : null}
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    disabled={disabled}
-                    className="absolute -top-1.5 -right-1.5 z-10 size-5 rounded-full bg-surface-overlay/95 text-foreground shadow-field hover:bg-surface-raised hover:text-destructive [&_svg]:size-3"
-                    aria-label={m.media_remove({ filename })}
-                    onClick={() => onRemove(selection.assetId)}>
-                    <CloseIcon aria-hidden="true" />
-                </Button>
+                </ActionTooltip>
             </div>
             {showAccessibilityText && asset !== undefined ? (
                 <Field className="min-w-0 w-full max-w-full gap-1 sm:w-56">

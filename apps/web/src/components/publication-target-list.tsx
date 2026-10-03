@@ -35,6 +35,8 @@ import {
 } from '@/lib/publication-authoring'
 import * as m from '@/paraglide/messages.js'
 
+import { ActionTooltip } from './action-tooltip'
+
 export const publicationSharedTabId = 'shared'
 
 export interface PublicationChannelRailProps {
@@ -234,7 +236,6 @@ export function PublicationChannelTabs({
                                     type="button"
                                     variant="ghost"
                                     aria-label={m.publication_new_common_tab()}
-                                    title={m.publication_new_common_tab()}
                                     className={`size-11 shrink-0 gap-2 rounded-md p-0 text-sm shadow-control ${activeTabId === publicationSharedTabId ? 'bg-primary/12 text-primary ring-2 ring-primary ring-offset-2 ring-offset-background hover:bg-primary/16' : 'bg-surface-control text-muted-foreground hover:bg-surface-control-hover'}`}
                                     aria-pressed={activeTabId === publicationSharedTabId}
                                     disabled={disabled}
@@ -266,7 +267,6 @@ export function PublicationChannelTabs({
                                                 variant="ghost"
                                                 className="size-11 min-w-0 justify-center overflow-hidden rounded-md border-0 p-0 hover:bg-primary/8"
                                                 aria-label={channelLabel(channel)}
-                                                title={channelLabel(channel)}
                                                 aria-pressed={activeTabId === target.id}
                                                 data-channel-selected-button="true"
                                                 data-channel-id={channel.id}
@@ -285,22 +285,27 @@ export function PublicationChannelTabs({
                                     />
                                     <TooltipContent>{channelLabel(channel)}</TooltipContent>
                                 </Tooltip>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    className={cn(
-                                        'absolute -right-2 -top-2 z-10 size-6 rounded-full border-0 bg-surface-control p-0 text-muted-foreground shadow-control hover:bg-surface-control-hover hover:text-foreground [&_svg]:size-3',
-                                        activeTabId !== target.id &&
-                                            'max-sm:hidden [@media(pointer:coarse)]:hidden'
-                                    )}
-                                    aria-label={m.publication_new_remove_channel({
+                                <ActionTooltip
+                                    label={m.publication_new_remove_channel({
                                         channel: channelLabel(channel),
-                                    })}
-                                    disabled={disabled}
-                                    onClick={() => removeChannel(target)}>
-                                    <CloseIcon aria-hidden="true" />
-                                </Button>
+                                    })}>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-xs"
+                                        className={cn(
+                                            'absolute -right-2 -top-2 z-10 size-6 rounded-full border-0 bg-surface-control p-0 text-muted-foreground shadow-control hover:bg-surface-control-hover hover:text-foreground [&_svg]:size-3',
+                                            activeTabId !== target.id &&
+                                                'max-sm:hidden [@media(pointer:coarse)]:hidden'
+                                        )}
+                                        aria-label={m.publication_new_remove_channel({
+                                            channel: channelLabel(channel),
+                                        })}
+                                        disabled={disabled}
+                                        onClick={() => removeChannel(target)}>
+                                        <CloseIcon aria-hidden="true" />
+                                    </Button>
+                                </ActionTooltip>
                             </motion.div>
                         )
                     })}
@@ -333,7 +338,6 @@ export function PublicationChannelTabs({
                                                         }
                                                     )}
                                                     onClick={() => addChannel(channel.id)}
-                                                    title={channelLabel(channel)}
                                                     className="size-11 overflow-hidden rounded-md bg-surface-inset/55 p-0 text-muted-foreground shadow-control grayscale transition-[filter,background-color,color] hover:bg-surface-control-hover hover:text-foreground hover:grayscale-0 focus-visible:text-foreground focus-visible:grayscale-0">
                                                     <ChannelAvatar
                                                         channel={channel}

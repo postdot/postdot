@@ -1,13 +1,15 @@
 import { Button } from '@herald/ui/components/button'
 import { Input } from '@herald/ui/components/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@herald/ui/components/popover'
-import { GalleryAddIcon } from '@solar-icons/react/linear/gallery-add'
+import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import type { Editor } from '@tiptap/core'
 import { closeHistory } from '@tiptap/pm/history'
 import { useId, useRef, useState } from 'react'
 
 import { articleImageUrl } from '@/lib/article-image-url'
 import * as m from '@/paraglide/messages.js'
+
+import { ActionTooltip } from './action-tooltip'
 
 export function ArticleImageControl({
     editor,
@@ -51,23 +53,24 @@ export function ArticleImageControl({
     }
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger
-                onPointerDown={prepare}
-                onKeyDown={event => {
-                    if (event.key === 'Enter' || event.key === ' ') prepare()
-                }}
-                render={
-                    <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        disabled={disabled}
-                        aria-label={m.editor_image_external()}
-                        title={m.editor_image_external()}
-                    />
-                }>
-                <GalleryAddIcon aria-hidden="true" />
-            </PopoverTrigger>
+            <ActionTooltip label={m.editor_image_external()}>
+                <PopoverTrigger
+                    onPointerDown={prepare}
+                    onKeyDown={event => {
+                        if (event.key === 'Enter' || event.key === ' ') prepare()
+                    }}
+                    render={
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            disabled={disabled}
+                            aria-label={m.editor_image_external()}
+                        />
+                    }>
+                    <GalleryIcon aria-hidden="true" />
+                </PopoverTrigger>
+            </ActionTooltip>
             <PopoverContent
                 aria-label={m.editor_image_external()}
                 align="start"

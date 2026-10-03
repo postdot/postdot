@@ -1427,7 +1427,10 @@ test('persists mixed and media-only publications through the dashboard', async (
     const editorMediaPicker = page.locator('[data-media-picker="true"]')
     await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
     await expect(editorMediaPicker.locator('input[id^="media-alt-"]')).toHaveCount(0)
-    await editorMediaPicker.getByRole('button', { name: 'Add media', exact: true }).click()
+    await page
+        .locator('[data-editor-toolbar="true"]')
+        .getByRole('button', { name: 'Add media', exact: true })
+        .click()
     const editorAttachmentLibrary = page.locator('[data-media-library="true"]')
     await expect(editorAttachmentLibrary).toBeVisible()
     await expect(editorAttachmentLibrary.locator('input[id^="media-alt-"]')).toHaveCount(0)

@@ -56,6 +56,7 @@ export function PublicationEditorSourceSection({
 }: PublicationEditorSourceSectionProps) {
     useLanguage()
     const body = sourceContent.body
+    const [mediaToolbar, setMediaToolbar] = useState<HTMLDivElement | null>(null)
     const [bodyExpanded, setBodyExpanded] = useState(sourceContent.media.length === 0)
     const showBodyField = bodyExpanded || Boolean(body?.text) || sourceContent.media.length === 0
 
@@ -71,6 +72,7 @@ export function PublicationEditorSourceSection({
                     ) : null}
                     <ReadOnlySourceMeta sourceContent={sourceContent} />
                     <MediaAttachmentPicker
+                        triggerContainer={showBodyField ? mediaToolbar : undefined}
                         projectId={projectId}
                         readOnly
                         variant="publication-new-inline"
@@ -99,6 +101,7 @@ export function PublicationEditorSourceSection({
                             {configuredEditor ? (
                                 <Suspense fallback={null}>
                                     <ConfiguredEditor
+                                        onToolbarMount={setMediaToolbar}
                                         compact
                                         key={body?.format ?? 'plain_text'}
                                         id="source-body"
@@ -111,6 +114,7 @@ export function PublicationEditorSourceSection({
                                 </Suspense>
                             ) : (
                                 <PublicationTextEditor
+                                    onToolbarMount={setMediaToolbar}
                                     id="source-body"
                                     value={body?.text ?? ''}
                                     onValueChange={onTextChange}
@@ -134,6 +138,7 @@ export function PublicationEditorSourceSection({
                         </Button>
                     )}
                     <MediaAttachmentPicker
+                        triggerContainer={showBodyField ? mediaToolbar : undefined}
                         projectId={projectId}
                         variant="publication-new-inline"
                         value={sourceContent.media}

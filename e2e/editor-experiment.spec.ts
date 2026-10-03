@@ -223,3 +223,50 @@ test('inserts, edits, undoes and restores external article images', async ({ pag
     await page.getByRole('button', { name: 'Discord', exact: true }).click()
     await expect(page.getByRole('button', { name: 'External image', exact: true })).toHaveCount(0)
 })
+
+test('uses shared action hints and keeps the emoji panel stable while loading', async ({
+    page,
+}, info) => {
+    await page.setViewportSize({ width: 390, height: 900 })
+    let release = () => {}
+    const held = new Promise<void>(resolve => {
+        release = resolve
+    })
+    await page.route('**/emoji-data/**', async route => {
+        await held
+        await route.continue()
+    })
+    await page.goto('/editor-lab')
+    const emoji = page.getByRole('button', { name: 'Insert emoji', exact: true })
+    await expect(emoji).not.toHaveAttribute('title')
+    await emoji.hover()
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText('Insert emoji')
+    const requested = page.waitForRequest(request => request.url().includes('/emoji-data/'))
+    await emoji.click()
+    await requested
+    const popup = page.getByRole('dialog', { name: 'Insert emoji', exact: true })
+    await expect(popup.locator('[data-slot="skeleton"]')).not.toHaveCount(0)
+    const before = await popup.boundingBox()
+    await page.screenshot({ path: info.outputPath('emoji-loading-390.png') })
+    release()
+    const search = page.getByRole('searchbox', { name: 'Search emojis', exact: true })
+    await expect(search).toHaveAttribute('data-slot', 'input')
+    await search.fill('grinning face')
+    await expect(page.locator('[frimousse-emoji]').filter({ hasText: '😀' }).first()).toBeVisible()
+    const after = await popup.boundingBox()
+    expect(before).not.toBeNull()
+    expect(after).not.toBeNull()
+    expect(Math.abs((before?.height ?? 0) - (after?.height ?? 0))).toBeLessThanOrEqual(2)
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await page.screenshot({ path: info.outputPath('emoji-ready-390.png') })
+    await page.keyboard.press('Escape')
+    await expect(popup).toHaveCount(0)
+    await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
+    await expect(page.locator('[data-editor-toolbar="true"] [title]')).toHaveCount(0)
+    const bold = page.getByRole('button', { name: 'Bold', exact: true })
+    await bold.hover()
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText('Bold')
+    const content = page.getByRole('textbox', { name: 'Test content', exact: true })
+    await content.click()
+    expect(await content.evaluate(element => getComputedStyle(element).boxShadow)).toBe('none')
+})

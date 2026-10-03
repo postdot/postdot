@@ -47,6 +47,8 @@ import {
 } from '@/lib/publication-recovery'
 import * as m from '@/paraglide/messages.js'
 
+import { ActionTooltip } from './action-tooltip'
+
 const ConfiguredPublicationEditor = lazy(() =>
     import('./configured-publication-editor').then(module => ({
         default: module.ConfiguredPublicationEditor,
@@ -91,6 +93,7 @@ export function NewPublicationPage({
         publicationTargets,
         sourceMedia,
     })
+    const [mediaToolbar, setMediaToolbar] = useState<HTMLDivElement | null>(null)
     const [localRecoveryAtMount] = useState(() => readPublicationRecovery(project.id))
     const currentRecovery = hasCurrentComposerContent ? localRecoveryAtMount : null
     const appliedCalendarSlot = useRef<string | undefined>(undefined)
@@ -755,22 +758,29 @@ export function NewPublicationPage({
                                     {activeContentTarget !== undefined &&
                                     !activeContentTargetUsesSharedContent ? (
                                         <div className="flex justify-end px-3 pt-2">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon-xs"
-                                                disabled={pending}
-                                                aria-label={m.publication_new_reset_channel_content(
-                                                    { channel: activePreviewChannel?.name ?? '' }
-                                                )}
-                                                title={m.publication_new_reset_channel_content({
+                                            <ActionTooltip
+                                                label={m.publication_new_reset_channel_content({
                                                     channel: activePreviewChannel?.name ?? '',
-                                                })}
-                                                onClick={() =>
-                                                    useSharedTargetContent(activeContentTarget.id)
-                                                }>
-                                                <RestartIcon aria-hidden="true" />
-                                            </Button>
+                                                })}>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon-xs"
+                                                    disabled={pending}
+                                                    aria-label={m.publication_new_reset_channel_content(
+                                                        {
+                                                            channel:
+                                                                activePreviewChannel?.name ?? '',
+                                                        }
+                                                    )}
+                                                    onClick={() =>
+                                                        useSharedTargetContent(
+                                                            activeContentTarget.id
+                                                        )
+                                                    }>
+                                                    <RestartIcon aria-hidden="true" />
+                                                </Button>
+                                            </ActionTooltip>
                                         </div>
                                     ) : null}
                                     <div>
@@ -818,6 +828,11 @@ export function NewPublicationPage({
                                                                 hidden={!visible}
                                                                 data-editor-scope={scope.id}>
                                                                 <ConfiguredPublicationEditor
+                                                                    onToolbarMount={
+                                                                        visible
+                                                                            ? setMediaToolbar
+                                                                            : undefined
+                                                                    }
                                                                     id={
                                                                         visible
                                                                             ? 'new-post-content'
@@ -859,6 +874,7 @@ export function NewPublicationPage({
                                             </Suspense>
                                         ) : (
                                             <PublicationTextEditor
+                                                onToolbarMount={setMediaToolbar}
                                                 id="new-post-content"
                                                 aria-label={
                                                     activeContentTarget === undefined
@@ -892,6 +908,7 @@ export function NewPublicationPage({
 
                                     <MediaAttachmentPicker
                                         variant="publication-new-inline"
+                                        triggerContainer={mediaToolbar}
                                         projectId={project.id}
                                         value={sourceMedia}
                                         onChange={onSourceMediaChange}

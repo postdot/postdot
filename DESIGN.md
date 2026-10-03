@@ -407,3 +407,13 @@ building it; the current app contract must not silently decide those choices.
   reduce unnecessary scroll while preserving the source-to-destination
   relationship. Compare landing-page compositions only after the public
   proposition and audience are known.
+
+## Action hints and authoring focus
+
+Icon-only application actions use shared UI tooltips and explicit accessible
+names, without native `title` tooltips. Tooltips supplement the action; they
+are not the only way to identify it, especially on touch devices. Compose
+actions form one toolbar above the content, with distinct attachment and
+external-image glyphs. The writing area uses the caret without an enclosing
+focus ring; retain visible keyboard focus on toolbar controls and shared field
+styles for popup inputs. Emoji loading reserves the final panel dimensions.

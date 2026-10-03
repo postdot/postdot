@@ -45,7 +45,15 @@ test('recovers composition text, target formatting and media through the existin
     await target.press('Control+a')
     await page.getByRole('button', { name: 'Underline', exact: true }).click()
 
-    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    const attachments = page
+        .locator('[data-editor-toolbar="true"]')
+        .getByRole('button', { name: 'Add media', exact: true })
+    await expect(attachments).toHaveCount(1)
+    await expect(attachments).not.toHaveAttribute('title')
+    await expect(
+        page.locator('[data-publication-channel-selection="true"] button[title]')
+    ).toHaveCount(0)
+    await attachments.click()
     const library = page.locator('[data-media-library="true"]')
     await library.getByRole('button', { name: 'Import', exact: true }).first().click()
     await page.locator('[data-media-source="device"]').click()

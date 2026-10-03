@@ -1,7 +1,12 @@
+import { inputClassName } from '@herald/ui/components/input'
+import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { EmojiPicker } from 'frimousse'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
+
+import { ActionTooltip } from './action-tooltip'
+import { EmojiGridSkeleton } from './publication-emoji-picker-skeleton'
 
 export default function PublicationEmojiPicker({
     onSelect,
@@ -17,18 +22,31 @@ export default function PublicationEmojiPicker({
             emojibaseUrl="/emoji-data/17.0.0"
             columns={8}
             onEmojiSelect={({ emoji }) => onSelect(emoji)}
-            className="flex min-w-0 flex-col">
+            className="flex h-[312px] max-h-(--available-height) min-w-0 flex-col">
             <div className="flex items-center gap-2 p-2">
-                <EmojiPicker.Search
-                    aria-label={m.publication_emoji_search()}
-                    placeholder={m.publication_emoji_search()}
-                    className="min-w-0 flex-1 rounded-md bg-surface-inset px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                />
-                <EmojiPicker.SkinToneSelector className="size-9 shrink-0 rounded-md text-xl hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary" />
+                <div className="relative min-w-0 flex-1">
+                    <MagnifierIcon
+                        aria-hidden="true"
+                        className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <EmojiPicker.Search
+                        data-slot="input"
+                        aria-label={m.publication_emoji_search()}
+                        placeholder={m.publication_emoji_search()}
+                        className={`${inputClassName} pl-9`}
+                    />
+                </div>
+                <ActionTooltip label={m.publication_emoji_skin_tone()}>
+                    <EmojiPicker.SkinToneSelector
+                        aria-label={m.publication_emoji_skin_tone()}
+                        className="size-10 shrink-0 rounded-md text-xl hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                    />
+                </ActionTooltip>
             </div>
-            <EmojiPicker.Viewport className="h-64 overflow-auto px-2 pb-2">
-                <EmojiPicker.Loading className="p-4 text-sm text-muted-foreground">
-                    {m.common_loading()}
+            <EmojiPicker.Viewport className="min-h-0 flex-1 overflow-auto px-2 pb-2">
+                <EmojiPicker.Loading className="block" role="status">
+                    <span className="sr-only">{m.common_loading()}</span>
+                    <EmojiGridSkeleton />
                 </EmojiPicker.Loading>
                 <EmojiPicker.Empty className="p-4 text-sm text-muted-foreground">
                     {m.publication_emoji_empty()}

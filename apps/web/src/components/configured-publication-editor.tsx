@@ -18,10 +18,13 @@ import {
 } from '@/lib/editor-experiment/configuration'
 import * as m from '@/paraglide/messages.js'
 
+import { ActionTooltip } from './action-tooltip'
 import { ArticleImageControl } from './article-image-control'
+import { PublicationEmojiPickerSkeleton } from './publication-emoji-picker-skeleton'
 import { PublicationTextEditor } from './publication-text-editor'
 
-const EmojiPicker = lazy(() => import('./publication-emoji-picker'))
+const loadEmojiPicker = () => import('./publication-emoji-picker')
+const EmojiPicker = lazy(loadEmojiPicker)
 
 /** Controlled string boundary; engine documents never enter publishing or recovery payloads. */
 export function ConfiguredPublicationEditor({
@@ -35,6 +38,7 @@ export function ConfiguredPublicationEditor({
     id,
     maxLength,
     compact = false,
+    onToolbarMount,
 }: {
     readonly profile: EditorProfile
     readonly value: string
@@ -46,6 +50,7 @@ export function ConfiguredPublicationEditor({
     readonly id?: string
     readonly maxLength?: number
     readonly compact?: boolean
+    readonly onToolbarMount?: (node: HTMLDivElement | null) => void
 }) {
     const codec = useMemo(
         () => (profile === 'plain' ? undefined : markdownCodec(profile)),
@@ -114,7 +119,7 @@ export function ConfiguredPublicationEditor({
                 ...(invalid ? { 'aria-invalid': 'true' } : {}),
                 'aria-disabled': String(Boolean(disabled)),
                 'aria-multiline': 'true',
-                class: `${compact ? 'min-h-32' : 'min-h-64'} whitespace-pre-wrap p-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary rounded-md [&_p]:min-h-6 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_h2]:text-xl [&_h3]:text-lg [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_pre]:bg-surface-inset [&_pre]:p-3 [&_a]:text-primary [&_a]:underline [&_mark]:bg-primary/20`,
+                class: `${compact ? 'min-h-32' : 'min-h-64'} whitespace-pre-wrap p-4 outline-none rounded-md [&_p]:min-h-6 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_h2]:text-xl [&_h3]:text-lg [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_pre]:bg-surface-inset [&_pre]:p-3 [&_a]:text-primary [&_a]:underline [&_mark]:bg-primary/20`,
             },
             transformPastedText: text => text,
         },
@@ -275,43 +280,46 @@ export function ConfiguredPublicationEditor({
                 </p>
             ) : null}
             <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1 p-2">
+                <div data-editor-toolbar="true" className="flex flex-wrap items-center gap-1 p-2">
+                    <div ref={onToolbarMount} className="contents" />
                     {profile !== 'plain'
                         ? commands.map(command => (
-                              <Button
-                                  type="button"
-                                  key={command.label}
-                                  size="icon"
-                                  variant={command.active ? 'secondary' : 'ghost'}
-                                  aria-label={command.label}
-                                  title={command.label}
-                                  aria-pressed={Boolean(command.active)}
-                                  disabled={source || disabled}
-                                  onMouseDown={event => event.preventDefault()}
-                                  onClick={command.run}>
-                                  {command.glyph}
-                              </Button>
+                              <ActionTooltip key={command.label} label={command.label}>
+                                  <Button
+                                      type="button"
+                                      size="icon"
+                                      variant={command.active ? 'secondary' : 'ghost'}
+                                      aria-label={command.label}
+                                      aria-pressed={Boolean(command.active)}
+                                      disabled={source || disabled}
+                                      onMouseDown={event => event.preventDefault()}
+                                      onClick={command.run}>
+                                      {command.glyph}
+                                  </Button>
+                              </ActionTooltip>
                           ))
                         : null}
                     {profile === 'article' ? (
                         <Popover open={linkOpen} onOpenChange={setLinkOpen}>
-                            <PopoverTrigger
-                                onPointerDown={prepareLink}
-                                onKeyDown={event => {
-                                    if (event.key === 'Enter' || event.key === ' ') prepareLink()
-                                }}
-                                render={
-                                    <Button
-                                        type="button"
-                                        size="icon"
-                                        variant={state?.link ? 'secondary' : 'ghost'}
-                                        aria-label={m.editor_format_link()}
-                                        title={m.editor_format_link()}
-                                        disabled={source || disabled}
-                                    />
-                                }>
-                                <LinkIcon aria-hidden="true" />
-                            </PopoverTrigger>
+                            <ActionTooltip label={m.editor_format_link()}>
+                                <PopoverTrigger
+                                    onPointerDown={prepareLink}
+                                    onKeyDown={event => {
+                                        if (event.key === 'Enter' || event.key === ' ')
+                                            prepareLink()
+                                    }}
+                                    render={
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant={state?.link ? 'secondary' : 'ghost'}
+                                            aria-label={m.editor_format_link()}
+                                            disabled={source || disabled}
+                                        />
+                                    }>
+                                    <LinkIcon aria-hidden="true" />
+                                </PopoverTrigger>
+                            </ActionTooltip>
                             <PopoverContent
                                 aria-label={m.editor_format_link()}
                                 className="w-80 max-w-[calc(100vw-2rem)] p-3"
@@ -369,19 +377,26 @@ export function ConfiguredPublicationEditor({
                     ) : null}
                     {!source ? (
                         <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
-                            <PopoverTrigger
-                                render={
-                                    <Button
-                                        type="button"
-                                        size="icon"
-                                        variant="ghost"
-                                        disabled={source || disabled}
-                                        aria-label={m.publication_emoji_insert()}
-                                        title={m.publication_emoji_insert()}
-                                    />
-                                }>
-                                <SmileCircleIcon aria-hidden="true" />
-                            </PopoverTrigger>
+                            <ActionTooltip label={m.publication_emoji_insert()}>
+                                <PopoverTrigger
+                                    render={
+                                        <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="ghost"
+                                            disabled={source || disabled}
+                                            aria-label={m.publication_emoji_insert()}
+                                            onPointerEnter={() => {
+                                                void loadEmojiPicker()
+                                            }}
+                                            onFocus={() => {
+                                                void loadEmojiPicker()
+                                            }}
+                                        />
+                                    }>
+                                    <SmileCircleIcon aria-hidden="true" />
+                                </PopoverTrigger>
+                            </ActionTooltip>
                             <PopoverContent
                                 aria-label={m.publication_emoji_insert()}
                                 side="bottom"
@@ -391,7 +406,7 @@ export function ConfiguredPublicationEditor({
                                     editor.view.focus()
                                     return false
                                 }}>
-                                <Suspense fallback={<p>{m.common_loading()}</p>}>
+                                <Suspense fallback={<PublicationEmojiPickerSkeleton />}>
                                     {emojiOpen ? (
                                         <EmojiPicker
                                             onSelect={emoji => {
