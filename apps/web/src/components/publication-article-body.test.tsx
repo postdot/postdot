@@ -20,7 +20,7 @@ test('renders article structure and emphasis without exposing Markdown punctuati
     expect(html).toContain('<pre>')
 })
 
-test('does not execute HTML, fetch remote images or turn preview links into navigation', () => {
+test('does not execute HTML or turn preview links into navigation', () => {
     const html = renderToStaticMarkup(
         <PublicationArticleBody
             body={
@@ -29,8 +29,25 @@ test('does not execute HTML, fetch remote images or turn preview links into navi
         />
     )
     expect(html).not.toContain('<script>')
-    expect(html).not.toContain('<img')
+    expect(html).toContain('<img src="https://example.com/image.png"')
+    expect(html).toContain('referrerPolicy="no-referrer"')
+    expect(html).toContain('max-h-48')
     expect(html).not.toContain('href=')
     expect(html).toContain('Example')
     expect(html).toContain('Link')
+})
+
+test('does not load embedded bytes, private addresses or credential-bearing article images', () => {
+    for (const src of [
+        'data:image/png;base64,AAAA',
+        'http://127.0.0.1/image.png',
+        'https://user:secret@example.com/image.png',
+        'javascript:alert(1)',
+    ]) {
+        const html = renderToStaticMarkup(
+            <PublicationArticleBody body={`![Unavailable](<${src}>)`} />
+        )
+        expect(html).not.toContain('<img')
+        expect(html).toContain('Unavailable')
+    }
 })

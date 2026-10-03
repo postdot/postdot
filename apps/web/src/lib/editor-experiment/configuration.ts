@@ -1,7 +1,10 @@
-import { Mark, type JSONContent } from '@tiptap/core'
+import { Mark, mergeAttributes, type JSONContent } from '@tiptap/core'
+import Image from '@tiptap/extension-image'
 import { MarkdownManager } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
 import { Marked, type marked } from 'marked'
+
+import { articleImageUrl } from '../article-image-url'
 
 export type EditorProfile = 'plain' | 'discord' | 'article'
 
@@ -39,7 +42,46 @@ function delimitedMark(name: string, delimiter: string, tag: string) {
 const DiscordUnderline = delimitedMark('discordUnderline', '__', 'u')
 const DiscordSpoiler = delimitedMark('discordSpoiler', '||', 'mark')
 
-/** A deliberately bounded proof, not the authoritative provider capability model. */
+const ArticleImage = Image.extend({
+    parseHTML() {
+        return [
+            {
+                tag: 'img[src]',
+                getAttrs: element =>
+                    articleImageUrl(element.getAttribute('src') ?? '') ? null : false,
+            },
+        ]
+    },
+    renderHTML({ HTMLAttributes }) {
+        return [
+            'img',
+            mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
+                src: articleImageUrl(String(HTMLAttributes.src ?? '')) ?? undefined,
+            }),
+        ]
+    },
+    renderMarkdown(node) {
+        const escape = (value: string) =>
+            value.replaceAll('\\', '\\\\').replaceAll('[', '\\[').replaceAll(']', '\\]')
+        const src = String(node.attrs?.src ?? '')
+            .replaceAll('<', '%3C')
+            .replaceAll('>', '%3E')
+        const alt = escape(String(node.attrs?.alt ?? ''))
+        const title = String(node.attrs?.title ?? '')
+            .replaceAll('\\', '\\\\')
+            .replaceAll('"', '\\"')
+        return `![${alt}](<${src}>${title ? ` "${title}"` : ''})`
+    },
+}).configure({
+    allowBase64: false,
+    HTMLAttributes: {
+        referrerpolicy: 'no-referrer',
+        loading: 'lazy',
+        class: 'my-3 max-h-48 max-w-full rounded-md object-contain object-left outline-offset-2 [&.ProseMirror-selectednode]:outline [&.ProseMirror-selectednode]:outline-primary',
+    },
+})
+
+/** Editor affordances follow the destination's formatting dialect. */
 export function editorExtensions(profile: EditorProfile) {
     const rich = profile !== 'plain'
     const article = profile === 'article'
@@ -62,6 +104,7 @@ export function editorExtensions(profile: EditorProfile) {
             trailingNode: false,
         }),
         ...(profile === 'discord' ? [DiscordUnderline, DiscordSpoiler] : []),
+        ...(article ? [ArticleImage] : []),
     ]
 }
 
@@ -103,7 +146,24 @@ export function requiresSourceMode(
     function unsupported(token: unknown): boolean {
         if (typeof token !== 'object' || token === null) return false
         const item = token as Record<string, unknown>
-        if (['html', 'image', 'table', 'hr'].includes(String(item.type))) return true
+        if (['html', 'table', 'hr'].includes(String(item.type))) return true
+        // A block image cannot sit inside paragraph text in the editor schema.
+        // Preserve this valid Markdown in source mode rather than losing surrounding text.
+        if (item.type === 'paragraph' && Array.isArray(item.tokens)) {
+            const tokens = item.tokens as Record<string, unknown>[]
+            if (
+                tokens.some(token => token.type === 'image') &&
+                tokens.some(
+                    token => token.type !== 'image' && String(token.raw ?? '').trim() !== ''
+                )
+            )
+                return true
+        }
+        if (
+            item.type === 'image' &&
+            (profile !== 'article' || !articleImageUrl(String(item.href ?? '')))
+        )
+            return true
         if (
             item.type === 'heading' &&
             (profile === 'discord' || ![2, 3].includes(Number(item.depth)))

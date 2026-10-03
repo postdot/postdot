@@ -1912,5 +1912,9 @@
     "editor_format_strike": "Strikethrough",
     "editor_format_code": "Inline code",
     "editor_lab_list": "Bullet list",
-    "editor_lab_unsupported": "This syntax stays in source mode to preserve the content."
+    "editor_lab_unsupported": "This syntax stays in source mode to preserve the content.",
+    "editor_image_external": "External image",
+    "editor_image_address": "Image URL",
+    "editor_image_alt": "Alternative text",
+    "editor_image_invalid": "Use a public HTTP or HTTPS image URL."
 }

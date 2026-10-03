@@ -168,3 +168,58 @@ test('edits article links without losing selection or allowing unsafe addresses'
     await page.getByRole('button', { name: 'Discord', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Link', exact: true })).toHaveCount(0)
 })
+
+test('inserts, edits, undoes and restores external article images', async ({ page }) => {
+    const first = 'https://images.example.com/photo(1).png'
+    const second = 'https://images.example.com/photo(2).png'
+    await page.route('https://images.example.com/**', route =>
+        route.fulfill({
+            contentType: 'image/svg+xml',
+            body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#6699cc"/></svg>',
+        })
+    )
+    await page.goto('/editor-lab')
+    await expect(page.getByRole('button', { name: 'External image', exact: true })).toHaveCount(0)
+    await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
+    const content = page.getByRole('textbox', { name: 'Test content', exact: true })
+    const output = page.getByRole('textbox', { name: /^Serialized output/ })
+    await content.fill('Article')
+    await content.press('Control+End')
+    await content.press('Enter')
+    await page.getByRole('button', { name: 'External image', exact: true }).click()
+    const address = page.getByRole('textbox', { name: 'Image URL', exact: true })
+    await address.fill('data:image/png;base64,AAAA')
+    await page.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(page.getByRole('alert')).toHaveText('Use a public HTTP or HTTPS image URL.')
+    await expect(content.locator('img')).toHaveCount(0)
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await address.fill(first)
+    await page.getByRole('textbox', { name: 'Alternative text', exact: true }).fill('A [landscape]')
+    await address.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'External image', exact: true })).toHaveCount(0)
+    await expect(content).toBeFocused()
+    await expect(content.locator('img')).toHaveAttribute('src', first)
+    await expect(output).toHaveValue(
+        '## Article\n\n![A \\[landscape\\]](<https://images.example.com/photo(1).png>)'
+    )
+    await content.locator('img').click()
+    await page.getByRole('button', { name: 'External image', exact: true }).click()
+    await expect(address).toHaveValue(first)
+    await address.fill(second)
+    await address.press('Enter')
+    await expect(page.getByRole('dialog', { name: 'External image', exact: true })).toHaveCount(0)
+    await expect(content.locator('img')).toHaveCount(1)
+    await expect(content.locator('img')).toHaveAttribute('src', second)
+    await content.press('Control+z')
+    await expect(content.locator('img')).toHaveAttribute('src', first)
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.reload()
+    await page.getByRole('button', { name: 'Restore test snapshot' }).click()
+    await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
+    await expect(content.locator('img')).toHaveAttribute('src', first)
+    expect(
+        await content.locator('img').evaluate(element => element.getBoundingClientRect().height)
+    ).toBeLessThanOrEqual(192)
+    await page.getByRole('button', { name: 'Discord', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'External image', exact: true })).toHaveCount(0)
+})

@@ -18,6 +18,7 @@ import {
 } from '@/lib/editor-experiment/configuration'
 import * as m from '@/paraglide/messages.js'
 
+import { ArticleImageControl } from './article-image-control'
 import { PublicationTextEditor } from './publication-text-editor'
 
 const EmojiPicker = lazy(() => import('./publication-emoji-picker'))
@@ -362,6 +363,9 @@ export function ConfiguredPublicationEditor({
                                 </div>
                             </PopoverContent>
                         </Popover>
+                    ) : null}
+                    {profile === 'article' ? (
+                        <ArticleImageControl editor={editor} disabled={source || disabled} />
                     ) : null}
                     {!source ? (
                         <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>

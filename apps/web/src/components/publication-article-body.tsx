@@ -1,6 +1,8 @@
 import Markdown from 'react-markdown'
 
-/** Local article simulation: never execute HTML or fetch embedded resources. */
+import { articleImageUrl } from '@/lib/article-image-url'
+
+/** Local article simulation: never execute HTML; load external images without sending a referrer. */
 export function PublicationArticleBody({ body }: { readonly body: string }) {
     return (
         <div
@@ -10,7 +12,20 @@ export function PublicationArticleBody({ body }: { readonly body: string }) {
                 components={{
                     // Preview links express formatting without navigating away from editing.
                     a: ({ children }) => <span className="text-primary underline">{children}</span>,
-                    img: ({ alt }) => <span>{alt}</span>,
+                    img: ({ alt, src }) => {
+                        const address = typeof src === 'string' ? articleImageUrl(src) : null
+                        return address ? (
+                            <img
+                                src={address}
+                                alt={alt ?? ''}
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                className="my-3 max-h-48 max-w-full rounded-md object-contain object-left"
+                            />
+                        ) : (
+                            <span>{alt}</span>
+                        )
+                    },
                 }}>
                 {body}
             </Markdown>

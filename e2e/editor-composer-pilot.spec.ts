@@ -181,6 +181,26 @@ test('recovers composition text, target formatting and media through the existin
         articleField.getByRole('button', { name: 'Strikethrough', exact: true })
     ).toHaveAttribute('aria-pressed', 'true')
     await targetSaved
+    const externalImage = 'https://images.example.com/article.png'
+    await page.route(externalImage, route =>
+        route.fulfill({
+            contentType: 'image/svg+xml',
+            body: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#6699cc"/></svg>',
+        })
+    )
+    await articleBody.press('Control+End')
+    await articleBody.press('Enter')
+    await articleField.getByRole('button', { name: 'External image', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Image URL', exact: true }).fill(externalImage)
+    await page
+        .getByRole('textbox', { name: 'Alternative text', exact: true })
+        .fill('Article landscape')
+    await page.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(articleBody.locator('img')).toHaveAttribute('src', externalImage)
+    await expect(page.locator('[data-publication-preview-content="true"] img')).toHaveAttribute(
+        'src',
+        externalImage
+    )
     await expect
         .poll(async () => {
             const response = await page.request.get(
@@ -193,11 +213,16 @@ test('recovers composition text, target formatting and media through the existin
                 media: editor.draft.content.media.length,
             }
         })
-        .toEqual({ source: 'Updated common copy', target: '## ~~Updated article~~', media: 1 })
+        .toEqual({
+            source: 'Updated common copy',
+            target: '## ~~Updated article~~\n\n![Article landscape](<https://images.example.com/article.png>)',
+            media: 1,
+        })
     await page.reload()
     await expect(sourceBody).toHaveText('Updated common copy')
     await openCustomization(page, articleField)
     await expect(articleBody.locator('s')).toHaveText('Updated article')
+    await expect(articleBody.locator('img')).toHaveAttribute('src', externalImage)
     for (const width of [1280, 820, 390]) {
         await page.setViewportSize({ width, height: 900 })
         expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
@@ -210,7 +235,9 @@ test('recovers composition text, target formatting and media through the existin
     await page.goto(`/dashboard/projects/${id}/publications/${article.id}?editor=legacy`)
     await expect(sourceBody).toHaveValue('Updated common copy')
     await openCustomization(page, articleField)
-    await expect(articleField.locator('textarea')).toHaveValue('## ~~Updated article~~')
+    await expect(articleField.locator('textarea')).toHaveValue(
+        '## ~~Updated article~~\n\n![Article landscape](<https://images.example.com/article.png>)'
+    )
 
     // Identify the Discord contract, rather than relying on selected destination ordering.
     let discordId: string | undefined

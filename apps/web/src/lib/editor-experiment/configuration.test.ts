@@ -26,13 +26,37 @@ describe('experimental editor publishing formats', () => {
     })
 
     test('keeps unsupported imported content in source mode', () => {
-        expect(requiresSourceMode('article', '![Photo](https://example.com/image.png)')).toBe(true)
+        expect(requiresSourceMode('article', '![Photo](https://example.com/image.png)')).toBe(false)
+        expect(requiresSourceMode('article', '![Photo](data:image/png;base64,AAAA)')).toBe(true)
+        expect(requiresSourceMode('discord', '![Photo](https://example.com/image.png)')).toBe(true)
         expect(requiresSourceMode('article', '<strong>HTML</strong>')).toBe(true)
+        expect(
+            requiresSourceMode('article', 'Before ![Photo](https://example.com/photo.png) after')
+        ).toBe(true)
         expect(requiresSourceMode('discord', '## Title')).toBe(true)
         expect(requiresSourceMode('discord', '[Link](https://example.com)')).toBe(true)
         expect(requiresSourceMode('article', '## Title')).toBe(false)
         expect(requiresSourceMode('discord', 'https://example.com')).toBe(false)
         expect(requiresSourceMode('plain', '**literal**')).toBe(false)
+    })
+
+    test('round-trips external image addresses and escaped descriptions', () => {
+        const codec = markdownCodec('article')
+        const doc = {
+            type: 'doc',
+            content: [
+                {
+                    type: 'image',
+                    attrs: {
+                        src: 'https://example.com/photo(1).png?width=300&height=200',
+                        alt: 'A [landscape]',
+                        title: 'The "view"',
+                    },
+                },
+            ],
+        }
+        const parsed = codec.parse(codec.serialize(doc))
+        expect(parsed.content?.[0]?.attrs).toMatchObject(doc.content[0]?.attrs ?? {})
     })
 
     test('isolates the dialects even after several manager instances', () => {
