@@ -89,6 +89,7 @@ export function NewPublicationPage({
         onPublicationTagIdsChange,
     } = useProjectDashboard()
     const hasCurrentComposerContent = hasRecoverablePublicationContent({
+        postTitle,
         postContent,
         publicationTargets,
         sourceMedia,
@@ -747,7 +748,7 @@ export function NewPublicationPage({
                                             onChange={event =>
                                                 onPostTitleChange(event.target.value)
                                             }
-                                            placeholder={m.publication_new_optional_source_title()}
+                                            placeholder={m.publication_article_title()}
                                         />
                                     </DashboardFormField>
                                 ) : null}

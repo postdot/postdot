@@ -13,9 +13,10 @@ function target(content = '') {
 }
 
 describe('new publication recovery', () => {
-    test('does not treat a title or an untouched target as recoverable work', () => {
+    test('does not treat whitespace or an untouched target as recoverable work', () => {
         expect(
             hasRecoverablePublicationContent({
+                postTitle: '',
                 postContent: ' ',
                 publicationTargets: [target()],
                 sourceMedia: [],
@@ -23,9 +24,21 @@ describe('new publication recovery', () => {
         ).toBe(false)
     })
 
+    test('recognizes a title-only article as recoverable work', () => {
+        expect(
+            hasRecoverablePublicationContent({
+                postTitle: 'My article',
+                postContent: '',
+                publicationTargets: [target()],
+                sourceMedia: [],
+            })
+        ).toBe(true)
+    })
+
     test('recognizes shared text, target text, and media as recoverable work', () => {
         expect(
             hasRecoverablePublicationContent({
+                postTitle: '',
                 postContent: 'A shared post',
                 publicationTargets: [target()],
                 sourceMedia: [],
@@ -33,6 +46,7 @@ describe('new publication recovery', () => {
         ).toBe(true)
         expect(
             hasRecoverablePublicationContent({
+                postTitle: '',
                 postContent: '',
                 publicationTargets: [target('A channel-specific post')],
                 sourceMedia: [],
@@ -40,6 +54,7 @@ describe('new publication recovery', () => {
         ).toBe(true)
         expect(
             hasRecoverablePublicationContent({
+                postTitle: '',
                 postContent: '',
                 publicationTargets: [target()],
                 sourceMedia: [{ assetId: 'asset-1' }],

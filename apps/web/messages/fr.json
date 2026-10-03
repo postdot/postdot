@@ -1917,5 +1917,11 @@
     "editor_image_external": "Image externe",
     "editor_image_address": "URL de l’image",
     "editor_image_alt": "Texte alternatif",
-    "editor_image_invalid": "Utilisez une URL d’image publique HTTP ou HTTPS."
+    "editor_image_invalid": "Utilisez une URL d’image publique HTTP ou HTTPS.",
+    "publication_article_title": "Titre de l’article",
+    "editor_field_required": "Renseignez {field}.",
+    "editor_field_min_length": "Utilisez au moins {count} caractères.",
+    "editor_field_max_length": "Utilisez au maximum {count} caractères.",
+    "editor_field_invalid": "Vérifiez cette valeur.",
+    "editor_validation_diagnostics": "Détails de validation"
 }

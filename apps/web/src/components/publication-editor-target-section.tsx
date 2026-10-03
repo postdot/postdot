@@ -5,6 +5,8 @@ import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { PublicationTargetEditor } from '@/components/publication-target-editor'
 import type { PublicationEditorState } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { getTargetEditorFields } from '@/lib/target-editor'
+import { validationField } from '@/lib/target-validation'
 import * as m from '@/paraglide/messages.js'
 
 type Profile = PublicationEditorState['profile']['profile']
@@ -45,7 +47,11 @@ export function PublicationEditorTargetSection({
     issueCode,
     issueMessage,
 }: PublicationEditorTargetSectionProps) {
-    useLanguage()
+    const { locale } = useLanguage()
+    const fields = getTargetEditorFields(profile, locale)
+    const hasUnmappedIssues = validationIssues.some(
+        issue => validationField(fields, issue) === undefined
+    )
     return (
         <section className="min-w-0">
             <details
@@ -79,6 +85,7 @@ export function PublicationEditorTargetSection({
                 </summary>
                 <div className="pb-4 pt-1">
                     <PublicationTargetEditor
+                        validationIssues={validationIssues}
                         configuredEditor={configuredEditor}
                         profile={profile}
                         target={target}
@@ -97,10 +104,17 @@ export function PublicationEditorTargetSection({
                             <AlertDescription>{targetError}</AlertDescription>
                         </Alert>
                     ) : null}
+                    {hasUnmappedIssues ? (
+                        <p className="mt-3 text-sm text-state-attention" role="status">
+                            {m.editor_target_validation_issues()}
+                        </p>
+                    ) : null}
                     {validationIssues.length > 0 ? (
-                        <Alert className="mt-4 rounded-md border-0 bg-state-attention/10">
-                            <AlertTitle>{m.editor_target_validation_issues()}</AlertTitle>
-                            <AlertDescription>
+                        <details className="mt-4 text-sm" data-validation-diagnostics="true">
+                            <summary className="cursor-pointer py-2 text-muted-foreground">
+                                {m.editor_validation_diagnostics()}
+                            </summary>
+                            <div>
                                 <ul className="mt-1 space-y-1">
                                     {validationIssues.map((issue, index) => (
                                         <li key={`${issueCode(issue)}-${index}`}>
@@ -108,8 +122,8 @@ export function PublicationEditorTargetSection({
                                         </li>
                                     ))}
                                 </ul>
-                            </AlertDescription>
-                        </Alert>
+                            </div>
+                        </details>
                     ) : null}
                 </div>
             </details>

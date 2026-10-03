@@ -93,6 +93,25 @@ describe('publication composer draft store', () => {
         }
     })
 
+    it('persists title-only articles without relaxing empty draft rejection', () => {
+        const fixture = createFixture()
+        try {
+            const draft = { ...content(''), postTitle: 'Article outline' }
+            fixture.store.savePublicationComposerDraft({
+                projectId: fixture.project.project.id,
+                subjectId: 'user-1',
+                expectedRevision: 0,
+                content: draft,
+            })
+            expect(
+                fixture.store.getPublicationComposerDraft(fixture.project.project.id, 'user-1')
+                    ?.content
+            ).toEqual(draft)
+        } finally {
+            closeDatabase(fixture.database)
+        }
+    })
+
     it('rejects empty recovery points and discards the current one', () => {
         const fixture = createFixture()
 

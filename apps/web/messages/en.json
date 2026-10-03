@@ -1917,5 +1917,11 @@
     "editor_image_external": "External image",
     "editor_image_address": "Image URL",
     "editor_image_alt": "Alternative text",
-    "editor_image_invalid": "Use a public HTTP or HTTPS image URL."
+    "editor_image_invalid": "Use a public HTTP or HTTPS image URL.",
+    "publication_article_title": "Article title",
+    "editor_field_required": "Enter {field}.",
+    "editor_field_min_length": "Use at least {count} characters.",
+    "editor_field_max_length": "Use no more than {count} characters.",
+    "editor_field_invalid": "Check this value.",
+    "editor_validation_diagnostics": "Validation details"
 }

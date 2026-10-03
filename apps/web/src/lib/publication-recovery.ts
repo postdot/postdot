@@ -40,9 +40,13 @@ export function publicationRecoveryKey(projectId: string) {
 }
 
 export function hasRecoverablePublicationContent(
-    input: Pick<PublicationRecoveryInput, 'postContent' | 'sourceMedia' | 'publicationTargets'>
+    input: Pick<
+        PublicationRecoveryInput,
+        'postTitle' | 'postContent' | 'sourceMedia' | 'publicationTargets'
+    >
 ) {
     return (
+        input.postTitle.trim() !== '' ||
         input.postContent.trim() !== '' ||
         input.sourceMedia.length > 0 ||
         input.publicationTargets.some(target => target.content.trim() !== '')
@@ -140,6 +144,7 @@ function isPublicationRecoveryState(value: unknown): value is PublicationRecover
         return false
     }
     return hasRecoverablePublicationContent({
+        postTitle: value.postTitle,
         postContent: value.postContent,
         publicationTargets: value.publicationTargets,
         sourceMedia: value.sourceMedia,

@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
-import { Field, FieldDescription, FieldLabel } from '@herald/ui/components/field'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@herald/ui/components/field'
 import { Input } from '@herald/ui/components/input'
 import {
     Select,
@@ -34,6 +34,7 @@ const ConfiguredEditor = lazy(() =>
 )
 
 interface TargetFieldControlProps {
+    readonly error?: string
     readonly editorProfile?: 'discord' | 'article'
     readonly field: TargetEditorField
     readonly fieldId: string
@@ -44,6 +45,7 @@ interface TargetFieldControlProps {
 }
 
 export function TargetFieldControl({
+    error,
     editorProfile,
     field,
     fieldId,
@@ -53,6 +55,8 @@ export function TargetFieldControl({
     onChange,
 }: TargetFieldControlProps) {
     const { locale } = useLanguage()
+    const errorId = error ? `${fieldId}-error` : undefined
+    const errorNode = error ? <FieldError id={errorId}>{error}</FieldError> : null
     const weightedLimit =
         field.weightedLengthAlgorithm === X_TEXT_COUNTING_ALGORITHM ? field.maxWeightedLength : null
     const weightedText =
@@ -83,6 +87,7 @@ export function TargetFieldControl({
                     {m.editor_target_media_managed()}
                     {description ? ` ${description}` : ''}
                 </p>
+                {errorNode}
             </div>
         )
     }
@@ -106,6 +111,7 @@ export function TargetFieldControl({
                         : m.editor_target_unsupported_description()}
                     {description ? ` ${description}` : ''}
                 </p>
+                {errorNode}
             </div>
         )
     }
@@ -123,6 +129,8 @@ export function TargetFieldControl({
                                         compact
                                         id={fieldId}
                                         profile={editorProfile}
+                                        invalid={Boolean(error)}
+                                        describedBy={errorId}
                                         label={field.label}
                                         value={typeof value === 'string' ? value : ''}
                                         onValueChange={text =>
@@ -142,11 +150,18 @@ export function TargetFieldControl({
                                     disabled={disabled}
                                     minLength={field.minLength ?? undefined}
                                     maxLength={field.maxLength ?? undefined}
-                                    aria-invalid={weightedTextInvalid || undefined}
+                                    aria-invalid={
+                                        Boolean(error) || weightedTextInvalid || undefined
+                                    }
                                     aria-describedby={
-                                        weightedText === null
-                                            ? undefined
-                                            : `${fieldId}-weighted-count`
+                                        [
+                                            errorId,
+                                            weightedText === null
+                                                ? undefined
+                                                : `${fieldId}-weighted-count`,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' ') || undefined
                                     }
                                     rows={6}
                                     className="min-h-32 min-w-0 max-w-full text-sm leading-6"
@@ -163,6 +178,8 @@ export function TargetFieldControl({
                     ) : (
                         <Input
                             id={fieldId}
+                            aria-invalid={Boolean(error) || undefined}
+                            aria-describedby={errorId}
                             value={typeof value === 'string' ? value : ''}
                             onChange={event =>
                                 onChange(optionalTextValue(event.target.value, field.required))
@@ -202,6 +219,7 @@ export function TargetFieldControl({
                     />
                 )}
                 {description ? <FieldDescription>{description}</FieldDescription> : null}
+                {errorNode}
             </Field>
         </div>
     )

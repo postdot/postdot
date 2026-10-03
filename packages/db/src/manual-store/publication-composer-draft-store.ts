@@ -233,6 +233,9 @@ function toPublicationComposerDraft(row: PublicationComposerDraftRow): Publicati
 }
 
 function hasComposerContent(content: PublicationComposerDraftContent): boolean {
+    const postTitle = content.postTitle
+    if (typeof postTitle === 'string' && postTitle.trim() !== '') return true
+
     const postContent = content.postContent
     if (typeof postContent === 'string' && postContent.trim() !== '') return true
 

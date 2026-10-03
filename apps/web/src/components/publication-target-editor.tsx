@@ -12,9 +12,11 @@ import {
     type TargetEditorField,
     updateTargetField,
 } from '@/lib/target-editor'
+import { validationField } from '@/lib/target-validation'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationTargetEditorProps {
+    readonly validationIssues?: readonly Record<string, unknown>[]
     readonly configuredEditor?: boolean
     readonly profile: unknown
     readonly target: Record<string, unknown> | null
@@ -27,6 +29,7 @@ interface PublicationTargetEditorProps {
 }
 
 export function PublicationTargetEditor({
+    validationIssues = [],
     configuredEditor = true,
     profile,
     target,
@@ -93,6 +96,13 @@ export function PublicationTargetEditor({
                             }
                             key={`${field.bindingId}-${field.path}`}
                             field={field}
+                            error={fieldValidationMessage(
+                                field,
+                                validationIssues.filter(
+                                    issue => validationField(fields, issue) === field
+                                ),
+                                target === null ? undefined : readTargetField(target, field.path)
+                            )}
                             fieldId={targetFieldId(field, index)}
                             value={
                                 target === null ? undefined : readTargetField(target, field.path)
@@ -189,4 +199,23 @@ function formatReadOnlyValue(value: unknown, field: TargetEditorField): string {
 function targetFieldId(field: TargetEditorField, index: number): string {
     const suffix = field.bindingId.replaceAll(/[^a-zA-Z0-9_-]/g, '-')
     return `target-field-${index}-${suffix}`
+}
+
+function fieldValidationMessage(
+    field: TargetEditorField,
+    issues: readonly Record<string, unknown>[],
+    value: unknown
+): string | undefined {
+    const issue = issues[0]
+    if (issue === undefined) return undefined
+    if (
+        issue.code === 'schema.required' ||
+        (issue.code === 'schema.minLength' && (value === undefined || value === ''))
+    )
+        return m.editor_field_required({ field: field.label })
+    if (issue.code === 'schema.minLength' && field.minLength !== null)
+        return m.editor_field_min_length({ count: field.minLength })
+    if (issue.code === 'schema.maxLength' && field.maxLength !== null)
+        return m.editor_field_max_length({ count: field.maxLength })
+    return m.editor_field_invalid()
 }

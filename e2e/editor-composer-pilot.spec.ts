@@ -157,6 +157,32 @@ test('recovers composition text, target formatting and media through the existin
     expect(editor.draft.content.media).toEqual(created.post.sourceContent.media)
 
     await page.goto(`/dashboard/projects/${id}/publications/${article.id}?editor=tiptap`)
+    const headline = page.locator('[data-target-field="title"]')
+    await openCustomization(page, headline)
+    await expect(headline.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true')
+    await expect(headline).toContainText('Enter Headline.')
+    for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+        await page.screenshot({
+            path: info.outputPath(`article-validation-${width}.png`),
+            fullPage: true,
+        })
+    }
+    await page.setViewportSize({ width: 1280, height: 900 })
+    const diagnostics = page.locator('[data-validation-diagnostics="true"]')
+    await expect(diagnostics).not.toHaveAttribute('open', '')
+    await diagnostics.locator('summary').click()
+    await expect(diagnostics).toContainText('schema.minLength')
+    const titleSaved = page.waitForResponse(
+        response =>
+            response.url().endsWith(`/publications/${article.id}/draft`) &&
+            response.request().method() === 'PATCH' &&
+            response.ok()
+    )
+    await headline.getByRole('textbox').fill('An article headline')
+    await titleSaved
+    await expect(headline.getByRole('textbox')).not.toHaveAttribute('aria-invalid', 'true')
     const sourceBody = page.locator('#source-body')
     await expect(sourceBody).toHaveAttribute('contenteditable', 'true')
     await expect(
@@ -322,6 +348,33 @@ test('keeps a native editor draft byte-for-byte when restored into the configure
         .getByRole('button', { name: 'Restore', exact: true })
         .click()
     await expect(page.getByRole('textbox', { name: 'Content', exact: true })).toHaveValue(text)
+})
+
+test('preserves a title-only article across autosave and recovery', async ({ page }) => {
+    const id = await createProject(page)
+    const response = await page.request.post(`/api/projects/${id}/channels`, {
+        data: { name: 'Title article', profile: 'devto' },
+    })
+    expect(response.ok()).toBe(true)
+    await page.goto(`/dashboard/projects/${id}/publications/new`)
+    await page.getByRole('button', { name: 'Title article', exact: true }).click()
+    const title = page.locator('#new-post-title')
+    await expect(title).toHaveAttribute('placeholder', 'Article title')
+    await title.fill('A title worth preserving')
+    await expect
+        .poll(async () => {
+            const draftResponse = await page.request.get(
+                `/api/projects/${id}/publication-composer-draft`
+            )
+            return (await draftResponse.json()).draft?.content.postTitle
+        })
+        .toBe('A title worth preserving')
+    await page.reload()
+    const recovery = page.locator('[data-new-publication-recovery="true"]')
+    await expect(recovery).toBeVisible()
+    await recovery.getByRole('button', { name: 'Restore', exact: true }).click()
+    await expect(title).toHaveValue('A title worth preserving')
+    await expect(page.getByRole('textbox', { name: 'Channel content', exact: true })).toHaveText('')
 })
 
 async function createProject(page: Page) {
