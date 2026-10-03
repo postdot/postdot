@@ -543,6 +543,13 @@ export function PublicationRow({
                         ) : (
                             <PublicationStatus state={publication.state} />
                         )}
+                        {publication.draftReviewState === 'review_required' ? (
+                            <span
+                                data-publication-review-required="true"
+                                className="text-xs font-medium text-state-attention">
+                                {m.editor_target_review_required()}
+                            </span>
+                        ) : null}
                     </div>
                     {showCreationDate || publication.scheduledAt !== null ? (
                         <p

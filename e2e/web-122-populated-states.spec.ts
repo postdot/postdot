@@ -172,6 +172,64 @@ test('uses the calendar as the project overview and keeps Queue distinct', async
     await expect(page.getByRole('link').filter({ hasText: 'E2E-122 publication 8' })).toBeVisible()
 })
 
+test('explains why a draft appears in the attention queue', async ({ page }, info) => {
+    const suffix = randomUUID().slice(0, 8)
+    const projectId = await createAccountAndProject(page, suffix)
+    await createTestChannel(page, projectId, `Review channel ${suffix}`)
+    const publications = ['Review draft', 'Compatible draft'].map((title, index) => ({
+        ...publicationFixture({
+            channelName: 'Article channel',
+            deliveryMode: 'manual',
+            id: `review-${index}-${suffix}`,
+            postTitle: title,
+            projectId,
+            scheduledAt: null,
+            state: 'draft',
+        }),
+        draftReviewState: index === 0 ? 'review_required' : 'compatible',
+    }))
+    await page.route(
+        new RegExp(`/api/projects/${projectId}/publications(?:\\?.*)?$`),
+        async route => {
+            if (route.request().method() !== 'GET') {
+                await route.continue()
+                return
+            }
+            await route.fulfill({
+                json: {
+                    publications,
+                    nextCursor: null,
+                    summary: { total: 2, manual: 2, automatic: 0, scheduled: 0, draft: 2 },
+                },
+            })
+        }
+    )
+    await page.route(`**/api/projects/${projectId}/publications/due`, route =>
+        route.fulfill({ json: { publications: [] } })
+    )
+    await page.goto(`/dashboard/projects/${projectId}/queue`)
+    const review = page
+        .locator('[data-publication-edit-link="true"]')
+        .filter({ hasText: 'Review draft' })
+    const compatible = page
+        .locator('[data-publication-edit-link="true"]')
+        .filter({ hasText: 'Compatible draft' })
+    await expect(review).toContainText('Draft')
+    await expect(review).toContainText('Review required')
+    await expect(compatible).not.toContainText('Review required')
+    for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        await expect(review.locator('[data-publication-review-required="true"]')).toBeVisible()
+        await page.screenshot({
+            path: info.outputPath(`queue-review-${width}.png`),
+            fullPage: true,
+        })
+    }
+    await page.getByRole('tab', { name: 'Needs attention (1)', exact: true }).click()
+    await expect(review).toBeVisible()
+    await expect(compatible).toHaveCount(0)
+})
+
 test('keeps the populated ReUI calendar responsive and keyboard navigable', async ({ page }) => {
     const { calendar, projectId } = await createDenseCalendarProject(page)
 

@@ -1923,5 +1923,25 @@
     "editor_field_min_length": "Utilisez au moins {count} caractères.",
     "editor_field_max_length": "Utilisez au maximum {count} caractères.",
     "editor_field_invalid": "Vérifiez cette valeur.",
-    "editor_validation_diagnostics": "Détails de validation"
+    "editor_validation_diagnostics": "Détails de validation",
+    "editor_field_min_items": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Sélectionnez au moins {count} élément.",
+                "countPlural=other": "Sélectionnez au moins {count} éléments."
+            }
+        }
+    ],
+    "editor_field_max_items": [
+        {
+            "declarations": ["input count", "local countPlural = count: plural"],
+            "selectors": ["countPlural"],
+            "match": {
+                "countPlural=one": "Sélectionnez au maximum {count} élément.",
+                "countPlural=other": "Sélectionnez au maximum {count} éléments."
+            }
+        }
+    ]
 }

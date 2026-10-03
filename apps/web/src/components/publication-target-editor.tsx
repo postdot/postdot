@@ -217,5 +217,9 @@ function fieldValidationMessage(
         return m.editor_field_min_length({ count: field.minLength })
     if (issue.code === 'schema.maxLength' && field.maxLength !== null)
         return m.editor_field_max_length({ count: field.maxLength })
+    if (issue.code === 'schema.minItems' && field.minItems !== null)
+        return m.editor_field_min_items({ count: field.minItems })
+    if (issue.code === 'schema.maxItems' && field.maxItems !== null)
+        return m.editor_field_max_items({ count: field.maxItems })
     return m.editor_field_invalid()
 }
