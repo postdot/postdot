@@ -126,19 +126,23 @@ export function PublicationEditorSourceSection({
                             )}
                         </Field>
                     ) : (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="w-fit"
-                            disabled={disabled}
-                            onClick={() => setBodyExpanded(true)}>
-                            <PenIcon aria-hidden="true" />
-                            {m.editor_add_text()}
-                        </Button>
+                        <div
+                            data-source-media-toolbar="true"
+                            className="flex flex-wrap items-center gap-1 p-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                disabled={disabled}
+                                onClick={() => setBodyExpanded(true)}>
+                                <PenIcon aria-hidden="true" />
+                                {m.editor_add_text()}
+                            </Button>
+                            <div ref={setMediaToolbar} className="contents" />
+                        </div>
                     )}
                     <MediaAttachmentPicker
-                        triggerContainer={showBodyField ? mediaToolbar : undefined}
+                        triggerContainer={mediaToolbar}
                         projectId={projectId}
                         variant="publication-new-inline"
                         value={sourceContent.media}

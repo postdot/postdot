@@ -939,7 +939,7 @@ test('supports media library search, viewing, and bulk actions', async ({ page }
     ).toBeVisible()
 })
 
-test('persists mixed and media-only publications through the dashboard', async ({ page }) => {
+test('persists mixed and media-only publications through the dashboard', async ({ page }, info) => {
     test.setTimeout(90_000)
     await mockWebcam(page)
 
@@ -1505,8 +1505,47 @@ test('persists mixed and media-only publications through the dashboard', async (
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.locator(mediaOnlySelector).first().click()
     await expect(page.getByRole('heading', { name: 'Media · 1' })).toBeVisible()
-    await page.getByRole('button', { name: 'Add text', exact: true }).click()
+    const mediaToolbar = page.locator('[data-source-media-toolbar="true"]')
+    await expect(mediaToolbar.getByRole('button', { name: 'Add text', exact: true })).toBeVisible()
+    await expect(mediaToolbar.getByRole('button', { name: 'Add media', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add media', exact: true })).toHaveCount(1)
+    for (const theme of ['light', 'dark']) {
+        const dark = (await page.locator('html').getAttribute('class'))?.split(' ').includes('dark')
+        if (dark !== (theme === 'dark')) {
+            await page
+                .getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
+                .click()
+        }
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
+        for (const width of [1280, 390]) {
+            await page.setViewportSize({ width, height: 900 })
+            const tools = await mediaToolbar.boundingBox()
+            const image = await page.locator('[data-media-selection-preview="true"]').boundingBox()
+            expect(tools).not.toBeNull()
+            expect(image).not.toBeNull()
+            expect(tools!.y + tools!.height).toBeLessThanOrEqual(image!.y)
+            expect(
+                await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+            ).toBe(true)
+            await page.screenshot({
+                path: info.outputPath(`existing-media-only-${theme}-${width}.png`),
+            })
+        }
+    }
+    await mediaToolbar.getByRole('button', { name: 'Add media', exact: true }).focus()
+    await mediaToolbar.getByRole('button', { name: 'Add media', exact: true }).press('Enter')
+    await expect(page.locator('[data-media-library="true"]')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await mediaToolbar.getByRole('button', { name: 'Add text', exact: true }).click()
     await expect(page.locator('#source-body')).toHaveText('')
+    await expect(page.locator('[data-source-media-toolbar="true"]')).toHaveCount(0)
+    await expect(
+        page
+            .locator('[data-editor-toolbar="true"]')
+            .getByRole('button', { name: 'Add media', exact: true })
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add media', exact: true })).toHaveCount(1)
+    await page.setViewportSize({ width: 1280, height: 900 })
     await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
 
     const mediaOnlyTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
