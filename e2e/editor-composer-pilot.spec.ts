@@ -377,6 +377,111 @@ test('preserves a title-only article across autosave and recovery', async ({ pag
     await expect(page.getByRole('textbox', { name: 'Channel content', exact: true })).toHaveText('')
 })
 
+test('corrects destination attachments without changing shared media or another publication', async ({
+    page,
+}, info) => {
+    test.setTimeout(90_000)
+    const id = await createProject(page)
+    const channelIds: string[] = []
+    for (const profile of ['linkedin', 'discord']) {
+        const response = await page.request.post(`/api/projects/${id}/channels`, {
+            data: { name: `Media ${profile}`, profile },
+        })
+        expect(response.ok()).toBe(true)
+        channelIds.push((await response.json()).channel.id)
+    }
+    await page.goto(`/dashboard/projects/${id}/publications/new`)
+    await page.getByRole('button', { name: 'Add Media discord', exact: true }).click()
+    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Content', exact: true }).fill('Shared images')
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    const library = page.locator('[data-media-library="true"]')
+    await library.getByRole('button', { name: 'Import', exact: true }).first().click()
+    await page.locator('[data-media-source="device"]').click()
+    await page.locator('input[type="file"]').setInputFiles(
+        ['first.png', 'second.png'].map(name => ({
+            name,
+            mimeType: 'image/png',
+            buffer: Buffer.from(
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+                'base64'
+            ),
+        }))
+    )
+    await expect(library.locator('article').filter({ hasText: 'first.png' }).first()).toBeVisible()
+    await expect(library.locator('article').filter({ hasText: 'second.png' }).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(2)
+    const createdResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    const created = await (await createdResponse).json()
+    const publication = created.publications.find(
+        (item: { channelId: string }) => item.channelId === channelIds[0]
+    )
+    const sibling = created.publications.find(
+        (item: { channelId: string }) => item.channelId === channelIds[1]
+    )
+    const editorUrl = `/api/projects/${id}/publications/${publication.id}/editor`
+    const siblingUrl = `/api/projects/${id}/publications/${sibling.id}/editor`
+    const before = (await (await page.request.get(siblingUrl)).json()).editor.draft.content
+    await page.goto(`/dashboard/projects/${id}/publications/${publication.id}`)
+    const mediaField = page.locator('[data-target-field="media"]')
+    await openCustomization(page, mediaField)
+    await expect(mediaField).toContainText('Select at most 1 item.')
+    await expect(mediaField.locator('[data-media-selection-preview="true"]')).toHaveCount(2)
+    await mediaField.getByRole('button', { name: 'Remove second.png', exact: true }).click()
+    await expect
+        .poll(async () => {
+            const { editor } = await (await page.request.get(editorUrl)).json()
+            return {
+                source: editor.post.sourceContent.media.length,
+                target: editor.draft.content.media.length,
+                review: editor.draft.reviewState,
+            }
+        })
+        .toEqual({ source: 2, target: 1, review: 'compatible' })
+    await expect(mediaField).not.toContainText('Select at most 1 item.')
+    expect((await (await page.request.get(siblingUrl)).json()).editor.draft.content).toEqual(before)
+    await page.reload()
+    await openCustomization(page, mediaField)
+    await expect(mediaField.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
+    for (const theme of ['light', 'dark']) {
+        const toggle = page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
+        if (await toggle.isVisible()) await toggle.click()
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
+        for (const width of [1280, 820, 390]) {
+            await page.setViewportSize({ width, height: 900 })
+            await expect(
+                mediaField.getByRole('button', { name: 'Add media', exact: true })
+            ).toBeVisible()
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            await mediaField.scrollIntoViewIfNeeded()
+            await page.screenshot({
+                path: info.outputPath(`destination-media-${theme}-${width}.png`),
+                fullPage: true,
+            })
+        }
+    }
+    await mediaField.getByRole('button', { name: 'Add media', exact: true }).focus()
+    await page.keyboard.press('Enter')
+    await expect(library).toBeVisible()
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    const applied = page.waitForResponse(
+        response =>
+            response.url().endsWith(`/publications/${publication.id}/draft/promote`) &&
+            response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Apply to channel', exact: true }).click()
+    const appliedResponse = await applied
+    expect(appliedResponse.ok()).toBe(true)
+    const { editor: appliedEditor } = await appliedResponse.json()
+    expect(appliedEditor.post.sourceContent.media).toEqual(created.post.sourceContent.media)
+    expect(appliedEditor.draft.content.media).toHaveLength(1)
+    expect((await (await page.request.get(siblingUrl)).json()).editor.draft.content).toEqual(before)
+})
+
 async function createProject(page: Page) {
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')

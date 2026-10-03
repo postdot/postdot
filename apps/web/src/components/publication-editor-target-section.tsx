@@ -13,6 +13,8 @@ type Profile = PublicationEditorState['profile']['profile']
 type ReviewState = PublicationEditorState['draft']['reviewState']
 
 interface PublicationEditorTargetSectionProps {
+    readonly projectId: string
+    readonly publicationId: string
     readonly configuredEditor?: boolean
     readonly profile: Profile
     readonly reviewState: ReviewState
@@ -31,6 +33,8 @@ interface PublicationEditorTargetSectionProps {
 }
 
 export function PublicationEditorTargetSection({
+    projectId,
+    publicationId,
     configuredEditor = true,
     profile,
     reviewState,
@@ -86,6 +90,8 @@ export function PublicationEditorTargetSection({
                 <div className="pb-4 pt-1">
                     <PublicationTargetEditor
                         validationIssues={validationIssues}
+                        projectId={projectId}
+                        mediaScopeId={`publication:${publicationId}`}
                         configuredEditor={configuredEditor}
                         profile={profile}
                         target={target}

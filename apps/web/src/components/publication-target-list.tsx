@@ -101,7 +101,7 @@ export function PublicationChannelRail({
                                         data-active-channel={active || undefined}
                                         disabled={disabled}
                                         onClick={() => onActiveChannelChange(channel.id)}
-                                        className={`relative h-11 min-w-0 max-w-full shrink-0 gap-2 rounded-xl px-2 ${active ? 'bg-primary/10 text-primary shadow-control' : selected ? '' : 'opacity-40 grayscale hover:opacity-80 hover:grayscale-0'}`}>
+                                        className={`relative h-11 min-w-0 max-w-full shrink-0 gap-2 rounded-xl px-2 ${active ? 'bg-primary/10 text-foreground shadow-control' : selected ? '' : 'opacity-40 grayscale hover:opacity-80 hover:grayscale-0'}`}>
                                         <ChannelAvatar channel={channel} size="md" />
                                         {active ? (
                                             <span className="min-w-0 max-w-32 truncate text-sm">

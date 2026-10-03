@@ -4,6 +4,7 @@ import { Textarea } from '@herald/ui/components/textarea'
 import { AltArrowDownIcon } from '@solar-icons/react/linear/alt-arrow-down'
 import { useEffect, useMemo, useState } from 'react'
 
+import { MediaAttachmentPicker } from '@/components/media-attachment-picker'
 import { TargetFieldControl } from '@/components/publication-target-field-control'
 import { useLanguage } from '@/lib/i18n'
 import {
@@ -12,11 +13,14 @@ import {
     type TargetEditorField,
     updateTargetField,
 } from '@/lib/target-editor'
+import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import { validationField } from '@/lib/target-validation'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationTargetEditorProps {
     readonly validationIssues?: readonly Record<string, unknown>[]
+    readonly projectId?: string
+    readonly mediaScopeId?: string
     readonly configuredEditor?: boolean
     readonly profile: unknown
     readonly target: Record<string, unknown> | null
@@ -30,6 +34,8 @@ interface PublicationTargetEditorProps {
 
 export function PublicationTargetEditor({
     validationIssues = [],
+    projectId,
+    mediaScopeId,
     configuredEditor = true,
     profile,
     target,
@@ -80,38 +86,62 @@ export function PublicationTargetEditor({
                 </p>
             ) : (
                 <div className="grid min-w-0 gap-5">
-                    {fields.map((field, index) => (
-                        <TargetFieldControl
-                            editorProfile={
-                                configuredEditor &&
-                                typeof profile === 'object' &&
-                                profile !== null &&
-                                'id' in profile
-                                    ? profile.id === 'discord'
-                                        ? 'discord'
-                                        : profile.id === 'devto'
-                                          ? 'article'
-                                          : undefined
-                                    : undefined
-                            }
-                            key={`${field.bindingId}-${field.path}`}
-                            field={field}
-                            error={fieldValidationMessage(
-                                field,
-                                validationIssues.filter(
-                                    issue => validationField(fields, issue) === field
-                                ),
-                                target === null ? undefined : readTargetField(target, field.path)
-                            )}
-                            fieldId={targetFieldId(field, index)}
-                            value={
-                                target === null ? undefined : readTargetField(target, field.path)
-                            }
-                            disabled={disabled || target === null}
-                            compact={compact}
-                            onChange={value => updateField(field, value)}
-                        />
-                    ))}
+                    {fields.map((field, index) =>
+                        field.kind === 'media' && projectId !== undefined && target !== null ? (
+                            <TargetMediaField
+                                key={`${field.bindingId}-${field.path}`}
+                                projectId={projectId}
+                                scopeId={`${mediaScopeId ?? 'target'}:${field.bindingId}`}
+                                field={field}
+                                profile={profile}
+                                target={target}
+                                disabled={disabled}
+                                error={fieldValidationMessage(
+                                    field,
+                                    validationIssues.filter(
+                                        issue => validationField(fields, issue) === field
+                                    ),
+                                    readTargetField(target, field.path)
+                                )}
+                                onChange={onTargetChange}
+                            />
+                        ) : (
+                            <TargetFieldControl
+                                editorProfile={
+                                    configuredEditor &&
+                                    typeof profile === 'object' &&
+                                    profile !== null &&
+                                    'id' in profile
+                                        ? profile.id === 'discord'
+                                            ? 'discord'
+                                            : profile.id === 'devto'
+                                              ? 'article'
+                                              : undefined
+                                        : undefined
+                                }
+                                key={`${field.bindingId}-${field.path}`}
+                                field={field}
+                                error={fieldValidationMessage(
+                                    field,
+                                    validationIssues.filter(
+                                        issue => validationField(fields, issue) === field
+                                    ),
+                                    target === null
+                                        ? undefined
+                                        : readTargetField(target, field.path)
+                                )}
+                                fieldId={targetFieldId(field, index)}
+                                value={
+                                    target === null
+                                        ? undefined
+                                        : readTargetField(target, field.path)
+                                }
+                                disabled={disabled || target === null}
+                                compact={compact}
+                                onChange={value => updateField(field, value)}
+                            />
+                        )
+                    )}
                 </div>
             )}
 
@@ -222,4 +252,50 @@ function fieldValidationMessage(
     if (issue.code === 'schema.maxItems' && field.maxItems !== null)
         return m.editor_field_max_items({ count: field.maxItems })
     return m.editor_field_invalid()
+}
+
+function TargetMediaField({
+    projectId,
+    scopeId,
+    field,
+    profile,
+    target,
+    disabled,
+    error,
+    onChange,
+}: {
+    readonly projectId: string
+    readonly scopeId: string
+    readonly field: TargetEditorField
+    readonly profile: unknown
+    readonly target: Record<string, unknown>
+    readonly disabled: boolean
+    readonly error?: string
+    readonly onChange: (target: Record<string, unknown>) => void
+}) {
+    const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null)
+    return (
+        <div data-target-field={field.bindingId} className="min-w-0">
+            <div className="mb-3 flex min-h-9 items-center justify-between gap-3">
+                <span className="text-sm font-medium">{field.label}</span>
+                <div ref={setToolbar} className="flex items-center" />
+            </div>
+            <MediaAttachmentPicker
+                variant="publication-new-inline"
+                triggerContainer={toolbar}
+                scopeId={scopeId}
+                projectId={projectId}
+                value={getTargetMediaSelections(profile, target, field.bindingId)}
+                disabled={disabled}
+                onChange={media =>
+                    onChange(updateTargetMedia(profile, target, media, field.bindingId))
+                }
+            />
+            {error ? (
+                <p role="status" className="mt-2 text-xs text-state-failed">
+                    {error}
+                </p>
+            ) : null}
+        </div>
+    )
 }

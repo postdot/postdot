@@ -129,6 +129,52 @@ describe('target media updates', () => {
         })
     })
 
+    it('edits one media binding while retaining other attachments and provider metadata', () => {
+        const profile = {
+            fieldBindings: [
+                {
+                    id: 'photos',
+                    semantic: 'ordered_media',
+                    path: '/payload/photos',
+                    item: { assetIdPath: '/ref/id', accessibilityTextPath: '/alt' },
+                },
+                {
+                    id: 'cover',
+                    semantic: 'ordered_media',
+                    path: '/cover',
+                    item: { assetIdPath: '/assetId' },
+                },
+            ],
+        }
+        const target = {
+            payload: {
+                photos: [
+                    { ref: { id: 'one' }, alt: 'Original', crop: 0.5 },
+                    { ref: { id: 'two' } },
+                ],
+            },
+            cover: [{ assetId: 'cover-image' }],
+            text: 'Keep copy',
+        }
+        expect(getTargetMediaSelections(profile, target, 'photos')).toEqual([
+            { assetId: 'one', accessibilityText: 'Original' },
+            { assetId: 'two' },
+        ])
+        const updated = updateTargetMedia(
+            profile,
+            target,
+            [{ assetId: 'one', accessibilityText: 'Adapted' }],
+            'photos'
+        )
+        expect(updated).toEqual({
+            payload: { photos: [{ ref: { id: 'one' }, alt: 'Adapted', crop: 0.5 }] },
+            cover: target.cover,
+            text: target.text,
+        })
+        expect(target.payload.photos).toHaveLength(2)
+        expect(updateTargetMedia(profile, target, [], 'missing')).toEqual(target)
+    })
+
     it('leaves targets unchanged when the runtime profile has no usable media binding', () => {
         const target = { body: 'Manual copy' }
 

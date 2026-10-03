@@ -939,6 +939,8 @@ export function PublicationEditor({
     )
     const targetSection = (
         <PublicationEditorTargetSection
+            projectId={projectId}
+            publicationId={editor.publication.id}
             configuredEditor={configuredEditor}
             profile={editor.profile.profile}
             reviewState={editor.draft.reviewState}

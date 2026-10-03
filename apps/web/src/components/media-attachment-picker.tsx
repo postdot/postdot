@@ -93,6 +93,7 @@ export type MediaAttachmentPickerSelectionMode = 'attach' | 'manage'
 
 export interface MediaAttachmentPickerProps {
     readonly projectId: string
+    readonly scopeId?: string
     readonly value: readonly MediaSelection[]
     readonly onChange: (value: MediaSelection[]) => void
     readonly onAssetsChange?: (assets: MediaReference[]) => void
@@ -113,12 +114,12 @@ export interface MediaAttachmentPickerProps {
 }
 
 export function MediaAttachmentPicker(props: MediaAttachmentPickerProps) {
-    const pickerKey = `${props.projectId}:${props.variant ?? 'library'}:${props.selectionMode ?? 'attach'}`
+    const pickerKey = `${props.projectId}:${props.variant ?? 'library'}:${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
     return <MediaAttachmentPickerInstance key={pickerKey} {...props} />
 }
 
 function MediaAttachmentPickerInstance(props: MediaAttachmentPickerProps) {
-    const recoveryId = `herald-media-${props.projectId}-${props.variant ?? 'library'}-${props.selectionMode ?? 'attach'}`
+    const recoveryId = `herald-media-${props.projectId}-${props.variant ?? 'library'}-${props.selectionMode ?? 'attach'}${props.scopeId === undefined ? '' : `:${props.scopeId}`}`
     const [controller] = useState(() =>
         createHeraldMediaUploadController(props.projectId, api, undefined, undefined, {
             id: recoveryId,

@@ -43,11 +43,13 @@ export function reorderMediaSelections(
 /** Read ordered attachments using the same profile bindings as target editing. */
 export function getTargetMediaSelections(
     profile: unknown,
-    target: Record<string, unknown>
+    target: Record<string, unknown>,
+    bindingId?: string
 ): MediaSelection[] {
     if (!isRecord(profile) || !Array.isArray(profile.fieldBindings)) return []
     return profile.fieldBindings.flatMap(binding => {
         if (!isRecord(binding) || binding.semantic !== 'ordered_media') return []
+        if (bindingId !== undefined && binding.id !== bindingId) return []
         if (typeof binding.path !== 'string' || !isRecord(binding.item)) return []
         const { assetIdPath, accessibilityTextPath } = binding.item
         if (typeof assetIdPath !== 'string') return []
@@ -73,13 +75,15 @@ export function getTargetMediaSelections(
 export function updateTargetMedia(
     profile: unknown,
     target: Record<string, unknown>,
-    media: readonly MediaSelection[]
+    media: readonly MediaSelection[],
+    bindingId?: string
 ): Record<string, unknown> {
     const next = JSON.parse(JSON.stringify(target)) as Record<string, unknown>
     if (!isRecord(profile) || !Array.isArray(profile.fieldBindings)) return next
 
     for (const binding of profile.fieldBindings) {
         if (!isRecord(binding) || binding.semantic !== 'ordered_media') continue
+        if (bindingId !== undefined && binding.id !== bindingId) continue
         if (typeof binding.path !== 'string' || !isRecord(binding.item)) continue
         const itemBinding = binding.item
         const assetIdPath = itemBinding.assetIdPath

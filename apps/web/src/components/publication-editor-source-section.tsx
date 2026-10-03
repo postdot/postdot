@@ -62,7 +62,9 @@ export function PublicationEditorSourceSection({
 
     if (readOnly) {
         return (
-            <section className="min-w-0 rounded-xl bg-surface-raised p-4 shadow-surface">
+            <section
+                data-publication-source="true"
+                className="min-w-0 rounded-xl bg-surface-raised p-4 shadow-surface">
                 <h2 className="text-sm font-medium">{m.publication_new_source()}</h2>
                 <div className="min-w-0 space-y-4 pt-3">
                     {body?.text ? (
@@ -90,7 +92,7 @@ export function PublicationEditorSourceSection({
     }
 
     return (
-        <section className="min-w-0">
+        <section data-publication-source="true" className="min-w-0">
             <div className="rounded-md bg-surface-raised p-4 shadow-surface sm:p-5">
                 <div className="grid min-w-0 gap-4">
                     {showBodyField ? (

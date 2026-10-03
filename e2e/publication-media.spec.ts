@@ -1424,7 +1424,9 @@ test('persists mixed and media-only publications through the dashboard', async (
     )
     await publicationChannelRail.getByRole('button', { name: channelName, exact: true }).click()
     await expect(page.locator('[data-target-field="body"] textarea')).toHaveValue(targetText)
-    const editorMediaPicker = page.locator('[data-media-picker="true"]')
+    const editorMediaPicker = page.locator(
+        '[data-publication-source="true"] [data-media-picker="true"]'
+    )
     await expect(editorMediaPicker.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
     await expect(editorMediaPicker.locator('input[id^="media-alt-"]')).toHaveCount(0)
     await page
@@ -1508,7 +1510,11 @@ test('persists mixed and media-only publications through the dashboard', async (
     const mediaToolbar = page.locator('[data-source-media-toolbar="true"]')
     await expect(mediaToolbar.getByRole('button', { name: 'Add text', exact: true })).toBeVisible()
     await expect(mediaToolbar.getByRole('button', { name: 'Add media', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add media', exact: true })).toHaveCount(1)
+    await expect(
+        page
+            .locator('[data-publication-source="true"]')
+            .getByRole('button', { name: 'Add media', exact: true })
+    ).toHaveCount(1)
     for (const theme of ['light', 'dark']) {
         const dark = (await page.locator('html').getAttribute('class'))?.split(' ').includes('dark')
         if (dark !== (theme === 'dark')) {
@@ -1520,7 +1526,9 @@ test('persists mixed and media-only publications through the dashboard', async (
         for (const width of [1280, 390]) {
             await page.setViewportSize({ width, height: 900 })
             const tools = await mediaToolbar.boundingBox()
-            const image = await page.locator('[data-media-selection-preview="true"]').boundingBox()
+            const image = await page
+                .locator('[data-publication-source="true"] [data-media-selection-preview="true"]')
+                .boundingBox()
             expect(tools).not.toBeNull()
             expect(image).not.toBeNull()
             expect(tools!.y + tools!.height).toBeLessThanOrEqual(image!.y)
@@ -1544,9 +1552,15 @@ test('persists mixed and media-only publications through the dashboard', async (
             .locator('[data-editor-toolbar="true"]')
             .getByRole('button', { name: 'Add media', exact: true })
     ).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Add media', exact: true })).toHaveCount(1)
+    await expect(
+        page
+            .locator('[data-publication-source="true"]')
+            .getByRole('button', { name: 'Add media', exact: true })
+    ).toHaveCount(1)
     await page.setViewportSize({ width: 1280, height: 900 })
-    await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(1)
+    await expect(
+        page.locator('[data-publication-source="true"] [data-media-selection-preview="true"]')
+    ).toHaveCount(1)
 
     const mediaOnlyTarget = parseTargetContent(await page.getByLabel('Target JSON').inputValue())
     expect(mediaOnlyTarget.body).toBeUndefined()
