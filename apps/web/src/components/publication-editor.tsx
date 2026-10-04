@@ -307,7 +307,11 @@ export function PublicationEditor({
                 : getTargetMediaSelections(editor.profile.profile, targetResult.value),
         [editor.profile.profile, sourceContent.media, targetResult.value]
     )
-    const readOnlyMediaIds = previewMediaSelections
+    const readOnlyMediaIds = [
+        ...previewMediaSelections,
+        ...editor.draft.baseSourceContent.media,
+        ...editor.post.sourceContent.media,
+    ]
         .filter(selection => !availableMedia.some(asset => asset.asset.id === selection.assetId))
         .map(selection => selection.assetId)
         .join('\u0000')
@@ -1210,6 +1214,8 @@ export function PublicationEditor({
                             {!publicationEditable ? targetSection : null}
                             <PublicationEditorSidebar
                                 editor={editor}
+                                projectId={projectId}
+                                media={[...availableMedia, ...readOnlyMedia]}
                                 capabilitySummary={capabilitySummary}
                                 timeZone={timeZone}
                                 sourceConflict={sourceConflict}

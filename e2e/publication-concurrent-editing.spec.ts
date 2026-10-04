@@ -34,6 +34,11 @@ test('rebases a stale sibling draft without replacing destination text or attach
         await expect(
             other.getByRole('button', { name: 'Apply to channel', exact: true })
         ).toBeDisabled()
+        await conflict.scrollIntoViewIfNeeded()
+        await other.screenshot({
+            path: info.outputPath('source-conflict-before.png'),
+            fullPage: true,
+        })
         const stale = await pair.read(other, pair.second)
         expect(stale.draft.content).toEqual(before.draft.content)
         expect(stale.draft.sourceRevision).toBe(1)
@@ -127,6 +132,10 @@ test('recovers unsaved destination changes after another session saves a newer d
         const decision = other.locator('[data-publication-recovery-decision]')
         await expect(decision).toBeVisible()
         await expect(decision).toContainText('Local destination adaptation')
+        await other.screenshot({
+            path: info.outputPath('local-recovery-before.png'),
+            fullPage: true,
+        })
         await other.keyboard.press('Escape')
         await expect(decision).toBeVisible()
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(

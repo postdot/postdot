@@ -1,7 +1,9 @@
 import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
+import { useState } from 'react'
 
-import type { PublicationEditorState } from '@/lib/api'
+import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
+import type { MediaReference, PublicationEditorState } from '@/lib/api'
 import { formatProjectDateTime } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -25,6 +27,8 @@ export interface CapabilitySummary {
 }
 
 interface PublicationEditorSidebarProps {
+    readonly projectId: string
+    readonly media: readonly MediaReference[]
     readonly editor: PublicationEditorState
     readonly capabilitySummary: CapabilitySummary
     readonly timeZone: string
@@ -40,6 +44,8 @@ interface PublicationEditorSidebarProps {
 
 export function PublicationEditorSidebar({
     editor,
+    projectId,
+    media,
     capabilitySummary,
     timeZone,
     sourceConflict,
@@ -103,9 +109,11 @@ export function PublicationEditorSidebar({
                                         revision: editor.draft.sourceRevision,
                                     })}
                                 </p>
-                                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
-                                    {formatJson(editor.draft.baseSourceContent)}
-                                </pre>
+                                <SourceComparisonContent
+                                    content={editor.draft.baseSourceContent}
+                                    projectId={projectId}
+                                    media={media}
+                                />
                             </div>
                             <div className="min-w-0 rounded-md bg-background/60 p-3 shadow-field">
                                 <p className="font-medium text-foreground">
@@ -113,9 +121,11 @@ export function PublicationEditorSidebar({
                                         revision: editor.post.sourceRevision,
                                     })}
                                 </p>
-                                <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono leading-5 text-muted-foreground">
-                                    {formatJson(editor.post.sourceContent)}
-                                </pre>
+                                <SourceComparisonContent
+                                    content={editor.post.sourceContent}
+                                    projectId={projectId}
+                                    media={media}
+                                />
                             </div>
                         </div>
                     ) : null}
@@ -208,4 +218,77 @@ export function PublicationEditorSidebar({
 
 function formatJson(value: unknown) {
     return JSON.stringify(value, null, 2)
+}
+
+function SourceComparisonContent({
+    content,
+    projectId,
+    media,
+}: {
+    readonly content: PublicationEditorState['post']['sourceContent']
+    readonly projectId: string
+    readonly media: readonly MediaReference[]
+}) {
+    const [expanded, setExpanded] = useState(false)
+    const body = content.body?.text
+    const shortened = body !== undefined && body.length > 500
+    return (
+        <div className="mt-3 min-w-0 space-y-3 text-sm leading-6">
+            {content.headline ? (
+                <p className="break-words font-medium">{content.headline}</p>
+            ) : null}
+            {content.body ? (
+                <p className="whitespace-pre-wrap break-words">
+                    {shortened && !expanded ? `${body?.slice(0, 500)}…` : body}
+                </p>
+            ) : null}
+            {shortened ? (
+                <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-expanded={expanded}
+                    onClick={() => setExpanded(value => !value)}>
+                    {expanded ? m.editor_comparison_collapse() : m.editor_comparison_expand()}
+                </Button>
+            ) : null}
+            {content.language ? (
+                <p className="text-xs text-muted-foreground">{content.language}</p>
+            ) : null}
+            {content.media.length > 0 ? (
+                <ol className="flex flex-wrap gap-2">
+                    {content.media.map((selection, index) => {
+                        const asset = media.find(item => item.asset.id === selection.assetId)
+                        return (
+                            <li
+                                key={`${selection.assetId}-${index}`}
+                                className="min-w-0 max-w-full">
+                                {asset ? (
+                                    <MediaPreview
+                                        projectId={projectId}
+                                        asset={asset}
+                                        representation={readyRepresentation(asset)}
+                                        alt={
+                                            selection.accessibilityText ??
+                                            asset.asset.originalFilename ??
+                                            ''
+                                        }
+                                        className="size-16 rounded-md object-cover shadow-field"
+                                    />
+                                ) : (
+                                    <span className="flex min-h-16 max-w-40 items-center rounded-md bg-surface-inset px-3 text-xs text-muted-foreground">
+                                        {m.editor_comparison_media_unavailable()}
+                                    </span>
+                                )}
+                                {selection.accessibilityText ? (
+                                    <p className="mt-1 max-w-40 break-words text-xs text-muted-foreground">
+                                        {selection.accessibilityText}
+                                    </p>
+                                ) : null}
+                            </li>
+                        )
+                    })}
+                </ol>
+            ) : null}
+        </div>
+    )
 }
