@@ -25,7 +25,12 @@ export interface AuthenticatedElysiaOptions {
         requestPath: string,
         permissions: HeraldApiKeyPermissions
     ) => boolean
-    readonly authorizeProjectSessionAccess?: (
+    /**
+     * Current project access for an authenticated caller. Session requests and
+     * API-key requests share this single decision so machine access can never
+     * drift from human access: both answer with the same hidden 404.
+     */
+    readonly authorizeProjectAccess?: (
         projectId: string,
         userId: string,
         requestPath: string
@@ -139,6 +144,24 @@ export function createAuthenticatedElysia(
                         })
                     }
 
+                    // A key never outlives the access its owner currently holds:
+                    // the stored scope is intersected with the owner's live
+                    // project access by the same callback the session path
+                    // uses, so revocation is enforced for machine access too.
+                    if (
+                        projectId !== null &&
+                        options.authorizeProjectAccess !== undefined &&
+                        !options.authorizeProjectAccess(
+                            projectId,
+                            authentication.ownerUserId,
+                            new URL(request.url).pathname
+                        )
+                    ) {
+                        return status(404, {
+                            error: { code: 'not_found', message: 'Project not found' },
+                        })
+                    }
+
                     return {
                         user: {
                             id: authentication.ownerUserId,
@@ -165,8 +188,8 @@ export function createAuthenticatedElysia(
                 const projectId = readProjectIdFromRequest(request.url)
                 if (
                     projectId !== null &&
-                    options.authorizeProjectSessionAccess !== undefined &&
-                    !options.authorizeProjectSessionAccess(
+                    options.authorizeProjectAccess !== undefined &&
+                    !options.authorizeProjectAccess(
                         projectId,
                         session.user.id,
                         new URL(request.url).pathname

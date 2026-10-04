@@ -677,7 +677,11 @@ describe('access HTTP routes', () => {
                 createdKey.token,
                 { method: 'POST', body: JSON.stringify({ name: 'After revocation' }) }
             )
-            expect(deniedAfterRevocation.status).toBe(403)
+            // ACCESS-309: a key now answers with the same hidden 404 the session
+            // path returns once the owner no longer holds project access, so
+            // revocation is not distinguishable from an unknown project. An
+            // action ceiling failure still answers 403 while access is held.
+            expect(deniedAfterRevocation.status).toBe(404)
         } finally {
             closeDatabase(database)
         }

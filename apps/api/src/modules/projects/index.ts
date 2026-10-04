@@ -102,7 +102,10 @@ export function createProjectModule(options: ProjectModuleOptions) {
             }
         },
         authorizeUserApiKeyRequest: canApiKeyAccessRequest,
-        authorizeProjectSessionAccess: (projectId, userId, requestPath) => {
+        // One shared decision for sessions and API keys: live project access
+        // first, then the documented workspace-manager reach limited to the
+        // project access surface.
+        authorizeProjectAccess: (projectId, userId, requestPath) => {
             if (options.access.canAccessProject(projectId, userId)) return true
             if (!isProjectAccessPath(projectId, requestPath)) return false
             const workspaceId = options.access.getProjectWorkspaceId(projectId)
