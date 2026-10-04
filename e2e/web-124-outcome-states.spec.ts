@@ -617,8 +617,10 @@ test('keeps draft content truthful in destination-specific preview compositions'
     await expect(spoilers.nth(1)).toHaveAttribute('aria-expanded', 'false')
     await spoilers.first().press('Space')
     await expect(spoilers.first()).toHaveAttribute('aria-expanded', 'false')
+    await expect(spoilers.first().locator('span')).toBeHidden()
     await spoilers.nth(1).click()
     await expect(spoilers.nth(1)).toHaveAttribute('aria-expanded', 'true')
+    await expect(spoilers.nth(1).locator('span')).toBeVisible()
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
     await messagePreview.screenshot({
         path: testInfo.outputPath('preview-discord-spoilers-390.png'),

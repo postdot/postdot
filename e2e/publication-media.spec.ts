@@ -407,7 +407,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     )
     await expect(page.locator('[data-publication-lifecycle="true"]')).toBeVisible()
     await expect(page.getByText('Draft', { exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Apply to channel', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Use this version', exact: true })).toBeVisible()
     await page.getByRole('link', { name: /Back to queue/ }).click()
     await page.locator('main').getByRole('button', { name: 'New publication', exact: true }).click()
 
@@ -1478,7 +1478,7 @@ test('persists mixed and media-only publications through the dashboard', async (
     const promotedSchedule = localDateTimeInHours(4)
     await page.locator('[data-publication-delivery-disclosure] > summary').click()
     await setDateTimePicker(page, 'Deliver at', promotedSchedule)
-    await page.getByRole('button', { name: 'Apply to channel', exact: true }).click()
+    await page.getByRole('button', { name: 'Update scheduled publication', exact: true }).click()
     await expect(page.getByLabel('Deliver at', { exact: true })).toContainText(
         formatDisplayTime(promotedSchedule)
     )

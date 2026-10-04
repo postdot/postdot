@@ -61,6 +61,7 @@ import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
+import { publicationPromotionIntent } from '@/lib/publication-promotion'
 import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -205,6 +206,8 @@ export function PublicationEditor({
     const [readOnlyMedia, setReadOnlyMedia] = useState<MediaReference[]>([])
     const [manualPublishPending, setManualPublishPending] = useState(false)
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+    const [promotionPending, setPromotionPending] = useState(false)
+    const promotionInFlight = useRef(false)
     const [cancelPending, setCancelPending] = useState(false)
     const [retryPending, setRetryPending] = useState(false)
     const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(initialSourceConflict)
@@ -237,6 +240,7 @@ export function PublicationEditor({
     const isRebasing = saveState === 'rebasing'
     const publicationEditable = !readOnly && canEditPublication(editor.publication.state)
     const manualPublicationBlocked =
+        promotionPending ||
         manualPublishPending ||
         hasLocalChanges ||
         saveState !== 'saved' ||
@@ -244,6 +248,7 @@ export function PublicationEditor({
         draftRequiresReview ||
         draftDiffersFromTarget
     const promotionBlocked =
+        promotionPending ||
         dirty ||
         sourceConflict ||
         draftRequiresReview ||
@@ -251,8 +256,9 @@ export function PublicationEditor({
         targetResult.value === null ||
         sourceIssue !== null
     const cancellationBlocked =
-        cancelPending || hasLocalChanges || saveState !== 'saved' || isRebasing
+        promotionPending || cancelPending || hasLocalChanges || saveState !== 'saved' || isRebasing
     const retryBlocked =
+        promotionPending ||
         retryPending ||
         onRetry === undefined ||
         !publicationEditable ||
@@ -356,7 +362,7 @@ export function PublicationEditor({
     useEffect(() => {
         if (initialEditor.publication.id !== editor.publication.id) return
         if (incomingEditorFingerprint === lastIncomingEditorFingerprint.current) return
-        if (pendingSaveGeneration !== null) return
+        if (pendingSaveGeneration !== null || promotionPending) return
         lastIncomingEditorFingerprint.current = incomingEditorFingerprint
         if (incomingEditorFingerprint === currentEditorFingerprint) return
 
@@ -392,6 +398,7 @@ export function PublicationEditor({
         hasLocalChanges,
         incomingEditorFingerprint,
         pendingSaveGeneration,
+        promotionPending,
         initialEditor,
         timeZone,
     ])
@@ -746,6 +753,7 @@ export function PublicationEditor({
 
     async function promoteDraft() {
         if (
+            promotionInFlight.current ||
             !publicationEditable ||
             dirty ||
             sourceConflict ||
@@ -757,7 +765,10 @@ export function PublicationEditor({
             return
         }
 
-        const scheduledAt = parseSchedule(scheduleValue, timeZone)
+        const scheduledAt = scheduleDirty
+            ? parseSchedule(scheduleValue, timeZone)
+            : editor.publication.scheduledAt
+        const intent = publicationPromotionIntent(editor.publication.state, scheduledAt !== null)
         if (typeof scheduledAt === 'string') {
             setMessage(dateTimeLocalErrorMessage(scheduledAt))
             return
@@ -767,6 +778,8 @@ export function PublicationEditor({
             return
         }
 
+        promotionInFlight.current = true
+        setPromotionPending(true)
         setMessage(null)
         try {
             const response = await api.promotePublicationDraft(
@@ -782,7 +795,15 @@ export function PublicationEditor({
             setScheduleDirty(false)
             setSaveState('saved')
             setRecoveryAvailable(false)
-            setMessage(m.editor_promoted())
+            setMessage(
+                intent === 'schedule'
+                    ? m.editor_scheduled()
+                    : intent === 'update_schedule'
+                      ? m.editor_schedule_updated()
+                      : intent === 'return_draft'
+                        ? m.editor_returned_draft()
+                        : m.editor_version_selected()
+            )
             invalidatePublicationQueries()
         } catch (caughtError) {
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
@@ -792,6 +813,9 @@ export function PublicationEditor({
             }
             setSaveState('error')
             setMessage(errorMessage(caughtError))
+        } finally {
+            promotionInFlight.current = false
+            setPromotionPending(false)
         }
     }
 
@@ -948,10 +972,13 @@ export function PublicationEditor({
             projectId={projectId}
             sourceContent={sourceContent}
             sourceRevision={editor.post.sourceRevision}
-            disabled={!publicationEditable || isRebasing}
+            disabled={!publicationEditable || isRebasing || promotionPending}
             readOnly={!publicationEditable}
             mediaDisabled={
-                !publicationEditable || saveState === 'saving' || saveState === 'rebasing'
+                !publicationEditable ||
+                promotionPending ||
+                saveState === 'saving' ||
+                saveState === 'rebasing'
             }
             onTextChange={updateSourceText}
             onFormatChange={updateSourceFormat}
@@ -970,7 +997,7 @@ export function PublicationEditor({
             validationIssues={editor.draft.validationIssues}
             target={targetResult.value}
             targetText={targetText}
-            disabled={!publicationEditable || isRebasing}
+            disabled={!publicationEditable || isRebasing || promotionPending}
             readOnly={!publicationEditable}
             open={targetCustomizationOpen}
             onOpenChange={setTargetCustomizationOpen}
@@ -1032,7 +1059,7 @@ export function PublicationEditor({
                         <DialogFooter>
                             <Button
                                 variant="secondary"
-                                disabled={isRebasing}
+                                disabled={isRebasing || promotionPending}
                                 onClick={() => {
                                     requestGeneration.current += 1
                                     removeRecovery(recoveryKey)
@@ -1040,7 +1067,9 @@ export function PublicationEditor({
                                 }}>
                                 {m.editor_discard_recovery()}
                             </Button>
-                            <Button disabled={isRebasing} onClick={restoreRecovery}>
+                            <Button
+                                disabled={isRebasing || promotionPending}
+                                onClick={restoreRecovery}>
                                 {m.editor_restore_recovery()}
                             </Button>
                         </DialogFooter>
@@ -1132,7 +1161,12 @@ export function PublicationEditor({
                         <PublicationTagPicker
                             ariaLabel={m.taxonomy_select_tags()}
                             archivedLabel={m.common_archived()}
-                            disabled={!publicationEditable || isRebasing || tagSavePending}
+                            disabled={
+                                !publicationEditable ||
+                                isRebasing ||
+                                promotionPending ||
+                                tagSavePending
+                            }
                             emptyLabel={m.taxonomy_no_tags()}
                             label={m.taxonomy_tags()}
                             onChange={value => void handlePublicationTagIdsChange(value)}
@@ -1155,7 +1189,7 @@ export function PublicationEditor({
                             <PublicationChannelRail
                                 activeChannelId={editor.channel.id}
                                 channels={editorChannels}
-                                disabled={isRebasing}
+                                disabled={isRebasing || promotionPending}
                                 onActiveChannelChange={handleChannelChange}
                                 selectedChannelIds={editorChannelIds}
                             />
@@ -1193,6 +1227,11 @@ export function PublicationEditor({
                     footer={
                         publicationEditable ? (
                             <PublicationEditorPromotionAction
+                                pending={promotionPending}
+                                intent={publicationPromotionIntent(
+                                    editor.publication.state,
+                                    scheduleValue !== ''
+                                )}
                                 disabled={promotionBlocked}
                                 draftRequiresReview={draftRequiresReview}
                                 draftDiffersFromTarget={draftDiffersFromTarget || scheduleDirty}
@@ -1232,7 +1271,7 @@ export function PublicationEditor({
                                 timeZone={timeZone}
                                 sourceConflict={sourceConflict}
                                 saveState={saveState}
-                                isRebasing={isRebasing}
+                                isRebasing={isRebasing || promotionPending}
                                 recoveryAvailable={recoveryAvailable}
                                 hasLocalChanges={hasLocalChanges}
                                 onRebase={() => void rebaseToLatestSource()}

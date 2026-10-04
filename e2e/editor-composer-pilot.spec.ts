@@ -473,7 +473,7 @@ test('corrects destination attachments without changing shared media or another 
             response.url().endsWith(`/publications/${publication.id}/draft/promote`) &&
             response.request().method() === 'POST'
     )
-    await page.getByRole('button', { name: 'Apply to channel', exact: true }).click()
+    await page.getByRole('button', { name: 'Use this version', exact: true }).click()
     const appliedResponse = await applied
     expect(appliedResponse.ok()).toBe(true)
     const { editor: appliedEditor } = await appliedResponse.json()

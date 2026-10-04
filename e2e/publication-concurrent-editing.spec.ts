@@ -32,7 +32,7 @@ test('rebases a stale sibling draft without replacing destination text or attach
         await expect(conflict).toContainText('Initial common source')
         await expect(conflict).toContainText('New common source')
         await expect(
-            other.getByRole('button', { name: 'Apply to channel', exact: true })
+            other.getByRole('button', { name: 'Use this version', exact: true })
         ).toBeDisabled()
         await conflict.scrollIntoViewIfNeeded()
         await other.screenshot({
@@ -142,7 +142,7 @@ test('recovers unsaved destination changes after another session saves a newer d
         await expect(conflict).toBeVisible()
         await expect(local).toHaveText('Local destination adaptation')
         await expect(
-            other.getByRole('button', { name: 'Apply to channel', exact: true })
+            other.getByRole('button', { name: 'Use this version', exact: true })
         ).toBeDisabled()
         await other.unroute(draftUrl)
         await conflict.getByRole('button', { name: 'Load server version', exact: true }).click()
@@ -284,7 +284,7 @@ test('exposes reconciliation when a server refresh overtakes an in-flight autosa
         await expect(other.locator('[data-publication-conflict="true"]')).toBeVisible()
         await expect(local).toHaveText('In-flight local destination')
         await expect(
-            other.getByRole('button', { name: 'Apply to channel', exact: true })
+            other.getByRole('button', { name: 'Use this version', exact: true })
         ).toBeDisabled()
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(
             'Concurrent saved destination'
@@ -387,6 +387,95 @@ async function openCustomization(page: Page) {
     if ((await details.getAttribute('open')) === null)
         await details.locator(':scope > summary').click()
     await expect(details.locator('[data-target-field="text"]')).toBeVisible()
+}
+
+for (const scheduled of [false, true]) {
+    test(`applies a ${scheduled ? 'scheduled' : 'draft'} version once while protecting in-flight editing`, async ({
+        page,
+    }, info) => {
+        const pair = await createDraftPair(page)
+        const scheduledAt = scheduled ? Date.now() + 86_400_000 : null
+        if (scheduled) {
+            const before = await pair.read(page, pair.first)
+            const seeded = await page.request.post(
+                `/api/projects/${pair.id}/publications/${pair.first}/draft/promote`,
+                { data: { expectedRevision: before.draft.revision, scheduledAt } }
+            )
+            expect(seeded.ok()).toBe(true)
+        }
+        await page.goto(pair.pageUrl(pair.first))
+        await openCustomization(page)
+        await page
+            .locator('[data-target-field="text"] [contenteditable="true"]')
+            .fill('Version to apply')
+        await expect
+            .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
+            .toBe('Version to apply')
+        const before = await pair.read(page, pair.first)
+        let release: (() => void) | undefined
+        const held = new Promise<void>(resolve => {
+            release = resolve
+        })
+        let requests = 0
+        const routeUrl = `**/api/projects/${pair.id}/publications/${pair.first}/draft/promote`
+        await page.route(routeUrl, async route => {
+            requests += 1
+            await held
+            await route.continue()
+        })
+        try {
+            const action = page.locator('[data-publication-promotion-action]')
+            await expect(action).toBeEnabled()
+            await expect(action).toHaveText(
+                scheduled ? 'Update scheduled publication' : 'Use this version'
+            )
+            await action.dblclick()
+            await expect(action).toBeDisabled()
+            await expect(action).toHaveAttribute('aria-busy', 'true')
+            await expect(action).toHaveText('Applying…')
+            await expect(
+                page.locator('[data-target-field="text"] [contenteditable]')
+            ).toHaveAttribute('contenteditable', 'false')
+            expect(requests).toBe(1)
+            await page.screenshot({
+                path: info.outputPath(`promotion-pending-${scheduled ? 'scheduled' : 'draft'}.png`),
+                fullPage: true,
+            })
+            release?.()
+            await expect(action).toHaveAttribute('aria-busy', 'false')
+            await expect(action).toBeEnabled()
+            const after = await pair.read(page, pair.first)
+            expect(after.selectedTarget?.content.text).toBe('Version to apply')
+            expect(after.selectedTarget?.sequence).toBe((before.selectedTarget?.sequence ?? 0) + 1)
+            expect(after.publication.state).toBe(scheduled ? 'scheduled' : 'draft')
+            expect(after.publication.scheduledAt).toBe(before.publication.scheduledAt)
+            expect(after.post.sourceContent).toEqual(before.post.sourceContent)
+            expect((await pair.read(page, pair.second)).selectedTarget).toBeNull()
+            expect(requests).toBe(1)
+            await page.unroute(routeUrl)
+            if (scheduled) {
+                await page.locator('[data-publication-delivery-disclosure] > summary').click()
+                await page.locator('#deliver-at').click()
+                await page.getByRole('button', { name: 'Clear', exact: true }).click()
+                await expect(action).toHaveText('Return to draft')
+                await page.screenshot({
+                    path: info.outputPath('return-to-draft-before-confirming.png'),
+                    fullPage: true,
+                })
+                await action.click()
+                await expect
+                    .poll(async () => (await pair.read(page, pair.first)).publication.state)
+                    .toBe('draft')
+                const unscheduled = await pair.read(page, pair.first)
+                expect(unscheduled.publication.scheduledAt).toBeNull()
+                expect(unscheduled.selectedTarget?.content).toEqual(after.selectedTarget?.content)
+                await expect(action).toHaveText('Use this version')
+            }
+        } finally {
+            release?.()
+            await page.unroute(routeUrl)
+        }
+    })
 }
 
 async function createDraftPair(page: Page) {

@@ -7,9 +7,12 @@ import { CheckIcon } from '@solar-icons/react/linear/check'
 import { DateTimePicker } from '@/components/date-time-picker'
 import { formatCivilSchedule } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import type { PublicationPromotionIntent } from '@/lib/publication-promotion'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationEditorPromotionSectionProps {
+    readonly intent: PublicationPromotionIntent
+    readonly pending: boolean
     readonly timeZone: string
     readonly scheduleValue: string
     readonly disabled: boolean
@@ -68,13 +71,20 @@ export function PublicationEditorDeliverySettings({
 }
 
 export function PublicationEditorPromotionAction({
+    intent,
+    pending,
     disabled,
     draftRequiresReview,
     draftDiffersFromTarget,
     onPromote,
 }: Pick<
     PublicationEditorPromotionSectionProps,
-    'disabled' | 'draftRequiresReview' | 'draftDiffersFromTarget' | 'onPromote'
+    | 'intent'
+    | 'pending'
+    | 'disabled'
+    | 'draftRequiresReview'
+    | 'draftDiffersFromTarget'
+    | 'onPromote'
 >) {
     useLanguage()
     return (
@@ -86,9 +96,21 @@ export function PublicationEditorPromotionAction({
                 {draftDiffersFromTarget ? (
                     <span className="text-xs text-state-attention">{m.editor_draft_differs()}</span>
                 ) : null}
-                <Button onClick={onPromote} disabled={disabled}>
+                <Button
+                    data-publication-promotion-action
+                    onClick={onPromote}
+                    disabled={disabled}
+                    aria-busy={pending}>
                     <CheckIcon aria-hidden="true" />
-                    {m.editor_apply_draft()}
+                    {pending
+                        ? m.editor_applying_draft()
+                        : intent === 'schedule'
+                          ? m.editor_schedule_action()
+                          : intent === 'update_schedule'
+                            ? m.editor_update_schedule_action()
+                            : intent === 'return_draft'
+                              ? m.editor_return_draft_action()
+                              : m.editor_select_version_action()}
                 </Button>
             </div>
         </div>
