@@ -9,7 +9,7 @@ with technical rationale in
 
 ## Development
 
-Requirements: Bun 1.4 or newer.
+Requirements: Bun 1.4.2 or newer.
 
 ```sh
 bun install
@@ -19,6 +19,12 @@ cp apps/web/.env.example apps/web/.env
 # HERALD_PUBLISHER_ENCRYPTION_KEY with random values.
 bun run dev
 ```
+
+The web development and build commands explicitly run Vite with Bun and its native
+configuration loader. Vite remains build/development tooling; the production
+server serves the compiled dashboard without a Vite process. Browser automation
+and other development tools may still execute Node-based CLIs. See the
+[runtime and distribution review](docs/deployment/runtime-and-distribution.md).
 
 The development API launcher watches API and package sources, then waits for
 graceful process exit before restarting. It preserves the runtime lock; a forced

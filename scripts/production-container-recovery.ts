@@ -97,6 +97,16 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
 
     try {
         await waitForReadiness(port)
+        const executable = runDocker([
+            'exec',
+            containerName,
+            'bun',
+            '-e',
+            "console.log(await import('node:fs/promises').then(fs => fs.readlink('/proc/1/exe')))",
+        ])
+        if (!executable.endsWith('/bun')) {
+            throw new Error(`The production server is not running Bun: ${executable}`)
+        }
         const dashboard = await verifyProductionDashboard(`http://127.0.0.1:${port}`)
         console.log(
             `The ${stage} production container served the dashboard shell and ${dashboard.assetCount} built assets.`

@@ -13,3 +13,5 @@
 - **Browser gate stability:** Freeze files under this app during isolated Vite browser tests. Even an AGENT.md update can reload the active page and legitimately reopen draft recovery, invalidating an in-progress authoring scenario.
 
 - **Settings return controls:** When a settings page gains its own AccessPageHeader return, update DashboardShell hasPageBack for that destination. The shell must not render a second return beside the workspace/project selectors. Keep the navigation continuity test asserting one unambiguous return.
+
+- **Vite runtime:** Launch development and production web builds explicitly with `bun run --bun vite --configLoader native`. The bundled configuration loader in Vite 8.3.1 currently fails under Bun 1.4.2; native loading uses Bun's TypeScript support and preserves the established plugins. Do not add Node to the production image to work around this.
