@@ -1476,6 +1476,8 @@
     "editor_scheduled": "Publication planifiée.",
     "editor_schedule_updated": "Programmation mise à jour.",
     "editor_returned_draft": "Publication repassée en brouillon.",
+    "editor_application_unconfirmed": "L’application n’a pas pu être confirmée. Vérifiez le serveur avant de réessayer.",
+    "editor_check_server": "Vérifier l’état serveur",
     "editor_applying_draft": "Application…",
     "editor_apply_draft": "Appliquer au canal",
     "editor_clear_draft_note": "Effacez la valeur pour conserver cette publication comme brouillon.",

@@ -164,7 +164,11 @@ export function PublicationEditorSidebar({
                                 )}
                             </dd>
                         </dl>
-                        <pre className="max-h-72 max-w-full overflow-auto rounded-md bg-surface-field p-3 font-mono text-xs leading-5 shadow-field">
+                        <pre
+                            tabIndex={0}
+                            role="region"
+                            aria-label={m.editor_sidebar_delivery_snapshot()}
+                            className="max-h-72 max-w-full overflow-auto rounded-md bg-surface-field p-3 font-mono text-xs leading-5 shadow-field">
                             {formatJson(editor.selectedTarget.content)}
                         </pre>
                     </div>

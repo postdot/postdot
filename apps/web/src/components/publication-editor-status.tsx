@@ -12,6 +12,9 @@ interface PublicationEditorStatusProps {
     readonly message: string | null
     readonly saveState: PublicationEditorSaveState
     readonly onReviewConflict: () => void
+    readonly onCheckServer?: () => void
+    readonly checkingServer?: boolean
+    readonly checkServerDisabled?: boolean
 }
 
 export function PublicationEditorStatus({
@@ -19,6 +22,9 @@ export function PublicationEditorStatus({
     passive = false,
     saveState,
     onReviewConflict,
+    onCheckServer,
+    checkingServer = false,
+    checkServerDisabled = false,
 }: PublicationEditorStatusProps) {
     useLanguage()
     const needsAttention = saveState === 'error' || saveState === 'conflict'
@@ -51,6 +57,16 @@ export function PublicationEditorStatus({
                         <InfoCircleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                     )}
                     <p className="min-w-0 flex-1 basis-48 break-words leading-5">{message}</p>
+                    {onCheckServer ? (
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={onCheckServer}
+                            disabled={checkServerDisabled}
+                            aria-busy={checkingServer}>
+                            {checkingServer ? m.realtime_refreshing() : m.editor_check_server()}
+                        </Button>
+                    ) : null}
                     {saveState === 'conflict' ? (
                         <Button size="sm" variant="secondary" onClick={onReviewConflict}>
                             {m.editor_sidebar_reconcile_title()}

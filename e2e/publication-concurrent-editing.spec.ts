@@ -478,6 +478,125 @@ for (const scheduled of [false, true]) {
     })
 }
 
+for (const outcome of ['rejected', 'lost_response'] as const) {
+    test(`checks server state after ${outcome} application without repeating it or losing local work`, async ({
+        page,
+    }, info) => {
+        const pair = await createDraftPair(page)
+        await page.goto(pair.pageUrl(pair.first))
+        await openCustomization(page)
+        const content = page.locator('[data-target-field="text"] [contenteditable="true"]')
+        await content.fill('Saved version awaiting application')
+        await expect
+            .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
+            .toBe('Saved version awaiting application')
+        const saved = await pair.read(page, pair.first)
+        const scheduledAt = Date.now() + 86_400_000
+        const seeded = await page.request.post(
+            `/api/projects/${pair.id}/publications/${pair.first}/draft/promote`,
+            { data: { expectedRevision: saved.draft.revision, scheduledAt } }
+        )
+        expect(seeded.ok()).toBe(true)
+        await page.reload()
+        await openCustomization(page)
+        await page.locator('[data-publication-delivery-disclosure] > summary').click()
+        await page.locator('#deliver-at').click()
+        await page.getByRole('button', { name: 'Clear', exact: true }).click()
+        const before = await pair.read(page, pair.first)
+        const promotionUrl = `**/api/projects/${pair.id}/publications/${pair.first}/draft/promote`
+        let applications = 0
+        await page.route(promotionUrl, async route => {
+            applications += 1
+            if (outcome === 'rejected') {
+                await route.fulfill({
+                    status: 503,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ error: 'Application unavailable', code: 'unavailable' }),
+                })
+            } else {
+                const response = await route.fetch()
+                expect(response.ok()).toBe(true)
+                await route.abort('failed')
+            }
+        })
+        const action = page.locator('[data-publication-promotion-action]')
+        await expect(action).toBeEnabled()
+        await action.click()
+        const check = page.getByRole('button', { name: 'Check server status', exact: true })
+        await expect(check).toBeVisible()
+        await expect(action).toBeDisabled()
+        await expect(page.getByRole('status', { name: 'Saved', exact: true })).toBeVisible()
+        await expect(content).toHaveText('Saved version awaiting application')
+        const after = await pair.read(page, pair.first)
+        if (outcome === 'rejected') expect(after.selectedTarget).toEqual(before.selectedTarget)
+        else {
+            expect(after.selectedTarget?.content.text).toBe('Saved version awaiting application')
+            expect(after.selectedTarget?.sequence).toBe((before.selectedTarget?.sequence ?? 0) + 1)
+        }
+        expect(applications).toBe(1)
+        // Continuing to edit may autosave the working draft, but must not unlock application.
+        await content.fill('Later local adaptation')
+        await expect
+            .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
+            .toBe('Later local adaptation')
+        await expect(action).toBeDisabled()
+        await expect(check).toBeVisible()
+        // A failed read must leave the check available and the editor content intact.
+        // Scheduling is blocked until the unknown application result has been read.
+        await expect(page.locator('#deliver-at')).toBeDisabled()
+        const editorUrl = `**/api/projects/${pair.id}/publications/${pair.first}/editor`
+        await page.route(editorUrl, route => route.abort('failed'))
+        await check.click()
+        await expect(check).toBeEnabled()
+        await expect(check).toBeVisible()
+        await expect(action).toBeDisabled()
+        await expect(content).toHaveText('Later local adaptation')
+        await page.unroute(editorUrl)
+        for (const width of [1280, 820, 390]) {
+            await page.setViewportSize({ width, height: 900 })
+            await check.scrollIntoViewIfNeeded()
+            expect(
+                await page.evaluate(
+                    () => document.documentElement.scrollWidth <= window.innerWidth + 1
+                )
+            ).toBe(true)
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            await page.screenshot({
+                path: info.outputPath(`application-${outcome}-${width}.png`),
+                fullPage: true,
+            })
+        }
+        // Keep an unsaved edit in recovery while reading the authoritative selected version.
+        const draftUrl = `**/api/projects/${pair.id}/publications/${pair.first}/draft`
+        await page.route(draftUrl, route => route.abort('failed'))
+        await content.fill('Unsaved local work to recover')
+        await expect(page.getByRole('status', { name: 'Save failed', exact: true })).toBeVisible()
+        await check.click()
+        const recovery = page.locator('[data-publication-recovery-decision]')
+        await expect(recovery).toBeVisible()
+        await expect(recovery).toContainText('Unsaved local work to recover')
+        expect(applications).toBe(1)
+        await page.unroute(draftUrl)
+        await recovery.getByRole('button', { name: 'Restore local copy', exact: true }).click()
+        await expect(recovery).toHaveCount(0)
+        await expect(content).toHaveText('Unsaved local work to recover')
+        await expect
+            .poll(async () => (await pair.read(page, pair.first)).draft.content.text)
+            .toBe('Unsaved local work to recover')
+        await expect(action).toBeEnabled()
+        expect(applications).toBe(1)
+        const final = await pair.read(page, pair.first)
+        expect(final.selectedTarget).toEqual(after.selectedTarget)
+        expect(final.publication.state).toBe(after.publication.state)
+        expect(final.publication.scheduledAt).toBe(after.publication.scheduledAt)
+        await expect(page.locator('#deliver-at')).toContainText('Choose a date')
+        await expect(action).toHaveText(
+            outcome === 'rejected' ? 'Return to draft' : 'Use this version'
+        )
+        expect((await pair.read(page, pair.second)).selectedTarget).toBeNull()
+    })
+}
+
 async function createDraftPair(page: Page) {
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')

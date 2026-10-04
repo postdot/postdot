@@ -1476,6 +1476,8 @@
     "editor_scheduled": "Publication scheduled.",
     "editor_schedule_updated": "Scheduled publication updated.",
     "editor_returned_draft": "Publication returned to draft.",
+    "editor_application_unconfirmed": "Application could not be confirmed. Check the server before trying again.",
+    "editor_check_server": "Check server status",
     "editor_applying_draft": "Applying…",
     "editor_apply_draft": "Apply to channel",
     "editor_clear_draft_note": "Clear the value to keep this publication as a draft.",

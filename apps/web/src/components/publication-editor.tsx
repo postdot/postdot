@@ -208,6 +208,10 @@ export function PublicationEditor({
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     const [promotionPending, setPromotionPending] = useState(false)
     const promotionInFlight = useRef(false)
+    const [promotionRecoveryRequired, setPromotionRecoveryRequired] = useState(false)
+    const [serverReadPending, setServerReadPending] = useState(false)
+    const serverReadInFlight = useRef(false)
+    const editorMutationPending = promotionPending || serverReadPending
     const [cancelPending, setCancelPending] = useState(false)
     const [retryPending, setRetryPending] = useState(false)
     const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(initialSourceConflict)
@@ -240,7 +244,8 @@ export function PublicationEditor({
     const isRebasing = saveState === 'rebasing'
     const publicationEditable = !readOnly && canEditPublication(editor.publication.state)
     const manualPublicationBlocked =
-        promotionPending ||
+        editorMutationPending ||
+        promotionRecoveryRequired ||
         manualPublishPending ||
         hasLocalChanges ||
         saveState !== 'saved' ||
@@ -248,7 +253,8 @@ export function PublicationEditor({
         draftRequiresReview ||
         draftDiffersFromTarget
     const promotionBlocked =
-        promotionPending ||
+        editorMutationPending ||
+        promotionRecoveryRequired ||
         dirty ||
         sourceConflict ||
         draftRequiresReview ||
@@ -256,9 +262,15 @@ export function PublicationEditor({
         targetResult.value === null ||
         sourceIssue !== null
     const cancellationBlocked =
-        promotionPending || cancelPending || hasLocalChanges || saveState !== 'saved' || isRebasing
+        editorMutationPending ||
+        promotionRecoveryRequired ||
+        cancelPending ||
+        hasLocalChanges ||
+        saveState !== 'saved' ||
+        isRebasing
     const retryBlocked =
-        promotionPending ||
+        editorMutationPending ||
+        promotionRecoveryRequired ||
         retryPending ||
         onRetry === undefined ||
         !publicationEditable ||
@@ -362,7 +374,7 @@ export function PublicationEditor({
     useEffect(() => {
         if (initialEditor.publication.id !== editor.publication.id) return
         if (incomingEditorFingerprint === lastIncomingEditorFingerprint.current) return
-        if (pendingSaveGeneration !== null || promotionPending) return
+        if (pendingSaveGeneration !== null || editorMutationPending) return
         lastIncomingEditorFingerprint.current = incomingEditorFingerprint
         if (incomingEditorFingerprint === currentEditorFingerprint) return
 
@@ -398,7 +410,7 @@ export function PublicationEditor({
         hasLocalChanges,
         incomingEditorFingerprint,
         pendingSaveGeneration,
-        promotionPending,
+        editorMutationPending,
         initialEditor,
         timeZone,
     ])
@@ -478,7 +490,7 @@ export function PublicationEditor({
     ])
 
     useEffect(() => {
-        if (!publicationEditable || !dirty || recoveryAvailable) return
+        if (!publicationEditable || !dirty || recoveryAvailable || serverReadPending) return
 
         const generation = ++requestGeneration.current
         if (sourceConflict || sourceIssue !== null || targetResult.value === null) {
@@ -532,6 +544,7 @@ export function PublicationEditor({
         publicationEditable,
         recoveryAvailable,
         recoveryKey,
+        serverReadPending,
         sourceConflict,
         sourceContent,
         sourceIssue,
@@ -589,6 +602,16 @@ export function PublicationEditor({
     }
 
     async function reloadServerVersion() {
+        if (
+            serverReadInFlight.current ||
+            promotionInFlight.current ||
+            pendingSaveGeneration !== null ||
+            saveState === 'saving' ||
+            isRebasing
+        )
+            return
+        serverReadInFlight.current = true
+        setServerReadPending(true)
         const generation = ++requestGeneration.current
         const localSource = sourceContent
         const localTargetText = targetText
@@ -607,6 +630,7 @@ export function PublicationEditor({
         try {
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
             if (generation !== requestGeneration.current) return
+            setPromotionRecoveryRequired(false)
             setRecoveryAvailable(hasLocalChanges || localRecovery !== null)
             setEditor(response.editor)
             setSourceContent(response.editor.post.sourceContent)
@@ -627,8 +651,11 @@ export function PublicationEditor({
             )
         } catch (caughtError) {
             if (generation !== requestGeneration.current) return
-            setSaveState('error')
+            if (!promotionRecoveryRequired) setSaveState('error')
             setMessage(errorMessage(caughtError))
+        } finally {
+            serverReadInFlight.current = false
+            setServerReadPending(false)
         }
     }
 
@@ -754,6 +781,8 @@ export function PublicationEditor({
     async function promoteDraft() {
         if (
             promotionInFlight.current ||
+            promotionRecoveryRequired ||
+            serverReadInFlight.current ||
             !publicationEditable ||
             dirty ||
             sourceConflict ||
@@ -811,7 +840,7 @@ export function PublicationEditor({
                 setMessage(m.editor_conflict_promotion())
                 return
             }
-            setSaveState('error')
+            setPromotionRecoveryRequired(true)
             setMessage(errorMessage(caughtError))
         } finally {
             promotionInFlight.current = false
@@ -953,8 +982,16 @@ export function PublicationEditor({
     const editorStatus = (
         <PublicationEditorStatus
             passive={passiveStatus}
-            message={message}
-            saveState={saveState}
+            message={promotionRecoveryRequired ? m.editor_application_unconfirmed() : message}
+            saveState={promotionRecoveryRequired ? 'error' : saveState}
+            onCheckServer={promotionRecoveryRequired ? () => void reloadServerVersion() : undefined}
+            checkingServer={serverReadPending}
+            checkServerDisabled={
+                editorMutationPending ||
+                pendingSaveGeneration !== null ||
+                saveState === 'saving' ||
+                isRebasing
+            }
             onReviewConflict={() => {
                 setTechnicalDetailsOpen(true)
                 const details = technicalDetailsRef.current
@@ -972,11 +1009,11 @@ export function PublicationEditor({
             projectId={projectId}
             sourceContent={sourceContent}
             sourceRevision={editor.post.sourceRevision}
-            disabled={!publicationEditable || isRebasing || promotionPending}
+            disabled={!publicationEditable || isRebasing || editorMutationPending}
             readOnly={!publicationEditable}
             mediaDisabled={
                 !publicationEditable ||
-                promotionPending ||
+                editorMutationPending ||
                 saveState === 'saving' ||
                 saveState === 'rebasing'
             }
@@ -997,7 +1034,7 @@ export function PublicationEditor({
             validationIssues={editor.draft.validationIssues}
             target={targetResult.value}
             targetText={targetText}
-            disabled={!publicationEditable || isRebasing || promotionPending}
+            disabled={!publicationEditable || isRebasing || editorMutationPending}
             readOnly={!publicationEditable}
             open={targetCustomizationOpen}
             onOpenChange={setTargetCustomizationOpen}
@@ -1059,7 +1096,7 @@ export function PublicationEditor({
                         <DialogFooter>
                             <Button
                                 variant="secondary"
-                                disabled={isRebasing || promotionPending}
+                                disabled={isRebasing || editorMutationPending}
                                 onClick={() => {
                                     requestGeneration.current += 1
                                     removeRecovery(recoveryKey)
@@ -1068,7 +1105,7 @@ export function PublicationEditor({
                                 {m.editor_discard_recovery()}
                             </Button>
                             <Button
-                                disabled={isRebasing || promotionPending}
+                                disabled={isRebasing || editorMutationPending}
                                 onClick={restoreRecovery}>
                                 {m.editor_restore_recovery()}
                             </Button>
@@ -1149,7 +1186,7 @@ export function PublicationEditor({
                     />
                 ) : null}
 
-                {!passiveStatus ? editorStatus : null}
+                {!promotionRecoveryRequired && !passiveStatus ? editorStatus : null}
 
                 <PublicationOutcomePanel
                     publication={editor.publication}
@@ -1164,7 +1201,7 @@ export function PublicationEditor({
                             disabled={
                                 !publicationEditable ||
                                 isRebasing ||
-                                promotionPending ||
+                                editorMutationPending ||
                                 tagSavePending
                             }
                             emptyLabel={m.taxonomy_no_tags()}
@@ -1189,7 +1226,7 @@ export function PublicationEditor({
                             <PublicationChannelRail
                                 activeChannelId={editor.channel.id}
                                 channels={editorChannels}
-                                disabled={isRebasing || promotionPending}
+                                disabled={isRebasing || editorMutationPending}
                                 onActiveChannelChange={handleChannelChange}
                                 selectedChannelIds={editorChannelIds}
                             />
@@ -1225,24 +1262,31 @@ export function PublicationEditor({
                         ) : undefined
                     }
                     footer={
-                        publicationEditable ? (
-                            <PublicationEditorPromotionAction
-                                pending={promotionPending}
-                                intent={publicationPromotionIntent(
-                                    editor.publication.state,
-                                    scheduleValue !== ''
-                                )}
-                                disabled={promotionBlocked}
-                                draftRequiresReview={draftRequiresReview}
-                                draftDiffersFromTarget={draftDiffersFromTarget || scheduleDirty}
-                                onPromote={() => void promoteDraft()}
-                            />
+                        publicationEditable || promotionRecoveryRequired ? (
+                            <div className="grid w-full min-w-0 gap-3">
+                                {promotionRecoveryRequired ? editorStatus : null}
+                                {publicationEditable ? (
+                                    <PublicationEditorPromotionAction
+                                        pending={promotionPending}
+                                        intent={publicationPromotionIntent(
+                                            editor.publication.state,
+                                            scheduleValue !== ''
+                                        )}
+                                        disabled={promotionBlocked}
+                                        draftRequiresReview={draftRequiresReview}
+                                        draftDiffersFromTarget={
+                                            draftDiffersFromTarget || scheduleDirty
+                                        }
+                                        onPromote={() => void promoteDraft()}
+                                    />
+                                ) : null}
+                            </div>
                         ) : undefined
                     }
                     preview={publicationEditable ? draftPreview : undefined}
                 />
 
-                {passiveStatus ? editorStatus : null}
+                {!promotionRecoveryRequired && passiveStatus ? editorStatus : null}
 
                 <div
                     className={`mt-5 grid min-w-0 gap-3 ${publicationEditable ? '' : 'mx-auto max-w-2xl'}`}>
@@ -1271,7 +1315,7 @@ export function PublicationEditor({
                                 timeZone={timeZone}
                                 sourceConflict={sourceConflict}
                                 saveState={saveState}
-                                isRebasing={isRebasing || promotionPending}
+                                isRebasing={isRebasing || editorMutationPending}
                                 recoveryAvailable={recoveryAvailable}
                                 hasLocalChanges={hasLocalChanges}
                                 onRebase={() => void rebaseToLatestSource()}
