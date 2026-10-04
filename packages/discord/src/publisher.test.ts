@@ -237,3 +237,93 @@ describe('Discord publisher', () => {
         expect(dispatched).toBe(false)
     })
 })
+
+describe('rogue-instance diagnostic echo (AUDIT-307)', () => {
+    const fictitiousSpecialToken = 'audit test/token echo'
+
+    function echoPublisher(echo: string) {
+        const fixture = createFetcher([jsonResponse({ message: echo }, 500)])
+        return createDiscordPublisher({
+            baseUrl: 'https://discord.test',
+            fetcher: fixture.fetcher,
+        })
+    }
+
+    async function createMessage(
+        publisher: ReturnType<typeof createDiscordPublisher>,
+        accessToken: string
+    ) {
+        return publisher.createMessage({
+            accessToken,
+            channelId: CHANNEL_ID,
+            content: 'Hello',
+            attachments: [],
+        })
+    }
+
+    it('redacts a raw echoed Bot token while keeping the classification', async () => {
+        const outcome = await createMessage(
+            echoPublisher(`upstream exploded; request carried Authorization: Bot ${BOT_TOKEN}`),
+            BOT_TOKEN
+        )
+
+        expect(outcome).toEqual({
+            type: 'ambiguous',
+            code: 'provider_failure',
+            errorMessage: 'upstream exploded; request carried Authorization: Bot [redacted]',
+        })
+        expect(JSON.stringify(outcome)).not.toContain(BOT_TOKEN)
+    })
+
+    it('redacts a URL-encoded echoed access token', async () => {
+        const outcome = await createMessage(
+            echoPublisher(
+                `upstream exploded; request carried ${encodeURIComponent(fictitiousSpecialToken)}`
+            ),
+            fictitiousSpecialToken
+        )
+
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        expect(outcome.errorMessage).not.toContain(fictitiousSpecialToken)
+        expect(outcome.errorMessage).not.toContain(encodeURIComponent(fictitiousSpecialToken))
+        expect(outcome.errorMessage).toContain('[redacted]')
+    })
+
+    it('redacts every occurrence of an echoed access token', async () => {
+        const outcome = await createMessage(
+            echoPublisher(
+                `first ${fictitiousSpecialToken} then ${encodeURIComponent(fictitiousSpecialToken)} again ${fictitiousSpecialToken}`
+            ),
+            fictitiousSpecialToken
+        )
+
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        expect(outcome.errorMessage).not.toContain(fictitiousSpecialToken)
+        expect(outcome.errorMessage).toBe('first [redacted] then [redacted] again [redacted]')
+    })
+
+    it('redacts a token straddling the message length limit instead of truncating it', async () => {
+        const filler = `${'overflow '.repeat(54)}pad `
+        const outcome = await createMessage(echoPublisher(`${filler}${BOT_TOKEN} tail`), BOT_TOKEN)
+
+        expect(filler.length + BOT_TOKEN.length).toBeGreaterThan(500)
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        expect(outcome.errorMessage).toContain('[redacted]')
+        expect(outcome.errorMessage).not.toContain(BOT_TOKEN)
+        expect(outcome.errorMessage).not.toContain(BOT_TOKEN.slice(0, 12))
+        expect(JSON.stringify(outcome)).not.toContain(BOT_TOKEN)
+    })
+
+    it('keeps an ordinary remote diagnostic useful', async () => {
+        const outcome = await createMessage(echoPublisher('Server error'), BOT_TOKEN)
+
+        expect(outcome).toEqual({
+            type: 'ambiguous',
+            code: 'provider_failure',
+            errorMessage: 'Server error',
+        })
+    })
+})

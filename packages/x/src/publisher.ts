@@ -65,29 +65,46 @@ function readString(value: unknown): string | null {
     return typeof value === 'string' && value.trim().length > 0 ? value : null
 }
 
-function responseMessage(body: unknown, fallback: string): string {
-    if (isRecord(body)) {
-        if (typeof body.detail === 'string' && body.detail.trim().length > 0) {
-            return body.detail.trim().slice(0, 500)
-        }
-        if (Array.isArray(body.errors) && body.errors.length > 0) {
-            const first = body.errors[0]
-            if (
-                isRecord(first) &&
-                typeof first.message === 'string' &&
-                first.message.trim().length > 0
-            ) {
-                return first.message.trim().slice(0, 500)
-            }
-        }
-        if (typeof body.title === 'string' && body.title.trim().length > 0) {
-            return body.title.trim().slice(0, 500)
-        }
-        if (typeof body.error === 'string' && body.error.trim().length > 0) {
-            return body.error.trim().slice(0, 500)
+function responseMessage(body: unknown, fallback: string, secrets: readonly string[]): string {
+    const raw = readResponseText(body)
+    if (raw === null) return fallback
+    return redactSecrets(raw, secrets).slice(0, 500)
+}
+
+function readResponseText(body: unknown): string | null {
+    if (!isRecord(body)) return null
+    if (typeof body.detail === 'string' && body.detail.trim().length > 0) {
+        return body.detail.trim()
+    }
+    if (Array.isArray(body.errors) && body.errors.length > 0) {
+        const first = body.errors[0]
+        if (
+            isRecord(first) &&
+            typeof first.message === 'string' &&
+            first.message.trim().length > 0
+        ) {
+            return first.message.trim()
         }
     }
-    return fallback
+    if (typeof body.title === 'string' && body.title.trim().length > 0) {
+        return body.title.trim()
+    }
+    if (typeof body.error === 'string' && body.error.trim().length > 0) {
+        return body.error.trim()
+    }
+    return null
+}
+
+function redactSecrets(value: string, secrets: readonly string[]): string {
+    return secrets.reduce(
+        (redacted, secret) =>
+            secret.length === 0
+                ? redacted
+                : redacted
+                      .replaceAll(secret, '[redacted]')
+                      .replaceAll(encodeURIComponent(secret), '[redacted]'),
+        value
+    )
 }
 
 function readUser(value: unknown): XUser | null {
@@ -137,12 +154,12 @@ function readProcessingState(value: unknown): string | null {
     return processing.state
 }
 
-function readProcessingError(value: unknown): string {
+function readProcessingError(value: unknown, secrets: readonly string[]): string {
     if (isRecord(value) && isRecord(value.data) && isRecord(value.data.processing_info)) {
         const error = value.data.processing_info.error
         if (isRecord(error) && typeof error.message === 'string') {
             const message = error.message.trim()
-            if (message.length > 0) return message.slice(0, 500)
+            if (message.length > 0) return redactSecrets(message, secrets).slice(0, 500)
         }
     }
     return 'X could not process the uploaded media'
@@ -171,9 +188,10 @@ function classifyResponse(
     response: Response,
     body: unknown,
     context: 'read' | 'media' | 'tweet',
+    secrets: readonly string[],
     remoteMediaId?: string
 ): XOperationFailure {
-    const message = responseMessage(body, `X returned HTTP ${response.status}`)
+    const message = responseMessage(body, `X returned HTTP ${response.status}`, secrets)
     if (response.status === 401) return permanentFailure('authentication_required', message)
     if (response.status === 403) return permanentFailure('forbidden', message)
     if (response.status === 409) return retryableFailure('conflict', message)
@@ -221,7 +239,15 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
             })
             const parsed = await readJsonResponse(response)
             if (!response.ok) {
-                return { failure: classifyResponse(response, parsed.body, context, remoteMediaId) }
+                return {
+                    failure: classifyResponse(
+                        response,
+                        parsed.body,
+                        context,
+                        accessToken === undefined ? [] : [accessToken],
+                        remoteMediaId
+                    ),
+                }
             }
             return parsed
         } catch (error) {
@@ -287,7 +313,7 @@ export function createXPublisher(options: XPublisherOptions = {}): XPublisher {
                     type: 'permanent_failure',
                     effectOccurred: false,
                     code: 'invalid_request',
-                    errorMessage: readProcessingError(uploadResult.body),
+                    errorMessage: readProcessingError(uploadResult.body, [accessToken]),
                 }
             }
             if (processingState === 'pending' || processingState === 'in_progress') {

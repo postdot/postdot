@@ -83,14 +83,26 @@ async function readJsonResponse(response: Response): Promise<JsonResponse> {
     return { response, body }
 }
 
-function responseMessage(body: unknown, fallback: string): string {
+function responseMessage(body: unknown, fallback: string, secrets: readonly string[]): string {
     if (body !== null && typeof body === 'object' && 'error' in body) {
         const error = body.error
         if (typeof error === 'string' && error.trim().length > 0) {
-            return error.trim().slice(0, 500)
+            return redactSecrets(error.trim(), secrets).slice(0, 500)
         }
     }
     return fallback
+}
+
+function redactSecrets(value: string, secrets: readonly string[]): string {
+    return secrets.reduce(
+        (redacted, secret) =>
+            secret.length === 0
+                ? redacted
+                : redacted
+                      .replaceAll(secret, '[redacted]')
+                      .replaceAll(encodeURIComponent(secret), '[redacted]'),
+        value
+    )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -157,9 +169,10 @@ function classifyResponse(
     response: Response,
     body: unknown,
     context: 'read' | 'application' | 'media' | 'status',
+    secrets: readonly string[],
     remoteMediaId?: string
 ): MastodonOperationFailure {
-    const message = responseMessage(body, `Mastodon returned HTTP ${response.status}`)
+    const message = responseMessage(body, `Mastodon returned HTTP ${response.status}`, secrets)
     if (response.status === 401) return permanentFailure('authentication_required', message)
     if (response.status === 403) return permanentFailure('forbidden', message)
     if (response.status === 409) return retryableFailure('conflict', message)
@@ -222,7 +235,15 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
             })
             const parsed = await readJsonResponse(response)
             if (!response.ok)
-                return { failure: classifyResponse(response, parsed.body, context, remoteMediaId) }
+                return {
+                    failure: classifyResponse(
+                        response,
+                        parsed.body,
+                        context,
+                        accessToken === undefined ? [] : [accessToken],
+                        remoteMediaId
+                    ),
+                }
             return parsed
         } catch (error) {
             return { failure: classifyException(error, context, remoteMediaId) }

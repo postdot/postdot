@@ -218,33 +218,95 @@ describe('Mastodon publisher', () => {
 })
 
 describe('rogue-instance diagnostic echo (AUDIT-307)', () => {
-    it('currently surfaces an echoed access token verbatim; redaction is pending', async () => {
-        const fictitiousToken = 'audit-test-access-token-echo'
-        const fixture = createFetcher([
-            jsonResponse(
-                {
-                    error: `upstream exploded; request carried Authorization: Bearer ${fictitiousToken}`,
-                },
-                500
-            ),
-        ])
-        const publisher = createMastodonPublisher({
+    const fictitiousToken = 'audit-test-access-token-echo'
+    const fictitiousSpecialToken = 'audit test/token echo'
+
+    function echoPublisher(echo: string) {
+        const fixture = createFetcher([jsonResponse({ error: echo }, 500)])
+        return createMastodonPublisher({
             baseUrl: 'https://example.social',
             fetcher: fixture.fetcher,
         })
+    }
 
-        const outcome = await publisher.publishStatus({
-            accessToken: fictitiousToken,
+    async function publishStatus(
+        publisher: ReturnType<typeof createMastodonPublisher>,
+        accessToken: string
+    ) {
+        return publisher.publishStatus({
+            accessToken,
             text: 'Hello',
             mediaIds: [],
             idempotencyKey: 'audit-307',
         })
+    }
+
+    it('redacts a raw echoed access token while keeping the classification', async () => {
+        const outcome = await publishStatus(
+            echoPublisher(
+                `upstream exploded; request carried Authorization: Bearer ${fictitiousToken}`
+            ),
+            fictitiousToken
+        )
+
+        expect(outcome).toEqual({
+            type: 'ambiguous',
+            code: 'provider_failure',
+            errorMessage: 'upstream exploded; request carried Authorization: Bearer [redacted]',
+        })
+    })
+
+    it('redacts a URL-encoded echoed access token', async () => {
+        const outcome = await publishStatus(
+            echoPublisher(
+                `upstream exploded; request carried ${encodeURIComponent(fictitiousSpecialToken)}`
+            ),
+            fictitiousSpecialToken
+        )
 
         expect(outcome.type).toBe('ambiguous')
         if (outcome.type !== 'ambiguous') return
-        // Demonstrated gap: a rogue per-instance server echo reaches the
-        // diagnostic message verbatim. The adapter redaction fix will replace
-        // in-scope secrets here; this expectation flips to redacted text then.
-        expect(outcome.errorMessage).toContain(fictitiousToken)
+        expect(outcome.errorMessage).not.toContain(fictitiousSpecialToken)
+        expect(outcome.errorMessage).not.toContain(encodeURIComponent(fictitiousSpecialToken))
+        expect(outcome.errorMessage).toContain('[redacted]')
+    })
+
+    it('redacts every occurrence of an echoed access token', async () => {
+        const outcome = await publishStatus(
+            echoPublisher(
+                `first ${fictitiousSpecialToken} then ${encodeURIComponent(fictitiousSpecialToken)} again ${fictitiousSpecialToken}`
+            ),
+            fictitiousSpecialToken
+        )
+
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        expect(outcome.errorMessage).not.toContain(fictitiousSpecialToken)
+        expect(outcome.errorMessage).toBe('first [redacted] then [redacted] again [redacted]')
+    })
+
+    it('redacts a token straddling the message length limit instead of truncating it', async () => {
+        const filler = `${'overflow '.repeat(54)}pad `
+        const outcome = await publishStatus(
+            echoPublisher(`${filler}${fictitiousToken} tail`),
+            fictitiousToken
+        )
+
+        expect(filler.length + fictitiousToken.length).toBeGreaterThan(500)
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        expect(outcome.errorMessage).toContain('[redacted]')
+        expect(outcome.errorMessage).not.toContain(fictitiousToken)
+        expect(outcome.errorMessage).not.toContain(fictitiousToken.slice(0, 12))
+    })
+
+    it('keeps an ordinary remote diagnostic useful', async () => {
+        const outcome = await publishStatus(echoPublisher('upstream exploded'), fictitiousToken)
+
+        expect(outcome).toEqual({
+            type: 'ambiguous',
+            code: 'provider_failure',
+            errorMessage: 'upstream exploded',
+        })
     })
 })

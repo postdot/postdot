@@ -437,3 +437,132 @@ describe('X publisher', () => {
         })
     })
 })
+
+describe('rogue-instance diagnostic echo (AUDIT-307)', () => {
+    const fictitiousToken = 'audit-test-x-access-token'
+    const fictitiousSpecialToken = 'audit test/token echo'
+
+    function echoPublisher(echo: unknown, status = 500) {
+        const fixture = createFetcher([jsonResponse(echo, status)])
+        return createXPublisher({ fetcher: fixture.fetcher })
+    }
+
+    async function publishTweet(
+        publisher: ReturnType<typeof createXPublisher>,
+        accessToken: string
+    ) {
+        return publisher.publishTweet({ accessToken, text: 'Hello' })
+    }
+
+    it('redacts a raw echoed access token while keeping the classification', async () => {
+        const outcome = await publishTweet(
+            echoPublisher({
+                detail: `upstream exploded; request carried Authorization: Bearer ${fictitiousToken}`,
+            }),
+            fictitiousToken
+        )
+
+        expect(outcome).toEqual({
+            type: 'ambiguous',
+            code: 'provider_failure',
+            errorMessage: 'upstream exploded; request carried Authorization: Bearer [redacted]',
+        })
+    })
+
+    it('redacts a URL-encoded echo from the errors array', async () => {
+        const outcome = await publishTweet(
+            echoPublisher({
+                errors: [
+                    {
+                        message: `upstream exploded; request carried ${encodeURIComponent(fictitiousSpecialToken)}`,
+                    },
+                ],
+            }),
+            fictitiousSpecialToken
+        )
+
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        expect(outcome.errorMessage).not.toContain(fictitiousSpecialToken)
+        expect(outcome.errorMessage).not.toContain(encodeURIComponent(fictitiousSpecialToken))
+        expect(outcome.errorMessage).toContain('[redacted]')
+    })
+
+    it('redacts every occurrence of an echoed access token', async () => {
+        const outcome = await publishTweet(
+            echoPublisher({
+                detail: `first ${fictitiousSpecialToken} then ${encodeURIComponent(fictitiousSpecialToken)} again ${fictitiousSpecialToken}`,
+            }),
+            fictitiousSpecialToken
+        )
+
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        expect(outcome.errorMessage).not.toContain(fictitiousSpecialToken)
+        expect(outcome.errorMessage).toBe('first [redacted] then [redacted] again [redacted]')
+    })
+
+    it('redacts a token straddling the message length limit instead of truncating it', async () => {
+        const filler = `${'overflow '.repeat(54)}pad `
+        const outcome = await publishTweet(
+            echoPublisher({ title: `${filler}${fictitiousToken} tail` }),
+            fictitiousToken
+        )
+
+        expect(filler.length + fictitiousToken.length).toBeGreaterThan(500)
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        expect(outcome.errorMessage).toContain('[redacted]')
+        expect(outcome.errorMessage).not.toContain(fictitiousToken)
+        expect(outcome.errorMessage).not.toContain(fictitiousToken.slice(0, 12))
+    })
+
+    it('redacts an echoed token from media processing errors', async () => {
+        const fixture = createFetcher([
+            jsonResponse({
+                data: {
+                    id: '1146631093949677571',
+                    processing_info: {
+                        state: 'failed',
+                        error: {
+                            message: `transcode exploded on ${fictitiousToken}`,
+                        },
+                    },
+                },
+            }),
+        ])
+        const publisher = createXPublisher({ fetcher: fixture.fetcher })
+
+        const outcome = await publisher.uploadMedia(fictitiousToken, {
+            contentType: 'image/png',
+            size: 4,
+            filename: 'test.png',
+            stream: new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controller.enqueue(new Uint8Array([137, 80, 78, 71]))
+                    controller.close()
+                },
+            }),
+        })
+
+        expect(outcome).toEqual({
+            type: 'permanent_failure',
+            effectOccurred: false,
+            code: 'invalid_request',
+            errorMessage: 'transcode exploded on [redacted]',
+        })
+    })
+
+    it('keeps an ordinary remote diagnostic useful', async () => {
+        const outcome = await publishTweet(
+            echoPublisher({ detail: 'upstream exploded' }),
+            fictitiousToken
+        )
+
+        expect(outcome).toEqual({
+            type: 'ambiguous',
+            code: 'provider_failure',
+            errorMessage: 'upstream exploded',
+        })
+    })
+})
