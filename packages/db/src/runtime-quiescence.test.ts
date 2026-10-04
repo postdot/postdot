@@ -121,6 +121,28 @@ describe('runtime quiescence lock', () => {
         }
     })
 
+    it('keeps reporting a retained marker on repeated calls without retrying removal', async () => {
+        const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
+        const databasePath = join(directory, 'herald.sqlite')
+        const lockPath = `${databasePath}.runtime.lock`
+        const foreignMarker = JSON.stringify({
+            version: 1,
+            owner: 'server',
+            token: 'foreign-token',
+        })
+
+        try {
+            const serverLock = acquireRuntimeQuiescenceLock(databasePath, 'server')
+            writeFileSync(lockPath, foreignMarker)
+
+            expect(serverLock.release()).toBe(false)
+            expect(serverLock.release()).toBe(false)
+            expect(existsSync(lockPath)).toBe(true)
+        } finally {
+            await rm(directory, { recursive: true, force: true })
+        }
+    })
+
     it('does not remove an unreadable marker and reports it as retained', async () => {
         const directory = await mkdtemp(join(tmpdir(), 'herald-runtime-lock-'))
         const databasePath = join(directory, 'herald.sqlite')

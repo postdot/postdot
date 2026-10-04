@@ -26,6 +26,9 @@ export interface RuntimeQuiescenceLock {
      * true when no marker remains and false when a marker is retained. A
      * false result keeps the fail-closed exclusion: callers must report it,
      * never delete the marker by another path.
+     *
+     * The first outcome is memoized: repeated calls return it without
+     * retrying the removal or closing the descriptor twice.
      */
     release(): boolean
 }
@@ -79,16 +82,21 @@ export function acquireRuntimeQuiescenceLock(
         throw error
     }
 
-    let released = false
+    let outcome: boolean | undefined
     return {
         databaseFilename: databasePath,
         lockFilename,
         owner,
         release() {
-            if (released) return true
-            released = true
-            closeSync(descriptor)
-            return removeLockIfOwned(lockFilename, token)
+            if (outcome !== undefined) return outcome
+            try {
+                closeSync(descriptor)
+                outcome = removeLockIfOwned(lockFilename, token)
+            } catch (error) {
+                outcome = false
+                throw error
+            }
+            return outcome
         },
     }
 }
