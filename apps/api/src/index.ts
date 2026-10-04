@@ -40,6 +40,7 @@ import { createBuiltInProviderRegistry } from './modules/workflow/providers/regi
 import { createXProviderAdapter } from './modules/workflow/providers/x'
 import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
+import { describeShutdownError, type ShutdownExitCode } from './shutdown'
 
 export { createApp } from './app'
 export type { HeraldApp } from './app'
@@ -282,24 +283,47 @@ async function startServerWithRuntimeLock(
         // Herald runtime explicitly, release the quiescence lock, then exit
         // with the drain outcome so container stops are orderly (exit 0)
         // instead of SIGKILLed after the stop grace period (exit 137).
+        // Exit 1 marks a drain failure and exit 2 an incomplete final
+        // cleanup; a retained lock always keeps the fail-closed exclusion.
         console.error(`[herald-shutdown] ${signal} received; draining worker and runtimes`)
-        let exitCode = 0
+        let exitCode: ShutdownExitCode = 0
+        let step = 'worker-stop'
         try {
             await worker.stop()
+            step = 'media-maintenance-stop'
             await mediaMaintenance.stop()
+            step = 'notification-projection-stop'
             notificationProjection.stop()
+            step = 'realtime-stop'
             realtime.stop()
+            step = 'commit-observer-clear'
             clearDatabaseCommitObserver()
+            step = 'server-stop'
             await app.stop()
         } catch (error) {
             exitCode = 1
-            console.error('[herald-shutdown] graceful shutdown failed', error)
-        } finally {
-            try {
-                closeDatabase(database)
-            } finally {
-                runtimeLock.release()
-            }
+            console.error(
+                '[herald-shutdown] drain failed',
+                JSON.stringify(describeShutdownError(step, error))
+            )
+        }
+        try {
+            closeDatabase(database)
+        } catch (error) {
+            exitCode = 2
+            console.error(
+                '[herald-shutdown] database close failed',
+                JSON.stringify(describeShutdownError('database-close', error))
+            )
+        }
+        try {
+            runtimeLock.release()
+        } catch (error) {
+            exitCode = 2
+            console.error(
+                '[herald-shutdown] runtime lock release failed',
+                JSON.stringify(describeShutdownError('runtime-lock-release', error))
+            )
         }
         console.error(`[herald-shutdown] shutdown complete with exit code ${exitCode}`)
         process.exit(exitCode)

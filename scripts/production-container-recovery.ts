@@ -197,22 +197,68 @@ async function verifyForcedStopRetainsLock(dataDirectory: string): Promise<void>
             'A SIGKILLed production container must retain its runtime lock; graceful shutdown is the only path that releases it.'
         )
     }
-    let refusal = ''
+    // Bounded refused-restart probe: a regression that lets the server start
+    // must fail the gate instead of hanging it on a foreground container, and
+    // the identifiable probe container is always removed, even when the
+    // regression keeps it running.
+    const probeName = `${containerName}-refused-restart`
+    runDocker([
+        'run',
+        '--detach',
+        '--name',
+        probeName,
+        '--publish',
+        '127.0.0.1::3000',
+        ...serverEnvironment(dataDirectory),
+        imageTag,
+    ])
     try {
-        runDocker(['run', '--rm', ...serverEnvironment(dataDirectory), imageTag])
-    } catch (error) {
-        refusal = error instanceof Error ? error.message : String(error)
-    }
-    if (!refusal.includes('already held')) {
-        throw new Error(
-            `A fresh server against the retained lock must refuse to start; observed: ${refusal || 'a successful start'}`
+        const deadline = Date.now() + 20_000
+        let probe = inspectContainerState(probeName)
+        while (
+            (probe.status === 'created' || probe.status === 'running') &&
+            Date.now() < deadline
+        ) {
+            await new Promise(resolve => setTimeout(resolve, 500))
+            probe = inspectContainerState(probeName)
+        }
+        if (probe.status === 'created' || probe.status === 'running') {
+            throw new Error(
+                'The refused-restart probe is still running after 20s; a fresh server must exit promptly against the retained lock instead of hanging the gate.'
+            )
+        }
+        if (probe.exitCode === 0) {
+            throw new Error(
+                'A fresh server started successfully against the retained lock; runtime exclusion regressed.'
+            )
+        }
+        const probeLogs = runDockerLogs(probeName)
+        if (!probeLogs.includes('already held')) {
+            throw new Error(`A refused restart must cite the held lock; probe logs:\n${probeLogs}`)
+        }
+        console.log(
+            'Forced termination stays visible (exit 137), retains the runtime lock, and blocks a fresh server until an operator verifies the stale marker.'
         )
+    } finally {
+        runDocker(['rm', '--force', probeName])
     }
-    console.log(
-        'Forced termination stays visible (exit 137), retains the runtime lock, and blocks a fresh server until an operator verifies the stale marker.'
-    )
     runDocker(['rm', containerName])
     containerStarted = false
+}
+
+function runDockerLogs(container: string): string {
+    // `docker logs` carries the refusal reason on the container stderr stream,
+    // which runDocker does not return, so read both streams here.
+    const result = spawnSync('docker', ['logs', container], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        maxBuffer: 32 * 1024 * 1024,
+    })
+    if (result.error !== undefined) throw result.error
+    if (result.status !== 0) {
+        throw new Error(`Docker logs failed: ${result.stderr.trim() || result.stdout.trim()}`)
+    }
+    return `${result.stdout}${result.stderr}`.trim()
 }
 
 try {
