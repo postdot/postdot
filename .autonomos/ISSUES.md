@@ -4101,3 +4101,13 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Documented intent confirmed: hidden 404 for non-membership, dynamic inheritance for unrestricted keys, approval never available to limited keys, workspace-admin reach on the access surface, recipient-owned notifications, analytics readable by any project actor.
 - Resolution: ACCESS-309 makes the key path reuse the session authorization callback, so a key is limited to its owner's live project access, intersected with its stored scope and still bounded by action ceilings; hidden 404 masking, historical actors, and other-project access are preserved. No global key revocation, no role change, no UX change.
 - Product questions still open for the owner: automatic key revocation versus scope-down on removal; workspace-manager project visibility in the list; an explicit removed-from-access dashboard state.
+
+## [ISSUE-154] Overview and calendar offer viewer-forbidden actions
+
+- Type: problem
+- Status: open
+- Evidence: AUDIT-309 found the Overview calendar rendering `New publication` without the editor predicate (`publication-calendar-page.tsx` header action), a bulk reschedule/cancel bar reachable by any viewer because selection is always wired, and week/day slot clicks that create a publication. The server correctly answers 403 (`canAccessProjectRole`), so this is a UI correctness defect rather than an authorization failure. Queue already gates the same actions.
+- Impact: Viewers are invited into actions they cannot perform, producing raw forbidden errors and breaking the validated operational hierarchy.
+- Desired outcome: Overview and calendar expose create and bulk-mutation actions only to owners and editors, while consultation stays identical for every role.
+- Tasks: WEB-310 (completed)
+- Resolution: the Overview header create action, the month day-add affordance, week/day slot creation and the selection-driven bulk reschedule/cancel surface now require the existing editor predicate, mirroring Queue. Viewers keep event inspection, the preview sheet and all reading paths; temporarily unavailable actions keep their disabled reason. The server already answered 403 and is unchanged.

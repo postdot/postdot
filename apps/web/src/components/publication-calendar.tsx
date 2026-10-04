@@ -75,6 +75,7 @@ export function PublicationCalendar({
     onSelectedPublicationIdsChange,
     projectId,
     publications,
+    readOnly = false,
     selectedPublicationIds,
     timeZone,
 }: {
@@ -86,6 +87,12 @@ export function PublicationCalendar({
     readonly onSelectedPublicationIdsChange: (publicationIds: readonly string[]) => void
     readonly projectId: string
     readonly publications: readonly PublicationSummary[]
+    /**
+     * Viewer mode: consultation stays identical, but the create entry points
+     * and the selection entry point that drives bulk mutations are withheld
+     * because the server refuses them for this role.
+     */
+    readonly readOnly?: boolean
     readonly selectedPublicationIds: ReadonlySet<string>
     readonly timeZone: string
 }) {
@@ -179,11 +186,15 @@ export function PublicationCalendar({
     const handleSlotClick = useCallback(
         (slot: EventCalendarSlotInfo, event: MouseEvent) => {
             const target = event.currentTarget
-            if (slot.view === 'week' || slot.view === 'day') {
+            if (!readOnly && (slot.view === 'week' || slot.view === 'day')) {
                 createOnDate(slot.date, slot.date)
                 return
             }
-            if (target instanceof HTMLElement && target.dataset.slot === 'event-calendar-day-add') {
+            if (
+                !readOnly &&
+                target instanceof HTMLElement &&
+                target.dataset.slot === 'event-calendar-day-add'
+            ) {
                 createOnDate(slot.date)
                 return
             }
@@ -193,7 +204,7 @@ export function PublicationCalendar({
                     : slot.date
             )
         },
-        [createOnDate, timeZone]
+        [createOnDate, readOnly, timeZone]
     )
     const togglePublicationSelection = useCallback(
         (publicationId: string) => {
@@ -269,7 +280,7 @@ export function PublicationCalendar({
                 onSlotClick={handleSlotClick}
                 onViewChange={handleViewChange}
                 scrollMode={view === 'week' || view === 'day' ? 'contained' : 'page'}
-                showDayAddButton
+                showDayAddButton={!readOnly}
                 showOutsideDays
                 slotDuration={60}
                 timeZone={timeZone}
@@ -304,6 +315,7 @@ export function PublicationCalendar({
                         setSelectionMode(enabled)
                         if (!enabled) onSelectedPublicationIdsChange([])
                     }}
+                    selectionAvailable={!readOnly}
                     selectionMode={selectionMode}
                     selectLabel={m.calendar_select()}
                     doneLabel={m.calendar_done()}
@@ -338,6 +350,7 @@ function EventCalendarToolbar({
     hotkeyTarget,
     onSelectionModeChange,
     selectLabel,
+    selectionAvailable,
     selectionMode,
     shortcutsEnabled,
 }: {
@@ -345,6 +358,7 @@ function EventCalendarToolbar({
     readonly hotkeyTarget: RefObject<HTMLDivElement | null>
     readonly onSelectionModeChange: (enabled: boolean) => void
     readonly selectLabel: string
+    readonly selectionAvailable: boolean
     readonly selectionMode: boolean
     readonly shortcutsEnabled: boolean
 }) {
@@ -419,14 +433,16 @@ function EventCalendarToolbar({
                 {title}
             </h2>
             <div className="flex max-w-full flex-wrap items-center gap-3 sm:ml-auto">
-                <Button
-                    aria-pressed={selectionMode}
-                    onClick={() => onSelectionModeChange(!selectionMode)}
-                    size="sm"
-                    variant={selectionMode ? 'secondary' : 'ghost'}>
-                    <CheckIcon aria-hidden="true" />
-                    {selectionMode ? doneLabel : selectLabel}
-                </Button>
+                {selectionAvailable ? (
+                    <Button
+                        aria-pressed={selectionMode}
+                        onClick={() => onSelectionModeChange(!selectionMode)}
+                        size="sm"
+                        variant={selectionMode ? 'secondary' : 'ghost'}>
+                        <CheckIcon aria-hidden="true" />
+                        {selectionMode ? doneLabel : selectLabel}
+                    </Button>
+                ) : null}
                 <div
                     aria-label={settings.i18n.labels.selectView}
                     className="flex items-center rounded-md bg-muted p-0.5"

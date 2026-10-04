@@ -160,12 +160,16 @@ export function PublicationCalendarPage({
     const unscheduledPublications = getUnscheduledPublications(publications)
     const canEditProject = projectRole === 'owner' || projectRole === 'editor'
     const noChannels = channels.length === 0
+    // Viewers keep every consultation path. The create entry points and the
+    // bulk mutation surface are withheld because the API refuses them for this
+    // role, mirroring the Queue gating.
+    const readOnly = !canEditProject
 
     return (
         <main className="min-w-0 px-4 py-7 sm:px-6 lg:px-8 lg:py-8">
             <DashboardPageHeader
                 action={
-                    noChannels ? undefined : (
+                    noChannels || !canEditProject ? undefined : (
                         <Button
                             nativeButton={false}
                             render={
@@ -217,7 +221,7 @@ export function PublicationCalendarPage({
                         timeZone={project.timeZone}
                     />
 
-                    {selectedCount > 0 ? (
+                    {!readOnly && selectedCount > 0 ? (
                         <div className="mt-4">
                             <BulkActionBar
                                 actions={[
@@ -267,11 +271,13 @@ export function PublicationCalendarPage({
                                     locale={locale}
                                     calendarDate={calendarDate}
                                     initialView={initialCalendarView}
-                                    onSelectedPublicationIdsChange={publicationIds =>
+                                    onSelectedPublicationIdsChange={publicationIds => {
+                                        if (readOnly) return
                                         setSelectedPublicationIds(new Set(publicationIds))
-                                    }
+                                    }}
                                     projectId={project.id}
                                     publications={calendarPublications}
+                                    readOnly={readOnly}
                                     selectedPublicationIds={selectedPublicationIds}
                                     timeZone={project.timeZone}
                                 />
