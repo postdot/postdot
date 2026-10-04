@@ -21,7 +21,13 @@ export interface RuntimeQuiescenceLock {
     readonly databaseFilename: string
     readonly lockFilename: string
     readonly owner: RuntimeQuiescenceOwner
-    release(): void
+    /**
+     * Removes the marker when it still carries this lock's token. Returns
+     * true when no marker remains and false when a marker is retained. A
+     * false result keeps the fail-closed exclusion: callers must report it,
+     * never delete the marker by another path.
+     */
+    release(): boolean
 }
 
 /**
@@ -79,32 +85,33 @@ export function acquireRuntimeQuiescenceLock(
         lockFilename,
         owner,
         release() {
-            if (released) return
+            if (released) return true
             released = true
             closeSync(descriptor)
-            removeLockIfOwned(lockFilename, token)
+            return removeLockIfOwned(lockFilename, token)
         },
     }
 }
 
-function removeLockIfOwned(lockFilename: string, token: string): void {
-    if (!existsSync(lockFilename)) return
+function removeLockIfOwned(lockFilename: string, token: string): boolean {
+    if (!existsSync(lockFilename)) return true
 
     let parsed: unknown
     try {
         parsed = JSON.parse(readFileSync(lockFilename, 'utf8'))
     } catch {
-        return
+        return false
     }
-    if (!isRecord(parsed) || parsed.token !== token) return
+    if (!isRecord(parsed) || parsed.token !== token) return false
 
     try {
         unlinkSync(lockFilename)
     } catch (error) {
-        if (errorCode(error) !== 'ENOENT') {
-            console.error(`[herald-db] failed to release runtime lock ${lockFilename}`, error)
-        }
+        if (errorCode(error) === 'ENOENT') return true
+        console.error(`[herald-db] failed to release runtime lock ${lockFilename}`, error)
+        return false
     }
+    return true
 }
 
 function errorCode(error: unknown): string | undefined {

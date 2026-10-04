@@ -18,9 +18,103 @@ export type ShutdownExitCode =
     | 0
     /** A drain step failed; final cleanup was still attempted. */
     | 1
-    /** Final cleanup is incomplete: closing SQLite or releasing the runtime
-     * lock threw. A retained lock keeps the fail-closed exclusion. */
+    /** Final cleanup is incomplete: closing SQLite failed, or the runtime
+     * lock marker remains (release threw or reported a retained marker). A
+     * retained lock keeps the fail-closed exclusion. */
     | 2
+
+export interface ShutdownDependencies {
+    readonly stopWorker: () => Promise<void>
+    readonly stopMediaMaintenance: () => Promise<void>
+    readonly stopNotificationProjection: () => void
+    readonly stopRealtime: () => void
+    readonly clearCommitObserver: () => void
+    readonly stopServer: () => Promise<void> | void
+    readonly closeDatabase: () => void
+    /** Returns true when no runtime marker remains after the call. */
+    readonly releaseRuntimeLock: () => boolean
+    readonly exit: (code: ShutdownExitCode) => void
+    readonly log?: (message: string, details?: string) => void
+}
+
+/**
+ * Builds the process-signal shutdown path. Drain failures are fail-fast:
+ * remaining drains are skipped, but the database close and the single
+ * token-checked lock release are always attempted before exiting.
+ *
+ * The caller exits explicitly (rather than relying on natural event-loop
+ * exit) because the dashboard asset cache in `@elysia/static` owns a TTL
+ * sweep interval that is never cleared.
+ */
+export function createShutdownHandler(
+    dependencies: ShutdownDependencies
+): (signal: NodeJS.Signals) => Promise<void> {
+    const log = dependencies.log ?? defaultShutdownLog
+    let shuttingDown = false
+
+    return async signal => {
+        if (shuttingDown) return
+        shuttingDown = true
+
+        log(`${signal} received; draining worker and runtimes`)
+        let exitCode: ShutdownExitCode = 0
+        let step = 'worker-stop'
+        try {
+            await dependencies.stopWorker()
+            step = 'media-maintenance-stop'
+            await dependencies.stopMediaMaintenance()
+            step = 'notification-projection-stop'
+            dependencies.stopNotificationProjection()
+            step = 'realtime-stop'
+            dependencies.stopRealtime()
+            step = 'commit-observer-clear'
+            dependencies.clearCommitObserver()
+            step = 'server-stop'
+            await dependencies.stopServer()
+        } catch (error) {
+            exitCode = 1
+            log('drain failed', JSON.stringify(describeShutdownError(step, error)))
+        }
+        try {
+            dependencies.closeDatabase()
+        } catch (error) {
+            exitCode = 2
+            log(
+                'database close failed',
+                JSON.stringify(describeShutdownError('database-close', error))
+            )
+        }
+        try {
+            if (!dependencies.releaseRuntimeLock()) {
+                exitCode = 2
+                log(
+                    'runtime lock release failed',
+                    JSON.stringify({
+                        step: 'runtime-lock-release',
+                        name: 'LockNotReleased',
+                        message: 'The runtime marker remains after release',
+                    } satisfies ShutdownErrorDetails)
+                )
+            }
+        } catch (error) {
+            exitCode = 2
+            log(
+                'runtime lock release failed',
+                JSON.stringify(describeShutdownError('runtime-lock-release', error))
+            )
+        }
+        log(`shutdown complete with exit code ${exitCode}`)
+        dependencies.exit(exitCode)
+    }
+}
+
+function defaultShutdownLog(message: string, details?: string): void {
+    console.error(
+        details === undefined
+            ? `[herald-shutdown] ${message}`
+            : `[herald-shutdown] ${message} ${details}`
+    )
+}
 
 export function describeShutdownError(step: string, error: unknown): ShutdownErrorDetails {
     if (!(error instanceof Error)) {

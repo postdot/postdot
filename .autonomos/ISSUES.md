@@ -4067,3 +4067,22 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Impact: Server revision guards prevent stale writes, but an operator can keep seeing apparently actionable controls before discovering the conflict on save or reload.
 - Desired outcome: Open editors discover concurrent changes promptly, preserve unsaved local work, and expose the explicit reconciliation decision. Decide on a bounded refresh mechanism without logging every autosave indiscriminately or introducing automatic content merges.
 - Tasks: UX-291 (evidence), UX-292 (in-flight save correction and mechanism review). The new deterministic incoming-SSE test exposed a stuck saving state; corrected without changing draft-save transport. Owner accepted ephemeral SSE draft hints. Implementation, focused visibility/reconnection journeys and the full root gate pass (69 browser journeys, two password-reset journeys, 17 builds). See ADR-076 and UX-292.
+
+## [ISSUE-151] Shutdown can report success while its runtime marker remains
+
+- Type: problem
+- Status: resolved by OPS-306
+- Evidence: On 9e0de695f, an isolated permission-failure probe leaves the marker while release() returns normally. removeLockIfOwned catches unlink errors; the shutdown exception guard therefore does not detect incomplete release. See worklogs/2026-10-04-OPS-305.md.
+- Impact: Exit 0 can contradict the documented cleanup contract and a subsequent launch is refused. No automatic deletion is justified.
+- Desired outcome: Cleanup success and incomplete cleanup are accurately observable without weakening ownership or stale-marker exclusion.
+- Tasks: OPS-306
+- Resolution: `release()` now returns whether the marker is gone (removal errors, unreadable content, and foreign tokens report retained without deleting); the shutdown handler maps a retained marker to exit 2 while token ownership, drain-before-cleanup, and the no-automatic-reclaim rule are preserved. Behavioral tests cover release failure, close failure, drain ordering with a pending operation, and the ignored second signal. See worklogs/2026-10-04-OPS-306.md.
+
+## [ISSUE-152] Unexpected external-effect messages cross a durable diagnostic boundary
+
+- Type: question
+- Status: open
+- Evidence: executor.ts includes unexpected Error.message in an ambiguous outcome; workflow-store persists outcome.errorMessage. This is source-level raw text propagation, not proof of an actual credential leak. See worklogs/2026-10-04-OPS-305.md.
+- Impact: Caller-controlled diagnostics may contain sensitive material and reach durable history or user-visible responses; exact exposure remains to be established.
+- Desired outcome: Establish whether diagnostic boundaries preserve useful failure context without exposing secrets, and retain conservative ambiguity handling.
+- Tasks: AUDIT-307 (diagnosis only; no implementation approach accepted)

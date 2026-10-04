@@ -51,7 +51,9 @@ drains the worker and maintenance runtimes, closes the listener and SQLite,
 releases the runtime lock, then exits explicitly: an orderly `docker stop`
 reports exit 0 with the lock released, while a forced `docker kill` still
 reports exit 137, retains the lock, and blocks a fresh server until an operator
-verifies the stale marker. The production acceptance check verifies both
+verifies the stale marker. A drain failure exits 1 and an incomplete final
+cleanup — including a retained lock marker, which `release()` reports instead
+of implying success — exits 2. The production acceptance check verifies both
 signatures; successful startup and recovery alone are not presented as proof of
 an orderly stop. Track any remaining release work in OPS-300 follow-ups.
 

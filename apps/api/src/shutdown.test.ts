@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import { describeShutdownError } from './shutdown'
+import {
+    createShutdownHandler,
+    describeShutdownError,
+    type ShutdownDependencies,
+    type ShutdownExitCode,
+} from './shutdown'
 
 describe('describeShutdownError', () => {
     test('keeps the failing step alongside the error name', () => {
@@ -56,3 +61,206 @@ describe('describeShutdownError', () => {
         })
     })
 })
+
+describe('createShutdownHandler', () => {
+    test('drains before cleanup and exits 0 on the orderly path', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        const handleShutdown = createShutdownHandler({
+            ...baseDependencies(call => calls.push(call), outcome.exit),
+            log: () => {},
+        })
+
+        await handleShutdown('SIGTERM')
+
+        expect(calls).toEqual([
+            'worker',
+            'media',
+            'notifications',
+            'realtime',
+            'observer',
+            'server',
+            'close',
+            'release',
+        ])
+        expect(outcome.exitCode).toBe(0)
+    })
+
+    test('waits for an in-flight operation before touching cleanup resources', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        let releaseWorker!: () => void
+        const gate = new Promise<void>(resolve => {
+            releaseWorker = resolve
+        })
+        const handleShutdown = createShutdownHandler({
+            ...baseDependencies(call => calls.push(call), outcome.exit),
+            stopWorker: () => {
+                calls.push('worker')
+                return gate
+            },
+            log: () => {},
+        })
+
+        const shutdown = handleShutdown('SIGTERM')
+        await new Promise(resolve => setTimeout(resolve, 10))
+        expect(calls).toEqual(['worker'])
+
+        releaseWorker()
+        await shutdown
+
+        expect(calls).toEqual([
+            'worker',
+            'media',
+            'notifications',
+            'realtime',
+            'observer',
+            'server',
+            'close',
+            'release',
+        ])
+        expect(outcome.exitCode).toBe(0)
+    })
+
+    test('a drain failure skips later drains but still closes and releases', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        const handleShutdown = createShutdownHandler({
+            ...baseDependencies(call => calls.push(call), outcome.exit),
+            stopWorker: () => {
+                calls.push('worker')
+                return Promise.reject(new Error('scheduler unavailable'))
+            },
+            log: () => {},
+        })
+
+        await handleShutdown('SIGTERM')
+
+        expect(calls).toEqual(['worker', 'close', 'release'])
+        expect(outcome.exitCode).toBe(1)
+    })
+
+    test('a database close failure still attempts the lock release and exits 2', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        const handleShutdown = createShutdownHandler({
+            ...baseDependencies(call => calls.push(call), outcome.exit),
+            closeDatabase: () => {
+                calls.push('close')
+                throw new Error('database is busy')
+            },
+            log: () => {},
+        })
+
+        await handleShutdown('SIGTERM')
+
+        expect(calls).toEqual([
+            'worker',
+            'media',
+            'notifications',
+            'realtime',
+            'observer',
+            'server',
+            'close',
+            'release',
+        ])
+        expect(outcome.exitCode).toBe(2)
+    })
+
+    test('a retained lock marker exits 2 without deleting anything else', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        const handleShutdown = createShutdownHandler({
+            ...baseDependencies(call => calls.push(call), outcome.exit),
+            releaseRuntimeLock: () => {
+                calls.push('release')
+                return false
+            },
+            log: () => {},
+        })
+
+        await handleShutdown('SIGTERM')
+
+        expect(calls).toEqual([
+            'worker',
+            'media',
+            'notifications',
+            'realtime',
+            'observer',
+            'server',
+            'close',
+            'release',
+        ])
+        expect(outcome.exitCode).toBe(2)
+    })
+
+    test('a throwing lock release exits 2', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        const handleShutdown = createShutdownHandler({
+            ...baseDependencies(call => calls.push(call), outcome.exit),
+            releaseRuntimeLock: () => {
+                calls.push('release')
+                throw new Error('descriptor already closed')
+            },
+            log: () => {},
+        })
+
+        await handleShutdown('SIGTERM')
+
+        expect(outcome.exitCode).toBe(2)
+    })
+
+    test('a second signal while draining is ignored', async () => {
+        const calls: string[] = []
+        const outcome = recordOutcome()
+        const handleShutdown = createShutdownHandler({
+            ...baseDependencies(call => calls.push(call), outcome.exit),
+            log: () => {},
+        })
+
+        await Promise.all([handleShutdown('SIGTERM'), handleShutdown('SIGTERM')])
+
+        expect(calls.filter(call => call === 'worker')).toHaveLength(1)
+        expect(outcome.exitCalls).toBe(1)
+        expect(outcome.exitCode).toBe(0)
+    })
+})
+
+interface ShutdownOutcome {
+    exitCode: ShutdownExitCode | undefined
+    exitCalls: number
+    readonly exit: (code: ShutdownExitCode) => void
+}
+
+function recordOutcome(): ShutdownOutcome {
+    const outcome: ShutdownOutcome = {
+        exitCode: undefined,
+        exitCalls: 0,
+        exit: code => {
+            outcome.exitCalls += 1
+            outcome.exitCode = code
+        },
+    }
+    return outcome
+}
+
+function baseDependencies(
+    record: (call: string) => void,
+    exit: (code: ShutdownExitCode) => void
+): ShutdownDependencies {
+    return {
+        stopWorker: async () => record('worker'),
+        stopMediaMaintenance: async () => record('media'),
+        stopNotificationProjection: () => record('notifications'),
+        stopRealtime: () => record('realtime'),
+        clearCommitObserver: () => record('observer'),
+        stopServer: () => record('server'),
+        closeDatabase: () => record('close'),
+        releaseRuntimeLock: () => {
+            record('release')
+            return true
+        },
+        exit,
+    }
+}
