@@ -64,6 +64,7 @@ function PublicationEditorRoute() {
     const { editor, projectTags, publicationTags, relatedPublications } = Route.useLoaderData()
     const {
         activeChannels,
+        connections,
         onCancelPublications,
         onPublish,
         onRetryPublication,
@@ -97,6 +98,7 @@ function PublicationEditorRoute() {
             projectTags={projectTags}
             readOnly={readOnly}
             channels={activeChannels}
+            publisherConnections={connections}
             relatedPublications={relatedPublications}
             backToCalendar={from === 'calendar' ? { date, view } : undefined}
             timeZone={project.timeZone}

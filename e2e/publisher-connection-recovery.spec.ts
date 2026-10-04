@@ -96,6 +96,170 @@ test('makes a revoked publisher connection actionable', async ({ page }) => {
     ).toBeVisible()
 })
 
+test('targets connection repair from automatic publication detail without changing content or execution', async ({
+    page,
+}, info) => {
+    test.setTimeout(90_000)
+    const suffix = randomUUID().slice(0, 8)
+    const projectId = await createAccountAndProject(page, suffix)
+    const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'Article destination', profile: 'devto' },
+    })
+    expect(channelResponse.ok()).toBe(true)
+    const { channel } = await channelResponse.json()
+    const postResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                headline: 'Connection readiness article',
+                body: { format: 'plain_text', text: 'A saved article to review.' },
+                media: [],
+            },
+            publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+        },
+    })
+    expect(postResponse.ok()).toBe(true)
+    const { publications } = await postResponse.json()
+    const publicationId = publications[0].id
+    const detailUrl = `/dashboard/projects/${projectId}/publications/${publicationId}`
+    const editorUrl = `/api/projects/${projectId}/publications/${publicationId}/editor`
+    const before = await (await page.request.get(editorUrl)).json()
+    // Persisted manual data provides real content; browser-only fixtures model readiness.
+    // No automatic job or external provider call is created by this review.
+    let state: 'missing' | 'revoked' | 'reconnect_required' | 'active' = 'missing'
+    let deliveryMode = 'automatic'
+    let publicationState = 'draft'
+    let viewer = false
+    const mutations: string[] = []
+    page.on('request', request => {
+        if (request.url().includes(`/api/projects/${projectId}/`) && request.method() !== 'GET')
+            mutations.push(request.url())
+    })
+    await page.route(`**${editorUrl}`, async route => {
+        const response = await route.fetch()
+        const data = await response.json()
+        data.editor.publication.deliveryMode = deliveryMode
+        data.editor.publication.state = publicationState
+        data.editor.publication.errorMessage =
+            publicationState === 'failed' ? 'The destination rejected the previous attempt.' : null
+        await route.fulfill({ response, json: data })
+    })
+    await page.route(`**/api/projects/${projectId}/membership`, async route => {
+        const response = await route.fetch()
+        const data = await response.json()
+        if (viewer) data.membership.role = 'viewer'
+        await route.fulfill({ response, json: data })
+    })
+    await page.route(`**/api/projects/${projectId}/publishers`, async route => {
+        const response = await route.fetch()
+        const now = Date.now()
+        const connection = {
+            authentication: null,
+            channelId: channel.id,
+            connectedByActorId: 'readiness-fixture',
+            createdAt: now,
+            credentialId: 'readiness-credential',
+            destination: { id: 'sample-account', name: 'Sample account', type: 'account' },
+            endpointUrl: null,
+            externalAccountId: 'sample-account',
+            externalAccountName: 'Sample account',
+            id: 'readiness-connection',
+            kind: 'devto',
+            projectId,
+            providerId: 'devto',
+            publisherId: 'readiness-publisher',
+            scopes: [],
+            state,
+            updatedAt: now,
+        }
+        await route.fulfill({
+            response,
+            json: { connections: state === 'missing' ? [] : [connection] },
+        })
+    })
+    const lifecycle = page.locator('[data-publication-lifecycle]')
+    const repair = page.locator('[data-publication-connection-repair]')
+    for (const connectionState of ['missing', 'revoked', 'reconnect_required'] as const) {
+        state = connectionState
+        publicationState = connectionState === 'missing' ? 'draft' : 'failed'
+        await page.goto(detailUrl)
+        await page.reload()
+        await expect(lifecycle.locator('[data-publication-connection-issue]')).toContainText(
+            connectionState === 'missing'
+                ? 'requires a connection'
+                : connectionState === 'revoked'
+                  ? 'Access revoked'
+                  : 'requires reconnection'
+        )
+        await expect(repair).toHaveText(
+            connectionState === 'missing' ? 'Connect channel' : 'Reconnect channel'
+        )
+        await expect(repair).toHaveAttribute(
+            'href',
+            `/dashboard/projects/${projectId}/channels#publisher-connection-${channel.id}`
+        )
+        for (const theme of ['dark', 'light'] as const) {
+            if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+                await page
+                    .getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
+                    .click()
+            }
+            for (const width of [1280, 820, 390]) {
+                await page.setViewportSize({ width, height: 900 })
+                await lifecycle.scrollIntoViewIfNeeded()
+                expect(
+                    await page.evaluate(
+                        () => document.documentElement.scrollWidth <= window.innerWidth + 1
+                    )
+                ).toBe(true)
+                expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+                await page.screenshot({
+                    path: info.outputPath(`connection-${connectionState}-${theme}-${width}.png`),
+                    fullPage: true,
+                })
+            }
+        }
+        await repair.click()
+        await expect(page).toHaveURL(new RegExp(`channels#publisher-connection-${channel.id}$`))
+        const row = page.locator(`#publisher-connection-${channel.id}`)
+        await expect(row).toBeInViewport()
+        await row
+            .getByRole('button', {
+                name: connectionState === 'missing' ? 'Connect DEV.to' : 'Reconnect DEV.to',
+                exact: true,
+            })
+            .click()
+        await expect(
+            page.getByRole('dialog').getByLabel('DEV.to API key', { exact: true })
+        ).toBeVisible()
+        await page.keyboard.press('Escape')
+    }
+    state = 'active'
+    await page.goto(detailUrl)
+    await page.reload()
+    await expect(repair).toHaveCount(0)
+    state = 'revoked'
+    deliveryMode = 'manual'
+    await page.reload()
+    await expect(repair).toHaveCount(0)
+    deliveryMode = 'automatic'
+    publicationState = 'published'
+    await page.reload()
+    await expect(repair).toHaveCount(0)
+    publicationState = 'failed'
+    viewer = true
+    await page.reload()
+    await expect(repair).toHaveText('Channels')
+    await repair.click()
+    await expect(page.locator(`#publisher-connection-${channel.id}`)).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Reconnect DEV.to', exact: true })).toHaveCount(0)
+    expect(mutations).toEqual([])
+    const after = await (await page.request.get(editorUrl)).json()
+    expect(after.editor.post.sourceContent).toEqual(before.editor.post.sourceContent)
+    expect(after.editor.draft).toEqual(before.editor.draft)
+    expect(after.editor.publication).toEqual(before.editor.publication)
+    expect(after.editor.selectedTarget).toEqual(before.editor.selectedTarget)
+})
+
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)

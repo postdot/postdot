@@ -40,7 +40,9 @@ export function ChannelRow({
     const archived = channel.state === 'archived'
 
     return (
-        <div className="flex min-w-0 items-start gap-3 px-4 py-4 transition-colors hover:bg-muted/35 sm:px-5">
+        <div
+            id={`publisher-connection-${channel.id}`}
+            className="flex min-w-0 scroll-mt-20 items-start gap-3 px-4 py-4 transition-colors hover:bg-muted/35 sm:px-5">
             <div className="flex min-w-0 flex-1 items-center gap-3">
                 <ChannelAvatar
                     channel={channel}

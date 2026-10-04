@@ -49,6 +49,7 @@ import {
     type MediaReference,
     type ProjectTag,
     type PublicationEditorState,
+    type PublisherConnection,
     type PublicationSummary,
 } from '@/lib/api'
 import {
@@ -71,6 +72,7 @@ type Profile = PublicationEditorState['profile']['profile']
 interface PublicationEditorProps {
     readonly configuredEditor?: boolean
     readonly channels?: readonly Channel[]
+    readonly publisherConnections?: readonly PublisherConnection[]
     readonly projectId: string
     readonly initialEditor: PublicationEditorState
     readonly initialPublicationTags: readonly ProjectTag[]
@@ -103,6 +105,7 @@ const recoveryVersion = 3 as const
 export function PublicationEditor({
     configuredEditor = true,
     channels = [],
+    publisherConnections,
     initialEditor,
     initialPublicationTags,
     onCancel,
@@ -1163,6 +1166,14 @@ export function PublicationEditor({
                 </header>
 
                 <PublicationLifecyclePanel
+                    connection={
+                        publisherConnections === undefined
+                            ? undefined
+                            : (publisherConnections.find(
+                                  connection => connection.channelId === editor.channel.id
+                              ) ?? null)
+                    }
+                    readOnly={readOnly}
                     cancelDisabled={cancellationBlocked}
                     onCancel={onCancel === undefined ? undefined : () => setCancelDialogOpen(true)}
                     onPublish={onPublish === undefined ? undefined : recordManualPublication}

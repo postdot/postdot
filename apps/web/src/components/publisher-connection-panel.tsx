@@ -205,7 +205,7 @@ export function PublisherConnectionPanel({
                         <article
                             id={`publisher-connection-${channel.id}`}
                             key={channel.id}
-                            className="relative flex min-w-0 flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted/35 sm:px-5 lg:flex-row lg:items-start lg:justify-between lg:gap-5 lg:pr-16">
+                            className="relative flex min-w-0 scroll-mt-20 flex-col gap-3 px-4 py-4 transition-colors hover:bg-muted/35 sm:px-5 lg:flex-row lg:items-start lg:justify-between lg:gap-5 lg:pr-16">
                             <div className="min-w-0 flex-1 pr-9 lg:pr-0">
                                 <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
                                     <ChannelAvatar channel={channel} size="md" />

@@ -1,16 +1,19 @@
-import { Button } from '@herald/ui/components/button'
+import { Button, buttonVariants } from '@herald/ui/components/button'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
 import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-minimalistic'
+import { Link } from '@tanstack/react-router'
 
 import { formatSchedule, PublicationStatus } from '@/components/dashboard-publication-parts'
-import type { Publication } from '@/lib/api'
+import type { Publication, PublisherConnection } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import { isManualPublicationDue } from '@/lib/publication-lifecycle'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationLifecyclePanel({
     cancelDisabled = false,
+    connection,
+    readOnly = false,
     onCancel,
     onPublish,
     onRetry,
@@ -20,6 +23,8 @@ export function PublicationLifecyclePanel({
     timeZone,
 }: {
     readonly cancelDisabled?: boolean
+    readonly connection?: PublisherConnection | null
+    readonly readOnly?: boolean
     readonly onCancel?: () => void
     readonly onPublish?: () => Promise<boolean>
     readonly onRetry?: () => void | Promise<unknown>
@@ -36,7 +41,12 @@ export function PublicationLifecyclePanel({
         publication.state === 'failed' &&
         publication.deliveryMode === 'automatic' &&
         onRetry !== undefined
-    const hasAction = showManualAction || showRetryAction || showCancelAction
+    const needsConnection =
+        publication.deliveryMode === 'automatic' &&
+        ['draft', 'scheduled', 'ready', 'failed'].includes(publication.state) &&
+        connection !== undefined &&
+        connection?.state !== 'active'
+    const hasAction = showManualAction || showRetryAction || showCancelAction || needsConnection
 
     return (
         <>
@@ -56,6 +66,17 @@ export function PublicationLifecyclePanel({
                             </span>
                         ) : null}
                     </div>
+                    {needsConnection ? (
+                        <p
+                            data-publication-connection-issue
+                            className="mt-1.5 text-sm text-state-attention">
+                            {connection === null
+                                ? m.publication_connection_missing()
+                                : connection?.state === 'revoked'
+                                  ? m.publication_connection_revoked()
+                                  : m.publication_connection_reconnect()}
+                        </p>
+                    ) : null}
                     {publication.state === 'failed' && publication.errorMessage ? (
                         <p
                             className="mt-1.5 max-w-2xl break-words text-xs text-state-failed"
@@ -66,9 +87,27 @@ export function PublicationLifecyclePanel({
                 </div>
                 {hasAction ? (
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        {needsConnection ? (
+                            <Link
+                                data-publication-connection-repair
+                                className={buttonVariants({
+                                    variant: readOnly ? 'secondary' : 'default',
+                                    size: 'sm',
+                                })}
+                                to="/dashboard/projects/$projectId/channels"
+                                params={{ projectId: publication.projectId }}
+                                hash={`publisher-connection-${publication.channelId}`}>
+                                {readOnly
+                                    ? m.nav_channels()
+                                    : connection === null
+                                      ? m.publication_connect_channel()
+                                      : m.publication_reconnect_channel()}
+                            </Link>
+                        ) : null}
                         {showRetryAction ? (
                             <Button
                                 data-publication-action="retry"
+                                variant={needsConnection ? 'secondary' : 'default'}
                                 disabled={pending || retryDisabled}
                                 onClick={onRetry}
                                 size="sm">
