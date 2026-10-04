@@ -216,3 +216,35 @@ describe('Mastodon publisher', () => {
         })
     })
 })
+
+describe('rogue-instance diagnostic echo (AUDIT-307)', () => {
+    it('currently surfaces an echoed access token verbatim; redaction is pending', async () => {
+        const fictitiousToken = 'audit-test-access-token-echo'
+        const fixture = createFetcher([
+            jsonResponse(
+                {
+                    error: `upstream exploded; request carried Authorization: Bearer ${fictitiousToken}`,
+                },
+                500
+            ),
+        ])
+        const publisher = createMastodonPublisher({
+            baseUrl: 'https://example.social',
+            fetcher: fixture.fetcher,
+        })
+
+        const outcome = await publisher.publishStatus({
+            accessToken: fictitiousToken,
+            text: 'Hello',
+            mediaIds: [],
+            idempotencyKey: 'audit-307',
+        })
+
+        expect(outcome.type).toBe('ambiguous')
+        if (outcome.type !== 'ambiguous') return
+        // Demonstrated gap: a rogue per-instance server echo reaches the
+        // diagnostic message verbatim. The adapter redaction fix will replace
+        // in-scope secrets here; this expectation flips to redacted text then.
+        expect(outcome.errorMessage).toContain(fictitiousToken)
+    })
+})

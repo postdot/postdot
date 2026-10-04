@@ -4081,9 +4081,9 @@ posture` is an exact patch duplicate of `aa889111`, and
 ## [ISSUE-152] Unexpected external-effect messages cross a durable diagnostic boundary
 
 - Type: question
-- Status: resolved by AUDIT-307
+- Status: open
 - Evidence: executor.ts includes unexpected Error.message in an ambiguous outcome; workflow-store persists outcome.errorMessage. This is source-level raw text propagation, not proof of an actual credential leak. See worklogs/2026-10-04-OPS-305.md.
 - Impact: Caller-controlled diagnostics may contain sensitive material and reach durable history or user-visible responses; exact exposure remains to be established.
 - Desired outcome: Establish whether diagnostic boundaries preserve useful failure context without exposing secrets, and retain conservative ambiguity handling.
 - Tasks: AUDIT-307 (diagnosis only; no implementation approach accepted)
-- Resolution: Fictitious-secret probing proves verbatim persistence into jobs, publications, and audit metadata, served by the publication/audit APIs and rendered by the dashboard to project actors; the notification inbox uses fixed templates. No current code path carries Herald secrets to the executor boundary (fixed messages, in-scope redaction, or discarded raw errors at every secret-adjacent site), so no bounded correction was proposed and no filtering policy was generalized. Ambiguity and retry semantics unchanged. See worklogs/2026-10-04-AUDIT-307.md.
+- Reopened: independent probes demonstrate that a rogue-echoing server reaches Mastodon/X/Discord outcome messages verbatim with the in-scope bearer/bot token (kept Mastodon test pins it). Bounded adapter-level redaction is proposed as PROVIDER-308 (not started, implementation not authorized). See worklogs/2026-10-04-AUDIT-307.md.
