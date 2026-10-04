@@ -4088,3 +4088,15 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Tasks: AUDIT-307 (diagnosis only; no implementation approach accepted), PROVIDER-308 (bounded adapter redaction)
 - Reopened: independent probes demonstrate that a rogue-echoing server reaches Mastodon/X/Discord outcome messages verbatim with the in-scope bearer/bot token (kept Mastodon test pins it). Bounded adapter-level redaction is proposed as PROVIDER-308 (not started, implementation not authorized). See worklogs/2026-10-04-AUDIT-307.md.
 - Resolved by PROVIDER-308: request tokens are redacted (raw and URL-encoded, before truncation) from Mastodon/X/Discord remote diagnostics including X media processing errors; codes, types, classification, retry, and ambiguity semantics unchanged. No core changes and no generalized filtering. See worklogs/2026-10-04-AUDIT-307.md.
+
+## [ISSUE-153] Authorization enforcement needs a targeted cross-surface audit
+
+- Type: question
+- Status: open
+- Evidence: Role-matrix enforcement (ACCESS-143), SSE reauthorization (REALTIME-144), API-key action ceilings (ACCESS-236), and analytics access (ANALYTICS-230) were each verified in isolation. No current artifact confronts server controls with UI possibilities and test coverage in one matrix, particularly for cross-project access, post-removal permissions, and session versus API-key differences.
+- Impact: Unknown whether the three surfaces agree; a UI-only gate or a stale-membership path could expose or deny operations inconsistently.
+- Desired outcome: A permission matrix of actually-enforced controls, reproducible evidence for inconsistencies, classification into demonstrated defects, documented intent, and product questions, plus one bounded fix proposal. No permission changes in the audit pass.
+- Tasks: AUDIT-309 (diagnosis only, completed), ACCESS-309 (bounded fix, proposed, not started)
+- Findings: two demonstrated defects. D1 (high): a user-owned API key keeps project read access after its owner is removed from the project, because read routes authorize against the retained `actors` attribution row while the key path checks only stored scope and action ceilings; mutations stay denied. D2 (medium): `GET /api/projects` is actor-based, so removed members and non-member workspace managers still see projects whose routes answer 404. Reproduced with isolated fixtures and pinned by `apps/api/src/modules/projects/access-revocation-regression.test.ts`.
+- Documented intent confirmed: hidden 404 for non-membership, dynamic inheritance for unrestricted keys, approval never available to limited keys, workspace-admin reach on the access surface, recipient-owned notifications, analytics readable by any project actor.
+- Product questions for the owner: automatic key revocation versus scope-down on removal; workspace-manager project visibility in the list; an explicit removed-from-access dashboard state.
