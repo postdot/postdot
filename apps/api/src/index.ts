@@ -272,10 +272,18 @@ async function startServerWithRuntimeLock(
     app.listen(config.server.port)
 
     let shuttingDown = false
-    const shutdown = async () => {
+    const shutdown = async (signal: NodeJS.Signals) => {
         if (shuttingDown) return
         shuttingDown = true
 
+        // The dashboard asset cache in `@elysia/static` owns a TTL sweep
+        // interval that is never cleared, so the process cannot rely on
+        // natural event-loop exit after serving static files. Drain every
+        // Herald runtime explicitly, release the quiescence lock, then exit
+        // with the drain outcome so container stops are orderly (exit 0)
+        // instead of SIGKILLed after the stop grace period (exit 137).
+        console.error(`[herald-shutdown] ${signal} received; draining worker and runtimes`)
+        let exitCode = 0
         try {
             await worker.stop()
             await mediaMaintenance.stop()
@@ -283,6 +291,9 @@ async function startServerWithRuntimeLock(
             realtime.stop()
             clearDatabaseCommitObserver()
             await app.stop()
+        } catch (error) {
+            exitCode = 1
+            console.error('[herald-shutdown] graceful shutdown failed', error)
         } finally {
             try {
                 closeDatabase(database)
@@ -290,11 +301,13 @@ async function startServerWithRuntimeLock(
                 runtimeLock.release()
             }
         }
+        console.error(`[herald-shutdown] shutdown complete with exit code ${exitCode}`)
+        process.exit(exitCode)
     }
 
-    process.once('SIGINT', () => void shutdown())
-    process.once('SIGTERM', () => void shutdown())
-    process.once('SIGHUP', () => void shutdown())
+    process.once('SIGINT', () => void shutdown('SIGINT'))
+    process.once('SIGTERM', () => void shutdown('SIGTERM'))
+    process.once('SIGHUP', () => void shutdown('SIGHUP'))
 }
 
 if (import.meta.main) {

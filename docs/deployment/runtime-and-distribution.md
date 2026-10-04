@@ -43,9 +43,17 @@ multi-architecture support or an upgrade from a previously released image.
 
 The October 4 review reproduced and corrected a web build failure in the Bun
 container. Browser loading, web compilation and module hot updates also passed
-under Bun. An observed container exit code 137 means shutdown needs a separate
-investigation: successful startup and recovery must not be presented as proof of
-an orderly stop. Track that release requirement in OPS-300.
+under Bun. Container shutdown needed a separate correction (OPS-300): after
+serving dashboard files, the `@elysia/static` asset cache owns a TTL sweep
+interval that is never cleared, so the process could not exit on its own and
+Docker SIGKILLed it after the stop grace period (exit 137). The server now
+drains the worker and maintenance runtimes, closes the listener and SQLite,
+releases the runtime lock, then exits explicitly: an orderly `docker stop`
+reports exit 0 with the lock released, while a forced `docker kill` still
+reports exit 137, retains the lock, and blocks a fresh server until an operator
+verifies the stale marker. The production acceptance check verifies both
+signatures; successful startup and recovery alone are not presented as proof of
+an orderly stop. Track any remaining release work in OPS-300 follow-ups.
 
 ## Recommended release sequence
 

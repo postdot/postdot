@@ -71,20 +71,7 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
         containerName,
         '--publish',
         '127.0.0.1::3000',
-        '--mount',
-        `type=bind,source=${dataDirectory},target=/data`,
-        '--env',
-        'NODE_ENV=production',
-        '--env',
-        'BETTER_AUTH_URL=http://localhost:3000',
-        '--env',
-        'HERALD_WEB_ORIGIN=http://localhost:3000',
-        '--env',
-        `BETTER_AUTH_SECRET=${authSecret}`,
-        '--env',
-        `HERALD_MEDIA_PUBLIC_URL_SECRET=${mediaUrlSecret}`,
-        '--env',
-        `HERALD_PUBLISHER_ENCRYPTION_KEY=${publisherEncryptionKey}`,
+        ...serverEnvironment(dataDirectory),
         imageTag,
     ])
     containerStarted = true
@@ -119,7 +106,111 @@ async function startServer(dataDirectory: string, stage: 'source' | 'restored'):
                 `Container state: ${containerState}\nContainer logs:\n${logs}`
         )
     }
-    runDocker(['stop', '--time', '60', containerName])
+    const stopStartedAt = Date.now()
+    runDocker(['stop', '--timeout', '30', containerName])
+    const stopDurationMs = Date.now() - stopStartedAt
+    const stopState = inspectContainerState(containerName)
+    if (stopState.exitCode !== 0) {
+        const logs = runDocker(['logs', '--tail', '100', containerName])
+        throw new Error(
+            `The ${stage} production container did not stop gracefully: exit code ${stopState.exitCode} after ${stopDurationMs}ms. ` +
+                (stopState.exitCode === 137
+                    ? 'Exit code 137 means Docker SIGKILLed the container after the stop grace period instead of observing an orderly shutdown; diagnose signal handling, drain, process exit, and lock release. '
+                    : '') +
+                `Container logs:\n${logs}`
+        )
+    }
+    const retainedLock = join(dataDirectory, 'herald.sqlite.runtime.lock')
+    if (await Bun.file(retainedLock).exists()) {
+        throw new Error(
+            `The ${stage} production container exited 0 but retained its runtime lock at ${retainedLock}; graceful shutdown must release the lock.`
+        )
+    }
+    console.log(
+        `The ${stage} production container stopped gracefully (exit 0 in ${(stopDurationMs / 1_000).toFixed(1)}s) and released its runtime lock.`
+    )
+    runDocker(['rm', containerName])
+    containerStarted = false
+}
+
+function serverEnvironment(dataDirectory: string): string[] {
+    return [
+        '--mount',
+        `type=bind,source=${dataDirectory},target=/data`,
+        '--env',
+        'NODE_ENV=production',
+        '--env',
+        'BETTER_AUTH_URL=http://localhost:3000',
+        '--env',
+        'HERALD_WEB_ORIGIN=http://localhost:3000',
+        '--env',
+        `BETTER_AUTH_SECRET=${authSecret}`,
+        '--env',
+        `HERALD_MEDIA_PUBLIC_URL_SECRET=${mediaUrlSecret}`,
+        '--env',
+        `HERALD_PUBLISHER_ENCRYPTION_KEY=${publisherEncryptionKey}`,
+    ]
+}
+
+function inspectContainerState(container: string): { status: string; exitCode: number } {
+    const raw = runDocker(['inspect', '--format', '{{json .State}}', container])
+    const state = JSON.parse(raw) as { Status?: unknown; ExitCode?: unknown }
+    if (typeof state.Status !== 'string' || typeof state.ExitCode !== 'number') {
+        throw new Error(`Docker returned an unreadable container state: ${raw}`)
+    }
+    return { status: state.Status, exitCode: state.ExitCode }
+}
+
+async function verifyForcedStopRetainsLock(dataDirectory: string): Promise<void> {
+    // SIGKILL cannot run the graceful drain, so forced termination must stay
+    // visible (exit 137), retain the runtime lock, and block a fresh server
+    // until an operator verifies the stale marker. The disposable probe data
+    // is removed with the test root; no retained lock is ever deleted here.
+    runDocker([
+        'run',
+        '--detach',
+        '--name',
+        containerName,
+        '--publish',
+        '127.0.0.1::3000',
+        ...serverEnvironment(dataDirectory),
+        imageTag,
+    ])
+    containerStarted = true
+
+    const mappedAddress = runDocker(['port', containerName, '3000/tcp']).split('\n')[0]
+    const port = Number(mappedAddress?.slice(mappedAddress.lastIndexOf(':') + 1))
+    if (!Number.isInteger(port) || port < 1) {
+        throw new Error(`Docker returned an invalid published port: ${mappedAddress}`)
+    }
+    await waitForReadiness(port)
+    runDocker(['kill', containerName])
+    const killed = inspectContainerState(containerName)
+    if (killed.exitCode !== 137) {
+        throw new Error(
+            `docker kill must report SIGKILL as exit code 137; observed ${killed.exitCode}`
+        )
+    }
+    const retainedLock = join(dataDirectory, 'herald.sqlite.runtime.lock')
+    if (!(await Bun.file(retainedLock).exists())) {
+        throw new Error(
+            'A SIGKILLed production container must retain its runtime lock; graceful shutdown is the only path that releases it.'
+        )
+    }
+    let refusal = ''
+    try {
+        runDocker(['run', '--rm', ...serverEnvironment(dataDirectory), imageTag])
+    } catch (error) {
+        refusal = error instanceof Error ? error.message : String(error)
+    }
+    if (!refusal.includes('already held')) {
+        throw new Error(
+            `A fresh server against the retained lock must refuse to start; observed: ${refusal || 'a successful start'}`
+        )
+    }
+    console.log(
+        'Forced termination stays visible (exit 137), retains the runtime lock, and blocks a fresh server until an operator verifies the stale marker.'
+    )
     runDocker(['rm', containerName])
     containerStarted = false
 }
@@ -162,13 +253,14 @@ try {
     ])
 
     await startServer(restoredData, 'restored')
+    await verifyForcedStopRetainsLock(restoredData)
     console.log(
-        'Production image started, created a media backup without server secrets, restored it, and became ready.'
+        'Production image started, created a media backup without server secrets, restored it, became ready, stopped gracefully with exit 0 and a released lock, and kept forced termination visible and fail-closed.'
     )
 } finally {
     if (containerStarted) {
         try {
-            runDocker(['stop', '--time', '60', containerName])
+            runDocker(['stop', '--timeout', '30', containerName])
         } catch {
             runDocker(['rm', '--force', containerName])
         }
