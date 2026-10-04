@@ -482,6 +482,113 @@ test('corrects destination attachments without changing shared media or another 
     expect((await (await page.request.get(siblingUrl)).json()).editor.draft.content).toEqual(before)
 })
 
+test('previews the article destination headline through adaptation and locked inspection', async ({
+    page,
+}, info) => {
+    test.setTimeout(60_000)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    const id = await createProject(page)
+    const channelResponse = await page.request.post(`/api/projects/${id}/channels`, {
+        data: { name: 'Article title destination', profile: 'devto' },
+    })
+    expect(channelResponse.ok()).toBe(true)
+    const { channel } = await channelResponse.json()
+    const createdResponse = await page.request.post(`/api/projects/${id}/posts`, {
+        data: {
+            title: 'Internal post label',
+            sourceContent: {
+                headline: 'Shared article headline',
+                body: { format: 'plain_text', text: 'Article body content.' },
+                media: [],
+            },
+            publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
+        },
+    })
+    expect(createdResponse.status()).toBe(201)
+    const created = await createdResponse.json()
+    const publication = created.publications[0]
+    const apiUrl = `/api/projects/${id}/publications/${publication.id}`
+    const detailUrl = `/dashboard/projects/${id}/publications/${publication.id}`
+    const read = async () => (await (await page.request.get(`${apiUrl}/editor`)).json()).editor
+    const original = await read()
+    expect(original.draft.content.title).toBe('Shared article headline')
+    await page.goto(detailUrl)
+    const preview = page.locator('[data-publication-draft-preview="true"]')
+    await expect(preview.getByRole('heading', { level: 2 })).toHaveText('Shared article headline')
+    const field = page.locator('[data-target-field="title"]')
+    await openCustomization(page, field)
+    await field.getByRole('textbox').fill('Customized destination headline')
+    await expect(preview.getByRole('heading', { level: 2 })).toHaveText(
+        'Customized destination headline'
+    )
+    await expect
+        .poll(async () => (await read()).draft.content.title)
+        .toBe('Customized destination headline')
+    const adapted = await read()
+    expect(adapted.post.sourceContent).toEqual(original.post.sourceContent)
+    expect(adapted.post.title).toBe('Internal post label')
+    expect(adapted.selectedTarget).toEqual(original.selectedTarget)
+    await field.getByRole('textbox').fill('')
+    await expect(preview.getByRole('heading', { level: 2 })).toHaveCount(0)
+    await expect.poll(async () => (await read()).draft.content.title).toBe('')
+    await field.getByRole('textbox').fill('Customized destination headline')
+    await expect
+        .poll(async () => (await read()).draft.content.title)
+        .toBe('Customized destination headline')
+    await page.reload()
+    await expect(preview.getByRole('heading', { level: 2 })).toHaveText(
+        'Customized destination headline'
+    )
+    const saved = await read()
+    const scheduledAt = Date.now() + 2_000
+    const promoted = await page.request.post(`${apiUrl}/draft/promote`, {
+        data: { expectedRevision: saved.draft.revision, scheduledAt },
+    })
+    expect(promoted.ok()).toBe(true)
+    const selected = await read()
+    const unpublishedHeadline = 'Unapplied later draft headline'
+    const laterDraft = await page.request.patch(`${apiUrl}/draft`, {
+        data: {
+            expectedRevision: selected.draft.revision,
+            targetContent: { ...selected.draft.content, title: unpublishedHeadline },
+        },
+    })
+    expect(laterDraft.ok()).toBe(true)
+    await expect.poll(() => Date.now()).toBeGreaterThanOrEqual(scheduledAt)
+    const published = await page.request.post(`${apiUrl}/publish`, { data: {} })
+    expect(published.ok()).toBe(true)
+    const locked = await read()
+    expect(locked.publication.state).toBe('published')
+    expect(locked.draft.content.title).toBe(unpublishedHeadline)
+    expect(locked.selectedTarget.content.title).toBe('Customized destination headline')
+    await page.reload()
+    await expect(preview.getByRole('heading', { level: 2 })).toHaveText(
+        locked.selectedTarget.content.title
+    )
+    for (const theme of ['light', 'dark']) {
+        const toggle = page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
+        if (await toggle.isVisible()) await toggle.click()
+        for (const width of [1280, 820, 390]) {
+            await page.setViewportSize({ width, height: 900 })
+            await expect(preview.getByRole('heading', { level: 2 })).toBeVisible()
+            expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+            expect(
+                await page
+                    .locator('[data-dashboard-scroll]')
+                    .evaluate(element => element.scrollWidth <= element.clientWidth + 1)
+            ).toBe(true)
+            await page.screenshot({
+                path: info.outputPath(`article-title-${theme}-${width}.png`),
+                fullPage: true,
+            })
+        }
+    }
+    const after = await read()
+    expect(after.post.sourceContent).toEqual(original.post.sourceContent)
+    expect(after.draft).toEqual(locked.draft)
+    expect(after.selectedTarget).toEqual(locked.selectedTarget)
+})
+
 async function createProject(page: Page) {
     const suffix = randomUUID().slice(0, 8)
     await page.goto('/')

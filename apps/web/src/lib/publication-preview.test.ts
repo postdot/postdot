@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { getDraftPreviewModel } from './publication-preview'
+import { getDraftPreviewModel, getTargetPreviewTitle } from './publication-preview'
 
 describe('publication draft preview model', () => {
     test('uses a non-blank channel adaptation and keeps the DEV.to title', () => {
@@ -48,5 +48,27 @@ describe('publication draft preview model', () => {
             showTitle: false,
             title: '',
         })
+    })
+})
+
+describe('destination preview headline', () => {
+    const profile = {
+        fieldBindings: [{ id: 'title', semantic: 'headline', path: '/article/title' }],
+    }
+
+    test('uses the declared destination field rather than a guessed title property', () => {
+        expect(
+            getTargetPreviewTitle(profile, {
+                title: 'Internal metadata',
+                article: { title: 'Destination headline' },
+            })
+        ).toBe('Destination headline')
+    })
+
+    test('preserves a blank adaptation and does not invent missing content', () => {
+        expect(getTargetPreviewTitle(profile, { article: { title: '' } })).toBe('')
+        expect(getTargetPreviewTitle(profile, { title: 'Unbound title' })).toBe('')
+        expect(getTargetPreviewTitle(profile, null)).toBe('')
+        expect(getTargetPreviewTitle({}, { title: 'Unbound title' })).toBe('')
     })
 })

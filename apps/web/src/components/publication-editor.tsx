@@ -62,6 +62,7 @@ import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
+import { getTargetPreviewTitle } from '@/lib/publication-preview'
 import { publicationPromotionIntent } from '@/lib/publication-promotion'
 import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
@@ -1061,7 +1062,12 @@ export function PublicationEditor({
             media={previewMedia}
             mediaSelections={previewMediaSelections}
             postContent={previewContent}
-            postTitle={editor.post.title ?? ''}
+            postTitle={getTargetPreviewTitle(
+                editor.profile.profile,
+                canEditPublication(editor.publication.state)
+                    ? targetResult.value
+                    : (editor.selectedTarget?.content ?? targetResult.value)
+            )}
         />
     )
 
