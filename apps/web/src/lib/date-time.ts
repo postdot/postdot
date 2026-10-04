@@ -206,12 +206,9 @@ function parsePart(parts: Map<string, string>, name: string) {
 }
 
 export function formatCivilSchedule(value: string, locale: string): string {
-    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value)
-    if (match === null) return ''
-    const [, year, month, day, hour, minute] = match
-    const date = new Date(
-        Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute))
-    )
+    const parts = parseCivilDateTime(value)
+    if (parts === null) return ''
+    const date = toUtcTimestamp(parts)
     return new Intl.DateTimeFormat(locale, {
         day: 'numeric',
         month: 'short',

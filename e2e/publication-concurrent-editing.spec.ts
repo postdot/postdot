@@ -36,7 +36,24 @@ test('rebases a stale sibling draft without replacing destination text or attach
         ).toBeDisabled()
         await conflict.scrollIntoViewIfNeeded()
         await other.screenshot({
-            path: info.outputPath('source-conflict-before.png'),
+            path: info.outputPath('source-conflict-desktop.png'),
+            fullPage: true,
+        })
+        for (const width of [820, 390]) {
+            await other.setViewportSize({ width, height: 900 })
+            await conflict.scrollIntoViewIfNeeded()
+            expect((await new AxeBuilder({ page: other }).analyze()).violations).toEqual([])
+            await other.screenshot({
+                path: info.outputPath(`source-conflict-${width}.png`),
+                fullPage: true,
+            })
+        }
+        await other.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+        await other.setViewportSize({ width: 820, height: 900 })
+        await conflict.scrollIntoViewIfNeeded()
+        expect((await new AxeBuilder({ page: other }).analyze()).violations).toEqual([])
+        await other.screenshot({
+            path: info.outputPath('source-conflict-light-820.png'),
             fullPage: true,
         })
         const stale = await pair.read(other, pair.second)
@@ -132,10 +149,14 @@ test('recovers unsaved destination changes after another session saves a newer d
         const decision = other.locator('[data-publication-recovery-decision]')
         await expect(decision).toBeVisible()
         await expect(decision).toContainText('Local destination adaptation')
-        await other.screenshot({
-            path: info.outputPath('local-recovery-before.png'),
-            fullPage: true,
-        })
+        await expect(decision.locator('[data-recovery-version="saved"]')).toContainText(
+            'Newer saved destination'
+        )
+        await expect(decision.locator('[data-recovery-version="local"]')).toContainText(
+            'Local destination adaptation'
+        )
+        await expect(decision.locator('[data-recovery-version="saved"] img')).toHaveCount(2)
+        await expect(decision.locator('[data-recovery-version="local"] img')).toHaveCount(1)
         await other.keyboard.press('Escape')
         await expect(decision).toBeVisible()
         expect((await pair.read(page, pair.first)).draft.content.text).toBe(
@@ -166,6 +187,39 @@ test('recovers unsaved destination changes after another session saves a newer d
         await expect(
             other.locator('[data-target-field="media"] [data-media-selection-preview]')
         ).toHaveCount(1)
+        const saved = await pair.read(other, pair.first)
+        await other.evaluate(
+            ({ key, buffer }) => {
+                localStorage.setItem(key, JSON.stringify(buffer))
+                localStorage.setItem('herald-theme', 'light')
+            },
+            {
+                key,
+                buffer: {
+                    version: 3,
+                    baseRevision: saved.draft.revision - 1,
+                    sourceContent: saved.post.sourceContent,
+                    targetText: JSON.stringify({ ...saved.draft.content, media: [] }),
+                    scheduleValue: '',
+                    timeZone: 'UTC',
+                },
+            }
+        )
+        await other.reload()
+        await expect(decision).toBeVisible()
+        await expect(decision.locator('[data-recovery-version="saved"] img')).toHaveCount(1)
+        await expect(decision.locator('[data-recovery-version="local"] img')).toHaveCount(0)
+        await expect(decision.locator('[data-recovery-version="local"]')).toContainText(
+            'Local destination adaptation'
+        )
+        expect((await new AxeBuilder({ page: other }).analyze()).violations).toEqual([])
+        await other.screenshot({
+            path: info.outputPath('media-only-local-copy-light-mobile.png'),
+            fullPage: true,
+        })
+        await decision.getByRole('button', { name: 'Discard local copy', exact: true }).click()
+        await expect(decision).toHaveCount(0)
+        expect((await pair.read(other, pair.first)).draft.content).toEqual(saved.draft.content)
     } finally {
         await otherContext.close()
     }

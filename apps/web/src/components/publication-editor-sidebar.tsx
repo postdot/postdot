@@ -59,10 +59,11 @@ export function PublicationEditorSidebar({
 }: PublicationEditorSidebarProps) {
     const { locale } = useLanguage()
     return (
-        <aside className="grid min-w-0 gap-4 lg:grid-cols-2">
+        <aside
+            aria-label={m.editor_technical_details()}
+            className="grid min-w-0 gap-4 lg:grid-cols-2">
             {sourceConflict || saveState === 'conflict' ? (
                 <Alert
-                    variant="destructive"
                     data-publication-conflict="true"
                     className="rounded-md border-0 bg-state-attention/10 px-4 py-4 text-foreground shadow-surface lg:col-span-2">
                     <AlertTitle>
@@ -220,7 +221,7 @@ function formatJson(value: unknown) {
     return JSON.stringify(value, null, 2)
 }
 
-function SourceComparisonContent({
+export function SourceComparisonContent({
     content,
     projectId,
     media,
@@ -268,9 +269,9 @@ function SourceComparisonContent({
                                         asset={asset}
                                         representation={readyRepresentation(asset)}
                                         alt={
-                                            selection.accessibilityText ??
-                                            asset.asset.originalFilename ??
-                                            ''
+                                            selection.accessibilityText
+                                                ? ''
+                                                : asset.asset.originalFilename
                                         }
                                         className="size-16 rounded-md object-cover shadow-field"
                                     />

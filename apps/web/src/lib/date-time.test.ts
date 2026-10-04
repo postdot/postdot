@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 
-import { formatProjectDateTime, parseDateTimeLocal, toDateTimeLocal } from './date-time'
+import {
+    formatCivilSchedule,
+    formatProjectDateTime,
+    parseDateTimeLocal,
+    toDateTimeLocal,
+} from './date-time'
 
 describe('local date-time helpers', () => {
     it('round-trips a timestamp through the datetime-local representation', () => {
@@ -39,5 +44,17 @@ describe('local date-time helpers', () => {
 
         expect(parseDateTimeLocal('2026-07-01T12:00', 'Europe/Paris')).toBe(timestamp)
         expect(toDateTimeLocal(timestamp, 'Europe/Paris')).toBe('2026-07-01T12:00')
+    })
+})
+
+describe('civil schedule display', () => {
+    it('keeps project wall time without interpreting it in the browser timezone', () => {
+        expect(formatCivilSchedule('2026-03-08T02:30', 'en')).toContain('02:30')
+        expect(formatCivilSchedule('2026-03-08T02:30', 'fr')).toContain('02:30')
+    })
+    it('rejects malformed and impossible saved values without throwing', () => {
+        for (const value of ['', 'broken', '2026-02-30T12:00', '2026-10-04T12:00Z']) {
+            expect(formatCivilSchedule(value, 'en')).toBe('')
+        }
     })
 })

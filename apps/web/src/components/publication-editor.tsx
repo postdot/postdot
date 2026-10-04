@@ -38,6 +38,7 @@ import {
     PublicationOutcomePanel,
     type PublicationOutcomeResolutionInput,
 } from '@/components/publication-outcome-panel'
+import { PublicationRecoveryComparison } from '@/components/publication-recovery-comparison'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import { PublicationChannelRail } from '@/components/publication-target-list'
 import {
@@ -189,14 +190,6 @@ export function PublicationEditor({
     const pendingRecoveryTarget = pendingRecovery
         ? parseTargetText(pendingRecovery.targetText).value
         : null
-    const pendingRecoveryExcerpt = (
-        pendingRecoveryTarget &&
-        JSON.stringify(pendingRecoveryTarget) !== JSON.stringify(editor.draft.content)
-            ? getTargetPreviewText(pendingRecoveryTarget)
-            : pendingRecovery?.sourceContent.body?.text
-    )
-        ?.trim()
-        .slice(0, 180)
     const [scheduleValue, setScheduleValue] = useState(
         shouldRestoreInitialRecovery && initialRecovery !== null
             ? initialRecovery.scheduleValue
@@ -308,13 +301,23 @@ export function PublicationEditor({
         [editor.profile.profile, sourceContent.media, targetResult.value]
     )
     const readOnlyMediaIds = [
-        ...previewMediaSelections,
-        ...editor.draft.baseSourceContent.media,
-        ...editor.post.sourceContent.media,
-    ]
-        .filter(selection => !availableMedia.some(asset => asset.asset.id === selection.assetId))
-        .map(selection => selection.assetId)
-        .join('\u0000')
+        ...new Set(
+            [
+                ...previewMediaSelections,
+                ...editor.draft.baseSourceContent.media,
+                ...editor.post.sourceContent.media,
+                ...(pendingRecovery?.sourceContent.media ?? []),
+                ...(pendingRecoveryTarget
+                    ? getTargetMediaSelections(editor.profile.profile, pendingRecoveryTarget)
+                    : []),
+                ...getTargetMediaSelections(editor.profile.profile, editor.draft.content),
+            ]
+                .filter(
+                    selection => !availableMedia.some(asset => asset.asset.id === selection.assetId)
+                )
+                .map(selection => selection.assetId)
+        ),
+    ].join('\u0000')
     useEffect(() => {
         if (readOnlyMediaIds === '') return
 
@@ -1002,15 +1005,24 @@ export function PublicationEditor({
                     <DialogContent
                         showCloseButton={false}
                         data-publication-recovery-decision="true"
-                        className="sm:max-w-md">
+                        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
                         <DialogTitle>{m.editor_recovery_choice_title()}</DialogTitle>
                         <DialogDescription>
                             {m.editor_recovery_choice_description()}
                         </DialogDescription>
-                        {pendingRecoveryExcerpt ? (
-                            <p className="line-clamp-3 break-words rounded-md bg-surface-inset/50 p-3 text-sm text-muted-foreground">
-                                {pendingRecoveryExcerpt}
-                            </p>
+                        {pendingRecovery ? (
+                            <PublicationRecoveryComparison
+                                editor={editor}
+                                localSource={pendingRecovery.sourceContent}
+                                localTarget={pendingRecoveryTarget}
+                                localSchedule={pendingRecovery.scheduleValue}
+                                savedSchedule={toDateTimeLocal(
+                                    editor.publication.scheduledAt,
+                                    timeZone
+                                )}
+                                projectId={projectId}
+                                media={[...availableMedia, ...readOnlyMedia]}
+                            />
                         ) : null}
                         {saveState === 'error' && message ? (
                             <p role="alert" className="break-words text-sm text-state-failed">
