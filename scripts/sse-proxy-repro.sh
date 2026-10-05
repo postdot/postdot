@@ -12,8 +12,9 @@
 # directory, ports, and database live under this run only.
 #
 # Usage: scripts/sse-proxy-repro.sh [stage] [seconds]
-#   stage: chunks (default, timestamped arrivals) or late-event (does a real
-#          event still cross the proxy after the connection went quiet?)
+#   stage: chunks (default, timestamped arrivals), late-event (does a real event
+#          still cross the connection after it went quiet?), or user-stream (does
+#          the notification stream open with nothing pending?)
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
@@ -106,7 +107,10 @@ case "$STAGE" in
     bun scripts/sse-proxy-chunks.ts "$API_ORIGIN" "$WEB_ORIGIN" "$PROJECT_ID" "$COOKIE" "$HOLD_SECONDS"
     ;;
   late-event)
-    bun scripts/sse-proxy-late-event.ts "$API_ORIGIN" "$WEB_ORIGIN" "$COOKIE" "$HOLD_SECONDS"
+    bun scripts/sse-proxy-late-event.ts "$API_ORIGIN" "$WEB_ORIGIN" "$PROJECT_ID" "$COOKIE" "$HOLD_SECONDS"
+    ;;
+  user-stream)
+    bun scripts/sse-user-stream-open.ts "$API_ORIGIN" "$WEB_ORIGIN" "$COOKIE"
     ;;
   *)
     echo "unknown stage: $STAGE (expected 'chunks' or 'late-event')"
