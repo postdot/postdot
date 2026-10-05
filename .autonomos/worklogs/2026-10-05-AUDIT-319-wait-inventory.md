@@ -135,7 +135,7 @@ from the code rather than from taste.
 | Autosave debounce | `publication-editor.tsx` | one `setTimeout(…, 650)`, re-armed on each dirty transition |
 | Save promise continuation | `publication-editor.tsx` | `.then/.catch/.finally`, **no timer**, guarded by `accessEpoch` and generation |
 | Query invalidation rounds | `project-realtime.tsx` | `[0, 80, 240, 800]` ms after any event or reconnect, so the last round is at +800 ms |
-| Reconnect full invalidation | `project-realtime.tsx` | `refresh('project', true, true)` on reconnect, including publication editors |
+| Reconnect and resync full invalidation | `project-realtime.tsx` | `refresh('project', true, true)` on reconnect *and* on `resync-required`, including publication editors — a reconnect is the stronger case, not the weaker one |
 | Browser EventSource retry | the browser | a fresh attempt a few seconds after a failed stream |
 
 **This is why a generic 500 ms quiet window is wrong rather than merely
@@ -165,7 +165,10 @@ lives once, next to the mechanism it accounts for:
 | removal surface | `waitForTimeout(5_000)` | same helper |
 | retry state | `waitForTimeout(5_000)` | same helper |
 | deferred reread | `waitForTimeout(5_000)` | same helper |
-| reconciled editor | `waitForTimeout(5_000)` | `driveEditorReread`: real draft hint, required observed reread of the same project and publication, then the observation window |
+| reconciled editor | `waitForTimeout(5_000)` | `driveEditorReread`: real draft hint, then the captured request's own completed response, checked for the saved revision, then the observation window |
+
+The observation window is retained inside these helpers, so a call site that shows
+no wait has not had its mechanism dropped — the time has moved, not vanished.
 
 **Pauses shortened, and kept as necessary negative windows** — explicitly
 labelled as such in the spec:
@@ -199,37 +202,49 @@ explicitly weaker than proof.
 ### Two proofs that had to be rebuilt
 
 **Network receipt versus application of the continuation.** `requestfinished` is
-installed before `fulfill()` so the event cannot be missed by a race, and receipt
-alone is not treated as application: the save continuation is queued as a
-microtask when the body resolves, so the page's task queue is drained afterwards.
-That drain is an execution-model barrier, not a chosen wait.
+installed before `fulfill()` so the event cannot be missed by a race. Receipt is
+explicitly *not* treated as application.
+
+An intermediate version drained the page's task queue after receipt and called
+that an execution-model barrier proving the continuation had run. That claim was
+withdrawn on review, and it was weaker than it sounded: the continuation returns
+early **by design**, so when it does the right thing it leaves no trace at all,
+and no amount of draining reveals it. There is no reliable observable witness here.
+So no instrumentation was added to manufacture one. Instead:
+
+- what is observable is used: `requestfinished` for receipt, and the paired control
+  that earlier in the same scenario the same save path applied an acceptable
+  response and produced a visible `Saved` state, which makes `Saved` a real positive
+  signal for application;
+- what is not observable becomes an explicitly limited negative window before the
+  applied outcomes are checked, labelled as weaker than proof;
+- the task-queue drain helper was deleted rather than left behind as decoration.
 
 The first attempt at an adapted proof used a sentinel value injected into the
-response payload. It was abandoned on evidence: with the sentinel delivered while
-the machine was *not* frozen — the case where a response really is applied — the
-sentinel never rendered either. The field is not one this page displays for this
-scenario, so its absence would have been a false guarantee. The proof actually
-used is the one whose reachability is demonstrated inside the scenario: earlier in
-the same test the same save path, on the same page, applied an acceptable response
-and produced a visible `Saved` state. `Saved` is therefore a genuine positive
-signal for application, and the guards are its absence, the conflict surface, the
-recovery-buffer count, and the local text. The conflict surface and buffer count
-are labelled guards, not proved signals, because their reachability here was not
-demonstrated.
+response payload. It was abandoned on evidence too: with the sentinel delivered
+while the machine was *not* frozen — the case where a response really is applied —
+the sentinel never rendered. The field is not one this page displays in this
+scenario, so its absence would have been a false guarantee. The conflict surface
+and the recovery-buffer count are kept as guards, and labelled as guards, because
+their reachability here was not demonstrated.
 
-**The reread had to be observed, not assumed.** `driveEditorReread` originally
-performed the owner's save and waited. It now counts editor-read *starts*, drains
-the page's queue and samples the counter before the mutation, then requires a new
-read of that exact project and publication and requires its response to finish.
-Counting starts rather than completions matters: a read already in flight would
-otherwise satisfy a completion wait and let an unrelated reread pass for this one.
+**The reread is tied to one request, and to its content.** `driveEditorReread`
+originally performed the owner's save and waited. It now captures the specific
+`Request` object of the first editor read that starts, awaits *that* request's own
+response and its completion, and then checks that the body carries the revision
+the owner's save produced.
 
-This was found by injection, not by reading. An earlier version installed a
-`requestfinished` wait and passed even with stream delivery cut. Two causes: the
-wait could be satisfied by a read already in flight, and the first injection
-attempt was itself wrong — `page.route` only affects subsequent requests, so
-aborting after the stream had connected cut nothing. With delivery actually cut
-before the connection, the helper fails with its own message.
+Two failures were found by injection rather than by reading. An earlier version
+counted read starts and awaited a generic `requestfinished`; it passed even with
+stream delivery cut, because a read already in flight could satisfy a completion
+wait. And the first cut-signal injection was itself wrong: `page.route` only affects
+subsequent requests, so aborting after the stream had connected cut nothing. With
+delivery cut before the connection, the helper fails with its own message.
+
+The stale-response guard was then verified directly: with the new read held open
+while older reads completed, the helper did not report delivery from the old
+completion, and rejected the held response on its revision — the check that a stale
+body cannot stand in for a fresh one.
 
 ### The one window kept, and why
 
@@ -281,11 +296,17 @@ vacuous pass.
 
 ### Before and after
 
-| | Wall | Scenarios | Site-level fixed waits | Largest ceiling |
-| - | ---- | --------- | ----------------------- | --------------- |
-| Before | 107 s | 6 passed | 8, totalling 34.0 s | 300 s |
-| After, first pass | 84 s, 86 s | 6 passed, twice | 0 | unchanged |
-| After, review corrections | 90 s, 88 s | 6 passed, twice | 0 | unchanged |
+| | Wall | Scenarios | Waits at call sites | Waits retained in helpers | Largest ceiling |
+| - | ---- | --------- | ------------------- | -------------------------- | --------------- |
+| Before | 107 s | 6 passed | 8, totalling 34.0 s | 0 | 300 s |
+| After, first pass | 84 s, 86 s | 6 passed, twice | 0 | 5 | unchanged |
+| After, review corrections | 90 s, 88 s | 6 passed, twice | 0 | 5 | unchanged |
+| After, final corrections | 88 s | 6 passed | 0 | 5 | unchanged |
+
+The honest reading of the last two columns: eight site-level waits of 34.0 s became
+five windows of 1.5 s that live in the helpers and are documented there. That is a
+reduction, not an elimination, and nothing here should be read as "no waits
+remain".
 
 Two consecutive runs per stage, zero flakes. The saving is roughly 20 s of wall
 time; the larger change is that the negative assertions now run *after* the

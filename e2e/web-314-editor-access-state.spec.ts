@@ -252,23 +252,26 @@ test('a late draft response is quarantined instead of applied', async ({ page })
             body: savedEditorBody,
         })
 
-        // Network receipt is not the same thing as the continuation running.
-        // `requestfinished` only says the browser received the body; the save
-        // continuation is queued once that body resolves and carries no timer. So
-        // receipt is observed first, then the page's task queue is drained, which
-        // is an execution-model barrier rather than a wait of chosen length. Only
-        // after both is the sentinel looked for.
+        // `requestfinished` says the browser received the body. It does not say the
+        // save continuation ran, and no reliable observable says so here: the
+        // continuation returns early by design, so it leaves no trace when it does
+        // the right thing. Draining the page's task queue would prove nothing about
+        // it, so nothing of that kind is claimed.
+        //
+        // What is observable is used, and what is not observable becomes an explicitly
+        // limited window rather than new instrumentation. Earlier in this same
+        // scenario the same save path applied an acceptable response and produced a
+        // visible 'Saved' state, so 'Saved' is a real positive signal for application;
+        // the conflict surface and the recovery-buffer count are kept as guards whose
+        // reachability here was not demonstrated.
         await responseReceived
-        await settlePageTasks(editorPage)
 
-        // The proof is adapted to what is actually watched, and its reachability is
-        // demonstrated rather than assumed: earlier in this same scenario the same
-        // save path, on the same page, applied an acceptable response and produced a
-        // visible 'Saved' state. 'Saved' is therefore a real positive signal for
-        // application, and its absence here is informative. The other two guards —
-        // the conflict surface and the recovery-buffer count — are kept because they
-        // must hold, but their reachability inside this scenario was not
-        // demonstrated, so they are guards rather than proved signals.
+        // NECESSARY NEGATIVE WINDOW, kept on purpose and explicitly weaker than
+        // proof. The continuation carries no timer, so the absence of an applied
+        // outcome can only be observed over a bounded period, and this window says
+        // so rather than implying a witness that does not exist.
+        await editorPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
+
         await expect(editorPage.getByText('Checking project access…')).toBeVisible()
         await expect(editorPage.getByRole('status', { name: 'Saved', exact: true })).toHaveCount(0)
         await expect(editorPage.getByText('The server has newer work')).toHaveCount(0)
@@ -291,11 +294,13 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         // invalidation is only reachable from a `resync-required` frame. A frame
         // cannot be produced from a browser on demand without corrupting the
         // journal cursor, so absence cannot be proven by traversal at this site.
-        // The observation is therefore bounded by the mechanism that would carry
-        // it — the resync path runs the same sequential rounds — and the bound is
-        // explicitly weaker than proof. What is proven without a window is the
-        // part above: the sentinel response was received and its continuation ran
-        // without being applied.
+        // The observation is therefore bounded by the mechanism that would carry it
+        // — the resync path runs the same sequential rounds, and a reconnect is the
+        // stronger case because it invalidates publication editors too — and the
+        // window is explicitly weaker than proof, since those rounds have no fixed
+        // upper bound. What is established without a window is the part above: the
+        // late response was received, and no applied outcome appeared during this
+        // window.
         await editorPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
         await expect(editorPage.getByText('Project access removed')).toBeVisible()
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
@@ -479,38 +484,34 @@ async function countRecoveryBuffers(page: Page) {
 //
 //   - the autosave debounce is 650 ms (apps/web/src/components/publication-editor.tsx),
 //     so a pending save can still dispatch that long after the last keystroke;
-//   - a live event or a stream reconnect invalidates dashboard queries through
+//   - a live event invalidates dashboard queries through
 //     `reconnectRefreshDelays = [0, 80, 240, 800]`
-//     (apps/web/src/lib/project-realtime.tsx). Those delays are *sequential*: the
-//     loop awaits each delay and then awaits that round's invalidations, so the
-//     rounds run at 0, then after 80 ms, then after a further 240 ms, then after a
-//     further 800 ms — and each round's refetches are part of that elapsed time.
+//     (apps/web/src/lib/project-realtime.tsx);
+//   - a stream reconnect does the same *and* more: `refresh('project', true, true)`
+//     on reconnect invalidates publication editors as well, and
+//     `refresh('project', true, true)` on `resync-required` does too. So a reconnect
+//     is not a weaker case than an event, it is a stronger one.
 //
-// The sum of the delays is therefore a floor of about 1.12 s, not a deadline, and
-// there is no fixed upper bound: the work each round triggers is included and
-// depends on how many queries are active and how long they take. This constant is
-// an observation window, deliberately named as one. It is not a guarantee that the
-// mechanism has finished, and no assertion here rests on it alone — each site also
-// observes the mechanism itself, either by requiring a delivery it triggered or by
-// naming the window as a limitation it cannot cross.
+// Those delays are *sequential*: the loop awaits each delay and then awaits that
+// round's invalidations, so the rounds run at 0, then after 80 ms, then after a
+// further 240 ms, then after a further 800 ms, and each round's refetches are part
+// of that elapsed time.
+//
+// The sum of the delays is a floor of about 1.12 s, not a deadline. There is no
+// fixed upper bound at all: the work each round triggers is inside the elapsed time
+// and depends on how many queries are active and how long they take. This constant
+// is therefore an observation window and is named as one. It is not a guarantee that
+// any mechanism has finished, and no assertion rests on it alone — each site either
+// observes the mechanism it cares about by requiring a delivery it triggered, or
+// states plainly that its window is weaker than proof.
+//
+// Note where the windows now live: the retained ones are inside the traversal
+// helpers, not at the call sites, so a call site showing no wait does not mean the
+// mechanism is unobserved there.
 const SETTLEMENT_OBSERVATION_MS = 1_500
 
 const draftPatchPath = (url: string): boolean =>
     new URL(url).pathname.endsWith('/draft') && !new URL(url).pathname.endsWith('/editor/draft')
-
-/**
- * Drains the page's task queue. The save continuation is queued as a microtask
- * when the response resolves, so a round trip that yields to a macrotask proves
- * the continuation has run. This is an execution-model barrier, not a wait.
- */
-async function settlePageTasks(page: Page): Promise<void> {
-    await page.evaluate(
-        () =>
-            new Promise<void>(resolve => {
-                window.setTimeout(resolve, 0)
-            })
-    )
-}
 
 /** Counts the aborted stream attempts this spec induces by cutting the streams. */
 function countStreamAttempts(page: Page): () => number {
@@ -593,30 +594,29 @@ async function driveEditorReread(input: {
     const isThisEditor = (url: string): boolean => new URL(url).pathname === editorPath
 
     // The reread is what this helper claims to cause, so it is observed rather than
-    // assumed. Two details make the observation specific:
+    // assumed, and the observation is tied to one specific request:
     //
-    //   - a read *start* is counted, not a completion, because a read already in
+    //   - a read *start* is captured, not a completion, because a read already in
     //     flight when the wait is installed would otherwise satisfy a completion
     //     wait and let an unrelated reread pass for this one;
-    //   - the page's task queue is drained and the counter sampled first, so any
-    //     read that could still satisfy the wait has already been counted.
+    //   - the captured request object is the one whose own response is awaited, so a
+    //     different read finishing in the meantime cannot stand in for it;
+    //   - the body of that response is checked for the revision the owner's save
+    //     produced, so a stale response is rejected on content and not only on
+    //     timing.
     //
-    // The draft hint is coalesced on a 100 ms timer before it invalidates the
-    // editor query, so the observer starting a fresh read of this exact project and
-    // publication is what proves the signal was delivered. If delivery were cut, no
-    // hint would arrive, no new read would start, and this helper fails instead of
-    // leaving the caller with a vacuous assertion.
-    let starts = 0
+    // The draft hint is coalesced on a 100 ms timer before it invalidates the editor
+    // query, so the observer starting a fresh read of this exact project and
+    // publication, and receiving that revision, is what shows the signal was
+    // delivered. If delivery were cut, no hint would arrive, no read would start, and
+    // this helper fails instead of leaving the caller with a vacuous assertion.
+    // A box rather than a narrowed variable: the handler runs on a later turn, so
+    // the compiler cannot see that the poll below guarantees it is set by then.
+    const captured: { request: Request | null } = { request: null }
     input.observerPage.on('request', request => {
-        if (request.method() === 'GET' && isThisEditor(request.url())) starts += 1
+        if (captured.request !== null) return
+        if (request.method() === 'GET' && isThisEditor(request.url())) captured.request = request
     })
-    await settlePageTasks(input.observerPage)
-    const readsBefore = starts
-    const rereadFinished = input.observerPage.waitForEvent('requestfinished', {
-        predicate: request => request.method() === 'GET' && isThisEditor(request.url()),
-        timeout: 30_000,
-    })
-
     const editorState = await input.ownerPage.request.get(editorPath)
     expect(editorState.status()).toBe(200)
     const revision = ((await editorState.json()) as { editor: { draft: { revision: number } } })
@@ -634,16 +634,25 @@ async function driveEditorReread(input: {
         }
     )
     expect(saved.status()).toBe(200)
+    const savedRevision = ((await saved.json()) as { editor: { draft: { revision: number } } })
+        .editor.draft.revision
 
     await expect
-        .poll(() => starts, {
+        .poll(() => captured.request !== null, {
             timeout: 30_000,
             message:
                 'The observer never started a new editor read, so the draft hint did not arrive. ' +
                 'Stream delivery may be cut, or the editor query may not be active.',
         })
-        .toBeGreaterThan(readsBefore)
-    await rereadFinished
+        .toBe(true)
+    const reread = captured.request
+    if (reread === null) throw new Error('The captured editor read was lost')
+    const rereadResponse = await reread.response()
+    expect(rereadResponse).not.toBeNull()
+    if (rereadResponse === null) throw new Error('The reread produced no response')
+    await rereadResponse.finished()
+    const observed = (await rereadResponse.json()) as { editor: { draft: { revision: number } } }
+    expect(observed.editor.draft.revision).toBe(savedRevision)
     await input.observerPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
 }
 
