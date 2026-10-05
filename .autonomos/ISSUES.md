@@ -4121,3 +4121,13 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Every calendar reading mode stays fully readable for viewers, with no create or bulk-mutation entry point, and the contextual sheet names the consultation action honestly.
 - Tasks: WEB-311 (completed)
 - Resolution: the week/day time-grid `+` now honors the same `showDayAddButton` flag the month view already used, so no create affordance survives for viewers in any reading mode, and the contextual sheet requires editor rights in addition to an editable lifecycle state before naming the action as editing. Navigation, event opening, and the existing translations are unchanged; server rights are unchanged.
+
+## [ISSUE-156] Dashboard state after live loss of project access is undefined
+
+- Type: problem
+- Status: open
+- Evidence: WEB-310 and WEB-311 established the static viewer experience, and ACCESS-309 established that the server stops answering reads for a removed project (hidden 404). Nothing establishes what the already-open dashboard does when access disappears mid-session: whether an open Overview, Queue or editor notices, what previously fetched data remains on screen, whether stale mutating controls stay armed, how the SSE stream reacts, and whether an unsaved local draft survives.
+- Impact: A user can keep consulting, and possibly acting on, a project they no longer have. The server still refuses, so this is not an authorization failure, but the interface can misrepresent both what data is visible and what is still possible.
+- Desired outcome: The post-revocation behavior of an open session is diagnosed with reproducible evidence, and the correction is bounded to removal of interface data plus preservation of local work, without polling or a general cache purge.
+- Tasks: WEB-312 (completed)
+- Resolution: diagnosis delivered with two-session browser evidence and deterministic stream tests. Server protection is immediate and complete; the stream announces access loss within one heartbeat and is silent on a role narrowing; refused refetches empty the list surfaces and a navigation drops the project entirely, but the project identity, the cached editor role and the open editable publication survive because a refused refetch cannot replace the last successful data. Unsaved local work is preserved by the existing recovery buffer. No behavior was changed. The proposed correction removes project-scoped caches on the existing signal without purging the client, and leaves copy, disposition of local work, stay-or-navigate, and role-change announcement as owner decisions.
