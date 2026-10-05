@@ -1482,6 +1482,7 @@
     "editor_schedule_updated": "Programmation mise à jour.",
     "editor_returned_draft": "Publication repassée en brouillon.",
     "editor_access_checking": "Vérification de l’accès au projet…",
+    "editor_access_reconciling": "Confirmation de la dernière version serveur…",
     "editor_access_denied_title": "Accès au projet retiré",
     "editor_application_unconfirmed": "L’application n’a pas pu être confirmée. Vérifiez le serveur avant de réessayer.",
     "editor_check_server": "Vérifier l’état serveur",

@@ -95,6 +95,12 @@ function PublicationEditorRoute() {
         if (accessRef.current.role !== null) dispatchAccess({ type: 'clear-role-override' })
     }, [projectRole])
 
+    // Synchronous check-and-set: several triggers processed before the next
+    // render share the same stale status, so the status guard alone cannot
+    // deduplicate them. The ref guarantees a single verification launch per
+    // epoch even when refusals land in the same microtask drain.
+    const verificationRequestEpoch = useRef<number | null>(null)
+
     const verifyAccess = useCallback(
         async (epoch: number) => {
             try {
@@ -104,37 +110,51 @@ function PublicationEditorRoute() {
             } catch (error) {
                 if (accessRef.current.epoch !== epoch) return
                 dispatchAccess({ type: classifyMembershipVerificationError(error) })
+            } finally {
+                if (verificationRequestEpoch.current === epoch)
+                    verificationRequestEpoch.current = null
             }
         },
         [projectId]
     )
 
+    const requestVerification = useCallback(
+        (action: 'access-revoked' | 'refetch-refused' | 'retry-verification') => {
+            const previous = accessRef.current
+            if (action === 'retry-verification') {
+                if (previous.status !== 'technical-error') return
+            } else if (previous.status !== 'confirmed') return
+            const epoch = previous.epoch + 1
+            if (verificationRequestEpoch.current === epoch) return
+            verificationRequestEpoch.current = epoch
+            dispatchAccess({ type: action })
+            void verifyAccess(epoch)
+        },
+        [verifyAccess]
+    )
+
     useEffect(
         () =>
             subscribeProjectAccessRevocation(projectId, () => {
-                const previous = accessRef.current
-                dispatchAccess({ type: 'access-revoked' })
-                if (previous.status === 'confirmed') void verifyAccess(previous.epoch + 1)
+                requestVerification('access-revoked')
             }),
-        [projectId, verifyAccess]
+        [projectId, requestVerification]
     )
 
     const retryAccessVerification = useCallback(() => {
-        const current = accessRef.current
-        if (current.status !== 'technical-error') return
-        dispatchAccess({ type: 'retry-verification' })
-        void verifyAccess(current.epoch + 1)
-    }, [verifyAccess])
+        requestVerification('retry-verification')
+    }, [requestVerification])
+
+    const handleAccessReconciled = useCallback((succeeded: boolean) => {
+        dispatchAccess({ type: succeeded ? 'reconcile-succeeded' : 'reconcile-failed' })
+    }, [])
 
     // An authoritative refusal from an editor-owned request carries the same
     // ambiguity as the stream signal when transports degrade, so it starts the
     // same one-shot verification instead of leaving stale actions armed.
     const handleEditorRequestRefused = useCallback(() => {
-        const previous = accessRef.current
-        if (previous.status !== 'confirmed') return
-        dispatchAccess({ type: 'refetch-refused' })
-        void verifyAccess(previous.epoch + 1)
-    }, [verifyAccess])
+        requestVerification('refetch-refused')
+    }, [requestVerification])
 
     const effectiveRole = access.role ?? projectRole
     const routeReadOnly = effectiveRole === 'viewer'
@@ -162,17 +182,15 @@ function PublicationEditorRoute() {
         if (!(editorQueryError instanceof ApiError)) return
         if (editorQueryError.status !== 403 && editorQueryError.status !== 404) return
         if (!editorQueryHasData) return
-        const previous = accessRef.current
-        if (previous.status !== 'confirmed') return
-        dispatchAccess({ type: 'refetch-refused' })
-        void verifyAccess(previous.epoch + 1)
-    }, [editorQueryError, editorQueryHasData, verifyAccess])
+        requestVerification('refetch-refused')
+    }, [editorQueryError, editorQueryHasData, requestVerification])
 
     if (access.status === 'denied') return <AccessRemovedSurface />
 
     return (
         <>
             {access.status === 'verifying' ? <AccessVerifyingNotice /> : null}
+            {access.status === 'reconciling' ? <AccessReconcilingNotice /> : null}
             {access.status === 'technical-error' ? (
                 <AccessTechnicalErrorNotice onRetry={retryAccessVerification} />
             ) : null}
@@ -194,6 +212,7 @@ function PublicationEditorRoute() {
                 accessStatus={access.status}
                 accessEpoch={access.epoch}
                 onAccessRefused={handleEditorRequestRefused}
+                onAccessReconciled={handleAccessReconciled}
                 channels={activeChannels}
                 publisherConnections={connections}
                 relatedPublications={relatedPublications}
@@ -212,6 +231,19 @@ function AccessVerifyingNotice() {
                 role="status"
                 className="rounded-md bg-surface-inset/35 px-3 py-2.5 text-sm text-muted-foreground shadow-surface">
                 {m.editor_access_checking()}
+            </p>
+        </div>
+    )
+}
+
+function AccessReconcilingNotice() {
+    useLanguage()
+    return (
+        <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+            <p
+                role="status"
+                className="rounded-md bg-surface-inset/35 px-3 py-2.5 text-sm text-muted-foreground shadow-surface">
+                {m.editor_access_reconciling()}
             </p>
         </div>
     )

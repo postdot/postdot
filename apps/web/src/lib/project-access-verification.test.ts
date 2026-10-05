@@ -42,16 +42,29 @@ describe('project access verification', () => {
             type: 'access-revoked',
         })
 
-        const confirmed = projectAccessReducer(verifying, {
+        // Editors and owners reconcile before resuming; viewers confirm at once.
+        const reconciling = projectAccessReducer(verifying, {
+            type: 'verification-succeeded',
+            role: 'editor',
+        })
+        expect(reconciling).toEqual({ status: 'reconciling', role: 'editor', epoch: 1 })
+        const confirmed = projectAccessReducer(reconciling, { type: 'reconcile-succeeded' })
+        expect(confirmed).toEqual({ status: 'confirmed', role: 'editor', epoch: 1 })
+        const suspended = projectAccessReducer(reconciling, { type: 'reconcile-failed' })
+        expect(suspended).toEqual({ status: 'technical-error', role: 'editor', epoch: 1 })
+
+        const viewer = projectAccessReducer(verifying, {
             type: 'verification-succeeded',
             role: 'viewer',
         })
-        expect(confirmed).toEqual({ status: 'confirmed', role: 'viewer', epoch: 1 })
+        expect(viewer).toEqual({ status: 'confirmed', role: 'viewer', epoch: 1 })
 
         const stale = createProjectAccessState()
         expect(
             projectAccessReducer(stale, { type: 'verification-succeeded', role: 'editor' })
         ).toBe(stale)
+        expect(projectAccessReducer(stale, { type: 'reconcile-succeeded' })).toBe(stale)
+        expect(projectAccessReducer(stale, { type: 'reconcile-failed' })).toBe(stale)
         expect(projectAccessReducer(stale, { type: 'verification-denied' })).toBe(stale)
         expect(projectAccessReducer(stale, { type: 'verification-failed' })).toBe(stale)
 

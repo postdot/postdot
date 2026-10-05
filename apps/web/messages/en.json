@@ -1482,6 +1482,7 @@
     "editor_schedule_updated": "Scheduled publication updated.",
     "editor_returned_draft": "Publication returned to draft.",
     "editor_access_checking": "Checking project access…",
+    "editor_access_reconciling": "Confirming the latest server version…",
     "editor_access_denied_title": "Project access removed",
     "editor_application_unconfirmed": "Application could not be confirmed. Check the server before trying again.",
     "editor_check_server": "Check server status",

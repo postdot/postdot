@@ -4,9 +4,16 @@ import type { ProjectMemberRole } from '@/lib/api'
  * Explicit access assessment for one open project. `confirmed` is the only
  * state that permits new server writes. `verifying` never asserts revocation:
  * the `project.access-revoked` signal cannot distinguish genuine revocation
- * from an unavailable authorization check.
+ * from an unavailable authorization check. `reconciling` keeps writes frozen
+ * after a successful membership read until the editor snapshot is reconciled,
+ * so nothing restarts before reconciliation completes.
  */
-export type ProjectAccessStatus = 'confirmed' | 'verifying' | 'denied' | 'technical-error'
+export type ProjectAccessStatus =
+    | 'confirmed'
+    | 'verifying'
+    | 'reconciling'
+    | 'denied'
+    | 'technical-error'
 
 export interface ProjectAccessState {
     readonly status: ProjectAccessStatus
@@ -27,6 +34,8 @@ export type ProjectAccessAction =
     | { readonly type: 'access-revoked' }
     | { readonly type: 'refetch-refused' }
     | { readonly type: 'verification-succeeded'; readonly role: ProjectMemberRole }
+    | { readonly type: 'reconcile-succeeded' }
+    | { readonly type: 'reconcile-failed' }
     | { readonly type: 'verification-denied' }
     | { readonly type: 'verification-failed' }
     | { readonly type: 'retry-verification' }
@@ -52,7 +61,18 @@ export function projectAccessReducer(
             return { status: 'verifying', role: state.role, epoch: state.epoch + 1 }
         case 'verification-succeeded':
             if (state.status !== 'verifying') return state
-            return { status: 'confirmed', role: action.role, epoch: state.epoch }
+            // A viewer needs no snapshot reconciliation: read-only mode
+            // applies immediately. Editors and owners stay frozen while the
+            // server editor is reread.
+            if (action.role === 'viewer')
+                return { status: 'confirmed', role: action.role, epoch: state.epoch }
+            return { status: 'reconciling', role: action.role, epoch: state.epoch }
+        case 'reconcile-succeeded':
+            if (state.status !== 'reconciling') return state
+            return { status: 'confirmed', role: state.role, epoch: state.epoch }
+        case 'reconcile-failed':
+            if (state.status !== 'reconciling') return state
+            return { status: 'technical-error', role: state.role, epoch: state.epoch }
         case 'verification-denied':
             if (state.status !== 'verifying') return state
             return { status: 'denied', role: state.role, epoch: state.epoch }

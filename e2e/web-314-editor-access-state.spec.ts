@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type Page, type Route } from '@playwright/test'
+import { expect, test, type Page, type Request, type Route } from '@playwright/test'
 
 // WEB-314 is a bounded first implementation on the publication editor page.
 // These specs prove suspension, late-response quarantine, and confirmation
@@ -505,3 +505,339 @@ async function createAccountAndProject(page: Page, suffix: string) {
     }
     return { projectId: match[1] }
 }
+
+test('defers the editor reread after confirmation and starts nothing first', async ({ page }) => {
+    test.setTimeout(300_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    const owner = await createAccountAndProject(page, suffix)
+    const publication = await createPublication(page, owner.projectId, suffix)
+
+    const editorEmail = `e2e-314-deferred-${suffix}@herald.local`
+    const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
+
+    const browser = page.context().browser()
+    expect(browser).not.toBeNull()
+    if (browser === null) throw new Error('The WEB-314 browser was not created')
+
+    const editorContext = await browser.newContext()
+    const editorPage = await editorContext.newPage()
+
+    try {
+        await acceptProjectInvitation(
+            editorPage,
+            editorInvitation,
+            owner.projectId,
+            editorEmail,
+            `E2E-314 deferred ${suffix}`,
+            'e2e-314-deferred-password'
+        )
+        const member = await waitForProjectMember(page, owner.projectId, editorEmail)
+
+        await editorPage.goto(
+            `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
+        )
+        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        await expect(sourceBody).toBeVisible()
+        await sourceBody.click()
+        await editorPage.keyboard.type('Local work awaiting reconciliation')
+        await editorPage.keyboard.press('Tab')
+        await expect(editorPage.getByRole('status', { name: 'Saved', exact: true })).toBeVisible({
+            timeout: 30_000,
+        })
+
+        // Hold the verification read and the reconcile reread; count every
+        // mutating request so a premature restart would be visible.
+        let releaseMembership!: () => void
+        const membershipGate = new Promise<void>(resolve => {
+            releaseMembership = resolve
+        })
+        let releaseEditorRead!: () => void
+        const editorReadGate = new Promise<void>(resolve => {
+            releaseEditorRead = resolve
+        })
+        let mutatingRequests = 0
+        editorPage.on('request', request => {
+            const url = new URL(request.url())
+            if (request.method() === 'GET' || !url.pathname.startsWith('/api/')) return
+            mutatingRequests += 1
+        })
+        await editorPage.route('**/api/projects/*/membership', async route => {
+            await membershipGate
+            await route.continue()
+        })
+        await editorPage.route('**/api/projects/*/publications/*/editor', async route => {
+            await editorReadGate
+            await route.continue()
+        })
+
+        const removalResponse = await page.request.delete(
+            `/api/projects/${owner.projectId}/members/${member.id}`
+        )
+        expect(removalResponse.status()).toBe(200)
+
+        // The first write attempted after the revocation starts verification.
+        await sourceBody.click()
+        await editorPage.keyboard.type(' plus a revealing attempt')
+        await expect(editorPage.getByText('Checking project access…')).toBeVisible({
+            timeout: 90_000,
+        })
+
+        // Access is restored, so the held verification confirms and the
+        // machine moves to reconciliation with the reread still held.
+        const restoredGrant = await page.request.post(
+            `/api/projects/${owner.projectId}/user-grants`,
+            { data: { userId: member.userId, role: 'editor' } }
+        )
+        expect(restoredGrant.status()).toBe(201)
+        releaseMembership()
+        await expect(editorPage.getByText('Confirming the latest server version…')).toBeVisible({
+            timeout: 60_000,
+        })
+        // While the reread is deferred, nothing restarts: no autosave and no
+        // other server action may fire before reconciliation succeeds.
+        const mutatingAtReconciling = mutatingRequests
+        await editorPage.waitForTimeout(5_000)
+        expect(mutatingRequests).toBe(mutatingAtReconciling)
+        await expect(editorPage.getByText('Confirming the latest server version…')).toBeVisible()
+
+        // Releasing the reread reconciles against an unchanged server, so the
+        // local draft resumes and saves normally. The save completes with no
+        // remaining local changes, so the existing clean-save cleanup removes
+        // the buffer; that absence here proves the success path really applied
+        // instead of being quarantined.
+        releaseEditorRead()
+        await expect(editorPage.getByRole('status', { name: 'Saved', exact: true })).toBeVisible({
+            timeout: 60_000,
+        })
+        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toContainText(
+            'Local work awaiting reconciliation'
+        )
+        expect(await countRecoveryBuffers(editorPage)).toBe(0)
+    } finally {
+        await editorContext.close()
+    }
+})
+
+test('a failing reread stays suspended with explicit resume', async ({ page }) => {
+    test.setTimeout(300_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    const owner = await createAccountAndProject(page, suffix)
+    const publication = await createPublication(page, owner.projectId, suffix)
+
+    const editorEmail = `e2e-314-suspended-${suffix}@herald.local`
+    const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
+
+    const browser = page.context().browser()
+    expect(browser).not.toBeNull()
+    if (browser === null) throw new Error('The WEB-314 browser was not created')
+
+    const editorContext = await browser.newContext()
+    const editorPage = await editorContext.newPage()
+
+    try {
+        await acceptProjectInvitation(
+            editorPage,
+            editorInvitation,
+            owner.projectId,
+            editorEmail,
+            `E2E-314 suspended ${suffix}`,
+            'e2e-314-suspended-password'
+        )
+        const member = await waitForProjectMember(page, owner.projectId, editorEmail)
+
+        await editorPage.goto(
+            `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
+        )
+        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        await expect(sourceBody).toBeVisible()
+        await sourceBody.click()
+        await editorPage.keyboard.type('Local work surviving a failed reread')
+        await editorPage.keyboard.press('Tab')
+        await expect
+            .poll(() => countRecoveryBuffers(editorPage), { timeout: 15_000 })
+            .toBeGreaterThan(0)
+
+        // Hold the verification read and the first reconcile reread.
+        let releaseMembership!: () => void
+        const membershipGate = new Promise<void>(resolve => {
+            releaseMembership = resolve
+        })
+        let releaseEditorRead!: () => void
+        const editorReadGate = new Promise<void>(resolve => {
+            releaseEditorRead = resolve
+        })
+        await editorPage.route('**/api/projects/*/membership', async route => {
+            await membershipGate
+            await route.continue()
+        })
+        await editorPage.route('**/api/projects/*/publications/*/editor', async route => {
+            await editorReadGate
+            await route.continue()
+        })
+
+        const removalResponse = await page.request.delete(
+            `/api/projects/${owner.projectId}/members/${member.id}`
+        )
+        expect(removalResponse.status()).toBe(200)
+
+        await sourceBody.click()
+        await editorPage.keyboard.type(' plus a revealing attempt')
+        await expect(editorPage.getByText('Checking project access…')).toBeVisible({
+            timeout: 90_000,
+        })
+
+        const restoredGrant = await page.request.post(
+            `/api/projects/${owner.projectId}/user-grants`,
+            { data: { userId: member.userId, role: 'editor' } }
+        )
+        expect(restoredGrant.status()).toBe(201)
+        releaseMembership()
+        await expect(editorPage.getByText('Confirming the latest server version…')).toBeVisible({
+            timeout: 60_000,
+        })
+        // Access disappears again before the reread answers: the reread fails
+        // and the editor must stay suspended instead of resuming or denying.
+        const revokedAgain = await waitForProjectMember(page, owner.projectId, editorEmail)
+        const secondRemoval = await page.request.delete(
+            `/api/projects/${owner.projectId}/members/${revokedAgain.id}`
+        )
+        expect(secondRemoval.status()).toBe(200)
+        releaseEditorRead()
+        await expect(editorPage.getByText('Application could not be confirmed.')).toBeVisible({
+            timeout: 60_000,
+        })
+        await expect(editorPage.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
+        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(0)
+        await expect(
+            editorPage.getByText('Local work surviving a failed reread').first()
+        ).toBeVisible()
+        expect(await countRecoveryBuffers(editorPage)).toBe(1)
+
+        // Explicit resume re-runs the chain once access is restored again.
+        const restoredGrantAgain = await page.request.post(
+            `/api/projects/${owner.projectId}/user-grants`,
+            { data: { userId: member.userId, role: 'editor' } }
+        )
+        expect(restoredGrantAgain.status()).toBe(201)
+        await editorPage.getByRole('button', { name: 'Retry', exact: true }).click()
+        await expect(editorPage.getByRole('status', { name: 'Saved', exact: true })).toBeVisible({
+            timeout: 60_000,
+        })
+        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toContainText(
+            'Local work surviving a failed reread'
+        )
+        // The resumed save completed with no remaining local changes, so the
+        // existing clean-save cleanup removed the buffer; that absence proves
+        // the resume path really applied instead of quarantining.
+        expect(await countRecoveryBuffers(editorPage)).toBe(0)
+    } finally {
+        await editorContext.close()
+    }
+})
+
+test('close refusals before the next render still verify once', async ({ page }) => {
+    test.setTimeout(300_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    const owner = await createAccountAndProject(page, suffix)
+    const publication = await createPublication(page, owner.projectId, suffix)
+
+    const editorEmail = `e2e-314-once-${suffix}@herald.local`
+    const editorInvitation = await createProjectInvitation(page, owner.projectId, editorEmail)
+
+    const browser = page.context().browser()
+    expect(browser).not.toBeNull()
+    if (browser === null) throw new Error('The WEB-314 browser was not created')
+
+    const editorContext = await browser.newContext()
+    const editorPage = await editorContext.newPage()
+
+    // Fully degrade the transport for this test: with the event streams cut,
+    // no flap-driven project-data refetch can issue a membership read, so the
+    // request count below measures verification launches only.
+    await editorPage.route('**/api/projects/*/events', route => route.abort())
+    await editorPage.route('**/api/notifications/events', route => route.abort())
+
+    try {
+        await acceptProjectInvitation(
+            editorPage,
+            editorInvitation,
+            owner.projectId,
+            editorEmail,
+            `E2E-314 once ${suffix}`,
+            'e2e-314-once-password'
+        )
+        const member = await waitForProjectMember(page, owner.projectId, editorEmail)
+
+        await editorPage.goto(
+            `/dashboard/projects/${owner.projectId}/publications/${publication.id}`
+        )
+        const sourceBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
+        await expect(sourceBody).toBeVisible()
+
+        // Hold every draft write and the verification read. Two writes stuck
+        // in flight resolve together after the revocation, so both refusals
+        // reach the machine before React can render between them.
+        let releaseDrafts!: () => void
+        const draftsGate = new Promise<void>(resolve => {
+            releaseDrafts = resolve
+        })
+        await editorPage.route('**/api/projects/*/publications/*/draft', async route => {
+            if (route.request().method() !== 'PATCH') {
+                await route.continue()
+                return
+            }
+            await draftsGate
+            await route.continue()
+        })
+        let releaseMembership!: () => void
+        const membershipGate = new Promise<void>(resolve => {
+            releaseMembership = resolve
+        })
+        await editorPage.route('**/api/projects/*/membership', async route => {
+            await membershipGate
+            await route.continue()
+        })
+        let membershipRequests = 0
+        editorPage.on('request', request => {
+            if (new URL(request.url()).pathname.endsWith('/membership')) {
+                membershipRequests += 1
+            }
+        })
+
+        await sourceBody.click()
+        await editorPage.keyboard.type('first stuck write')
+        const draftWritePattern = (request: Request) =>
+            request.method() === 'PATCH' && new URL(request.url()).pathname.endsWith('/draft')
+        await editorPage.waitForRequest(draftWritePattern, { timeout: 30_000 })
+        await editorPage.keyboard.type(' plus second stuck write')
+        await editorPage.waitForRequest(draftWritePattern, { timeout: 30_000 })
+        await expect
+            .poll(() => countRecoveryBuffers(editorPage), { timeout: 15_000 })
+            .toBeGreaterThan(0)
+
+        const removalResponse = await page.request.delete(
+            `/api/projects/${owner.projectId}/members/${member.id}`
+        )
+        expect(removalResponse.status()).toBe(200)
+
+        // Release both writes at once: the two refusals land in the same
+        // microtask drain, yet a single verification read must start.
+        releaseDrafts()
+        await expect(editorPage.getByText('Checking project access…')).toBeVisible({
+            timeout: 90_000,
+        })
+        await editorPage.waitForTimeout(3_000)
+        expect(membershipRequests).toBe(1)
+
+        releaseMembership()
+        await expect(editorPage.getByText('Project access removed')).toBeVisible({
+            timeout: 60_000,
+        })
+        expect(await countRecoveryBuffers(editorPage)).toBe(1)
+    } finally {
+        await editorContext.close()
+    }
+})

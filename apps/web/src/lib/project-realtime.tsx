@@ -250,7 +250,8 @@ export function subscribeProjectAccessRevocation(
     }
 }
 
-function notifyProjectAccessRevocation(projectId: string): void {
+/** Test and bridge entry point for the local revocation fan-out. */
+export function notifyProjectAccessRevocation(projectId: string): void {
     for (const listener of projectAccessRevocationListeners.get(projectId) ?? []) {
         try {
             listener()

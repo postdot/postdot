@@ -99,6 +99,12 @@ interface PublicationEditorProps {
      * a silent transport, so it starts the same one-shot verification.
      */
     readonly onAccessRefused?: () => void
+    /**
+     * Called with the reconciliation outcome after a successful membership
+     * read. The route owns the machine; the editor only reports what its
+     * reread established.
+     */
+    readonly onAccessReconciled?: (succeeded: boolean) => void
     readonly projectTags: readonly ProjectTag[]
     readonly relatedPublications?: readonly PublicationSummary[]
     readonly backToCalendar?: {
@@ -134,6 +140,7 @@ export function PublicationEditor({
     accessStatus,
     accessEpoch,
     onAccessRefused,
+    onAccessReconciled,
     projectId,
     projectTags,
     relatedPublications = [],
@@ -851,13 +858,11 @@ export function PublicationEditor({
             setMessage(errorMessage(caughtError))
         }
     }
-
     const lastAccessReconciledEpoch = useRef<number | null>(null)
 
     useEffect(() => {
-        if (accessStatus !== 'confirmed' || accessEpoch === 0) return
+        if (accessStatus !== 'reconciling') return
         if (lastAccessReconciledEpoch.current === accessEpoch) return
-        if (!publicationEditable) return
         lastAccessReconciledEpoch.current = accessEpoch
 
         void (async () => {
@@ -898,16 +903,14 @@ export function PublicationEditor({
                               })
                             : m.editor_server_loaded()
                     )
-                    return
-                }
-                if (decision.conflict) {
+                } else if (decision.conflict) {
                     setSaveState('conflict')
                     setMessage(m.editor_server_newer_local())
                 }
-            } catch (caughtError) {
+                onAccessReconciled?.(true)
+            } catch {
                 if (accessEpoch !== accessEpochRef.current) return
-                setSaveState('error')
-                setMessage(errorMessage(caughtError))
+                onAccessReconciled?.(false)
             }
         })()
     }, [
@@ -916,6 +919,7 @@ export function PublicationEditor({
         editor.publication.id,
         expectedRevision,
         hasLocalChanges,
+        onAccessReconciled,
         projectId,
         publicationEditable,
         recoveryKey,

@@ -3,6 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import {
     createProjectRealtimeClient,
     createUserRealtimeClient,
+    notifyProjectAccessRevocation,
+    subscribeProjectAccessRevocation,
     type ProjectRealtimeEventSourceLike,
 } from '@/lib/project-realtime'
 
@@ -209,6 +211,29 @@ describe('project realtime event source', () => {
         ])
         source.close()
     })
+})
+
+test('fans a project access revocation out to that project subscribers only', () => {
+    const first: string[] = []
+    const second: string[] = []
+    const unsubscribeFirst = subscribeProjectAccessRevocation('project-1', () =>
+        first.push('revoked')
+    )
+    const unsubscribeSecond = subscribeProjectAccessRevocation('project-2', () =>
+        second.push('revoked')
+    )
+
+    notifyProjectAccessRevocation('project-1')
+    expect(first).toEqual(['revoked'])
+    expect(second).toEqual([])
+
+    unsubscribeFirst()
+    notifyProjectAccessRevocation('project-1')
+    expect(first).toEqual(['revoked'])
+
+    unsubscribeSecond()
+    notifyProjectAccessRevocation('project-2')
+    expect(second).toEqual([])
 })
 
 test('accepts scoped draft hints without treating them as durable events', () => {
