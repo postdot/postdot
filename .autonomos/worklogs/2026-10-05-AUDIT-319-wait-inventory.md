@@ -123,6 +123,106 @@ instead of being absorbed by a long sleep.
 - No combining with the SSE removal itself: SSE-318 is already landed, and this
   pass only removes what it made redundant.
 
+## First pass, applied: WEB-314 only
+
+The mechanism question decided the shape of the replacements, and the answer came
+from the code rather than from taste.
+
+### The mechanisms that could produce the forbidden action
+
+| Mechanism | Where | Shape |
+| --------- | ----- | ----- |
+| Autosave debounce | `publication-editor.tsx` | one `setTimeout(…, 650)`, re-armed on each dirty transition |
+| Save promise continuation | `publication-editor.tsx` | `.then/.catch/.finally`, **no timer**, guarded by `accessEpoch` and generation |
+| Query invalidation rounds | `project-realtime.tsx` | `[0, 80, 240, 800]` ms after any event or reconnect, so the last round is at +800 ms |
+| Reconnect full invalidation | `project-realtime.tsx` | `refresh('project', true, true)` on reconnect, including publication editors |
+| Browser EventSource retry | the browser | a fresh attempt a few seconds after a failed stream |
+
+**This is why a generic 500 ms quiet window is wrong rather than merely
+optimistic.** The last invalidation round fires at +800 ms. A window that closes
+at 500 ms has already reported success while the mechanism it was meant to watch
+is still scheduled to run. The budget used here is `REFRESH_BURST_SETTLE_MS =
+1_500`, derived as "the 800 ms round plus the request it causes, with margin",
+and every site that uses it first proves the mechanism actually ran.
+
+### What was replaced, and with what
+
+| Site | Before | After |
+| ---- | ------ | ----- |
+| held draft response, `waitForTimeout(3_000)` | pause | `waitForEvent('requestfinished', …)` on the draft PATCH — the continuation has no timer, so request completion is the exact moment it becomes runnable |
+| frozen editor, `waitForTimeout(3_000)` | pause | owner renames a channel → real `project.update` on the live stream → observed refetch on the observer → counter asserted |
+| removal surface, `waitForTimeout(5_000)` | pause | same traversal, a second time |
+| retry state, `waitForTimeout(5_000)` | pause | same traversal; the membership count is deliberately not asserted here, see below |
+| reconciled editor, `waitForTimeout(5_000)` | pause | owner saves the same draft → real `project.draft-changed` → the editor really is reread |
+| deferred reread, `waitForTimeout(5_000)` | pause | same traversal while the reread is held |
+| close refusals, `waitForTimeout(3_000)` | pause | wait for an **observed** additional EventSource attempt, then the derived budget |
+
+Two of these traversals were impossible before SSE-318. Driving a real event into
+a connected tab requires a connected stream, and the stream used to die after ten
+seconds. That is the concrete link between the two missions: the pauses existed
+because the mechanism could not be reached.
+
+### The one window kept, and why
+
+The late-draft-response scenario keeps a bounded wait before re-asserting the
+removal surface and the buffer count. The forbidden action there is a purge caused
+by a reconnect-driven **full** invalidation that includes publication editors, and
+that invalidation is only reachable from a `resync-required` frame. A frame cannot
+be produced from a browser on demand without corrupting the journal cursor, so
+absence cannot be proven by traversal. What is done instead is bounding the
+observation by the mechanism that would carry it: the resync path uses the same
+`[0, 80, 240, 800]` ms rounds, so the budget outlives the last of them. This is
+recorded as a known limit, not presented as equivalent.
+
+### One assertion deliberately withdrawn
+
+In the retry scenario the membership read count is no longer asserted. Every
+project-data refetch reads membership as part of loading project data —
+`loadProjectData` calls `getProjectMembership` in `dashboard-context.tsx` — so on a
+live stream that endpoint cannot separate a verification launch from a background
+read, and the first version of this pass failed exactly there (`1` became `3`).
+Counting it measures the refresh rounds, not the retry. Exactly-once verification
+is measured where it is measurable: in the scenario that cuts both streams, where
+membership reads can only come from verification, and in the reducer unit tests.
+Withdrawing it is honest; leaving it would have been a false guarantee.
+
+### Verification by injection
+
+A temporary shaft scheduled an undesirable request from the page and was never
+committed. Results, all on this spec:
+
+| Site | Injected action | Injected at | Result |
+| ---- | --------------- | ----------- | ------ |
+| frozen editor | extra draft PATCH | 500 ms | fails, 1 → 2 |
+| frozen editor | extra draft PATCH | 800 ms | fails, 1 → 2 |
+| frozen editor | extra draft PATCH | 1000 ms | fails, 1 → 2 |
+| deferred reread | extra mutating request | 800 ms | fails, 1 → 2 |
+| close refusals | second membership read | 800 ms | fails, 1 → 2 |
+
+And the control, which is the point of the whole exercise: the naive replacement
+the owner rejected — a bare 500 ms quiet window, no traversal — **passed** with an
+undesirable mutating request injected at 800 ms and again at 1 s. The window closed
+and reported success while the mechanism was still scheduled to fire.
+
+The traversal helpers also require the observed refetch, so a stream that silently
+stops delivering fails the helper rather than turning a negative assertion into a
+vacuous pass.
+
+### Before and after
+
+| | Wall | Scenarios | Fixed waits | Largest ceiling |
+| - | ---- | --------- | ----------- | --------------- |
+| Before | 107 s | 6 passed | 8, totalling 34.0 s | 300 s |
+| After | 84 s, 86 s | 6 passed, twice | 0 | unchanged |
+
+Two consecutive runs, zero flakes. The saving is 23 s of wall time; the larger
+change is that three of the six negative assertions now run *after* the mechanism
+they watch, instead of hoping it fired inside a window.
+
+Not touched: the `60_000` and `90_000` positive ceilings and the `300_000` scenario
+budgets. Shrinking those is a separate measurement, and the user directed that this
+pass stay limited to WEB-314's waits.
+
 ## Cost and risk
 
 Expected saving is small — roughly 39.8 s of sleep and, more importantly, ceilings

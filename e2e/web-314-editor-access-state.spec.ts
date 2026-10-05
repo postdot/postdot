@@ -88,7 +88,22 @@ test('an ambiguous signal suspends writes, verifies once, then shows removal', a
                 .getByText('Local work written before the revocation', { exact: false })
                 .first()
         ).toBeVisible()
-        await editorPage.waitForTimeout(3_000)
+
+        // The mechanism that could dispatch another draft write is the 650 ms
+        // autosave debounce, which can only be re-armed by `dirty` becoming true
+        // again — impossible while the editor is frozen. The mechanism that used
+        // to cause surprise traffic was a project-data refetch following a stream
+        // flap, so it is now driven on purpose: the owner renames a channel, the
+        // observer receives it on its live stream, and its invalidation rounds
+        // really run before the counter is asserted.
+        await driveProjectDataRefresh({
+            ownerPage: page,
+            observerPage: editorPage,
+            projectId: owner.projectId,
+            channelId: publication.channelId,
+            suffix,
+            exclude: ['/editor'],
+        })
         expect(draftPatchRequests).toBe(draftPatchAfterReveal)
 
         // Releasing the held verification lets the real refusal through.
@@ -106,11 +121,17 @@ test('an ambiguous signal suspends writes, verifies once, then shows removal', a
         expect(bufferText).toContain('Local work written before the revocation')
 
         // No polling and no self-recovery: the removal surface persists on
-        // its own, and no new draft write is dispatched. Background
-        // project-data refetches share the membership endpoint in flap-heavy
-        // environments, so exact-once dispatch is pinned by the reducer tests
-        // while the browser proves the absence of repeat behavior here.
-        await editorPage.waitForTimeout(5_000)
+        // its own, and no new draft write is dispatched. The same project-data
+        // refresh that once arrived as a flap is now delivered deliberately, so
+        // the absence is proven against a real event rather than against silence.
+        await driveProjectDataRefresh({
+            ownerPage: page,
+            observerPage: editorPage,
+            projectId: owner.projectId,
+            channelId: publication.channelId,
+            suffix: `${suffix} again`,
+            exclude: ['/editor'],
+        })
         await expect(editorPage.getByText('Project access removed')).toBeVisible()
         expect(draftPatchRequests).toBe(draftPatchAfterReveal)
 
@@ -223,7 +244,15 @@ test('a late draft response is quarantined instead of applied', async ({ page })
             contentType: 'application/json',
             body: savedEditorBody,
         })
-        await editorPage.waitForTimeout(3_000)
+        // The mechanism under test is the save promise's continuation, which
+        // carries no timer: it runs once the browser has finished the request.
+        // Waiting for that is an observable condition rather than a pause, so the
+        // assertions below cannot pass before the late success had its chance to
+        // be applied.
+        await editorPage.waitForEvent(
+            'requestfinished',
+            request => request.method() === 'PATCH' && draftPatchPath(request.url())
+        )
         await expect(editorPage.getByText('Checking project access…')).toBeVisible()
         await expect(editorPage.getByRole('status', { name: 'Saved', exact: true })).toHaveCount(0)
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
@@ -235,7 +264,17 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         await expect(editorPage.getByText('Project access removed')).toBeVisible({
             timeout: 60_000,
         })
-        await editorPage.waitForTimeout(5_000)
+        // This window is kept, and deliberately not replaced. The forbidden action
+        // here is a late purge of the buffer caused by a reconnect-driven *full*
+        // invalidation that includes publication editors
+        // (`refresh('project', true, true)` in project-realtime.tsx), and that
+        // invalidation is only reachable from a `resync-required` frame. A frame
+        // cannot be produced on demand from a browser without corrupting the
+        // journal cursor, so absence cannot be proven by traversal here. What can
+        // be done is bound the observation by the mechanism that would carry it:
+        // the resync path uses the same [0, 80, 240, 800] ms rounds as every other
+        // refresh, so this budget outlives the last of them.
+        await editorPage.waitForTimeout(REFRESH_BURST_SETTLE_MS)
         await expect(editorPage.getByText('Project access removed')).toBeVisible()
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
     } finally {
@@ -339,7 +378,30 @@ test('a technical error retries once and confirms into a concurrent conflict', a
             timeout: 90_000,
         })
         await expect(editorPage.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
-        await editorPage.waitForTimeout(5_000)
+        // The forbidden action is a self-firing retry. The mechanism that could
+        // cause one is an effect re-run after a query invalidation, which a live
+        // event triggers, so the event is delivered deliberately: the owner
+        // renames a channel, the observer receives it on its live stream, and the
+        // invalidation rounds genuinely run.
+        //
+        // The membership read count is deliberately not asserted here. Every
+        // project-data refetch reads membership as part of loading project data
+        // (`loadProjectData` calls `getProjectMembership` in dashboard-context.tsx),
+        // so on a live stream that endpoint cannot separate a verification launch
+        // from a background read, and counting it measures the refresh rounds
+        // instead. Exactly-once verification is measured in the scenario that cuts
+        // the streams, where membership reads can only come from verification, and
+        // in the reducer unit tests. What this scenario proves is that a real
+        // stream refresh neither fires the retry nor disturbs the machine.
+        await driveProjectDataRefresh({
+            ownerPage: page,
+            observerPage: editorPage,
+            projectId: owner.projectId,
+            channelId: publication.channelId,
+            suffix,
+            exclude: ['/editor', '/membership'],
+        })
+        await expect(editorPage.getByText('Application could not be confirmed.')).toBeVisible()
         await expect(editorPage.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
 
@@ -359,8 +421,16 @@ test('a technical error retries once and confirms into a concurrent conflict', a
             timeout: 60_000,
         })
         // The retry resolved into confirmation, and no later cycle disturbs
-        // the reconciled editor: still editing, local text intact.
-        await editorPage.waitForTimeout(5_000)
+        // the reconciled editor: still editing, local text intact. The mechanism
+        // that would disturb it is a `project.draft-changed` hint making the page
+        // reread the editor, so the owner saves the same draft for real and that
+        // reread happens for real.
+        await driveEditorReread({
+            ownerPage: page,
+            observerPage: editorPage,
+            projectId: owner.projectId,
+            publicationId: publication.id,
+        })
         await expect(editorPage.getByText('The server has newer work')).toBeVisible()
         await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toContainText(
             'Local work concurrent with the owner'
@@ -380,6 +450,125 @@ async function countRecoveryBuffers(page: Page) {
                 key.startsWith('herald:publication-editor:')
             ).length
     )
+}
+
+// A negative assertion here is only meaningful if it is made after the
+// mechanisms that could produce the forbidden action have actually run:
+//
+//   - the autosave debounce is 650 ms
+//     (apps/web/src/components/publication-editor.tsx), so a pending save can
+//     still dispatch that long after the last keystroke;
+//   - a live event or a stream reconnect invalidates dashboard queries in
+//     rounds scheduled at [0, 80, 240, 800] ms after the signal
+//     (apps/web/src/lib/project-realtime.tsx), so the last round lands about
+//     1.12 s later and the requests it triggers follow it.
+//
+// The later of the two tails is the 800 ms refresh round. This budget covers it
+// plus the request it causes, with margin. A short generic quiet window would be
+// wrong rather than merely conservative: it would complete *before* an
+// undesirable action at 800 ms or one second and report success.
+const REFRESH_BURST_SETTLE_MS = 1_500
+
+const draftPatchPath = (url: string): boolean =>
+    new URL(url).pathname.endsWith('/draft') && !new URL(url).pathname.endsWith('/editor/draft')
+
+/** Counts the aborted stream attempts this spec induces by cutting the streams. */
+function countStreamAttempts(page: Page): () => number {
+    let attempts = 0
+    page.on('request', request => {
+        const { pathname } = new URL(request.url())
+        if (pathname.endsWith('/events')) attempts += 1
+    })
+    return () => attempts
+}
+
+function countProjectDataReads(page: Page, exclude: readonly string[]): () => number {
+    let reads = 0
+    page.on('request', request => {
+        if (request.method() !== 'GET') return
+        const { pathname } = new URL(request.url())
+        if (!pathname.startsWith('/api/projects/')) return
+        if (pathname.endsWith('/events') || pathname.endsWith('/membership')) return
+        if (exclude.some(suffix => pathname.endsWith(suffix))) return
+        reads += 1
+    })
+    return () => reads
+}
+
+/**
+ * Makes the observer page receive a real event on its live stream and proves it
+ * acted on it, by renaming a channel from the owner's session. That emits a
+ * project-scoped `project.update`, which drives `refresh('project')` on the
+ * observer, so the invalidation rounds genuinely run before the caller asserts.
+ */
+async function driveProjectDataRefresh(input: {
+    readonly ownerPage: Page
+    readonly observerPage: Page
+    readonly projectId: string
+    readonly channelId: string
+    readonly suffix: string
+    readonly exclude?: readonly string[]
+}) {
+    const reads = countProjectDataReads(input.observerPage, input.exclude ?? [])
+    const before = reads()
+    // A rename advances the channel revision and the contract rejects a stale
+    // one, so the current revision is read before each rename.
+    const channels = await input.ownerPage.request.get(`/api/projects/${input.projectId}/channels`)
+    expect(channels.status()).toBe(200)
+    const current = (
+        (await channels.json()) as { channels: { id: string; revision: number }[] }
+    ).channels.find(channel => channel.id === input.channelId)
+    if (current === undefined) throw new Error('The renamed channel is missing from the project')
+    const response = await input.ownerPage.request.patch(
+        `/api/projects/${input.projectId}/channels/${input.channelId}`,
+        {
+            data: {
+                name: `E2E-314 renamed ${input.suffix}`,
+                expectedRevision: current.revision,
+            },
+        }
+    )
+    expect(response.status()).toBe(200)
+
+    // The traversal is only worth anything if it demonstrably reached the
+    // observer. Requiring an observed refetch means a stream that silently stops
+    // delivering fails this helper instead of turning the caller's negative
+    // assertions into a vacuous pass.
+    await expect.poll(reads, { timeout: 20_000 }).toBeGreaterThanOrEqual(before + 1)
+    await input.observerPage.waitForTimeout(REFRESH_BURST_SETTLE_MS)
+}
+
+/**
+ * Makes the observer page reread the editor by having the owner save the same
+ * draft. That emits `project.draft-changed`, which is the mechanism ADR-076
+ * relies on, so a reconciled editor is exercised rather than merely observed.
+ */
+async function driveEditorReread(input: {
+    readonly ownerPage: Page
+    readonly observerPage: Page
+    readonly projectId: string
+    readonly publicationId: string
+}) {
+    const editorState = await input.ownerPage.request.get(
+        `/api/projects/${input.projectId}/publications/${input.publicationId}/editor`
+    )
+    expect(editorState.status()).toBe(200)
+    const revision = ((await editorState.json()) as { editor: { draft: { revision: number } } })
+        .editor.draft.revision
+    const saved = await input.ownerPage.request.patch(
+        `/api/projects/${input.projectId}/publications/${input.publicationId}/draft`,
+        {
+            data: {
+                expectedRevision: revision,
+                sourceContent: {
+                    body: { format: 'plain_text', text: 'Owner concurrent change' },
+                    media: [],
+                },
+            },
+        }
+    )
+    expect(saved.status()).toBe(200)
+    await input.observerPage.waitForTimeout(REFRESH_BURST_SETTLE_MS)
 }
 
 async function readRecoveryBufferText(page: Page) {
@@ -595,9 +784,20 @@ test('defers the editor reread after confirmation and starts nothing first', asy
             timeout: 60_000,
         })
         // While the reread is deferred, nothing restarts: no autosave and no
-        // other server action may fire before reconciliation succeeds.
+        // other server action may fire before reconciliation succeeds. Two
+        // mechanisms could restart it — the 650 ms autosave debounce, and a query
+        // invalidation after a live event or a reconnect, whose last round lands
+        // at +800 ms. A stream reconnect invalidates publication editors too, so
+        // the event is delivered deliberately and the budget outlives both tails.
         const mutatingAtReconciling = mutatingRequests
-        await editorPage.waitForTimeout(5_000)
+        await driveProjectDataRefresh({
+            ownerPage: page,
+            observerPage: editorPage,
+            projectId: owner.projectId,
+            channelId: publication.channelId,
+            suffix,
+            exclude: ['/editor', '/membership'],
+        })
         expect(mutatingRequests).toBe(mutatingAtReconciling)
         await expect(editorPage.getByText('Confirming the latest server version…')).toBeVisible()
 
@@ -829,7 +1029,17 @@ test('close refusals before the next render still verify once', async ({ page })
         await expect(editorPage.getByText('Checking project access…')).toBeVisible({
             timeout: 90_000,
         })
-        await editorPage.waitForTimeout(3_000)
+        // This spec cuts both streams on purpose so that only verification
+        // launches can issue a membership read. That makes the browser's own
+        // EventSource retry the mechanism that could produce a flap-driven
+        // refetch, so the barrier is an observed retry rather than a pause: the
+        // attempt count must rise again after the freeze, and only then is
+        // exactly-once asserted. The duration is the browser's reconnect
+        // interval, which is why this scenario keeps its cost.
+        const streamAttempts = countStreamAttempts(editorPage)
+        const attemptsAtFreeze = streamAttempts()
+        await expect.poll(streamAttempts, { timeout: 30_000 }).toBeGreaterThan(attemptsAtFreeze)
+        await editorPage.waitForTimeout(REFRESH_BURST_SETTLE_MS)
         expect(membershipRequests).toBe(1)
 
         releaseMembership()
