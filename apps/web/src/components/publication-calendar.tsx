@@ -339,6 +339,7 @@ export function PublicationCalendar({
                 projectId={projectId}
                 publicationId={previewPublicationId}
                 publications={publications}
+                readOnly={readOnly}
                 timeZone={timeZone}
             />
         </div>

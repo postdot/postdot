@@ -4111,3 +4111,13 @@ posture` is an exact patch duplicate of `aa889111`, and
 - Desired outcome: Overview and calendar expose create and bulk-mutation actions only to owners and editors, while consultation stays identical for every role.
 - Tasks: WEB-310 (completed)
 - Resolution: the Overview header create action, the month day-add affordance, week/day slot creation and the selection-driven bulk reschedule/cancel surface now require the existing editor predicate, mirroring Queue. Viewers keep event inspection, the preview sheet and all reading paths; temporarily unavailable actions keep their disabled reason. The server already answered 403 and is unchanged.
+
+## [ISSUE-155] Viewer consultation is not coherent across calendar views
+
+- Type: problem
+- Status: open
+- Evidence: WEB-310 withheld the Overview create and bulk actions, but only the month view was exercised. Week, day and agenda slot behavior for a viewer was not verified, and the contextual sheet footer label still follows the publication lifecycle (`canEditPublication`), so a viewer opening a scheduled publication is offered `Edit publication` and lands on a read-only page.
+- Impact: A viewer can still meet an editing affordance that leads nowhere editable, and the remaining reading modes are unproven for that role.
+- Desired outcome: Every calendar reading mode stays fully readable for viewers, with no create or bulk-mutation entry point, and the contextual sheet names the consultation action honestly.
+- Tasks: WEB-311 (completed)
+- Resolution: the week/day time-grid `+` now honors the same `showDayAddButton` flag the month view already used, so no create affordance survives for viewers in any reading mode, and the contextual sheet requires editor rights in addition to an editable lifecycle state before naming the action as editing. Navigation, event opening, and the existing translations are unchanged; server rights are unchanged.

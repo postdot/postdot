@@ -28,6 +28,7 @@ export function PublicationCalendarPreviewSheet({
     projectId,
     publicationId,
     publications,
+    readOnly = false,
     timeZone,
 }: {
     readonly locale: string
@@ -36,6 +37,8 @@ export function PublicationCalendarPreviewSheet({
     readonly projectId: string
     readonly publicationId: string | null
     readonly publications: readonly PublicationSummary[]
+    /** Viewer mode: the action opens a read-only page, so it is named as consultation. */
+    readonly readOnly?: boolean
     readonly timeZone: string
 }) {
     const publication = useMemo(
@@ -56,7 +59,10 @@ export function PublicationCalendarPreviewSheet({
     const editor = previewQuery.data?.editor
     const copy = getPreviewCopy(locale)
     const title = publication === null ? copy.untitled : publicationIdentityLabel(publication)
-    const editable = publication !== null && canEditPublication(publication.state)
+    // The lifecycle decides whether editing is possible at all; the role decides
+    // whether this operator may edit. A viewer is offered consultation even for
+    // an editable state, because the destination page is read-only for them.
+    const editable = publication !== null && canEditPublication(publication.state) && !readOnly
 
     return (
         <Sheet

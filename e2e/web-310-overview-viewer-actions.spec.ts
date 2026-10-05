@@ -11,7 +11,12 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
     const owner = await createAccountAndProject(page, suffix)
     await createChannel(page, owner.projectId, `E2E-310 channel ${suffix}`)
 
-    const scheduledAt = Date.now() + 24 * 60 * 60 * 1_000
+    // Anchor the publication inside the currently focused civil day so the
+    // week, day and agenda readings all contain it.
+    const scheduledDate = new Date()
+    scheduledDate.setHours(10, 5, 0, 0)
+    if (scheduledDate.getTime() < Date.now()) scheduledDate.setHours(16, 5, 0, 0)
+    const scheduledAt = scheduledDate.getTime()
     await mockCalendarPublications(page, owner.projectId, scheduledAt, suffix)
 
     const browser = page.context().browser()
@@ -66,16 +71,69 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         ).toHaveCount(0)
         await expect(viewerPage.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0)
 
+        // Every reading mode stays readable and offers no create entry.
+        for (const view of ['month', 'week', 'day', 'agenda'] as const) {
+            await viewerPage.goto(`/dashboard/projects/${owner.projectId}/overview?view=${view}`)
+            await expect(viewerPage.locator('[data-calendar="reui"]')).toBeVisible()
+            await expect(
+                viewerPage.getByRole('button', { name: 'New publication', exact: true })
+            ).toHaveCount(0)
+            await expect(
+                viewerPage.getByRole('button', { name: 'Select', exact: true })
+            ).toHaveCount(0)
+            await expect(
+                viewerPage.getByRole('button', { name: /^Create publication/ })
+            ).toHaveCount(0)
+            await expect(
+                viewerPage.getByRole('button', { name: 'Reschedule', exact: true })
+            ).toHaveCount(0)
+            await expect(
+                viewerPage.getByRole('button', { name: 'Cancel', exact: true })
+            ).toHaveCount(0)
+
+            // Period navigation stays available.
+            const previous = viewerPage.getByRole('button', {
+                name: 'Previous period',
+                exact: true,
+            })
+            await expect(previous).toBeEnabled()
+            const next = viewerPage.getByRole('button', { name: 'Next period', exact: true })
+            await expect(next).toBeEnabled()
+            await expect(
+                viewerPage.getByRole('button', { name: 'Today', exact: true })
+            ).toBeEnabled()
+
+            // The publication stays readable in every reading mode, and the
+            // click stays inside the calendar rather than the summary widget.
+            const calendar = viewerPage.locator('[data-calendar="reui"]')
+            const viewerEvent = calendar
+                .getByText(`E2E-310 scheduled ${suffix}`, { exact: true })
+                .first()
+            await expect(viewerEvent).toBeVisible()
+            await viewerEvent.click()
+            const previewSheet = viewerPage.getByRole('dialog')
+            await expect(
+                previewSheet.getByRole('button', { name: 'View publication', exact: true })
+            ).toBeVisible()
+            await expect(
+                previewSheet.getByRole('button', { name: 'Edit publication', exact: true })
+            ).toHaveCount(0)
+            await viewerPage.keyboard.press('Escape')
+        }
+
         // Consultation is unchanged: the publication is still readable and
         // opens in context.
         const viewerEvent = viewerPage
-            .getByRole('button', { name: new RegExp(`E2E-310 scheduled ${suffix},`) })
+            .locator('[data-calendar="reui"]')
+            .getByText(`E2E-310 scheduled ${suffix}`, { exact: true })
             .first()
         await expect(viewerEvent).toBeVisible()
         await viewerEvent.click()
-        const previewSheet = viewerPage.getByRole('dialog')
-        await expect(previewSheet.getByText(`E2E-310 scheduled ${suffix}`)).toBeVisible()
-        await expect(previewSheet.getByText('E2E-310 destination', { exact: true })).toBeVisible()
+        const monthPreviewSheet = viewerPage.getByRole('dialog')
+        await expect(monthPreviewSheet.getByText(`E2E-310 scheduled ${suffix}`)).toBeVisible()
+        await expect(
+            monthPreviewSheet.getByText('E2E-310 destination', { exact: true })
+        ).toBeVisible()
         await viewerPage.keyboard.press('Escape')
 
         // The server refuses the same operations for this role, which is
@@ -129,7 +187,8 @@ test('Overview withholds viewer create and bulk actions while keeping consultati
         // Selection stays available and reveals the bulk actions.
         await editorPage.getByRole('button', { name: 'Select', exact: true }).click()
         await editorPage
-            .getByRole('button', { name: new RegExp(`E2E-310 scheduled ${suffix},`) })
+            .locator('[data-calendar="reui"]')
+            .getByText(`E2E-310 scheduled ${suffix}`, { exact: true })
             .first()
             .click()
         const bulkActions = editorPage.getByRole('toolbar', {

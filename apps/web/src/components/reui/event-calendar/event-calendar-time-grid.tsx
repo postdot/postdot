@@ -666,13 +666,13 @@ function EventCalendarTimeGridSlot<TData>({
         )
     }
 
-    const addButton = (
+    const addButton = viewConfig.showDayAddButton ? (
         <EventCalendarTimeGridAddButton
             addLabel={addLabel}
             occupied={timedSegments.length > 0}
             onClick={handleAddClick}
         />
-    )
+    ) : null
     const publicationStack = (
         <div className="pointer-events-none relative z-20 grid content-start gap-1">
             {timedSegments.map(segment => (
