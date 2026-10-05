@@ -1039,9 +1039,11 @@ test('close refusals before the next render still verify once', async ({ page })
     const editorContext = await browser.newContext()
     const editorPage = await editorContext.newPage()
 
-    // Fully degrade the transport for this test: with the event streams cut,
-    // no flap-driven project-data refetch can issue a membership read, so the
-    // request count below measures verification launches only.
+    // Fully degrade the transport for this test: with the event streams cut, no
+    // reconnect- or event-driven invalidation can reach the page, so no
+    // project-data refetch can issue a membership read and the request count below
+    // measures verification launches only. This is also why the browser's own
+    // EventSource retry is the mechanism the barrier waits on below.
     await editorPage.route('**/api/projects/*/events', route => route.abort())
     await editorPage.route('**/api/notifications/events', route => route.abort())
 

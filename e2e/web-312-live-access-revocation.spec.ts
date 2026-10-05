@@ -7,11 +7,15 @@ import { expect, test, type Page } from '@playwright/test'
 // correction can be proved against a known starting point. Nothing here asserts
 // that the current behavior is desirable.
 //
-// The dev proxy tears the event stream down repeatedly, which makes the open tab
-// refetch far more often than production would. That changes only *when* the tab
-// notices; the end state asserted below is the same one production reaches
-// through the heartbeat-bounded `project.access-revoked` signal, because both
-// paths end in the same refused refetch.
+// Correction recorded by SSE-318, which supersedes what this comment originally
+// said. The original text blamed the dev proxy for repeatedly tearing the stream
+// down and made the open tab refetch more often than production would. That was a
+// misattribution: Bun ended any connection idle for ten seconds while the SSE
+// heartbeat interval was fifteen, so quiet streams died upstream and the proxy
+// reported the reset as a 502. The runtime ceiling is now lifted for these two
+// requests and the stream stays open, so the extra refetches described above no
+// longer happen. The end state asserted below is unchanged and is now reached the
+// way production reaches it, through the in-band `project.access-revoked` signal.
 
 test('an open session keeps the last known project state after access is removed', async ({
     page,

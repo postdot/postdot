@@ -7,6 +7,11 @@ Scope: the 14 fixed sleeps and the oversized assertion ceilings that exist
 because a quiet event stream was being killed at ten seconds. AUDIT-317 measured
 them; SSE-318 fixed the defect that made them necessary.
 
+Status: the WEB-314 tranche is closed; the remaining wait optimizations are carried over
+below. The measurement tables earlier in this record describe the state *before*
+this pass and are kept as provenance; the "Where this stands" section at the end is
+the state that conforms to the code today.
+
 ## What the numbers say
 
 Across the four specs that hold fixed waits:
@@ -68,42 +73,44 @@ them would weaken them.
 | `realtime-validation` :57, :77 | 1.4s each | This spec installs a **fake** `EventSource`. The sleeps wait for the refetch burst the fake produced, so they are fake-transport timing, not proxy timing. |
 | `design-121-shell` :156 | 50ms | A viewport resize settle before an overflow assertion. Nothing to do with SSE. |
 
-## Proposed pass: observable conditions instead of fixed pauses
+## Proposed pass, as first drafted — REPLACED, kept for provenance
 
-Scope: category A and the category-B ceilings. Two files, no behaviour change to
-the product.
+**This section is superseded and describes an approach that was rejected in
+review.** It is kept so the reasoning that changed is visible, not because it
+reflects the code. The applied approach is in "First pass, applied: WEB-314 only"
+and in "Where this stands".
 
-### The condition that replaces a pause
-
-A soak window becomes observable when the thing being watched has a counter that
-must stop moving. Every category-B assertion already has one
-(`draftPatchRequests`, `mutatingRequests`, `membershipRequests`, `reads`). So the
-replacement is a helper that waits for **quiescence** rather than for a duration:
+The rejected proposal was a universal quiescence helper:
 
 ```
 await expectQuiescence(() => mutatingRequests, { quietMs: 500 })
 expect(mutatingRequests).toBe(mutingAtReconciling)
 ```
 
-where `expectQuiescence` polls the counter until it has been unchanged for
-`quietMs`, and fails if it keeps moving within a bounded budget. The window is
-then *derived from observed behaviour* — 500 ms of genuine stillness — instead of
-being a 5 s guess that is either too short on a slow machine or too long on a
-fast one. A regression that starts a polling loop now fails loudly at the budget
-instead of being absorbed by a long sleep.
+It failed review for two reasons that were confirmed by injection rather than
+argument. A 500 ms quiet window completes *before* an undesirable action at 800 ms
+or one second, because the query invalidation rounds are scheduled at
+`[0, 80, 240, 800]`; the helper would have reported success while the mechanism it
+watched was still due. And a window of stillness proves nothing about *why* the
+counter stopped moving: the replacement has to name the mechanism that could move
+it and assert after that mechanism has run, which is what the applied pass does.
 
-### Per-site conditions
+The rest of the drafted section — the per-site table and the ceiling reductions —
+was never implemented either. The ceiling reductions remain open work, recorded in
+"Carried over, not done".
 
-| Site | Current | Proposed observable condition |
-| ---- | ------- | ------------------------------ |
-| `web-314` :91, :226 | `waitForTimeout(3_000)` then counter unchanged | quiescence on `draftPatchRequests` (quiet 500 ms, budget 3 s) |
-| `web-314` :113, :342, :363, :600 | `waitForTimeout(5_000)` then counter unchanged | quiescence on the counter already asserted (quiet 500 ms, budget 5 s) |
-| `web-314` :832 | `waitForTimeout(3_000)` then `membershipRequests === 1` | `expect.poll(() => membershipRequests).toBe(1)` for the arrival, then quiescence for the absence |
-| `web-314` ceilings | `timeout: 60_000` / `90_000` | default expect timeout; `test.setTimeout(300_000)` reduced to the observed duration plus margin |
-| `concurrent-editing` :325 | `waitForTimeout(1_500)` to damp replay | drop it; assert the replay count directly, so a repeated replay is a failure rather than something the sleep hides |
-| `concurrent-editing` :348, :359 | `waitForTimeout(700)` | quiescence on `reads`, and an offline assertion that does not depend on elapsed time |
+### Per-site conditions, as drafted and not applied
 
-### Acceptance, all observable
+| Site | Current at the time | Proposed then, superseded now |
+| ---- | ------------------- | --------------------------- |
+| `web-314` :91, :226 | `waitForTimeout(3_000)` then counter unchanged | real stream event, required observed refetch, then a mechanism-derived observation window |
+| `web-314` :113, :342, :363, :600 | `waitForTimeout(5_000)` then counter unchanged | same, except :113, :238 which keep a necessary negative window |
+| `web-314` :832 | `waitForTimeout(3_000)` then `membershipRequests === 1` | an observed additional EventSource attempt, then the observation window |
+| `web-314` ceilings | `timeout: 60_000` / `90_000`, `setTimeout(300_000)` | not applied; carried over as open work |
+| `concurrent-editing` :325 | `waitForTimeout(1_500)` to damp replay | not applied; carried over |
+| `concurrent-editing` :348, :359 | `waitForTimeout(700)` | not applied; carried over |
+
+### Acceptance, as drafted
 
 1. Every category-A and category-B pause is gone; `waitForTimeout` survives only
    in category C, and each survivor carries a comment saying why.
@@ -134,16 +141,18 @@ from the code rather than from taste.
 | --------- | ----- | ----- |
 | Autosave debounce | `publication-editor.tsx` | one `setTimeout(…, 650)`, re-armed on each dirty transition |
 | Save promise continuation | `publication-editor.tsx` | `.then/.catch/.finally`, **no timer**, guarded by `accessEpoch` and generation |
-| Query invalidation rounds | `project-realtime.tsx` | `[0, 80, 240, 800]` ms after any event or reconnect, so the last round is at +800 ms |
+| Query invalidation rounds | `project-realtime.tsx` | `[0, 80, 240, 800]` ms, awaited **sequentially**, with each round's refetches inside its own elapsed time |
 | Reconnect and resync full invalidation | `project-realtime.tsx` | `refresh('project', true, true)` on reconnect *and* on `resync-required`, including publication editors — a reconnect is the stronger case, not the weaker one |
 | Browser EventSource retry | the browser | a fresh attempt a few seconds after a failed stream |
 
 **This is why a generic 500 ms quiet window is wrong rather than merely
-optimistic.** The last invalidation round fires at +800 ms. A window that closes
-at 500 ms has already reported success while the mechanism it was meant to watch
-is still scheduled to run. The budget used here is `REFRESH_BURST_SETTLE_MS =
-1_500`, derived as "the 800 ms round plus the request it causes, with margin",
-and every site that uses it first proves the mechanism actually ran.
+optimistic.** The fourth delay is 800 ms, so a window closing at 500 ms has already
+reported success while the mechanism it was meant to watch is still due. The window
+used here is `SETTLEMENT_OBSERVATION_MS = 1_500`, and it is deliberately *not*
+described as covering the rounds: 1.12 s is a floor with no upper bound, and a
+reconnect is the stronger case because it also invalidates publication editors.
+Every site either proves its mechanism separately or states that its window is
+weaker than proof.
 
 ### What was replaced, and with what, classified by kind of change
 
@@ -331,3 +340,60 @@ concurrent-editing.
 - `e2e/web-314-editor-access-state.spec.ts` — 8 sleeps, 32 ceilings
 - `e2e/publication-concurrent-editing.spec.ts` — 3 sleeps, 6 ceilings
 - Unchanged by design: `e2e/realtime-validation.spec.ts`, `e2e/design-121-shell.spec.ts`
+
+## Where this stands after the WEB-314 tranche
+
+The original inventory measured 14 fixed sleeps and 49 ceilings across four spec
+files. After this pass, measured statically from the code:
+
+| Spec | Waits at call sites | Windows retained in helpers | Ceilings | Largest ceiling |
+| ---- | ------------------- | -------------------------- | -------- | --------------- |
+| `web-314-editor-access-state.spec.ts` | 0 | 5 (7.5 s) | 36 | 300 s |
+| `publication-concurrent-editing.spec.ts` | 3 (2.9 s) | 0 | 6 | 90 s |
+| `realtime-validation.spec.ts` | 2 (2.8 s) | 0 | 9 | 90 s |
+| `design-121-shell.spec.ts` | 1 (0.1 s) | 0 | 2 | 30 s |
+| **Total** | **6 (5.8 s)** | **5 (7.5 s)** | **53** | **300 s** |
+
+So 8 of the 14 original sleeps are gone and 5 windows of 1.5 s replaced them. Ceiling
+counts rose from 49 to 53 because the traversals added explicit per-observation
+budgets; none of the pre-existing ceilings was touched. The honest reading is that
+the waits moved and shrank, not that they disappeared.
+
+## Conclusions that were replaced
+
+Kept as provenance, explicitly superseded:
+
+| Earlier statement | Superseded by | Now |
+| ----------------- | ------------- | ---- |
+| "The vite proxy kills event streams (502 / socket hang up)" — AUDIT-317 finding 5 | SSE-318 | Bun's idle ceiling closed quiet streams upstream; the proxy reported the reset |
+| "the event stream dies at the proxy (502)" — WEB-314 worklog | SSE-318 | same correction, recorded in that worklog and in this one |
+| "The dev proxy tears the event stream down repeatedly, which makes the open tab refetch far more often" — `web-312` spec header | SSE-318 | corrected in the spec file itself; those refetches no longer occur |
+| "14 fixed sleeps … 39.8 s (2.9% of wall) across 4 of 83 spec files" — AUDIT-317 | this pass | 6 waits at call sites (5.8 s) plus 5 windows in WEB-314 helpers (7.5 s) |
+| "REFRESH_BURST_SETTLE_MS = 1500, derived as the 800 ms round plus the request it causes, with margin" — first pass of this record | review | the delays are sequential and include the awaited refetches; 1.12 s is a floor with no upper bound, and the constant is an observation window |
+| "draining the page's task queue proves the continuation ran" — first pass of this record | review | the continuation returns early by design and leaves no trace; the claim was withdrawn and the helper deleted |
+| "a sentinel payload proves a late success was not applied" — first pass of this record | review | the field does not render in this scenario, so its absence proved nothing |
+
+## Carried over, not done
+
+Explicitly deferred, in the order that seems safest:
+
+1. **`publication-concurrent-editing.spec.ts`, 3 waits totalling 2.9 s.** The
+   1.5 s one is the clearest SSE-318 casualty: its own comment says it exists to
+   let journal replay refresh retries settle, and that storm came from a stream
+   that could not stay connected. The two 700 ms ones are negative windows over a
+   hidden tab and an offline save, so they need the same treatment WEB-314 got:
+   name the mechanism, then assert after it has run. Low value in wall time, real
+   value in honesty.
+2. **The 53 ceilings, none of which was reduced.** WEB-314 alone sums to 54 min
+   against a 1.4 min run. They were sized to outlast a dead stream. Shrinking them
+   is a separate measurement: run the scenario, record the observed duration per
+   assertion, then set a bound from that with margin. Doing it without measuring
+   would just move the failure mode from "slow to notice" to "flaky".
+3. **`realtime-validation.spec.ts` (2 × 1.4 s) and `design-121-shell.spec.ts`
+   (50 ms) are out of scope and should stay that way.** The first compensates for
+   a *faked* `EventSource`, not the transport; the second is a viewport settle.
+   Neither is an SSE-318 casualty, and touching them would be churn.
+4. **The 5 retained windows in WEB-314.** Two are necessary negative windows whose
+   mechanism cannot be produced on demand (`resync-required`; exactly-once
+   verification). The other three are the price of the traversals. If they are ever
+   attacked, the attack has to come with the traversal it would invalidate.
