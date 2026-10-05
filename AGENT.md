@@ -19,10 +19,31 @@ content generator.
 - **Handoff:** End every completed pass with a concrete recommended next task, or explicitly state that no next task was identified so the owner can plan another sprint.
 - **Skills maintenance:** Periodically refresh installed skills with `npx skills update`, review the resulting changes, and use the Solar catalog when choosing icons rather than guessing glyph names.
 - **Integration (temporary owner direction):** Until the owner changes this
-  direction, run the repository's full `bun run check` locally and merge
-  completed work directly into local `main`. Do not open pull requests or wait
-  for GitHub Actions. Local integration must not depend on publishing `main` to
-  the remote.
+  direction, merge completed work directly into local `main`. Do not open pull
+  requests or wait for GitHub Actions. Local integration must not depend on
+  publishing `main` to the remote.
+- **Two validation obligations (ADR-077, accepted):** A *local commit* and a
+  *full validation* are different acts with different triggers. A local commit
+  requires `check:quick`, all unit tests, the scenarios reported by
+  `bun scripts/e2e-affected.ts --base <mission base>`, and the relevant build. A
+  full validation requires `bun run check`, plus
+  `bun run test:container:recovery` when container behaviour is involved, and is
+  triggered by: closing a coherent set of passes; publishing; a risky transversal
+  change; an authentication, session, authorization, or access-revocation change;
+  a claim the targeted layer cannot support; or a retained selection that is not
+  materially cheaper than the matrix. Merging into `main` is **not** an automatic
+  trigger. Never narrow the full control itself and never weaken a check to make a
+  targeted run pass.
+- **Evidence records are documentation:** `.autonomos/**`, `docs/**`, and Markdown
+  are observed by no scenario, so a worklog or task-board change does not by itself
+  require the matrix. A code path in the same change set decides on its own terms,
+  and unknown or transversal code still falls back to the full matrix. This is a
+  policy classification, not a coverage claim; static gates still apply.
+- **Flakes:** investigate first, at the smallest scope that reproduces. A new full
+  control is warranted only when the investigation justifies it — the fix touches
+  shared transport or a transversal path, the cause stays unknown, the fix weakens
+  an assertion, or the flake recurs only under the full matrix. See
+  `.autonomos/decisions/ADR-077-two-validation-obligations.md`.
 - **Language:** English
 - **Repository language:** Keep code, comments, documentation, Autonomos artifacts,
   and test descriptions in English. French is allowed only in application

@@ -319,8 +319,23 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
 ]
 
 /**
+ * Paths that no scenario observes: governance records and prose. A change set
+ * made only of these requires no scenario.
+ *
+ * This is a policy classification, not a coverage claim. It says no browser
+ * journey can observe the change, not that the change is verified. Any code path
+ * in the same change set re-engages the ordinary rules, including the full-matrix
+ * fallback for unknown and transversal code.
+ */
+export const DOCUMENTATION_PATHS: readonly TransversalPath[] = [
+    { pattern: '.autonomos/**', reason: 'governance, task, and evidence records' },
+    { pattern: 'docs/**', reason: 'developer documentation' },
+    { pattern: '**/*.md', reason: 'prose' },
+]
+
+/**
  * Paths that invalidate the matrix itself: shared foundations, harness
- * configuration, infrastructure, and repository governance.
+ * configuration, and infrastructure.
  */
 export const TRANSVERSAL_PATHS: readonly TransversalPath[] = [
     { pattern: 'packages/db/**', reason: 'schema and migration layer feed every scenario' },
@@ -359,10 +374,6 @@ export const TRANSVERSAL_PATHS: readonly TransversalPath[] = [
     { pattern: 'docker-compose*.yml', reason: 'development services' },
     { pattern: '.github/workflows/**', reason: 'continuous integration definition' },
     { pattern: '.husky/**', reason: 'commit gate' },
-    { pattern: '.autonomos/**', reason: 'repository governance records' },
-    { pattern: 'DESIGN.md', reason: 'product design contract' },
-    { pattern: 'AGENT.md', reason: 'agent governance' },
-    { pattern: 'AGENTS.md', reason: 'agent governance' },
 ]
 
 export interface SelectedScenario {
@@ -380,6 +391,16 @@ export type AffectedResolution =
           readonly mode: 'full'
           readonly reason: string
           readonly scenarios: readonly string[]
+      }
+    | {
+          /**
+           * Every changed path is documentation. No scenario is required, and this
+           * is deliberately distinct from a targeted selection with zero scenarios,
+           * which the resolver refuses to produce.
+           */
+          readonly mode: 'documentation'
+          readonly reason: string
+          readonly documentation: readonly string[]
       }
 
 function globToRegExp(pattern: string): RegExp {
@@ -441,6 +462,10 @@ function isSpecPath(path: string): boolean {
     return path.startsWith('e2e/') && path.endsWith('.spec.ts')
 }
 
+export function isDocumentationPath(path: string): boolean {
+    return DOCUMENTATION_PATHS.some(entry => matchesPattern(path, entry.pattern))
+}
+
 /**
  * Builds the selector report for a change set.
  *
@@ -465,8 +490,17 @@ export function resolveAffectedScenarios(
         return selectAll('no changed path was detected, so the full matrix stays selected')
     }
 
+    const documentation = paths.filter(isDocumentationPath)
+    if (documentation.length === paths.length) {
+        return {
+            mode: 'documentation',
+            reason: `every changed path is documentation (${documentation.length} file(s)); no scenario observes it`,
+            documentation,
+        }
+    }
+
     const changedSpecs = paths.filter(isSpecPath)
-    const codePaths = paths.filter(path => !isSpecPath(path))
+    const codePaths = paths.filter(path => !isSpecPath(path) && !isDocumentationPath(path))
 
     for (const path of codePaths) {
         const transversal = TRANSVERSAL_PATHS.find(entry => matchesPattern(path, entry.pattern))
@@ -645,6 +679,16 @@ function report(
     knownSpecCount: number,
     changedPathCount: number
 ): string {
+    if (resolution.mode === 'documentation') {
+        return [
+            'Selection: no scenario required (documentation only)',
+            `Changed paths: ${changedPathCount}, all documentation`,
+            `Reason: ${resolution.reason}`,
+            'This is a policy classification, not a coverage claim: no browser journey can observe these files.',
+            'Static gates still apply: bun run check:quick',
+            ...resolution.documentation.map(path => `  ${path}`),
+        ].join('\n')
+    }
     if (resolution.mode === 'full') {
         return [
             `Selection: full matrix (${resolution.scenarios.length} of ${knownSpecCount} scenario files)`,
@@ -696,8 +740,10 @@ if (import.meta.main) {
                     mode: resolution.mode,
                     changedPaths,
                     deleted,
-                    scenarios: resolution.scenarios,
-                    reason: resolution.mode === 'full' ? resolution.reason : undefined,
+                    scenarios: resolution.mode === 'targeted' ? resolution.scenarios : [],
+                    documentation:
+                        resolution.mode === 'documentation' ? resolution.documentation : [],
+                    reason: resolution.mode === 'targeted' ? undefined : resolution.reason,
                 },
                 null,
                 2

@@ -1,13 +1,16 @@
 # ADR-077 — Two validation obligations: local commit and full validation
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-05
+- Accepted by: owner, explicitly, on 2026-10-05
 - Scope: repository validation policy for local agent work
 - Provenance: AUDIT-317 and its selector work, SSE-318 and its final full control
 - Related decisions: ADR-076
 - Applies to: `AGENT.md`, on owner approval only
 
-Not applied. `AGENT.md` is unchanged until the owner accepts this record.
+Applied on owner approval. `AGENT.md` now carries the two obligations, and the
+selector distinguishes a documentation-only change set from a code change set so an
+ordinary worklog no longer forces the matrix on its own.
 
 ## Context
 
@@ -113,15 +116,34 @@ The newest commit that passed a full control lives on a `validated/*` ref, and
 the same SHA appears in the task entry and the session worklog. Any commit newer
 than that ref is locally validated only, and saying so is part of reporting.
 
-Current state:
+### Trace
 
-| Commit | State | Basis |
-| ------ | ----- | ----- |
-| `d70108840` | fully validated | `bun run check` green: 84 E2E in 19.4 min, 2 password-reset in 10.6 s, 256 API / 129 web / 168 db / 92 core / 45 script unit tests, build, format, lint, typecheck |
-| `9c1c669f9` | targeted only | documentation-only: format, lint, typecheck |
+**Correction.** An earlier version of this record said `9c1c669f9` and the commits
+after it were documentation-only. That was wrong. Measured from the commits
+themselves:
 
-So `d70108840` is the last fully validated commit at the time of writing, and the
-newest commit is deliberately ahead of it by one documentation change.
+| Commit | Files | Level actually validated | Selector verdict for that change set |
+| ------ | ----- | ------------------------ | ------------------------------------- |
+| `d70108840` | worklog, task board, corrections to three historical worklogs | **fully validated** — `bun run check` green: 84 E2E in 19.4 min, 2 password-reset in 10.6 s, 256 API / 129 web / 168 db / 92 core / 45 script unit tests, build, format, lint, typecheck | not applicable: this is the reference state |
+| `9c1c669f9` | one worklog | documentation checks only | documentation only |
+| `15e7c9475` | task board, this record, two worklogs | documentation checks only | documentation only |
+| `1b3b80871` | `cspell.json`, `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files | **code and test change**, targeted: the spec run twice | full matrix — `e2e/**` is transversal |
+| `a31d2c792` | task board | documentation checks only | documentation only |
+| `56429fb48` | `cspell.json`, `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files | **code and test change**, targeted | full matrix |
+| `0259edf56` | `e2e/web-314-editor-access-state.spec.ts`, two Autonomos files | **code and test change**, targeted | full matrix |
+| `be1a070fe` | two spec comment blocks, task board, one worklog | **comment change in test files**, targeted | full matrix |
+
+Two things follow, and both are recorded rather than smoothed over.
+
+First, `d70108840` is the last fully validated commit, and it stays that way until a
+full control runs again. Everything after it is locally validated, and four of
+those commits carry code or test changes rather than documentation.
+
+Second, there is a real divergence: the selector reports the **full matrix** for
+the four WEB-314 commits because `e2e/**` is transversal, while the work actually
+performed was a targeted spec run. That divergence was approved pass by pass at the
+time. It is exactly the kind of mismatch this record's measurement phase exists to
+surface, and it is the first thing the five missions should quantify.
 
 ## Consequences
 
@@ -152,6 +174,11 @@ newest commit is deliberately ahead of it by one documentation change.
 - **Wire the selector into `check`.** Rejected for now. The selector is being
   used under surveillance; automating it before its false-negative rate is known
   would turn a reporting tool into a gate.
+- **Treat an Autonomos worklog as a transversal change.** Rejected, and corrected
+  in the selector: `.autonomos/**` was listed as transversal, which meant an
+  ordinary evidence record forced the whole matrix on its own. Documentation is now
+  classified separately, and only a code path alongside it re-engages the full
+  fallback.
 
 ## Out of scope
 

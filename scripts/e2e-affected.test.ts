@@ -7,6 +7,7 @@ import {
     FUNCTIONAL_DOMAINS,
     collectChangedPaths,
     domainsForPath,
+    isDocumentationPath,
     listSpecFiles,
     matchesPattern,
     resolveAffectedScenarios,
@@ -64,6 +65,7 @@ describe('resolution safety', () => {
         const resolution = resolveAffectedScenarios([], KNOWN_SPECS)
 
         expect(resolution.mode).toBe('full')
+        if (resolution.mode !== 'full') throw new Error('expected full selection')
         expect(resolution.scenarios).toEqual(KNOWN_SPECS)
     })
 
@@ -115,7 +117,90 @@ describe('resolution safety', () => {
         const resolution = resolveAffectedScenarios(['e2e/locale.ts'], [])
 
         expect(resolution.mode).toBe('full')
+        if (resolution.mode !== 'full') throw new Error('expected full selection')
         expect(resolution.scenarios).toEqual([])
+    })
+})
+
+describe('documentation classification (ADR-077)', () => {
+    test('a documentation-only change set requires no scenario', () => {
+        const resolution = resolveAffectedScenarios(
+            ['.autonomos/worklogs/2026-10-05-AUDIT-320.md'],
+            KNOWN_SPECS
+        )
+
+        expect(resolution.mode).toBe('documentation')
+        if (resolution.mode !== 'documentation') throw new Error('expected documentation mode')
+        expect(resolution.documentation).toEqual(['.autonomos/worklogs/2026-10-05-AUDIT-320.md'])
+    })
+
+    test('an ordinary worklog beside a targeted code change does not widen it', () => {
+        const resolution = resolveAffectedScenarios(
+            [
+                '.autonomos/worklogs/2026-10-05-AUDIT-320.md',
+                'apps/web/src/lib/project-access-verification.ts',
+            ],
+            KNOWN_SPECS
+        )
+
+        expect(resolution.mode).toBe('targeted')
+        if (resolution.mode !== 'targeted') throw new Error('expected targeted selection')
+        // The code path alone decides, and its domain is untouched by the worklog.
+        expect(resolution.domains.map(domain => domain.id)).toEqual(['access-control'])
+        expect(
+            resolution.scenarios.every(scenario =>
+                scenario.reasons.every(reason => reason.startsWith('access-control:'))
+            )
+        ).toBe(true)
+    })
+
+    test('a worklog beside a transversal code change keeps the full fallback', () => {
+        const resolution = resolveAffectedScenarios(
+            ['.autonomos/TASKS.md', 'packages/db/src/schema.ts'],
+            KNOWN_SPECS
+        )
+
+        expect(resolution.mode).toBe('full')
+        if (resolution.mode !== 'full') throw new Error('expected full selection')
+        expect(resolution.reason).toContain('packages/db/src/schema.ts')
+    })
+
+    test('a worklog beside unknown code keeps the full fallback', () => {
+        const resolution = resolveAffectedScenarios(
+            ['.autonomos/TASKS.md', 'apps/web/src/lib/not-mapped-yet.ts'],
+            KNOWN_SPECS
+        )
+
+        expect(resolution.mode).toBe('full')
+        if (resolution.mode !== 'full') throw new Error('expected full selection')
+        expect(resolution.reason).toContain('not-mapped-yet.ts')
+    })
+
+    test('a worklog beside a spec change does not hide the spec', () => {
+        const resolution = resolveAffectedScenarios(
+            ['.autonomos/worklogs/note.md', 'e2e/realtime-validation.spec.ts'],
+            KNOWN_SPECS
+        )
+
+        expect(resolution.mode).toBe('targeted')
+        if (resolution.mode !== 'targeted') throw new Error('expected targeted selection')
+        expect(resolution.scenarios.map(scenario => scenario.spec)).toEqual([
+            'e2e/realtime-validation.spec.ts',
+        ])
+    })
+
+    test('documentation mode never coexists with a code path', () => {
+        for (const path of ['README.md', 'docs/guide.md', 'AGENT.md', '.autonomos/specs/x.md']) {
+            expect(isDocumentationPath(path)).toBe(true)
+        }
+        for (const path of [
+            'apps/web/src/lib/theme.ts',
+            'e2e/realtime-validation.spec.ts',
+            'cspell.json',
+            'package.json',
+        ]) {
+            expect(isDocumentationPath(path)).toBe(false)
+        }
     })
 })
 
