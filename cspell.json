@@ -115,6 +115,7 @@
         "reconnectable",
         "repost",
         "requestfinished",
+        "macrotask",
         "Reshare",
         "restli",
         "retargets",

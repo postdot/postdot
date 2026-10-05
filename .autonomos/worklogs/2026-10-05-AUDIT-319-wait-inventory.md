@@ -145,22 +145,91 @@ is still scheduled to run. The budget used here is `REFRESH_BURST_SETTLE_MS =
 1_500`, derived as "the 800 ms round plus the request it causes, with margin",
 and every site that uses it first proves the mechanism actually ran.
 
-### What was replaced, and with what
+### What was replaced, and with what, classified by kind of change
+
+"Replaced" hides three different things. Separated:
+
+**Pauses removed outright** — no time-based wait survives at the site:
 
 | Site | Before | After |
 | ---- | ------ | ----- |
-| held draft response, `waitForTimeout(3_000)` | pause | `waitForEvent('requestfinished', …)` on the draft PATCH — the continuation has no timer, so request completion is the exact moment it becomes runnable |
-| frozen editor, `waitForTimeout(3_000)` | pause | owner renames a channel → real `project.update` on the live stream → observed refetch on the observer → counter asserted |
-| removal surface, `waitForTimeout(5_000)` | pause | same traversal, a second time |
-| retry state, `waitForTimeout(5_000)` | pause | same traversal; the membership count is deliberately not asserted here, see below |
-| reconciled editor, `waitForTimeout(5_000)` | pause | owner saves the same draft → real `project.draft-changed` → the editor really is reread |
-| deferred reread, `waitForTimeout(5_000)` | pause | same traversal while the reread is held |
-| close refusals, `waitForTimeout(3_000)` | pause | wait for an **observed** additional EventSource attempt, then the derived budget |
+| held draft response | `waitForTimeout(3_000)` | `requestfinished` installed *before* `fulfill()`, then a task-queue drain |
+| close refusals | `waitForTimeout(3_000)` | an **observed** additional EventSource attempt |
+
+**Pauses moved into a named helper** — the time is no longer chosen per site and
+lives once, next to the mechanism it accounts for:
+
+| Site | Before | After |
+| ---- | ------ | ----- |
+| frozen editor | `waitForTimeout(3_000)` | `driveProjectDataRefresh`: real event, required observed refetch, then `SETTLEMENT_OBSERVATION_MS` |
+| removal surface | `waitForTimeout(5_000)` | same helper |
+| retry state | `waitForTimeout(5_000)` | same helper |
+| deferred reread | `waitForTimeout(5_000)` | same helper |
+| reconciled editor | `waitForTimeout(5_000)` | `driveEditorReread`: real draft hint, required observed reread of the same project and publication, then the observation window |
+
+**Pauses shortened, and kept as necessary negative windows** — explicitly
+labelled as such in the spec:
+
+| Site | Before | After | Why it stays |
+| ---- | ------ | ----- | ------------ |
+| late response, after the removal surface | `waitForTimeout(5_000)` | `SETTLEMENT_OBSERVATION_MS` (1500 ms) | a purge arrives via a reconnect-driven full invalidation that includes publication editors, reachable only from a `resync-required` frame, which cannot be produced from a browser on demand without corrupting the journal cursor |
+| close refusals, after the observed retry | part of `waitForTimeout(3_000)` | `SETTLEMENT_OBSERVATION_MS` | exactly-once cannot be shown by traversal here: nothing can be delivered that would provoke a second membership read without provoking the thing under test |
 
 Two of these traversals were impossible before SSE-318. Driving a real event into
 a connected tab requires a connected stream, and the stream used to die after ten
 seconds. That is the concrete link between the two missions: the pauses existed
 because the mechanism could not be reached.
+
+### The arithmetic, corrected
+
+An earlier draft of this record said the last invalidation round "lands about
+1.12 s later" and that 1500 ms therefore covers it with margin. That was wrong in
+a way that mattered. `reconnectRefreshDelays = [0, 80, 240, 800]` is a **sequential
+loop**: each delay is awaited, and then that round's invalidations are awaited
+before the next delay starts. The four rounds therefore occupy at least
+0 + 80 + 240 + 800 ≈ 1.12 s *plus* the refetches each round triggers, and there is
+no fixed upper bound on that.
+
+So the constant is renamed `SETTLEMENT_OBSERVATION_MS` and documented as an
+**observation window, not a bound**. No assertion rests on it alone: every site
+either observes the mechanism it cares about — a required refetch, a required
+reread, an observed stream retry — or is labelled as a window whose limit is
+explicitly weaker than proof.
+
+### Two proofs that had to be rebuilt
+
+**Network receipt versus application of the continuation.** `requestfinished` is
+installed before `fulfill()` so the event cannot be missed by a race, and receipt
+alone is not treated as application: the save continuation is queued as a
+microtask when the body resolves, so the page's task queue is drained afterwards.
+That drain is an execution-model barrier, not a chosen wait.
+
+The first attempt at an adapted proof used a sentinel value injected into the
+response payload. It was abandoned on evidence: with the sentinel delivered while
+the machine was *not* frozen — the case where a response really is applied — the
+sentinel never rendered either. The field is not one this page displays for this
+scenario, so its absence would have been a false guarantee. The proof actually
+used is the one whose reachability is demonstrated inside the scenario: earlier in
+the same test the same save path, on the same page, applied an acceptable response
+and produced a visible `Saved` state. `Saved` is therefore a genuine positive
+signal for application, and the guards are its absence, the conflict surface, the
+recovery-buffer count, and the local text. The conflict surface and buffer count
+are labelled guards, not proved signals, because their reachability here was not
+demonstrated.
+
+**The reread had to be observed, not assumed.** `driveEditorReread` originally
+performed the owner's save and waited. It now counts editor-read *starts*, drains
+the page's queue and samples the counter before the mutation, then requires a new
+read of that exact project and publication and requires its response to finish.
+Counting starts rather than completions matters: a read already in flight would
+otherwise satisfy a completion wait and let an unrelated reread pass for this one.
+
+This was found by injection, not by reading. An earlier version installed a
+`requestfinished` wait and passed even with stream delivery cut. Two causes: the
+wait could be satisfied by a read already in flight, and the first injection
+attempt was itself wrong — `page.route` only affects subsequent requests, so
+aborting after the stream had connected cut nothing. With delivery actually cut
+before the connection, the helper fails with its own message.
 
 ### The one window kept, and why
 
@@ -191,13 +260,15 @@ Withdrawing it is honest; leaving it would have been a false guarantee.
 A temporary shaft scheduled an undesirable request from the page and was never
 committed. Results, all on this spec:
 
+Re-run after the review corrections, on the corrected code:
+
 | Site | Injected action | Injected at | Result |
 | ---- | --------------- | ----------- | ------ |
-| frozen editor | extra draft PATCH | 500 ms | fails, 1 → 2 |
-| frozen editor | extra draft PATCH | 800 ms | fails, 1 → 2 |
-| frozen editor | extra draft PATCH | 1000 ms | fails, 1 → 2 |
-| deferred reread | extra mutating request | 800 ms | fails, 1 → 2 |
-| close refusals | second membership read | 800 ms | fails, 1 → 2 |
+| frozen editor | extra draft PATCH | 800 ms | fails |
+| frozen editor | extra draft PATCH | 1000 ms | fails |
+| deferred reread | extra mutating request | 800 ms | fails |
+| stream delivery cut before connect | no delivery at all | — | `driveEditorReread` fails with its own message |
+| sentinel delivered pre-freeze | payload sentinel | — | abandoned: the sentinel does not render, so it could not prove anything |
 
 And the control, which is the point of the whole exercise: the naive replacement
 the owner rejected — a bare 500 ms quiet window, no traversal — **passed** with an
@@ -210,14 +281,17 @@ vacuous pass.
 
 ### Before and after
 
-| | Wall | Scenarios | Fixed waits | Largest ceiling |
-| - | ---- | --------- | ----------- | --------------- |
+| | Wall | Scenarios | Site-level fixed waits | Largest ceiling |
+| - | ---- | --------- | ----------------------- | --------------- |
 | Before | 107 s | 6 passed | 8, totalling 34.0 s | 300 s |
-| After | 84 s, 86 s | 6 passed, twice | 0 | unchanged |
+| After, first pass | 84 s, 86 s | 6 passed, twice | 0 | unchanged |
+| After, review corrections | 90 s, 88 s | 6 passed, twice | 0 | unchanged |
 
-Two consecutive runs, zero flakes. The saving is 23 s of wall time; the larger
-change is that three of the six negative assertions now run *after* the mechanism
-they watch, instead of hoping it fired inside a window.
+Two consecutive runs per stage, zero flakes. The saving is roughly 20 s of wall
+time; the larger change is that the negative assertions now run *after* the
+mechanism they watch, or are labelled as windows whose limit is weaker than proof.
+The review corrections cost about 5 s because the task-queue drains and the two
+required observations are real waits for real signals.
 
 Not touched: the `60_000` and `90_000` positive ceilings and the `300_000` scenario
 budgets. Shrinking those is a separate measurement, and the user directed that this

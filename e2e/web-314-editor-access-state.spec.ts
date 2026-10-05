@@ -239,42 +239,64 @@ test('a late draft response is quarantined instead of applied', async ({ page })
         // must change nothing: no saved state, no cleared buffer, no actions.
         const routeToRelease = heldDraftRoute as Route | null
         if (routeToRelease === null) throw new Error('The draft write was not held')
+
+        // Installed before the response is produced, so the event cannot be missed
+        // by a race with fulfil().
+        const responseReceived = editorPage.waitForEvent('requestfinished', {
+            predicate: request => request.method() === 'PATCH' && draftPatchPath(request.url()),
+            timeout: 30_000,
+        })
         await routeToRelease.fulfill({
             status: 200,
             contentType: 'application/json',
             body: savedEditorBody,
         })
-        // The mechanism under test is the save promise's continuation, which
-        // carries no timer: it runs once the browser has finished the request.
-        // Waiting for that is an observable condition rather than a pause, so the
-        // assertions below cannot pass before the late success had its chance to
-        // be applied.
-        await editorPage.waitForEvent(
-            'requestfinished',
-            request => request.method() === 'PATCH' && draftPatchPath(request.url())
-        )
+
+        // Network receipt is not the same thing as the continuation running.
+        // `requestfinished` only says the browser received the body; the save
+        // continuation is queued once that body resolves and carries no timer. So
+        // receipt is observed first, then the page's task queue is drained, which
+        // is an execution-model barrier rather than a wait of chosen length. Only
+        // after both is the sentinel looked for.
+        await responseReceived
+        await settlePageTasks(editorPage)
+
+        // The proof is adapted to what is actually watched, and its reachability is
+        // demonstrated rather than assumed: earlier in this same scenario the same
+        // save path, on the same page, applied an acceptable response and produced a
+        // visible 'Saved' state. 'Saved' is therefore a real positive signal for
+        // application, and its absence here is informative. The other two guards —
+        // the conflict surface and the recovery-buffer count — are kept because they
+        // must hold, but their reachability inside this scenario was not
+        // demonstrated, so they are guards rather than proved signals.
         await expect(editorPage.getByText('Checking project access…')).toBeVisible()
         await expect(editorPage.getByRole('status', { name: 'Saved', exact: true })).toHaveCount(0)
+        await expect(editorPage.getByText('The server has newer work')).toHaveCount(0)
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
         const bufferText = await readRecoveryBufferText(editorPage)
         expect(bufferText).toContain('plus held unsent work')
+        await expect(
+            editorPage.getByText('Local work saved before the revocation', { exact: false }).first()
+        ).toBeVisible()
 
         // The held verification then establishes the refusal.
         releaseMembership()
         await expect(editorPage.getByText('Project access removed')).toBeVisible({
             timeout: 60_000,
         })
-        // This window is kept, and deliberately not replaced. The forbidden action
-        // here is a late purge of the buffer caused by a reconnect-driven *full*
+        // NECESSARY NEGATIVE WINDOW, kept on purpose. The forbidden action here is
+        // a late purge of the buffer caused by a reconnect-driven *full*
         // invalidation that includes publication editors
         // (`refresh('project', true, true)` in project-realtime.tsx), and that
         // invalidation is only reachable from a `resync-required` frame. A frame
-        // cannot be produced on demand from a browser without corrupting the
-        // journal cursor, so absence cannot be proven by traversal here. What can
-        // be done is bound the observation by the mechanism that would carry it:
-        // the resync path uses the same [0, 80, 240, 800] ms rounds as every other
-        // refresh, so this budget outlives the last of them.
-        await editorPage.waitForTimeout(REFRESH_BURST_SETTLE_MS)
+        // cannot be produced from a browser on demand without corrupting the
+        // journal cursor, so absence cannot be proven by traversal at this site.
+        // The observation is therefore bounded by the mechanism that would carry
+        // it — the resync path runs the same sequential rounds — and the bound is
+        // explicitly weaker than proof. What is proven without a window is the
+        // part above: the sentinel response was received and its continuation ran
+        // without being applied.
+        await editorPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
         await expect(editorPage.getByText('Project access removed')).toBeVisible()
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
     } finally {
@@ -452,25 +474,43 @@ async function countRecoveryBuffers(page: Page) {
     )
 }
 
-// A negative assertion here is only meaningful if it is made after the
-// mechanisms that could produce the forbidden action have actually run:
+// A negative assertion here is only meaningful if it is made after the mechanisms
+// that could produce the forbidden action have actually run.
 //
-//   - the autosave debounce is 650 ms
-//     (apps/web/src/components/publication-editor.tsx), so a pending save can
-//     still dispatch that long after the last keystroke;
-//   - a live event or a stream reconnect invalidates dashboard queries in
-//     rounds scheduled at [0, 80, 240, 800] ms after the signal
-//     (apps/web/src/lib/project-realtime.tsx), so the last round lands about
-//     1.12 s later and the requests it triggers follow it.
+//   - the autosave debounce is 650 ms (apps/web/src/components/publication-editor.tsx),
+//     so a pending save can still dispatch that long after the last keystroke;
+//   - a live event or a stream reconnect invalidates dashboard queries through
+//     `reconnectRefreshDelays = [0, 80, 240, 800]`
+//     (apps/web/src/lib/project-realtime.tsx). Those delays are *sequential*: the
+//     loop awaits each delay and then awaits that round's invalidations, so the
+//     rounds run at 0, then after 80 ms, then after a further 240 ms, then after a
+//     further 800 ms — and each round's refetches are part of that elapsed time.
 //
-// The later of the two tails is the 800 ms refresh round. This budget covers it
-// plus the request it causes, with margin. A short generic quiet window would be
-// wrong rather than merely conservative: it would complete *before* an
-// undesirable action at 800 ms or one second and report success.
-const REFRESH_BURST_SETTLE_MS = 1_500
+// The sum of the delays is therefore a floor of about 1.12 s, not a deadline, and
+// there is no fixed upper bound: the work each round triggers is included and
+// depends on how many queries are active and how long they take. This constant is
+// an observation window, deliberately named as one. It is not a guarantee that the
+// mechanism has finished, and no assertion here rests on it alone — each site also
+// observes the mechanism itself, either by requiring a delivery it triggered or by
+// naming the window as a limitation it cannot cross.
+const SETTLEMENT_OBSERVATION_MS = 1_500
 
 const draftPatchPath = (url: string): boolean =>
     new URL(url).pathname.endsWith('/draft') && !new URL(url).pathname.endsWith('/editor/draft')
+
+/**
+ * Drains the page's task queue. The save continuation is queued as a microtask
+ * when the response resolves, so a round trip that yields to a macrotask proves
+ * the continuation has run. This is an execution-model barrier, not a wait.
+ */
+async function settlePageTasks(page: Page): Promise<void> {
+    await page.evaluate(
+        () =>
+            new Promise<void>(resolve => {
+                window.setTimeout(resolve, 0)
+            })
+    )
+}
 
 /** Counts the aborted stream attempts this spec induces by cutting the streams. */
 function countStreamAttempts(page: Page): () => number {
@@ -535,7 +575,7 @@ async function driveProjectDataRefresh(input: {
     // delivering fails this helper instead of turning the caller's negative
     // assertions into a vacuous pass.
     await expect.poll(reads, { timeout: 20_000 }).toBeGreaterThanOrEqual(before + 1)
-    await input.observerPage.waitForTimeout(REFRESH_BURST_SETTLE_MS)
+    await input.observerPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
 }
 
 /**
@@ -549,9 +589,35 @@ async function driveEditorReread(input: {
     readonly projectId: string
     readonly publicationId: string
 }) {
-    const editorState = await input.ownerPage.request.get(
-        `/api/projects/${input.projectId}/publications/${input.publicationId}/editor`
-    )
+    const editorPath = `/api/projects/${input.projectId}/publications/${input.publicationId}/editor`
+    const isThisEditor = (url: string): boolean => new URL(url).pathname === editorPath
+
+    // The reread is what this helper claims to cause, so it is observed rather than
+    // assumed. Two details make the observation specific:
+    //
+    //   - a read *start* is counted, not a completion, because a read already in
+    //     flight when the wait is installed would otherwise satisfy a completion
+    //     wait and let an unrelated reread pass for this one;
+    //   - the page's task queue is drained and the counter sampled first, so any
+    //     read that could still satisfy the wait has already been counted.
+    //
+    // The draft hint is coalesced on a 100 ms timer before it invalidates the
+    // editor query, so the observer starting a fresh read of this exact project and
+    // publication is what proves the signal was delivered. If delivery were cut, no
+    // hint would arrive, no new read would start, and this helper fails instead of
+    // leaving the caller with a vacuous assertion.
+    let starts = 0
+    input.observerPage.on('request', request => {
+        if (request.method() === 'GET' && isThisEditor(request.url())) starts += 1
+    })
+    await settlePageTasks(input.observerPage)
+    const readsBefore = starts
+    const rereadFinished = input.observerPage.waitForEvent('requestfinished', {
+        predicate: request => request.method() === 'GET' && isThisEditor(request.url()),
+        timeout: 30_000,
+    })
+
+    const editorState = await input.ownerPage.request.get(editorPath)
     expect(editorState.status()).toBe(200)
     const revision = ((await editorState.json()) as { editor: { draft: { revision: number } } })
         .editor.draft.revision
@@ -568,7 +634,17 @@ async function driveEditorReread(input: {
         }
     )
     expect(saved.status()).toBe(200)
-    await input.observerPage.waitForTimeout(REFRESH_BURST_SETTLE_MS)
+
+    await expect
+        .poll(() => starts, {
+            timeout: 30_000,
+            message:
+                'The observer never started a new editor read, so the draft hint did not arrive. ' +
+                'Stream delivery may be cut, or the editor query may not be active.',
+        })
+        .toBeGreaterThan(readsBefore)
+    await rereadFinished
+    await input.observerPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
 }
 
 async function readRecoveryBufferText(page: Page) {
@@ -1039,7 +1115,14 @@ test('close refusals before the next render still verify once', async ({ page })
         const streamAttempts = countStreamAttempts(editorPage)
         const attemptsAtFreeze = streamAttempts()
         await expect.poll(streamAttempts, { timeout: 30_000 }).toBeGreaterThan(attemptsAtFreeze)
-        await editorPage.waitForTimeout(REFRESH_BURST_SETTLE_MS)
+        // NECESSARY NEGATIVE WINDOW, kept on purpose. Exactly-once verification
+        // cannot be shown by traversal here: the forbidden action is the absence of
+        // a second membership read, and nothing can be delivered that would provoke
+        // one without provoking the very thing under test. What is observed is the
+        // browser's own retry, so the barrier is a mechanism that really ran rather
+        // than a duration; the window after it is the limit of that observation and
+        // is not offered as proof.
+        await editorPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
         expect(membershipRequests).toBe(1)
 
         releaseMembership()
