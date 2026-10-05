@@ -9,6 +9,7 @@ import {
     type ProjectRealtimeEventType,
 } from './realtime-routes'
 import { createProjectRealtimeRuntime } from './realtime-runtime'
+import { readFrame } from './realtime-stream-reader'
 
 function journalEntry(input: {
     readonly id: string
@@ -34,13 +35,84 @@ function journalEntry(input: {
     }
 }
 
-async function readText(reader: { read: () => Promise<{ done: boolean; value?: Uint8Array }> }) {
-    const result = await reader.read()
-    return {
-        done: result.done,
-        text: result.value === undefined ? '' : new TextDecoder().decode(result.value),
-    }
-}
+const readText = readFrame
+
+describe('SSE-318 stream lifecycle', () => {
+    it('opens both streams with a comment frame that carries no event and no cursor', async () => {
+        const projectStream = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: { readAfter: () => [] },
+            after: null,
+            options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
+        })
+        const userStream = createUserEventStream({
+            request: new Request('http://localhost/api/notifications/events'),
+            userId: 'user-1',
+            listProjectIds: () => ['project-1'],
+            journal: { readAllAfter: () => [] },
+            after: null,
+            options: { heartbeatIntervalMs: 60_000, batchSize: 8 },
+        })
+
+        for (const stream of [projectStream, userStream]) {
+            const reader = stream.getReader()
+            const opening = await reader.read()
+            await reader.cancel()
+
+            expect(opening.done).toBe(false)
+            const text = new TextDecoder().decode(opening.value)
+            // Establishes the connection immediately, and nothing else: no event
+            // name, no data, and no cursor for a client to resume from.
+            expect(text).toBe(': connected\n\n')
+            expect(text).not.toContain('event:')
+            expect(text).not.toContain('data:')
+            expect(text).not.toContain('id:')
+        }
+    })
+
+    it('keeps heartbeats after the opening comment', async () => {
+        const stream = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: { readAfter: () => [] },
+            after: null,
+            options: { heartbeatIntervalMs: 20, batchSize: 8 },
+        })
+        const reader = stream.getReader()
+        const opening = await reader.read()
+        const heartbeat = await readFrame(reader)
+        await reader.cancel()
+
+        expect(new TextDecoder().decode(opening.value)).toBe(': connected\n\n')
+        expect(heartbeat.text).toBe(': heartbeat\n\n')
+    })
+
+    it('leaves the durable cursor untouched by the opening frame', async () => {
+        const reads: unknown[] = []
+        const stream = createProjectEventStream({
+            request: new Request('http://localhost/api/projects/project-1/events'),
+            projectId: 'project-1',
+            journal: {
+                readAfter: input => {
+                    reads.push(input)
+                    return []
+                },
+            },
+            after: parseEventJournalCursor('event-sequence:7'),
+            options: { heartbeatIntervalMs: 20, batchSize: 8 },
+        })
+        const reader = stream.getReader()
+        await reader.read()
+        await readFrame(reader)
+        await reader.cancel()
+
+        // Resuming still asks the journal for everything after the client's
+        // cursor, so the opening frame cannot silently skip an entry.
+        expect(reads.length).toBeGreaterThan(0)
+        expect(reads[0]).toEqual({ projectId: 'project-1', after: 'event-sequence:7', limit: 8 })
+    })
+})
 
 describe('project event stream', () => {
     it('emits a safe invalidation envelope and removes sensitive journal fields', async () => {

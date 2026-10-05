@@ -40,6 +40,7 @@ import { createBuiltInProviderRegistry } from './modules/workflow/providers/regi
 import { createXProviderAdapter } from './modules/workflow/providers/x'
 import { createPublicationWorker } from './modules/workflow/worker'
 import { createWebAssets } from './plugins/web-assets'
+import { registerServingHandle } from './serving'
 import { createShutdownHandler } from './shutdown'
 
 export { createApp } from './app'
@@ -271,6 +272,7 @@ async function startServerWithRuntimeLock(
     mediaMaintenance.start()
     notificationProjection.start()
     app.listen(config.server.port)
+    registerServingHandle(app.server)
 
     const handleShutdown = createShutdownHandler({
         stopWorker: () => worker.stop(),

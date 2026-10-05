@@ -235,6 +235,9 @@ async function readStreamChunk(response: Response) {
     const reader = response.body?.getReader()
     expect(reader).toBeDefined()
     if (reader === undefined) throw new Error('The response body is not readable')
+    // Every stream opens with a comment frame so the connection is established
+    // immediately; the assertions below are about the first event after it.
+    await reader.read()
     const result = await reader.read()
     await reader.cancel()
     return {

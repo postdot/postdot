@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createProjectEventStream } from './realtime-routes'
+import { readFrame, readFrames as readFramesFrom } from './realtime-stream-reader'
 
 // WEB-312 pins how the open project event stream reacts when a user's access to
 // the project changes while the tab is connected. The gate is re-evaluated on
@@ -24,13 +25,7 @@ function createStream(authorized: { value: boolean }) {
 
 async function readFrames(stream: ReadableStream<Uint8Array>, frames: number) {
     const reader = stream.getReader()
-    const decoder = new TextDecoder()
-    let text = ''
-    for (let index = 0; index < frames; index += 1) {
-        const chunk = await reader.read()
-        if (chunk.done) break
-        text += decoder.decode(chunk.value)
-    }
+    const text = await readFramesFrom(reader, frames)
     reader.releaseLock()
     return text
 }
@@ -43,10 +38,10 @@ describe('WEB-312 live access revocation on the project stream', () => {
         const decoder = new TextDecoder()
 
         // An idle connected stream only heartbeats; it never claims access changed.
-        const first = await reader.read()
+        const first = await readFrame(reader)
         expect(first.done).toBe(false)
-        expect(decoder.decode(first.value)).toBe(': heartbeat\n\n')
-        expect(decoder.decode(first.value)).not.toContain('access-revoked')
+        expect(first.text).toBe(': heartbeat\n\n')
+        expect(first.text).not.toContain('access-revoked')
 
         // Access is removed while the tab stays connected.
         authorized.value = false

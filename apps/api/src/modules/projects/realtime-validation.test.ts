@@ -20,6 +20,7 @@ import {
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { createProjectEventStream } from './realtime-routes'
 import { createProjectRealtimeRuntime, type ProjectRealtimeHub } from './realtime-runtime'
+import { readFrame, readOpeningComment } from './realtime-stream-reader'
 
 const eventTime = 1_800_000_000_000
 const projectionTime = eventTime + 1_000
@@ -131,13 +132,7 @@ function createProjectStream(
     })
 }
 
-async function readChunk(reader: { read: () => Promise<{ done: boolean; value?: Uint8Array }> }) {
-    const result = await reader.read()
-    return {
-        done: result.done,
-        text: result.value === undefined ? '' : new TextDecoder().decode(result.value),
-    }
-}
+const readChunk = readFrame
 
 function eventIdsFromSse(text: string): string[] {
     return text
@@ -336,7 +331,9 @@ describe('REALTIME-106 realtime validation', () => {
                     second.cursor,
                     bridge.realtime.hub
                 ).getReader()
-                const thirdRead = thirdReader.read()
+                // The read is issued past the opening comment, so the stream is
+                // already waiting on the hub when the commit lands.
+                const thirdRead = readChunk(thirdReader)
                 await flushMicrotasks()
 
                 const third = appendPublicationEvent(fixture, 'reconnect-third')
@@ -344,9 +341,7 @@ describe('REALTIME-106 realtime validation', () => {
                 await thirdReader.cancel()
 
                 expect(thirdChunk.done).toBe(false)
-                expect(eventIdsFromSse(new TextDecoder().decode(thirdChunk.value))).toEqual([
-                    third.id,
-                ])
+                expect(eventIdsFromSse(thirdChunk.text)).toEqual([third.id])
                 expect(bridge.observerErrors).toEqual([])
             } finally {
                 bridge.dispose()
@@ -503,6 +498,9 @@ describe('REALTIME-106 realtime validation', () => {
                 const idleReaders = Array.from({ length: 24 }, () =>
                     createProjectStream(fixture, lastCursor, tracker.hub).getReader()
                 )
+                // Each idle stream opens with its own comment frame, so that frame
+                // is consumed before the stream starts waiting on the hub.
+                await Promise.all(idleReaders.map(reader => readOpeningComment(reader)))
                 const idleReads = idleReaders.map(reader => reader.read())
                 await flushMicrotasks()
                 expect(tracker.pending).toBe(idleReaders.length)

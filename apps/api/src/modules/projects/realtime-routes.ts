@@ -12,6 +12,7 @@ import {
 import type { OpenAPIV3 } from 'openapi-types'
 
 import { sessionSecurity } from '../../plugins/auth'
+import { keepResponseAliveBeyondIdleTimeout } from '../../serving'
 import { errorResponse, projectParams } from './models'
 import type {
     DraftChangeSignal,
@@ -111,6 +112,14 @@ const defaultStreamOptions: Required<ProjectEventStreamOptions> = {
     batchSize: 100,
 }
 
+/**
+ * A comment frame with no event name and no data. It carries no business
+ * event, does not move the durable cursor, and is ignored by every SSE client,
+ * but it flushes the response so the connection is established immediately
+ * instead of after the first heartbeat.
+ */
+const streamConnectedComment = ': connected\n\n'
+
 const humanOnlyResponse = {
     error: {
         code: 'forbidden',
@@ -180,6 +189,8 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
                 limit: 1,
             })
             if (notificationAccess === null) return status(404, notFoundResponse)
+
+            keepResponseAliveBeyondIdleTimeout(request)
 
             let after: EventJournalCursor | null
             try {
@@ -255,6 +266,8 @@ export function registerRealtimeRoutes<const Routes extends Record<string, unkno
         },
         ({ authMethod, request, status, user }) => {
             if (authMethod !== 'session') return status(403, humanOnlyResponse)
+
+            keepResponseAliveBeyondIdleTimeout(request)
 
             let after: EventJournalCursor | null
             try {
@@ -421,6 +434,14 @@ export function createProjectEventStream({
     }
 
     return new ReadableStream<Uint8Array>({
+        async start(controller) {
+            try {
+                controller.enqueue(encoder.encode(streamConnectedComment))
+            } catch {
+                closed = true
+                cleanupDraftChanges()
+            }
+        },
         async pull(controller) {
             if (closed) return
 
@@ -595,6 +616,15 @@ export function createUserEventStream({
     }
 
     return new ReadableStream<Uint8Array>({
+        start(controller) {
+            try {
+                controller.enqueue(encoder.encode(streamConnectedComment))
+            } catch {
+                closed = true
+                releaseWait?.()
+                releaseWait = undefined
+            }
+        },
         async pull(controller) {
             if (closed) return
 
