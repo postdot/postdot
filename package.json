@@ -22,6 +22,7 @@
         "test:scripts": "bun test scripts",
         "test:e2e": "playwright test && bun run test:e2e:password-reset",
         "test:e2e:password-reset": "bun run scripts/e2e-password-reset.ts",
+        "test:e2e:affected": "bun run scripts/e2e-affected.ts",
         "test:container:recovery": "bun run scripts/production-container-recovery.ts",
         "test:coverage": "bun test --coverage --path-ignore-patterns='e2e/**'",
         "measure:footprint": "bun run build && bun run scripts/measure-footprint.ts",
