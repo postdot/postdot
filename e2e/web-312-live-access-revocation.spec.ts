@@ -108,35 +108,23 @@ test('an open session keeps the last known project state after access is removed
         )
         expect([403, 404]).toContain(draftResponse.status())
 
-        // 2. The refused refetch reaches the interface, but only as a generic
-        //    missing-resource message. Nothing tells the user that access was lost.
+        // 2. The open editor page now answers with an explicit removal
+        //    surface instead of an armed editor: WEB-314 freezes new writes on
+        //    the first refused request, verifies once, and replaces the editor
+        //    when the refusal is confirmed.
+        await expect(editorPage.getByText('Project access removed')).toBeVisible({
+            timeout: 90_000,
+        })
         await expect(
-            editorPage.getByText('The requested resource could not be found.')
+            editorPage.getByRole('link', { name: 'Select project', exact: true })
         ).toBeVisible()
+        await expect(editorPage.getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(0)
 
-        // 3. The project identity and the editor affordances survive, because a
-        //    refused refetch cannot replace the last successful project data.
-        //    This is the gap: a user without access still sees an armed editor.
-        await expect(
-            editorPage.getByRole('combobox', { name: 'Select project', exact: true })
-        ).toContainText(`E2E-312 ${suffix}`)
-        await expect(
-            editorPage.getByRole('link', { name: 'New publication', exact: true })
-        ).toBeVisible()
-        await expect(sourceBody).toBeVisible()
-        await expect(sourceBody).toContainText('Unsaved work that only exists in this browser')
-        expect(await sourceBody.isEditable()).toBe(true)
-        // The autosave reached the server and was refused, so the only signal the
-        // user gets is a failed save next to a generic missing-resource alert.
-        await expect(
-            editorPage.getByRole('status').filter({ hasText: 'Save failed' })
-        ).toBeVisible()
-
-        // 4. Local work is preserved, which is what a bounded correction must
-        //    keep: the recovery buffer still holds the unsaved copy.
+        // 3. Local work is preserved, which is what the bounded correction
+        //    keeps: the recovery buffer still holds the unsaved copy.
         expect(await countRecoveryBuffers(editorPage)).toBe(1)
 
-        // 5. A later navigation drops the project from the interface entirely,
+        // 4. A later navigation drops the project from the interface entirely,
         //    because the loader no longer finds it among the user's projects.
         await editorPage.goto(`/dashboard/projects/${owner.projectId}/queue`)
         await expect(

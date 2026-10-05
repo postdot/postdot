@@ -1,4 +1,5 @@
 import { Button, buttonVariants } from '@herald/ui/components/button'
+import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useQuery } from '@tanstack/react-query'
 import {
     createFileRoute,
@@ -7,12 +8,19 @@ import {
     useRouter,
     type ErrorComponentProps,
 } from '@tanstack/react-router'
-import { useId } from 'react'
+import { useCallback, useEffect, useId, useReducer, useRef } from 'react'
 
+import { EmptyState } from '@/components/empty-state'
 import { PublicationEditor } from '@/components/publication-editor'
 import { api, ApiError } from '@/lib/api'
 import { useProjectDashboard } from '@/lib/dashboard-context'
-import { projectQueryKeys } from '@/lib/project-realtime'
+import { useLanguage } from '@/lib/i18n'
+import {
+    classifyMembershipVerificationError,
+    createProjectAccessState,
+    projectAccessReducer,
+} from '@/lib/project-access-verification'
+import { projectQueryKeys, subscribeProjectAccessRevocation } from '@/lib/project-realtime'
 import { isCalendarDateKey } from '@/lib/publication-calendar'
 import {
     isPublicationCalendarView,
@@ -71,7 +79,69 @@ function PublicationEditorRoute() {
         project,
         projectRole,
     } = useProjectDashboard()
-    const readOnly = projectRole === 'viewer'
+    const [access, dispatchAccess] = useReducer(
+        projectAccessReducer,
+        undefined,
+        createProjectAccessState
+    )
+    const accessRef = useRef(access)
+    useEffect(() => {
+        accessRef.current = access
+    })
+
+    // A verification override only stands until ordinary project data
+    // refreshes: any context role change afterwards is strictly fresher.
+    useEffect(() => {
+        if (accessRef.current.role !== null) dispatchAccess({ type: 'clear-role-override' })
+    }, [projectRole])
+
+    const verifyAccess = useCallback(
+        async (epoch: number) => {
+            try {
+                const { membership } = await api.getProjectMembership(projectId)
+                if (accessRef.current.epoch !== epoch) return
+                dispatchAccess({ type: 'verification-succeeded', role: membership.role })
+            } catch (error) {
+                if (accessRef.current.epoch !== epoch) return
+                dispatchAccess({ type: classifyMembershipVerificationError(error) })
+            }
+        },
+        [projectId]
+    )
+
+    useEffect(
+        () =>
+            subscribeProjectAccessRevocation(projectId, () => {
+                const previous = accessRef.current
+                dispatchAccess({ type: 'access-revoked' })
+                if (previous.status === 'confirmed') void verifyAccess(previous.epoch + 1)
+            }),
+        [projectId, verifyAccess]
+    )
+
+    const retryAccessVerification = useCallback(() => {
+        const current = accessRef.current
+        if (current.status !== 'technical-error') return
+        dispatchAccess({ type: 'retry-verification' })
+        void verifyAccess(current.epoch + 1)
+    }, [verifyAccess])
+
+    // An authoritative refusal from an editor-owned request carries the same
+    // ambiguity as the stream signal when transports degrade, so it starts the
+    // same one-shot verification instead of leaving stale actions armed.
+    const handleEditorRequestRefused = useCallback(() => {
+        const previous = accessRef.current
+        if (previous.status !== 'confirmed') return
+        dispatchAccess({ type: 'refetch-refused' })
+        void verifyAccess(previous.epoch + 1)
+    }, [verifyAccess])
+
+    const effectiveRole = access.role ?? projectRole
+    const routeReadOnly = effectiveRole === 'viewer'
+    const accessBlocked = access.status !== 'confirmed'
+    const canAct = !routeReadOnly && !accessBlocked
+
+    const readOnly = routeReadOnly
     const instanceId = useId()
     const editorQuery = useQuery({
         queryKey: projectQueryKeys.publicationEditorInstance(projectId, publicationId, instanceId),
@@ -83,26 +153,106 @@ function PublicationEditorRoute() {
     })
     const currentEditor = editorQuery.data?.editor ?? editor
 
+    // A refused refetch of previously loaded data starts the same one-shot
+    // verification: through a degraded transport the in-band signal may never
+    // arrive, while the refusal is equally ambiguous.
+    const editorQueryError = editorQuery.error
+    const editorQueryHasData = editorQuery.data !== undefined
+    useEffect(() => {
+        if (!(editorQueryError instanceof ApiError)) return
+        if (editorQueryError.status !== 403 && editorQueryError.status !== 404) return
+        if (!editorQueryHasData) return
+        const previous = accessRef.current
+        if (previous.status !== 'confirmed') return
+        dispatchAccess({ type: 'refetch-refused' })
+        void verifyAccess(previous.epoch + 1)
+    }, [editorQueryError, editorQueryHasData, verifyAccess])
+
+    if (access.status === 'denied') return <AccessRemovedSurface />
+
     return (
-        <PublicationEditor
-            key={currentEditor.draft.id}
-            projectId={projectId}
-            configuredEditor={!(import.meta.env.DEV && editorEngine === 'legacy')}
-            initialEditor={currentEditor}
-            initialPublicationTags={publicationTags}
-            onCancel={
-                readOnly ? undefined : () => onCancelPublications([currentEditor.publication.id])
-            }
-            onPublish={readOnly ? undefined : () => onPublish(currentEditor.publication.id)}
-            onRetry={readOnly ? undefined : () => onRetryPublication(currentEditor.publication.id)}
-            projectTags={projectTags}
-            readOnly={readOnly}
-            channels={activeChannels}
-            publisherConnections={connections}
-            relatedPublications={relatedPublications}
-            backToCalendar={from === 'calendar' ? { date, view } : undefined}
-            timeZone={project.timeZone}
-        />
+        <>
+            {access.status === 'verifying' ? <AccessVerifyingNotice /> : null}
+            {access.status === 'technical-error' ? (
+                <AccessTechnicalErrorNotice onRetry={retryAccessVerification} />
+            ) : null}
+            <PublicationEditor
+                key={currentEditor.draft.id}
+                projectId={projectId}
+                configuredEditor={!(import.meta.env.DEV && editorEngine === 'legacy')}
+                initialEditor={currentEditor}
+                initialPublicationTags={publicationTags}
+                onCancel={
+                    canAct ? () => onCancelPublications([currentEditor.publication.id]) : undefined
+                }
+                onPublish={canAct ? () => onPublish(currentEditor.publication.id) : undefined}
+                onRetry={
+                    canAct ? () => onRetryPublication(currentEditor.publication.id) : undefined
+                }
+                projectTags={projectTags}
+                readOnly={readOnly}
+                accessStatus={access.status}
+                accessEpoch={access.epoch}
+                onAccessRefused={handleEditorRequestRefused}
+                channels={activeChannels}
+                publisherConnections={connections}
+                relatedPublications={relatedPublications}
+                backToCalendar={from === 'calendar' ? { date, view } : undefined}
+                timeZone={project.timeZone}
+            />
+        </>
+    )
+}
+
+function AccessVerifyingNotice() {
+    useLanguage()
+    return (
+        <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+            <p
+                role="status"
+                className="rounded-md bg-surface-inset/35 px-3 py-2.5 text-sm text-muted-foreground shadow-surface">
+                {m.editor_access_checking()}
+            </p>
+        </div>
+    )
+}
+
+function AccessTechnicalErrorNotice({ onRetry }: { readonly onRetry: () => void }) {
+    useLanguage()
+    return (
+        <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+            <EmptyState
+                action={
+                    <Button onClick={onRetry} size="sm" variant="ghost">
+                        <RefreshIcon aria-hidden="true" />
+                        {m.common_retry()}
+                    </Button>
+                }
+                layout="compact"
+                title={m.editor_application_unconfirmed()}
+            />
+        </div>
+    )
+}
+
+function AccessRemovedSurface() {
+    useLanguage()
+    return (
+        <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+            <EmptyState
+                action={
+                    <Link
+                        className={buttonVariants({ variant: 'default' })}
+                        to="/dashboard"
+                        search={{ projectId: 'none' }}>
+                        {m.nav_select_project()}
+                    </Link>
+                }
+                description={m.dashboard_select_project_description()}
+                illustration="access"
+                title={m.editor_access_denied_title()}
+            />
+        </main>
     )
 }
 

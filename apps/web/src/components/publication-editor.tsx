@@ -59,6 +59,10 @@ import {
     type DateTimeLocalResult,
 } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
+import {
+    decideConfirmedReconcile,
+    type ProjectAccessStatus,
+} from '@/lib/project-access-verification'
 import { projectQueryKeys } from '@/lib/project-realtime'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
@@ -81,6 +85,20 @@ interface PublicationEditorProps {
     readonly onPublish?: () => Promise<boolean>
     readonly onRetry?: () => Promise<boolean>
     readonly readOnly?: boolean
+    /**
+     * Explicit project-access assessment owning this editor instance. Anything
+     * other than `confirmed` freezes new server writes without touching local
+     * state or the recovery buffer.
+     */
+    readonly accessStatus: ProjectAccessStatus
+    /** Epoch captured at dispatch; stale continuations must apply nothing. */
+    readonly accessEpoch: number
+    /**
+     * Called when an editor-owned request is refused with 403/404 while the
+     * page believed access was confirmed. The refusal is authoritative, unlike
+     * a silent transport, so it starts the same one-shot verification.
+     */
+    readonly onAccessRefused?: () => void
     readonly projectTags: readonly ProjectTag[]
     readonly relatedPublications?: readonly PublicationSummary[]
     readonly backToCalendar?: {
@@ -113,6 +131,9 @@ export function PublicationEditor({
     onPublish,
     onRetry,
     readOnly = false,
+    accessStatus,
+    accessEpoch,
+    onAccessRefused,
     projectId,
     projectTags,
     relatedPublications = [],
@@ -225,6 +246,18 @@ export function PublicationEditor({
     const technicalDetailsRef = useRef<HTMLDetailsElement>(null)
     const requestGeneration = useRef(0)
     const [pendingSaveGeneration, setPendingSaveGeneration] = useState<number | null>(null)
+    const accessWritesBlocked = accessStatus !== 'confirmed'
+    const accessEpochRef = useRef(accessEpoch)
+
+    useEffect(() => {
+        accessEpochRef.current = accessEpoch
+    }, [accessEpoch])
+
+    function reportAccessRefusal(error: unknown) {
+        if (onAccessRefused === undefined) return
+        if (error instanceof ApiError && (error.status === 403 || error.status === 404))
+            onAccessRefused()
+    }
 
     const availableTags = useMemo(() => {
         const byId = new Map<string, ProjectTag>()
@@ -248,6 +281,7 @@ export function PublicationEditor({
     const isRebasing = saveState === 'rebasing'
     const publicationEditable = !readOnly && canEditPublication(editor.publication.state)
     const manualPublicationBlocked =
+        accessWritesBlocked ||
         editorMutationPending ||
         promotionRecoveryRequired ||
         manualPublishPending ||
@@ -257,6 +291,7 @@ export function PublicationEditor({
         draftRequiresReview ||
         draftDiffersFromTarget
     const promotionBlocked =
+        accessWritesBlocked ||
         editorMutationPending ||
         promotionRecoveryRequired ||
         dirty ||
@@ -266,6 +301,7 @@ export function PublicationEditor({
         targetResult.value === null ||
         sourceIssue !== null
     const cancellationBlocked =
+        accessWritesBlocked ||
         editorMutationPending ||
         promotionRecoveryRequired ||
         cancelPending ||
@@ -273,6 +309,7 @@ export function PublicationEditor({
         saveState !== 'saved' ||
         isRebasing
     const retryBlocked =
+        accessWritesBlocked ||
         editorMutationPending ||
         promotionRecoveryRequired ||
         retryPending ||
@@ -432,7 +469,8 @@ export function PublicationEditor({
     }
 
     async function handlePublicationTagIdsChange(nextTagIds: string[]) {
-        if (!publicationEditable) return
+        if (!publicationEditable || accessWritesBlocked) return
+        const accessEpochAtStart = accessEpochRef.current
         const previousTagIds = publicationTagIds
         setPublicationTagIds(nextTagIds)
         setTagError(null)
@@ -443,9 +481,12 @@ export function PublicationEditor({
                 editor.publication.id,
                 nextTagIds
             )
+            if (accessEpochAtStart !== accessEpochRef.current) return
             setPublicationTagIds(response.tags.map(tag => tag.id))
             invalidatePublicationQueries()
         } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return
+            reportAccessRefusal(caughtError)
             setPublicationTagIds(previousTagIds)
             setTagError(formatApiError(caughtError))
         } finally {
@@ -494,9 +535,17 @@ export function PublicationEditor({
     ])
 
     useEffect(() => {
-        if (!publicationEditable || !dirty || recoveryAvailable || serverReadPending) return
+        if (
+            !publicationEditable ||
+            accessWritesBlocked ||
+            !dirty ||
+            recoveryAvailable ||
+            serverReadPending
+        )
+            return
 
         const generation = ++requestGeneration.current
+        const accessEpochAtStart = accessEpoch
         if (sourceConflict || sourceIssue !== null || targetResult.value === null) {
             setSaveState(sourceConflict ? 'conflict' : 'local_only')
             return
@@ -513,6 +562,7 @@ export function PublicationEditor({
                     targetContent,
                 })
                 .then(response => {
+                    if (accessEpochAtStart !== accessEpochRef.current) return
                     if (generation !== requestGeneration.current) return
                     setEditor(response.editor)
                     setExpectedRevision(response.editor.draft.revision)
@@ -523,6 +573,8 @@ export function PublicationEditor({
                     invalidatePublicationQueries()
                 })
                 .catch(caughtError => {
+                    if (accessEpochAtStart !== accessEpochRef.current) return
+                    reportAccessRefusal(caughtError)
                     if (generation !== requestGeneration.current) return
                     if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                         setSaveState('conflict')
@@ -541,6 +593,8 @@ export function PublicationEditor({
             window.clearTimeout(timer)
         }
     }, [
+        accessEpoch,
+        accessWritesBlocked,
         dirty,
         editor.publication.id,
         expectedRevision,
@@ -607,6 +661,7 @@ export function PublicationEditor({
 
     async function reloadServerVersion() {
         if (
+            accessWritesBlocked ||
             serverReadInFlight.current ||
             promotionInFlight.current ||
             pendingSaveGeneration !== null ||
@@ -617,6 +672,7 @@ export function PublicationEditor({
         serverReadInFlight.current = true
         setServerReadPending(true)
         const generation = ++requestGeneration.current
+        const accessEpochAtStart = accessEpochRef.current
         const localSource = sourceContent
         const localTargetText = targetText
         const localRecovery = readRecovery(recoveryKey, timeZone)
@@ -633,6 +689,7 @@ export function PublicationEditor({
 
         try {
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            if (accessEpochAtStart !== accessEpochRef.current) return
             if (generation !== requestGeneration.current) return
             setPromotionRecoveryRequired(false)
             setRecoveryAvailable(hasLocalChanges || localRecovery !== null)
@@ -654,6 +711,8 @@ export function PublicationEditor({
                     : m.editor_server_loaded()
             )
         } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return
+            reportAccessRefusal(caughtError)
             if (generation !== requestGeneration.current) return
             if (!promotionRecoveryRequired) setSaveState('error')
             setMessage(errorMessage(caughtError))
@@ -664,6 +723,7 @@ export function PublicationEditor({
     }
 
     function restoreRecovery() {
+        if (accessWritesBlocked) return
         const recovery = readRecovery(recoveryKey, timeZone)
         if (recovery === null) return
         requestGeneration.current += 1
@@ -688,12 +748,15 @@ export function PublicationEditor({
     }
 
     async function restoreRecoveryAgainstLatestServer() {
+        if (accessWritesBlocked) return
         const recovery = readRecovery(recoveryKey, timeZone)
         if (recovery === null) return
 
         const generation = ++requestGeneration.current
+        const accessEpochAtStart = accessEpochRef.current
         try {
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            if (accessEpochAtStart !== accessEpochRef.current) return
             if (generation !== requestGeneration.current) return
             const contentDiffers = recoveryContentDiffers(recovery, response.editor)
             const scheduleDiffers =
@@ -720,6 +783,8 @@ export function PublicationEditor({
                       : m.editor_recovered_no_changes()
             )
         } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return
+            reportAccessRefusal(caughtError)
             if (generation !== requestGeneration.current) return
             setSaveState('error')
             setMessage(errorMessage(caughtError))
@@ -727,7 +792,9 @@ export function PublicationEditor({
     }
 
     async function rebaseToLatestSource() {
+        if (accessWritesBlocked) return
         const generation = ++requestGeneration.current
+        const accessEpochAtStart = accessEpochRef.current
         const localRecovery = readRecovery(recoveryKey, timeZone)
         const hadLocalCopy = hasLocalChanges || localRecovery !== null
         if (hasLocalChanges) {
@@ -750,6 +817,7 @@ export function PublicationEditor({
                 editor.publication.id,
                 expectedRevision
             )
+            if (accessEpochAtStart !== accessEpochRef.current) return
             if (generation !== requestGeneration.current) return
             const rebasedSourceConflict =
                 response.editor.draft.sourceRevision !== response.editor.post.sourceRevision
@@ -771,6 +839,8 @@ export function PublicationEditor({
             )
             invalidatePublicationQueries()
         } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return
+            reportAccessRefusal(caughtError)
             if (generation !== requestGeneration.current) return
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                 setSaveState('conflict')
@@ -782,8 +852,79 @@ export function PublicationEditor({
         }
     }
 
+    const lastAccessReconciledEpoch = useRef<number | null>(null)
+
+    useEffect(() => {
+        if (accessStatus !== 'confirmed' || accessEpoch === 0) return
+        if (lastAccessReconciledEpoch.current === accessEpoch) return
+        if (!publicationEditable) return
+        lastAccessReconciledEpoch.current = accessEpoch
+
+        void (async () => {
+            try {
+                const response = await api.getPublicationEditor(projectId, editor.publication.id)
+                if (accessEpoch !== accessEpochRef.current) return
+                const recovery = readRecovery(recoveryKey, timeZone)
+                const workingDiffers =
+                    hasLocalChanges ||
+                    (recovery !== null && recoveryContentDiffers(recovery, response.editor))
+                const decision = decideConfirmedReconcile({
+                    hasLocalChanges: workingDiffers,
+                    serverRevision: response.editor.draft.revision,
+                    expectedRevision,
+                    serverSourceConflict:
+                        response.editor.draft.sourceRevision !==
+                        response.editor.post.sourceRevision,
+                })
+                if (decision.kind === 'adopt-server') {
+                    setPromotionRecoveryRequired(false)
+                    setRecoveryAvailable(recovery !== null)
+                    setEditor(response.editor)
+                    setSourceContent(response.editor.post.sourceContent)
+                    setTargetText(formatJson(response.editor.draft.content))
+                    setExpectedRevision(response.editor.draft.revision)
+                    setScheduleValue(
+                        toDateTimeLocal(response.editor.publication.scheduledAt, timeZone)
+                    )
+                    setDirty(false)
+                    setScheduleDirty(false)
+                    const refreshedSourceConflict =
+                        response.editor.draft.sourceRevision !== response.editor.post.sourceRevision
+                    setSaveState(refreshedSourceConflict ? 'conflict' : 'saved')
+                    setMessage(
+                        refreshedSourceConflict
+                            ? m.editor_server_loaded_conflict({
+                                  revision: response.editor.draft.sourceRevision,
+                              })
+                            : m.editor_server_loaded()
+                    )
+                    return
+                }
+                if (decision.conflict) {
+                    setSaveState('conflict')
+                    setMessage(m.editor_server_newer_local())
+                }
+            } catch (caughtError) {
+                if (accessEpoch !== accessEpochRef.current) return
+                setSaveState('error')
+                setMessage(errorMessage(caughtError))
+            }
+        })()
+    }, [
+        accessEpoch,
+        accessStatus,
+        editor.publication.id,
+        expectedRevision,
+        hasLocalChanges,
+        projectId,
+        publicationEditable,
+        recoveryKey,
+        timeZone,
+    ])
+
     async function promoteDraft() {
         if (
+            accessWritesBlocked ||
             promotionInFlight.current ||
             promotionRecoveryRequired ||
             serverReadInFlight.current ||
@@ -814,6 +955,7 @@ export function PublicationEditor({
         promotionInFlight.current = true
         setPromotionPending(true)
         setMessage(null)
+        const accessEpochAtStart = accessEpochRef.current
         try {
             const response = await api.promotePublicationDraft(
                 projectId,
@@ -821,6 +963,7 @@ export function PublicationEditor({
                 expectedRevision,
                 scheduledAt
             )
+            if (accessEpochAtStart !== accessEpochRef.current) return
             setEditor(response.editor)
             setExpectedRevision(response.editor.draft.revision)
             setScheduleValue(toDateTimeLocal(response.editor.publication.scheduledAt, timeZone))
@@ -839,6 +982,8 @@ export function PublicationEditor({
             )
             invalidatePublicationQueries()
         } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return
+            reportAccessRefusal(caughtError)
             if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                 setSaveState('conflict')
                 setMessage(m.editor_conflict_promotion())
@@ -853,19 +998,22 @@ export function PublicationEditor({
     }
 
     async function retryDelivery(): Promise<boolean> {
-        if (onRetry === undefined || retryBlocked) return false
+        if (accessWritesBlocked || onRetry === undefined || retryBlocked) return false
 
+        const accessEpochAtStart = accessEpochRef.current
         requestGeneration.current += 1
         setRetryPending(true)
         setMessage(null)
         try {
             const retried = await onRetry()
+            if (accessEpochAtStart !== accessEpochRef.current) return false
             if (!retried) {
                 setMessage(m.editor_retry_failed())
                 return false
             }
 
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            if (accessEpochAtStart !== accessEpochRef.current) return false
             setEditor(response.editor)
             setSourceContent(response.editor.post.sourceContent)
             setTargetText(formatJson(response.editor.draft.content))
@@ -880,6 +1028,8 @@ export function PublicationEditor({
             invalidatePublicationQueries()
             return true
         } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return false
+            reportAccessRefusal(caughtError)
             setSaveState('error')
             setMessage(errorMessage(caughtError))
             return false
@@ -890,6 +1040,7 @@ export function PublicationEditor({
 
     async function recordManualPublication(): Promise<boolean> {
         if (
+            accessWritesBlocked ||
             onPublish === undefined ||
             !isManualPublicationDue(editor.publication) ||
             manualPublicationBlocked
@@ -897,17 +1048,20 @@ export function PublicationEditor({
             return false
         }
 
+        const accessEpochAtStart = accessEpochRef.current
         requestGeneration.current += 1
         setManualPublishPending(true)
         setMessage(null)
         try {
             const published = await onPublish()
+            if (accessEpochAtStart !== accessEpochRef.current) return false
             if (!published) {
                 setMessage(m.editor_manual_publish_failed())
                 return false
             }
 
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            if (accessEpochAtStart !== accessEpochRef.current) return false
             setEditor(response.editor)
             setSourceContent(response.editor.post.sourceContent)
             setTargetText(formatJson(response.editor.draft.content))
@@ -922,6 +1076,8 @@ export function PublicationEditor({
             invalidatePublicationQueries()
             return true
         } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return false
+            reportAccessRefusal(caughtError)
             setSaveState('error')
             setMessage(errorMessage(caughtError))
             return false
@@ -932,6 +1088,7 @@ export function PublicationEditor({
 
     async function cancelPublication(): Promise<boolean> {
         if (
+            accessWritesBlocked ||
             onCancel === undefined ||
             editor.publication.state !== 'scheduled' ||
             cancellationBlocked
@@ -939,17 +1096,20 @@ export function PublicationEditor({
             return false
         }
 
+        const accessEpochAtStart = accessEpochRef.current
         requestGeneration.current += 1
         setCancelPending(true)
         setMessage(null)
         try {
             const cancelled = await onCancel()
+            if (accessEpochAtStart !== accessEpochRef.current) return false
             if (!cancelled) {
                 setMessage(m.editor_cancel_failed())
                 return false
             }
 
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
+            if (accessEpochAtStart !== accessEpochRef.current) return false
             setEditor(response.editor)
             setSourceContent(response.editor.post.sourceContent)
             setTargetText(formatJson(response.editor.draft.content))
@@ -964,6 +1124,8 @@ export function PublicationEditor({
             invalidatePublicationQueries()
             return true
         } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return false
+            reportAccessRefusal(caughtError)
             setSaveState('error')
             setMessage(errorMessage(caughtError))
             return false
@@ -973,13 +1135,22 @@ export function PublicationEditor({
     }
 
     async function reconcilePublication(input: PublicationOutcomeResolutionInput) {
-        const response = await api.reconcileAmbiguousPublication(
-            projectId,
-            editor.publication.id,
-            input
-        )
-        setEditor(current => ({ ...current, publication: response.publication }))
-        invalidatePublicationQueries()
+        if (accessWritesBlocked) return
+        const accessEpochAtStart = accessEpochRef.current
+        try {
+            const response = await api.reconcileAmbiguousPublication(
+                projectId,
+                editor.publication.id,
+                input
+            )
+            if (accessEpochAtStart !== accessEpochRef.current) return
+            setEditor(current => ({ ...current, publication: response.publication }))
+            invalidatePublicationQueries()
+        } catch (caughtError) {
+            if (accessEpochAtStart !== accessEpochRef.current) return
+            reportAccessRefusal(caughtError)
+            throw caughtError
+        }
     }
 
     const passiveStatus = passiveMessage && saveState !== 'error' && saveState !== 'conflict'
@@ -1013,10 +1184,13 @@ export function PublicationEditor({
             projectId={projectId}
             sourceContent={sourceContent}
             sourceRevision={editor.post.sourceRevision}
-            disabled={!publicationEditable || isRebasing || editorMutationPending}
-            readOnly={!publicationEditable}
+            disabled={
+                !publicationEditable || accessWritesBlocked || isRebasing || editorMutationPending
+            }
+            readOnly={!publicationEditable || accessWritesBlocked}
             mediaDisabled={
                 !publicationEditable ||
+                accessWritesBlocked ||
                 editorMutationPending ||
                 saveState === 'saving' ||
                 saveState === 'rebasing'
@@ -1038,8 +1212,10 @@ export function PublicationEditor({
             validationIssues={editor.draft.validationIssues}
             target={targetResult.value}
             targetText={targetText}
-            disabled={!publicationEditable || isRebasing || editorMutationPending}
-            readOnly={!publicationEditable}
+            disabled={
+                !publicationEditable || accessWritesBlocked || isRebasing || editorMutationPending
+            }
+            readOnly={!publicationEditable || accessWritesBlocked}
             open={targetCustomizationOpen}
             onOpenChange={setTargetCustomizationOpen}
             onTargetChange={next => {
@@ -1105,8 +1281,11 @@ export function PublicationEditor({
                         <DialogFooter>
                             <Button
                                 variant="secondary"
-                                disabled={isRebasing || editorMutationPending}
+                                disabled={
+                                    accessWritesBlocked || isRebasing || editorMutationPending
+                                }
                                 onClick={() => {
+                                    if (accessWritesBlocked) return
                                     requestGeneration.current += 1
                                     removeRecovery(recoveryKey)
                                     setRecoveryAvailable(false)
@@ -1114,7 +1293,9 @@ export function PublicationEditor({
                                 {m.editor_discard_recovery()}
                             </Button>
                             <Button
-                                disabled={isRebasing || editorMutationPending}
+                                disabled={
+                                    accessWritesBlocked || isRebasing || editorMutationPending
+                                }
                                 onClick={restoreRecovery}>
                                 {m.editor_restore_recovery()}
                             </Button>
@@ -1179,7 +1360,7 @@ export function PublicationEditor({
                                   connection => connection.channelId === editor.channel.id
                               ) ?? null)
                     }
-                    readOnly={readOnly}
+                    readOnly={readOnly || accessWritesBlocked}
                     cancelDisabled={cancellationBlocked}
                     onCancel={onCancel === undefined ? undefined : () => setCancelDialogOpen(true)}
                     onPublish={onPublish === undefined ? undefined : recordManualPublication}
@@ -1217,6 +1398,7 @@ export function PublicationEditor({
                             archivedLabel={m.common_archived()}
                             disabled={
                                 !publicationEditable ||
+                                accessWritesBlocked ||
                                 isRebasing ||
                                 editorMutationPending ||
                                 tagSavePending

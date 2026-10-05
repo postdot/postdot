@@ -228,6 +228,38 @@ export function createUserRealtimeClient(
     return new BrowserUserRealtimeEventSource(eventSourceFactory)
 }
 
+type ProjectAccessRevocationListener = () => void
+
+const projectAccessRevocationListeners = new Map<string, Set<ProjectAccessRevocationListener>>()
+
+/**
+ * Local fan-out for the project `access-revoked` signal. The stream itself is
+ * unchanged: subscribers only observe the same ambiguous signal the bridge
+ * already handles, so no transport behavior changes.
+ */
+export function subscribeProjectAccessRevocation(
+    projectId: string,
+    listener: ProjectAccessRevocationListener
+): () => void {
+    const listeners = projectAccessRevocationListeners.get(projectId) ?? new Set()
+    listeners.add(listener)
+    projectAccessRevocationListeners.set(projectId, listeners)
+    return () => {
+        listeners.delete(listener)
+        if (listeners.size === 0) projectAccessRevocationListeners.delete(projectId)
+    }
+}
+
+function notifyProjectAccessRevocation(projectId: string): void {
+    for (const listener of projectAccessRevocationListeners.get(projectId) ?? []) {
+        try {
+            listener()
+        } catch {
+            // A subscriber must never break the bridge refresh path.
+        }
+    }
+}
+
 export function ProjectRealtimeProvider({
     children,
     projectId,
@@ -515,6 +547,7 @@ function ProjectRealtimeBridge({ projectId }: { readonly projectId: string }) {
                     return
                 }
                 if (signal.kind === 'access-revoked') {
+                    notifyProjectAccessRevocation(projectId)
                     void refresh('project', true)
                     void refresh('notifications', true)
                     return

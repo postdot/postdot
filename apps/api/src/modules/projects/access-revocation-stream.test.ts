@@ -101,4 +101,28 @@ describe('WEB-312 live access revocation on the project stream', () => {
         const text = await readFrames(stream, 1)
         expect(text).toContain('event: project.access-revoked')
     })
+
+    it('emits byte-identical frames for refusal and lookup failure', async () => {
+        const refused = createProjectEventStream({
+            request: new Request(`http://localhost/api/projects/${projectId}/events`),
+            projectId,
+            journal: { readAfter: () => [] },
+            after: null,
+            isAuthorized: () => false,
+            options: { heartbeatIntervalMs: shortHeartbeatIntervalMs, batchSize: 8 },
+        })
+        const failed = createProjectEventStream({
+            request: new Request(`http://localhost/api/projects/${projectId}/events`),
+            projectId,
+            journal: { readAfter: () => [] },
+            after: null,
+            isAuthorized: () => {
+                throw new Error('authorization store unavailable')
+            },
+            options: { heartbeatIntervalMs: shortHeartbeatIntervalMs, batchSize: 8 },
+        })
+
+        // Neither path carries a cause: the client cannot tell them apart.
+        expect(await readFrames(failed, 1)).toBe(await readFrames(refused, 1))
+    })
 })
