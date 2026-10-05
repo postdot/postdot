@@ -135,9 +135,14 @@ themselves:
 
 Two things follow, and both are recorded rather than smoothed over.
 
-First, `d70108840` is the last fully validated commit, and it stays that way until a
-full control runs again. Everything after it is locally validated, and four of
-those commits carry code or test changes rather than documentation.
+First, `d70108840` was the last fully validated commit until this mission ran the full
+control required by trigger 3 for its own change set. On `4e89b3c0d`,
+`bun run check` was green: 84 E2E scenarios in 18.8 min, 2 password-reset in
+10.4 s, 51 script tests, and the full set of package unit tests, build, format,
+lint, typecheck, with zero failures and zero flakes. So `4e89b3c0d` is now the
+newest fully validated commit, and the four WEB-314 commits between it and
+`d70108840` remain locally validated only, carrying code or test changes rather
+than documentation.
 
 Second, there is a real divergence: the selector reports the **full matrix** for
 the four WEB-314 commits because `e2e/**` is transversal, while the work actually
