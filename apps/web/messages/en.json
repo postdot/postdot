@@ -1468,6 +1468,7 @@
     "editor_promotion_description": "Choose what gets delivered and when the selected target becomes active.",
     "editor_promotion_autosave": "Autosave preserves your work. This action creates the immutable target revision used by manual delivery or the worker.",
     "editor_promotion_review_detail": "Resolve the profile validation issues before applying this draft to the selected target.",
+    "editor_promotion_active_profile_mismatch": "The active channel profile changed after this draft was saved. The draft still uses the previous profile, so normal promotion cannot apply it. The saved content and selected target are unchanged.",
     "editor_resolve_issues": "Resolve the validation issues before promoting this draft.",
     "editor_draft_differs": "Changes pending",
     "editor_draft_matches": "In sync",

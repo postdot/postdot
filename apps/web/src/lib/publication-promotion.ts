@@ -13,3 +13,16 @@ export function publicationPromotionIntent(
     if (hasSchedule) return state === 'scheduled' ? 'update_schedule' : 'schedule'
     return state === 'scheduled' ? 'return_draft' : 'select_version'
 }
+
+export const activeChannelProfilePromotionErrorPrefix =
+    'Publication target content is incompatible with the active channel profile'
+
+export function isActiveChannelProfilePromotionError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false
+    const { code, message } = error as { code?: unknown; message?: unknown }
+    return (
+        code === 'invalid_content' &&
+        typeof message === 'string' &&
+        message.startsWith(activeChannelProfilePromotionErrorPrefix)
+    )
+}

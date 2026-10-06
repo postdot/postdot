@@ -71,7 +71,10 @@ import {
     getTargetPreviewBody,
     getTargetPreviewTitle,
 } from '@/lib/publication-preview'
-import { publicationPromotionIntent } from '@/lib/publication-promotion'
+import {
+    isActiveChannelProfilePromotionError,
+    publicationPromotionIntent,
+} from '@/lib/publication-promotion'
 import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -597,6 +600,12 @@ export function PublicationEditor({
                     if (accessEpochAtStart !== accessEpochRef.current) return
                     reportAccessRefusal(caughtError)
                     if (generation !== requestGeneration.current) return
+                    if (isActiveChannelProfilePromotionError(caughtError)) {
+                        setSaveState('error')
+                        setMessage(m.editor_promotion_active_profile_mismatch())
+                        invalidatePublicationQueries()
+                        return
+                    }
                     if (caughtError instanceof ApiError && caughtError.code === 'write_conflict') {
                         setSaveState('conflict')
                         setMessage(m.editor_server_newer_local())

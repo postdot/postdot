@@ -756,6 +756,15 @@ export function createManualStore(database: HeraldDatabase, options: ManualStore
                 media,
                 publicMediaUrlAvailable
             ),
+        assessActiveProfileMedia: (profile, content, projectId, subjectId) =>
+            assessWorkingDraftMedia(
+                profile,
+                content,
+                projectId,
+                subjectId,
+                media,
+                publicMediaUrlAvailable
+            ),
         resolveTargetMedia: (profile, content, projectId, subjectId) =>
             resolveTargetMedia(
                 profile,

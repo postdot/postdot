@@ -1468,6 +1468,7 @@
     "editor_promotion_description": "Choisissez ce qui sera livré et quand la cible sélectionnée deviendra active.",
     "editor_promotion_autosave": "La sauvegarde automatique conserve votre travail. Cette action crée la révision cible immuable utilisée par la livraison manuelle ou le worker.",
     "editor_promotion_review_detail": "Résolvez les problèmes de validation du profil avant d’appliquer ce brouillon à la cible sélectionnée.",
+    "editor_promotion_active_profile_mismatch": "Le profil actif du canal a changé après l’enregistrement de ce brouillon. Le brouillon utilise toujours le profil précédent, donc la promotion normale ne peut pas l’appliquer. Le contenu enregistré et la cible sélectionnée sont inchangés.",
     "editor_resolve_issues": "Résolvez les problèmes de validation avant de promouvoir ce brouillon.",
     "editor_draft_differs": "Modifications en attente",
     "editor_draft_matches": "Synchronisé",

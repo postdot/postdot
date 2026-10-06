@@ -1,12 +1,14 @@
 import {
     createJob,
     DomainInvariantError,
+    hasValidationErrors,
     requireNonBlank,
     requireTimestamp,
     type ChannelProfileCompiler,
     type ChannelProfileDefinition,
     type DeliveryMode,
     type Publication,
+    type ValidationIssue,
 } from '@herald/core'
 
 import {
@@ -118,6 +120,12 @@ export interface PublicationPromotionDependencies {
     readonly loadChannel: (projectId: string, channelId: string) => PublicationChannelRow | null
     readonly loadProfile: (projectId: string, profileId: string) => ProfileRow | null
     readonly loadActiveJob: (projectId: string, publicationId: string) => ActiveJobRow | null
+    readonly assessActiveProfileMedia: (
+        profile: ChannelProfileDefinition,
+        content: Record<string, unknown>,
+        projectId: string,
+        subjectId: string
+    ) => readonly ValidationIssue[]
     readonly resolveTargetMedia: (
         profile: ChannelProfileDefinition,
         content: Record<string, unknown>,
@@ -271,7 +279,22 @@ export function createPublicationPromotionStore(
         where project_id = ?7
           and id = ?8
           and state in ('draft', 'scheduled', 'failed')
-    `)
+        `)
+
+    function invalidActiveProfileContentError(
+        activeProfile: ChannelProfileDefinition,
+        ownedProfile: ChannelProfileDefinition,
+        issues: readonly ValidationIssue[]
+    ): DomainInvariantError {
+        const reported = issues
+            .filter(issue => issue.severity === 'error')
+            .map(issue => issue.message)
+            .join('; ')
+        return new DomainInvariantError(
+            'invalid_content',
+            `Publication target content is incompatible with the active channel profile ${activeProfile.id} v${activeProfile.version} while it satisfies ${ownedProfile.id} v${ownedProfile.version}: ${reported}`
+        )
+    }
 
     const promotePublicationDraftTransaction = createDatabaseTransaction(
         database,
@@ -361,6 +384,13 @@ export function createPublicationPromotionStore(
             ) {
                 throw new DomainInvariantError('invalid_input', 'Profile unavailable')
             }
+            const activeProfileRow =
+                draftRow.profileVersionId === channelRow.profileVersionId
+                    ? profileRow
+                    : options.loadProfile(input.projectId, channelRow.profileVersionId)
+            if (activeProfileRow === null || activeProfileRow.channelId !== channelRow.id) {
+                throw new DomainInvariantError('invalid_input', 'Profile unavailable')
+            }
             if (channelRow.state !== 'active') {
                 throw new DomainInvariantError(
                     'invalid_transition',
@@ -374,6 +404,46 @@ export function createPublicationPromotionStore(
             const content = parseJsonObject(draftRow.contentJson, 'publication draft content')
             const validation = profileResult.value.validate(content)
             if (!validation.ok) throw invalidTargetContentError(validation.issues)
+            const isOrdinaryPromotion =
+                input.approvalRequestId === undefined && input.approvalRequest === undefined
+            if (isOrdinaryPromotion && activeProfileRow.id !== profileRow.id) {
+                const activeProfileResult = options.profileCompiler.compile(
+                    parseProfile(activeProfileRow.profileJson)
+                )
+                if (!activeProfileResult.ok) throw invalidProfileError(activeProfileResult.issues)
+                const activeProfile = activeProfileResult.value.profile
+                const activeValidation = activeProfileResult.value.validate(content)
+                const activeIssues: ValidationIssue[] = [
+                    ...(activeValidation.ok ? [] : activeValidation.issues),
+                    ...options.assessActiveProfileMedia(
+                        activeProfile,
+                        content,
+                        input.projectId,
+                        input.subjectId
+                    ),
+                ]
+                if (
+                    publicationRow.deliveryMode === 'automatic' &&
+                    canonicalJson(profileResult.value.profile.execution) !==
+                        canonicalJson(activeProfile.execution)
+                ) {
+                    activeIssues.push({
+                        path: '/execution',
+                        code: 'profile.execution_contract_changed',
+                        message:
+                            'The draft uses an execution contract changed by the active channel profile',
+                        severity: 'error',
+                        source: 'module',
+                    })
+                }
+                if (hasValidationErrors(activeIssues)) {
+                    throw invalidActiveProfileContentError(
+                        activeProfile,
+                        profileResult.value.profile,
+                        activeIssues
+                    )
+                }
+            }
             const targetMedia = options.resolveTargetMedia(
                 profileResult.value.profile,
                 content,

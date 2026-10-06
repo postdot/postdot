@@ -1573,6 +1573,263 @@ describe('manual workflow store', () => {
         }
     })
 
+    it('blocks an ordinary promotion that satisfies only the superseded profile', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Superseded Profile Promotion Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Versioned Automatic Channel',
+                profile: automaticTestProfile,
+            })
+            if (channel === null) throw new Error('The profile promotion channel was not created')
+            const originalProfileVersionId = channel.profileVersionId
+
+            database
+                .insert(publishers)
+                .values({
+                    id: 'superseded-profile-publisher',
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    kind: 'future-provider',
+                })
+                .run()
+
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Superseded profile source'),
+                publications: [
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        targetContent: { body: 'short target' },
+                        scheduledAt: now + 60_000,
+                    },
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        targetContent: { body: 'this target becomes invalid' },
+                        scheduledAt: now + 120_000,
+                    },
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        targetContent: { body: 'short target' },
+                    },
+                ],
+            })
+            if (created === null) throw new Error('The profile promotion post was not created')
+            const compatiblePublication = created.publications[0]
+            const invalidPublication = created.publications[1]
+            const unscheduledCompatiblePublication = created.publications[2]
+            if (
+                compatiblePublication === undefined ||
+                invalidPublication === undefined ||
+                unscheduledCompatiblePublication === undefined
+            ) {
+                throw new Error('The profile promotion publications are missing')
+            }
+
+            const nextSchema = structuredClone(automaticTestProfile.contentSchema) as Record<
+                string,
+                unknown
+            >
+            const nextProperties = nextSchema.properties as Record<string, Record<string, unknown>>
+            ;(nextProperties.body as Record<string, unknown>).maxLength = 12
+            const automaticTextField = automaticTestProfile.capabilities.textFields[0]
+            if (automaticTextField === undefined) {
+                throw new Error('The automatic test profile has no text field')
+            }
+            const activeProfile = {
+                ...automaticTestProfile,
+                profileHash: 'sha256:future-provider-profile-v2',
+                schemaHash: 'sha256:future-provider-schema-v2',
+                contentSchema: nextSchema,
+                capabilities: {
+                    ...automaticTestProfile.capabilities,
+                    revision: 'future-provider-v2',
+                    textFields: [
+                        {
+                            bindingId: automaticTextField.bindingId,
+                            acceptedSourceFormats: automaticTextField.acceptedSourceFormats,
+                            maxLength: 12,
+                        },
+                    ],
+                },
+            }
+            const profileDraft = store.createChannelProfileDraft({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                profile: activeProfile,
+            })
+            if (profileDraft === null) throw new Error('The active profile draft was not created')
+
+            const activated = store.activateChannelProfile({
+                projectId: project.project.id,
+                channelId: channel.id,
+                profileVersionId: profileDraft.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+            })
+            if (activated === null) throw new Error('The active profile was not activated')
+
+            const initialCompatibleTarget = database
+                .select()
+                .from(publicationTargetRevisions)
+                .where(eq(publicationTargetRevisions.publicationId, compatiblePublication.id))
+                .all()
+            const initialInvalidTarget = database
+                .select()
+                .from(publicationTargetRevisions)
+                .where(eq(publicationTargetRevisions.publicationId, invalidPublication.id))
+                .all()
+            if (initialCompatibleTarget.length !== 1 || initialInvalidTarget.length !== 1) {
+                throw new Error('The initial target revisions are missing')
+            }
+
+            const compatibleJob = database
+                .select()
+                .from(jobs)
+                .where(eq(jobs.publicationId, compatiblePublication.id))
+                .all()
+            const invalidJob = database
+                .select()
+                .from(jobs)
+                .where(eq(jobs.publicationId, invalidPublication.id))
+                .all()
+            expect(compatibleJob).toEqual([expect.objectContaining({ state: 'pending' })])
+            expect(invalidJob).toEqual([expect.objectContaining({ state: 'cancelled' })])
+
+            const rescuedInvalidContent = { body: 'this target remains too long for v2' }
+            const savedInvalidDraft = store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: invalidPublication.id,
+                subjectId: 'user-1',
+                expectedRevision: 2,
+                targetContent: rescuedInvalidContent,
+            })
+            expect(savedInvalidDraft).toMatchObject({
+                revision: 3,
+                profileVersionId: originalProfileVersionId,
+                lastAssessedProfileVersionId: originalProfileVersionId,
+                reviewState: 'compatible',
+                content: rescuedInvalidContent,
+            })
+
+            expect(() =>
+                store.promotePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: invalidPublication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 3,
+                    scheduledAt: now + 180_000,
+                })
+            ).toThrow('Publication target content is incompatible with the active channel profile')
+
+            const invalidPublicationRow = database
+                .select()
+                .from(publications)
+                .where(eq(publications.id, invalidPublication.id))
+                .all()[0]
+            if (invalidPublicationRow === undefined) {
+                throw new Error('The invalid publication disappeared')
+            }
+            expect(invalidPublicationRow).toMatchObject({
+                state: 'scheduled',
+                reviewState: 'review_required',
+                targetRevisionId: initialInvalidTarget[0]?.id,
+                lastAssessedProfileVersionId: profileDraft.id,
+            })
+            expect(
+                store.getPublicationWorkingDraft(
+                    project.project.id,
+                    invalidPublication.id,
+                    'user-1'
+                )
+            ).toMatchObject({
+                revision: 3,
+                profileVersionId: originalProfileVersionId,
+                lastAssessedProfileVersionId: originalProfileVersionId,
+                reviewState: 'compatible',
+                content: rescuedInvalidContent,
+            })
+            expect(
+                database
+                    .select()
+                    .from(publicationTargetRevisions)
+                    .where(eq(publicationTargetRevisions.publicationId, invalidPublication.id))
+                    .all()
+            ).toEqual(initialInvalidTarget)
+            expect(
+                database
+                    .select()
+                    .from(jobs)
+                    .where(eq(jobs.publicationId, invalidPublication.id))
+                    .all()
+            ).toEqual(invalidJob)
+
+            const promoted = store.promotePublicationDraft({
+                projectId: project.project.id,
+                publicationId: unscheduledCompatiblePublication.id,
+                subjectId: 'user-1',
+                expectedRevision: 2,
+                scheduledAt: now + 180_000,
+            })
+            expect(promoted).toMatchObject({
+                state: 'scheduled',
+                reviewState: 'compatible',
+                targetRevisionId: expect.any(String),
+                lastAssessedProfileVersionId: originalProfileVersionId,
+            })
+            const promotedTargets = database
+                .select()
+                .from(publicationTargetRevisions)
+                .where(
+                    eq(
+                        publicationTargetRevisions.publicationId,
+                        unscheduledCompatiblePublication.id
+                    )
+                )
+                .all()
+            expect(promotedTargets).toHaveLength(1)
+            expect(promotedTargets[0]).toMatchObject({ profileVersionId: originalProfileVersionId })
+            expect(
+                database
+                    .select()
+                    .from(jobs)
+                    .where(eq(jobs.publicationId, unscheduledCompatiblePublication.id))
+                    .all()
+            ).toEqual([expect.objectContaining({ state: 'pending' })])
+            expect(
+                database
+                    .select()
+                    .from(publications)
+                    .where(eq(publications.id, compatiblePublication.id))
+                    .all()[0]
+            ).toMatchObject({ targetRevisionId: initialCompatibleTarget[0]?.id })
+            expect(
+                database
+                    .select()
+                    .from(jobs)
+                    .where(eq(jobs.publicationId, compatiblePublication.id))
+                    .all()
+            ).toEqual(compatibleJob)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('rejects an invalid scheduled media target before persisting the publication', () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000
