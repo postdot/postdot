@@ -493,13 +493,17 @@ test('previews the article destination headline through adaptation and locked in
     })
     expect(channelResponse.ok()).toBe(true)
     const { channel } = await channelResponse.json()
+    // Two real assets, so the selected target and the later draft can carry
+    // genuinely different media instead of an absent list.
+    const selectedAssetId = await createMediaAsset(page, id, 'selected-article.png')
+    const laterDraftAssetId = await createMediaAsset(page, id, 'later-draft-article.png')
     const createdResponse = await page.request.post(`/api/projects/${id}/posts`, {
         data: {
             title: 'Internal post label',
             sourceContent: {
                 headline: 'Shared article headline',
                 body: { format: 'plain_text', text: 'Article body content.' },
-                media: [],
+                media: [{ assetId: selectedAssetId, accessibilityText: 'Selected asset' }],
             },
             publications: [{ channelId: channel.id, deliveryMode: 'manual' }],
         },
@@ -514,7 +518,11 @@ test('previews the article destination headline through adaptation and locked in
     expect(original.draft.content.title).toBe('Shared article headline')
     await page.goto(detailUrl)
     const preview = page.locator('[data-publication-draft-preview="true"]')
+    const previewBody = preview.locator('[data-publication-preview-content="true"]')
+    const previewMedia = preview.locator('[data-publication-preview-media="true"]')
     await expect(preview.getByRole('heading', { level: 2 })).toHaveText('Shared article headline')
+    await expect(previewBody).toHaveText('Article body content.')
+    await expect(previewMedia).toHaveCount(1)
     const field = page.locator('[data-target-field="title"]')
     await openCustomization(page, field)
     await field.getByRole('textbox').fill('Customized destination headline')
@@ -547,24 +555,54 @@ test('previews the article destination headline through adaptation and locked in
     expect(promoted.ok()).toBe(true)
     const selected = await read()
     const unpublishedHeadline = 'Unapplied later draft headline'
+    const unpublishedBody = 'Unapplied later draft body.'
     const laterDraft = await page.request.patch(`${apiUrl}/draft`, {
         data: {
             expectedRevision: selected.draft.revision,
-            targetContent: { ...selected.draft.content, title: unpublishedHeadline },
+            targetContent: {
+                ...selected.draft.content,
+                title: unpublishedHeadline,
+                body_markdown: unpublishedBody,
+                media: [{ assetId: laterDraftAssetId, accessibilityText: 'Later draft asset' }],
+            },
         },
     })
     expect(laterDraft.ok()).toBe(true)
+    const withLaterDraft = await read()
+    expect(withLaterDraft.draft.content.body_markdown).toBe(unpublishedBody)
+    expect(withLaterDraft.draft.content.media).toEqual([
+        { assetId: laterDraftAssetId, accessibilityText: 'Later draft asset' },
+    ])
+    expect(withLaterDraft.selectedTarget).toEqual(selected.selectedTarget)
+
+    // While editable, the preview follows the working draft on all three inputs.
+    await page.reload()
+    await expect(preview.getByRole('heading', { level: 2 })).toHaveText(unpublishedHeadline)
+    await expect(previewBody).toHaveText(unpublishedBody)
+    await expect(previewMedia.getByAltText('Later draft asset')).toBeVisible()
+    await expect(previewMedia.getByAltText('Selected asset')).toHaveCount(0)
     await expect.poll(() => Date.now()).toBeGreaterThanOrEqual(scheduledAt)
     const published = await page.request.post(`${apiUrl}/publish`, { data: {} })
     expect(published.ok()).toBe(true)
     const locked = await read()
     expect(locked.publication.state).toBe('published')
     expect(locked.draft.content.title).toBe(unpublishedHeadline)
+    expect(locked.draft.content.body_markdown).toBe(unpublishedBody)
     expect(locked.selectedTarget.content.title).toBe('Customized destination headline')
+    expect(locked.selectedTarget.content.body_markdown).not.toBe(unpublishedBody)
+    expect(locked.selectedTarget.content.media).toEqual([
+        { assetId: selectedAssetId, accessibilityText: 'Selected asset' },
+    ])
     await page.reload()
+    // Locked inspection describes the selected execution revision on all three
+    // inputs, not the newer draft that has not been applied.
     await expect(preview.getByRole('heading', { level: 2 })).toHaveText(
         locked.selectedTarget.content.title
     )
+    await expect(previewBody).toHaveText(locked.selectedTarget.content.body_markdown)
+    await expect(previewBody).not.toHaveText(unpublishedBody)
+    await expect(previewMedia.getByAltText('Selected asset')).toBeVisible()
+    await expect(previewMedia.getByAltText('Later draft asset')).toHaveCount(0)
     for (const theme of ['light', 'dark']) {
         const toggle = page.getByRole('button', { name: `Switch to ${theme} theme`, exact: true })
         if (await toggle.isVisible()) await toggle.click()
@@ -588,6 +626,43 @@ test('previews the article destination headline through adaptation and locked in
     expect(after.draft).toEqual(locked.draft)
     expect(after.selectedTarget).toEqual(locked.selectedTarget)
 })
+
+/** A 1x1 PNG, matching the fixture already used by the media journey. */
+const previewPng = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64'
+)
+
+/** Creates one media asset through the existing reserve, upload, finalize API. */
+async function createMediaAsset(page: Page, projectId: string, filename: string): Promise<string> {
+    const reserved = await page.request.post(`/api/projects/${projectId}/media/uploads`, {
+        data: {
+            originalFilename: filename,
+            contentType: 'image/png',
+            expectedSize: previewPng.byteLength,
+            defaultAccessibilityText: `Alt text for ${filename}`,
+        },
+    })
+    expect(reserved.status()).toBe(201)
+    const intent = (await reserved.json()) as { upload: { intentId: string } }
+
+    const uploaded = await page.request.put(
+        `/api/projects/${projectId}/media/uploads/${intent.upload.intentId}`,
+        { data: previewPng }
+    )
+    expect(uploaded.status()).toBe(200)
+
+    const finalized = await page.request.post(
+        `/api/projects/${projectId}/media/uploads/${intent.upload.intentId}/finalize`
+    )
+    expect(finalized.status()).toBe(200)
+    const finalized_ = (await finalized.json()) as {
+        status: 'ready' | 'failed'
+        media: { asset: { id: string } }
+    }
+    expect(finalized_.status).toBe('ready')
+    return finalized_.media.asset.id
+}
 
 async function createProject(page: Page) {
     const suffix = randomUUID().slice(0, 8)
