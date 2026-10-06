@@ -1621,6 +1621,48 @@ export const api = {
         )
     },
 
+    async assessPublicationDraftAdoption(
+        projectId: string,
+        publicationId: string,
+        input: DraftProfileAdoptionInput
+    ) {
+        return unwrap<{ valid: boolean; issues: Record<string, unknown>[] }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .draft['assess-adoption'].post(input)
+        )
+    },
+    async adoptPublicationDraftProfile(
+        projectId: string,
+        publicationId: string,
+        input: DraftProfileAdoptionInput
+    ) {
+        return unwrap<{ editor: PublicationEditorState }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .draft['adopt-profile'].post(input)
+        )
+    },
+    async listPublicationDraftAdoptions(projectId: string, publicationId: string) {
+        return unwrap<{
+            adoptions: {
+                id: string
+                draft: PublicationEditorState['draft']
+                localContent: Record<string, unknown> | null
+                adoptedProfileVersionId: string
+                targetRevisionId: string
+                createdAt: number
+            }[]
+        }>(
+            await client.api
+                .projects({ projectId })
+                .publications({ publicationId })
+                .draft.adoptions.get()
+        )
+    },
+
     async promotePublicationDraft(
         projectId: string,
         publicationId: string,
@@ -1877,4 +1919,13 @@ function apiErrorMessage(code: string): string {
         default:
             return m.api_request_failed()
     }
+}
+
+export interface DraftProfileAdoptionInput {
+    expectedRevision: number
+    expectedSourceRevision: number
+    expectedProfileVersionId: string
+    activeProfileVersionId: string
+    targetContent: Record<string, unknown>
+    previousLocalContent?: Record<string, unknown>
 }

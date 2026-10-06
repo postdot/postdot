@@ -28,6 +28,21 @@ describe('user API-key capability policy', () => {
         ['POST', '/api/projects/project-1/channels', 'channel:manage'],
         [
             'POST',
+            '/api/projects/project-1/publications/publication-1/draft/adopt-profile',
+            'publication:manage',
+        ],
+        [
+            'POST',
+            '/api/projects/project-1/publications/publication-1/draft/assess-adoption',
+            'publication:manage',
+        ],
+        [
+            'GET',
+            '/api/projects/project-1/publications/publication-1/draft/adoptions',
+            'project:read',
+        ],
+        [
+            'POST',
             '/api/projects/project-1/channels/channel-1/publisher/custom-http/connect',
             'channel:manage',
         ],

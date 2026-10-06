@@ -1972,5 +1972,19 @@
                 "countPlural=other": "Sélectionnez au maximum {count} éléments."
             }
         }
-    ]
+    ],
+    "profile_adoption_title": "Adapter au profil actuel",
+    "profile_adoption_description": "Enregistrez un brouillon adapté. Le précédent est conservé ; l’approbation et la programmation restent inchangées.",
+    "profile_adoption_load_failed": "Impossible de charger le profil actuel. Fermez puis réessayez.",
+    "profile_adoption_failed": "Impossible d’enregistrer ou de valider l’adaptation. Votre proposition est conservée. Vérifiez le brouillon et le profil actuel avant de réessayer.",
+    "profile_adoption_use_local": "Utiliser mon contenu de destination non enregistré",
+    "profile_adoption_use_saved": "Utiliser le brouillon enregistré",
+    "profile_adoption_reuse": "Reprendre {field}",
+    "profile_adoption_previous": "Brouillon précédent",
+    "profile_adoption_validate": "Valider l’adaptation",
+    "profile_adoption_save": "Enregistrer le brouillon adapté",
+    "profile_adoption_history": "Brouillons conservés lors des adaptations",
+    "profile_adoption_recovery_mismatch": "Cette copie locale ne peut pas être associée au profil actuel. Copiez son contenu avant de l’abandonner ; la restauration automatique est indisponible.",
+    "profile_adoption_refresh": "Vérifier le brouillon et le profil actuels",
+    "profile_adoption_unmapped": "Aucun champ correspondant : {field}. Sa valeur précédente est conservée."
 }

@@ -394,6 +394,165 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     await expect(bodyField).toHaveValue(replacementBody)
 })
 
+test('adapts a draft explicitly without changing its source or selecting a publication target', async ({
+    page,
+}, testInfo) => {
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'Adoption channel', profile: 'manual-message' },
+    })
+    expect(channelResponse.status()).toBe(201)
+    const { channel } = await channelResponse.json()
+    const createdResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { text: 'Source stays unchanged', format: 'plain_text' },
+                media: [],
+            },
+            publications: [
+                {
+                    channelId: channel.id,
+                    deliveryMode: 'manual',
+                    targetContent: { body: 'Previous destination', media: [] },
+                },
+            ],
+        },
+    })
+    expect(createdResponse.status()).toBe(201)
+    const publicationId = (await createdResponse.json()).publications[0].id
+    const apiUrl = `/api/projects/${projectId}/publications/${publicationId}`
+    const state = await (
+        await page.request.get(`/api/projects/${projectId}/channels/${channel.id}/profile`)
+    ).json()
+    const profile = structuredClone(state.active.profile)
+    const bodySchema = profile.contentSchema.properties.body
+    delete profile.contentSchema.properties.body
+    profile.contentSchema.properties.article = {
+        type: 'object',
+        properties: { body: bodySchema },
+        required: ['body'],
+        additionalProperties: false,
+    }
+    profile.contentSchema.required = profile.contentSchema.required.map((name: string) =>
+        name === 'body' ? 'article' : name
+    )
+    profile.fieldBindings.find((binding: { id: string }) => binding.id === 'body').path =
+        '/article/body'
+    profile.profileHash = 'adoption-browser-profile'
+    profile.schemaHash = 'adoption-browser-schema'
+    const draftResponse = await page.request.post(
+        `/api/projects/${projectId}/channels/${channel.id}/profile-drafts`,
+        { data: { profile } }
+    )
+    expect(draftResponse.status()).toBe(200)
+    const version = (await draftResponse.json()).profile
+    expect(
+        (
+            await page.request.post(
+                `/api/projects/${projectId}/channels/${channel.id}/profile-drafts/${version.id}/activate`,
+                { data: { expectedRevision: version.revision } }
+            )
+        ).status()
+    ).toBe(200)
+    let before = (await (await page.request.get(`${apiUrl}/editor`)).json()).editor
+    await page.goto(`/dashboard/projects/${projectId}/publications/${publicationId}`)
+    await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
+    const adaptation = page.getByRole('region', { name: 'Adapt to current profile', exact: true })
+    await expect(
+        adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
+    ).toBeDisabled()
+    await adaptation.getByRole('button', { name: 'Validate adaptation', exact: true }).click()
+    await expect(adaptation.getByRole('alert')).toBeVisible()
+    await adaptation.getByRole('button', { name: 'Reuse previous Body', exact: true }).click()
+    await adaptation.getByRole('button', { name: 'Reuse previous Media', exact: true }).click()
+    await expect(adaptation.locator('[data-target-field="body"] textarea')).toHaveValue(
+        'Previous destination'
+    )
+    await page.screenshot({ path: testInfo.outputPath('adoption-desktop.png'), fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(
+        adaptation.getByRole('button', { name: 'Validate adaptation', exact: true })
+    ).toBeVisible()
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath('adoption-mobile.png'), fullPage: true })
+    await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click()
+    await page.screenshot({
+        path: testInfo.outputPath('adoption-mobile-light.png'),
+        fullPage: true,
+    })
+    await adaptation.getByRole('button', { name: 'Cancel', exact: true }).click()
+    expect((await (await page.request.get(`${apiUrl}/editor`)).json()).editor).toEqual(before)
+    await page.getByRole('button', { name: 'Adapt to current profile', exact: true }).click()
+    await adaptation.getByRole('button', { name: 'Reuse previous Body', exact: true }).click()
+    await adaptation.getByRole('button', { name: 'Reuse previous Media', exact: true }).click()
+    await adaptation.getByRole('button', { name: 'Validate adaptation', exact: true }).click()
+    await expect(
+        adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
+    ).toBeEnabled()
+    expect(
+        (
+            await page.request.patch(`${apiUrl}/draft`, {
+                data: {
+                    expectedRevision: before.draft.revision,
+                    targetContent: { body: 'Concurrent destination', media: [] },
+                },
+            })
+        ).status()
+    ).toBe(200)
+    before = (await (await page.request.get(`${apiUrl}/editor`)).json()).editor
+    await adaptation.getByRole('button', { name: 'Save adapted draft', exact: true }).click()
+    await expect(adaptation.getByRole('alert')).toBeVisible()
+    await expect(adaptation.locator('[data-target-field="body"] textarea')).toHaveValue(
+        'Previous destination'
+    )
+    await adaptation
+        .getByRole('button', { name: 'Review latest draft and profile', exact: true })
+        .click()
+    await expect(adaptation.getByRole('alert')).toHaveCount(0)
+    await expect(
+        adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
+    ).toBeDisabled()
+    await adaptation.getByRole('button', { name: 'Validate adaptation', exact: true }).click()
+    await expect(
+        adaptation.getByRole('button', { name: 'Save adapted draft', exact: true })
+    ).toBeEnabled()
+    await adaptation.getByRole('button', { name: 'Save adapted draft', exact: true }).click()
+    await expect(adaptation).toHaveCount(0)
+    const after = (await (await page.request.get(`${apiUrl}/editor`)).json()).editor
+    expect(after.post).toEqual(before.post)
+    expect(after.publication).toEqual(before.publication)
+    expect(after.selectedTarget).toEqual(before.selectedTarget)
+    expect(after.draft.profileVersionId).toBe(version.id)
+    expect(after.draft.content).toEqual({ article: { body: 'Previous destination' }, media: [] })
+    await page.reload()
+    await page.getByText('Previous drafts kept during adaptation', { exact: true }).click()
+    await expect(page.locator('pre').filter({ hasText: 'Concurrent destination' })).toBeVisible()
+    expect(
+        (await (await page.request.get(`${apiUrl}/draft/adoptions`)).json()).adoptions[0].draft
+    ).toEqual(before.draft)
+    await page.evaluate(({ key, buffer }) => localStorage.setItem(key, JSON.stringify(buffer)), {
+        key: `herald:publication-editor:v3:${encodeURIComponent(projectId)}:${encodeURIComponent(publicationId)}`,
+        buffer: {
+            version: 3,
+            baseRevision: after.draft.revision + 1,
+            sourceContent: before.post.sourceContent,
+            targetText: JSON.stringify({ body: 'Legacy local text' }),
+            scheduleValue: '',
+            timeZone: 'UTC',
+        },
+    })
+    await page.reload()
+    const recovery = page.locator('[data-publication-recovery-decision]')
+    await expect(recovery).toBeVisible()
+    await expect(
+        recovery.getByRole('button', { name: 'Restore local copy', exact: true })
+    ).toBeDisabled()
+    await expect(recovery.locator('pre')).toContainText('Legacy local text')
+    expect((await (await page.request.get(`${apiUrl}/editor`)).json()).editor).toEqual(after)
+})
+
 async function createAccountAndProject(page: Page, suffix: string) {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)

@@ -1666,6 +1666,59 @@ export const publicationWorkingDrafts = sqliteTable(
     ]
 )
 
+// Adoption snapshots preserve even invalid saved work; they are never execution targets.
+export const publicationDraftAdoptions = sqliteTable(
+    'publication_draft_adoptions',
+    {
+        id: text('id').primaryKey(),
+        projectId: text('project_id')
+            .notNull()
+            .references(() => projects.id, { onDelete: 'cascade' }),
+        publicationId: text('publication_id').notNull(),
+        profileVersionId: text('profile_version_id').notNull(),
+        adoptedProfileVersionId: text('adopted_profile_version_id').notNull(),
+        snapshotJson: text('snapshot_json').notNull(),
+        localContentJson: text('local_content_json'),
+        targetRevisionId: text('target_revision_id').notNull(),
+        createdByActorId: text('created_by_actor_id').notNull(),
+        createdAt: integer('created_at').notNull(),
+    },
+    table => [
+        index('publication_draft_adoptions_publication_idx').on(
+            table.projectId,
+            table.publicationId
+        ),
+        foreignKey({
+            columns: [table.projectId, table.publicationId],
+            foreignColumns: [publications.projectId, publications.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.projectId, table.profileVersionId],
+            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            columns: [table.projectId, table.adoptedProfileVersionId],
+            foreignColumns: [channelProfileVersions.projectId, channelProfileVersions.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            columns: [table.projectId, table.createdByActorId],
+            foreignColumns: [actors.projectId, actors.id],
+        }).onDelete('restrict'),
+        foreignKey({
+            columns: [table.projectId, table.targetRevisionId],
+            foreignColumns: [publicationTargetRevisions.projectId, publicationTargetRevisions.id],
+        }).onDelete('restrict'),
+        check(
+            'publication_draft_adoptions_snapshot_object',
+            sql`json_valid(${table.snapshotJson}) and json_type(${table.snapshotJson}) = 'object'`
+        ),
+        check(
+            'publication_draft_adoptions_local_object',
+            sql`${table.localContentJson} is null or (json_valid(${table.localContentJson}) and json_type(${table.localContentJson}) = 'object')`
+        ),
+    ]
+)
+
 export const publicationTargetRevisions = sqliteTable(
     'publication_target_revisions',
     {

@@ -1,6 +1,6 @@
 # ADR-079 — Explicit Draft Profile Adoption
 
-- Status: proposed
+- Status: accepted (owner approval on 2026-10-06)
 - Scope: UX-324; editable publication drafts only
 - Provenance: owner authorized a concrete proposal on 2026-10-06
 - Related decisions: ADR-020, ADR-078
@@ -106,7 +106,5 @@ avoid interpreting old buffered content under new bindings.
 
 ## Owner checkpoint
 
-Approve or adjust the prepare-and-save interaction and the narrow durable
-preservation record before implementation. No product code or schema change is
-authorized by this proposal itself. Exact API and snapshot schema remain an
-implementation design step after acceptance.
+The owner accepted the prepare-and-save interaction and narrow durable preservation
+record on 2026-10-06. Implementation proceeds under UX-324.

@@ -71,6 +71,13 @@
             "when": 1790853158807,
             "tag": "0009_groovy_lethal_legion",
             "breakpoints": true
+        },
+        {
+            "idx": 10,
+            "version": "6",
+            "when": 1791294325424,
+            "tag": "0010_previous_eternity",
+            "breakpoints": true
         }
     ]
 }

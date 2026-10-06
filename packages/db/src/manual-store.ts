@@ -160,6 +160,18 @@ export interface SavePublicationDraftInput {
     readonly targetContent?: TargetContent
 }
 
+export interface AdoptPublicationDraftProfileInput {
+    readonly projectId: string
+    readonly publicationId: string
+    readonly subjectId: string
+    readonly expectedRevision: number
+    readonly expectedSourceRevision: number
+    readonly expectedProfileVersionId: string
+    readonly activeProfileVersionId: string
+    readonly targetContent: TargetContent
+    readonly previousLocalContent?: TargetContent
+}
+
 export interface RebasePublicationDraftInput {
     readonly projectId: string
     readonly publicationId: string
@@ -294,6 +306,8 @@ export interface PublicationEditorState {
     readonly profile: ChannelProfileVersion
     readonly draft: PublicationWorkingDraft
     readonly selectedTarget: PublicationTargetRevision | null
+    readonly selectedTargetProfile?: ChannelProfileVersion | null
+    readonly adoptionCount?: number
 }
 
 export interface AuditEvent {

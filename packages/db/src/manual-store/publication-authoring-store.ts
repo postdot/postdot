@@ -26,6 +26,7 @@ import {
 } from './content-codec'
 import { toWorkingDraft } from './mappers'
 import { createPublicationApprovalStore } from './publication-approval-store'
+import { createPublicationProfileAdoptionStore } from './publication-profile-adoption-store'
 import type { PublicationPromotionDependencies } from './publication-promotion-store'
 import { createPublicationPromotionStore } from './publication-promotion-store'
 import { createPublicationReadStore } from './publication-read-store'
@@ -424,6 +425,11 @@ export function createPublicationAuthoringStore(
     )
 
     return {
+        ...createPublicationProfileAdoptionStore(database, {
+            ...options,
+            loadWorkingDraft,
+            supersedePendingApprovalRequest,
+        }),
         ...publicationReadStore.api,
         ...publicationPromotionStore,
         ...publicationApprovalStore,

@@ -56,7 +56,7 @@ describe('database migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 10 })
+            ).toEqual({ count: 11 })
         } finally {
             closeDatabase(database)
         }
@@ -80,7 +80,7 @@ describe('database migrations', () => {
                         'select count(*) as count from __drizzle_migrations'
                     )
                     .get()
-            ).toEqual({ count: 10 })
+            ).toEqual({ count: 11 })
         } finally {
             closeDatabase(database)
         }
@@ -88,7 +88,7 @@ describe('database migrations', () => {
 
     it('keeps the committed migration folder in generated order', () => {
         const files = [...new Bun.Glob('*.sql').scanSync({ cwd: defaultMigrationsFolder })].sort()
-        expect(files).toHaveLength(10)
+        expect(files).toHaveLength(11)
         expect(files[0]).toMatch(/^0000_.+\.sql$/)
         expect(files[1]).toMatch(/^0001_.+\.sql$/)
         expect(files[2]).toMatch(/^0002_.+\.sql$/)

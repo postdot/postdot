@@ -698,7 +698,13 @@ export function createMediaAssetStore(
                publications.scheduled_at as scheduledAt,
                channels.name as channelName,
                'draft' as location
-        from publication_working_drafts as drafts
+        from (
+            select project_id, publication_id, content_json from publication_working_drafts
+            union all
+            select project_id, publication_id, json_extract(snapshot_json, '$.content') from publication_draft_adoptions
+            union all
+            select project_id, publication_id, local_content_json from publication_draft_adoptions where local_content_json is not null
+        ) as drafts
         inner join publications
             on publications.project_id = drafts.project_id
            and publications.id = drafts.publication_id
@@ -2581,6 +2587,10 @@ function hasMediaReference(
     assetId: string
 ): boolean {
     const queries = [
+        `select 1 as found from publication_draft_adoptions, json_tree(publication_draft_adoptions.snapshot_json)
+         where publication_draft_adoptions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
+        `select 1 as found from publication_draft_adoptions, json_tree(publication_draft_adoptions.local_content_json)
+         where publication_draft_adoptions.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
         `select 1 as found from posts, json_tree(posts.source_content)
          where posts.project_id = ?1 and json_tree.type = 'text' and json_tree.value = ?2 limit 1`,
         `select 1 as found from publication_working_drafts, json_tree(publication_working_drafts.content_json)

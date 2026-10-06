@@ -19,6 +19,8 @@ import {
     publishPublicationBody,
     reconcilePublicationBody,
     promotePublicationDraftBody,
+    adoptPublicationDraftProfileBody,
+    publicationWorkingDraftSchema,
     rebasePublicationDraftBody,
     cancelPublicationsBody,
     deleteDraftPublicationResponseSchema,
@@ -768,6 +770,147 @@ export function registerPublicationRoutes<const Routes extends Record<string, un
                     postId: editor.post.id,
                     publicationId: params.publicationId,
                     sourceChanged: previous?.post.sourceRevision !== editor.post.sourceRevision,
+                })
+                return { editor }
+            }
+        )
+        .get(
+            '/api/projects/:projectId/publications/:publicationId/draft/adoptions',
+            {
+                auth: true,
+                params: publicationParams,
+                response: {
+                    200: Type.Object({
+                        adoptions: Type.Array(
+                            Type.Object({
+                                id: Type.String(),
+                                draft: publicationWorkingDraftSchema,
+                                localContent: Type.Union([
+                                    Type.Record(Type.String(), Type.Unknown()),
+                                    Type.Null(),
+                                ]),
+                                adoptedProfileVersionId: Type.String(),
+                                targetRevisionId: Type.String(),
+                                createdAt: Type.Integer(),
+                            })
+                        ),
+                    }),
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: { operationId: 'listPublicationDraftAdoptions', tags: ['Publications'] },
+            },
+            ({ params, user, status }) => {
+                const adoptions = manualStore.listPublicationDraftAdoptions(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
+                return adoptions === null
+                    ? status(404, {
+                          error: { code: 'not_found', message: 'Publication not found' },
+                      })
+                    : { adoptions }
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/draft/assess-adoption',
+            {
+                auth: true,
+                params: publicationParams,
+                body: adoptPublicationDraftProfileBody,
+                response: {
+                    200: Type.Object({
+                        valid: Type.Boolean(),
+                        issues: Type.Array(Type.Record(Type.String(), Type.Unknown())),
+                    }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: { operationId: 'assessPublicationDraftAdoption', tags: ['Publications'] },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                )
+                    return status(403, forbiddenProjectMutation())
+                const assessment = manualStore.assessPublicationDraftAdoption({
+                    ...body,
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                })
+                return assessment === null
+                    ? status(404, {
+                          error: { code: 'not_found', message: 'Publication not found' },
+                      })
+                    : assessment
+            }
+        )
+        .post(
+            '/api/projects/:projectId/publications/:publicationId/draft/adopt-profile',
+            {
+                auth: true,
+                params: publicationParams,
+                body: adoptPublicationDraftProfileBody,
+                response: {
+                    200: Type.Object({ editor: publicationEditorStateSchema }),
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                    409: errorResponse,
+                    422: errorResponse,
+                },
+                detail: { operationId: 'adoptPublicationDraftProfile', tags: ['Publications'] },
+            },
+            ({ authMethod, body, params, status, user }) => {
+                if (
+                    !canAccessProjectRole({
+                        access,
+                        authMethod,
+                        minimumRole: 'editor',
+                        projectId: params.projectId,
+                        userId: user.id,
+                    })
+                ) {
+                    return status(403, forbiddenProjectMutation())
+                }
+                const draft = manualStore.adoptPublicationDraftProfile({
+                    ...body,
+                    projectId: params.projectId,
+                    publicationId: params.publicationId,
+                    subjectId: user.id,
+                })
+                if (draft === null)
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                const editor = manualStore.getPublicationEditorState(
+                    params.projectId,
+                    params.publicationId,
+                    user.id
+                )
+                if (editor === null)
+                    return status(404, {
+                        error: { code: 'not_found', message: 'Publication not found' },
+                    })
+                options.projectChanges?.publishDraftChange?.({
+                    projectId: params.projectId,
+                    postId: editor.post.id,
+                    publicationId: params.publicationId,
+                    sourceChanged: false,
                 })
                 return { editor }
             }

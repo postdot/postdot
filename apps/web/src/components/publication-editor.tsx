@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type MediaSelection } from '@/components/media-attachment-picker'
 import { PublicationActivityTimeline } from '@/components/publication-activity-timeline'
+import { PublicationAdoptionHistory } from '@/components/publication-adoption-history'
 import { PublicationCancellationDialog } from '@/components/publication-cancellation-dialog'
 import { PublicationComposer } from '@/components/publication-composer'
 import { PublicationDraftPreview } from '@/components/publication-draft-preview'
@@ -38,6 +39,7 @@ import {
     PublicationOutcomePanel,
     type PublicationOutcomeResolutionInput,
 } from '@/components/publication-outcome-panel'
+import { PublicationProfileAdoption } from '@/components/publication-profile-adoption'
 import { PublicationRecoveryComparison } from '@/components/publication-recovery-comparison'
 import { PublicationTagPicker } from '@/components/publication-tag-picker'
 import { PublicationChannelRail } from '@/components/publication-target-list'
@@ -75,6 +77,7 @@ import {
     isActiveChannelProfilePromotionError,
     publicationPromotionIntent,
 } from '@/lib/publication-promotion'
+import { recoveryProfileMatches } from '@/lib/publication-recovery-profile'
 import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
@@ -122,6 +125,7 @@ interface PublicationEditorProps {
 }
 
 interface RecoveryBuffer {
+    readonly profileVersionId?: string
     readonly version: 3
     readonly baseRevision: number
     readonly sourceContent: SourceContent
@@ -170,7 +174,8 @@ export function PublicationEditor({
     const shouldRestoreInitialRecovery =
         initialPublicationEditable &&
         initialRecovery !== null &&
-        initialRecovery.baseRevision >= initialEditor.draft.revision
+        initialRecovery.baseRevision >= initialEditor.draft.revision &&
+        recoveryProfileMatches(initialRecovery, initialEditor)
     const recoveredContentDiffers =
         shouldRestoreInitialRecovery &&
         initialRecovery !== null &&
@@ -246,11 +251,12 @@ export function PublicationEditor({
     const [manualPublishPending, setManualPublishPending] = useState(false)
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
     const [promotionPending, setPromotionPending] = useState(false)
+    const [adoptionOpen, setAdoptionOpen] = useState(false)
     const promotionInFlight = useRef(false)
     const [promotionRecoveryRequired, setPromotionRecoveryRequired] = useState(false)
     const [serverReadPending, setServerReadPending] = useState(false)
     const serverReadInFlight = useRef(false)
-    const editorMutationPending = promotionPending || serverReadPending
+    const editorMutationPending = promotionPending || serverReadPending || adoptionOpen
     const [cancelPending, setCancelPending] = useState(false)
     const [retryPending, setRetryPending] = useState(false)
     const [technicalDetailsOpen, setTechnicalDetailsOpen] = useState(initialSourceConflict)
@@ -373,12 +379,16 @@ export function PublicationEditor({
         workingTarget: targetResult.value,
         selectedTarget: editor.selectedTarget?.content,
     })
+    const previewProfile =
+        !publicationEditable && editor.selectedTarget !== null
+            ? (editor.selectedTargetProfile ?? editor.profile).profile
+            : editor.profile.profile
     const previewMediaSelections = useMemo(
         () =>
             previewTarget === null
                 ? sourceContent.media
-                : getTargetMediaSelections(editor.profile.profile, previewTarget),
-        [editor.profile.profile, previewTarget, sourceContent.media]
+                : getTargetMediaSelections(previewProfile, previewTarget),
+        [previewProfile, previewTarget, sourceContent.media]
     )
     const readOnlyMediaIds = [
         ...new Set(
@@ -429,8 +439,8 @@ export function PublicationEditor({
         () =>
             previewTarget === null
                 ? (sourceContent.body?.text ?? '')
-                : getTargetPreviewBody(editor.profile.profile, previewTarget),
-        [editor.profile.profile, previewTarget, sourceContent.body?.text]
+                : getTargetPreviewBody(previewProfile, previewTarget),
+        [previewProfile, previewTarget, sourceContent.body?.text]
     )
     const currentEditorFingerprint = publicationEditorFingerprint(editor)
     const incomingEditorFingerprint = publicationEditorFingerprint(initialEditor)
@@ -541,6 +551,7 @@ export function PublicationEditor({
 
         writeRecovery(recoveryKey, {
             version: recoveryVersion,
+            profileVersionId: editor.draft.profileVersionId,
             baseRevision: expectedRevision,
             sourceContent,
             targetText,
@@ -703,6 +714,7 @@ export function PublicationEditor({
         if (hasLocalChanges) {
             writeRecovery(recoveryKey, {
                 version: recoveryVersion,
+                profileVersionId: editor.draft.profileVersionId,
                 baseRevision: expectedRevision,
                 sourceContent: localSource,
                 targetText: localTargetText,
@@ -747,6 +759,11 @@ export function PublicationEditor({
     }
 
     function restoreRecovery() {
+        const buffered = readRecovery(recoveryKey, timeZone)
+        if (buffered !== null && !recoveryProfileMatches(buffered, editor)) {
+            setMessage(m.profile_adoption_recovery_mismatch())
+            return
+        }
         if (accessWritesBlocked) return
         const recovery = readRecovery(recoveryKey, timeZone)
         if (recovery === null) return
@@ -772,6 +789,11 @@ export function PublicationEditor({
     }
 
     async function restoreRecoveryAgainstLatestServer() {
+        const buffered = readRecovery(recoveryKey, timeZone)
+        if (buffered !== null && !recoveryProfileMatches(buffered, editor)) {
+            setMessage(m.profile_adoption_recovery_mismatch())
+            return
+        }
         if (accessWritesBlocked) return
         const recovery = readRecovery(recoveryKey, timeZone)
         if (recovery === null) return
@@ -782,6 +804,13 @@ export function PublicationEditor({
             const response = await api.getPublicationEditor(projectId, editor.publication.id)
             if (accessEpochAtStart !== accessEpochRef.current) return
             if (generation !== requestGeneration.current) return
+            if (!recoveryProfileMatches(recovery, response.editor)) {
+                setEditor(response.editor)
+                setRecoveryAvailable(true)
+                setSaveState('conflict')
+                setMessage(m.profile_adoption_recovery_mismatch())
+                return
+            }
             const contentDiffers = recoveryContentDiffers(recovery, response.editor)
             const scheduleDiffers =
                 recovery.scheduleValue !==
@@ -824,6 +853,7 @@ export function PublicationEditor({
         if (hasLocalChanges) {
             writeRecovery(recoveryKey, {
                 version: recoveryVersion,
+                profileVersionId: editor.draft.profileVersionId,
                 baseRevision: expectedRevision,
                 sourceContent,
                 targetText,
@@ -1230,33 +1260,65 @@ export function PublicationEditor({
         />
     )
     const targetSection = (
-        <PublicationEditorTargetSection
-            projectId={projectId}
-            publicationId={editor.publication.id}
-            configuredEditor={configuredEditor}
-            profile={editor.profile.profile}
-            reviewState={editor.draft.reviewState}
-            validationIssues={editor.draft.validationIssues}
-            target={targetResult.value}
-            targetText={targetText}
-            disabled={
-                !publicationEditable || accessWritesBlocked || isRebasing || editorMutationPending
-            }
-            readOnly={!publicationEditable || accessWritesBlocked}
-            open={targetCustomizationOpen}
-            onOpenChange={setTargetCustomizationOpen}
-            onTargetChange={next => {
-                setTargetText(formatJson(next))
-                setDirty(true)
-            }}
-            onRawTextChange={value => {
-                setTargetText(value)
-                setDirty(true)
-            }}
-            targetError={targetResult.error}
-            issueCode={issueCode}
-            issueMessage={issueMessage}
-        />
+        <div className="space-y-3">
+            {publicationEditable &&
+            editor.channel.profileVersionId !== editor.draft.profileVersionId ? (
+                <Button
+                    variant="secondary"
+                    disabled={
+                        accessWritesBlocked ||
+                        pendingSaveGeneration !== null ||
+                        sourceConflict ||
+                        recoveryAvailable ||
+                        serverReadPending ||
+                        promotionPending ||
+                        JSON.stringify(sourceContent) !== JSON.stringify(editor.post.sourceContent)
+                    }
+                    onClick={() => {
+                        requestGeneration.current += 1
+                        setAdoptionOpen(true)
+                    }}>
+                    {m.profile_adoption_title()}
+                </Button>
+            ) : null}
+            {(editor.adoptionCount ?? 0) > 0 ? (
+                <PublicationAdoptionHistory
+                    projectId={projectId}
+                    publicationId={editor.publication.id}
+                    revision={editor.draft.revision}
+                />
+            ) : null}
+            <PublicationEditorTargetSection
+                projectId={projectId}
+                publicationId={editor.publication.id}
+                configuredEditor={configuredEditor}
+                profile={editor.profile.profile}
+                reviewState={editor.draft.reviewState}
+                validationIssues={editor.draft.validationIssues}
+                target={targetResult.value}
+                targetText={targetText}
+                disabled={
+                    !publicationEditable ||
+                    accessWritesBlocked ||
+                    isRebasing ||
+                    editorMutationPending
+                }
+                readOnly={!publicationEditable || accessWritesBlocked}
+                open={targetCustomizationOpen}
+                onOpenChange={setTargetCustomizationOpen}
+                onTargetChange={next => {
+                    setTargetText(formatJson(next))
+                    setDirty(true)
+                }}
+                onRawTextChange={value => {
+                    setTargetText(value)
+                    setDirty(true)
+                }}
+                targetError={targetResult.error}
+                issueCode={issueCode}
+                issueMessage={issueMessage}
+            />
+        </div>
     )
     const draftPreview = (
         <PublicationDraftPreview
@@ -1265,9 +1327,39 @@ export function PublicationEditor({
             media={previewMedia}
             mediaSelections={previewMediaSelections}
             postContent={previewContent}
-            postTitle={getTargetPreviewTitle(editor.profile.profile, previewTarget)}
+            postTitle={getTargetPreviewTitle(previewProfile, previewTarget)}
         />
     )
+
+    if (adoptionOpen) {
+        const epochAtOpen = accessEpoch
+        return (
+            <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+                <PublicationProfileAdoption
+                    projectId={projectId}
+                    editor={editor}
+                    localContent={dirty ? targetResult.value : null}
+                    blocked={accessWritesBlocked || !publicationEditable}
+                    onCancel={() => setAdoptionOpen(false)}
+                    onError={reportAccessRefusal}
+                    onAdopted={next => {
+                        if (epochAtOpen !== accessEpochRef.current) return
+                        requestGeneration.current += 1
+                        setEditor(next)
+                        setSourceContent(next.post.sourceContent)
+                        setExpectedRevision(next.draft.revision)
+                        setTargetText(formatJson(next.draft.content))
+                        setDirty(false)
+                        setSaveState('saved')
+                        setMessage(null)
+                        setAdoptionOpen(false)
+                        if (!scheduleDirty) removeRecovery(recoveryKey)
+                        invalidatePublicationQueries()
+                    }}
+                />
+            </main>
+        )
+    }
 
     return (
         <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
@@ -1281,7 +1373,23 @@ export function PublicationEditor({
                         <DialogDescription>
                             {m.editor_recovery_choice_description()}
                         </DialogDescription>
-                        {pendingRecovery ? (
+                        {pendingRecovery !== null &&
+                        !recoveryProfileMatches(pendingRecovery, editor) ? (
+                            <>
+                                <p role="alert">{m.profile_adoption_recovery_mismatch()}</p>
+                                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">
+                                    {JSON.stringify(
+                                        {
+                                            sourceContent: pendingRecovery.sourceContent,
+                                            targetText: pendingRecovery.targetText,
+                                            scheduleValue: pendingRecovery.scheduleValue,
+                                        },
+                                        null,
+                                        2
+                                    )}
+                                </pre>
+                            </>
+                        ) : pendingRecovery ? (
                             <PublicationRecoveryComparison
                                 editor={editor}
                                 localSource={pendingRecovery.sourceContent}
@@ -1316,7 +1424,11 @@ export function PublicationEditor({
                             </Button>
                             <Button
                                 disabled={
-                                    accessWritesBlocked || isRebasing || editorMutationPending
+                                    accessWritesBlocked ||
+                                    isRebasing ||
+                                    editorMutationPending ||
+                                    (pendingRecovery !== null &&
+                                        !recoveryProfileMatches(pendingRecovery, editor))
                                 }
                                 onClick={restoreRecovery}>
                                 {m.editor_restore_recovery()}
@@ -1608,6 +1720,8 @@ function readRecovery(key: string, timeZone: string): RecoveryBuffer | null {
         if (!Array.isArray(value.sourceContent.media)) return null
         return {
             version: recoveryVersion,
+            profileVersionId:
+                typeof value.profileVersionId === 'string' ? value.profileVersionId : undefined,
             baseRevision: value.baseRevision,
             sourceContent: value.sourceContent as SourceContent,
             targetText: value.targetText,

@@ -409,6 +409,10 @@ export const publicationEditorStateSchema = Type.Unsafe<PublicationEditorState>(
         channel: channelSchema,
         profile: channelProfileVersionSchema,
         draft: publicationWorkingDraftSchema,
+        adoptionCount: Type.Optional(Type.Integer({ minimum: 0 })),
+        selectedTargetProfile: Type.Optional(
+            Type.Union([channelProfileVersionSchema, Type.Null()])
+        ),
         selectedTarget: Type.Union([publicationTargetRevisionSchema, Type.Null()]),
     })
 )
@@ -694,6 +698,15 @@ export const savePublicationDraftBody = Type.Object({
     expectedRevision: Type.Integer({ minimum: 1 }),
     sourceContent: Type.Optional(sourceContentSchema),
     targetContent: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+})
+
+export const adoptPublicationDraftProfileBody = Type.Object({
+    expectedRevision: Type.Integer({ minimum: 1 }),
+    expectedSourceRevision: Type.Integer({ minimum: 1 }),
+    expectedProfileVersionId: Type.String({ minLength: 1 }),
+    activeProfileVersionId: Type.String({ minLength: 1 }),
+    targetContent: Type.Record(Type.String(), Type.Unknown()),
+    previousLocalContent: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
 })
 
 export const rebasePublicationDraftBody = Type.Object({

@@ -906,6 +906,27 @@ export function createPublicationReadStore(
                     channel: toChannel(channelRow),
                     profile: toProfileVersion(profileRow),
                     draft: toWorkingDraft(draftRow),
+                    adoptionCount:
+                        client
+                            .query<{ count: number }, [string, string]>(
+                                'select count(*) as count from publication_draft_adoptions where project_id = ?1 and publication_id = ?2'
+                            )
+                            .get(normalizedProjectId, normalizedPublicationId)?.count ?? 0,
+                    selectedTargetProfile:
+                        selectedTarget === null
+                            ? null
+                            : (() => {
+                                  const owned = options.loadProfile(
+                                      normalizedProjectId,
+                                      selectedTarget.profileVersionId
+                                  )
+                                  if (owned === null)
+                                      throw new DomainInvariantError(
+                                          'invalid_input',
+                                          'Selected target profile unavailable'
+                                      )
+                                  return toProfileVersion(owned)
+                              })(),
                     selectedTarget:
                         selectedTarget === null ? null : toTargetRevision(selectedTarget),
                 }

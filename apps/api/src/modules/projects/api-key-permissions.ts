@@ -165,6 +165,13 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
             if (normalizedMethod === 'GET') return 'project:read'
             return normalizedMethod === 'PUT' ? 'publication:manage' : null
         }
+        if (
+            detail.length === 3 &&
+            detail[1] === 'draft' &&
+            detail[2] === 'adoptions' &&
+            normalizedMethod === 'GET'
+        )
+            return 'project:read'
         if (detail.length === 2 && detail[1] === 'editor' && normalizedMethod === 'GET') {
             return 'project:read'
         }
@@ -175,7 +182,8 @@ export function requiredApiKeyCapability(method: string, requestPath: string) {
             return 'publication:manage'
         }
         if (detail[1] === 'draft' && detail.length === 3 && normalizedMethod === 'POST') {
-            if (detail[2] === 'rebase') return 'publication:manage'
+            if (['rebase', 'adopt-profile', 'assess-adoption'].includes(detail[2] ?? ''))
+                return 'publication:manage'
             if (detail[2] === 'promote') return 'publication:dispatch'
         }
         if (
