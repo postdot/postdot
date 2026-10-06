@@ -66,7 +66,11 @@ import {
 import { projectQueryKeys } from '@/lib/project-realtime'
 import type { PublicationCalendarView } from '@/lib/publication-calendar-events'
 import { canEditPublication, isManualPublicationDue } from '@/lib/publication-lifecycle'
-import { getTargetPreviewTitle } from '@/lib/publication-preview'
+import {
+    getPreviewTarget,
+    getTargetPreviewBody,
+    getTargetPreviewTitle,
+} from '@/lib/publication-preview'
 import { publicationPromotionIntent } from '@/lib/publication-promotion'
 import { getTargetMediaSelections, updateTargetMedia } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
@@ -359,12 +363,19 @@ export function PublicationEditor({
         () => new Set(editorChannels.map(channel => channel.id)),
         [editorChannels]
     )
+    // Headline, body and media all read this one document, so a locked publication
+    // cannot describe a later unapplied draft in one of the three and not another.
+    const previewTarget = getPreviewTarget({
+        editable: publicationEditable,
+        workingTarget: targetResult.value,
+        selectedTarget: editor.selectedTarget?.content,
+    })
     const previewMediaSelections = useMemo(
         () =>
-            targetResult.value === null
+            previewTarget === null
                 ? sourceContent.media
-                : getTargetMediaSelections(editor.profile.profile, targetResult.value),
-        [editor.profile.profile, sourceContent.media, targetResult.value]
+                : getTargetMediaSelections(editor.profile.profile, previewTarget),
+        [editor.profile.profile, previewTarget, sourceContent.media]
     )
     const readOnlyMediaIds = [
         ...new Set(
@@ -412,8 +423,11 @@ export function PublicationEditor({
         [availableMedia, readOnlyMedia, previewMediaSelections]
     )
     const previewContent = useMemo(
-        () => getTargetPreviewText(targetResult.value) ?? sourceContent.body?.text ?? '',
-        [sourceContent.body?.text, targetResult.value]
+        () =>
+            previewTarget === null
+                ? (sourceContent.body?.text ?? '')
+                : getTargetPreviewBody(editor.profile.profile, previewTarget),
+        [editor.profile.profile, previewTarget, sourceContent.body?.text]
     )
     const currentEditorFingerprint = publicationEditorFingerprint(editor)
     const incomingEditorFingerprint = publicationEditorFingerprint(initialEditor)
@@ -1242,12 +1256,7 @@ export function PublicationEditor({
             media={previewMedia}
             mediaSelections={previewMediaSelections}
             postContent={previewContent}
-            postTitle={getTargetPreviewTitle(
-                editor.profile.profile,
-                canEditPublication(editor.publication.state)
-                    ? targetResult.value
-                    : (editor.selectedTarget?.content ?? targetResult.value)
-            )}
+            postTitle={getTargetPreviewTitle(editor.profile.profile, previewTarget)}
         />
     )
 
@@ -1693,16 +1702,6 @@ function issueMessage(issue: Record<string, unknown>) {
     return path === null
         ? m.editor_target_validation_issue_without_path({ code })
         : m.editor_target_validation_issue({ path, code })
-}
-
-function getTargetPreviewText(target: Record<string, unknown> | null): string | null {
-    if (target === null) return null
-
-    for (const key of ['commentary', 'text', 'body', 'body_markdown', 'content']) {
-        const value = target[key]
-        if (typeof value === 'string') return value
-    }
-    return null
 }
 
 function formatJson(value: unknown) {
