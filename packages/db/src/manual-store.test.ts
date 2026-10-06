@@ -212,6 +212,58 @@ function createApprovalDraft(
     return publication
 }
 
+function activateApprovalProfileLimit(
+    store: ReturnType<typeof createManualStore>,
+    projectId: string,
+    channelId: string,
+    maxLength: number
+) {
+    const profile = {
+        ...automaticTestProfile,
+        profileHash: `sha256:approval-limit-${maxLength}`,
+        schemaHash: `sha256:approval-schema-${maxLength}`,
+        contentSchema: {
+            type: 'object',
+            properties: { body: { type: 'string', minLength: 1, maxLength } },
+            required: ['body'],
+            additionalProperties: false,
+        },
+        capabilities: {
+            ...automaticTestProfile.capabilities,
+            revision: `approval-limit-${maxLength}`,
+            textFields: automaticTestProfile.capabilities.textFields.map(field => ({
+                ...field,
+                maxLength,
+            })),
+        },
+    }
+    const draft = store.createChannelProfileDraft({
+        projectId,
+        channelId,
+        subjectId: 'user-1',
+        profile,
+    })
+    if (draft === null) throw new Error('The approval profile draft is missing')
+    return store.activateChannelProfile({
+        projectId,
+        channelId,
+        subjectId: 'user-1',
+        profileVersionId: draft.id,
+        expectedRevision: 1,
+    })
+}
+
+function snapshotApprovalState(database: ReturnType<typeof createDatabase>) {
+    return {
+        publications: database.select().from(publications).all(),
+        drafts: database.select().from(publicationWorkingDrafts).all(),
+        targets: database.select().from(publicationTargetRevisions).all(),
+        requests: database.select().from(publicationApprovalRequests).all(),
+        jobs: database.select().from(jobs).all(),
+        audit: database.select().from(auditEvents).all(),
+    }
+}
+
 describe('manual workflow store', () => {
     it('creates a project, tracks manual publications, and records attribution', () => {
         const database = createDatabase(':memory:')
@@ -2775,6 +2827,138 @@ describe('manual workflow store', () => {
                     .listAuditEvents(project.project.id, 'user-1')
                     ?.filter(event => event.action === 'publication.reconciled')
             ).toHaveLength(2)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it.each(['submission', 'approval'] as const)(
+        'refuses incompatible ordinary %s without changing persisted work',
+        operation => {
+            const database = createDatabase(':memory:')
+            const now = 1_800_000_000_000
+            try {
+                runMigrations(database)
+                const store = createManualStore(database, { now: () => now })
+                const { project } = store.createProject({
+                    name: 'Active Profile Approval',
+                    subjectId: 'user-1',
+                    displayName: 'Operator',
+                })
+                const projectId = project.id
+                const publication = createApprovalDraft(database, store, projectId, operation)
+                const oldRequest =
+                    operation === 'approval'
+                        ? store.submitPublicationForApproval({
+                              projectId,
+                              publicationId: publication.id,
+                              subjectId: 'user-1',
+                              expectedDraftRevision: 1,
+                              proposedScheduledAt: now + 60_000,
+                          })
+                        : null
+                const requestRow = database.select().from(publicationApprovalRequests).get()
+                activateApprovalProfileLimit(store, projectId, publication.channelId, 10)
+                const saved = store.savePublicationDraft({
+                    projectId,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 2,
+                    targetContent: { body: `Approval target ${operation}` },
+                })
+                if (saved === null) throw new Error('The saved approval draft is missing')
+                expect(saved.reviewState).toBe('compatible')
+
+                if (operation === 'approval') {
+                    if (oldRequest === null || requestRow === undefined)
+                        throw new Error('The legacy approval request is missing')
+                    // Model a fresh incompatible request accepted by the previous server
+                    // version after activation. Normal activation supersedes old requests.
+                    database
+                        .update(publicationApprovalRequests)
+                        .set({ ...requestRow, draftRevision: saved.revision })
+                        .where(eq(publicationApprovalRequests.id, oldRequest.id))
+                        .run()
+                }
+                const before = snapshotApprovalState(database)
+                const submit = () =>
+                    store.submitPublicationForApproval({
+                        projectId,
+                        publicationId: publication.id,
+                        subjectId: 'user-1',
+                        expectedDraftRevision: saved.revision,
+                        proposedScheduledAt: now + 60_000,
+                    })
+                const approve = (publishNow?: boolean) => {
+                    if (oldRequest === null) throw new Error('The legacy request is missing')
+                    return store.approvePublicationApprovalRequest({
+                        projectId,
+                        publicationId: publication.id,
+                        subjectId: 'user-1',
+                        requestId: oldRequest.id,
+                        ...(publishNow ? { publishNow } : {}),
+                    })
+                }
+                expect(operation === 'submission' ? submit : () => approve()).toThrow(
+                    'Publication target content is incompatible with the active channel profile'
+                )
+                if (operation === 'approval') {
+                    expect(() => approve(true)).toThrow(
+                        'Publication target content is incompatible with the active channel profile'
+                    )
+                }
+                expect(snapshotApprovalState(database)).toEqual(before)
+            } finally {
+                closeDatabase(database)
+            }
+        }
+    )
+
+    it('supersedes pre-activation approval but accepts a fresh compatible old-profile request', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const { project } = store.createProject({
+                name: 'Compatible Profile Approval',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const projectId = project.id
+            const publication = createApprovalDraft(database, store, projectId, 'compatible')
+            const input = { projectId, publicationId: publication.id, subjectId: 'user-1' }
+            const oldProfile = store.getPublicationWorkingDraft(
+                projectId,
+                publication.id,
+                'user-1'
+            )?.profileVersionId
+            const old = store.submitPublicationForApproval({
+                ...input,
+                expectedDraftRevision: 1,
+                proposedScheduledAt: now + 60_000,
+            })
+            if (old === null) throw new Error('The original approval request is missing')
+            activateApprovalProfileLimit(store, projectId, publication.channelId, 100)
+            expect(store.listPendingPublicationApprovalRequests(projectId, 'user-1')).toEqual([])
+            expect(() =>
+                store.approvePublicationApprovalRequest({ ...input, requestId: old.id })
+            ).toThrow('superseded')
+            const fresh = store.submitPublicationForApproval({
+                ...input,
+                expectedDraftRevision: 2,
+                proposedScheduledAt: now + 60_000,
+            })
+            if (fresh === null) throw new Error('The fresh approval request is missing')
+            expect(
+                store.approvePublicationApprovalRequest({ ...input, requestId: fresh.id })
+            ).toMatchObject({ state: 'scheduled', reviewState: 'compatible' })
+            expect(
+                store.getPublicationEditorState(projectId, publication.id, 'user-1')?.selectedTarget
+            ).toMatchObject({ profileVersionId: oldProfile })
+            expect(database.select().from(jobs).all()).toEqual([
+                expect.objectContaining({ state: 'pending' }),
+            ])
         } finally {
             closeDatabase(database)
         }

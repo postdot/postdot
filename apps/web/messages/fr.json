@@ -439,6 +439,7 @@
     "approval_requests_change_time": "Choisir une nouvelle heure",
     "approval_requests_date_required": "Choisissez une date et une heure.",
     "approval_requests_schedule": "Planifier",
+    "approval_requests_active_profile_mismatch": "Le contenu ne respecte pas le profil actif du canal. Vérifiez-le avant de l’approuver. Votre travail enregistré est conservé.",
     "approval_requests_action_failed": "Impossible de traiter la demande.",
     "approval_requests_load_failed": "Impossible de charger les demandes.",
     "queue_bulk_actions": "Actions sur les publications",

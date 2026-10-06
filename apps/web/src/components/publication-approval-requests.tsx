@@ -23,6 +23,7 @@ import {
 } from '@/lib/date-time'
 import { useLanguage } from '@/lib/i18n'
 import { projectQueryKeys } from '@/lib/project-realtime'
+import { isActiveChannelProfilePromotionError } from '@/lib/publication-promotion'
 import * as m from '@/paraglide/messages.js'
 
 export function PublicationApprovalRequests({
@@ -97,7 +98,7 @@ function PublicationApprovalRequestRow({
     const queryClient = useQueryClient()
     const { locale } = useLanguage()
     const [busy, setBusy] = useState(false)
-    const [error, setError] = useState(false)
+    const [error, setError] = useState<'active_profile' | 'action' | null>(null)
     const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
     const [scheduleValue, setScheduleValue] = useState('')
     const [scheduleError, setScheduleError] = useState<string | null>(null)
@@ -127,13 +128,15 @@ function PublicationApprovalRequestRow({
         options: { readonly scheduledAt?: number; readonly publishNow?: boolean } = {}
     ): Promise<boolean> {
         setBusy(true)
-        setError(false)
+        setError(null)
         try {
             await api.approvePublicationApprovalRequest(projectId, request.publicationId, options)
             await refreshAfterDecision()
             return true
-        } catch {
-            setError(true)
+        } catch (caughtError) {
+            setError(
+                isActiveChannelProfilePromotionError(caughtError) ? 'active_profile' : 'action'
+            )
             return false
         } finally {
             setBusy(false)
@@ -142,12 +145,12 @@ function PublicationApprovalRequestRow({
 
     async function reject() {
         setBusy(true)
-        setError(false)
+        setError(null)
         try {
             await api.rejectPublicationApprovalRequest(projectId, request.publicationId)
             await refreshAfterDecision()
         } catch {
-            setError(true)
+            setError('action')
         } finally {
             setBusy(false)
         }
@@ -236,7 +239,9 @@ function PublicationApprovalRequestRow({
                 </div>
                 {error ? (
                     <p className="text-xs text-destructive sm:basis-full" role="alert">
-                        {m.approval_requests_action_failed()}
+                        {error === 'active_profile'
+                            ? m.approval_requests_active_profile_mismatch()
+                            : m.approval_requests_action_failed()}
                     </p>
                 ) : null}
             </article>

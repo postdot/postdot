@@ -404,9 +404,7 @@ export function createPublicationPromotionStore(
             const content = parseJsonObject(draftRow.contentJson, 'publication draft content')
             const validation = profileResult.value.validate(content)
             if (!validation.ok) throw invalidTargetContentError(validation.issues)
-            const isOrdinaryPromotion =
-                input.approvalRequestId === undefined && input.approvalRequest === undefined
-            if (isOrdinaryPromotion && activeProfileRow.id !== profileRow.id) {
+            if (activeProfileRow.id !== profileRow.id) {
                 const activeProfileResult = options.profileCompiler.compile(
                     parseProfile(activeProfileRow.profileJson)
                 )

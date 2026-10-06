@@ -439,6 +439,7 @@
     "approval_requests_change_time": "Choose a new time",
     "approval_requests_date_required": "Choose a date and time.",
     "approval_requests_schedule": "Schedule",
+    "approval_requests_active_profile_mismatch": "The content does not meet the active channel profile. Review it before approval. Your saved work is unchanged.",
     "approval_requests_action_failed": "Could not update the approval request.",
     "approval_requests_load_failed": "Could not load approval requests.",
     "queue_bulk_actions": "Publication actions",

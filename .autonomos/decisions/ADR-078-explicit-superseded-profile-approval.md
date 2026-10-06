@@ -1,6 +1,7 @@
 # ADR-078 — Ordinary approval and explicit superseded-profile consent
 
-- Status: proposed; no approval policy change authorized or implemented
+- Status: accepted for ordinary compatibility first; explicit consent remains deferred
+- Accepted by: owner on 2026-10-06, choosing the recommended delivery sequence
 - Scope: approval of publications whose working profile differs from the active channel profile
 - Provenance: UX-321, UX-322 and UX-323; owner requested continuation on 2026-10-06
 - Related decisions: [ADR-020](ADR-020-version-and-assess-channel-profile-changes.md)
@@ -40,7 +41,7 @@ Its limitation is deliberate: an incompatible old target cannot yet be retained
 for delivery by overriding the active assessment. Content and history remain
 available, but no automatic migration or replacement payload is supplied.
 
-## Proposed eventual consent contract
+## Proposed eventual consent contract (not accepted for implementation)
 
 - Offer a distinct action, **Retain previous profile**, only on affected work. Never
   turn a normal approval button or a project-wide setting into this exception.
@@ -70,7 +71,7 @@ an explicit per-contract security-disable mechanism already exists. Resolve thos
 boundaries before shipping the exception, without importing API runtime code into
 the persistence package or adding another service.
 
-## Alternatives requiring owner choice
+## Alternatives considered
 
 - **Recommended: ordinary compatibility first, explicit consent later.** Small
   immediate behavioral change with focused regressions; blocks the bypass while

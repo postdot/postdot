@@ -88,6 +88,34 @@ test('shows an API-prepared publication for human approval before it is schedule
         name: fr.approval_requests_approve,
         exact: true,
     })
+    // Exercise presentation of a refused legacy request. Actual profile activation
+    // supersedes pending requests, so this UI boundary uses the server error contract.
+    const approvalUrl = `**/api/projects/${projectId}/publications/${publication.id}/approval-request/approve`
+    await page.route(approvalUrl, route =>
+        route.fulfill({
+            status: 400,
+            json: {
+                error: {
+                    code: 'invalid_content',
+                    message:
+                        'Publication target content is incompatible with the active channel profile fixture v2 while it satisfies fixture v1: Content too long',
+                },
+            },
+        })
+    )
+    await approve.click()
+    await expect(translatedSection.getByRole('alert')).toHaveText(
+        fr.approval_requests_active_profile_mismatch
+    )
+    await expect(approve).toBeEnabled()
+    const retainedResponse = await page.request.get(
+        `/api/projects/${projectId}/publications/${publication.id}/editor`
+    )
+    expect(retainedResponse.status()).toBe(200)
+    expect(await retainedResponse.json()).toMatchObject({
+        editor: { publication: { state: 'draft', scheduledAt: null } },
+    })
+    await page.unroute(approvalUrl)
     await approve.focus()
     await page.keyboard.press('Enter')
     await expect(translatedSection).toHaveCount(0)

@@ -358,13 +358,40 @@ test('shows the active-profile refusal when promotion rejects a superseded draft
     const finalEditor = (await finalEditorResponse.json()) as {
         editor: {
             publication: { state: string }
-            draft: { content: { body: string } }
+            draft: { revision: number; content: { body: string } }
             selectedTarget: unknown
         }
     }
     expect(finalEditor.editor.publication.state).toBe('draft')
     expect(finalEditor.editor.draft.content.body).toBe(replacementBody)
     expect(finalEditor.editor.selectedTarget).toBeNull()
+    const approvalResponse = await page.request.post(
+        `/api/projects/${projectId}/publications/${publication.id}/approval-request`,
+        {
+            data: {
+                expectedDraftRevision: finalEditor.editor.draft.revision,
+                proposedScheduledAt: Date.now() + 60_000,
+            },
+        }
+    )
+    expect(approvalResponse.status()).toBe(400)
+    expect(await approvalResponse.json()).toMatchObject({
+        error: {
+            code: 'invalid_content',
+            message: expect.stringContaining('incompatible with the active channel profile'),
+        },
+    })
+    const requestsResponse = await page.request.get(
+        `/api/projects/${projectId}/publications/approval-requests`
+    )
+    expect(requestsResponse.status()).toBe(200)
+    expect(await requestsResponse.json()).toEqual({ requests: [] })
+    const unchangedResponse = await page.request.get(
+        `/api/projects/${projectId}/publications/${publication.id}/editor`
+    )
+    expect(unchangedResponse.status()).toBe(200)
+    expect(await unchangedResponse.json()).toEqual(finalEditor)
+    await expect(bodyField).toHaveValue(replacementBody)
 })
 
 async function createAccountAndProject(page: Page, suffix: string) {
