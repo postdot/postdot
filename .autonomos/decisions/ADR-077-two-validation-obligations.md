@@ -139,10 +139,14 @@ First, `d70108840` was the last fully validated commit until this mission ran th
 control required by trigger 3 for its own change set. On `4e89b3c0d`,
 `bun run check` was green: 84 E2E scenarios in 18.8 min, 2 password-reset in
 10.4 s, 51 script tests, and the full set of package unit tests, build, format,
-lint, typecheck, with zero failures and zero flakes. So `4e89b3c0d` is now the
-newest fully validated commit, and the four WEB-314 commits between it and
-`d70108840` remain locally validated only, carrying code or test changes rather
-than documentation.
+lint, typecheck, with zero failures and zero flakes. So `4e89b3c0d` became the
+newest fully validated commit at that point, and it held the position until the
+UX-298 mission, whose change set also included the selector correction: on
+`2c238e9d8` the full control was green again — 84 E2E in 18.7 min, 2 password-reset
+in 10.0 s, 55 script tests, zero failures and zero flakes — so `validated/full`
+now points there. The four WEB-314 commits between `d70108840` and `4e89b3c0d`
+remain locally validated only, carrying code or test changes rather than
+documentation.
 
 Second, there is a real divergence: the selector reports the **full matrix** for
 the four WEB-314 commits because `e2e/**` is transversal, while the work actually
