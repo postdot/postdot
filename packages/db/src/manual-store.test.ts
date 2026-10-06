@@ -1830,6 +1830,292 @@ describe('manual workflow store', () => {
         }
     })
 
+    it('blocks ordinary promotion when the active profile narrows media support', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const setupStore = createManualStore(database, { now: () => now })
+            const project = setupStore.createProject({
+                name: 'Active Media Promotion Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const readyMedia = createReadyMedia(project.project.id, now, project.actor.id)
+            database.insert(mediaAssets).values(readyMedia.asset).run()
+            const readyRepresentation = readyMedia.representations[0]
+            if (readyRepresentation === undefined) {
+                throw new Error('The ready media representation is missing')
+            }
+            database
+                .insert(mediaRepresentations)
+                .values({ ...readyRepresentation, recipeJson: null })
+                .run()
+            const media = {
+                getAsset(
+                    currentProjectId: string,
+                    assetId: string,
+                    _subjectId: string
+                ): MediaAssetReference | null {
+                    return assetId === 'asset-1'
+                        ? createReadyMedia(currentProjectId, now, project.actor.id)
+                        : null
+                },
+            }
+            const store = createManualStore(database, { now: () => now, media })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Media Channel',
+                profile: createMediaProfile(1, ['image'], ['image/jpeg']),
+            })
+            if (channel === null) throw new Error('The active media channel was not created')
+            const originalProfileVersionId = channel.profileVersionId
+
+            const targetContent = {
+                body: 'Media target',
+                media: [{ assetId: 'asset-1' }],
+            }
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Active media source'),
+                publications: [
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'manual',
+                        targetContent,
+                        scheduledAt: now + 60_000,
+                    },
+                ],
+            })
+            if (created === null) throw new Error('The active media post was not created')
+            const publication = created.publications[0]
+            if (publication === undefined)
+                throw new Error('The active media publication is missing')
+            const initialTargets = database
+                .select()
+                .from(publicationTargetRevisions)
+                .where(eq(publicationTargetRevisions.publicationId, publication.id))
+                .all()
+            if (initialTargets.length !== 1) {
+                throw new Error('The initial media target revision is missing')
+            }
+
+            const profileDraft = store.createChannelProfileDraft({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                profile: createMediaProfile(2, ['video'], ['video/mp4']),
+            })
+            if (profileDraft === null) throw new Error('The active media draft was not created')
+            const activated = store.activateChannelProfile({
+                projectId: project.project.id,
+                channelId: channel.id,
+                profileVersionId: profileDraft.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+            })
+            if (activated === null) throw new Error('The active media profile was not activated')
+
+            const saved = store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedRevision: 2,
+                targetContent,
+            })
+            expect(saved).toMatchObject({
+                revision: 3,
+                profileVersionId: originalProfileVersionId,
+                reviewState: 'compatible',
+                content: targetContent,
+            })
+            expect(() =>
+                store.promotePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 3,
+                    scheduledAt: now + 120_000,
+                })
+            ).toThrow('Publication target content is incompatible with the active channel profile')
+            expect(
+                store.getPublicationWorkingDraft(project.project.id, publication.id, 'user-1')
+            ).toMatchObject({
+                revision: 3,
+                profileVersionId: originalProfileVersionId,
+                reviewState: 'compatible',
+                content: targetContent,
+            })
+            expect(
+                database
+                    .select()
+                    .from(publications)
+                    .where(eq(publications.id, publication.id))
+                    .all()[0]
+            ).toMatchObject({
+                state: 'scheduled',
+                reviewState: 'review_required',
+                targetRevisionId: initialTargets[0]?.id,
+                lastAssessedProfileVersionId: profileDraft.id,
+            })
+            expect(
+                database
+                    .select()
+                    .from(publicationTargetRevisions)
+                    .where(eq(publicationTargetRevisions.publicationId, publication.id))
+                    .all()
+            ).toEqual(initialTargets)
+            expect(database.select().from(jobs).all()).toEqual([])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('blocks ordinary automatic promotion when the execution contract changes', () => {
+        const database = createDatabase(':memory:')
+        const now = 1_800_000_000_000
+
+        try {
+            runMigrations(database)
+            const store = createManualStore(database, { now: () => now })
+            const project = store.createProject({
+                name: 'Execution Contract Promotion Project',
+                subjectId: 'user-1',
+                displayName: 'Operator',
+            })
+            const channel = store.createChannel({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                name: 'Versioned Automatic Channel',
+                profile: automaticTestProfile,
+            })
+            if (channel === null) {
+                throw new Error('The execution contract channel was not created')
+            }
+            const originalProfileVersionId = channel.profileVersionId
+
+            database
+                .insert(publishers)
+                .values({
+                    id: 'execution-contract-publisher',
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    kind: 'future-provider',
+                })
+                .run()
+
+            const targetContent = { body: 'short target' }
+            const created = store.createPost({
+                projectId: project.project.id,
+                subjectId: 'user-1',
+                sourceContent: sourceContent('Execution contract source'),
+                publications: [
+                    {
+                        channelId: channel.id,
+                        deliveryMode: 'automatic',
+                        targetContent,
+                        scheduledAt: now + 60_000,
+                    },
+                ],
+            })
+            if (created === null) throw new Error('The execution contract post was not created')
+            const publication = created.publications[0]
+            if (publication === undefined) {
+                throw new Error('The execution contract publication is missing')
+            }
+            const initialTargets = database
+                .select()
+                .from(publicationTargetRevisions)
+                .where(eq(publicationTargetRevisions.publicationId, publication.id))
+                .all()
+            if (initialTargets.length !== 1) {
+                throw new Error('The initial execution target revision is missing')
+            }
+
+            const profileDraft = store.createChannelProfileDraft({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'user-1',
+                profile: {
+                    ...automaticTestProfile,
+                    profileHash: 'sha256:future-provider-profile-v2',
+                    schemaHash: 'sha256:future-provider-schema-v2',
+                    execution: {
+                        kind: 'built_in',
+                        contractId: 'future-provider',
+                        revision: 'v2',
+                    },
+                },
+            })
+            if (profileDraft === null) {
+                throw new Error('The execution contract draft was not created')
+            }
+            const activated = store.activateChannelProfile({
+                projectId: project.project.id,
+                channelId: channel.id,
+                profileVersionId: profileDraft.id,
+                subjectId: 'user-1',
+                expectedRevision: 1,
+            })
+            if (activated === null) {
+                throw new Error('The execution contract profile was not activated')
+            }
+            expect(
+                database.select().from(jobs).where(eq(jobs.publicationId, publication.id)).all()
+            ).toEqual([expect.objectContaining({ state: 'cancelled' })])
+
+            const saved = store.savePublicationDraft({
+                projectId: project.project.id,
+                publicationId: publication.id,
+                subjectId: 'user-1',
+                expectedRevision: 2,
+                targetContent,
+            })
+            expect(saved).toMatchObject({
+                revision: 3,
+                profileVersionId: originalProfileVersionId,
+                reviewState: 'compatible',
+                content: targetContent,
+            })
+            expect(() =>
+                store.promotePublicationDraft({
+                    projectId: project.project.id,
+                    publicationId: publication.id,
+                    subjectId: 'user-1',
+                    expectedRevision: 3,
+                    scheduledAt: now + 120_000,
+                })
+            ).toThrow('Publication target content is incompatible with the active channel profile')
+            expect(
+                database
+                    .select()
+                    .from(publications)
+                    .where(eq(publications.id, publication.id))
+                    .all()[0]
+            ).toMatchObject({
+                state: 'scheduled',
+                reviewState: 'review_required',
+                targetRevisionId: initialTargets[0]?.id,
+                lastAssessedProfileVersionId: profileDraft.id,
+            })
+            expect(
+                database
+                    .select()
+                    .from(publicationTargetRevisions)
+                    .where(eq(publicationTargetRevisions.publicationId, publication.id))
+                    .all()
+            ).toEqual(initialTargets)
+            expect(
+                database.select().from(jobs).where(eq(jobs.publicationId, publication.id)).all()
+            ).toEqual([expect.objectContaining({ state: 'cancelled' })])
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('rejects an invalid scheduled media target before persisting the publication', () => {
         const database = createDatabase(':memory:')
         const now = 1_800_000_000_000

@@ -262,6 +262,111 @@ test('keeps publication detail actions aligned with the scheduled lifecycle', as
     await expect(page.locator('#source-body')).toHaveText('E2E detail lifecycle content')
 })
 
+test('shows the active-profile refusal when promotion rejects a superseded draft', async ({
+    page,
+}) => {
+    test.setTimeout(90_000)
+
+    const suffix = randomUUID().slice(0, 8)
+    const projectId = await createAccountAndProject(page, suffix)
+    const channelResponse = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: `E2E active profile destination ${suffix}`, profile: 'manual-message' },
+    })
+    expect(channelResponse.status()).toBe(201)
+    const channel = (await channelResponse.json()) as { channel: { id: string } }
+    const initialBody = 'Active profile body one'
+    const postResponse = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { format: 'plain_text', text: `E2E active profile source ${suffix}` },
+                media: [],
+            },
+            publications: [
+                {
+                    channelId: channel.channel.id,
+                    deliveryMode: 'manual',
+                    targetContent: { body: initialBody, media: [] },
+                },
+            ],
+        },
+    })
+    expect(postResponse.status()).toBe(201)
+    const created = (await postResponse.json()) as { publications: { id: string }[] }
+    const publication = created.publications[0]
+    if (publication === undefined) throw new Error('The active-profile publication is missing')
+    const editorUrl = `/dashboard/projects/${projectId}/publications/${publication.id}`
+    await page.goto(editorUrl)
+
+    const action = page.getByRole('button', { name: 'Use this version', exact: true })
+    await expect(action).toBeEnabled()
+    const bodyField = page.locator('[data-target-field="body"] textarea')
+    await expect(bodyField).toHaveValue(initialBody)
+
+    const profileResponse = await page.request.get(
+        `/api/projects/${projectId}/channels/${channel.channel.id}/profile`
+    )
+    expect(profileResponse.status()).toBe(200)
+    const profileState = (await profileResponse.json()) as { active: { profile: unknown } }
+    const profile = structuredClone(profileState.active.profile) as {
+        contentSchema: { properties: { body: { maxLength: number } } }
+        capabilities: { revision: string; textFields: Array<{ maxLength: number }> }
+        profileHash: string
+        schemaHash: string
+    }
+    profile.contentSchema.properties.body.maxLength = 10
+    const textField = profile.capabilities.textFields[0]
+    if (textField === undefined) throw new Error('The manual profile has no text field')
+    textField.maxLength = 10
+    profile.capabilities.revision = 'manual-message-v2'
+    profile.profileHash = 'sha256:herald-manual-message-e2e-v2'
+    profile.schemaHash = 'sha256:herald-manual-message-schema-e2e-v2'
+    const draftResponse = await page.request.post(
+        `/api/projects/${projectId}/channels/${channel.channel.id}/profile-drafts`,
+        { data: { profile } }
+    )
+    expect(draftResponse.status()).toBe(200)
+    const profileDraft = (await draftResponse.json()) as { profile: { id: string } }
+    const activationResponse = await page.request.post(
+        `/api/projects/${projectId}/channels/${channel.channel.id}/profile-drafts/${profileDraft.profile.id}/activate`,
+        { data: { expectedRevision: 1 } }
+    )
+    expect(activationResponse.status()).toBe(200)
+
+    await page.reload()
+    await expect(action).toBeDisabled()
+    const replacementBody = 'Active profile body two'
+    await bodyField.fill(replacementBody)
+    await expect(page.getByRole('status', { name: 'Saved', exact: true })).toBeVisible()
+    await expect(action).toBeEnabled()
+    await action.click()
+
+    await expect(
+        page.getByText(
+            'The active channel profile changed after this draft was saved. The draft still uses the previous profile, so normal promotion cannot apply it. The saved content and selected target are unchanged.',
+            { exact: true }
+        )
+    ).toBeVisible()
+    await expect(
+        page.getByRole('button', { name: 'Check server status', exact: true })
+    ).toHaveCount(0)
+    await expect(page.locator('[data-publication-recovery-decision]')).toHaveCount(0)
+    await expect(bodyField).toHaveValue(replacementBody)
+    const finalEditorResponse = await page.request.get(
+        `/api/projects/${projectId}/publications/${publication.id}/editor`
+    )
+    expect(finalEditorResponse.status()).toBe(200)
+    const finalEditor = (await finalEditorResponse.json()) as {
+        editor: {
+            publication: { state: string }
+            draft: { content: { body: string } }
+            selectedTarget: unknown
+        }
+    }
+    expect(finalEditor.editor.publication.state).toBe('draft')
+    expect(finalEditor.editor.draft.content.body).toBe(replacementBody)
+    expect(finalEditor.editor.selectedTarget).toBeNull()
+})
+
 async function createAccountAndProject(page: Page, suffix: string) {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)
