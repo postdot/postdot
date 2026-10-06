@@ -13,8 +13,9 @@ import { Textarea } from '@herald/ui/components/textarea'
 import { CheckIcon } from '@solar-icons/react/linear/check'
 import { CodeFileIcon } from '@solar-icons/react/linear/code-file'
 import { RefreshIcon } from '@solar-icons/react/linear/refresh'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
+import { ChannelProfileImpactPreview } from '@/components/channel-profile-impact-preview'
 import { api, formatApiError, type Channel, type ChannelProfileAssessment } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
@@ -34,9 +35,12 @@ export function ChannelProfileEditorDialog({
 }) {
     useLanguage()
     const [profileText, setProfileText] = useState('')
+    const [savedProfileText, setSavedProfileText] = useState('')
+    const session = useRef(0)
     const [draftId, setDraftId] = useState<string | null>(null)
     const [draftRevision, setDraftRevision] = useState<number | undefined>(undefined)
     const [assessment, setAssessment] = useState<ChannelProfileAssessment | null>(null)
+    const [editing, setEditing] = useState(true)
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -44,16 +48,24 @@ export function ChannelProfileEditorDialog({
     useEffect(() => {
         if (!open || channel === null) return
 
+        const epoch = ++session.current
         let cancelled = false
         setLoading(true)
+        setProfileText('')
+        setSavedProfileText('')
+        setDraftId(null)
+        setDraftRevision(undefined)
+        setSaving(false)
         setError(null)
         setAssessment(null)
+        setEditing(true)
         void api
             .getChannelProfileState(channel.projectId, channel.id)
             .then(state => {
                 if (cancelled) return
                 const version = state.draft ?? state.active
                 setProfileText(JSON.stringify(version.profile, null, 2))
+                setSavedProfileText(JSON.stringify(version.profile, null, 2))
                 setDraftId(state.draft?.id ?? null)
                 setDraftRevision(state.draft?.revision)
             })
@@ -66,6 +78,7 @@ export function ChannelProfileEditorDialog({
 
         return () => {
             cancelled = true
+            if (session.current === epoch) session.current++
         }
     }, [channel, open])
 
@@ -86,6 +99,7 @@ export function ChannelProfileEditorDialog({
             return
         }
 
+        const epoch = session.current
         setSaving(true)
         setError(null)
         setAssessment(null)
@@ -96,13 +110,15 @@ export function ChannelProfileEditorDialog({
                 profile,
                 draftRevision
             )
+            if (epoch !== session.current) return
             setDraftId(response.profile.id)
             setDraftRevision(response.profile.revision)
             setProfileText(JSON.stringify(response.profile.profile, null, 2))
+            setSavedProfileText(JSON.stringify(response.profile.profile, null, 2))
         } catch (caughtError) {
-            setError(formatApiError(caughtError))
+            if (epoch === session.current) setError(formatApiError(caughtError))
         } finally {
-            setSaving(false)
+            if (epoch === session.current) setSaving(false)
         }
     }
 
@@ -111,6 +127,7 @@ export function ChannelProfileEditorDialog({
             setError(m.profile_save_before_preview())
             return
         }
+        const epoch = session.current
         setSaving(true)
         setError(null)
         try {
@@ -119,11 +136,13 @@ export function ChannelProfileEditorDialog({
                 currentChannel.id,
                 draftId
             )
+            if (epoch !== session.current) return
             setAssessment(response.assessment)
+            setEditing(false)
         } catch (caughtError) {
-            setError(formatApiError(caughtError))
+            if (epoch === session.current) setError(formatApiError(caughtError))
         } finally {
-            setSaving(false)
+            if (epoch === session.current) setSaving(false)
         }
     }
 
@@ -132,6 +151,7 @@ export function ChannelProfileEditorDialog({
             setError(m.profile_preview_before_activate())
             return
         }
+        const epoch = session.current
         setSaving(true)
         setError(null)
         try {
@@ -141,20 +161,23 @@ export function ChannelProfileEditorDialog({
                 draftId,
                 draftRevision
             )
+            if (epoch !== session.current) return
             await onRefreshProject()
+            if (epoch !== session.current) return
             onOpenChange(false)
         } catch (caughtError) {
-            setError(formatApiError(caughtError))
+            if (epoch === session.current) setError(formatApiError(caughtError))
         } finally {
-            setSaving(false)
+            if (epoch === session.current) setSaving(false)
         }
     }
 
     const busy = pending || loading || saving
+    const unsaved = profileText !== savedProfileText
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[min(46rem,calc(100vh-2rem))] max-w-3xl overflow-y-auto">
+            <DialogContent className="max-h-[min(46rem,calc(100dvh-2rem))] max-w-[calc(100vw_-_2rem)] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
                         {m.profile_editor_title({ channel: currentChannel.name })}
@@ -163,19 +186,33 @@ export function ChannelProfileEditorDialog({
                 </DialogHeader>
 
                 <div className="grid gap-4">
-                    <Field className="gap-1.5">
-                        <FieldLabel htmlFor="channel-profile-json">{m.profile_json()}</FieldLabel>
-                        <Textarea
-                            id="channel-profile-json"
-                            value={profileText}
-                            onChange={event => setProfileText(event.target.value)}
-                            spellCheck={false}
-                            rows={18}
-                            disabled={busy}
-                            className="font-mono text-xs leading-5"
-                        />
-                        <FieldDescription>{m.profile_json_description()}</FieldDescription>
-                    </Field>
+                    <details
+                        open={editing}
+                        onToggle={event => setEditing(event.currentTarget.open)}>
+                        <summary className="cursor-pointer font-medium">{m.profile_json()}</summary>
+                        <Field className="mt-3 gap-1.5">
+                            <FieldLabel htmlFor="channel-profile-json">
+                                {m.profile_json()}
+                            </FieldLabel>
+                            <Textarea
+                                id="channel-profile-json"
+                                value={profileText}
+                                onChange={event => {
+                                    setProfileText(event.target.value)
+                                    setAssessment(null)
+                                }}
+                                spellCheck={false}
+                                rows={10}
+                                disabled={busy}
+                                className="field-sizing-fixed max-h-64 overflow-y-auto font-mono text-xs leading-5"
+                            />
+                            <FieldDescription>
+                                {unsaved
+                                    ? m.profile_save_before_preview()
+                                    : m.profile_json_description()}
+                            </FieldDescription>
+                        </Field>
+                    </details>
 
                     {error ? (
                         <Alert variant="destructive">
@@ -185,24 +222,11 @@ export function ChannelProfileEditorDialog({
                     ) : null}
 
                     {assessment ? (
-                        <Alert variant={assessment.hasReviewRequired ? 'destructive' : 'default'}>
-                            <AlertTitle>
-                                {assessment.hasReviewRequired
-                                    ? m.profile_review_required()
-                                    : m.profile_ready()}
-                            </AlertTitle>
-                            <AlertDescription>
-                                {m.common_change_count({ count: assessment.changes.length })} ·{' '}
-                                {m.common_draft_impact_count({
-                                    count: assessment.workingDrafts.length,
-                                })}{' '}
-                                ·{' '}
-                                {m.common_target_impact_count({
-                                    count: assessment.pendingTargets.length,
-                                })}
-                                .
-                            </AlertDescription>
-                        </Alert>
+                        <ChannelProfileImpactPreview
+                            assessment={assessment}
+                            projectId={currentChannel.projectId}
+                            onInspect={() => onOpenChange(false)}
+                        />
                     ) : null}
                 </div>
 
@@ -220,7 +244,7 @@ export function ChannelProfileEditorDialog({
                             type="button"
                             variant="outline"
                             onClick={() => void previewDraft()}
-                            disabled={busy || draftId === null}>
+                            disabled={busy || draftId === null || unsaved}>
                             <RefreshIcon aria-hidden="true" />
                             {m.profile_preview_impact()}
                         </Button>

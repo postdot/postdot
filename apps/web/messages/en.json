@@ -636,7 +636,7 @@
     "channel_archive": "Archive",
     "channel_delete_permanently": "Delete permanently",
     "profile_editor_title": "Edit {channel} profile",
-    "profile_editor_description": "Save a draft, inspect its impact, then activate it explicitly. An active profile is never replaced silently.",
+    "profile_editor_description": "New publications will use this profile; existing content is kept.",
     "profile_json": "Profile JSON",
     "profile_json_description": "The server validates the schema, bindings, capabilities, and execution contract before accepting the draft.",
     "profile_must_be_object": "The profile must be a JSON object.",
@@ -1986,5 +1986,15 @@
     "profile_adoption_history": "Previous drafts kept during adaptation",
     "profile_adoption_recovery_mismatch": "This local copy cannot be matched to the current profile. Copy its content before discarding it; automatic restoration is unavailable.",
     "profile_adoption_refresh": "Review latest draft and profile",
-    "profile_adoption_unmapped": "No matching field: {field}. Its previous value is kept."
+    "profile_adoption_unmapped": "No matching field: {field}. Its previous value is kept.",
+    "profile_impact_title": "Affected publications",
+    "profile_impact_versions": "Profile {current} → {proposed}",
+    "profile_impact_empty": "No editable drafts or pending publications use this channel.",
+    "profile_impact_names_failed": "Publication names could not be loaded. The impact and links remain available.",
+    "profile_impact_publication": "Publication {id}",
+    "profile_impact_inspect": "Inspect publication",
+    "profile_impact_draft": "Working draft",
+    "profile_impact_target": "Selected target awaiting delivery",
+    "profile_impact_review": "Needs review",
+    "profile_impact_adaptation_note": "Adaptation is available in the publication editor once the new profile is active."
 }
