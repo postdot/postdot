@@ -8,6 +8,7 @@ import {
     collectChangedPaths,
     domainsForPath,
     isDocumentationPath,
+    isExecutableSourcePath,
     listSpecFiles,
     matchesPattern,
     resolveAffectedScenarios,
@@ -189,6 +190,48 @@ describe('documentation classification (ADR-077)', () => {
         ])
     })
 
+    test('executable source is never documentation, whatever its directory', () => {
+        for (const path of [
+            'docs/example.ts',
+            '.autonomos/scripts/helper.ts',
+            'docs/build/run.sh',
+            '.autonomos/tool.py',
+            'AGENT.md.ts',
+        ]) {
+            expect(isDocumentationPath(path)).toBe(false)
+        }
+    })
+
+    test('an unknown source file under docs/ falls back instead of being exempt', () => {
+        const resolution = resolveAffectedScenarios(['docs/legacy/check.js'], KNOWN_SPECS)
+
+        expect(resolution.mode).toBe('full')
+        if (resolution.mode !== 'full') throw new Error('expected full selection')
+        expect(resolution.reason).toContain('docs/legacy/check.js')
+    })
+
+    test('an executable file under .autonomos falls back instead of being exempt', () => {
+        const resolution = resolveAffectedScenarios(
+            ['.autonomos/TASKS.md', '.autonomos/plugins/check.ts'],
+            KNOWN_SPECS
+        )
+
+        expect(resolution.mode).toBe('full')
+        if (resolution.mode !== 'full') throw new Error('expected full selection')
+        expect(resolution.reason).toContain('.autonomos/plugins/check.ts')
+    })
+
+    test('a prose file beside an unknown source keeps the fallback', () => {
+        const resolution = resolveAffectedScenarios(
+            ['.autonomos/worklogs/note.md', 'docs/legacy/check.js'],
+            KNOWN_SPECS
+        )
+
+        expect(resolution.mode).toBe('full')
+        if (resolution.mode !== 'full') throw new Error('expected full selection')
+        expect(resolution.reason).toContain('check.js')
+    })
+
     test('documentation mode never coexists with a code path', () => {
         for (const path of ['README.md', 'docs/guide.md', 'AGENT.md', '.autonomos/specs/x.md']) {
             expect(isDocumentationPath(path)).toBe(true)
@@ -201,6 +244,8 @@ describe('documentation classification (ADR-077)', () => {
         ]) {
             expect(isDocumentationPath(path)).toBe(false)
         }
+        expect(isExecutableSourcePath('apps/web/src/lib/theme.ts')).toBe(true)
+        expect(isExecutableSourcePath('README.md')).toBe(false)
     })
 })
 

@@ -462,7 +462,33 @@ function isSpecPath(path: string): boolean {
     return path.startsWith('e2e/') && path.endsWith('.spec.ts')
 }
 
+/**
+ * Extensions that make a file executable source wherever it lives. A `.ts` file
+ * under `docs/` is not documentation, it is code in an unusual place, and letting
+ * its directory exempt it would turn a typo in a path pattern into a silent
+ * exemption for unknown code.
+ */
+const EXECUTABLE_SOURCE_SUFFIXES = [
+    '.ts',
+    '.tsx',
+    '.mts',
+    '.cts',
+    '.js',
+    '.jsx',
+    '.mjs',
+    '.cjs',
+    '.sh',
+    '.bash',
+    '.py',
+    '.rb',
+] as const
+
+export function isExecutableSourcePath(path: string): boolean {
+    return EXECUTABLE_SOURCE_SUFFIXES.some(suffix => path.endsWith(suffix))
+}
+
 export function isDocumentationPath(path: string): boolean {
+    if (isExecutableSourcePath(path)) return false
     return DOCUMENTATION_PATHS.some(entry => matchesPattern(path, entry.pattern))
 }
 
@@ -733,22 +759,39 @@ if (import.meta.main) {
     const resolution = resolveAffectedScenarios(changedPaths, knownSpecs, deleted)
 
     if (arguments_.json) {
-        console.log(
-            JSON.stringify(
-                {
-                    base: arguments_.base,
-                    mode: resolution.mode,
-                    changedPaths,
-                    deleted,
-                    scenarios: resolution.mode === 'targeted' ? resolution.scenarios : [],
-                    documentation:
-                        resolution.mode === 'documentation' ? resolution.documentation : [],
-                    reason: resolution.mode === 'targeted' ? undefined : resolution.reason,
-                },
-                null,
-                2
-            )
-        )
+        // Built per mode so each branch is typed by its own variant, and so the
+        // scenario list is never emptied: a full selection reports the whole
+        // matrix, a targeted one reports its retained scenarios with reasons, and
+        // only the documentation mode carries an empty list.
+        const payload =
+            resolution.mode === 'full'
+                ? {
+                      base: arguments_.base,
+                      mode: resolution.mode,
+                      changedPaths,
+                      deleted,
+                      scenarios: resolution.scenarios,
+                      reason: resolution.reason,
+                  }
+                : resolution.mode === 'documentation'
+                  ? {
+                        base: arguments_.base,
+                        mode: resolution.mode,
+                        changedPaths,
+                        deleted,
+                        scenarios: [] as string[],
+                        documentation: resolution.documentation,
+                        reason: resolution.reason,
+                    }
+                  : {
+                        base: arguments_.base,
+                        mode: resolution.mode,
+                        changedPaths,
+                        deleted,
+                        scenarios: resolution.scenarios,
+                        domains: resolution.domains,
+                    }
+        console.log(JSON.stringify(payload, null, 2))
     } else {
         console.log(report(resolution, knownSpecs.length, changedPaths.length))
     }
