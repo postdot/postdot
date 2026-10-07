@@ -2006,5 +2006,8 @@
     "profile_activation_review_remains": "Ouvrez les publications à vérifier pour adapter leurs brouillons. Les versions sélectionnées incompatibles restent bloquées pour la livraison.",
     "profile_activation_compatible": "Les publications restent compatibles. Leurs contenus n’ont pas été modifiés.",
     "profile_activation_reload": "Relire le profil enregistré",
-    "profile_activation_review": "Vérifier l’activation"
+    "profile_activation_review": "Vérifier l’activation",
+    "profile_metadata_title": "Métadonnées du profil",
+    "profile_metadata_description": "Herald gère l’identité et la version. Les empreintes sont calculées à l’enregistrement.",
+    "profile_metadata_managed": "Modifiez uniquement la définition du profil. Herald gère l’identité, l’origine, la version et les empreintes."
 }

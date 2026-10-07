@@ -2006,5 +2006,8 @@
     "profile_activation_review_remains": "Open the publications needing review to adapt their drafts. Incompatible selected versions remain blocked from delivery.",
     "profile_activation_compatible": "The publications remain compatible. Their content has not been changed.",
     "profile_activation_reload": "Reload saved profile",
-    "profile_activation_review": "Review activation"
+    "profile_activation_review": "Review activation",
+    "profile_metadata_title": "Profile metadata",
+    "profile_metadata_description": "Identity and version are managed by Herald. Fingerprints are calculated when you save.",
+    "profile_metadata_managed": "Edit the profile definition only. Identity, origin, version and fingerprints are managed by Herald."
 }

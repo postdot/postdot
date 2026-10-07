@@ -129,6 +129,15 @@ export interface ChannelProfileDefinition {
     readonly execution: ChannelExecutionContract
 }
 
+/** Operator-authored fields, with optional legacy metadata accepted at draft save. */
+export type ChannelProfileDraftDefinition = Omit<
+    ChannelProfileDefinition,
+    'id' | 'origin' | 'version' | 'profileHash' | 'schemaHash'
+> &
+    Partial<
+        Pick<ChannelProfileDefinition, 'id' | 'origin' | 'version' | 'profileHash' | 'schemaHash'>
+    >
+
 interface RuntimeSchemaValidator {
     IsAccelerated(): boolean
     Check(value: unknown): boolean
@@ -215,6 +224,17 @@ function canonicalizeJson(value: unknown, seen: WeakSet<object> = new WeakSet())
     }
 
     throw new TypeError('Channel profiles must contain only JSON values')
+}
+
+/** Normalize identity/version before calling; the runtime supplies the SHA-256 implementation. */
+export function fingerprintChannelProfile(
+    profile: ChannelProfileDefinition,
+    hashCanonicalJson: (value: string) => string
+): ChannelProfileDefinition {
+    const schemaHash = hashCanonicalJson(canonicalizeJson(profile.contentSchema))
+    const definition: Record<string, unknown> = { ...profile, schemaHash }
+    delete definition.profileHash
+    return { ...profile, schemaHash, profileHash: hashCanonicalJson(canonicalizeJson(definition)) }
 }
 
 function freezeValue<Value>(value: Value): Value {

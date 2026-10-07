@@ -36,6 +36,7 @@ export function ChannelProfileEditorDialog({
     useLanguage()
     const [profileText, setProfileText] = useState('')
     const [savedProfileText, setSavedProfileText] = useState('')
+    const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null)
     const session = useRef(0)
     const titleRef = useRef<HTMLHeadingElement>(null)
     const [draftId, setDraftId] = useState<string | null>(null)
@@ -60,6 +61,7 @@ export function ChannelProfileEditorDialog({
         setLoading(true)
         setProfileText('')
         setSavedProfileText('')
+        setMetadata(null)
         setDraftId(null)
         setDraftRevision(undefined)
         setSaving(false)
@@ -73,8 +75,10 @@ export function ChannelProfileEditorDialog({
             .then(state => {
                 if (cancelled) return
                 const version = state.draft ?? state.active
-                setProfileText(JSON.stringify(version.profile, null, 2))
-                setSavedProfileText(JSON.stringify(version.profile, null, 2))
+                const presentation = profilePresentation(version.profile)
+                setProfileText(presentation.text)
+                setSavedProfileText(presentation.text)
+                setMetadata(presentation.metadata)
                 setDraftId(state.draft?.id ?? null)
                 setDraftRevision(state.draft?.revision)
             })
@@ -102,6 +106,10 @@ export function ChannelProfileEditorDialog({
                 setError(m.profile_must_be_object())
                 return
             }
+            if (profileMetadataKeys.some(key => Object.hasOwn(parsed, key))) {
+                setError(m.profile_metadata_managed())
+                return
+            }
             profile = parsed as Record<string, unknown>
         } catch {
             setError(m.profile_invalid_json())
@@ -122,8 +130,10 @@ export function ChannelProfileEditorDialog({
             if (epoch !== session.current) return
             setDraftId(response.profile.id)
             setDraftRevision(response.profile.revision)
-            setProfileText(JSON.stringify(response.profile.profile, null, 2))
-            setSavedProfileText(JSON.stringify(response.profile.profile, null, 2))
+            const presentation = profilePresentation(response.profile.profile)
+            setProfileText(presentation.text)
+            setSavedProfileText(presentation.text)
+            setMetadata(presentation.metadata)
         } catch (caughtError) {
             if (epoch === session.current) setError(formatApiError(caughtError))
         } finally {
@@ -206,9 +216,10 @@ export function ChannelProfileEditorDialog({
             )
             if (epoch !== session.current) return
             const version = state.draft ?? state.active
-            const text = JSON.stringify(version.profile, null, 2)
-            setProfileText(text)
-            setSavedProfileText(text)
+            const presentation = profilePresentation(version.profile)
+            setProfileText(presentation.text)
+            setSavedProfileText(presentation.text)
+            setMetadata(presentation.metadata)
             setDraftId(state.draft?.id ?? null)
             setDraftRevision(state.draft?.revision)
             setAssessment(null)
@@ -275,6 +286,29 @@ export function ChannelProfileEditorDialog({
                                         : m.profile_json_description()}
                                 </FieldDescription>
                             </Field>
+                        </details>
+                    ) : null}
+
+                    {stage === 'edit' && metadata ? (
+                        <details data-profile-metadata>
+                            <summary className="cursor-pointer text-sm font-medium">
+                                {m.profile_metadata_title()}
+                            </summary>
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                {m.profile_metadata_description()}
+                            </p>
+                            <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
+                                {profileMetadataKeys.map(key => (
+                                    <div key={key} className="contents">
+                                        <dt className="text-muted-foreground">
+                                            <code>{key}</code>
+                                        </dt>
+                                        <dd className="min-w-0 break-all font-mono">
+                                            {String(metadata[key])}
+                                        </dd>
+                                    </div>
+                                ))}
+                            </dl>
                         </details>
                     ) : null}
 
@@ -359,4 +393,15 @@ export function ChannelProfileEditorDialog({
             </DialogContent>
         </Dialog>
     )
+}
+
+const profileMetadataKeys = ['id', 'origin', 'version', 'schemaHash', 'profileHash'] as const
+
+function profilePresentation(profile: object) {
+    const fields = Object.fromEntries(Object.entries(profile))
+    const metadata = Object.fromEntries(profileMetadataKeys.map(key => [key, fields[key]]))
+    const editable = Object.fromEntries(
+        Object.entries(profile).filter(([key]) => !profileMetadataKeys.some(field => field === key))
+    )
+    return { text: JSON.stringify(editable, null, 2), metadata }
 }

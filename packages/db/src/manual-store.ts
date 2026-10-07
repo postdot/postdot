@@ -6,6 +6,7 @@ import {
     type Channel,
     type ChannelProfileImpactAssessment,
     type ChannelProfileDefinition,
+    type ChannelProfileDraftDefinition,
     type ChannelProfileVersionState,
     type DeliveryMode,
     type Post,
@@ -93,7 +94,7 @@ export interface CreateChannelProfileDraftInput {
     readonly projectId: string
     readonly channelId: string
     readonly subjectId: string
-    readonly profile: ChannelProfileDefinition
+    readonly profile: ChannelProfileDraftDefinition
     readonly expectedRevision?: number
 }
 

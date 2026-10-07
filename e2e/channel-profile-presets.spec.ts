@@ -59,7 +59,7 @@ test('makes profile impact inspectable without activating or rewriting publicati
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
     const dialog = page.getByRole('dialog')
     const json = dialog.getByLabel('Profile JSON', { exact: true })
-    await expect(json).toHaveValue(/manual-message/)
+    await expect(json).toHaveValue(/contentSchema/)
     await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
     await expect(dialog.getByRole('button', { name: 'Preview impact', exact: true })).toBeEnabled()
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
@@ -119,7 +119,7 @@ test('makes profile impact inspectable without activating or rewriting publicati
     await page.reload()
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    await expect(json).toHaveValue(/manual-message/)
+    await expect(json).toHaveValue(/contentSchema/)
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
     await expect(impact).toContainText('Publication names could not be loaded.')
     await expect(impact.locator('[data-profile-impact-publication]')).toHaveCount(2)
@@ -137,8 +137,6 @@ test('makes profile impact inspectable without activating or rewriting publicati
 
     await dialog.locator('details > summary').filter({ hasText: 'Profile JSON' }).click()
     const proposed = JSON.parse(await json.inputValue())
-    proposed.profileHash = `sha256:impact-profile-${suffix}`
-    proposed.schemaHash = `sha256:impact-schema-${suffix}`
     proposed.contentSchema.properties.body.maxLength = 12
     proposed.capabilities.textFields.find(
         (field: { bindingId: string }) => field.bindingId === 'body'
@@ -184,7 +182,7 @@ test('makes profile impact inspectable without activating or rewriting publicati
     await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click()
     await page.getByRole('button', { name: `Manage ${channelName}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
-    await expect(json).toHaveValue(/manual-message/)
+    await expect(json).toHaveValue(/contentSchema/)
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
     await expect(longRow).toContainText('Long publication')
     await page.screenshot({ path: info.outputPath('profile-impact-dark.png') })
@@ -264,10 +262,8 @@ test('confirms profile activation, preserves affected work, and exposes explicit
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
     const dialog = page.getByRole('dialog')
     const json = dialog.getByLabel('Profile JSON', { exact: true })
-    await expect(json).toHaveValue(/manual-message/)
+    await expect(json).toHaveValue(/contentSchema/)
     const proposed = JSON.parse(await json.inputValue())
-    proposed.profileHash = `sha256:activation-profile-${suffix}`
-    proposed.schemaHash = `sha256:activation-schema-${suffix}`
     proposed.contentSchema.properties.body.maxLength = 12
     proposed.capabilities.textFields.find(
         (field: { bindingId: string }) => field.bindingId === 'body'
@@ -321,7 +317,11 @@ test('confirms profile activation, preserves affected work, and exposes explicit
         original
     )
     await dialog.getByRole('button', { name: 'Reload saved profile', exact: true }).click()
-    await expect(json).toHaveValue(/replacement-profile/)
+    await expect
+        .poll(
+            async () => JSON.parse(await json.inputValue()).contentSchema.properties.body.maxLength
+        )
+        .toBe(10)
     await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
     await expect(
         dialog.getByRole('button', { name: 'Review activation', exact: true })
@@ -409,6 +409,75 @@ test('confirms profile activation, preserves affected work, and exposes explicit
             await (await page.request.get(`/api/projects/${projectId}/publications/due`)).json()
         ).publications.map((p: { id: string }) => p.id)
     ).not.toContain(long.id)
+})
+
+test('edits profile constraints repeatedly while Herald owns technical metadata', async ({
+    page,
+}, info) => {
+    const suffix = randomUUID().slice(0, 8)
+    await createAccountAndProject(page, suffix)
+    const projectId = new URL(page.url()).pathname.split('/')[3]!
+    const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: `Fingerprints ${suffix}` },
+    })
+    expect(response.status()).toBe(201)
+    const { channel } = await response.json()
+    const url = `/api/projects/${projectId}/channels/${channel.id}`
+    const original = (await (await page.request.get(`${url}/profile`)).json()).active
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: `Manage Fingerprints ${suffix}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    const json = dialog.getByLabel('Profile JSON', { exact: true })
+    await expect(json).toHaveValue(/contentSchema/)
+    for (const key of ['id', 'origin', 'version', 'schemaHash', 'profileHash']) {
+        expect(Object.hasOwn(JSON.parse(await json.inputValue()), key)).toBe(false)
+    }
+    let saved = original
+    for (const maxLength of [900, 800]) {
+        const editable = JSON.parse(await json.inputValue())
+        editable.contentSchema.properties.body.maxLength = maxLength
+        await json.fill(JSON.stringify(editable, null, 2))
+        const done = page.waitForResponse(
+            r => r.url().endsWith('/profile-drafts') && r.request().method() === 'POST'
+        )
+        await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
+        const result = await done
+        expect(result.status()).toBe(200)
+        const next = (await result.json()).profile
+        expect(next.version).toBe(original.version + 1)
+        expect(next.profile.schemaHash).toMatch(/^sha256:[a-f0-9]{64}$/)
+        expect(next.profile.schemaHash).not.toBe(saved.profile.schemaHash)
+        expect(next.profile.profileHash).not.toBe(saved.profile.profileHash)
+        saved = next
+        await expect(dialog.getByRole('button', { name: 'Save draft', exact: true })).toBeEnabled()
+    }
+    const metadata = dialog.locator('[data-profile-metadata]')
+    await metadata.getByText('Profile metadata', { exact: true }).click()
+    await expect(metadata).toContainText(saved.profile.schemaHash)
+    await expect(metadata).toContainText(saved.profile.profileHash)
+    await expect(metadata.getByRole('textbox')).toHaveCount(0)
+    const editable = JSON.parse(await json.inputValue())
+    await json.fill(JSON.stringify({ ...editable, id: 'unwanted-identity' }, null, 2))
+    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
+    await expect(dialog.getByRole('alert')).toContainText(
+        'Identity, origin, version and fingerprints are managed by Herald.'
+    )
+    expect((await (await page.request.get(`${url}/profile`)).json()).draft).toEqual(saved)
+    await json.fill(JSON.stringify(editable, null, 2))
+    const done = page.waitForResponse(
+        r => r.url().endsWith('/profile-drafts') && r.request().method() === 'POST'
+    )
+    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
+    const result = await done
+    expect(result.status()).toBe(200)
+    const unchanged = (await result.json()).profile
+    expect(unchanged.profile).toEqual(saved.profile)
+    expect(unchanged.revision).toBe(saved.revision + 1)
+    expect((await (await page.request.get(`${url}/profile`)).json()).active).toEqual(original)
+    await page.setViewportSize({ width: 390, height: 900 })
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    await page.screenshot({ path: info.outputPath('profile-metadata-mobile.png') })
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<void> {

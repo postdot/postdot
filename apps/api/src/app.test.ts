@@ -2160,9 +2160,19 @@ describe('Herald API', () => {
             )
             expect(draftResponse.status).toBe(200)
             const draftBody = (await draftResponse.json()) as {
-                profile: { id: string; version: number; state: string; revision: number }
+                profile: {
+                    id: string
+                    version: number
+                    state: string
+                    revision: number
+                    profile: { profileHash: string; schemaHash: string }
+                }
             }
             expect(draftBody.profile).toMatchObject({ version: 2, state: 'draft', revision: 1 })
+            expect(draftBody.profile.profile.profileHash).toMatch(/^sha256:[a-f0-9]{64}$/)
+            expect(draftBody.profile.profile.schemaHash).toMatch(/^sha256:[a-f0-9]{64}$/)
+            expect(draftBody.profile.profile.profileHash).not.toBe(profile.profileHash)
+            expect(draftBody.profile.profile.schemaHash).not.toBe(profile.schemaHash)
 
             const previewResponse = await jsonRequest(
                 app,

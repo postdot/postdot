@@ -1,8 +1,12 @@
+import { createHash } from 'node:crypto'
+
 import {
     DomainInvariantError,
+    fingerprintChannelProfile,
     requireNonBlank,
     requireTimestamp,
     type ChannelProfileDefinition,
+    type ChannelProfileDraftDefinition,
     type ChannelProfileCompiler,
     type ChannelProfileVersionState,
     type PublicationReviewState,
@@ -544,27 +548,39 @@ export function createChannelProfileStore(
 }
 
 function profileForDraft(
-    profile: ChannelProfileDefinition,
+    profile: ChannelProfileDraftDefinition,
     activeRow: ProfileRow
 ): ChannelProfileDefinition {
-    if (profile.id !== activeRow.profileId) {
+    if (profile.id !== undefined && profile.id !== activeRow.profileId) {
         throw new DomainInvariantError(
             'invalid_input',
             `A channel profile draft cannot change profile identity from ${activeRow.profileId}`
         )
     }
-    if (profile.origin !== activeRow.origin) {
+    if (profile.origin !== undefined && profile.origin !== activeRow.origin) {
         throw new DomainInvariantError(
             'invalid_input',
             `A channel profile draft cannot change profile origin from ${activeRow.origin}`
         )
     }
 
-    return {
-        ...profile,
-        id: activeRow.profileId,
-        version: activeRow.version + 1,
-        origin: activeRow.origin,
+    try {
+        return fingerprintChannelProfile(
+            {
+                ...profile,
+                id: activeRow.profileId,
+                version: activeRow.version + 1,
+                origin: activeRow.origin,
+                profileHash: '',
+                schemaHash: '',
+            },
+            value => `sha256:${createHash('sha256').update(value).digest('hex')}`
+        )
+    } catch {
+        throw new DomainInvariantError(
+            'invalid_content',
+            'Channel profile must contain only JSON values'
+        )
     }
 }
 
