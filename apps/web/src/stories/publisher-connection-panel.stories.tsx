@@ -2,12 +2,12 @@ import { SolarProvider } from '@solar-icons/react'
 import type { Meta, StoryObj } from '@storybook/react-vite'
 
 import { PublisherConnectionPanel } from '@/components/publisher-connection-panel'
-import type { Channel, PublisherConnection } from '@/lib/api'
+import type { ChannelListItem, PublisherConnection } from '@/lib/api'
 import { LanguageProvider } from '@/lib/i18n'
 
 const STORY_PROJECT_ID = 'publisher-connections-story'
 
-const channels: Channel[] = [
+const channels: ChannelListItem[] = [
     createChannel('manual', 'Manual publishing', 'manual-message'),
     createChannel('active', 'LinkedIn account', 'linkedin'),
     createChannel('reconnect', 'Expired LinkedIn account', 'linkedin'),
@@ -81,11 +81,17 @@ export const ConnectionStates: Story = {
     ),
 }
 
-function createChannel(id: string, name: string, profileId: string): Channel {
+function createChannel(id: string, name: string, profileId: string): ChannelListItem {
     return {
         id,
         projectId: STORY_PROJECT_ID,
         profileId,
+        execution:
+            profileId === 'manual-message'
+                ? { kind: 'manual' }
+                : profileId === 'custom-webhook'
+                  ? { kind: 'declarative_http' }
+                  : { kind: 'built_in', contractId: profileId },
         profileVersionId: `${profileId}-v1`,
         name,
         state: 'active',

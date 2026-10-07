@@ -2,6 +2,7 @@ import {
     createHeraldClient,
     type AuditEvent,
     type Channel,
+    type ChannelListItem,
     type ChannelProfileActivation,
     type ChannelProfileAssessment,
     type ChannelProfilePreset,
@@ -1032,8 +1033,8 @@ export const api = {
         return this.acceptOrganizationInvitation(invitationId)
     },
 
-    async listChannels(projectId: string): Promise<{ channels: Channel[] }> {
-        return unwrap<{ channels: Channel[] }>(
+    async listChannels(projectId: string): Promise<{ channels: ChannelListItem[] }> {
+        return unwrap<{ channels: ChannelListItem[] }>(
             await client.api.projects({ projectId }).channels.get()
         )
     },
@@ -1843,6 +1844,7 @@ export type {
     AuditEvent,
     BlueskyAnalyticsCollection,
     Channel,
+    ChannelListItem,
     ChannelProfileActivation,
     ChannelProfileAssessment,
     ChannelProfileState,

@@ -17,6 +17,7 @@ import { MastodonConnectionDialog } from '@/components/mastodon-connection-dialo
 import { ProviderApplicationSelect } from '@/components/provider-application-select'
 import type {
     Channel,
+    ChannelListItem,
     CustomHttpAuthentication,
     LinkedInConnectionDestination,
     ProviderApplication,
@@ -28,7 +29,7 @@ import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 interface PublisherConnectionPanelProps {
-    readonly channels: readonly Channel[]
+    readonly channels: readonly ChannelListItem[]
     readonly connections: readonly PublisherConnection[]
     readonly pending: boolean
     readonly onEditProfile: (channel: Channel) => void
@@ -90,16 +91,15 @@ export function PublisherConnectionPanel({
     const [selectedProviderApplications, setSelectedProviderApplications] = useState<
         Partial<Record<ProviderApplicationProvider, string>>
     >({})
-    const connectableChannels = channels.filter(channel => channel.profileId !== 'manual-message')
+    const connectableChannels = channels.filter(channel => channel.execution.kind !== 'manual')
 
     const needsProviderApplications =
         !readOnly &&
         isInstanceAdmin &&
         connectableChannels.some(channel => {
             if (
-                channel.profileId !== 'linkedin' &&
-                channel.profileId !== 'bluesky' &&
-                channel.profileId !== 'x'
+                channel.execution.kind !== 'built_in' ||
+                !['linkedin', 'bluesky', 'x'].includes(channel.execution.contractId)
             )
                 return false
             const connection = connections.find(item => item.channelId === channel.id)
@@ -170,7 +170,7 @@ export function PublisherConnectionPanel({
             <div className="overflow-hidden rounded-md bg-surface-raised shadow-surface">
                 {channels.map(channel => {
                     const connection = connectionsByChannel.get(channel.id)
-                    if (channel.profileId === 'manual-message') {
+                    if (channel.execution.kind === 'manual') {
                         return (
                             <ChannelRow
                                 key={channel.id}
@@ -183,6 +183,10 @@ export function PublisherConnectionPanel({
                             />
                         )
                     }
+                    const connectionKind =
+                        channel.execution.kind === 'built_in'
+                            ? channel.execution.contractId
+                            : 'custom_http'
                     const canConnect = connection === undefined || connection.state !== 'active'
                     const connectionLabel =
                         channel.state === 'archived'
@@ -226,6 +230,12 @@ export function PublisherConnectionPanel({
                                         {m.publisher_archived_restore()}
                                     </p>
                                 ) : connection === undefined &&
+                                  channel.execution.kind === 'declarative_http' ? (
+                                    <p className="mt-2 text-sm text-muted-foreground">
+                                        {m.publisher_custom_profile()}
+                                    </p>
+                                ) : connection === undefined &&
+                                  channel.execution.kind === 'built_in' &&
                                   ![
                                       'linkedin',
                                       'bluesky',
@@ -233,9 +243,9 @@ export function PublisherConnectionPanel({
                                       'discord',
                                       'devto',
                                       'x',
-                                  ].includes(channel.profileId) ? (
+                                  ].includes(connectionKind) ? (
                                     <p className="mt-2 text-sm text-muted-foreground">
-                                        {m.publisher_custom_profile()}
+                                        {m.publisher_unsupported_contract()}
                                     </p>
                                 ) : connection === undefined ? null : connection.kind !==
                                   'custom_http' ? (
@@ -306,7 +316,7 @@ export function PublisherConnectionPanel({
                                 ) : null}
                             </div>
 
-                            {readOnly || channel.state === 'archived' ? null : channel.profileId ===
+                            {readOnly || channel.state === 'archived' ? null : connectionKind ===
                                   'linkedin' && canConnect ? (
                                 <div className="grid w-full gap-3 lg:w-80 lg:shrink-0">
                                     <ProviderApplicationSelect
@@ -391,7 +401,7 @@ export function PublisherConnectionPanel({
                                         </form>
                                     </details>
                                 </div>
-                            ) : channel.profileId === 'bluesky' && canConnect ? (
+                            ) : connectionKind === 'bluesky' && canConnect ? (
                                 <BlueskyConnectionDialog
                                     channel={channel}
                                     disabled={pending}
@@ -403,14 +413,14 @@ export function PublisherConnectionPanel({
                                     providerApplications={blueskyApplications}
                                     reconnect={connection !== undefined}
                                 />
-                            ) : channel.profileId === 'mastodon' && canConnect ? (
+                            ) : connectionKind === 'mastodon' && canConnect ? (
                                 <MastodonConnectionDialog
                                     channel={channel}
                                     disabled={pending}
                                     onConnect={onStartMastodonConnection}
                                     reconnect={connection !== undefined}
                                 />
-                            ) : channel.profileId === 'x' && canConnect ? (
+                            ) : connectionKind === 'x' && canConnect ? (
                                 <div className="grid w-full gap-3 lg:w-80 lg:shrink-0">
                                     {isInstanceAdmin ? (
                                         <ProviderApplicationSelect
@@ -450,22 +460,21 @@ export function PublisherConnectionPanel({
                                         )}
                                     </p>
                                 </div>
-                            ) : channel.profileId === 'discord' && canConnect ? (
+                            ) : connectionKind === 'discord' && canConnect ? (
                                 <DiscordConnectionDialog
                                     channel={channel}
                                     disabled={pending}
                                     onConnect={onConnectDiscordPublisher}
                                     reconnect={connection !== undefined}
                                 />
-                            ) : channel.profileId === 'devto' && canConnect ? (
+                            ) : connectionKind === 'devto' && canConnect ? (
                                 <DevtoConnectionDialog
                                     channel={channel}
                                     disabled={pending}
                                     onConnect={onConnectDevtoPublisher}
                                     reconnect={connection !== undefined}
                                 />
-                            ) : channel.profileId === 'linkedin' &&
-                              connection?.state === 'active' ? (
+                            ) : connectionKind === 'linkedin' && connection?.state === 'active' ? (
                                 <Button
                                     className="self-end text-destructive hover:bg-state-failed/10 hover:text-destructive sm:self-start"
                                     size="sm"
@@ -474,14 +483,7 @@ export function PublisherConnectionPanel({
                                     disabled={pending}>
                                     {m.publisher_disconnect()}
                                 </Button>
-                            ) : channel.profileId !== 'manual-message' &&
-                              channel.profileId !== 'linkedin' &&
-                              channel.profileId !== 'bluesky' &&
-                              channel.profileId !== 'mastodon' &&
-                              channel.profileId !== 'discord' &&
-                              channel.profileId !== 'devto' &&
-                              channel.profileId !== 'x' &&
-                              canConnect ? (
+                            ) : channel.execution.kind === 'declarative_http' && canConnect ? (
                                 <CustomHttpConnectionDialog
                                     channel={channel}
                                     disabled={pending}

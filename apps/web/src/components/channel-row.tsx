@@ -15,7 +15,7 @@ import { TrashBinMinimalisticIcon } from '@solar-icons/react/linear/trash-bin-mi
 
 import { channelProfileLabel } from '@/components/dashboard-publication-parts'
 import { ChannelAvatar } from '@/components/identity-visuals'
-import type { Channel, PublisherConnection } from '@/lib/api'
+import type { Channel, ChannelListItem, PublisherConnection } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -29,7 +29,7 @@ export function ChannelRow({
     onLifecycleAction,
     readOnly = false,
 }: {
-    readonly channel: Channel
+    readonly channel: ChannelListItem
     readonly connection?: PublisherConnection
     readonly disabled: boolean
     readonly onEditProfile: () => void
@@ -136,9 +136,9 @@ export function ChannelActionsMenu({
     )
 }
 
-function channelConnectionLabel(channel: Channel, connection?: PublisherConnection) {
+function channelConnectionLabel(channel: ChannelListItem, connection?: PublisherConnection) {
     if (channel.state === 'archived') return m.channel_archived()
-    if (channel.profileId === 'manual-message') return m.channel_manual()
+    if (channel.execution.kind === 'manual') return m.channel_manual()
     if (connection?.state === 'active') return m.channel_connected()
     if (connection?.state === 'revoked') return m.publisher_access_revoked()
     if (connection?.state === 'reconnect_required') {

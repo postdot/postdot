@@ -67,6 +67,7 @@ export type {
 export type {
     AuditEventResponse,
     ChannelResponse,
+    ChannelListItemResponse,
     ChannelProfileActivationResponse,
     ChannelProfileAssessmentResponse,
     ChannelProfilePresetResponse,

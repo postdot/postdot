@@ -203,3 +203,68 @@ test('custom creation preserves normalized issues and creates nothing on refusal
         closeDatabase(database)
     }
 })
+
+test('channel lists summarize the active execution without exposing its configuration', () => {
+    const database = createDatabase(':memory:')
+    try {
+        runMigrations(database)
+        const store = createManualStore(database, { now: () => 1_800_000_000_000 })
+        const { project } = store.createProject({
+            name: 'Readiness',
+            subjectId: 'operator',
+            displayName: 'Operator',
+        })
+        const input = { projectId: project.id, subjectId: 'operator' }
+        const channel = store.createChannel({
+            ...input,
+            name: 'Custom manual',
+            profile: customBase() as unknown as ChannelProfileDefinition,
+        })!
+        const current = () =>
+            store.listChannels(project.id, 'operator')!.find(item => item.id === channel.id)!
+        expect(current().execution).toEqual({ kind: 'manual' })
+        expect(store.listChannels(project.id, 'outsider')).toBeNull()
+        const nextProfile = {
+            ...customBase(),
+            execution: {
+                kind: 'declarative_http',
+                contractId: 'custom-webhook',
+                revision: 'v1',
+                mode: 'herald_webhook',
+            },
+        } as unknown as ChannelProfileDefinition
+        const draft = store.createChannelProfileDraft({
+            ...input,
+            channelId: channel.id,
+            profile: nextProfile,
+        })!
+        expect(current().execution).toEqual({ kind: 'manual' })
+        expect(current().profileVersionId).toBe(channel.profileVersionId)
+        const activated = store.activateChannelProfile({
+            ...input,
+            channelId: channel.id,
+            profileVersionId: draft.id,
+            expectedRevision: channel.revision,
+        })!
+        expect(activated).not.toBeNull()
+        expect(current().profileVersionId).toBe(draft.id)
+        expect(current().execution).toEqual({ kind: 'declarative_http' })
+        expect(JSON.stringify(current())).not.toContain('herald_webhook')
+        expect(JSON.stringify(current())).not.toContain('profileJson')
+        const native = store.createChannel({
+            ...input,
+            name: 'Custom native',
+            profile: {
+                ...customBase(),
+                id: 'custom-native',
+                execution: { kind: 'built_in', contractId: 'devto', revision: 'v1' },
+            } as unknown as ChannelProfileDefinition,
+        })!
+        expect(
+            store.listChannels(project.id, 'operator')!.find(item => item.id === native.id)!
+                .execution
+        ).toEqual({ kind: 'built_in', contractId: 'devto' })
+    } finally {
+        closeDatabase(database)
+    }
+})

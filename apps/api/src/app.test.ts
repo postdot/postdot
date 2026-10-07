@@ -23,6 +23,7 @@ import { eq } from 'drizzle-orm'
 import { createApp } from './app'
 import { createHeraldMetrics } from './modules/metrics/metrics'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
+import type { ChannelListItemResponse } from './modules/projects/models'
 import { createPublisherRuntime, type PublisherRuntimeOptions } from './modules/publishers/runtime'
 
 const baseURL = 'http://localhost:3000'
@@ -396,6 +397,14 @@ describe('Herald API', () => {
             ).json()) as { active: { profile: Record<string, unknown> } }
             expect(firstState.active.profile.id).toBe('custom-creation')
             expect(firstState.active.profile.version).toBe(1)
+            const listed = await jsonRequest(app, channelsPath, cookie)
+            expect(listed.status).toBe(200)
+            const listedBody = (await listed.json()) as { channels: ChannelListItemResponse[] }
+            expect(listedBody.channels[0]!.execution).toEqual({ kind: 'manual' })
+            expect(listedBody.channels[0]!.profileVersionId).toBeTruthy()
+            expect(listedBody.channels[0]).not.toHaveProperty('profileJson')
+            expect(listedBody.channels[0]).not.toHaveProperty('contentSchema')
+
             expect(firstState.active.profile.schemaHash).toMatch(/^sha256:[a-f0-9]{64}$/)
             expect(firstState.active.profile.profileHash).toMatch(/^sha256:[a-f0-9]{64}$/)
 

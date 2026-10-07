@@ -21,9 +21,17 @@ import {
     recordDatabaseCommitProject,
     type HeraldDatabase,
 } from '../client'
-import { invalidProfileError } from './content-codec'
+import { invalidProfileError, parseProfile } from './content-codec'
 import { toChannel, toProject } from './project-channel-mappers'
 import type { ActorRow, ChannelRow, ProjectRow } from './rows'
+
+/** Active-version metadata for channel list readers, without execution configuration. */
+export interface ChannelListItem extends Channel {
+    readonly execution:
+        | { readonly kind: 'manual' }
+        | { readonly kind: 'declarative_http' }
+        | { readonly kind: 'built_in'; readonly contractId: string }
+}
 
 export interface CreateProjectInput {
     readonly name: string
@@ -117,11 +125,15 @@ export function createProjectChannelStore(
         where projects.workspace_id = ?1
         order by projects.created_at, projects.id
     `)
-    const listChannelsStatement = client.query<ChannelRow, [projectId: string]>(`
+    const listChannelsStatement = client.query<
+        ChannelRow & { readonly profileJson: string },
+        [projectId: string]
+    >(`
         select channels.id,
                channels.project_id as projectId,
                channels.name,
                channel_profiles.profile_id as profileId,
+               channel_profiles.profile_json as profileJson,
                channels.profile_version_id as profileVersionId,
                channels.state,
                channels.archived_at as archivedAt,
@@ -462,7 +474,7 @@ export function createProjectChannelStore(
             })
         },
 
-        listChannels(projectId: string, subjectId: string): Channel[] | null {
+        listChannels(projectId: string, subjectId: string): ChannelListItem[] | null {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             const actor = loadActorStatement.get(
                 normalizedProjectId,
@@ -470,7 +482,16 @@ export function createProjectChannelStore(
             )
             if (actor === null) return null
 
-            return listChannelsStatement.all(normalizedProjectId).map(toChannel)
+            return listChannelsStatement.all(normalizedProjectId).map(row => {
+                const execution = parseProfile(row.profileJson).execution
+                return {
+                    ...toChannel(row),
+                    execution:
+                        execution.kind === 'built_in'
+                            ? { kind: execution.kind, contractId: execution.contractId }
+                            : { kind: execution.kind },
+                }
+            })
         },
     }
 }

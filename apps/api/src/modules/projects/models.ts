@@ -81,6 +81,19 @@ export const channelSchema = Type.Intersect([
     createElysiaSelectSchema(channels),
     Type.Object({ profileId: Type.String({ minLength: 1 }) }),
 ])
+export const channelListItemSchema = Type.Intersect([
+    channelSchema,
+    Type.Object({
+        execution: Type.Union([
+            Type.Object({ kind: Type.Literal('manual') }),
+            Type.Object({ kind: Type.Literal('declarative_http') }),
+            Type.Object({
+                kind: Type.Literal('built_in'),
+                contractId: Type.String({ minLength: 1 }),
+            }),
+        ]),
+    }),
+])
 export const postSchema = createElysiaSelectSchema(posts)
 const publicationPersistenceSchema = createElysiaSelectSchema(publications)
 export const publicationSchema = Type.Unsafe<Publication>(
@@ -503,6 +516,7 @@ export const publicationComposerDraftResponseSchema = Type.Object({
 })
 
 export type ProjectResponse = Static<typeof projectSchema>
+export type ChannelListItemResponse = Static<typeof channelListItemSchema>
 export type ChannelResponse = Static<typeof channelSchema>
 export type ChannelProfileVersionResponse = Static<typeof channelProfileVersionSchema>
 export type ChannelProfilePresetResponse = Static<typeof channelProfilePresetSchema>

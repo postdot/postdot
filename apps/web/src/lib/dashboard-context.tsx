@@ -13,7 +13,7 @@ import {
 import {
     api,
     ApiError,
-    type Channel,
+    type ChannelListItem,
     type ChannelCreationOutcome,
     type ChannelCreationProfile,
     type CustomHttpAuthentication,
@@ -42,7 +42,7 @@ import { useActionError } from '@/lib/use-action-error'
 import * as m from '@/paraglide/messages.js'
 
 export interface ProjectData {
-    readonly channels: Channel[]
+    readonly channels: ChannelListItem[]
     readonly due: DuePublication[]
     readonly connections: PublisherConnection[]
     readonly publications: PublicationSummary[]
@@ -139,7 +139,7 @@ export function useDashboardGlobal() {
 }
 
 export interface ProjectDashboardContextValue extends ProjectData {
-    readonly activeChannels: readonly Channel[]
+    readonly activeChannels: readonly ChannelListItem[]
     readonly error: string | null
     readonly onArchiveChannel: (channelId: string, expectedRevision: number) => Promise<boolean>
     readonly onConnectCustomHttpPublisher: (
@@ -270,10 +270,9 @@ export function ProjectDashboardProvider({
         setPending(true)
         try {
             const response = await api.createChannel(project.id, name.trim(), profile)
-            setProjectData(current => ({
-                ...current,
-                channels: [...current.channels, response.channel],
-            }))
+            // Creation returns the channel entity; the list supplies its active execution.
+            const channelResponse = await api.listChannels(project.id)
+            setProjectData(current => ({ ...current, channels: channelResponse.channels }))
             setPublicationTargets(current =>
                 current.map((target, index) =>
                     index === 0 && target.channelId === ''
@@ -632,7 +631,9 @@ export function ProjectDashboardProvider({
             setProjectData(current => ({
                 ...current,
                 channels: current.channels.map(channel =>
-                    channel.id === response.channel.id ? response.channel : channel
+                    channel.id === response.channel.id
+                        ? { ...channel, ...response.channel }
+                        : channel
                 ),
             }))
         })
@@ -647,7 +648,9 @@ export function ProjectDashboardProvider({
             setProjectData(current => ({
                 ...current,
                 channels: current.channels.map(channel =>
-                    channel.id === response.channel.id ? response.channel : channel
+                    channel.id === response.channel.id
+                        ? { ...channel, ...response.channel }
+                        : channel
                 ),
             }))
             setPublicationTargets(current =>
@@ -667,7 +670,9 @@ export function ProjectDashboardProvider({
             setProjectData(current => ({
                 ...current,
                 channels: current.channels.map(channel =>
-                    channel.id === response.channel.id ? response.channel : channel
+                    channel.id === response.channel.id
+                        ? { ...channel, ...response.channel }
+                        : channel
                 ),
             }))
         })

@@ -260,6 +260,122 @@ test('targets connection repair from automatic publication detail without changi
     expect(after.editor.selectedTarget).toEqual(before.editor.selectedTarget)
 })
 
+test('uses active execution for custom channel readiness and connection actions', async ({
+    page,
+}, info) => {
+    const projectId = await createAccountAndProject(page, randomUUID().slice(0, 8))
+    const path = `/api/projects/${projectId}/channels`
+    const ids: Record<string, string> = {}
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    const creation = page.getByRole('dialog')
+    await creation.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
+    const profileJson = creation.getByLabel('Custom profile JSON', { exact: true })
+    const manualProfile = JSON.parse(await profileJson.inputValue())
+    await creation.getByRole('combobox', { name: 'Starter template', exact: true }).click()
+    await page.getByRole('option', { name: 'Custom webhook channel', exact: true }).click()
+    const webhookProfile = JSON.parse(await profileJson.inputValue())
+    await creation.getByRole('combobox', { name: 'Starter template', exact: true }).click()
+    await page.getByRole('option', { name: 'Custom manual channel', exact: true }).click()
+    await creation.getByLabel('Channel name').fill('custom-manual')
+    const created = page.waitForResponse(
+        response => response.url().endsWith(path) && response.request().method() === 'POST'
+    )
+    await creation.getByRole('button', { name: 'Create channel', exact: true }).click()
+    const manualResponse = await created
+    expect(manualResponse.status()).toBe(201)
+    ids['custom-manual'] = (await manualResponse.json()).channel.id
+    await expect(creation).toHaveCount(0)
+    await expect(
+        page
+            .locator(`#publisher-connection-${ids['custom-manual']}`)
+            .getByText('Manual', { exact: true })
+    ).toBeVisible()
+    const webhookResponse = await page.request.post(path, {
+        data: { name: 'custom-webhook', profile: webhookProfile },
+    })
+    expect(webhookResponse.status()).toBe(201)
+    ids['custom-webhook'] = (await webhookResponse.json()).channel.id
+    // The identity is deliberately unrelated to the provider contract.
+    for (const [name, contractId] of [
+        ['custom-native', 'devto'],
+        ['custom-future', 'future-provider'],
+    ]) {
+        const result = await page.request.post(path, {
+            data: {
+                name,
+                profile: {
+                    ...manualProfile,
+                    id: name,
+                    execution: { kind: 'built_in', contractId, revision: 'v1' },
+                },
+            },
+        })
+        expect(result.status()).toBe(201)
+        ids[name!] = (await result.json()).channel.id
+    }
+    const listed = await page.request.get(path)
+    expect(listed.status()).toBe(200)
+    const channels = (await listed.json()).channels
+    expect(
+        channels.find((channel: { id: string }) => channel.id === ids['custom-manual']).execution
+    ).toEqual({ kind: 'manual' })
+    expect(
+        channels.find((channel: { id: string }) => channel.id === ids['custom-webhook']).execution
+    ).toEqual({ kind: 'declarative_http' })
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    const manual = page.locator(`#publisher-connection-${ids['custom-manual']}`)
+    const webhook = page.locator(`#publisher-connection-${ids['custom-webhook']}`)
+    const native = page.locator(`#publisher-connection-${ids['custom-native']}`)
+    const future = page.locator(`#publisher-connection-${ids['custom-future']}`)
+    await expect(manual.getByText('Manual', { exact: true })).toBeVisible()
+    await expect(manual.getByRole('button', { name: /Connect|Reconnect/ })).toHaveCount(0)
+    await expect(manual).not.toContainText('Needs connection')
+    await expect(manual).not.toContainText('declarative HTTP')
+    await expect(webhook.getByRole('button', { name: 'Connect HTTP', exact: true })).toBeVisible()
+    await expect(native.getByRole('button', { name: 'Connect DEV.to', exact: true })).toBeVisible()
+    await expect(native.getByRole('button', { name: 'Connect HTTP', exact: true })).toHaveCount(0)
+    await expect(future).toContainText('No connection setup is available')
+    await expect(future.getByRole('button', { name: /Connect|Reconnect/ })).toHaveCount(0)
+    for (const width of [1280, 820, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+            true
+        )
+        await manual.screenshot({ path: info.outputPath(`custom-manual-${width}.png`) })
+    }
+    await webhook.getByRole('button', { name: 'Connect HTTP', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await native.getByRole('button', { name: 'Connect DEV.to', exact: true }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    // Rename and archive mutation responses do not contain execution metadata.
+    // Their local cache updates must retain the list's active-version summary.
+    await manual.getByRole('button', { name: 'Manage custom-manual', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
+    const rename = page.getByRole('dialog')
+    await rename.getByRole('textbox').fill('Renamed manual')
+    await rename.getByRole('button', { name: 'Rename channel', exact: true }).click()
+    await expect(manual).toContainText('Renamed manual')
+    await expect(manual.getByText('Manual', { exact: true })).toBeVisible()
+    await manual.getByRole('button', { name: 'Manage Renamed manual', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Archive', exact: true }).click()
+    await page
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Archive channel', exact: true })
+        .click()
+    await expect(manual.getByText('Archived', { exact: true })).toBeVisible()
+    await expect(manual.getByRole('button', { name: /Connect|Reconnect/ })).toHaveCount(0)
+    await manual.getByRole('button', { name: 'Manage Renamed manual', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Restore', exact: true }).click()
+    await page
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Restore channel', exact: true })
+        .click()
+    await expect(manual.getByText('Manual', { exact: true })).toBeVisible()
+})
+
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {
     await page.goto('/')
     await expect(page).toHaveURL(/\/login$/)

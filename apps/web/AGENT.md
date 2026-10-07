@@ -15,3 +15,5 @@
 - **Settings return controls:** When a settings page gains its own AccessPageHeader return, update DashboardShell hasPageBack for that destination. The shell must not render a second return beside the workspace/project selectors. Keep the navigation continuity test asserting one unambiguous return.
 
 - **Vite runtime:** Launch development and production web builds explicitly with `bun run --bun vite --configLoader native`. The bundled configuration loader in Vite 8.3.1 currently fails under Bun 1.4.2; native loading uses Bun's TypeScript support and preserves the established plugins. Do not add Node to the production image to work around this.
+
+- **Channel connection readiness:** The Channels panel uses the channel-list item's active `execution` summary for manual readiness and compatible connection setup. `profileId` is identity, not a connection capability. Creation reloads the enriched list; lifecycle entity responses preserve its metadata in the cache, and profile activation refreshes the list. See [ADR-083](../../.autonomos/decisions/ADR-083-active-channel-execution-summary.md).

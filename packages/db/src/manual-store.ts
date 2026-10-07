@@ -64,6 +64,7 @@ export type {
     PublicationSummaryPageOptions,
 } from './manual-store/publication-read-store'
 export type {
+    ChannelListItem,
     CreateChannelInput,
     CreateProjectInput,
     CreatedProject,

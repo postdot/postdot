@@ -661,6 +661,7 @@
     "publisher_no_automatic": "No automatic publisher is connected.",
     "publisher_x_configure_application": "Configure X OAuth in Settings",
     "publisher_x_admin_setup_required": "An instance administrator must configure X OAuth.",
+    "publisher_unsupported_contract": "No connection setup is available for this execution contract.",
     "publisher_custom_profile": "This custom profile can be connected to a declarative HTTP endpoint.",
     "publisher_custom_http_connected": "Custom HTTP publisher connected.",
     "publisher_account": "{provider} account · {account}",

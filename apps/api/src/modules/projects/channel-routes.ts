@@ -5,6 +5,7 @@ import { Type } from 'typebox'
 import { canAccessProjectRole, forbiddenProjectMutation } from './authorization'
 import {
     channelSchema,
+    channelListItemSchema,
     channelDeletedSchema,
     channelLifecycleBody,
     channelLifecycleConflictResponse,
@@ -30,7 +31,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 auth: true,
                 params: projectParams,
                 response: {
-                    200: Type.Object({ channels: Type.Array(channelSchema) }),
+                    200: Type.Object({ channels: Type.Array(channelListItemSchema) }),
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
