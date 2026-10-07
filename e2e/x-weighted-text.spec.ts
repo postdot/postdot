@@ -65,6 +65,22 @@ test('inserts emojis at the cursor and keeps destination changes separate', asyn
     await expect(source).toHaveText('Hello world')
     await page.getByRole('button', { name: 'Emoji destination', exact: true }).click()
     const target = page.getByRole('textbox', { name: 'Channel content', exact: true })
+    // Hold the real autosave response until the emoji has keyboard focus.
+    let releaseSave!: () => void
+    const saveHeld = new Promise<void>(resolve => {
+        releaseSave = resolve
+    })
+    let saveStarted!: () => void
+    const saveObserved = new Promise<void>(resolve => {
+        saveStarted = resolve
+    })
+    await page.route(`**/api/projects/${id}/publication-composer-draft`, async route => {
+        if (route.request().method() !== 'PUT') return route.continue()
+        const response = await route.fetch()
+        saveStarted()
+        await saveHeld
+        await route.fulfill({ response })
+    })
     await target.fill('Custom ')
     await target.press('End')
     await page.setViewportSize({ width: 390, height: 900 })
@@ -73,8 +89,21 @@ test('inserts emojis at the cursor and keeps destination changes separate', asyn
     await expect(emoji).toBeVisible()
     await page.screenshot({ path: info.outputPath('emoji-picker-mobile.png') })
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([])
+    await saveObserved
     await emoji.focus()
-    await emoji.press('Enter')
+    const focusedEmoji = await emoji.elementHandle()
+    expect(await focusedEmoji!.evaluate(node => node === document.activeElement)).toBe(true)
+    const saveFinished = page.waitForResponse(
+        response =>
+            response.url().endsWith('/publication-composer-draft') &&
+            response.request().method() === 'PUT'
+    )
+    releaseSave()
+    await saveFinished
+    await expect(page.getByText('Composition saved', { exact: true })).toBeVisible()
+    expect(await focusedEmoji!.evaluate(node => node.isConnected)).toBe(true)
+    await expect(emoji).toBeFocused()
+    await page.keyboard.press('Enter')
     await expect(target).toHaveText('Custom 😀')
     await page.getByRole('button', { name: 'Common', exact: true }).click()
     await expect(source).toHaveText('Hello world')

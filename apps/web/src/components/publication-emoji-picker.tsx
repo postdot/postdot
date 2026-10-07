@@ -1,12 +1,48 @@
 import { inputClassName } from '@herald/ui/components/input'
 import { MagnifierIcon } from '@solar-icons/react/linear/magnifier'
 import { EmojiPicker } from 'frimousse'
+import { createContext, useContext, type ComponentProps } from 'react'
 
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
 import { ActionTooltip } from './action-tooltip'
 import { EmojiGridSkeleton } from './publication-emoji-picker-skeleton'
+
+const RemainingCharactersContext = createContext(Infinity)
+
+// Stable component identities preserve focus across background saves.
+const emojiComponents: NonNullable<ComponentProps<typeof EmojiPicker.List>['components']> = {
+    // Frimousse 0.4.0 exposes zero-based grid indices; ARIA requires one-based indices.
+    Row: props => (
+        <div
+            {...props}
+            aria-rowindex={
+                props['aria-rowindex'] === undefined ? undefined : props['aria-rowindex'] + 1
+            }
+        />
+    ),
+    CategoryHeader: ({ category, ...props }) => (
+        <div {...props} className="bg-popover px-1 py-2 text-xs font-medium text-muted-foreground">
+            {category.label}
+        </div>
+    ),
+    Emoji: ({ emoji, ...props }) => {
+        const remainingCharacters = useContext(RemainingCharactersContext)
+        return (
+            <button
+                {...props}
+                aria-colindex={
+                    props['aria-colindex'] === undefined ? undefined : props['aria-colindex'] + 1
+                }
+                type="button"
+                disabled={emoji.emoji.length > remainingCharacters}
+                className="flex size-9 items-center justify-center rounded-md text-2xl disabled:opacity-30 hover:bg-accent focus-visible:bg-accent focus-visible:outline-2 focus-visible:outline-primary">
+                {emoji.emoji}
+            </button>
+        )
+    },
+}
 
 export default function PublicationEmojiPicker({
     onSelect,
@@ -51,42 +87,9 @@ export default function PublicationEmojiPicker({
                 <EmojiPicker.Empty className="p-4 text-sm text-muted-foreground">
                     {m.publication_emoji_empty()}
                 </EmojiPicker.Empty>
-                <EmojiPicker.List
-                    components={{
-                        // Frimousse 0.4.0 exposes zero-based grid indices; ARIA requires one-based indices.
-                        Row: props => (
-                            <div
-                                {...props}
-                                aria-rowindex={
-                                    props['aria-rowindex'] === undefined
-                                        ? undefined
-                                        : props['aria-rowindex'] + 1
-                                }
-                            />
-                        ),
-                        CategoryHeader: ({ category, ...props }) => (
-                            <div
-                                {...props}
-                                className="bg-popover px-1 py-2 text-xs font-medium text-muted-foreground">
-                                {category.label}
-                            </div>
-                        ),
-                        Emoji: ({ emoji, ...props }) => (
-                            <button
-                                {...props}
-                                aria-colindex={
-                                    props['aria-colindex'] === undefined
-                                        ? undefined
-                                        : props['aria-colindex'] + 1
-                                }
-                                type="button"
-                                disabled={emoji.emoji.length > remainingCharacters}
-                                className="flex size-9 items-center justify-center rounded-md text-2xl disabled:opacity-30 hover:bg-accent focus-visible:bg-accent focus-visible:outline-2 focus-visible:outline-primary">
-                                {emoji.emoji}
-                            </button>
-                        ),
-                    }}
-                />
+                <RemainingCharactersContext value={remainingCharacters}>
+                    <EmojiPicker.List components={emojiComponents} />
+                </RemainingCharactersContext>
             </EmojiPicker.Viewport>
         </EmojiPicker.Root>
     )
