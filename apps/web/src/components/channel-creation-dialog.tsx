@@ -125,6 +125,11 @@ export function ChannelCreationDialog({
     }
 
     function selectProfile(nextChoice: ProfileChoice) {
+        if (nextChoice !== choice) {
+            setValidationError(null)
+            setDefinitionIssues([])
+            setDefinitionIssueCount(0)
+        }
         setChoice(nextChoice)
         if (!nameEdited) setName(suggestedName(nextChoice))
         if (nextChoice === 'custom' && profileText === '') {

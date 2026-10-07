@@ -1,6 +1,7 @@
 # ADR-082 — Custom-Channel Creation Fingerprints and Feedback
 
-- Status: proposed (awaits owner acceptance with UX-332)
+- Status: accepted (the implemented direction was authorized in the UX-332
+  prompt; the UX-332 review confirmed the implementation and this record)
 - Scope: creating a channel with a custom profile definition
 - Related: ADR-080 (draft fingerprints), ADR-081 (draft validation feedback), UX-331, UX-332
 - Supersedes nothing; amends no existing decision until accepted

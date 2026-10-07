@@ -58,6 +58,12 @@ test('creates a custom channel with server fingerprints and field-anchored corre
     await expect(page.getByText(en.channels_action_failed, { exact: true })).toHaveCount(0)
     expect(await count()).toBe(before)
 
+    await dialog.getByRole('radio', { name: en.channel_manual_profile, exact: true }).click()
+    await expect(alert).toHaveCount(0)
+    await dialog.getByRole('radio', { name: en.channel_custom_profile, exact: true }).click()
+    await expect(json).toHaveValue(invalid)
+    await expect(alert).toHaveCount(0)
+
     await json.fill(starter)
     await expect(alert).toHaveCount(0)
     const accepted = page.waitForResponse(
