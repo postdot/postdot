@@ -634,6 +634,9 @@ test('keeps draft content truthful in destination-specific preview compositions'
     const mosaicBody = 'Mosaic order check'
     await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
     await source.fill(mosaicBody)
+    await page.getByRole('button', { name: 'Destination bluesky', exact: true }).click()
+    const mosaic = page.locator('[data-preview-platform="bluesky"]')
+    const mosaicGrid = mosaic.locator('[data-publication-preview-media]')
     for (const [index, color] of ['#cd5268', '#63a06b', '#488fc4'].entries()) {
         const png = await page.evaluate(
             ([fill, digit]) => {
@@ -655,40 +658,20 @@ test('keeps draft content truthful in destination-specific preview compositions'
             mimeType: 'image/png',
             buffer: Buffer.from(png, 'base64'),
         })
+        // Complete each visible selection before adding the next file.
+        await expect(mosaicGrid.locator(':scope > div img')).toHaveCount(index + 1)
+        await expect
+            .poll(() =>
+                mosaicGrid.locator(':scope > div img').evaluateAll(images =>
+                    images.every(element => {
+                        const image = element as HTMLImageElement
+                        return image.complete && image.naturalWidth > 0
+                    })
+                )
+            )
+            .toBe(true)
     }
-    await page.getByRole('button', { name: 'Destination bluesky', exact: true }).click()
-    const mosaic = page.locator('[data-preview-platform="bluesky"]')
-    const mosaicGrid = mosaic.locator('[data-publication-preview-media]')
     await expect(mosaicGrid.locator(':scope > div img')).toHaveCount(3)
-    const renderedOrder = await mosaicGrid.locator(':scope > div img').evaluateAll(images =>
-        images.map(element => {
-            const image = element as HTMLImageElement
-            const canvas = document.createElement('canvas')
-            canvas.width = 1
-            canvas.height = 1
-            const context = canvas.getContext('2d')!
-            context.drawImage(image, 0, 0, 1, 1)
-            const [red, green, blue] = Array.from(context.getImageData(0, 0, 1, 1).data)
-            if (red! >= green! && red! >= blue!) return 'red'
-            if (green! >= red! && green! >= blue!) return 'green'
-            return 'blue'
-        })
-    )
-    expect(renderedOrder).toEqual(['red', 'green', 'blue'])
-    const cells = await mosaicGrid.locator(':scope > div').evaluateAll(elements =>
-        elements.map(element => {
-            const bounds = element.getBoundingClientRect()
-            return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
-        })
-    )
-    expect(cells).toHaveLength(3)
-    expect(cells[0]!.height).toBeGreaterThan(cells[1]!.height * 1.7)
-    expect(cells[0]!.x).toBeLessThan(cells[1]!.x)
-    expect(Math.abs(cells[1]!.x - cells[2]!.x)).toBeLessThanOrEqual(2)
-    expect(cells[2]!.y).toBeGreaterThan(cells[1]!.y)
-    const gridBounds = (await mosaicGrid.boundingBox())!
-    expect(gridBounds.width / gridBounds.height).toBeGreaterThan(1.8)
-    expect(gridBounds.width / gridBounds.height).toBeLessThan(2.2)
     await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
     await expect(
         page.getByRole('textbox', { name: en.publication_new_source_content, exact: true })
@@ -697,6 +680,35 @@ test('keeps draft content truthful in destination-specific preview compositions'
     await expect(mosaicGrid.locator(':scope > div img')).toHaveCount(3)
     for (const width of [1280, 390]) {
         await page.setViewportSize({ width, height: 900 })
+        const renderedOrder = await mosaicGrid.locator(':scope > div img').evaluateAll(images =>
+            images.map(element => {
+                const image = element as HTMLImageElement
+                const canvas = document.createElement('canvas')
+                canvas.width = 1
+                canvas.height = 1
+                const context = canvas.getContext('2d')!
+                context.drawImage(image, 0, 0, 1, 1)
+                const [red, green, blue] = context.getImageData(0, 0, 1, 1).data
+                if (red! >= green! && red! >= blue!) return 'red'
+                if (green! >= red! && green! >= blue!) return 'green'
+                return 'blue'
+            })
+        )
+        expect(renderedOrder).toEqual(['red', 'green', 'blue'])
+        const cells = await mosaicGrid.locator(':scope > div').evaluateAll(elements =>
+            elements.map(element => {
+                const bounds = element.getBoundingClientRect()
+                return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+            })
+        )
+        expect(cells).toHaveLength(3)
+        expect(cells[0]!.height).toBeGreaterThan(cells[1]!.height * 1.7)
+        expect(cells[0]!.x).toBeLessThan(cells[1]!.x)
+        expect(Math.abs(cells[1]!.x - cells[2]!.x)).toBeLessThanOrEqual(2)
+        expect(cells[2]!.y).toBeGreaterThan(cells[1]!.y)
+        const gridBounds = (await mosaicGrid.boundingBox())!
+        expect(gridBounds.width / gridBounds.height).toBeGreaterThan(1.8)
+        expect(gridBounds.width / gridBounds.height).toBeLessThan(2.2)
         await assertNoOverflow(page)
         await mosaic.screenshot({
             path: testInfo.outputPath(`preview-bluesky-mosaic-${width}.png`),
