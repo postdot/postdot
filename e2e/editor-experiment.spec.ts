@@ -71,6 +71,33 @@ test('restricts paste and keyboard formatting and protects unsupported source sy
     await page.getByRole('button', { name: 'Restore test snapshot' }).click()
     await page.getByRole('button', { name: 'DEV.to', exact: true }).click()
     await expect(raw).toHaveValue(`${unsupported}😀`)
+
+    await page.getByRole('button', { name: 'Discord', exact: true }).click()
+    await page.getByRole('button', { name: 'Source', exact: true }).click()
+    const native = '>>> Quote\nnext <@123456789012345678> <:wave:123456789012345678>'
+    await raw.fill(native)
+    await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeDisabled()
+    await expect(output).toHaveValue(native)
+    await raw.press('Control+End')
+    await raw.pressSequentially('!')
+    await expect(output).toHaveValue(`${native}!`)
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await page.reload()
+    await page.getByRole('button', { name: 'Restore test snapshot' }).click()
+    await page.getByRole('button', { name: 'Discord', exact: true }).click()
+    await expect(raw).toHaveValue(`${native}!`)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeDisabled()
+    await raw.press('Control+End')
+    await raw.pressSequentially('?')
+    await expect(output).toHaveValue(`${native}!?`)
+
+    // Removing unsupported syntax re-enables rich editing, rather than locking the scope.
+    await raw.fill('**bold** __underline__')
+    await expect(page.getByRole('button', { name: 'Source', exact: true })).toBeEnabled()
+    await page.getByRole('button', { name: 'Source', exact: true }).click()
+    await expect(content.locator('strong')).toHaveText('bold')
+    await expect(content.locator('u')).toHaveText('underline')
 })
 
 test('supports rich editing and emoji undo at desktop and mobile widths', async ({

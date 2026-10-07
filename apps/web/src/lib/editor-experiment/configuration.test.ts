@@ -40,6 +40,33 @@ describe('experimental editor publishing formats', () => {
         expect(requiresSourceMode('plain', '**literal**')).toBe(false)
     })
 
+    test('protects native Discord quotes, mentions and emoji outside code', () => {
+        for (const text of [
+            '>>> Quote\nnext',
+            'Before\n\n>>> Quote\nnext',
+            '<@123456789012345678>',
+            '**<@!123456789012345678>**',
+            '||<@&123456789012345678>||',
+            '<#123456789012345678>',
+            '<:wave:123456789012345678>',
+            '<a:wave:123456789012345678>',
+        ]) {
+            expect(requiresSourceMode('discord', text)).toBe(true)
+        }
+        for (const text of [
+            '> Ordinary quote',
+            '`<@123456789012345678>`',
+            '```\n>>> Quote\n<@123456789012345678>\n```',
+            '\\<@123456789012345678>',
+            '\\>>> Literal',
+            '**bold** __underline__ ||spoiler||',
+        ]) {
+            expect(requiresSourceMode('discord', text)).toBe(false)
+        }
+        expect(requiresSourceMode('article', '>>> Quote')).toBe(false)
+        expect(requiresSourceMode('plain', '<@123456789012345678>')).toBe(false)
+    })
+
     test('round-trips external image addresses and escaped descriptions', () => {
         const codec = markdownCodec('article')
         const doc = {

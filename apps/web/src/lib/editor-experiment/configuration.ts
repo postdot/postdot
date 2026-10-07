@@ -146,6 +146,16 @@ export function requiresSourceMode(
     function unsupported(token: unknown): boolean {
         if (typeof token !== 'object' || token === null) return false
         const item = token as Record<string, unknown>
+        // CommonMark treats >>> as nested quotes and encodes native Discord
+        // references as HTML entities. Keep their source instead of rewriting it.
+        // Inspect syntax tokens, not the whole input, so code and escapes stay rich.
+        if (
+            profile === 'discord' &&
+            ((item.type === 'blockquote' && /^ {0,3}>>>/m.test(String(item.raw ?? ''))) ||
+                (item.type === 'text' &&
+                    /<(?:@!?\d+|@&\d+|#\d+|a?:[A-Za-z0-9_]+:\d+)>/.test(String(item.raw ?? ''))))
+        )
+            return true
         if (['html', 'table', 'hr'].includes(String(item.type))) return true
         // A block image cannot sit inside paragraph text in the editor schema.
         // Preserve this valid Markdown in source mode rather than losing surrounding text.
