@@ -514,3 +514,68 @@ describe('spec inventory', () => {
         }
     })
 })
+
+describe('known story fixtures', () => {
+    const inventory = [...new Set(FUNCTIONAL_DOMAINS.flatMap(domain => domain.specs))]
+
+    test.each([
+        ['auth-login', ['identity-and-recovery']],
+        ['empty-state', ['publication-lifecycle']],
+        ['media-library', ['publication-authoring', 'media-library']],
+        ['publication-composer', ['publication-authoring']],
+        ['publisher-connection-panel', ['channels-and-connections']],
+    ])('maps %s to its functional owners', (name, owners) => {
+        const path = `apps/web/src/stories/${name}.stories.tsx`
+        expect(
+            domainsForPath(path)
+                .map(domain => domain.id)
+                .sort()
+        ).toEqual([...owners].sort())
+        const resolution = resolveAffectedScenarios([path], inventory)
+        expect(resolution.mode).toBe('targeted')
+        if (resolution.mode !== 'targeted') throw new Error('expected targeted selection')
+        expect(resolution.scenarios.map(scenario => scenario.spec).sort()).toEqual(
+            [
+                ...new Set(
+                    FUNCTIONAL_DOMAINS.filter(domain => owners.includes(domain.id)).flatMap(
+                        domain => domain.specs
+                    )
+                ),
+            ].sort()
+        )
+    })
+
+    test('retains the UX-341 component and directly changed connection journey', () => {
+        const resolution = resolveAffectedScenarios(
+            [
+                'apps/web/src/components/publication-target-list.tsx',
+                'apps/web/src/stories/publication-composer.stories.tsx',
+                'e2e/publisher-connection-recovery.spec.ts',
+            ],
+            inventory
+        )
+        expect(resolution.mode).toBe('targeted')
+        if (resolution.mode !== 'targeted') throw new Error('expected targeted selection')
+        expect(resolution.scenarios.map(scenario => scenario.spec)).toContain(
+            'e2e/publisher-connection-recovery.spec.ts'
+        )
+        expect(resolution.scenarios).toHaveLength(9)
+    })
+
+    test.each([
+        'apps/web/src/stories/new-unmapped.stories.tsx',
+        'apps/web/src/stories/helpers.ts',
+        'apps/web/src/lib/unmapped-helper.ts',
+        'apps/web/src/lib/dashboard-context.tsx',
+        'packages/db/src/schema.ts',
+        'scripts/e2e-runtime.ts',
+    ])('preserves the full fallback beside a mapped fixture for %s', path => {
+        const resolution = resolveAffectedScenarios(
+            ['apps/web/src/stories/publication-composer.stories.tsx', path],
+            inventory
+        )
+        expect(resolution.mode).toBe('full')
+        if (resolution.mode !== 'full') throw new Error('expected full selection')
+        expect(resolution.scenarios).toHaveLength(inventory.length)
+    })
+})
