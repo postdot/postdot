@@ -9,22 +9,25 @@ import {
     PublicationChannelTabs,
     publicationSharedTabId,
 } from '@/components/publication-target-list'
-import type { Channel } from '@/lib/api'
+import type { ChannelListItem } from '@/lib/api'
 import { LanguageProvider } from '@/lib/i18n'
 import { createPublicationTarget } from '@/lib/publication-authoring'
 
-const channels: Channel[] = ['linkedin', 'bluesky', 'mastodon', 'x'].map((profileId, index) => ({
-    id: profileId,
-    projectId: 'composer-demo',
-    profileId,
-    profileVersionId: profileId,
-    name: ['Herald', 'Studio', 'Community', 'News'][index]!,
-    state: 'active',
-    archivedAt: null,
-    revision: 1,
-    createdAt: 0,
-    updatedAt: 0,
-}))
+const channels: ChannelListItem[] = ['linkedin', 'bluesky', 'mastodon', 'x'].map(
+    (profileId, index) => ({
+        id: profileId,
+        projectId: 'composer-demo',
+        profileId,
+        execution: { kind: 'built_in', contractId: profileId },
+        profileVersionId: profileId,
+        name: ['Herald', 'Studio', 'Community', 'News'][index]!,
+        state: 'active',
+        archivedAt: null,
+        revision: 1,
+        createdAt: 0,
+        updatedAt: 0,
+    })
+)
 
 const meta = {
     title: 'Publications/Composer',

@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
+import en from '../apps/web/messages/en.json' with { type: 'json' }
+
 test('makes a revoked publisher connection actionable', async ({ page }) => {
     test.setTimeout(45_000)
 
@@ -374,6 +376,79 @@ test('uses active execution for custom channel readiness and connection actions'
         .getByRole('button', { name: 'Restore channel', exact: true })
         .click()
     await expect(manual.getByText('Manual', { exact: true })).toBeVisible()
+
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    const content = page.getByRole('textbox', {
+        name: en.publication_new_source_content,
+        exact: true,
+    })
+    await content.fill('Preserve this composition while checking delivery choices.')
+    await page
+        .locator(`[data-channel-selected-button][data-channel-id="${ids['custom-manual']}"]`)
+        .click()
+    const settings = page.locator('[data-composer-settings] details').first()
+    if (!(await settings.evaluate(element => (element as HTMLDetailsElement).open))) {
+        await settings.locator('summary').first().click()
+    }
+    await expect(
+        settings.getByText(en.publication_new_automatic_connection_required, { exact: true })
+    ).toHaveCount(0)
+    const defaults = page.locator('#publication-default-delivery')
+    await defaults.click()
+    await expect(
+        page.getByRole('option', { name: en.publication_new_manual_publication, exact: true })
+    ).toBeVisible()
+    await expect(
+        page.getByRole('option', { name: en.publication_new_automatic_publication, exact: true })
+    ).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    const destinationSettings = page.locator('[data-publication-active-channel-settings]')
+    if (!(await destinationSettings.evaluate(element => (element as HTMLDetailsElement).open))) {
+        await destinationSettings.locator('summary').click()
+    }
+    await expect(destinationSettings.getByText(en.channel_manual, { exact: true })).toBeVisible()
+    await destinationSettings
+        .getByRole('button', { name: en.publication_new_customize_delivery, exact: true })
+        .click()
+    const delivery = destinationSettings.locator('[id^="publication-target-"][id$="-delivery"]')
+    await delivery.click()
+    await expect(
+        page.getByRole('option', { name: en.publication_new_manual_publication, exact: true })
+    ).toBeVisible()
+    await expect(
+        page.getByRole('option', { name: en.publication_new_automatic_publication, exact: true })
+    ).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await page
+        .locator(`[data-channel-available][data-channel-id="${ids['custom-webhook']}"]`)
+        .click()
+    await page
+        .locator(`[data-channel-selected-button][data-channel-id="${ids['custom-webhook']}"]`)
+        .click()
+    await expect(
+        settings.getByText(en.publication_new_automatic_connection_required, { exact: true })
+    ).toBeVisible()
+    await destinationSettings
+        .getByRole('button', { name: en.publication_new_customize_delivery, exact: true })
+        .click()
+    await delivery.click()
+    await expect(
+        page.getByRole('option', { name: en.publication_new_automatic_publication, exact: true })
+    ).toBeVisible()
+    await page
+        .getByRole('option', { name: en.publication_new_automatic_publication, exact: true })
+        .click()
+    // Mixed defaults cannot make the manual destination automatic.
+    await defaults.click()
+    await expect(
+        page.getByRole('option', { name: en.publication_new_automatic_publication, exact: true })
+    ).toHaveCount(0)
+    await page
+        .getByRole('option', { name: en.publication_new_manual_publication, exact: true })
+        .click()
+    await expect(page.getByRole('listbox')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    await expect(content).toHaveText('Preserve this composition while checking delivery choices.')
 })
 
 async function createAccountAndProject(page: Page, suffix: string): Promise<string> {

@@ -24,7 +24,7 @@ import {
 
 import { DateTimePicker } from '@/components/date-time-picker'
 import { ChannelAvatar } from '@/components/identity-visuals'
-import type { Channel, PublisherConnection } from '@/lib/api'
+import type { Channel, ChannelListItem, PublisherConnection } from '@/lib/api'
 import { channelVariant } from '@/lib/channel-identity'
 import { useChannelIdentityPeers } from '@/lib/channel-identity-context'
 import { useLanguage } from '@/lib/i18n'
@@ -126,7 +126,7 @@ export function PublicationChannelRail({
 export interface PublicationChannelTabsProps {
     readonly createChannel?: ReactNode
     readonly activeTabId: string
-    readonly channels: readonly Channel[]
+    readonly channels: readonly ChannelListItem[]
     readonly defaultDeliveryMode: DeliveryMode
     readonly defaultScheduledAt: string
     readonly disabled: boolean
@@ -364,7 +364,7 @@ export function PublicationChannelTabs({
 
 export interface PublicationChannelSettingsProps {
     readonly activeTargetId: string
-    readonly channels: readonly Channel[]
+    readonly channels: readonly ChannelListItem[]
     readonly connections: readonly PublisherConnection[]
     readonly customizedTargetIds: ReadonlySet<string>
     readonly defaultDeliveryMode: DeliveryMode
@@ -407,7 +407,7 @@ export function PublicationChannelSettings({
             : resolveConnectionStatus(activeChannel, activeConnection, activeTarget.deliveryMode)
     const automaticConnectionNeedsSetup =
         activeChannel !== undefined &&
-        activeChannel.profileId !== 'manual-message' &&
+        supportsAutomaticDelivery(activeChannel) &&
         activeConnection?.state !== 'active'
     const [deliveryDetailsOpen, setDeliveryDetailsOpen] = useState(automaticConnectionNeedsSetup)
 
@@ -620,12 +620,12 @@ export function PublicationChannelSettings({
 }
 
 function resolveConnectionStatus(
-    channel: Channel | undefined,
+    channel: ChannelListItem | undefined,
     connection: PublisherConnection | undefined,
     deliveryMode: DeliveryMode
 ) {
     if (channel === undefined) return null
-    if (channel.profileId === 'manual-message') {
+    if (channel.execution.kind === 'manual') {
         return {
             className: 'text-state-queued',
             dotClassName: 'bg-state-queued',
@@ -665,8 +665,8 @@ function resolveConnectionStatus(
     }
 }
 
-function supportsAutomaticDelivery(channel: Channel | undefined) {
-    return channel?.profileId !== 'manual-message'
+function supportsAutomaticDelivery(channel: ChannelListItem | undefined) {
+    return channel !== undefined && channel.execution.kind !== 'manual'
 }
 
 function TargetField({
