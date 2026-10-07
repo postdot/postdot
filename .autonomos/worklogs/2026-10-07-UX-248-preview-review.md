@@ -15,92 +15,142 @@
   component tests, outcome-states six-combination matrix. Bluesky multi-image
   has code plus disposable captures only; Mastodon multi-image likewise.
 
-## References consulted (2026-10-07)
+## References verified (consulted 2026-10-07)
 
+- Bluesky publication constraints (not layout): `app.bsky.feed.post`
+  lexicon — text `maxLength: 3000` plus `maxGraphemes: 300`;
+  `app.bsky.embed.images` — at most 4 images, blobs up to 2 MB —
+  https://raw.githubusercontent.com/bluesky-social/atproto/main/lexicons/app/bsky/feed/post.json
+  and `.../app/bsky/embed/images.json`. A lexicon constrains what can be
+  published; it proves no visual arrangement.
+- Bluesky mosaic convention (not constraint): `ImageGrid` in the Bluesky
+  embed component (`embed.tsx`) —
+  https://github.com/bluesky-social/social-app/blob/main/bskyembed/src/components/embed.tsx
+  (latest touching commit `1a0db34`, 2026-10-02): two images side by side in
+  a 2:1 container; three with the first spanning the left column and the
+  other two stacked right; four in a two-column 3:2 grid (more shown with an
+  overflow badge, which Herald never needs because validation caps at four).
+- Mastodon publication surface (not universal limits):
+  `POST /api/v1/statuses` accepts `status` text plus `media_ids[]` —
+  https://docs.joinmastodon.org/methods/statuses/ — with no fixed length in
+  the endpoint itself. Character and attachment counts are
+  instance-configurable; Herald's `MASTODON_DEFAULT_MAX_CHARACTERS = 500`
+  correctly models the default, not a universal instance limit.
+- Mastodon gallery convention (not constraint): `Item`/`MediaGallery` in
+  `app/javascript/mastodon/components/media_gallery.jsx` —
+  https://github.com/mastodon/mastodon/blob/main/app/javascript/mastodon/components/media_gallery.jsx
+  (latest touching commit `0ed49dd`, 2026-10-01): attachments rendered in
+  array order, 3:2 global aspect, spanning first item for three, equal cells
+  for four, small gap; focal points, placeholder blur, and sensitive handling are
+  outside Herald's calibrated scope.
 - X: standard post 280 characters, up to 4 media items —
   https://help.x.com/en/using-x/how-to-post (official Help Center).
-- Bluesky: 300 characters/graphemes per post, up to 4 images —
-  multiple third-party 2026 specification summaries;
-  mosaic ratios follow the Bluesky embed implementation per the earlier worklog (not
-  re-fetched here; Herald code verified against the worklog's stated ratios).
-- Mastodon: 500-character default, 4 attachments, gallery ratios per
-  `media_gallery.jsx`/`components.scss` (earlier worklog; code verified
-  against its stated 3:2 global, spanning, gap rules).
-- Discord: 2,000-character message limit and Markdown formatting guide —
+- Discord message limit (2,000) and Markdown formatting guide —
   https://support.discord.com/hc/en-us/articles/210298617-Markdown-Text-101-Chat-Formatting-Bold-Italic-Underline.
-- DEV.to: article Markdown/HTML/Liquid capabilities —
-  https://dev.to/p/editor_guide (per earlier worklog).
-- Herald's own contracts match: X weighted 280 + 4 images, Bluesky 300
-  graphemes + 4, Mastodon 500 + 4, Discord 2000 + 10, DEV.to title/body
-  limits. What each source establishes versus interpretation is separated
-  below; no pixel-exact reproduction is claimed anywhere.
+- DEV.to article capabilities — https://dev.to/p/editor_guide (via the
+  earlier worklog; not re-fetched here).
+- Herald's own contracts match the constraint sources above (X weighted
+  280 + 4 images, Bluesky 300 graphemes + 4, Mastodon default 500 + 4,
+  Discord 2000 + 10, DEV.to title/body limits). No pixel-exact reproduction
+  is claimed anywhere.
 
-## Review probe (temporary, removed after measurement)
+## Review probes (one disposable, one retained)
 
-One disposable spec drove all five built-in channels with a distinctive
-381-character body (over X-280 and Bluesky-300, under Mastodon-500 and
+A disposable spec first drove all five built-in channels with a distinctive
+381-character body (over X-280 and Bluesky-300, under the Mastodon default 500 and
 Discord-2000), a DEV.to title plus Markdown (headings, bold, underline,
 strikethrough, lists, spoilers), four uploaded images, and narrow-width
-captures per platform. Green `1/1` in `13.6 s`. Two probe-only fixes
-(pre-selected first channel; rich-text assertions) touched no product code.
-No provider was contacted; no `apps/web` file changed during runs.
+captures per platform (inspected for all five). It was removed after
+measurement; the per-platform observations above come from it. The Bluesky
+three-image mosaic, theme surface differences, and geometry assertions were
+then moved into the existing destination-truthfulness scenario as retained
+proof (see below). No provider was contacted; no `apps/web` file changed
+during any browser run. The disposable run went green `1/1` in `13.6 s`
+after two probe-only fixes (pre-selected first channel; rich-text
+assertions); no product code was touched for either.
 
-## Per-platform rundown
+## Per-platform rundown (observed results only)
 
-- X: conform on verified criteria. Full 381-char text rendered without
-  truncation, with explicit `381 / 280 weighted characters` capability
-  feedback (content truth: limits enforced at validation, preview honest).
-  Four images in the generic 2-column grid, illustrative identity, static
-  actions, narrow readable. Visual approximation only: the generic 4:3 crop
-  grid is shared with LinkedIn rather than X-specific collage treatment.
-- Bluesky: conform on verified criteria. Full text, four images in the
-  2-column 3:2-cell grid matching the referenced embed ratios (code and
-  layout classes verified), narrow readable. Proof debt only: no durable
-  multi-image capture exists (see correction 1).
-- Mastodon: conform on verified criteria. Full text, federated sample
-  handle, four images in the 3:2 global grid with rows and 2 px-equivalent
-  gap matching the referenced gallery rules, star action row, narrow
-  readable. Same proof-debt note as Bluesky, with the earlier disposable
-  review as evidence.
-- Discord: conform on verified criteria. Markdown emphasis (bold, underline,
-  strikethrough), lists, code literalness, and spoiler reveal all render;
-  full long text; compact four-image grid; narrow readable. Explicitly
-  untreated remainder (subtext, mentions, custom emoji, multiline quotes,
-  embeds) is deferred scope, not a new finding.
-- DEV.to: conform on verified criteria. Title heading plus full Markdown
-  body (headings, lists, quotes, code per component tests), compact gallery,
-  narrow readable. No invented tags, reading time, cover, or embeds, per the
-  editor-guide reference.
+Observed on the tested examples: a distinctive 381-character body (over
+X-280 and Bluesky-300, under Mastodon-500 and Discord-2000), a DEV.to title
+plus Markdown (headings, bold, underline, strikethrough, lists, spoilers),
+four uploaded images, and narrow-width captures per platform (inspected for
+X, Bluesky, Mastodon, DEV.to, and Discord).
 
-## Corrections (priority order, none implemented)
+- X: rendered content and readability confirmed on the tested example. Full
+  381-char text shown without truncation, with explicit `381 / 280 weighted
+  characters` capability feedback (limits enforced at validation, preview
+  honest). Four images in the generic 2-column grid; illustrative identity;
+  static actions; narrow readable.
+- Bluesky: rendered content and readability confirmed on the tested example.
+  Full text shown. Four images in a 2-column 3:2-cell grid; proportions
+  compared against the historical Bluesky embed reference above (not against a
+  fresh side-by-side capture). Three-image spanning layout now durably
+  covered (see retained proof below); narrow readable.
+- Mastodon: rendered content and readability confirmed on the tested example.
+  Full text, federated sample handle, four images in a 3:2 grid with rows
+  and tight gap; proportions compared against the historical gallery
+  reference above. Star action row; narrow readable. Multi-image order
+  beyond the Bluesky case remains read from code (`media.map` preserves
+  upload order), not visually demonstrated.
+- Discord: rendered content and readability confirmed on the tested example.
+  Markdown emphasis (bold, underline, strikethrough), lists, code
+  literalness, and spoiler reveal all render; full long text; compact
+  four-image grid; narrow readable.
+- DEV.to: rendered content and readability confirmed on the tested example.
+  Title heading plus full Markdown body, compact gallery, narrow readable.
+  No invented tags, reading time, cover, or embeds, per the editor-guide
+  reference.
+- Themes: discord/devto surface differences already durably proven by the
+  retained journey; Bluesky/X/Mastodon light/dark surface differences newly
+  asserted (computed background differs) with Bluesky light/dark captures
+  inspected for contrast and readability. No new complete two-theme proof
+  beyond these targeted observations.
 
-1. Retain a durable Bluesky three-image mosaic regression (new useful
-   coverage: the spanning first-cell layout has zero durable assertions
-   today). Acceptance: three uploads in order; first cell spans two rows in
-   a 2:1 container; three cells total in source order; no page overflow at
-   1280 and 390 px; source text byte-identical afterwards. This is proof
-   debt for already-correct code, not a demonstrated content defect.
+## Retained proof added (no product change)
+
+The existing destination-truthfulness scenario in
+`e2e/web-124-outcome-states.spec.ts` now ends with a Bluesky three-image
+mosaic block: three distinguishable canvas assets (red/green/blue with
+digits), rendered-color order assertion, measured geometry (first cell
+taller than 1.7× the second, left column before right column, second and
+third stacked and x-aligned, container ratio within 1.8–2.2 of 2:1), no page
+overflow at 1280 and 390 px with screenshots, source-text preservation, and
+light/dark surface-difference assertions for Bluesky, X, and Mastodon. An
+intermediate probe failure (wrong column assumption) confirmed the layout
+understanding before the corrected assertions passed. A temporary product
+mutation removing the first-cell row span turned the block red and was
+reverted; final green run `1/1` in ~19 s. This closes the stated proof debt
+for the Bluesky spanning layout without modifying the layout for an
+unconfirmed hypothesis.
+
+## Corrections (priority order)
+
+1. Done as retained proof above: durable Bluesky three-image mosaic
+   regression. No further action.
 2. (Secondary, owner direction needed before any work) Decide whether X
    multi-image deserves platform-specific collage treatment or keeps the
-   shared generic grid. Purely decorative difference today; no content error
-   demonstrated.
-3. No third correction is justified. Remaining Discord syntax, link cards,
-   and any pixel-fidelity sign-off stay explicit owner reserves (deferred,
-   not open implementation work).
+   shared generic grid. Purely decorative difference on the tested example;
+   no content error demonstrated. Not started here per instruction.
+3. No third correction is justified. Link cards stay explicitly
+   owner-deferred (deferral recorded across the Discord passes); that decided
+   reserve is distinct from the remaining Discord syntax (subtext, mentions,
+   custom emoji, multiline quotes, embeds), for which no deferral decision
+   was found — it remains an undecided question, not a scheduled
+   reservation. Pixel-fidelity sign-off stays an owner reserve.
 
 Decorative minors (glyph styles, exact gaps, engagement counts) stay
 secondary per instruction and are not listed as corrections.
 
 ## Limits
 
-- Media order asserted via layout classes and counts on identical-byte
-  fixtures, plus code reading (`media.map` preserves upload order); distinct
-  visual assets were not compared pixel by pixel.
-- Embed/gallery sources were not re-fetched; ratios were verified
-  against the worklogs' stated rules and Herald's implementation.
-- Official limit sources are third-party summaries except X Help,
-  Discord support, and the DEV.to editor guide; Herald's contracts are the
-  operative boundary regardless.
+- Rendered order is visually demonstrated only for the Bluesky three-image
+  case (distinct solid fills read back in DOM order); other counts and
+  platforms remain read from code (`media.map` preserves upload order).
+- Official limit sources are first-party for X Help, Discord support, the
+  Bluesky lexicons, the Mastodon API docs, and the app/gallery code files
+  above; the DEV.to editor guide is via the earlier worklog. Herald's
+  contracts are the operative boundary regardless.
 - No provider publishing was performed; transmission fidelity (facets,
   markdown-to-post conversion) is outside preview calibration.
 

@@ -630,6 +630,120 @@ test('keeps draft content truthful in destination-specific preview compositions'
     await source.fill('Before ||**Secret**|| and ||Second|| after `||literal||` updated')
     await page.getByRole('button', { name: 'Destination discord', exact: true }).click()
     await expect(spoilers.nth(1)).toHaveAttribute('aria-expanded', 'false')
+
+    const mosaicBody = 'Mosaic order check'
+    await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
+    await source.fill(mosaicBody)
+    for (const [index, color] of ['#cd5268', '#63a06b', '#488fc4'].entries()) {
+        const png = await page.evaluate(
+            ([fill, digit]) => {
+                const canvas = document.createElement('canvas')
+                canvas.width = 600
+                canvas.height = 400
+                const context = canvas.getContext('2d')!
+                context.fillStyle = fill
+                context.fillRect(0, 0, 600, 400)
+                context.fillStyle = 'white'
+                context.font = 'bold 120px sans-serif'
+                context.fillText(digit, 240, 240)
+                return canvas.toDataURL().split(',')[1]!
+            },
+            [color, String(index + 1)] as const
+        )
+        await page.locator('input[type=file]').setInputFiles({
+            name: `mosaic-${index}.png`,
+            mimeType: 'image/png',
+            buffer: Buffer.from(png, 'base64'),
+        })
+    }
+    await page.getByRole('button', { name: 'Destination bluesky', exact: true }).click()
+    const mosaic = page.locator('[data-preview-platform="bluesky"]')
+    const mosaicGrid = mosaic.locator('[data-publication-preview-media]')
+    await expect(mosaicGrid.locator(':scope > div img')).toHaveCount(3)
+    const renderedOrder = await mosaicGrid.locator(':scope > div img').evaluateAll(images =>
+        images.map(element => {
+            const image = element as HTMLImageElement
+            const canvas = document.createElement('canvas')
+            canvas.width = 1
+            canvas.height = 1
+            const context = canvas.getContext('2d')!
+            context.drawImage(image, 0, 0, 1, 1)
+            const [red, green, blue] = Array.from(context.getImageData(0, 0, 1, 1).data)
+            if (red! >= green! && red! >= blue!) return 'red'
+            if (green! >= red! && green! >= blue!) return 'green'
+            return 'blue'
+        })
+    )
+    expect(renderedOrder).toEqual(['red', 'green', 'blue'])
+    const cells = await mosaicGrid.locator(':scope > div').evaluateAll(elements =>
+        elements.map(element => {
+            const bounds = element.getBoundingClientRect()
+            return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+        })
+    )
+    expect(cells).toHaveLength(3)
+    expect(cells[0]!.height).toBeGreaterThan(cells[1]!.height * 1.7)
+    expect(cells[0]!.x).toBeLessThan(cells[1]!.x)
+    expect(Math.abs(cells[1]!.x - cells[2]!.x)).toBeLessThanOrEqual(2)
+    expect(cells[2]!.y).toBeGreaterThan(cells[1]!.y)
+    const gridBounds = (await mosaicGrid.boundingBox())!
+    expect(gridBounds.width / gridBounds.height).toBeGreaterThan(1.8)
+    expect(gridBounds.width / gridBounds.height).toBeLessThan(2.2)
+    await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
+    await expect(
+        page.getByRole('textbox', { name: en.publication_new_source_content, exact: true })
+    ).toHaveText(mosaicBody)
+    await page.getByRole('button', { name: 'Destination bluesky', exact: true }).click()
+    await expect(mosaicGrid.locator(':scope > div img')).toHaveCount(3)
+    for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        await assertNoOverflow(page)
+        await mosaic.screenshot({
+            path: testInfo.outputPath(`preview-bluesky-mosaic-${width}.png`),
+        })
+    }
+    const socialBackgrounds: string[] = []
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+            await page
+                .getByRole('button', {
+                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                    exact: true,
+                })
+                .click()
+        }
+        await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
+        socialBackgrounds.push(
+            await mosaic.evaluate(element => getComputedStyle(element).backgroundColor)
+        )
+        await mosaic.screenshot({
+            path: testInfo.outputPath(`preview-bluesky-mosaic-${theme}.png`),
+        })
+    }
+    expect(socialBackgrounds[0]).not.toBe(socialBackgrounds[1])
+    for (const profileId of ['x', 'mastodon']) {
+        await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
+        await page.getByRole('button', { name: `Destination ${profileId}`, exact: true }).click()
+        const preview = page.locator(`[data-preview-platform="${profileId}"]`)
+        await expect(preview).toBeVisible()
+        const themeBackgrounds: string[] = []
+        for (const theme of ['light', 'dark'] as const) {
+            if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+                await page
+                    .getByRole('button', {
+                        name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                        exact: true,
+                    })
+                    .click()
+            }
+            await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`))
+            themeBackgrounds.push(
+                await preview.evaluate(element => getComputedStyle(element).backgroundColor)
+            )
+        }
+        expect(themeBackgrounds[0]).not.toBe(themeBackgrounds[1])
+        console.log(`${profileId}: themed surfaces differ light/dark`)
+    }
 })
 
 test('keeps performance refresh failures local and cached metrics truthful', async ({
