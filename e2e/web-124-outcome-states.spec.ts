@@ -637,6 +637,22 @@ test('keeps draft content truthful in destination-specific preview compositions'
     await page.getByRole('button', { name: 'Destination bluesky', exact: true }).click()
     const mosaic = page.locator('[data-preview-platform="bluesky"]')
     const mosaicGrid = mosaic.locator('[data-publication-preview-media]')
+    let releaseFirst!: () => void
+    const released = new Promise<void>(resolve => {
+        releaseFirst = resolve
+    })
+    let firstReached!: () => void
+    const held = new Promise<void>(resolve => {
+        firstReached = resolve
+    })
+    let finalizations = 0
+    await page.route('**/media/uploads/*/finalize', async route => {
+        if (++finalizations === 1) {
+            firstReached()
+            await released
+        }
+        await route.continue()
+    })
     for (const [index, color] of ['#cd5268', '#63a06b', '#488fc4'].entries()) {
         const png = await page.evaluate(
             ([fill, digit]) => {
@@ -653,12 +669,25 @@ test('keeps draft content truthful in destination-specific preview compositions'
             },
             [color, String(index + 1)] as const
         )
+        const secondFinished =
+            index === 1
+                ? page.waitForResponse(
+                      response => response.url().endsWith('/finalize') && response.ok()
+                  )
+                : null
         await page.locator('input[type=file]').setInputFiles({
             name: `mosaic-${index}.png`,
             mimeType: 'image/png',
             buffer: Buffer.from(png, 'base64'),
         })
-        // Complete each visible selection before adding the next file.
+        if (index === 0) {
+            await held
+            continue
+        }
+        if (index === 1) {
+            await (await secondFinished!).finished()
+            releaseFirst()
+        }
         await expect(mosaicGrid.locator(':scope > div img')).toHaveCount(index + 1)
         await expect
             .poll(() =>
@@ -714,6 +743,22 @@ test('keeps draft content truthful in destination-specific preview compositions'
             path: testInfo.outputPath(`preview-bluesky-mosaic-${width}.png`),
         })
     }
+    const previewIds = await mosaicGrid
+        .locator('img')
+        .evaluateAll(images =>
+            images.map(image => (image as HTMLImageElement).src.split('/media/')[1]!.split('/')[0])
+        )
+    await expect
+        .poll(async () => {
+            const response = await page.request.get(
+                `/api/projects/${projectId}/publication-composer-draft`
+            )
+            const body = await response.json()
+            return body.draft?.content?.sourceMedia?.map(
+                (media: { assetId: string }) => media.assetId
+            )
+        })
+        .toEqual(previewIds)
     const socialBackgrounds: string[] = []
     for (const theme of ['light', 'dark'] as const) {
         if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {

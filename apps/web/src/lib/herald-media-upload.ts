@@ -215,3 +215,23 @@ function canUseBrowserRecovery() {
         (typeof indexedDB !== 'undefined' || typeof localStorage !== 'undefined')
     )
 }
+
+/** Apply independently completed upload batches in their original addition order. */
+export function createOrderedUploadResults() {
+    const pending: Array<{ settled: boolean; apply: () => void }> = []
+    return {
+        reserve() {
+            const entry = { settled: false, apply: () => {} }
+            pending.push(entry)
+            return (apply: () => void) => {
+                if (entry.settled) return
+                entry.settled = true
+                entry.apply = apply
+                while (pending[0]?.settled) {
+                    const ready = pending.shift()!
+                    ready.apply()
+                }
+            }
+        },
+    }
+}

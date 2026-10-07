@@ -11,6 +11,7 @@ import type {
 import {
     completeHeraldMediaUpload,
     createHeraldMediaUploadController,
+    createOrderedUploadResults,
     uploadHeraldMediaFile,
     type HeraldMediaUploadClient,
 } from './herald-media-upload'
@@ -197,3 +198,29 @@ function createUpload(reservation: MediaReservation) {
         media: reservation,
     } as unknown as MediaUpload
 }
+
+it('buffers later completion without preventing independent work', () => {
+    const queue = createOrderedUploadResults()
+    const first = queue.reserve()
+    const second = queue.reserve()
+    const applied: string[] = []
+    second(() => applied.push('second'))
+    expect(applied).toEqual([])
+    first(() => applied.push('first'))
+    expect(applied).toEqual(['first', 'second'])
+    second(() => applied.push('duplicate'))
+    expect(applied).toEqual(['first', 'second'])
+})
+
+it('failed batches release successors and application reads the current selection', () => {
+    const queue = createOrderedUploadResults()
+    const failed = queue.reserve()
+    const later = queue.reserve()
+    let selected = ['existing']
+    later(() => {
+        selected = [...selected, 'new']
+    })
+    selected = ['library', 'reordered']
+    failed(() => {})
+    expect(selected).toEqual(['library', 'reordered', 'new'])
+})

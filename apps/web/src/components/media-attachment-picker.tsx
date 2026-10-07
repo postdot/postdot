@@ -45,6 +45,7 @@ import {
     type HeraldMediaUploadController,
     type HeraldMediaUppyFile,
 } from '@/lib/herald-media-upload'
+import { createOrderedUploadResults } from '@/lib/herald-media-upload'
 import { useLanguage } from '@/lib/i18n'
 import { MediaVerificationError } from '@/lib/media-errors'
 import {
@@ -267,6 +268,7 @@ function MediaAttachmentPickerView({
         bulkSelectionResolutionPending ||
         recoveryActionPending
     const mediaWriteDisabled = interactionLocked || readOnly
+    const orderedUploadResults = useRef(createOrderedUploadResults())
     const currentValueRef = useRef(value)
     const onChangeRef = useRef(onChange)
     const listRequestId = useRef(0)
@@ -537,12 +539,15 @@ function MediaAttachmentPickerView({
 
             const restrictionMessages = pendingRestrictionErrorRef.current ?? []
             pendingRestrictionErrorRef.current = null
+            const settle = orderedUploadResults.current.reserve()
             void controller.uppy
                 .upload()
                 .then(result => {
-                    if (result !== undefined) processUploadResult(result, restrictionMessages)
+                    settle(() => {
+                        if (result !== undefined) processUploadResult(result, restrictionMessages)
+                    })
                 })
-                .catch(caughtError => setError(errorMessage(caughtError)))
+                .catch(caughtError => settle(() => setError(errorMessage(caughtError))))
                 .finally(() => controller.uppy.removeFiles(files.map(file => file.id)))
         }
 
