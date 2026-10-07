@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, AlertTitle } from '@herald/ui/components/alert'
 import { Button } from '@herald/ui/components/button'
 import {
     Dialog,
@@ -24,7 +25,14 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
 import { ChannelAvatar } from '@/components/identity-visuals'
-import { api, type ChannelCreationProfile, type RuntimeChannelProfile } from '@/lib/api'
+import {
+    api,
+    type ChannelCreationOutcome,
+    type ChannelCreationProfile,
+    type CustomChannelProfileInput,
+    type ProfileDefinitionIssue,
+    type RuntimeChannelProfile,
+} from '@/lib/api'
 import {
     channelNameExists,
     suggestChannelName,
@@ -37,6 +45,7 @@ import {
     templatesFromPresets,
 } from '@/lib/channel-profile-presets'
 import { useLanguage } from '@/lib/i18n'
+import { profileIssueMessage } from '@/lib/profile-validation-feedback'
 import * as m from '@/paraglide/messages.js'
 
 type ProfileChoice =
@@ -55,7 +64,10 @@ export function ChannelCreationDialog({
     channels = [],
     compact = false,
 }: {
-    readonly onCreate: (name: string, profile: ChannelCreationProfile) => Promise<boolean>
+    readonly onCreate: (
+        name: string,
+        profile: ChannelCreationProfile
+    ) => Promise<ChannelCreationOutcome>
     readonly pending: boolean
     readonly channels?: readonly ChannelIdentityPeer[]
     readonly compact?: boolean
@@ -88,6 +100,8 @@ export function ChannelCreationDialog({
     const [templateId, setTemplateId] = useState(channelProfileTemplates[0]?.id ?? '')
     const [profileText, setProfileText] = useState('')
     const [validationError, setValidationError] = useState<string | null>(null)
+    const [definitionIssues, setDefinitionIssues] = useState<readonly ProfileDefinitionIssue[]>([])
+    const [definitionIssueCount, setDefinitionIssueCount] = useState(0)
 
     function reset() {
         setName('')
@@ -96,14 +110,18 @@ export function ChannelCreationDialog({
         setTemplateId(channelProfileTemplates[0]?.id ?? '')
         setProfileText('')
         setValidationError(null)
+        setDefinitionIssues([])
+        setDefinitionIssueCount(0)
     }
 
     function selectCustomTemplate(value: string | null) {
         if (value === null) return
         setTemplateId(value)
         const profile = profileForTemplate(value, templates)
-        if (profile !== undefined) setProfileText(JSON.stringify(profile, null, 2))
+        if (profile !== undefined) setProfileText(creationTextForTemplate(profile))
         setValidationError(null)
+        setDefinitionIssues([])
+        setDefinitionIssueCount(0)
     }
 
     function selectProfile(nextChoice: ProfileChoice) {
@@ -111,7 +129,7 @@ export function ChannelCreationDialog({
         if (!nameEdited) setName(suggestedName(nextChoice))
         if (nextChoice === 'custom' && profileText === '') {
             const profile = profileForTemplate(templateId, templates)
-            if (profile !== undefined) setProfileText(JSON.stringify(profile, null, 2))
+            if (profile !== undefined) setProfileText(creationTextForTemplate(profile))
         }
     }
 
@@ -140,7 +158,7 @@ export function ChannelCreationDialog({
                     setValidationError(m.channel_custom_profile_object())
                     return
                 }
-                profile = parsed as RuntimeChannelProfile
+                profile = parsed as CustomChannelProfileInput
             } catch {
                 setValidationError(m.channel_custom_profile_invalid())
                 return
@@ -148,10 +166,15 @@ export function ChannelCreationDialog({
         }
 
         setValidationError(null)
-        const created = await onCreate(trimmedName, profile)
-        if (created) {
+        setDefinitionIssues([])
+        setDefinitionIssueCount(0)
+        const outcome = await onCreate(trimmedName, profile)
+        if (outcome.created) {
             reset()
             setOpen(false)
+        } else if (outcome.profileIssues.length > 0) {
+            setDefinitionIssues(outcome.profileIssues)
+            setDefinitionIssueCount(outcome.profileIssueCount)
         }
     }
 
@@ -257,6 +280,8 @@ export function ChannelCreationDialog({
                                     setName(event.target.value)
                                     setNameEdited(true)
                                     setValidationError(null)
+                                    setDefinitionIssues([])
+                                    setDefinitionIssueCount(0)
                                 }}
                                 placeholder={m.channel_name_placeholder()}
                             />
@@ -294,7 +319,12 @@ export function ChannelCreationDialog({
                                     <Textarea
                                         id="new-channel-profile-json"
                                         value={profileText}
-                                        onChange={event => setProfileText(event.target.value)}
+                                        onChange={event => {
+                                            setProfileText(event.target.value)
+                                            setValidationError(null)
+                                            setDefinitionIssues([])
+                                            setDefinitionIssueCount(0)
+                                        }}
                                         onFocus={() => {
                                             if (profileText !== '') return
                                             const profile = profileForTemplate(
@@ -302,7 +332,7 @@ export function ChannelCreationDialog({
                                                 templates
                                             )
                                             if (profile !== undefined)
-                                                setProfileText(JSON.stringify(profile, null, 2))
+                                                setProfileText(creationTextForTemplate(profile))
                                         }}
                                         spellCheck={false}
                                         rows={14}
@@ -319,6 +349,32 @@ export function ChannelCreationDialog({
                             <p role="alert" className="text-sm text-destructive">
                                 {validationError}
                             </p>
+                        ) : null}
+
+                        {definitionIssues.length > 0 ? (
+                            <Alert variant="destructive">
+                                <AlertTitle>{m.profile_definition_invalid()}</AlertTitle>
+                                <AlertDescription>
+                                    <ul className="space-y-2">
+                                        {definitionIssues.map((issue, index) => (
+                                            <li key={`${issue.path}:${issue.code}:${index}`}>
+                                                <code className="block break-all text-xs">
+                                                    {issue.path || m.profile_definition_root()}
+                                                </code>
+                                                <span>{profileIssueMessage(issue.code)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    {definitionIssueCount > definitionIssues.length ? (
+                                        <p className="mt-2">
+                                            {m.profile_issue_more({
+                                                count:
+                                                    definitionIssueCount - definitionIssues.length,
+                                            })}
+                                        </p>
+                                    ) : null}
+                                </AlertDescription>
+                            </Alert>
                         ) : null}
                     </div>
 
@@ -377,6 +433,16 @@ function ProfileChoiceButton({
             ) : null}
         </Button>
     )
+}
+
+/**
+ * Fingerprints are derived on the server when the channel is created, so the
+ * editable starter omits them while keeping the declared identity, origin and
+ * version the operator owns.
+ */
+function creationTextForTemplate(profile: RuntimeChannelProfile): string {
+    const { profileHash: _profileHash, schemaHash: _schemaHash, ...authored } = profile
+    return JSON.stringify(authored, null, 2)
 }
 
 function templateLabel(templateId: string) {

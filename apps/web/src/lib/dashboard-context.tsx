@@ -12,7 +12,9 @@ import {
 
 import {
     api,
+    ApiError,
     type Channel,
+    type ChannelCreationOutcome,
     type ChannelCreationProfile,
     type CustomHttpAuthentication,
     type DuePublication,
@@ -149,7 +151,10 @@ export interface ProjectDashboardContextValue extends ProjectData {
             secret: string
         }
     ) => Promise<boolean>
-    readonly onCreateChannel: (name: string, profile: ChannelCreationProfile) => Promise<boolean>
+    readonly onCreateChannel: (
+        name: string,
+        profile: ChannelCreationProfile
+    ) => Promise<ChannelCreationOutcome>
     readonly onCreatePost: (
         event: FormEvent<HTMLFormElement>,
         mode?: PublicationCreationMode
@@ -258,10 +263,12 @@ export function ProjectDashboardProvider({
     async function handleCreateChannel(
         name: string,
         profile: ChannelCreationProfile
-    ): Promise<boolean> {
-        if (name.trim() === '') return false
+    ): Promise<ChannelCreationOutcome> {
+        if (name.trim() === '') return { created: false, profileIssues: [], profileIssueCount: 0 }
 
-        return runAction(async () => {
+        setError(null)
+        setPending(true)
+        try {
             const response = await api.createChannel(project.id, name.trim(), profile)
             setProjectData(current => ({
                 ...current,
@@ -274,7 +281,25 @@ export function ProjectDashboardProvider({
                         : target
                 )
             )
-        })
+            return { created: true, profileIssues: [], profileIssueCount: 0 }
+        } catch (caughtError) {
+            if (
+                caughtError instanceof ApiError &&
+                caughtError.status === 400 &&
+                caughtError.code === 'invalid_content' &&
+                caughtError.profileIssues.length > 0
+            ) {
+                return {
+                    created: false,
+                    profileIssues: caughtError.profileIssues,
+                    profileIssueCount: caughtError.profileIssueCount,
+                }
+            }
+            setError(formatApiError(caughtError))
+            return { created: false, profileIssues: [], profileIssueCount: 0 }
+        } finally {
+            setPending(false)
+        }
     }
 
     async function handleCreatePost(

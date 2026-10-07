@@ -1,10 +1,12 @@
+import { createHash } from 'node:crypto'
+
 import {
     ChannelProfileCompiler,
     createActor,
     createChannel,
     createManualChannelProfile,
     createProject,
-    DomainInvariantError,
+    fingerprintChannelProfile,
     requireNonBlank,
     requireProjectTimeZone,
     requireTimestamp,
@@ -19,6 +21,7 @@ import {
     recordDatabaseCommitProject,
     type HeraldDatabase,
 } from '../client'
+import { invalidProfileError } from './content-codec'
 import { toChannel, toProject } from './project-channel-mappers'
 import type { ActorRow, ChannelRow, ProjectRow } from './rows'
 
@@ -362,14 +365,9 @@ export function createProjectChannelStore(
             const timestamp = requireTimestamp(options.now(), 'now')
             const project = toProject(projectRow)
             const profileResult = profileCompiler.compile(
-                input.profile ?? createManualChannelProfile()
+                normalizeCreationProfile(input.profile ?? createManualChannelProfile())
             )
-            if (!profileResult.ok) {
-                throw new DomainInvariantError(
-                    'invalid_content',
-                    `Channel profile is invalid: ${profileResult.issues.map(issue => issue.message).join('; ')}`
-                )
-            }
+            if (!profileResult.ok) throw invalidProfileError(profileResult.issues)
             const profile = profileResult.value.profile
             const profileVersionId = options.createId()
             const channel = createChannel({
@@ -474,5 +472,37 @@ export function createProjectChannelStore(
 
             return listChannelsStatement.all(normalizedProjectId).map(toChannel)
         },
+    }
+}
+
+/**
+ * Derive server-owned fingerprints for a newly created custom profile while
+ * preserving the declared identity, origin and version. Built-in profiles and
+ * already stored definitions are untouched; supplied fingerprints (including
+ * legacy symbolic or arbitrary values, or none at all) are always replaced.
+ * Runs before compilation and persistence so both observe derived values.
+ */
+function normalizeCreationProfile(profile: ChannelProfileDefinition): ChannelProfileDefinition {
+    if (profile.origin !== 'custom') return profile
+
+    try {
+        return fingerprintChannelProfile(
+            {
+                ...profile,
+                profileHash: '',
+                schemaHash: '',
+            },
+            value => `sha256:${createHash('sha256').update(value).digest('hex')}`
+        )
+    } catch {
+        throw invalidProfileError([
+            {
+                path: '',
+                code: 'profile.invalid_json_value',
+                message: 'Channel profile must contain only JSON values',
+                severity: 'error',
+                source: 'domain',
+            },
+        ])
     }
 }

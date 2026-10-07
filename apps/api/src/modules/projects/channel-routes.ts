@@ -1,3 +1,4 @@
+import { ChannelProfileValidationError } from '@herald/core'
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
@@ -14,6 +15,7 @@ import {
     renameChannelBody,
     resolveChannelProfile,
 } from './models'
+import { profileDraftErrorResponse, profileValidationFeedback } from './profile-validation-feedback'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
 export function registerChannelRoutes<const Routes extends Record<string, unknown>>(
@@ -57,6 +59,7 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 params: projectParams,
                 response: {
                     201: Type.Object({ channel: channelSchema }),
+                    400: profileDraftErrorResponse,
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
@@ -80,12 +83,20 @@ export function registerChannelRoutes<const Routes extends Record<string, unknow
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const channel = manualStore.createChannel({
-                    projectId: params.projectId,
-                    subjectId: user.id,
-                    name: body.name,
-                    profile: resolveChannelProfile(body.profile),
-                })
+                let channel
+                try {
+                    channel = manualStore.createChannel({
+                        projectId: params.projectId,
+                        subjectId: user.id,
+                        name: body.name,
+                        profile: resolveChannelProfile(body.profile),
+                    })
+                } catch (error) {
+                    if (error instanceof ChannelProfileValidationError) {
+                        return status(400, profileValidationFeedback(error))
+                    }
+                    throw error
+                }
                 if (channel === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Project not found' },

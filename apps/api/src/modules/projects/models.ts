@@ -654,8 +654,8 @@ export const createChannelBody = Type.Object({
             Type.Object({
                 id: Type.String({ minLength: 1 }),
                 version: Type.Integer({ minimum: 1 }),
-                profileHash: Type.String({ minLength: 1 }),
-                schemaHash: Type.String({ minLength: 1 }),
+                profileHash: Type.Optional(Type.String({ minLength: 1 })),
+                schemaHash: Type.Optional(Type.String({ minLength: 1 })),
                 origin: Type.Literal('custom'),
                 contentSchema: Type.Unknown(),
                 fieldBindings: Type.Unknown(),

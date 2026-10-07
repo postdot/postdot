@@ -116,6 +116,23 @@ export interface RuntimeChannelProfile {
     readonly execution: unknown
 }
 
+/**
+ * Authoring input for a new custom channel. Declared identity, origin and
+ * version are preserved; fingerprints are always derived on the server and
+ * may be omitted (legacy supplied values are replaced).
+ */
+export interface CustomChannelProfileInput {
+    readonly id: string
+    readonly version: number
+    readonly origin: 'custom'
+    readonly profileHash?: string
+    readonly schemaHash?: string
+    readonly contentSchema: unknown
+    readonly fieldBindings: unknown
+    readonly capabilities: unknown
+    readonly execution: unknown
+}
+
 export type ChannelCreationProfile =
     | 'manual-message'
     | 'linkedin'
@@ -125,6 +142,13 @@ export type ChannelCreationProfile =
     | 'devto'
     | 'x'
     | RuntimeChannelProfile
+    | CustomChannelProfileInput
+
+export interface ChannelCreationOutcome {
+    readonly created: boolean
+    readonly profileIssues: readonly ProfileDefinitionIssue[]
+    readonly profileIssueCount: number
+}
 
 export type { ChannelProfilePreset, ChannelProfilePresets }
 

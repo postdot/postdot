@@ -215,6 +215,7 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
         ],
         specs: [
             'e2e/channel-authoring-identity.spec.ts',
+            'e2e/channel-creation-feedback.spec.ts',
             'e2e/channel-profile-presets.spec.ts',
             'e2e/profile-definition-validation.spec.ts',
             'e2e/channel-x-connection.spec.ts',

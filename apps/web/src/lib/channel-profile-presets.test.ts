@@ -18,7 +18,10 @@ describe('channel profile templates', () => {
         for (const template of channelProfileTemplates) {
             expect(() => JSON.stringify(template.profile)).not.toThrow()
             expect(template.profile.origin).toBe('custom')
-            expect(template.profile.contentSchema).toMatchObject({ type: 'object' })
+            expect(template.profile.contentSchema).toMatchObject({
+                type: 'object',
+                $schema: 'https://json-schema.org/draft/2020-12/schema',
+            })
             expect(template.profile.fieldBindings).toEqual(expect.any(Array))
             const capabilities = template.profile.capabilities as {
                 textFields?: unknown

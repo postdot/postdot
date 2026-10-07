@@ -340,6 +340,157 @@ describe('Herald API', () => {
         }
     })
 
+    it('derives creation fingerprints and returns structured definition feedback', async () => {
+        const { app, database } = createFixture()
+        try {
+            const cookie = await signUp(app)
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Creation feedback' }),
+            })
+            expect(projectResponse.status).toBe(201)
+            const { project } = (await projectResponse.json()) as { project: { id: string } }
+            const channelsPath = `/api/projects/${project.id}/channels`
+            const listCount = async () =>
+                (
+                    (await (await jsonRequest(app, channelsPath, cookie)).json()) as {
+                        channels: unknown[]
+                    }
+                ).channels.length
+            const baseProfile = {
+                id: 'custom-creation',
+                version: 1,
+                origin: 'custom',
+                contentSchema: {
+                    $schema: 'https://json-schema.org/draft/2020-12/schema',
+                    type: 'object',
+                    properties: { body: { type: 'string', minLength: 1, maxLength: 1000 } },
+                    required: ['body'],
+                    additionalProperties: false,
+                },
+                fieldBindings: [{ id: 'body', semantic: 'primary_text', path: '/body' }],
+                capabilities: {
+                    revision: 'herald-custom-v1',
+                    textFields: [
+                        {
+                            bindingId: 'body',
+                            acceptedSourceFormats: ['plain_text'],
+                            maxLength: 1000,
+                        },
+                    ],
+                    mediaFields: [],
+                    relations: [],
+                },
+                execution: { kind: 'manual' },
+            }
+            expect(await listCount()).toBe(0)
+
+            const created = await jsonRequest(app, channelsPath, cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Derived channel', profile: baseProfile }),
+            })
+            expect(created.status).toBe(201)
+            const firstId = ((await created.json()) as { channel: { id: string } }).channel.id
+            const firstState = (await (
+                await jsonRequest(app, `${channelsPath}/${firstId}/profile`, cookie)
+            ).json()) as { active: { profile: Record<string, unknown> } }
+            expect(firstState.active.profile.id).toBe('custom-creation')
+            expect(firstState.active.profile.version).toBe(1)
+            expect(firstState.active.profile.schemaHash).toMatch(/^sha256:[a-f0-9]{64}$/)
+            expect(firstState.active.profile.profileHash).toMatch(/^sha256:[a-f0-9]{64}$/)
+
+            const legacy = await jsonRequest(app, channelsPath, cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Legacy hashes replaced',
+                    profile: {
+                        ...structuredClone(baseProfile),
+                        id: 'custom-legacy',
+                        profileHash: 'sha256:operator-chosen-abc',
+                        schemaHash: 'sha256:operator-chosen-schema',
+                    },
+                }),
+            })
+            expect(legacy.status).toBe(201)
+            const legacyId = ((await legacy.json()) as { channel: { id: string } }).channel.id
+            const legacyState = (await (
+                await jsonRequest(app, `${channelsPath}/${legacyId}/profile`, cookie)
+            ).json()) as { active: { profile: Record<string, unknown> } }
+            expect(legacyState.active.profile.profileHash).not.toBe('sha256:operator-chosen-abc')
+            expect(legacyState.active.profile.schemaHash).not.toBe('sha256:operator-chosen-schema')
+
+            const identical = await jsonRequest(app, channelsPath, cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: 'Identical reuse',
+                    profile: structuredClone(baseProfile),
+                }),
+            })
+            expect(identical.status).toBe(201)
+
+            const altered = structuredClone(baseProfile)
+            ;(altered.contentSchema.properties as { body: { maxLength: number } }).body.maxLength =
+                900
+            const alteredResponse = await jsonRequest(app, channelsPath, cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Altered reuse', profile: altered }),
+            })
+            expect(alteredResponse.status).toBe(201)
+            const alteredId = ((await alteredResponse.json()) as { channel: { id: string } })
+                .channel.id
+            const alteredState = (await (
+                await jsonRequest(app, `${channelsPath}/${alteredId}/profile`, cookie)
+            ).json()) as { active: { profile: Record<string, unknown> } }
+            expect(alteredState.active.profile.schemaHash).not.toBe(
+                firstState.active.profile.schemaHash
+            )
+
+            const malformed = structuredClone(baseProfile) as Record<string, unknown>
+            malformed.capabilities = null
+            const malformedResponse = await jsonRequest(app, channelsPath, cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Malformed channel', profile: malformed }),
+            })
+            expect(malformedResponse.status).toBe(400)
+            const malformedBody = (await malformedResponse.json()) as {
+                error: {
+                    code: string
+                    issues: { path: string; code: string }[]
+                    issueCount: number
+                }
+            }
+            expect(malformedBody.error.code).toBe('invalid_content')
+            expect(malformedBody.error.issues).toContainEqual({
+                path: '/capabilities',
+                code: 'profile.object_required',
+            })
+
+            const semantic = structuredClone(baseProfile)
+            semantic.capabilities.textFields[0]!.bindingId = 'FAKE_SENTINEL'
+            const semanticResponse = await jsonRequest(app, channelsPath, cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Semantic channel', profile: semantic }),
+            })
+            expect(semanticResponse.status).toBe(400)
+            const semanticText = await semanticResponse.text()
+            expect(semanticText).not.toContain('FAKE_SENTINEL')
+            expect(JSON.parse(semanticText).error.issues).toContainEqual({
+                path: '/capabilities/textFields/0/bindingId',
+                code: 'capability.binding_missing',
+            })
+            expect(await listCount()).toBe(4)
+
+            const builtin = await jsonRequest(app, channelsPath, cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Built-in channel', profile: 'manual-message' }),
+            })
+            expect(builtin.status).toBe(201)
+            expect(await listCount()).toBe(5)
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('serves authenticated Prometheus scrapes over HTTP and reflects worker updates', async () => {
         const metrics = createHeraldMetrics()
         metrics.bindScheduler({ state: 'running' })

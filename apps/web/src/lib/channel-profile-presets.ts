@@ -12,6 +12,7 @@ const customStringMaximum = 10_000
 const customAssetIdMaximum = 255
 
 const sharedContentSchema = {
+    $schema: jsonSchema202012Dialect,
     type: 'object',
     properties: {
         body: { type: 'string', minLength: 1, maxLength: 1_000_000 },
