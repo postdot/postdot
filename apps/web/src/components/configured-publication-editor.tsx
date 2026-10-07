@@ -119,7 +119,7 @@ export function ConfiguredPublicationEditor({
                 ...(invalid ? { 'aria-invalid': 'true' } : {}),
                 'aria-disabled': String(Boolean(disabled)),
                 'aria-multiline': 'true',
-                class: `${compact ? 'min-h-32' : 'min-h-64'} whitespace-pre-wrap p-4 outline-none rounded-md [&_p]:min-h-6 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_h2]:text-xl [&_h3]:text-lg [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_pre]:bg-surface-inset [&_pre]:p-3 [&_a]:text-primary [&_a]:underline [&_mark]:bg-primary/20`,
+                class: `${compact ? 'min-h-32' : 'min-h-64'} whitespace-pre-wrap p-4 outline-none rounded-md [&_p]:min-h-6 [&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_h2]:text-xl [&_h3]:text-lg [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_pre]:bg-surface-inset [&_pre]:p-3 [&_a]:text-primary [&_a]:underline [&_mark]:bg-primary/20 [&_mark]:text-inherit`,
             },
             transformPastedText: text => text,
         },

@@ -604,6 +604,41 @@ test('keeps draft content truthful in destination-specific preview compositions'
         name: en.publication_new_source_content,
         exact: true,
     })
+    const nativeBody =
+        'Normal text\n-# **Small detail**\nNormal again\n\n>>> __Quoted text__\nnext line\n\nFinal paragraph'
+    await source.fill(nativeBody)
+    await page.getByRole('button', { name: 'Destination discord', exact: true }).click()
+    await expect(messagePreview.locator('blockquote')).toHaveCount(1)
+    await expect(messagePreview.locator('blockquote')).toContainText('Final paragraph')
+    await expect(messagePreview.locator('small')).toHaveText('Small detail')
+    await expect(messagePreview.locator('small strong')).toHaveText('Small detail')
+    await expect(messagePreview.locator('blockquote u')).toHaveText('Quoted text')
+    for (const theme of ['light', 'dark'] as const) {
+        if (!(await page.locator('html').getAttribute('class'))?.split(' ').includes(theme)) {
+            await page
+                .getByRole('button', {
+                    name: en.theme_switch_to.replace('{theme}', en[`theme_${theme}`]),
+                    exact: true,
+                })
+                .click()
+        }
+        for (const width of [1280, 390]) {
+            await page.setViewportSize({ width, height: 900 })
+            await assertNoOverflow(page)
+            const sizes = await messagePreview.evaluate(element => ({
+                small: Number.parseFloat(
+                    getComputedStyle(element.querySelector('small')!).fontSize
+                ),
+                normal: Number.parseFloat(getComputedStyle(element.querySelector('p')!).fontSize),
+            }))
+            expect(sizes.small).toBeLessThan(sizes.normal)
+            await messagePreview.screenshot({
+                path: testInfo.outputPath(`preview-discord-native-${theme}-${width}.png`),
+            })
+        }
+    }
+    await page.getByRole('button', { name: en.publication_new_common_tab, exact: true }).click()
+    await expect(source).toHaveText(nativeBody, { useInnerText: true })
     await source.fill('Before ||**Secret**|| and ||Second|| after `||literal||`')
     await page.getByRole('button', { name: 'Destination discord', exact: true }).click()
     const spoilers = messagePreview.locator('[data-discord-spoiler]')

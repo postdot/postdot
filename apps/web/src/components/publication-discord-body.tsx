@@ -14,6 +14,81 @@ interface MessageNode {
     data?: { hName?: string }
 }
 
+/** Split phrasing while retaining its marks; code is an opaque leaf. */
+function inlineLines(children: MessageNode[]): MessageNode[][] {
+    const lines: MessageNode[][] = [[]]
+    for (const child of children) {
+        const parts =
+            child.type === 'text'
+                ? (child.value ?? '').split('\n').map(value => [{ ...child, value }])
+                : child.type === 'break'
+                  ? [[], []]
+                  : child.children
+                    ? inlineLines(child.children).map(children => [{ ...child, children }])
+                    : [[child]]
+        for (const [index, part] of parts.entries()) {
+            if (index) lines.push([])
+            lines[lines.length - 1]!.push(...part)
+        }
+    }
+    return lines
+}
+
+function discordBlocks(tree: MessageNode, source: string) {
+    const children = tree.children ?? []
+    const quoteIndex = children.findIndex(node => {
+        const offset = node.position?.start.offset
+        return (
+            node.type === 'blockquote' &&
+            offset !== undefined &&
+            /^>>>(?:[ \t]|\r?\n|$)/.test(source.slice(offset))
+        )
+    })
+    if (quoteIndex >= 0) {
+        const quote = children[quoteIndex]!
+        let content = quote.children ?? []
+        // CommonMark consumed three containers for Discord's single marker.
+        for (let depth = 0; depth < 2 && content[0]?.type === 'blockquote'; depth++) {
+            content = [...(content[0].children ?? []), ...content.slice(1)]
+        }
+        quote.children = [...content, ...children.slice(quoteIndex + 1)]
+        tree.children = [...children.slice(0, quoteIndex), quote]
+    }
+    function visit(node: MessageNode) {
+        for (const child of node.children ?? []) visit(child)
+        const start = node.position?.start.offset
+        const end = node.position?.end.offset
+        if (node.type !== 'paragraph' || start === undefined || end === undefined) return
+        const rawLines = source.slice(start, end).split(/\r?\n/)
+        if (!rawLines.some(line => line.startsWith('-# '))) return
+        const lines = inlineLines(node.children ?? [])
+        // Do not reinterpret a multiline opaque token as separate text lines.
+        if (lines.length !== rawLines.length) return
+        node.children = lines.flatMap((children, index) => {
+            const first = children[0]
+            if (rawLines[index]?.startsWith('-# ') && first?.type === 'text') {
+                return [
+                    {
+                        type: 'paragraph',
+                        data: { hName: 'small' },
+                        children: [
+                            { ...first, value: first.value?.slice(3) },
+                            ...children.slice(1),
+                        ],
+                    },
+                ]
+            }
+            return [
+                ...children,
+                ...(index < lines.length - 1 && !rawLines[index + 1]?.startsWith('-# ')
+                    ? [{ type: 'text', value: '\n' }]
+                    : []),
+            ]
+        })
+    }
+    visit(tree)
+}
+
 /** Adapt parsed emphasis without rewriting escaped text or code. */
 function discordMessageFormatting(this: { data(): object }) {
     const data = this.data() as {
@@ -26,6 +101,7 @@ function discordMessageFormatting(this: { data(): object }) {
     nodes.push(gfmStrikethroughFromMarkdown())
     return (tree: MessageNode, file: { value: unknown }) => {
         const source = String(file.value)
+        discordBlocks(tree, source)
         function visit(node: MessageNode) {
             if (node.type === 'spoiler') node.data = { ...node.data, hName: 'mark' }
             if (node.type === 'strong' && node.position !== undefined) {
@@ -70,6 +146,11 @@ export function PublicationDiscordBody({ body }: { readonly body: string }) {
                 key={body}
                 remarkPlugins={[spoilerPlugin, discordMessageFormatting]}
                 components={{
+                    small: ({ children }) => (
+                        <small className="block text-xs leading-5 text-muted-foreground">
+                            {children}
+                        </small>
+                    ),
                     mark: ({ children }) => <DiscordSpoiler>{children}</DiscordSpoiler>,
                     a: ({ children }) => <span className="text-primary underline">{children}</span>,
                     img: ({ alt }) => <span>{alt}</span>,

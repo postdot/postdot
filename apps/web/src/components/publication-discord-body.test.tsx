@@ -80,3 +80,55 @@ test('hides spoilers while preserving nested formatting and literal code', () =>
     expect(html).toContain('<pre><code>||code||')
     expect(html.match(/data-discord-spoiler/g)).toHaveLength(1)
 })
+
+test('renders multiline Discord quotes as one quote through the end of the message', () => {
+    const html = renderToStaticMarkup(
+        <PublicationDiscordBody body={'Before\n\n>>> __Quote__\nnext\n\n**Last paragraph**'} />
+    )
+    expect(html.match(/<blockquote>/g)).toHaveLength(1)
+    expect(html).toContain('<p>Before</p>')
+    expect(html).toContain('<u>Quote</u>\nnext')
+    expect(html).toContain('<strong>Last paragraph</strong></p>\n</blockquote>')
+})
+
+test('renders subtext only on its line with nested formatting intact', () => {
+    const html = renderToStaticMarkup(
+        <PublicationDiscordBody body={'Normal\n-# **Small** __detail__\nNormal again\n-# Last'} />
+    )
+    expect(html.match(/<small /g)).toHaveLength(2)
+    expect(html).toContain('<strong>Small</strong> <u>detail</u></small>')
+    expect(html).not.toContain('-#')
+    expect(html).toContain('Normal again')
+})
+
+test('leaves escaped, inline-code and fenced-code quote and subtext markers literal', () => {
+    const html = renderToStaticMarkup(
+        <PublicationDiscordBody
+            body={
+                '\\>>> Escaped\n\\-# Escaped\n`>>> inline` `-# inline`\n\n```\n>>> fenced\n-# fenced\n```\n\n-#No space\nNormal -# text'
+            }
+        />
+    )
+    expect(html).not.toContain('<blockquote>')
+    expect(html).not.toContain('<small')
+    expect(html).toContain('<code>&gt;&gt;&gt; inline</code>')
+    expect(html).toContain('<code>-# inline</code>')
+    expect(html).toContain('&gt;&gt;&gt; fenced\n-# fenced')
+    expect(html).toContain('-#No space')
+})
+
+test('keeps spoilers and unsafe content protections inside subtext and multiline quotes', () => {
+    const html = renderToStaticMarkup(
+        <PublicationDiscordBody
+            body={
+                '-# ||**Secret**|| [Link](javascript:alert(1))\n\n>>> Quote\n\n<script>alert(1)</script>\n\n![Image](https://example.com/a.png)'
+            }
+        />
+    )
+    expect(html).toContain('<small ')
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).toContain('<strong>Secret</strong>')
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('<img')
+    expect(html).not.toContain('href=')
+})
