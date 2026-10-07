@@ -627,6 +627,148 @@ test('previews the article destination headline through adaptation and locked in
     expect(after.selectedTarget).toEqual(locked.selectedTarget)
 })
 
+test('projects custom destination text and ordered media through active nested bindings', async ({
+    page,
+}) => {
+    const projectId = await createProject(page)
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
+    const starter = JSON.parse(
+        await dialog.getByLabel('Custom profile JSON', { exact: true }).inputValue()
+    )
+    await page.keyboard.press('Escape')
+    const channels: { id: string; nested: boolean; customized: boolean }[] = []
+    for (const [name, nested, customized, http] of [
+        ['Root control', false, true, false],
+        ['Nested manual', true, true, false],
+        ['Nested HTTP', true, true, true],
+        ['Shared nested', true, false, false],
+    ] as const) {
+        const profile = structuredClone(starter)
+        profile.id = name.toLowerCase().replaceAll(' ', '-')
+        if (nested) {
+            const { $schema, ...inner } = profile.contentSchema
+            profile.contentSchema = {
+                $schema,
+                type: 'object',
+                properties: { article: inner },
+                required: ['article'],
+                additionalProperties: false,
+            }
+            profile.fieldBindings = profile.fieldBindings.map((binding: { path: string }) => ({
+                ...binding,
+                path: '/article' + binding.path,
+            }))
+        }
+        if (http)
+            profile.execution = {
+                kind: 'declarative_http',
+                contractId: 'custom-webhook',
+                revision: 'v1',
+                mode: 'herald_webhook',
+            }
+        const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: { name, profile },
+        })
+        expect(response.status()).toBe(201)
+        channels.push({ id: (await response.json()).channel.id, nested, customized })
+    }
+    const first = await createMediaAsset(page, projectId, 'first-projection.png')
+    const second = await createMediaAsset(page, projectId, 'second-projection.png')
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    const source = page.getByRole('textbox', { name: 'Content', exact: true })
+    await source.fill('Shared projection source')
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    const library = page.locator('[data-media-library="true"]')
+    for (const filename of ['second-projection.png', 'first-projection.png']) {
+        await library
+            .locator('article')
+            .filter({ hasText: filename })
+            .first()
+            .locator('[data-media-preview="true"]')
+            .click()
+    }
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(2)
+    for (const channel of channels) {
+        const available = page.locator(`[data-channel-available][data-channel-id="${channel.id}"]`)
+        if (await available.count()) await available.click()
+        if (channel.customized) {
+            await page
+                .locator(`[data-channel-selected-button][data-channel-id="${channel.id}"]`)
+                .click()
+            await page
+                .getByRole('textbox', { name: 'Channel content', exact: true })
+                .fill('Explicit projection text')
+        }
+    }
+    await page.getByRole('button', { name: 'Common', exact: true }).click()
+    let blockProfile = true
+    await page.route(`**/channels/${channels[2]!.id}/profile`, route =>
+        blockProfile
+            ? route.fulfill({
+                  status: 503,
+                  contentType: 'application/json',
+                  body: JSON.stringify({ error: 'Profile read unavailable' }),
+              })
+            : route.continue()
+    )
+    let posts = 0
+    page.on('request', request => {
+        if (request.method() === 'POST' && request.url().endsWith('/posts')) posts++
+    })
+    const refusedProfile = page.waitForResponse(
+        response => response.status() === 503 && response.url().endsWith('/profile')
+    )
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    await refusedProfile
+    await expect(page.locator('[data-new-publication-form]')).toHaveAttribute('aria-busy', 'false')
+    expect(posts).toBe(0)
+    await expect(source).toHaveText('Shared projection source')
+    await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(2)
+    blockProfile = false
+    const createdResponse = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    const response = await createdResponse
+    expect(response.status()).toBe(201)
+    expect(posts).toBe(1)
+    const created = await response.json()
+    const submitted = response.request().postDataJSON()
+    expect(created.post.sourceContent.body.text).toBe('Shared projection source')
+    expect(
+        created.post.sourceContent.media.map((item: { assetId: string }) => item.assetId)
+    ).toEqual([second, first])
+    for (const channel of channels) {
+        const publication = created.publications.find(
+            (item: { channelId: string }) => item.channelId === channel.id
+        )
+        const result = await page.request.get(
+            `/api/projects/${projectId}/publications/${publication.id}/editor`
+        )
+        expect(result.status()).toBe(200)
+        const { editor } = await result.json()
+        expect(editor.draft.reviewState).toBe('compatible')
+        expect(editor.draft.validationIssues).toEqual([])
+        const content = channel.nested ? editor.draft.content.article : editor.draft.content
+        expect(content.body).toBe(
+            channel.customized ? 'Explicit projection text' : 'Shared projection source'
+        )
+        expect(content.media.map((item: { assetId: string }) => item.assetId)).toEqual([
+            second,
+            first,
+        ])
+        expect(
+            submitted.publications.find(
+                (item: { channelId: string }) => item.channelId === channel.id
+            ).targetContent === undefined
+        ).toBe(!channel.customized)
+    }
+})
+
 /** A 1x1 PNG, matching the fixture already used by the media journey. */
 const previewPng = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',

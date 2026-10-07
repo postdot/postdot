@@ -1,3 +1,4 @@
+import { adaptSourceContentToProfile } from '@herald/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
     createContext,
@@ -357,26 +358,8 @@ export function ProjectDashboardProvider({
             const selectedChannel = activeChannels.find(channel => channel.id === target.channelId)
             if (selectedChannel === undefined) return null
 
-            const copy = target.content.trim()
-            const targetContent =
-                selectedChannel.profileId === 'devto'
-                    ? {
-                          title: postTitle.trim(),
-                          body_markdown: copy === '' ? postContent : copy,
-                          media: [...sourceMedia],
-                      }
-                    : copy === ''
-                      ? undefined
-                      : selectedChannel.profileId === 'linkedin'
-                        ? { commentary: copy, media: [...sourceMedia] }
-                        : selectedChannel.profileId === 'bluesky' ||
-                            selectedChannel.profileId === 'mastodon'
-                          ? { text: copy, media: [...sourceMedia] }
-                          : { body: copy, media: [...sourceMedia] }
-
             return {
                 channelId: target.channelId,
-                targetContent,
                 deliveryMode: target.deliveryMode,
                 scheduledAt: scheduledTimestamp,
             }
@@ -396,6 +379,36 @@ export function ProjectDashboardProvider({
 
         let createdPublications: Publication[] | null = null
         const succeeded = await runAction(async () => {
+            // Read at submission, not from a potentially stale profile cache.
+            // Unmodified destinations retain server-owned source projection.
+            const publications = await Promise.all(
+                validPublicationInputs.map(async input => {
+                    const target = publicationTargets.find(
+                        item => item.channelId === input.channelId
+                    )!
+                    const channel = activeChannels.find(item => item.id === input.channelId)!
+                    const copy = target.content.trim()
+                    // Preserve the existing article override, including title-only drafts.
+                    if (copy === '' && channel.profileId !== 'devto') return input
+                    const { active } = await api.getChannelProfileState(project.id, input.channelId)
+                    return {
+                        ...input,
+                        targetContent: adaptSourceContentToProfile(
+                            {
+                                ...(postTitle.trim() === '' && channel.profileId !== 'devto'
+                                    ? {}
+                                    : { headline: postTitle.trim() }),
+                                body: {
+                                    text: copy === '' ? postContent : copy,
+                                    format: 'plain_text',
+                                },
+                                media: sourceMedia,
+                            },
+                            active.profile
+                        ),
+                    }
+                })
+            )
             const response = await api.createPost(project.id, {
                 title: postTitle.trim() === '' ? undefined : postTitle,
                 sourceContent: {
@@ -405,7 +418,7 @@ export function ProjectDashboardProvider({
                         : { body: { text: sourceBody, format: 'plain_text' as const } }),
                     media: sourceMedia,
                 },
-                publications: validPublicationInputs,
+                publications,
             })
             createdPublications = response.publications
             let tagAssignmentError: unknown = null
