@@ -37,13 +37,20 @@ export function ChannelProfileEditorDialog({
     const [profileText, setProfileText] = useState('')
     const [savedProfileText, setSavedProfileText] = useState('')
     const session = useRef(0)
+    const titleRef = useRef<HTMLHeadingElement>(null)
     const [draftId, setDraftId] = useState<string | null>(null)
     const [draftRevision, setDraftRevision] = useState<number | undefined>(undefined)
     const [assessment, setAssessment] = useState<ChannelProfileAssessment | null>(null)
     const [editing, setEditing] = useState(true)
+    const [stage, setStage] = useState<'edit' | 'confirm' | 'activated'>('edit')
+    const [reloadRequired, setReloadRequired] = useState(false)
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (stage !== 'edit') titleRef.current?.focus()
+    }, [stage])
 
     useEffect(() => {
         if (!open || channel === null) return
@@ -59,6 +66,8 @@ export function ChannelProfileEditorDialog({
         setError(null)
         setAssessment(null)
         setEditing(true)
+        setStage('edit')
+        setReloadRequired(false)
         void api
             .getChannelProfileState(channel.projectId, channel.id)
             .then(state => {
@@ -122,8 +131,8 @@ export function ChannelProfileEditorDialog({
         }
     }
 
-    async function previewDraft() {
-        if (draftId === null) {
+    async function previewDraft(confirm = false) {
+        if (draftId === null || profileText !== savedProfileText) {
             setError(m.profile_save_before_preview())
             return
         }
@@ -139,6 +148,7 @@ export function ChannelProfileEditorDialog({
             if (epoch !== session.current) return
             setAssessment(response.assessment)
             setEditing(false)
+            setStage(confirm ? 'confirm' : 'edit')
         } catch (caughtError) {
             if (epoch === session.current) setError(formatApiError(caughtError))
         } finally {
@@ -147,7 +157,12 @@ export function ChannelProfileEditorDialog({
     }
 
     async function activateDraft() {
-        if (draftId === null || assessment === null) {
+        if (
+            draftId === null ||
+            assessment === null ||
+            stage !== 'confirm' ||
+            profileText !== savedProfileText
+        ) {
             setError(m.profile_preview_before_activate())
             return
         }
@@ -155,20 +170,56 @@ export function ChannelProfileEditorDialog({
         setSaving(true)
         setError(null)
         try {
-            await api.activateChannelProfile(
+            const result = await api.activateChannelProfile(
                 currentChannel.projectId,
                 currentChannel.id,
                 draftId,
                 draftRevision
             )
             if (epoch !== session.current) return
-            await onRefreshProject()
+            setAssessment(result.assessment)
+            setStage('activated')
+            try {
+                await onRefreshProject()
+            } catch (caughtError) {
+                if (epoch === session.current) setError(formatApiError(caughtError))
+            }
+        } catch (caughtError) {
+            if (epoch === session.current) {
+                setError(formatApiError(caughtError))
+                setStage('edit')
+                setAssessment(null)
+                setReloadRequired(true)
+            }
+        } finally {
+            if (epoch === session.current) setSaving(false)
+        }
+    }
+
+    async function reloadSavedProfile() {
+        const epoch = session.current
+        setLoading(true)
+        try {
+            const state = await api.getChannelProfileState(
+                currentChannel.projectId,
+                currentChannel.id
+            )
             if (epoch !== session.current) return
-            onOpenChange(false)
+            const version = state.draft ?? state.active
+            const text = JSON.stringify(version.profile, null, 2)
+            setProfileText(text)
+            setSavedProfileText(text)
+            setDraftId(state.draft?.id ?? null)
+            setDraftRevision(state.draft?.revision)
+            setAssessment(null)
+            setEditing(true)
+            setStage('edit')
+            setError(null)
+            setReloadRequired(false)
         } catch (caughtError) {
             if (epoch === session.current) setError(formatApiError(caughtError))
         } finally {
-            if (epoch === session.current) setSaving(false)
+            if (epoch === session.current) setLoading(false)
         }
     }
 
@@ -179,84 +230,132 @@ export function ChannelProfileEditorDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[min(46rem,calc(100dvh-2rem))] max-w-[calc(100vw_-_2rem)] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
-                    <DialogTitle>
-                        {m.profile_editor_title({ channel: currentChannel.name })}
+                    <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
+                        {stage === 'confirm'
+                            ? m.profile_activation_confirm_title({ channel: currentChannel.name })
+                            : stage === 'activated'
+                              ? m.profile_activated_title({ channel: currentChannel.name })
+                              : m.profile_editor_title({ channel: currentChannel.name })}
                     </DialogTitle>
-                    <DialogDescription>{m.profile_editor_description()}</DialogDescription>
+                    <DialogDescription>
+                        {stage === 'confirm'
+                            ? m.profile_activation_consequence()
+                            : m.profile_editor_description()}
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="grid gap-4">
-                    <details
-                        open={editing}
-                        onToggle={event => setEditing(event.currentTarget.open)}>
-                        <summary className="cursor-pointer font-medium">{m.profile_json()}</summary>
-                        <Field className="mt-3 gap-1.5">
-                            <FieldLabel htmlFor="channel-profile-json">
+                    {stage === 'edit' ? (
+                        <details
+                            open={editing}
+                            onToggle={event => setEditing(event.currentTarget.open)}>
+                            <summary className="cursor-pointer font-medium">
                                 {m.profile_json()}
-                            </FieldLabel>
-                            <Textarea
-                                id="channel-profile-json"
-                                value={profileText}
-                                onChange={event => {
-                                    setProfileText(event.target.value)
-                                    setAssessment(null)
-                                }}
-                                spellCheck={false}
-                                rows={10}
-                                disabled={busy}
-                                className="field-sizing-fixed max-h-64 overflow-y-auto font-mono text-xs leading-5"
-                            />
-                            <FieldDescription>
-                                {unsaved
-                                    ? m.profile_save_before_preview()
-                                    : m.profile_json_description()}
-                            </FieldDescription>
-                        </Field>
-                    </details>
+                            </summary>
+                            <Field className="mt-3 gap-1.5">
+                                <FieldLabel htmlFor="channel-profile-json">
+                                    {m.profile_json()}
+                                </FieldLabel>
+                                <Textarea
+                                    id="channel-profile-json"
+                                    value={profileText}
+                                    onChange={event => {
+                                        setProfileText(event.target.value)
+                                        setAssessment(null)
+                                    }}
+                                    spellCheck={false}
+                                    rows={10}
+                                    readOnly={reloadRequired}
+                                    disabled={busy}
+                                    className="field-sizing-fixed max-h-64 overflow-y-auto font-mono text-xs leading-5"
+                                />
+                                <FieldDescription>
+                                    {unsaved
+                                        ? m.profile_save_before_preview()
+                                        : m.profile_json_description()}
+                                </FieldDescription>
+                            </Field>
+                        </details>
+                    ) : null}
 
                     {error ? (
                         <Alert variant="destructive">
-                            <AlertTitle>{m.profile_action_failed()}</AlertTitle>
-                            <AlertDescription>{error}</AlertDescription>
+                            <AlertTitle>
+                                {stage === 'activated'
+                                    ? m.profile_activation_refresh_failed()
+                                    : m.profile_action_failed()}
+                            </AlertTitle>
+                            <AlertDescription>
+                                {error}
+                                {reloadRequired ? (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={busy}
+                                        onClick={() => void reloadSavedProfile()}>
+                                        {m.profile_activation_reload()}
+                                    </Button>
+                                ) : null}
+                            </AlertDescription>
                         </Alert>
                     ) : null}
 
                     {assessment ? (
                         <ChannelProfileImpactPreview
                             assessment={assessment}
+                            activated={stage === 'activated'}
                             projectId={currentChannel.projectId}
                             onInspect={() => onOpenChange(false)}
                         />
                     ) : null}
                 </div>
 
-                <DialogFooter className="flex-wrap sm:justify-between">
-                    <div className="flex flex-wrap gap-2">
+                {stage !== 'activated' ? (
+                    <DialogFooter className="flex-wrap sm:justify-between">
+                        {stage === 'confirm' ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={busy}
+                                onClick={() => setStage('edit')}>
+                                {m.profile_activation_back()}
+                            </Button>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => void saveDraft()}
+                                    disabled={busy || reloadRequired}>
+                                    <CodeFileIcon aria-hidden="true" />
+                                    {m.profile_save_draft()}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => void previewDraft()}
+                                    disabled={
+                                        busy || draftId === null || unsaved || reloadRequired
+                                    }>
+                                    <RefreshIcon aria-hidden="true" />
+                                    {m.profile_preview_impact()}
+                                </Button>
+                            </div>
+                        )}
                         <Button
                             type="button"
-                            variant="outline"
-                            onClick={() => void saveDraft()}
-                            disabled={busy}>
-                            <CodeFileIcon aria-hidden="true" />
-                            {m.profile_save_draft()}
+                            onClick={() =>
+                                stage === 'confirm' ? void activateDraft() : void previewDraft(true)
+                            }
+                            disabled={busy || assessment === null || unsaved || reloadRequired}>
+                            <CheckIcon aria-hidden="true" />
+                            {stage === 'confirm'
+                                ? m.profile_activation_confirm()
+                                : m.profile_activation_review()}
                         </Button>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void previewDraft()}
-                            disabled={busy || draftId === null || unsaved}>
-                            <RefreshIcon aria-hidden="true" />
-                            {m.profile_preview_impact()}
-                        </Button>
-                    </div>
-                    <Button
-                        type="button"
-                        onClick={() => void activateDraft()}
-                        disabled={busy || assessment === null || assessment.hasReviewRequired}>
-                        <CheckIcon aria-hidden="true" />
-                        {m.profile_activate()}
-                    </Button>
-                </DialogFooter>
+                    </DialogFooter>
+                ) : null}
             </DialogContent>
         </Dialog>
     )

@@ -22,10 +22,12 @@ function groupProfileImpact(assessment: ChannelProfileAssessment) {
 
 export function ChannelProfileImpactPreview({
     assessment,
+    activated = false,
     projectId,
     onInspect,
 }: {
     assessment: ChannelProfileAssessment
+    activated?: boolean
     projectId: string
     onInspect: () => void
 }) {
@@ -68,7 +70,13 @@ export function ChannelProfileImpactPreview({
                 </p>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-                {assessment.hasReviewRequired ? m.profile_review_required() : m.profile_ready()}
+                {activated
+                    ? assessment.hasReviewRequired
+                        ? m.profile_activation_review_remains()
+                        : m.profile_activation_compatible()
+                    : assessment.hasReviewRequired
+                      ? m.profile_review_required()
+                      : m.profile_ready()}
             </p>
             {rows.length === 0 ? (
                 <p className="mt-4 text-sm">{m.profile_impact_empty()}</p>
@@ -167,9 +175,11 @@ export function ChannelProfileImpactPreview({
                     </ul>
                 </details>
             ) : null}
-            <p className="mt-3 text-xs text-muted-foreground">
-                {m.profile_impact_adaptation_note()}
-            </p>
+            {!activated && rows.length > 0 ? (
+                <p className="mt-3 text-xs text-muted-foreground">
+                    {m.profile_impact_adaptation_note()}
+                </p>
+            ) : null}
         </section>
     )
 }

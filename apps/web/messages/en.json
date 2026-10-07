@@ -642,7 +642,7 @@
     "profile_must_be_object": "The profile must be a JSON object.",
     "profile_invalid_json": "The profile is not valid JSON.",
     "profile_action_failed": "Profile action failed",
-    "profile_review_required": "Review required before activation",
+    "profile_review_required": "Some publications need review",
     "profile_ready": "Profile is ready to activate",
     "profile_save_draft": "Save draft",
     "profile_preview_impact": "Preview impact",
@@ -1996,5 +1996,15 @@
     "profile_impact_draft": "Working draft",
     "profile_impact_target": "Selected target awaiting delivery",
     "profile_impact_review": "Needs review",
-    "profile_impact_adaptation_note": "Adaptation is available in the publication editor once the new profile is active."
+    "profile_impact_adaptation_note": "Adaptation is available in the publication editor once the new profile is active.",
+    "profile_activation_confirm_title": "Activate {channel} profile?",
+    "profile_activation_consequence": "The new profile becomes active. Content and scheduled times are kept. Selected versions marked “Needs review” cannot be delivered until reviewed; nothing is adapted automatically.",
+    "profile_activation_confirm": "Confirm activation",
+    "profile_activation_back": "Back to profile",
+    "profile_activated_title": "{channel} profile activated",
+    "profile_activation_refresh_failed": "Profile activated, but the project could not be refreshed",
+    "profile_activation_review_remains": "Open the publications needing review to adapt their drafts. Incompatible selected versions remain blocked from delivery.",
+    "profile_activation_compatible": "The publications remain compatible. Their content has not been changed.",
+    "profile_activation_reload": "Reload saved profile",
+    "profile_activation_review": "Review activation"
 }
