@@ -192,6 +192,7 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
             'apps/api/src/modules/publishers/**',
             'apps/api/src/modules/projects/channel-routes.ts',
             'apps/api/src/modules/projects/channel-profile-routes.ts',
+            'apps/api/src/modules/projects/profile-validation-feedback.ts',
             'apps/api/src/modules/projects/channel-profile-presets.ts',
             'apps/api/src/modules/projects/channel-profile-preset-routes.ts',
             'apps/api/src/modules/projects/publisher-routes.ts',
@@ -202,6 +203,7 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
             'apps/web/src/components/publisher-connection-panel.tsx',
             'apps/web/src/components/identity-visuals.tsx',
             'apps/web/src/lib/publisher-connection-feedback.ts',
+            'apps/web/src/lib/profile-validation-feedback.ts',
             'packages/bluesky/**',
             'packages/custom-http/**',
             'packages/devto/**',
@@ -214,6 +216,7 @@ export const FUNCTIONAL_DOMAINS: readonly FunctionalDomain[] = [
         specs: [
             'e2e/channel-authoring-identity.spec.ts',
             'e2e/channel-profile-presets.spec.ts',
+            'e2e/profile-definition-validation.spec.ts',
             'e2e/channel-x-connection.spec.ts',
             'e2e/design-121-instance-scope.spec.ts',
             'e2e/provider-application-settings.spec.ts',

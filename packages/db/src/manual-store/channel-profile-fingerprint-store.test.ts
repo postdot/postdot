@@ -1,6 +1,10 @@
 import { expect, test } from 'bun:test'
 
-import { createManualChannelProfile } from '@herald/core'
+import {
+    ChannelProfileValidationError,
+    type ChannelProfileDraftDefinition,
+    createManualChannelProfile,
+} from '@herald/core'
 
 import { closeDatabase, createDatabase } from '../client'
 import { createManualStore } from '../manual-store'
@@ -100,6 +104,19 @@ test('draft save owns fingerprints, preserves historical work and guards concurr
                 expectedRevision: 3,
             })
         ).toThrow('cannot change profile origin')
+        expect(() =>
+            store.createChannelProfileDraft({
+                ...stateInput,
+                expectedRevision: unchanged.revision,
+                profile: {
+                    ...editable,
+                    capabilities: null,
+                } as unknown as ChannelProfileDraftDefinition,
+            })
+        ).toThrow(ChannelProfileValidationError)
+        expect(store.getChannelProfileState(project.id, channel.id, 'operator')!.draft).toEqual(
+            unchanged
+        )
         expect(store.getChannelProfileState(project.id, channel.id, 'operator')!.active).toEqual(
             original
         )

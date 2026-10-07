@@ -1,3 +1,4 @@
+import { ChannelProfileValidationError } from '@herald/core'
 import type { AccessStore } from '@herald/db'
 import { Type } from 'typebox'
 
@@ -14,6 +15,7 @@ import {
     resolveChannelProfile,
     saveChannelProfileDraftBody,
 } from './models'
+import { profileDraftErrorResponse, profileValidationFeedback } from './profile-validation-feedback'
 import type { AuthenticatedElysia, ManualStore } from './types'
 
 export function registerChannelProfileRoutes<const Routes extends Record<string, unknown>>(
@@ -61,7 +63,7 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                 params: channelParams,
                 response: {
                     200: Type.Object({ profile: channelProfileVersionSchema }),
-                    400: errorResponse,
+                    400: profileDraftErrorResponse,
                     401: errorResponse,
                     403: errorResponse,
                     404: errorResponse,
@@ -85,13 +87,21 @@ export function registerChannelProfileRoutes<const Routes extends Record<string,
                 ) {
                     return status(403, forbiddenProjectMutation())
                 }
-                const profile = manualStore.createChannelProfileDraft({
-                    projectId: params.projectId,
-                    channelId: params.channelId,
-                    subjectId: user.id,
-                    profile: resolveChannelProfile(body.profile),
-                    expectedRevision: body.expectedRevision,
-                })
+                let profile
+                try {
+                    profile = manualStore.createChannelProfileDraft({
+                        projectId: params.projectId,
+                        channelId: params.channelId,
+                        subjectId: user.id,
+                        profile: resolveChannelProfile(body.profile),
+                        expectedRevision: body.expectedRevision,
+                    })
+                } catch (error) {
+                    if (error instanceof ChannelProfileValidationError) {
+                        return status(400, profileValidationFeedback(error))
+                    }
+                    throw error
+                }
                 if (profile === null) {
                     return status(404, {
                         error: { code: 'not_found', message: 'Channel not found' },

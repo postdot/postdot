@@ -247,6 +247,99 @@ async function readStreamChunk(response: Response) {
 }
 
 describe('Herald API', () => {
+    it('returns safe profile field issues for malformed drafts without changing saved state', async () => {
+        const { app, database } = createFixture()
+        try {
+            const cookie = await signUp(app)
+            const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Profile validation' }),
+            })
+            const { project } = (await projectResponse.json()) as { project: { id: string } }
+            const channelResponse = await jsonRequest(
+                app,
+                `/api/projects/${project.id}/channels`,
+                cookie,
+                { method: 'POST', body: JSON.stringify({ name: 'Validation channel' }) }
+            )
+            const { channel } = (await channelResponse.json()) as { channel: { id: string } }
+            const path = `/api/projects/${project.id}/channels/${channel.id}`
+            const original = (await (await jsonRequest(app, `${path}/profile`, cookie)).json()) as {
+                active: { profile: Record<string, unknown> }
+            }
+            for (const [field, value, issuePath] of [
+                ['capabilities', null, '/capabilities'],
+                ['fieldBindings', {}, '/fieldBindings'],
+                ['execution', null, '/execution'],
+            ] as const) {
+                const response = await jsonRequest(app, `${path}/profile-drafts`, cookie, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        profile: { ...original.active.profile, [field]: value },
+                    }),
+                })
+                expect(response.status).toBe(400)
+                const body = (await response.json()) as {
+                    error: { code: string; issues: { path: string; code: string }[] }
+                }
+                expect(body.error.code).toBe('invalid_content')
+                expect(body.error.issues).toContainEqual(
+                    expect.objectContaining({ path: issuePath })
+                )
+                expect(await (await jsonRequest(app, `${path}/profile`, cookie)).json()).toEqual(
+                    original
+                )
+            }
+            const invalid = structuredClone(original.active.profile)
+            const capabilities = invalid.capabilities as { textFields: { bindingId: string }[] }
+            capabilities.textFields[0]!.bindingId = 'FAKE_SENTINEL'
+            const rejected = await jsonRequest(app, `${path}/profile-drafts`, cookie, {
+                method: 'POST',
+                body: JSON.stringify({ profile: invalid }),
+            })
+            expect(rejected.status).toBe(400)
+            const text = await rejected.text()
+            expect(text).not.toContain('FAKE_SENTINEL')
+            expect(JSON.parse(text).error.issues).toContainEqual({
+                path: '/capabilities/textFields/0/bindingId',
+                code: 'capability.binding_missing',
+            })
+            const valid = await jsonRequest(app, `${path}/profile-drafts`, cookie, {
+                method: 'POST',
+                body: JSON.stringify({ profile: original.active.profile }),
+            })
+            expect(valid.status).toBe(200)
+            const saved = (await valid.json()) as { profile: { revision: number } }
+            const savedState = await (await jsonRequest(app, `${path}/profile`, cookie)).json()
+            const invalidUpdate = await jsonRequest(app, `${path}/profile-drafts`, cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    profile: invalid,
+                    expectedRevision: saved.profile.revision,
+                }),
+            })
+            expect(invalidUpdate.status).toBe(400)
+            expect(await (await jsonRequest(app, `${path}/profile`, cookie)).json()).toEqual(
+                savedState
+            )
+            const conflict = await jsonRequest(app, `${path}/profile-drafts`, cookie, {
+                method: 'POST',
+                body: JSON.stringify({
+                    profile: original.active.profile,
+                    expectedRevision: saved.profile.revision - 1,
+                }),
+            })
+            expect(conflict.status).toBe(409)
+            const conflictBody = (await conflict.json()) as {
+                error: { code: string; issues?: unknown }
+            }
+            expect(conflictBody.error.code).toBe('write_conflict')
+            expect(conflictBody.error.issues).toBeUndefined()
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
     it('serves authenticated Prometheus scrapes over HTTP and reflects worker updates', async () => {
         const metrics = createHeraldMetrics()
         metrics.bindScheduler({ state: 'running' })

@@ -1,6 +1,7 @@
 import type { TSchema } from 'typebox'
 import Schema from 'typebox/schema'
 
+import { channelProfileStructureIssues } from './channel-profile-structure'
 import {
     type DeclarativeHttpExecutionContract,
     validateDeclarativeHttpExecution,
@@ -779,7 +780,10 @@ function validateProfileDefinition(profile: ChannelProfileDefinition): Validatio
 
     if (profile.origin === 'custom') {
         const policy = validateCustomContentSchema(profile.contentSchema)
-        if (!policy.ok) issues.push(...policy.issues)
+        if (!policy.ok)
+            issues.push(
+                ...policy.issues.map(issue => ({ ...issue, path: `/contentSchema${issue.path}` }))
+            )
     }
 
     issues.push(...validateFieldBindings(profile), ...validateCapabilities(profile))
@@ -906,6 +910,8 @@ export class ChannelProfileCompiler {
     }
 
     compile(profile: ChannelProfileDefinition): ValidationResult<CompiledChannelProfile> {
+        const structureIssues = channelProfileStructureIssues(profile)
+        if (hasValidationErrors(structureIssues)) return validationFailure(structureIssues)
         let snapshot: ChannelProfileDefinition
 
         try {
@@ -946,6 +952,12 @@ export class ChannelProfileCompiler {
             ])
         }
 
+        const preparedStructureIssues = channelProfileStructureIssues(validationProfile)
+        if (hasValidationErrors(preparedStructureIssues)) {
+            return validationFailure(
+                preparedStructureIssues.map(issue => ({ ...issue, source: 'module' as const }))
+            )
+        }
         const preparedDefinitionIssues = validateProfileDefinition(validationProfile)
         if (hasValidationErrors(preparedDefinitionIssues)) {
             return validationFailure(preparedDefinitionIssues)

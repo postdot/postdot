@@ -16,8 +16,16 @@ import { RefreshIcon } from '@solar-icons/react/linear/refresh'
 import { useEffect, useRef, useState } from 'react'
 
 import { ChannelProfileImpactPreview } from '@/components/channel-profile-impact-preview'
-import { api, formatApiError, type Channel, type ChannelProfileAssessment } from '@/lib/api'
+import {
+    api,
+    ApiError,
+    formatApiError,
+    type ProfileDefinitionIssue,
+    type Channel,
+    type ChannelProfileAssessment,
+} from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { profileIssueMessage } from '@/lib/profile-validation-feedback'
 import * as m from '@/paraglide/messages.js'
 
 export function ChannelProfileEditorDialog({
@@ -47,7 +55,14 @@ export function ChannelProfileEditorDialog({
     const [reloadRequired, setReloadRequired] = useState(false)
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setErrorText] = useState<string | null>(null)
+    const [definitionIssues, setDefinitionIssues] = useState<readonly ProfileDefinitionIssue[]>([])
+    const [definitionIssueCount, setDefinitionIssueCount] = useState(0)
+    function setError(value: string | null) {
+        setErrorText(value)
+        setDefinitionIssues([])
+        setDefinitionIssueCount(0)
+    }
 
     useEffect(() => {
         if (stage !== 'edit') titleRef.current?.focus()
@@ -135,7 +150,18 @@ export function ChannelProfileEditorDialog({
             setSavedProfileText(presentation.text)
             setMetadata(presentation.metadata)
         } catch (caughtError) {
-            if (epoch === session.current) setError(formatApiError(caughtError))
+            if (epoch === session.current) {
+                if (
+                    caughtError instanceof ApiError &&
+                    caughtError.status === 400 &&
+                    caughtError.code === 'invalid_content' &&
+                    caughtError.profileIssues.length > 0
+                ) {
+                    setError(m.profile_definition_invalid())
+                    setDefinitionIssues(caughtError.profileIssues)
+                    setDefinitionIssueCount(caughtError.profileIssueCount)
+                } else setError(formatApiError(caughtError))
+            }
         } finally {
             if (epoch === session.current) setSaving(false)
         }
@@ -272,6 +298,7 @@ export function ChannelProfileEditorDialog({
                                     value={profileText}
                                     onChange={event => {
                                         setProfileText(event.target.value)
+                                        setError(null)
                                         setAssessment(null)
                                     }}
                                     spellCheck={false}
@@ -317,10 +344,36 @@ export function ChannelProfileEditorDialog({
                             <AlertTitle>
                                 {stage === 'activated'
                                     ? m.profile_activation_refresh_failed()
-                                    : m.profile_action_failed()}
+                                    : definitionIssues.length > 0
+                                      ? m.profile_definition_invalid()
+                                      : m.profile_action_failed()}
                             </AlertTitle>
                             <AlertDescription>
-                                {error}
+                                {definitionIssues.length > 0 ? (
+                                    <>
+                                        <ul className="space-y-2">
+                                            {definitionIssues.map((issue, index) => (
+                                                <li key={`${issue.path}:${issue.code}:${index}`}>
+                                                    <code className="block break-all text-xs">
+                                                        {issue.path || m.profile_definition_root()}
+                                                    </code>
+                                                    <span>{profileIssueMessage(issue.code)}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                        {definitionIssueCount > definitionIssues.length ? (
+                                            <p className="mt-2">
+                                                {m.profile_issue_more({
+                                                    count:
+                                                        definitionIssueCount -
+                                                        definitionIssues.length,
+                                                })}
+                                            </p>
+                                        ) : null}
+                                    </>
+                                ) : (
+                                    error
+                                )}
                                 {reloadRequired ? (
                                     <Button
                                         type="button"

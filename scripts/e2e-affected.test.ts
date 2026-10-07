@@ -26,6 +26,23 @@ const KNOWN_SPECS = [
     'e2e/web-314-editor-access-state.spec.ts',
 ]
 
+test('profile feedback helpers select the registered validation journey', () => {
+    for (const path of [
+        'apps/api/src/modules/projects/profile-validation-feedback.ts',
+        'apps/web/src/lib/profile-validation-feedback.ts',
+    ]) {
+        const result = resolveAffectedScenarios(
+            [path],
+            ['e2e/profile-definition-validation.spec.ts']
+        )
+        expect(result.mode).toBe('targeted')
+        if (result.mode === 'targeted')
+            expect(result.scenarios.map(scenario => scenario.spec)).toContain(
+                'e2e/profile-definition-validation.spec.ts'
+            )
+    }
+})
+
 describe('pattern matching', () => {
     test('single star does not cross a path separator', () => {
         expect(

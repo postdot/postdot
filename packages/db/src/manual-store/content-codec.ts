@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import {
     DomainInvariantError,
+    ChannelProfileValidationError,
     type ChannelProfileDefinition,
     type SourceContent,
     type TargetContent,
@@ -78,10 +79,7 @@ export function parseJsonStringArray(value: string, label: string): readonly str
 }
 
 export function invalidProfileError(issues: readonly ValidationIssue[]): DomainInvariantError {
-    return new DomainInvariantError(
-        'invalid_content',
-        `Channel profile is invalid: ${issues.map(issue => issue.message).join('; ')}`
-    )
+    return new ChannelProfileValidationError(issues)
 }
 
 export function invalidSourceContentError(

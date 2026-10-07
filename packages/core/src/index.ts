@@ -1,4 +1,5 @@
 export * from './channel-profile'
+export * from './channel-profile-validation'
 export * from './channel-transport'
 export * from './channel-profile-evolution'
 export * from './domain-event'

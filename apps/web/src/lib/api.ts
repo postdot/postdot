@@ -384,12 +384,24 @@ export type ChannelLifecycleBlocker =
     | 'publisher'
     | 'must_be_archived'
 
+export interface ProfileDefinitionIssue {
+    readonly code: string
+    readonly path: string
+}
+
 export class ApiError extends Error {
     readonly status: number
     readonly code: string
     readonly blockers: readonly string[]
 
-    constructor(status: number, code: string, message: string, blockers: readonly string[] = []) {
+    constructor(
+        status: number,
+        code: string,
+        message: string,
+        blockers: readonly string[] = [],
+        readonly profileIssues: readonly ProfileDefinitionIssue[] = [],
+        readonly profileIssueCount: number = profileIssues.length
+    ) {
         super(message)
         this.name = 'ApiError'
         this.status = status
@@ -416,7 +428,24 @@ function errorFrom(status: number, value: unknown) {
         status,
         typeof details?.code === 'string' ? details.code : 'request_failed',
         typeof details?.message === 'string' ? details.message : '',
-        blockers
+        blockers,
+        Array.isArray(details?.issues)
+            ? details.issues
+                  .filter(
+                      (issue): issue is ProfileDefinitionIssue =>
+                          typeof issue === 'object' &&
+                          issue !== null &&
+                          typeof issue.code === 'string' &&
+                          typeof issue.path === 'string' &&
+                          issue.path.length <= 512
+                  )
+                  .slice(0, 20)
+            : [],
+        typeof details?.issueCount === 'number' &&
+            Number.isSafeInteger(details.issueCount) &&
+            details.issueCount > 0
+            ? details.issueCount
+            : 0
     )
 }
 
