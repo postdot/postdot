@@ -375,10 +375,10 @@ test('a technical error retries once and confirms into a concurrent conflict', a
         // technically, so the machine shows the compact retry state instead of
         // claiming a revocation. Background refetches cannot steal the failure
         // from the verification read this way.
-        let revoked = false
+        let downgraded = false
         let allowRealMembership = false
         await editorPage.route('**/api/projects/*/membership', async route => {
-            if (!revoked || allowRealMembership) {
+            if (!downgraded || allowRealMembership) {
                 await route.continue()
                 return
             }
@@ -389,13 +389,23 @@ test('a technical error retries once and confirms into a concurrent conflict', a
             })
         })
 
-        const removalResponse = await page.request.delete(
-            `/api/projects/${owner.projectId}/members/${member.id}`
+        // A viewer keeps project read access and the SSE subscription. Removing
+        // membership here would legitimately close the stream on its next
+        // authorization check, making the later delivery assertions race the
+        // heartbeat. Actual removal is covered by the other scenarios.
+        const downgradeResponse = await page.request.patch(
+            `/api/projects/${owner.projectId}/members/${member.id}`,
+            { data: { role: 'viewer' } }
         )
-        expect(removalResponse.status()).toBe(200)
-        revoked = true
+        expect(downgradeResponse.status()).toBe(200)
+        downgraded = true
+        const viewerMembership = await editorPage.request.get(
+            `/api/projects/${owner.projectId}/membership`
+        )
+        expect(viewerMembership.status()).toBe(200)
+        expect(await viewerMembership.json()).toMatchObject({ membership: { role: 'viewer' } })
 
-        // The first write attempted after the revocation is refused, which
+        // The first write attempted after the downgrade is refused, which
         // starts verification; the intercepted membership read then fails
         // technically instead of claiming a revocation.
         const triggerBody = editorPage.getByRole('textbox', { name: 'Body', exact: true })
@@ -435,13 +445,11 @@ test('a technical error retries once and confirms into a concurrent conflict', a
         // Access is restored, so the explicit retry confirms and reconciles:
         // the server is newer, the local draft diverges, and the reference
         // revision must not advance silently.
-        const restoredGrant = await page.request.post(
-            `/api/projects/${owner.projectId}/user-grants`,
-            {
-                data: { userId: member.userId, role: 'editor' },
-            }
+        const restoredRole = await page.request.patch(
+            `/api/projects/${owner.projectId}/members/${member.id}`,
+            { data: { role: 'editor' } }
         )
-        expect(restoredGrant.status()).toBe(201)
+        expect(restoredRole.status()).toBe(200)
         allowRealMembership = true
         await editorPage.getByRole('button', { name: 'Retry', exact: true }).click()
         await expect(editorPage.getByText('The server has newer work')).toBeVisible({
@@ -593,30 +601,15 @@ async function driveEditorReread(input: {
     const editorPath = `/api/projects/${input.projectId}/publications/${input.publicationId}/editor`
     const isThisEditor = (url: string): boolean => new URL(url).pathname === editorPath
 
-    // The reread is what this helper claims to cause, so it is observed rather than
-    // assumed, and the observation is tied to one specific request:
-    //
-    //   - a read *start* is captured, not a completion, because a read already in
-    //     flight when the wait is installed would otherwise satisfy a completion
-    //     wait and let an unrelated reread pass for this one;
-    //   - the captured request object is the one whose own response is awaited, so a
-    //     different read finishing in the meantime cannot stand in for it;
-    //   - the body of that response is checked for the revision the owner's save
-    //     produced, so a stale response is rejected on content and not only on
-    //     timing.
-    //
-    // The draft hint is coalesced on a 100 ms timer before it invalidates the editor
-    // query, so the observer starting a fresh read of this exact project and
-    // publication, and receiving that revision, is what shows the signal was
-    // delivered. If delivery were cut, no hint would arrive, no read would start, and
-    // this helper fails instead of leaving the caller with a vacuous assertion.
-    // A box rather than a narrowed variable: the handler runs on a later turn, so
-    // the compiler cannot see that the poll below guarantees it is set by then.
-    const captured: { request: Request | null } = { request: null }
-    input.observerPage.on('request', request => {
-        if (captured.request !== null) return
-        if (request.method() === 'GET' && isThisEditor(request.url())) captured.request = request
-    })
+    // Observe starts before the mutation and pair every candidate with its own
+    // completed response. Background invalidation rounds can start a stale read
+    // first; only a new read carrying the revision produced below is evidence of
+    // current delivery. An already in-flight read cannot enter this collection.
+    const candidates: Request[] = []
+    const capture = (request: Request) => {
+        if (request.method() === 'GET' && isThisEditor(request.url())) candidates.push(request)
+    }
+    input.observerPage.on('request', capture)
     const editorState = await input.ownerPage.request.get(editorPath)
     expect(editorState.status()).toBe(200)
     const revision = ((await editorState.json()) as { editor: { draft: { revision: number } } })
@@ -637,22 +630,35 @@ async function driveEditorReread(input: {
     const savedRevision = ((await saved.json()) as { editor: { draft: { revision: number } } })
         .editor.draft.revision
 
-    await expect
-        .poll(() => captured.request !== null, {
-            timeout: 30_000,
-            message:
-                'The observer never started a new editor read, so the draft hint did not arrive. ' +
-                'Stream delivery may be cut, or the editor query may not be active.',
-        })
-        .toBe(true)
-    const reread = captured.request
-    if (reread === null) throw new Error('The captured editor read was lost')
-    const rereadResponse = await reread.response()
-    expect(rereadResponse).not.toBeNull()
-    if (rereadResponse === null) throw new Error('The reread produced no response')
-    await rereadResponse.finished()
-    const observed = (await rereadResponse.json()) as { editor: { draft: { revision: number } } }
-    expect(observed.editor.draft.revision).toBe(savedRevision)
+    let inspected = 0
+    let deliveredRevision: number | null = null
+    try {
+        await expect
+            .poll(
+                async () => {
+                    while (inspected < candidates.length) {
+                        const request = candidates[inspected++]!
+                        const response = await request.response()
+                        if (response === null || response.status() !== 200) continue
+                        if ((await response.finished()) !== null) continue
+                        const body = (await response.json()) as {
+                            editor: { draft: { revision: number } }
+                        }
+                        deliveredRevision = body.editor.draft.revision
+                        if (deliveredRevision === savedRevision) return true
+                    }
+                    return false
+                },
+                {
+                    timeout: 30_000,
+                    message: 'No new completed editor read carried the owner revision',
+                }
+            )
+            .toBe(true)
+        expect(deliveredRevision).toBe(savedRevision)
+    } finally {
+        input.observerPage.off('request', capture)
+    }
     await input.observerPage.waitForTimeout(SETTLEMENT_OBSERVATION_MS)
 }
 
