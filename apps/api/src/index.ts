@@ -20,6 +20,7 @@ import {
     setDatabaseCommitObserver,
     runMigrations,
 } from '@herald/db'
+import { DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION } from '@herald/discord'
 import {
     createMastodonPublisher,
     MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
@@ -229,6 +230,7 @@ async function startServerWithRuntimeLock(
             oauth: publisher.bluesky,
             resolveOAuth: publisher.resolveBlueskyOAuth,
         }),
+        createDiscordProviderAdapter({ revision: DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION }),
         createDiscordProviderAdapter(),
         createDevtoProviderAdapter(),
         createLinkedInProviderAdapter({

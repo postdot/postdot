@@ -2,13 +2,15 @@ import type { ChannelProfileDefinition } from '@herald/core'
 
 import {
     DISCORD_EXECUTION_CONTRACT_REVISION,
+    DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION,
+    DISCORD_MAX_VIDEO_BYTES,
     DISCORD_MAX_ATTACHMENTS,
     DISCORD_MAX_CONTENT_LENGTH,
     DISCORD_MAX_DESCRIPTION_LENGTH,
     DISCORD_PROVIDER,
 } from './contract'
 
-export const discordChannelProfile: ChannelProfileDefinition = {
+export const discordImageChannelProfile: ChannelProfileDefinition = {
     id: DISCORD_PROVIDER,
     version: 1,
     profileHash: 'sha256:herald-discord-message-v1',
@@ -71,6 +73,36 @@ export const discordChannelProfile: ChannelProfileDefinition = {
             },
         ],
         relations: [],
+    },
+    execution: {
+        kind: 'built_in',
+        contractId: DISCORD_PROVIDER,
+        revision: DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION,
+    },
+}
+
+export const discordChannelProfile: ChannelProfileDefinition = {
+    ...discordImageChannelProfile,
+    version: 2,
+    profileHash: 'sha256:herald-discord-message-v2',
+    schemaHash: 'sha256:herald-discord-message-schema-v2',
+    capabilities: {
+        ...discordImageChannelProfile.capabilities,
+        revision: 'discord-message-v2',
+        mediaFields: discordImageChannelProfile.capabilities.mediaFields.map(field => ({
+            ...field,
+            families: ['image', 'video'],
+            mimeTypes: [...field.mimeTypes, 'video/mp4'],
+            allowMixedFamilies: false,
+            familyConstraints: [
+                {
+                    family: 'video',
+                    maxItems: 1,
+                    maxBytesPerItem: DISCORD_MAX_VIDEO_BYTES,
+                    duration: { minMilliseconds: 3000, maxMilliseconds: 1_800_000 },
+                },
+            ],
+        })),
     },
     execution: {
         kind: 'built_in',

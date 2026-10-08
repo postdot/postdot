@@ -23,6 +23,11 @@ import {
 } from '@herald/db'
 import { auditEvents, providerMediaDeliveries, publications } from '@herald/db/schema'
 import {
+    createDiscordPublisher,
+    discordChannelProfile,
+    discordImageChannelProfile,
+} from '@herald/discord'
+import {
     createLinkedInImagePublisher,
     createLinkedInVideoPublisher,
     createLinkedInTextPublisher,
@@ -40,8 +45,10 @@ import { eq } from 'drizzle-orm'
 import { assessWorkingDraftMedia } from '../../../../../packages/db/src/manual-store/publication-media'
 import { createMediaPublicDelivery } from '../media/public-delivery'
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
+import { discordPublisherConnectionPolicy } from '../publishers/providers/discord'
 import { linkedInPublisherConnectionPolicy } from '../publishers/providers/linkedin'
 import { mastodonPublisherConnectionPolicy } from '../publishers/providers/mastodon'
+import { createDiscordProviderAdapter } from './providers/discord'
 import { createLinkedInProviderAdapter } from './providers/linkedin'
 import { createMastodonProviderAdapter } from './providers/mastodon'
 import { createBuiltInProviderRegistry } from './providers/registry'
@@ -2549,6 +2556,202 @@ for (const scenario of [
             if (scenario === 'upload-ambiguous')
                 expect(deliveries).toEqual([{ state: 'ambiguous', id: null }])
             if (scenario === 'timeout') expect(transfers).toBe(1)
+        } finally {
+            closeDatabase(database)
+            await rm(rootDirectory, { recursive: true, force: true })
+        }
+    })
+}
+
+for (const scenario of ['published', 'refused', 'ambiguous'] as const) {
+    it(`executes native Discord video with durable ${scenario} handling`, async () => {
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-discord-video-'))
+        const database = createDatabase(':memory:')
+        let clock = now
+        try {
+            runMigrations(database)
+            const media = createMediaAssetStore(
+                database,
+                createLocalMediaStore({
+                    storeId: 'local-test',
+                    rootDirectory,
+                    maxObjectBytes: 2_000_000,
+                }),
+                { now: () => clock }
+            )
+            const manualStore = createManualStore(database, { now: () => clock, media })
+            const credentials = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => clock,
+            })
+            const publishers = createPublisherStore(database, {
+                credentialRevoker: credentials,
+                connectionPolicies: { discord: discordPublisherConnectionPolicy },
+                now: () => clock,
+            })
+            const project = manualStore.createProject({
+                name: 'Video project',
+                subjectId: 'video-user',
+                displayName: 'Video editor',
+            })!
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                name: 'Discord video',
+                profile: discordChannelProfile,
+            })!
+            const credential = await credentials.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'discord',
+                externalAccountId: '987654321098765432',
+                scopes: [],
+                accessToken: 'video-secret',
+            })
+            if (credential.kind !== 'created') throw new Error('Credential fixture failed')
+            expect(
+                publishers.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'video-user',
+                    kind: 'discord',
+                    destination: { type: 'channel', id: '123456789012345678', name: 'Video' },
+                    credentialId: credential.credential.id,
+                }).kind
+            ).toBe('created')
+            const bytes = await Bun.file(
+                new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
+            ).bytes()
+            const reserved = media.reserveUpload({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                originalFilename: 'video.mp4',
+                contentType: 'video/mp4',
+                expectedSize: bytes.length,
+            })!
+            expect(
+                await media.upload({
+                    projectId: project.project.id,
+                    subjectId: 'video-user',
+                    intentId: reserved.intent.id,
+                    source: new Blob([bytes]).stream(),
+                })
+            ).toMatchObject({ kind: 'uploaded' })
+            expect(
+                await media.finalizeUpload({
+                    projectId: project.project.id,
+                    subjectId: 'video-user',
+                    intentId: reserved.intent.id,
+                })
+            ).toMatchObject({ kind: 'ready' })
+
+            expect(
+                assessWorkingDraftMedia(
+                    discordImageChannelProfile,
+                    {
+                        text: 'Historical',
+                        media: [{ assetId: reserved.asset.id, accessibilityText: 'Moving scene' }],
+                    },
+                    project.project.id,
+                    'video-user',
+                    media,
+                    false
+                )
+            ).not.toEqual([])
+            expect(
+                assessWorkingDraftMedia(
+                    discordChannelProfile,
+                    {
+                        text: 'Too many',
+                        media: [
+                            { assetId: reserved.asset.id, accessibilityText: 'Moving scene' },
+                            { assetId: reserved.asset.id, accessibilityText: 'Moving scene' },
+                        ],
+                    },
+                    project.project.id,
+                    'video-user',
+                    media,
+                    false
+                )
+            ).not.toEqual([])
+            const post = manualStore.createPost({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                sourceContent: {
+                    body: { text: 'Native Discord video', format: 'plain_text' },
+                    media: [{ assetId: reserved.asset.id, accessibilityText: 'Moving scene' }],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
+                ],
+            })!
+            expect(post).not.toBeNull()
+
+            let dispatches = 0
+            const publisher = createDiscordPublisher({
+                baseUrl: 'https://discord.example',
+                fetcher: async (_url, init) => {
+                    dispatches++
+                    const form = init?.body as FormData
+                    const file = form.get('files[0]') as File
+                    expect(file.type).toBe('video/mp4')
+                    expect(new Uint8Array(await file.arrayBuffer())).toEqual(bytes)
+                    expect(JSON.parse(String(form.get('payload_json')))).toMatchObject({
+                        content: 'Native Discord video',
+                        allowed_mentions: { parse: [] },
+                        attachments: [
+                            { id: 0, filename: 'video.mp4', description: 'Moving scene' },
+                        ],
+                    })
+                    if (scenario === 'ambiguous') throw new Error('secret video-secret')
+                    if (scenario === 'refused')
+                        return Response.json({ message: 'Attachment refused' }, { status: 413 })
+                    return Response.json({
+                        id: '333333333333333333',
+                        channel_id: '123456789012345678',
+                        attachments: [{ id: '444444444444444444' }],
+                    })
+                },
+            })
+            const worker = createPublicationWorker({
+                database,
+                publisherStore: publishers,
+                publisherCredentialStore: credentials,
+                media,
+                builtInProviderRegistry: createBuiltInProviderRegistry([
+                    createDiscordProviderAdapter({ createPublisher: () => publisher }),
+                ]),
+                now: () => clock,
+            })
+            await worker.processDueEvents(clock)
+            expect(database.$client.query('select state from publications').all()).toEqual([
+                {
+                    state:
+                        scenario === 'published'
+                            ? 'published'
+                            : scenario === 'ambiguous'
+                              ? 'ambiguous'
+                              : 'failed',
+                },
+            ])
+            expect(
+                database.$client
+                    .query('select state, remote_media_id as id from provider_media_deliveries')
+                    .all()
+            ).toEqual([
+                {
+                    state:
+                        scenario === 'published'
+                            ? 'uploaded'
+                            : scenario === 'ambiguous'
+                              ? 'ambiguous'
+                              : 'failed',
+                    id: scenario === 'published' ? '444444444444444444' : null,
+                },
+            ])
+            clock += 60_000
+            await worker.processDueEvents(clock)
+            expect(dispatches).toBe(1)
         } finally {
             closeDatabase(database)
             await rm(rootDirectory, { recursive: true, force: true })

@@ -2,6 +2,8 @@ import type { ExternalEffectOutcome } from '@herald/core'
 import type { PublisherExecutionTarget } from '@herald/db'
 import {
     DISCORD_EXECUTION_CONTRACT_REVISION,
+    DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION,
+    DISCORD_MAX_VIDEO_BYTES,
     DISCORD_MAX_ATTACHMENTS,
     DISCORD_MAX_IMAGE_BYTES,
     DISCORD_PROVIDER,
@@ -20,6 +22,9 @@ import type {
 } from './registry'
 
 export interface DiscordProviderAdapterOptions {
+    readonly revision?:
+        | typeof DISCORD_EXECUTION_CONTRACT_REVISION
+        | typeof DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION
     readonly createPublisher?: () => DiscordPublisher
 }
 
@@ -29,10 +34,11 @@ export function createDiscordProviderAdapter(
     return {
         providerId: DISCORD_PROVIDER,
         contractId: DISCORD_PROVIDER,
-        revision: DISCORD_EXECUTION_CONTRACT_REVISION,
+        revision: options.revision ?? DISCORD_EXECUTION_CONTRACT_REVISION,
         execute: input =>
             executeDiscordPublication({
                 input,
+                allowVideo: options.revision !== DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION,
                 createPublisher: options.createPublisher ?? (() => createDiscordPublisher()),
             }),
     }
@@ -40,6 +46,7 @@ export function createDiscordProviderAdapter(
 
 async function executeDiscordPublication(input: {
     readonly input: BuiltInProviderExecutionInput
+    readonly allowVideo: boolean
     readonly createPublisher: () => DiscordPublisher
 }): Promise<ExternalEffectOutcome> {
     const { input: execution, createPublisher } = input
@@ -69,6 +76,7 @@ async function executeDiscordPublication(input: {
 
     const mediaResult = await prepareDiscordMedia({
         target,
+        allowVideo: input.allowVideo,
         media: execution.media,
         providerMediaDeliveryStore: execution.providerMediaDeliveryStore,
         now: execution.now,
@@ -84,7 +92,10 @@ async function executeDiscordPublication(input: {
             content: text,
             attachments: mediaResult.attachments.map(attachment => ({
                 filename: attachment.target.originalFilename,
-                contentType: attachment.target.contentType as 'image/jpeg' | 'image/png',
+                contentType: attachment.target.contentType as
+                    | 'image/jpeg'
+                    | 'image/png'
+                    | 'video/mp4',
                 description: attachment.target.accessibilityText ?? '',
                 stream: attachment.stream,
             })),
@@ -160,6 +171,7 @@ interface PreparedDiscordAttachment {
 
 async function prepareDiscordMedia(input: {
     readonly target: PublisherExecutionTarget
+    readonly allowVideo: boolean
     readonly media: BuiltInProviderExecutionInput['media']
     readonly providerMediaDeliveryStore: ProviderMediaDeliveryPort
     readonly now: number
@@ -168,6 +180,22 @@ async function prepareDiscordMedia(input: {
     | { readonly kind: 'failed'; readonly outcome: ExternalEffectOutcome }
 > {
     if (input.target.media.length === 0) return { kind: 'ready', attachments: [] }
+    const videos = input.target.media.filter(item => item.family === 'video')
+    if (
+        videos.length > 0 &&
+        (!input.allowVideo ||
+            input.target.media.length !== 1 ||
+            videos[0]!.contentType !== 'video/mp4' ||
+            videos[0]!.durationMs === null ||
+            videos[0]!.durationMs < 3000 ||
+            videos[0]!.durationMs > 1_800_000)
+    )
+        return {
+            kind: 'failed',
+            outcome: permanentFailure(
+                'This Discord execution requires one ready MP4 without images'
+            ),
+        }
     if (input.target.media.length > DISCORD_MAX_ATTACHMENTS) {
         return {
             kind: 'failed',
@@ -180,7 +208,7 @@ async function prepareDiscordMedia(input: {
         return {
             kind: 'failed',
             outcome: permanentFailure(
-                'Media lifecycle service is required for Discord image posts'
+                'Media lifecycle service is required for Discord attachments'
             ),
         }
     }
@@ -188,34 +216,45 @@ async function prepareDiscordMedia(input: {
     const prepared: PreparedDiscordAttachment[] = []
     for (const targetMedia of input.target.media) {
         if (
-            targetMedia.family !== 'image' ||
-            (targetMedia.contentType !== 'image/jpeg' && targetMedia.contentType !== 'image/png')
+            !(
+                (targetMedia.family === 'image' &&
+                    (targetMedia.contentType === 'image/jpeg' ||
+                        targetMedia.contentType === 'image/png')) ||
+                (input.allowVideo &&
+                    targetMedia.family === 'video' &&
+                    targetMedia.contentType === 'video/mp4')
+            )
         ) {
             await abortPreparedMedia({
                 store: input.providerMediaDeliveryStore,
                 projectId: input.target.projectId,
                 prepared,
                 errorCode: 'unsupported_media',
-                errorMessage: 'Discord image posts support JPEG and PNG images only',
+                errorMessage: 'Discord attachments support JPEG, PNG and an exclusive MP4 video',
                 now: input.now,
             })
             return {
                 kind: 'failed',
-                outcome: permanentFailure('Discord image posts support JPEG and PNG images only'),
+                outcome: permanentFailure(
+                    'Discord attachments support JPEG, PNG and an exclusive MP4 video'
+                ),
             }
         }
-        if (targetMedia.byteSize > DISCORD_MAX_IMAGE_BYTES) {
+        if (
+            targetMedia.byteSize >
+            (targetMedia.family === 'video' ? DISCORD_MAX_VIDEO_BYTES : DISCORD_MAX_IMAGE_BYTES)
+        ) {
             await abortPreparedMedia({
                 store: input.providerMediaDeliveryStore,
                 projectId: input.target.projectId,
                 prepared,
                 errorCode: 'media_too_large',
-                errorMessage: 'The Discord image exceeds the 10 MiB attachment limit',
+                errorMessage: 'The Discord attachment exceeds the 10 MiB limit',
                 now: input.now,
             })
             return {
                 kind: 'failed',
-                outcome: permanentFailure('The Discord image exceeds the 10 MiB attachment limit'),
+                outcome: permanentFailure('The Discord attachment exceeds the 10 MiB limit'),
             }
         }
         if (targetMedia.accessibilityText === null) {
@@ -224,12 +263,12 @@ async function prepareDiscordMedia(input: {
                 projectId: input.target.projectId,
                 prepared,
                 errorCode: 'missing_accessibility_text',
-                errorMessage: 'Discord images require accessibility text',
+                errorMessage: 'Discord attachments require accessibility text',
                 now: input.now,
             })
             return {
                 kind: 'failed',
-                outcome: permanentFailure('Discord images require accessibility text'),
+                outcome: permanentFailure('Discord attachments require accessibility text'),
             }
         }
 

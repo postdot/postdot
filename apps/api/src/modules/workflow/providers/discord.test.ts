@@ -221,7 +221,7 @@ describe('Discord provider adapter', () => {
 
     it('fails already-started deliveries when a later media fails before dispatch', async () => {
         const first = mediaFixture(0)
-        const secondInvalid = { ...mediaFixture(1).media, family: 'video' as const }
+        const secondInvalid = { ...mediaFixture(1).media, contentType: 'image/gif' }
         const deliveries = createRecordingDeliveryPort()
         const media = createMediaStoreStub(new Uint8Array([1, 2, 3, 4]))
         let dispatched = false

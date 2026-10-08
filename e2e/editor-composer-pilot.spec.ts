@@ -1275,6 +1275,7 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
 for (const [platform, revision] of [
     ['linkedin', 'member-post-v4'],
     ['mastodon', 'status-v2'],
+    ['discord', 'message-v2'],
 ] as const) {
     test(`imports and plays a native ${platform} MP4 and preserves it in the destination draft`, async ({
         page,
@@ -1292,7 +1293,7 @@ for (const [platform, revision] of [
                 originalFilename: 'native-video.mp4',
                 contentType: 'video/mp4',
                 expectedSize: bytes.length,
-                ...(platform === 'mastodon' ? { defaultAccessibilityText: 'A moving scene' } : {}),
+                ...(platform !== 'linkedin' ? { defaultAccessibilityText: 'A moving scene' } : {}),
             },
         })
         expect(reservation.status()).toBe(201)
@@ -1369,7 +1370,7 @@ for (const [platform, revision] of [
         expect(editor.draft.content.media).toEqual([
             {
                 assetId: asset.asset.id,
-                ...(platform === 'mastodon' ? { accessibilityText: 'A moving scene' } : {}),
+                ...(platform !== 'linkedin' ? { accessibilityText: 'A moving scene' } : {}),
             },
         ])
         expect(editor.profile.profile.execution.revision).toBe(revision)

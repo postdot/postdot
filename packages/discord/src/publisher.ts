@@ -13,6 +13,7 @@ import {
     DISCORD_API_VERSION,
     DISCORD_DEFAULT_TIMEOUT_MS,
     DISCORD_MAX_ATTACHMENTS,
+    DISCORD_MAX_VIDEO_BYTES,
     DISCORD_MAX_CONTENT_LENGTH,
     DISCORD_MAX_DESCRIPTION_LENGTH,
 } from './contract'
@@ -153,7 +154,12 @@ function classifyResponse(
                 : 'Discord rate-limited the request; retry later'
         )
     }
-    if (response.status === 400 || response.status === 404 || response.status === 422) {
+    if (
+        response.status === 400 ||
+        response.status === 404 ||
+        response.status === 413 ||
+        response.status === 422
+    ) {
         return permanentFailure('invalid_request', message)
     }
     if (response.status >= 500) {
@@ -336,11 +342,12 @@ export function createDiscordPublisher(options: DiscordPublisherOptions = {}): D
             for (const attachment of input.attachments) {
                 if (
                     attachment.contentType !== 'image/jpeg' &&
-                    attachment.contentType !== 'image/png'
+                    attachment.contentType !== 'image/png' &&
+                    attachment.contentType !== 'video/mp4'
                 ) {
                     return permanentFailure(
                         'invalid_input',
-                        'Discord image posts support JPEG and PNG images only'
+                        'Discord attachments support JPEG, PNG and MP4'
                     )
                 }
                 if (
@@ -354,6 +361,15 @@ export function createDiscordPublisher(options: DiscordPublisherOptions = {}): D
                     )
                 }
             }
+
+            if (
+                input.attachments.some(item => item.contentType === 'video/mp4') &&
+                input.attachments.length !== 1
+            )
+                return permanentFailure(
+                    'invalid_input',
+                    'Discord video posts require one exclusive MP4'
+                )
 
             const url = messageEndpoint(baseUrl, input.channelId)
             let result: JsonResponse | { readonly failure: DiscordOperationFailure }
@@ -392,6 +408,14 @@ export function createDiscordPublisher(options: DiscordPublisherOptions = {}): D
                         const attachment = input.attachments[index]
                         if (attachment === undefined) continue
                         const blob = await new Response(attachment.stream).blob()
+                        if (
+                            attachment.contentType === 'video/mp4' &&
+                            (blob.size === 0 || blob.size > DISCORD_MAX_VIDEO_BYTES)
+                        )
+                            return permanentFailure(
+                                'invalid_input',
+                                'The Discord video exceeds the 10 MiB limit'
+                            )
                         form.append(
                             `files[${index}]`,
                             new Blob([blob], { type: attachment.contentType }),

@@ -3,10 +3,12 @@ import type { ExternalEffectOutcome } from '@herald/core'
 export const DISCORD_PROVIDER = 'discord' as const
 export const DISCORD_API_BASE_URL = 'https://discord.com' as const
 export const DISCORD_API_VERSION = 'v10' as const
-export const DISCORD_EXECUTION_CONTRACT_REVISION = 'message-v1' as const
+export const DISCORD_IMAGE_EXECUTION_CONTRACT_REVISION = 'message-v1' as const
+export const DISCORD_EXECUTION_CONTRACT_REVISION = 'message-v2' as const
 export const DISCORD_MAX_CONTENT_LENGTH = 2_000 as const
 export const DISCORD_MAX_ATTACHMENTS = 10 as const
 export const DISCORD_MAX_IMAGE_BYTES = 10 * 1024 * 1024
+export const DISCORD_MAX_VIDEO_BYTES = 10 * 1024 * 1024
 export const DISCORD_MAX_DESCRIPTION_LENGTH = 1_024 as const
 export const DISCORD_DEFAULT_TIMEOUT_MS = 30_000 as const
 
@@ -74,7 +76,7 @@ export interface DiscordChannel {
 
 export interface DiscordMessageAttachmentInput {
     readonly filename: string
-    readonly contentType: 'image/jpeg' | 'image/png'
+    readonly contentType: 'image/jpeg' | 'image/png' | 'video/mp4'
     readonly description: string
     readonly stream: ReadableStream<Uint8Array>
 }

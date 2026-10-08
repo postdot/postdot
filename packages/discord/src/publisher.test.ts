@@ -327,3 +327,110 @@ describe('rogue-instance diagnostic echo (AUDIT-307)', () => {
         })
     })
 })
+
+describe('native MP4 messages', () => {
+    it('uploads exact video bytes, description and safe mentions in the existing multipart message', async () => {
+        const fixture = createFetcher([
+            jsonResponse({
+                id: '333333333333333333',
+                channel_id: CHANNEL_ID,
+                attachments: [{ id: '444444444444444444' }],
+            }),
+        ])
+        const publisher = createDiscordPublisher({
+            baseUrl: 'https://discord.test',
+            fetcher: fixture.fetcher,
+        })
+        const outcome = await publisher.createMessage({
+            accessToken: BOT_TOKEN,
+            channelId: CHANNEL_ID,
+            content: 'Video',
+            attachments: [
+                {
+                    filename: 'scene.mp4',
+                    contentType: 'video/mp4',
+                    description: 'Moving scene',
+                    stream: attachmentStream([4, 5, 6]),
+                },
+            ],
+        })
+        expect(outcome).toMatchObject({ type: 'published', attachmentIds: ['444444444444444444'] })
+        const form = fixture.calls[0]!.init!.body as FormData
+        const file = form.get('files[0]') as File
+        expect(file.type).toBe('video/mp4')
+        expect(new Uint8Array(await file.arrayBuffer())).toEqual(new Uint8Array([4, 5, 6]))
+        expect(JSON.parse(String(form.get('payload_json')))).toEqual({
+            content: 'Video',
+            allowed_mentions: { parse: [] },
+            attachments: [{ id: 0, filename: 'scene.mp4', description: 'Moving scene' }],
+        })
+    })
+    it('rejects oversized and mixed video input before sending a message', async () => {
+        const fixture = createFetcher([])
+        const publisher = createDiscordPublisher({
+            baseUrl: 'https://discord.test',
+            fetcher: fixture.fetcher,
+        })
+        const attachment = {
+            filename: 'scene.mp4',
+            contentType: 'video/mp4' as const,
+            description: 'Moving scene',
+            stream: new Blob([new Uint8Array(10 * 1024 * 1024 + 1)]).stream(),
+        }
+        expect(
+            await publisher.createMessage({
+                accessToken: BOT_TOKEN,
+                channelId: CHANNEL_ID,
+                content: 'Video',
+                attachments: [attachment],
+            })
+        ).toMatchObject({ type: 'permanent_failure', code: 'invalid_input' })
+        expect(
+            await publisher.createMessage({
+                accessToken: BOT_TOKEN,
+                channelId: CHANNEL_ID,
+                content: 'Video',
+                attachments: [
+                    { ...attachment, stream: attachmentStream() },
+                    {
+                        filename: 'image.png',
+                        contentType: 'image/png',
+                        description: 'Image',
+                        stream: attachmentStream(),
+                    },
+                ],
+            })
+        ).toMatchObject({ type: 'permanent_failure', code: 'invalid_input' })
+        expect(fixture.calls).toHaveLength(0)
+    })
+})
+
+it('reports an oversized request rejection as permanent without echoing the Bot token', async () => {
+    const publisher = createDiscordPublisher({
+        baseUrl: 'https://discord.test',
+        fetcher: async () =>
+            Response.json(
+                { message: `Payload too large ${BOT_TOKEN}`, code: 40005 },
+                { status: 413 }
+            ),
+    })
+    const outcome = await publisher.createMessage({
+        accessToken: BOT_TOKEN,
+        channelId: CHANNEL_ID,
+        content: 'Video',
+        attachments: [
+            {
+                filename: 'scene.mp4',
+                contentType: 'video/mp4',
+                description: 'Scene',
+                stream: attachmentStream(),
+            },
+        ],
+    })
+    expect(outcome).toMatchObject({
+        type: 'permanent_failure',
+        code: 'invalid_request',
+        effectOccurred: false,
+    })
+    expect(JSON.stringify(outcome)).not.toContain(BOT_TOKEN)
+})
