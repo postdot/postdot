@@ -2035,5 +2035,9 @@
     "profile_issue_schema_keyword": "Remove this unsupported custom-schema keyword.",
     "profile_issue_schema_dialect": "Declare the supported JSON Schema 2020-12 dialect.",
     "profile_issue_general": "Check the schema, bindings, capabilities and execution definition.",
-    "profile_issue_more": "{count} additional validation issues."
+    "profile_issue_more": "{count} additional validation issues.",
+    "composer_character_count": "{count} / {limit} characters",
+    "composer_grapheme_count": "{count} / {limit} graphemes",
+    "composer_constraints_loading": "Loading destination limits…",
+    "composer_constraints_unavailable": "Destination limits could not be checked."
 }

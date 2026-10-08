@@ -2035,5 +2035,9 @@
     "profile_issue_schema_keyword": "Supprimez ce mot-clé non pris en charge dans les schémas personnalisés.",
     "profile_issue_schema_dialect": "Déclarez le dialecte JSON Schema 2020-12 pris en charge.",
     "profile_issue_general": "Vérifiez le schéma, les liaisons, les capacités et le contrat d’exécution.",
-    "profile_issue_more": "{count} autres erreurs de validation."
+    "profile_issue_more": "{count} autres erreurs de validation.",
+    "composer_character_count": "{count} / {limit} caractères",
+    "composer_grapheme_count": "{count} / {limit} graphèmes",
+    "composer_constraints_loading": "Chargement des limites de la destination…",
+    "composer_constraints_unavailable": "Les limites de la destination n’ont pas pu être vérifiées."
 }

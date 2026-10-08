@@ -769,6 +769,147 @@ test('projects custom destination text and ordered media through active nested b
     }
 })
 
+test('shows custom headline and length feedback without blocking invalid drafts', async ({
+    page,
+}) => {
+    const projectId = await createProject(page)
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
+    const starter = JSON.parse(
+        await dialog.getByLabel('Custom profile JSON', { exact: true }).inputValue()
+    )
+    await page.keyboard.press('Escape')
+    const ids: string[] = []
+    for (const nested of [false, true]) {
+        const profile = structuredClone(starter)
+        profile.id = nested ? 'nested-short-title' : 'root-short-title'
+        profile.contentSchema.properties.body.maxLength = 8
+        profile.contentSchema.required = ['body', 'headline']
+        profile.capabilities.textFields.find(
+            (field: { bindingId: string }) => field.bindingId === 'body'
+        ).maxLength = 8
+        if (nested) {
+            const { $schema, ...inner } = profile.contentSchema
+            profile.contentSchema = {
+                $schema,
+                type: 'object',
+                properties: { article: inner },
+                required: ['article'],
+                additionalProperties: false,
+            }
+            profile.fieldBindings = profile.fieldBindings.map((binding: { path: string }) => ({
+                ...binding,
+                path: '/article' + binding.path,
+            }))
+        }
+        const response = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: { name: profile.id, profile },
+        })
+        expect(response.status()).toBe(201)
+        ids.push((await response.json()).channel.id)
+    }
+    let unavailable = true
+    let reads = 0
+    await page.route(`**/channels/${ids[0]}/profile`, route => {
+        reads++
+        return unavailable
+            ? route.fulfill({
+                  status: 503,
+                  contentType: 'application/json',
+                  body: JSON.stringify({ error: 'Profile unavailable' }),
+              })
+            : route.continue()
+    })
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    const source = page.getByRole('textbox', { name: 'Content', exact: true })
+    await expect(
+        page.getByText('Destination limits could not be checked.', { exact: true })
+    ).toBeVisible()
+    const initialReads = reads
+    expect(initialReads).toBeGreaterThan(0)
+    await source.fill('Shared work preserved')
+    expect(reads).toBe(initialReads)
+    unavailable = false
+    await page.getByRole('button', { name: 'Retry', exact: true }).click()
+    await expect(page.locator('#new-post-title')).toBeVisible()
+    await expect(source).toHaveText('Shared work preserved')
+    expect(reads).toBe(initialReads + 1)
+    await page.locator('#new-post-title').fill('Custom headline')
+    for (const id of ids) {
+        const available = page.locator(`[data-channel-available][data-channel-id="${id}"]`)
+        if (await available.count()) await available.click()
+        await page.locator(`[data-channel-selected-button][data-channel-id="${id}"]`).click()
+        await expect(page.locator('#new-post-title')).toHaveValue('Custom headline')
+        const target = page.getByRole('textbox', { name: 'Channel content', exact: true })
+        await target.fill('Long custom body')
+        await expect(target).toHaveText('Long custom body')
+        await expect(target).toHaveAttribute('aria-invalid', 'true')
+        await expect(page.locator('[data-composer-text-count]')).toHaveText('16 / 8 characters')
+        await page.setViewportSize({ width: 390, height: 844 })
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+            true
+        )
+    }
+    expect(reads).toBe(initialReads + 1)
+    // Real activation selects a new version key rather than reusing cached limits.
+    const state = await page.request.get(`/api/projects/${projectId}/channels/${ids[0]}/profile`)
+    const profile = (await state.json()).active.profile
+    profile.contentSchema.properties.body.maxLength = 10
+    profile.capabilities.textFields.find(
+        (field: { bindingId: string }) => field.bindingId === 'body'
+    ).maxLength = 10
+    const saved = await page.request.post(
+        `/api/projects/${projectId}/channels/${ids[0]}/profile-drafts`,
+        { data: { profile } }
+    )
+    expect(saved.status()).toBe(200)
+    const draft = (await saved.json()).profile
+    const activated = await page.request.post(
+        `/api/projects/${projectId}/channels/${ids[0]}/profile-drafts/${draft.id}/activate`,
+        { data: { expectedRevision: draft.revision } }
+    )
+    expect(activated.status()).toBe(200)
+    await page.locator(`[data-channel-selected-button][data-channel-id="${ids[0]}"]`).click()
+    await expect(page.locator('[data-composer-text-count]')).toHaveText('16 / 10 characters')
+    await expect(page.getByRole('textbox', { name: 'Channel content', exact: true })).toHaveText(
+        'Long custom body'
+    )
+    await expect(page.locator('#new-post-title')).toHaveValue('Custom headline')
+    await page.screenshot({ path: '/tmp/ux347-narrow.png', fullPage: true })
+    const created = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    const response = await created
+    expect(response.status()).toBe(201)
+    const result = await response.json()
+    expect(result.post.sourceContent.headline).toBe('Custom headline')
+    expect(result.post.sourceContent.body.text).toBe('Shared work preserved')
+    for (const publication of result.publications) {
+        const response = await page.request.get(
+            `/api/projects/${projectId}/publications/${publication.id}/editor`
+        )
+        const { editor } = await response.json()
+        expect(editor.draft.reviewState).toBe('review_required')
+        expect(
+            editor.draft.validationIssues.some(
+                (issue: { code: string }) => issue.code === 'schema.maxLength'
+            )
+        ).toBe(true)
+        expect(
+            editor.draft.validationIssues.some(
+                (issue: { code: string }) => issue.code === 'schema.required'
+            )
+        ).toBe(false)
+        const content =
+            publication.channelId === ids[1] ? editor.draft.content.article : editor.draft.content
+        expect(content.headline).toBe('Custom headline')
+        expect(content.body).toBe('Long custom body')
+    }
+})
+
 /** A 1x1 PNG, matching the fixture already used by the media journey. */
 const previewPng = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',

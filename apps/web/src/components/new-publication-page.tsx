@@ -16,8 +16,9 @@ import { CalendarAddIcon } from '@solar-icons/react/linear/calendar-add'
 import { CalendarMinimalisticIcon } from '@solar-icons/react/linear/calendar-minimalistic'
 import { FileTextIcon } from '@solar-icons/react/linear/file-text'
 import { RestartIcon } from '@solar-icons/react/linear/restart'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 
 import { ChannelCreationDialog } from '@/components/channel-creation-dialog'
 import { DashboardFormField } from '@/components/dashboard-form-field'
@@ -33,8 +34,10 @@ import {
 import { PublicationTextEditor } from '@/components/publication-text-editor'
 import { XWeightedTextCount } from '@/components/x-weighted-text-count'
 import { api, formatApiError, type MediaReference, type PublicationComposerDraft } from '@/lib/api'
+import { countComposerText, getComposerTextFields } from '@/lib/composer-text-constraints'
 import { type PublicationCreationMode, useProjectDashboard } from '@/lib/dashboard-context'
 import { formatCivilSchedule } from '@/lib/date-time'
+import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import {
@@ -188,14 +191,46 @@ export function NewPublicationPage({
     )
     const activeContentTargetUsesSharedContent =
         activeContentTarget === undefined || !customizedContentTargetIds.has(activeContentTarget.id)
+    const profileQuery = useQuery({
+        queryKey: [
+            'project',
+            project.id,
+            'composer-channel-profile',
+            activePreviewChannel?.id,
+            activePreviewChannel?.profileVersionId,
+        ],
+        queryFn: () => api.getChannelProfileState(project.id, activePreviewChannel!.id),
+        enabled: activePreviewChannel !== undefined,
+        staleTime: Number.POSITIVE_INFINITY,
+        retry: false,
+        refetchOnMount: false,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+    })
+    const textFields = useMemo(
+        () =>
+            !profileQuery.isError && profileQuery.data
+                ? getComposerTextFields(profileQuery.data.active.profile)
+                : null,
+        [profileQuery.data, profileQuery.isError]
+    )
+    const showHeadline =
+        textFields?.headline?.field.required === true || activePreviewChannel?.profileId === 'devto'
+    const headlineCount = textFields?.headline
+        ? countComposerText(postTitle, textFields.headline)
+        : null
     const usesXTextRules = activePreviewChannel?.profileId === 'x'
     const activeText =
         activeContentTarget !== undefined && !activeContentTargetUsesSharedContent
             ? activeContentTarget.content
             : postContent
     const activeTextValidation = usesXTextRules ? parseXPostText(activeText) : null
+    const bodyCount = textFields?.body ? countComposerText(activeText, textFields.body) : null
     const activeTextInvalid =
-        activeTextValidation !== null && activeText.trim().length > 0 && !activeTextValidation.valid
+        bodyCount?.invalid === true ||
+        (activeTextValidation !== null &&
+            activeText.trim().length > 0 &&
+            !activeTextValidation.valid)
     const previewMedia = sourceMedia
         .map(selection => availableMedia.find(asset => asset.asset.id === selection.assetId))
         .filter((asset): asset is MediaReference => asset !== undefined)
@@ -738,19 +773,65 @@ export function NewPublicationPage({
                         }
                         editor={
                             <div className="min-w-0">
-                                {activePreviewChannel?.profileId === 'devto' ? (
+                                {showHeadline ? (
                                     <DashboardFormField
                                         htmlFor="new-post-title"
                                         label={m.publication_new_post_title()}>
                                         <Input
                                             id="new-post-title"
+                                            aria-invalid={headlineCount?.invalid || undefined}
+                                            aria-describedby={
+                                                headlineCount ? 'new-post-title-count' : undefined
+                                            }
                                             value={postTitle}
                                             onChange={event =>
                                                 onPostTitleChange(event.target.value)
                                             }
                                             placeholder={m.publication_article_title()}
                                         />
+                                        {textFields?.headline &&
+                                        textFields.headline.field.maxLength !== null &&
+                                        headlineCount ? (
+                                            <p
+                                                id="new-post-title-count"
+                                                className={cn(
+                                                    'text-xs',
+                                                    headlineCount.invalid
+                                                        ? 'text-destructive'
+                                                        : 'text-muted-foreground'
+                                                )}>
+                                                {m.composer_character_count({
+                                                    count: formatNumber(
+                                                        headlineCount.characters,
+                                                        locale
+                                                    ),
+                                                    limit: formatNumber(
+                                                        textFields.headline.field.maxLength,
+                                                        locale
+                                                    ),
+                                                })}
+                                            </p>
+                                        ) : null}
                                     </DashboardFormField>
+                                ) : null}
+                                {activePreviewChannel && profileQuery.isPending ? (
+                                    <p role="status" className="mb-2 text-xs text-muted-foreground">
+                                        {m.composer_constraints_loading()}
+                                    </p>
+                                ) : profileQuery.isError ? (
+                                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                                        <span role="status">
+                                            {m.composer_constraints_unavailable()}
+                                        </span>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={profileQuery.isFetching}
+                                            onClick={() => void profileQuery.refetch()}>
+                                            {m.common_retry()}
+                                        </Button>
+                                    </div>
                                 ) : null}
 
                                 <div
@@ -855,7 +936,9 @@ export function NewPublicationPage({
                                                                         pending || recovery !== null
                                                                     }
                                                                     describedBy={
-                                                                        visible && usesXTextRules
+                                                                        visible &&
+                                                                        (usesXTextRules ||
+                                                                            bodyCount !== null)
                                                                             ? 'new-post-content-weighted-count'
                                                                             : undefined
                                                                     }
@@ -883,7 +966,7 @@ export function NewPublicationPage({
                                                         : m.publication_new_channel_copy()
                                                 }
                                                 aria-describedby={
-                                                    usesXTextRules
+                                                    usesXTextRules || bodyCount !== null
                                                         ? 'new-post-content-weighted-count'
                                                         : undefined
                                                 }
@@ -903,6 +986,46 @@ export function NewPublicationPage({
                                                     invalid={activeTextInvalid}
                                                     result={activeTextValidation}
                                                 />
+                                            </div>
+                                        ) : bodyCount && textFields?.body ? (
+                                            <div className="px-4 pb-3">
+                                                <p
+                                                    id="new-post-content-weighted-count"
+                                                    data-composer-text-count="true"
+                                                    className={cn(
+                                                        'text-xs',
+                                                        bodyCount.invalid
+                                                            ? 'text-destructive'
+                                                            : 'text-muted-foreground'
+                                                    )}>
+                                                    {textFields.body.field.maxLength !== null
+                                                        ? m.composer_character_count({
+                                                              count: formatNumber(
+                                                                  bodyCount.characters,
+                                                                  locale
+                                                              ),
+                                                              limit: formatNumber(
+                                                                  textFields.body.field.maxLength,
+                                                                  locale
+                                                              ),
+                                                          })
+                                                        : null}
+                                                    {bodyCount.graphemes !== null &&
+                                                    textFields.body.maxGraphemes !== null ? (
+                                                        <span className="ml-2">
+                                                            {m.composer_grapheme_count({
+                                                                count: formatNumber(
+                                                                    bodyCount.graphemes,
+                                                                    locale
+                                                                ),
+                                                                limit: formatNumber(
+                                                                    textFields.body.maxGraphemes,
+                                                                    locale
+                                                                ),
+                                                            })}
+                                                        </span>
+                                                    ) : null}
+                                                </p>
                                             </div>
                                         ) : null}
                                     </div>
