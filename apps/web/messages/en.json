@@ -2040,5 +2040,15 @@
     "composer_grapheme_count": "{count} / {limit} graphemes",
     "composer_constraints_loading": "Loading destination limits…",
     "composer_constraints_unavailable": "Destination limits could not be checked.",
-    "profile_load_latest_linkedin_template": "Load latest LinkedIn template"
+    "profile_load_latest_linkedin_template": "Load latest LinkedIn template",
+    "notification_email_title": "Email alerts · {project}",
+    "notification_email_toggle": "Email outcome alerts",
+    "notification_email_choose_project": "Select a project to manage email alerts.",
+    "notification_email_unavailable": "Email delivery is not configured on this instance.",
+    "notification_email_verify": "Verify your account email to enable alerts.",
+    "notification_email_description": "Failures and uncertain outcomes are sent to {email}.",
+    "notification_email_delivery_failed": "The last email could not be delivered or confirmed. Contact your instance administrator.",
+    "notification_email_send_verification": "Send verification link",
+    "notification_email_verification_requested": "Verification requested. Check your email for the link.",
+    "notification_email_check_verification": "Check verification"
 }

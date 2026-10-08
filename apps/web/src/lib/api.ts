@@ -29,6 +29,7 @@ import {
     type Post,
     type PublicationEditorState,
     type PublisherConnection,
+    type EmailAlertPreference,
     type Project,
     type Publication,
     type PublicationApprovalRequest,
@@ -518,6 +519,13 @@ export const api = {
 
     signUp(name: string, email: string, password: string): Promise<Session> {
         return requestAuth<Session>('/api/auth/sign-up/email', jsonBody({ name, email, password }))
+    },
+
+    sendAccountEmailVerification(email: string): Promise<{ status: boolean }> {
+        return requestAuth<{ status: boolean }>(
+            '/api/auth/send-verification-email',
+            jsonBody({ email, callbackURL: window.location.href })
+        )
     },
 
     requestPasswordReset(email: string, redirectTo: string): Promise<{ status: boolean }> {
@@ -1339,6 +1347,16 @@ export const api = {
         )
     },
 
+    async getProjectEmailAlerts(projectId: string) {
+        return unwrap<EmailAlertPreference>(
+            await client.api.projects({ projectId })['email-alerts'].get()
+        )
+    },
+    async setProjectEmailAlerts(projectId: string, enabled: boolean) {
+        return unwrap<EmailAlertPreference>(
+            await client.api.projects({ projectId })['email-alerts'].patch({ enabled })
+        )
+    },
     async listUserNotificationPreferences(): Promise<{ preferences: NotificationPreference[] }> {
         return unwrap<{ preferences: NotificationPreference[] }>(
             await client.api['notification-preferences'].get()

@@ -36,6 +36,8 @@ import { notificationContent } from '@/lib/notification-content'
 import * as m from '@/paraglide/messages.js'
 import type { Locale } from '@/paraglide/runtime.js'
 
+import { NotificationEmailPreferences } from './notification-email-preferences'
+
 interface NotificationInboxProps {
     readonly projectId: string | null
     readonly projects: readonly Project[]
@@ -379,12 +381,21 @@ export function NotificationInbox({ projectId, projects }: NotificationInboxProp
                             )}
                         </ScrollArea>
                     ) : (
-                        <NotificationPreferencesPanel
-                            loading={preferencesLoading}
-                            preferences={preferences}
-                            workingKind={workingPreferenceKind}
-                            onChange={updatePreference}
-                        />
+                        <>
+                            <NotificationPreferencesPanel
+                                loading={preferencesLoading}
+                                preferences={preferences}
+                                workingKind={workingPreferenceKind}
+                                onChange={updatePreference}
+                            />
+                            <NotificationEmailPreferences
+                                key={projectId}
+                                projectId={projectId}
+                                projectName={
+                                    projects.find(project => project.id === projectId)?.name ?? null
+                                }
+                            />
+                        </>
                     )}
                 </PopoverContent>
             </Popover>

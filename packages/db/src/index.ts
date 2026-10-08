@@ -338,3 +338,8 @@ export type {
 export * from './schema'
 export { createUserAvatarStore, AvatarValidationError, avatarMaxBytes } from './user-avatar-store'
 export type { UserAvatarStore } from './user-avatar-store'
+
+export {
+    createNotificationEmailStore,
+    type NotificationEmailStore,
+} from './notification-email-store'

@@ -1,10 +1,11 @@
 import type { UserNotification } from '@herald/core'
-import type { NotificationStore } from '@herald/db'
+import type { NotificationStore, NotificationEmailStore } from '@herald/db'
 import { Type } from 'typebox'
 
 import { sessionSecurity } from '../../plugins/auth'
 import { errorResponse, projectParams } from './models'
 import {
+    emailAlertPreferenceSchema,
     notificationInboxSchema,
     notificationInboxQuery,
     notificationParams,
@@ -32,9 +33,89 @@ const globalNotFoundResponse = {
 
 export function registerNotificationRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
-    notifications: NotificationStore
+    notifications: NotificationStore,
+    emailAlerts?: { store: NotificationEmailStore; available: boolean }
 ) {
     return app
+        .get(
+            '/api/projects/:projectId/email-alerts',
+            {
+                auth: true,
+                params: projectParams,
+                response: {
+                    200: emailAlertPreferenceSchema,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'getProjectEmailAlerts',
+                    summary: 'Read personal project email alerts',
+                    tags: ['Notifications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, params, user, status }) => {
+                if (authMethod !== 'session') return status(403, humanOnlyResponse)
+                const preference = emailAlerts?.store.preferences(params.projectId, user.id)
+                if (emailAlerts && preference === null) return status(404, notFoundResponse)
+                return {
+                    ...(preference ?? {
+                        enabled: false,
+                        email: null,
+                        verified: false,
+                        lastDeliveryState: null,
+                    }),
+                    available: emailAlerts?.available ?? false,
+                }
+            }
+        )
+        .patch(
+            '/api/projects/:projectId/email-alerts',
+            {
+                auth: true,
+                params: projectParams,
+                body: Type.Object({ enabled: Type.Boolean() }),
+                response: {
+                    200: emailAlertPreferenceSchema,
+                    400: errorResponse,
+                    401: errorResponse,
+                    403: errorResponse,
+                    404: errorResponse,
+                },
+                detail: {
+                    operationId: 'setProjectEmailAlerts',
+                    summary: 'Enable or disable personal project email alerts',
+                    tags: ['Notifications'],
+                    security: sessionSecurity,
+                },
+            },
+            ({ authMethod, params, user, body, status }) => {
+                if (authMethod !== 'session') return status(403, humanOnlyResponse)
+                if (!emailAlerts || (body.enabled && !emailAlerts.available))
+                    return status(400, {
+                        error: {
+                            code: 'invalid_input',
+                            message: 'Email delivery is not configured',
+                        },
+                    })
+                const current = emailAlerts.store.preferences(params.projectId, user.id)
+                if (current === null) return status(404, notFoundResponse)
+                if (body.enabled && !current.verified)
+                    return status(400, {
+                        error: {
+                            code: 'invalid_input',
+                            message: 'A verified account email is required',
+                        },
+                    })
+                const preference = emailAlerts.store.setEnabled(
+                    params.projectId,
+                    user.id,
+                    body.enabled
+                )!
+                return { ...preference, available: emailAlerts.available }
+            }
+        )
         .get(
             '/api/notifications',
             {

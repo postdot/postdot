@@ -16,7 +16,7 @@ import {
 import type { HeraldDatabase } from './client'
 import { createEventJournalStore, parseEventJournalCursor } from './event-journal-store'
 
-const projectionName = 'external-notification-delivery-v1'
+const defaultProjectionName = 'external-notification-delivery-v1'
 const defaultProjectionLimit = 100
 const maximumProjectionLimit = 500
 
@@ -48,6 +48,7 @@ interface ProjectionCandidateRow {
     readonly destinationId: string
     readonly projectId: string
     readonly recipientActorId: string
+    readonly subjectId: string
     readonly transportId: string
     readonly configurationJson: string
     readonly secretId: string | null
@@ -152,8 +153,15 @@ export interface NotificationDeliveryProjectionResult {
 }
 
 export interface NotificationDeliveryStoreOptions {
+    readonly transportId?: string
     readonly createId?: () => string
     readonly now?: () => number
+    readonly acceptDestination?: (input: {
+        projectId: string
+        subjectId: string
+        configuration: Readonly<Record<string, unknown>>
+        cursor: string
+    }) => boolean
 }
 
 export function createNotificationDeliveryStore(
@@ -161,6 +169,12 @@ export function createNotificationDeliveryStore(
     options: NotificationDeliveryStoreOptions = {}
 ) {
     const client = database.$client
+    const transportId =
+        options.transportId === undefined
+            ? null
+            : requireNonBlank(options.transportId, 'transportId')
+    const projectionName =
+        transportId === null ? defaultProjectionName : `${defaultProjectionName}:${transportId}`
     const journal = createEventJournalStore(database)
     const createId = options.createId ?? (() => crypto.randomUUID())
     const now = options.now ?? Date.now
@@ -237,6 +251,7 @@ export function createNotificationDeliveryStore(
             d.id as destinationId,
             d.project_id as projectId,
             d.recipient_actor_id as recipientActorId,
+            a.subject_id as subjectId,
             d.transport_id as transportId,
             d.configuration_json as configurationJson,
             secret.id as secretId,
@@ -312,10 +327,13 @@ export function createNotificationDeliveryStore(
         order by d.created_at desc, d.id desc
     `)
     )
-    const expiredDeliveryStatement = client.query<ExpiredDeliveryRow, [now: number]>(`
+    const expiredDeliveryStatement = client.query<
+        ExpiredDeliveryRow,
+        [now: number, transportId: string | null]
+    >(`
         select id, effect_started_at as effectStartedAt, created_at as createdAt
         from notification_deliveries
-        where state = 'running' and lease_expires_at <= ?1
+        where state = 'running' and lease_expires_at <= ?1 and (?2 is null or transport_id = ?2)
         order by lease_expires_at, id
     `)
     const requeueExpiredDeliveryStatement = client.query<
@@ -338,7 +356,7 @@ export function createNotificationDeliveryStore(
     `)
     const claimDeliveryStatement = client.query<
         { readonly changes: number },
-        [claimToken: string, leaseExpiresAt: number, now: number]
+        [claimToken: string, leaseExpiresAt: number, now: number, transportId: string | null]
     >(`
         update notification_deliveries
         set state = 'running', lease_token = ?1, lease_expires_at = ?2,
@@ -352,6 +370,7 @@ export function createNotificationDeliveryStore(
             where d.state = 'pending'
               and d.next_attempt_at <= ?3
               and destination.state = 'active'
+              and (?4 is null or d.transport_id = ?4)
             order by d.next_attempt_at, d.created_at, d.id
             limit 1
         )
@@ -408,12 +427,16 @@ export function createNotificationDeliveryStore(
             lease_expires_at = null, last_error = ?2, updated_at = ?1
         where id = ?3 and state = 'running' and lease_token = ?4
     `)
-    const getNextDeliveryAtStatement = client.query<{ readonly nextAttemptAt: number | null }, []>(`
-        select min(next_attempt_at) as nextAttemptAt
+    const getNextDeliveryAtStatement = client.query<
+        { readonly nextAttemptAt: number | null },
+        [transportId: string | null]
+    >(`
+        select min(case when d.state = 'running' then d.lease_expires_at else d.next_attempt_at end) as nextAttemptAt
         from notification_deliveries d
         inner join notification_destinations destination
             on destination.project_id = d.project_id and destination.id = d.destination_id
-        where d.state = 'pending' and destination.state = 'active'
+        where d.state in ('pending', 'running') and destination.state = 'active'
+          and (?1 is null or d.transport_id = ?1)
     `)
 
     const projectTransaction = client.transaction(
@@ -430,8 +453,21 @@ export function createNotificationDeliveryStore(
                 if (template === null) continue
 
                 for (const candidate of candidates) {
-                    if (candidate.kind !== template.kind) continue
+                    if (
+                        candidate.kind !== template.kind ||
+                        (transportId !== null && candidate.transportId !== transportId)
+                    )
+                        continue
                     const configuration = parseConfiguration(candidate.configurationJson)
+                    if (
+                        options.acceptDestination?.({
+                            projectId,
+                            subjectId: candidate.subjectId,
+                            configuration,
+                            cursor: event.cursor,
+                        }) === false
+                    )
+                        continue
                     const notification = createProjectNotification({
                         id: createId(),
                         projectId,
@@ -484,7 +520,7 @@ export function createNotificationDeliveryStore(
     const recoverExpiredTransaction = client.transaction((at: number): ExpiredClaimRecovery => {
         const requeuedJobIds: string[] = []
         const ambiguousJobIds: string[] = []
-        for (const delivery of expiredDeliveryStatement.all(at)) {
+        for (const delivery of expiredDeliveryStatement.all(at, transportId)) {
             const recoveredAt = Math.max(at, delivery.createdAt)
             if (delivery.effectStartedAt === null) {
                 if (
@@ -620,7 +656,7 @@ export function createNotificationDeliveryStore(
             if (leaseExpiresAt <= timestamp) {
                 throw new DomainInvariantError('invalid_time', 'leaseExpiresAt must be after now')
             }
-            claimDeliveryStatement.run(claimToken, leaseExpiresAt, timestamp)
+            claimDeliveryStatement.run(claimToken, leaseExpiresAt, timestamp, transportId)
             const row = loadClaimedDeliveryStatement.get(claimToken)
             return row === null ? null : toDelivery(row)
         },
@@ -704,7 +740,7 @@ export function createNotificationDeliveryStore(
         },
 
         getNextAttemptAt(): number | null {
-            return getNextDeliveryAtStatement.get()?.nextAttemptAt ?? null
+            return getNextDeliveryAtStatement.get(transportId)?.nextAttemptAt ?? null
         },
     }
 

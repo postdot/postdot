@@ -16,6 +16,10 @@ import {
     passwordResetSubject,
     type HeraldPasswordResetEmailInput,
 } from './templates/PasswordResetEmail'
+import {
+    PublicationOutcomeEmail,
+    type HeraldPublicationOutcomeEmailInput,
+} from './templates/PublicationOutcomeEmail'
 
 export interface HeraldRenderedEmail {
     readonly to: string
@@ -63,5 +67,16 @@ export async function renderHeraldPasswordResetEmail(
         subject: passwordResetSubject,
         text,
         html,
+    }
+}
+
+export async function renderHeraldPublicationOutcomeEmail(
+    input: HeraldPublicationOutcomeEmailInput
+): Promise<HeraldRenderedEmail> {
+    return {
+        to: input.email,
+        subject: `Herald — ${input.title}`,
+        html: await render(<PublicationOutcomeEmail {...input} />),
+        text: await render(<PublicationOutcomeEmail {...input} />, { plainText: true }),
     }
 }

@@ -4,6 +4,7 @@ import {
     createNetworkControlledBinaryFetcher,
     createNetworkControlledFetcher,
 } from '@herald/custom-http'
+import { createNotificationEmailStore } from '@herald/db'
 import {
     closeDatabase,
     createDatabase,
@@ -28,6 +29,7 @@ import {
 } from './modules/media/runtime'
 import { createMediaUrlImporter } from './modules/media/url-import'
 import { createHeraldMetrics } from './modules/metrics/metrics'
+import { createNotificationEmailRuntime } from './modules/notifications/email-runtime'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import { createProjectRealtimeRuntime } from './modules/projects/realtime-runtime'
 import { createPublisherRuntime } from './modules/publishers/runtime'
@@ -93,6 +95,7 @@ export type { DevtoAnalyticsCollectionResponse } from './modules/projects/devto-
 export type { ProviderAnalyticsObservation } from '@herald/core'
 export type { ProviderAnalyticsObservationPage } from '@herald/db'
 export type {
+    EmailAlertPreferenceResponse,
     NotificationInboxResponse,
     NotificationPreferenceResponse,
     NotificationResponse,
@@ -117,8 +120,20 @@ async function startServerWithRuntimeLock(
     const access = createAccessStore(database)
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
+    const emailStore = createNotificationEmailStore(database)
+    const emailRuntime =
+        config.email?.smtp === undefined
+            ? undefined
+            : createNotificationEmailRuntime({
+                  store: emailStore,
+                  smtp: config.email.smtp,
+                  webOrigin: config.web.origin,
+              })
     const realtime = createProjectRealtimeRuntime({
-        onProjectsChanged: projectIds => notificationProjection.runProjects(projectIds),
+        onProjectsChanged: projectIds => {
+            notificationProjection.runProjects(projectIds)
+            emailRuntime?.runProjects(projectIds)
+        },
         resolveUserIdsForProjects: projectIds => notifications.listUserIdsForProjects(projectIds),
         onError: error => console.error('[herald-realtime] post-commit wakeup failed', error),
     })
@@ -261,6 +276,7 @@ async function startServerWithRuntimeLock(
         access,
         allowAdditionalSignups,
         notifications,
+        emailAlerts: { store: emailStore, available: emailRuntime !== undefined },
         projectChanges: realtime.hub,
         userChanges: realtime.userHub,
         runtime: {
@@ -277,11 +293,15 @@ async function startServerWithRuntimeLock(
     worker.start()
     mediaMaintenance.start()
     notificationProjection.start()
+    emailRuntime?.start()
     app.listen(config.server.port)
     registerServingHandle(app.server)
 
     const handleShutdown = createShutdownHandler({
-        stopWorker: () => worker.stop(),
+        stopWorker: async () => {
+            await worker.stop()
+            await emailRuntime?.stop()
+        },
         stopMediaMaintenance: () => mediaMaintenance.stop(),
         stopNotificationProjection: () => notificationProjection.stop(),
         stopRealtime: () => realtime.stop(),

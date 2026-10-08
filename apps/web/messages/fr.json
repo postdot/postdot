@@ -2040,5 +2040,15 @@
     "composer_grapheme_count": "{count} / {limit} graphèmes",
     "composer_constraints_loading": "Chargement des limites de la destination…",
     "composer_constraints_unavailable": "Les limites de la destination n’ont pas pu être vérifiées.",
-    "profile_load_latest_linkedin_template": "Charger le dernier modèle LinkedIn"
+    "profile_load_latest_linkedin_template": "Charger le dernier modèle LinkedIn",
+    "notification_email_title": "Alertes e-mail · {project}",
+    "notification_email_toggle": "Alertes de résultat par e-mail",
+    "notification_email_choose_project": "Sélectionnez un projet pour gérer les alertes e-mail.",
+    "notification_email_unavailable": "L’envoi d’e-mails n’est pas configuré sur cette instance.",
+    "notification_email_verify": "Vérifiez votre adresse e-mail pour activer les alertes.",
+    "notification_email_description": "Les échecs et résultats incertains sont envoyés à {email}.",
+    "notification_email_delivery_failed": "Le dernier e-mail n’a pas pu être envoyé ou confirmé. Contactez l’administrateur de votre instance.",
+    "notification_email_send_verification": "Envoyer le lien de vérification",
+    "notification_email_verification_requested": "Vérification demandée. Consultez votre e-mail pour ouvrir le lien.",
+    "notification_email_check_verification": "Vérifier à nouveau"
 }

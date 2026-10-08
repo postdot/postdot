@@ -9,6 +9,7 @@ import {
     createDatabase,
     createEventJournalStore,
     createNotificationStore,
+    createNotificationEmailStore,
     runMigrations,
 } from '@herald/db'
 import { publications, publisherCredentials, user as authUser } from '@herald/db/schema'
@@ -119,6 +120,7 @@ type OpenApiOperation = {
 
 function createFixture(
     options: {
+        readonly emailAlerts?: boolean
         readonly linkedin?: PublisherRuntimeOptions['linkedin']
         readonly x?: PublisherRuntimeOptions['x']
         readonly apiOrigin?: string
@@ -162,6 +164,10 @@ function createFixture(
         runtime: options.runtime,
         metrics: options.metrics,
         notifications,
+        emailAlerts:
+            options.emailAlerts === undefined
+                ? undefined
+                : { store: createNotificationEmailStore(database), available: options.emailAlerts },
     })
 
     return { access, app, auth, database, notifications, publisher }
@@ -1101,6 +1107,7 @@ describe('Herald API', () => {
                 '/api/projects/{projectId}/media/deletion-requests',
                 '/api/projects/{projectId}/media/{assetId}/permanent',
                 '/api/projects/{projectId}/media/{assetId}/restore',
+                '/api/projects/{projectId}/email-alerts',
                 '/api/notifications',
                 '/api/notifications/{notificationId}/read',
                 '/api/notifications/{notificationId}/archive',
@@ -1667,6 +1674,63 @@ describe('Herald API', () => {
                     },
                 },
             })
+        } finally {
+            closeDatabase(database)
+        }
+    })
+
+    it('keeps project email enrollment human-owned, verified and optional', async () => {
+        const { app, database } = createFixture({ emailAlerts: true })
+        try {
+            const cookie = await signUp(app)
+            const created = await jsonRequest(app, '/api/projects', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ name: 'Email alerts' }),
+            })
+            const projectId = ((await created.json()) as { project: { id: string } }).project.id
+            const path = `/api/projects/${projectId}/email-alerts`
+            expect(await (await jsonRequest(app, path, cookie)).json()).toMatchObject({
+                enabled: false,
+                available: true,
+                verified: false,
+            })
+            const enable = () =>
+                jsonRequest(app, path, cookie, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ enabled: true }),
+                })
+            expect((await enable()).status).toBe(400)
+            database.$client.exec('update user set email_verified = 1')
+            expect((await enable()).status).toBe(200)
+            expect(await (await jsonRequest(app, path, cookie)).json()).toMatchObject({
+                enabled: true,
+                verified: true,
+            })
+            const key = await jsonRequest(app, '/api/api-keys', cookie, {
+                method: 'POST',
+                body: JSON.stringify({ projectIds: [projectId] }),
+            })
+            const token = ((await key.json()) as { token: string }).token
+            expect(
+                (
+                    await app.handle(
+                        new Request(`${baseURL}${path}`, {
+                            headers: { authorization: `Bearer ${token}` },
+                        })
+                    )
+                ).status
+            ).toBe(403)
+            expect(
+                (await jsonRequest(app, '/api/projects/missing/email-alerts', cookie)).status
+            ).toBe(404)
+            expect(
+                (
+                    await jsonRequest(app, path, cookie, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ enabled: false }),
+                    })
+                ).status
+            ).toBe(200)
         } finally {
             closeDatabase(database)
         }

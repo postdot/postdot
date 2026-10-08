@@ -1,5 +1,6 @@
 import { heraldUserApiKeyConfigId, type HeraldAuth } from '@herald/auth'
 import type { BlueskyFetcher } from '@herald/bluesky'
+import type { NotificationEmailStore } from '@herald/db'
 import type {
     AnalyticsStore,
     AccessStore,
@@ -61,6 +62,10 @@ export interface ProjectModuleOptions {
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly access: AccessStore
+    readonly emailAlerts?: {
+        store: NotificationEmailStore
+        available: boolean
+    }
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
     readonly providerAnalytics: ProviderAnalyticsStore
@@ -173,7 +178,11 @@ export function createProjectModule(options: ProjectModuleOptions) {
     const mediaRoutes = registerMediaRoutes(publicationRoutes, options.media, options.access, {
         urlImporter: options.mediaUrlImporter,
     })
-    const notificationRoutes = registerNotificationRoutes(mediaRoutes, options.notifications)
+    const notificationRoutes = registerNotificationRoutes(
+        mediaRoutes,
+        options.notifications,
+        options.emailAlerts
+    )
     const analyticsRoutes = registerAnalyticsRoutes(notificationRoutes, options.analytics)
     const providerAnalyticsRoutes = registerProviderAnalyticsRoutes(
         analyticsRoutes,

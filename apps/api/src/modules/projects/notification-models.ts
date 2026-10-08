@@ -67,3 +67,19 @@ export const userNotificationPreferenceParams = Type.Object({
 export type NotificationResponse = Static<typeof notificationSchema>
 export type NotificationInboxResponse = Static<typeof notificationInboxSchema>
 export type NotificationPreferenceResponse = Static<typeof notificationPreferenceSchema>
+
+export const emailAlertPreferenceSchema = Type.Object({
+    lastDeliveryState: Type.Union([
+        Type.Literal('pending'),
+        Type.Literal('running'),
+        Type.Literal('delivered'),
+        Type.Literal('failed'),
+        Type.Literal('ambiguous'),
+        Type.Null(),
+    ]),
+    enabled: Type.Boolean(),
+    available: Type.Boolean(),
+    email: Type.Union([Type.String(), Type.Null()]),
+    verified: Type.Boolean(),
+})
+export type EmailAlertPreferenceResponse = Static<typeof emailAlertPreferenceSchema>

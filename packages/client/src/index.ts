@@ -26,6 +26,7 @@ import type {
     MediaUploadPolicyResponse,
     MediaUploadResponse,
     MediaUrlImportResponse,
+    EmailAlertPreferenceResponse,
     NotificationInboxResponse,
     NotificationPreferenceResponse,
     NotificationResponse,
@@ -119,3 +120,5 @@ export type ProviderAnalyticsPage = ProviderAnalyticsObservationPage
 export type ProviderAnalyticsItem = ProviderAnalyticsObservation
 export type BlueskyAnalyticsCollection = BlueskyAnalyticsCollectionResponse
 export type DevtoAnalyticsCollection = DevtoAnalyticsCollectionResponse
+
+export type EmailAlertPreference = EmailAlertPreferenceResponse

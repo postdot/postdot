@@ -129,3 +129,121 @@ function isResetRequest(response: { url(): string; request(): { method(): string
         response.request().method() === 'POST'
     )
 }
+
+test('opts into project outcome email through the preferences and real SMTP relay', async ({
+    page,
+}) => {
+    const suffix = randomUUID().slice(0, 8)
+    const email = `alerts-${suffix}@herald.local`
+    const signup = await page.request.post('/api/auth/sign-up/email', {
+        data: { email, name: 'Alert recipient', password: 'outcome-alert-password' },
+    })
+    expect(signup.status()).toBe(200)
+    const userId = (await signup.json()).user.id
+    const created = await page.request.post('/api/projects', {
+        data: { name: 'Email alert project' },
+    })
+    expect(created.status()).toBe(201)
+    const projectId = (await created.json()).project.id
+    // An isolated fixture establishes a durable failure fact. Verification, SMTP,
+    // projection, preferences and UI are real; no provider publication is claimed.
+    const { spawnSync } = await import('node:child_process')
+    const { join } = await import('node:path')
+    const { isSafeE2EDataDirectory } = await import('../scripts/e2e-runtime')
+    const directory = process.env.HERALD_E2E_DATA_DIRECTORY
+    if (!isSafeE2EDataDirectory(directory)) throw new Error('Unsafe alert fixture directory')
+    function seed() {
+        const result = spawnSync(
+            'bun',
+            [
+                '-e',
+                `
+            import {createDatabase, closeDatabase, createEventJournalStore} from './packages/db/src/index.ts';
+            const [file,userId,projectId] = Bun.argv.slice(1);
+            const db = createDatabase(file);
+
+                const actor = db.$client.query('select id from actors where project_id = ?1 and subject_id = ?2').get(projectId,userId);
+                createEventJournalStore(db).append({id: crypto.randomUUID(), projectId, actorId: actor.id,
+                    name: 'publication.execution.failed', version: 1, subject: {type: 'publication',id: 'fixture-publication'}, occurredAt: Date.now()});
+
+            closeDatabase(db);`,
+                join(directory!, 'herald.sqlite'),
+                userId,
+                projectId,
+            ],
+            { encoding: 'utf8' }
+        )
+        expect(result.status, result.stderr).toBe(0)
+    }
+    await page.goto(`/dashboard/projects/${projectId}/overview`)
+    await page.getByRole('button', { name: 'Open notifications', exact: true }).click()
+    await page.getByRole('button', { name: 'Open notification preferences', exact: true }).click()
+    const toggle = page.getByRole('switch', { name: 'Email outcome alerts', exact: true })
+    await expect(toggle).toBeDisabled()
+    await page.getByRole('button', { name: 'Send verification link', exact: true }).click()
+    await expect(
+        page
+            .getByRole('status')
+            .filter({ hasText: 'Verification requested. Check your email for the link.' })
+    ).toBeVisible()
+    let verificationLink: string | undefined
+    await expect
+        .poll(async () => {
+            const { messages } = await (
+                await page.request.get(`${mailpitOrigin()}/api/v1/messages?limit=100`)
+            ).json()
+            for (const message of messages.filter(
+                (message: { Subject: string; To: { Address: string }[] }) =>
+                    message.Subject === 'Verify your Herald email address' &&
+                    message.To.some(to => to.Address === email)
+            )) {
+                const detail = await (
+                    await page.request.get(`${mailpitOrigin()}/api/v1/message/${message.ID}`)
+                ).json()
+                const link = detail.Text?.match(/https?:\/\/[^\s<>]+/)?.[0]?.replace(/[),.;]+$/, '')
+                if (link?.includes(projectId)) {
+                    verificationLink = link
+                    return true
+                }
+            }
+            return false
+        })
+        .toBe(true)
+    await page.goto(verificationLink!)
+    await expect(page).toHaveURL(new RegExp(`/dashboard/projects/${projectId}/overview`))
+    await page.getByRole('button', { name: 'Open notifications', exact: true }).click()
+    await page.getByRole('button', { name: 'Open notification preferences', exact: true }).click()
+    await expect(toggle).toBeEnabled()
+    await expect(toggle).not.toBeChecked()
+    await toggle.click()
+    await expect(toggle).toBeChecked()
+    seed()
+    // A real committed project mutation wakes the independent journal projector.
+    expect(
+        (
+            await page.request.patch(`/api/projects/${projectId}`, {
+                data: { timeZone: 'Europe/Paris' },
+            })
+        ).ok()
+    ).toBe(true)
+    await expect
+        .poll(async () => {
+            const response = await page.request.get(`${mailpitOrigin()}/api/v1/messages?limit=100`)
+            const { messages } = await response.json()
+            return messages.filter(
+                (message: { Subject: string; To: { Address: string }[] }) =>
+                    message.Subject === 'Herald — Publication failed' &&
+                    message.To.some(to => to.Address === email)
+            ).length
+        })
+        .toBe(1)
+    await toggle.click()
+    await expect(toggle).not.toBeChecked()
+    const preference = await page.request.get(`/api/projects/${projectId}/email-alerts`)
+    expect(await preference.json()).toMatchObject({
+        enabled: false,
+        available: true,
+        verified: true,
+        email,
+    })
+})

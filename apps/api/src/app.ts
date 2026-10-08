@@ -2,6 +2,7 @@ import { openapi } from '@elysiajs/openapi'
 import type { HeraldAuth } from '@herald/auth'
 import type { BlueskyFetcher } from '@herald/bluesky'
 import { ChannelProfileCompiler } from '@herald/core'
+import type { NotificationEmailStore } from '@herald/db'
 import {
     createManualStore,
     createAnalyticsStore,
@@ -65,6 +66,10 @@ export interface HeraldAppOptions {
     readonly runtime?: HealthRoutesOptions['runtime']
     /** The shared Herald instance access store. */
     readonly access?: AccessStore
+    readonly emailAlerts?: {
+        store: NotificationEmailStore
+        available: boolean
+    }
     readonly notifications?: NotificationStore
     readonly analytics?: AnalyticsStore
     readonly providerAnalytics?: ProviderAnalyticsStore
@@ -93,6 +98,7 @@ function createDomainApp({
     runtime,
     access,
     notifications,
+    emailAlerts,
     analytics,
     providerAnalytics,
     taxonomy,
@@ -217,6 +223,7 @@ function createDomainApp({
         .use(
             createProjectModule({
                 auth,
+                emailAlerts,
                 manualStore,
                 publisher,
                 media,
@@ -266,6 +273,7 @@ export function createApp({
     runtime,
     access,
     notifications,
+    emailAlerts,
     analytics,
     providerAnalytics,
     taxonomy,
@@ -294,6 +302,7 @@ export function createApp({
         runtime,
         access,
         notifications,
+        emailAlerts,
         analytics,
         providerAnalytics,
         taxonomy,
