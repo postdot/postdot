@@ -8,6 +8,12 @@ export type ExternalEffectOutcome =
           readonly externalUrl?: string
       }
     | {
+          readonly type: 'deferred'
+          readonly effectOccurred: false
+          readonly errorMessage: string
+          readonly resumeAfterMs: number
+      }
+    | {
           readonly type: 'retryable_failure'
           readonly effectOccurred: false
           readonly errorMessage: string
@@ -179,9 +185,14 @@ export async function processNextExternalEffect<Work extends ExternalEffectWork>
 
     const completedAt = requireTimestamp(now(), 'now')
     const retryAt =
-        outcome.type === 'retryable_failure'
-            ? options.retryPolicy.nextRunAt({ attempts: work.attempts, failedAt: completedAt })
-            : null
+        outcome.type === 'deferred'
+            ? requireTimestamp(
+                  completedAt + requirePositiveSafeInteger(outcome.resumeAfterMs, 'resumeAfterMs'),
+                  'resumeAt'
+              )
+            : outcome.type === 'retryable_failure'
+              ? options.retryPolicy.nextRunAt({ attempts: work.attempts, failedAt: completedAt })
+              : null
 
     if (retryAt !== null && retryAt < completedAt) {
         throw new DomainInvariantError('invalid_time', 'A retry cannot predate its failure')

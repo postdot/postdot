@@ -132,6 +132,7 @@ export function assessPinnedTargetMedia(
     }
 
     const totalBytesByBinding = new Map<string, number>()
+    const assessedFamilies: { bindingId: string; representation: MediaRepresentation }[] = []
     for (const [position, reference] of references.entries()) {
         const pinned = pinnedMedia[position]
         if (pinned === undefined) {
@@ -199,6 +200,7 @@ export function assessPinnedTargetMedia(
             continue
         }
 
+        assessedFamilies.push({ bindingId: reference.bindingId, representation })
         const capability = profile.capabilities.mediaFields.find(
             candidate => candidate.bindingId === reference.bindingId
         )
@@ -243,6 +245,10 @@ export function assessPinnedTargetMedia(
         }
         totalBytesByBinding.set(reference.bindingId, nextTotalBytes)
     }
+
+    const familyIssue = assessMediaFamilies(profile, assessedFamilies)
+    if (familyIssue)
+        issues.push(profileAssessmentIssue('profile.media_family_conflict', familyIssue))
 
     return issues
 }
@@ -344,7 +350,62 @@ export function resolveTargetMedia(
         resolved.push({ reference, representation, accessibilityText })
     }
 
+    const familyIssue = assessMediaFamilies(
+        profile,
+        resolved.map(item => ({
+            bindingId: item.reference.bindingId,
+            representation: item.representation,
+        }))
+    )
+    if (familyIssue) throw mediaContentError(familyIssue)
     return resolved
+}
+
+function assessMediaFamilies(
+    profile: ChannelProfileDefinition,
+    items: readonly {
+        bindingId: string
+        representation: {
+            family: string | null
+            byteSize: number | null
+            durationMs: number | null
+        }
+    }[]
+): string | null {
+    for (const capability of profile.capabilities.mediaFields) {
+        const representations = items
+            .filter(item => item.bindingId === capability.bindingId)
+            .map(item => item.representation)
+        if (
+            capability.allowMixedFamilies === false &&
+            new Set(representations.map(item => item.family)).size > 1
+        )
+            return `Media field ${capability.bindingId} cannot mix media families`
+        for (const constraint of capability.familyConstraints ?? []) {
+            const family = representations.filter(item => item.family === constraint.family)
+            if (constraint.maxItems !== undefined && family.length > constraint.maxItems)
+                return `Media field ${capability.bindingId} accepts at most ${constraint.maxItems} ${constraint.family} item(s)`
+            if (
+                family.some(
+                    item =>
+                        (constraint.minBytesPerItem !== undefined &&
+                            (item.byteSize === null ||
+                                item.byteSize < constraint.minBytesPerItem)) ||
+                        (constraint.maxBytesPerItem !== undefined &&
+                            (item.byteSize === null ||
+                                item.byteSize > constraint.maxBytesPerItem)) ||
+                        (constraint.duration?.minMilliseconds !== undefined &&
+                            (item.durationMs === null ||
+                                item.durationMs < constraint.duration.minMilliseconds)) ||
+                        (constraint.duration?.maxMilliseconds !== undefined &&
+                            (item.durationMs === null ||
+                                item.durationMs > constraint.duration.maxMilliseconds))
+                )
+            )
+                return `Media field ${capability.bindingId} violates its ${constraint.family} size or duration limits`
+        }
+    }
+    return null
 }
 
 function supportsMediaCapability(

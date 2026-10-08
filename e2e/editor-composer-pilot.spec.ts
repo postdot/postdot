@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
@@ -1209,7 +1210,7 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByRole('button', { name: 'Load latest LinkedIn template', exact: true }).click()
-    await expect(dialog.getByLabel('Profile JSON', { exact: true })).toHaveValue(/member-post-v3/)
+    await expect(dialog.getByLabel('Profile JSON', { exact: true })).toHaveValue(/member-post-v4/)
     // Loading the template is a local draft action, never an activation.
     const profileUrl = `/api/projects/${projectId}/channels/${channelId}/profile`
     expect(
@@ -1227,7 +1228,7 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
     ).toBeVisible()
     expect(
         (await (await page.request.get(profileUrl)).json()).active.profile.execution.revision
-    ).toBe('member-post-v3')
+    ).toBe('member-post-v4')
     expect(
         (await (await page.request.get(`${historicalUrl}/editor`)).json()).editor.selectedTarget
     ).toEqual(selected)
@@ -1268,5 +1269,96 @@ test('upgrades LinkedIn explicitly and composes multiple images without changing
             (item: { accessibilityText: string }) => item.accessibilityText
         )
     ).toEqual(filenames.map(filename => `Alt text for ${filename}`))
-    expect(editor.profile.profile.execution.revision).toBe('member-post-v3')
+    expect(editor.profile.profile.execution.revision).toBe('member-post-v4')
+})
+
+test('imports and plays a native LinkedIn MP4 and preserves it in the destination draft', async ({
+    page,
+}, info) => {
+    const projectId = await createProject(page)
+    const channel = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'LinkedIn video', profile: 'linkedin' },
+    })
+    expect(channel.status()).toBe(201)
+    const bytes = await readFile(
+        new URL('../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
+    )
+    const reservation = await page.request.post(`/api/projects/${projectId}/media/uploads`, {
+        data: {
+            originalFilename: 'native-video.mp4',
+            contentType: 'video/mp4',
+            expectedSize: bytes.length,
+        },
+    })
+    expect(reservation.status()).toBe(201)
+    const intent = (await reservation.json()).upload.intentId
+    expect(
+        (
+            await page.request.put(`/api/projects/${projectId}/media/uploads/${intent}`, {
+                data: bytes,
+            })
+        ).status()
+    ).toBe(200)
+    const finalized = await page.request.post(
+        `/api/projects/${projectId}/media/uploads/${intent}/finalize`
+    )
+    expect(finalized.status()).toBe(200)
+    const asset = (await finalized.json()).media
+    expect(asset.representations[0]).toMatchObject({
+        family: 'video',
+        durationMs: 4000,
+        detectedContentType: 'video/mp4',
+    })
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    await page
+        .getByRole('textbox', { name: 'Content', exact: true })
+        .fill('A native LinkedIn video')
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    const card = page
+        .locator('[data-media-library="true"] article')
+        .filter({ hasText: 'native-video.mp4' })
+    await expect(card.locator('video')).toHaveCount(1)
+    await card.locator('[data-media-selection-toggle]').click()
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    const video = page.locator('[data-preview-platform="linkedin"] video')
+    await expect(video).toHaveAttribute('controls', '')
+    await expect.poll(() => video.evaluate((element: HTMLVideoElement) => element.duration)).toBe(4)
+    await video.evaluate(async (element: HTMLVideoElement) => {
+        element.muted = true
+        await element.play()
+    })
+    await expect
+        .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
+        .toBeGreaterThan(0)
+    await video.evaluate((element: HTMLVideoElement) => {
+        element.pause()
+        element.currentTime = 2
+    })
+    await expect
+        .poll(() => video.evaluate((element: HTMLVideoElement) => element.currentTime))
+        .toBe(2)
+    for (const width of [1280, 390]) {
+        await page.setViewportSize({ width, height: 900 })
+        await expect(video).toBeVisible()
+        expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+        ).toBe(true)
+        await page.screenshot({ path: info.outputPath(`linkedin-video-${width}.png`) })
+    }
+    const saving = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    const saved = await saving
+    expect(saved.status()).toBe(201)
+    const publication = (await saved.json()).publications[0]
+    const editor = (
+        await (
+            await page.request.get(
+                `/api/projects/${projectId}/publications/${publication.id}/editor`
+            )
+        ).json()
+    ).editor
+    expect(editor.draft.content.media).toEqual([{ assetId: asset.asset.id }])
+    expect(editor.profile.profile.execution.revision).toBe('member-post-v4')
 })

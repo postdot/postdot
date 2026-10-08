@@ -145,7 +145,7 @@ describe('media HTTP routes', () => {
             )
             expect(uploadPolicyResponse.status).toBe(200)
             expect(await uploadPolicyResponse.json()).toEqual({
-                allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp'],
+                allowedContentTypes: ['image/png', 'image/jpeg', 'image/webp', 'video/mp4'],
                 maxFileSize: 2_000_000,
             })
 
@@ -295,6 +295,22 @@ describe('media HTTP routes', () => {
             expect(Array.from(new Uint8Array(await contentResponse.arrayBuffer()))).toEqual(
                 Array.from(bytes)
             )
+
+            for (const [range, expectedStatus, expectedBytes] of [
+                ['bytes=2-5', 206, bytes.slice(2, 6)],
+                ['bytes=-4', 206, bytes.slice(-4)],
+                ['bytes=99999-', 416, new Uint8Array(0)],
+            ] as const) {
+                const response = await app.handle(
+                    new Request(
+                        `${baseURL}/api/projects/${projectBody.project.id}/media/${reservationBody.asset.id}/content`,
+                        { headers: { cookie, range } }
+                    )
+                )
+                expect(response.status).toBe(expectedStatus)
+                expect(new Uint8Array(await response.arrayBuffer())).toEqual(expectedBytes)
+                expect(response.headers.get('content-range')).not.toBeNull()
+            }
 
             const publicMediaDelivery = createMediaPublicDelivery({
                 baseURL,

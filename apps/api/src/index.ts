@@ -234,6 +234,11 @@ async function startServerWithRuntimeLock(
             resolveOAuth: publisher.resolveLinkedInOAuth,
         }),
         createLinkedInProviderAdapter({
+            revision: 'member-post-v3',
+            oauth: publisher.linkedin,
+            resolveOAuth: publisher.resolveLinkedInOAuth,
+        }),
+        createLinkedInProviderAdapter({
             oauth: publisher.linkedin,
             resolveOAuth: publisher.resolveLinkedInOAuth,
         }),

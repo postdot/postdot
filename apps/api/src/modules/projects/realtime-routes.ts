@@ -50,6 +50,7 @@ const supportedProjectEventSubjects = {
     'publication.execution.claimed': 'publication',
     'publication.execution.effect_started': 'publication',
     'publication.execution.succeeded': 'publication',
+    'publication.execution.deferred': 'publication',
     'publication.execution.retry_scheduled': 'publication',
     'publication.execution.failed': 'publication',
     'publication.execution.ambiguous': 'publication',

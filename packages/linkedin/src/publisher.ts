@@ -303,7 +303,7 @@ function validateInput(input: PublishLinkedInTextInput): LinkedInPublishOutcome 
     return null
 }
 
-function classifyResponse(
+export function classifyResponse(
     response: Response,
     providerMessage: string | undefined
 ): LinkedInPublishOutcome {
@@ -358,12 +358,12 @@ function classifyResponse(
     )
 }
 
-function classifyImageResponse(
+export function classifyImageResponse(
     response: Response,
     providerMessage: string | undefined,
     operation: string,
     remoteMediaId?: string
-): LinkedInMediaUploadOutcome {
+): Exclude<LinkedInMediaUploadOutcome, { type: 'uploaded' }> {
     const detail = providerMessage ?? 'No provider details returned'
 
     if (response.status === 429) {
@@ -418,7 +418,7 @@ function classifyImageResponse(
     )
 }
 
-async function readProviderMessage(
+export async function readProviderMessage(
     response: Response,
     accessToken: string,
     additionalSecrets: readonly string[] = []
@@ -491,7 +491,7 @@ function networkFailure(
 function mediaNetworkFailure(
     timedOut: boolean,
     remoteMediaId?: string
-): LinkedInMediaUploadOutcome {
+): Exclude<LinkedInMediaUploadOutcome, { type: 'uploaded' }> {
     const reason = timedOut ? 'request timed out' : 'request failed'
     return ambiguousMediaFailure(
         timedOut ? 'provider_timeout' : 'network_failure',
@@ -517,14 +517,14 @@ function retryableFailure(
 function mediaPermanentFailure(
     code: LinkedInPermanentFailureCode,
     errorMessage: string
-): LinkedInMediaUploadOutcome {
+): Exclude<LinkedInMediaUploadOutcome, { type: 'uploaded' }> {
     return { type: 'permanent_failure', effectOccurred: false, code, errorMessage }
 }
 
 function mediaRetryableFailure(
     code: LinkedInRetryableFailureCode,
     errorMessage: string
-): LinkedInMediaUploadOutcome {
+): Exclude<LinkedInMediaUploadOutcome, { type: 'uploaded' }> {
     return { type: 'retryable_failure', effectOccurred: false, code, errorMessage }
 }
 
@@ -539,7 +539,7 @@ function ambiguousMediaFailure(
     code: LinkedInMediaUploadAmbiguousFailureCode,
     errorMessage: string,
     remoteMediaId?: string
-): LinkedInMediaUploadOutcome {
+): Exclude<LinkedInMediaUploadOutcome, { type: 'uploaded' }> {
     return { type: 'ambiguous', code, errorMessage, remoteMediaId }
 }
 
@@ -581,7 +581,7 @@ function validateImagePostInput(
     return null
 }
 
-function validateCommonInput(
+export function validateCommonInput(
     accessToken: string,
     destination: PublishLinkedInImageUploadInput['destination']
 ): { readonly code: LinkedInPermanentFailureCode; readonly errorMessage: string } | null {
@@ -627,7 +627,10 @@ function normalizeDestination(
     return { ...destination, id: destination.id.trim() }
 }
 
-function linkedInJsonHeaders(accessToken: string, apiVersion: string): Record<string, string> {
+export function linkedInJsonHeaders(
+    accessToken: string,
+    apiVersion: string
+): Record<string, string> {
     return {
         authorization: `Bearer ${accessToken}`,
         'content-type': 'application/json',
@@ -636,7 +639,7 @@ function linkedInJsonHeaders(accessToken: string, apiVersion: string): Record<st
     }
 }
 
-function normalizeApiVersion(value: string): string {
+export function normalizeApiVersion(value: string): string {
     if (!/^\d{6}$/.test(value)) {
         throw new TypeError('LinkedIn API version must use the YYYYMM format')
     }
@@ -649,7 +652,7 @@ function normalizeApiVersion(value: string): string {
     return value
 }
 
-function normalizeBaseUrl(value: string): URL {
+export function normalizeBaseUrl(value: string): URL {
     const url = new URL(value)
     if (url.protocol !== 'https:' && url.protocol !== 'http:') {
         throw new TypeError('LinkedIn base URL must use HTTP or HTTPS')
@@ -660,7 +663,7 @@ function normalizeBaseUrl(value: string): URL {
     return url
 }
 
-function normalizeTimeout(value: number): number {
+export function normalizeTimeout(value: number): number {
     if (!Number.isSafeInteger(value) || value <= 0) {
         throw new TypeError('LinkedIn timeoutMs must be a positive safe integer')
     }

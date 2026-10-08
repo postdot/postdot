@@ -834,7 +834,9 @@ export function createWorkflowStore(database: HeraldDatabase) {
             } else {
                 const errorMessage = requireNonBlank(input.outcome.errorMessage, 'errorMessage')
                 const retryAt =
-                    input.outcome.type === 'retryable_failure' && input.retryAt != null
+                    (input.outcome.type === 'retryable_failure' ||
+                        input.outcome.type === 'deferred') &&
+                    input.retryAt != null
                         ? requireTimestamp(input.retryAt, 'retryAt')
                         : null
 
@@ -858,8 +860,16 @@ export function createWorkflowStore(database: HeraldDatabase) {
                         job.id,
                         job.claimToken
                     ).changes
+                    if (input.outcome.type === 'deferred') {
+                        client
+                            .query('update jobs set attempts = max(0, attempts - 1) where id = ?1')
+                            .run(job.id)
+                    }
                     persisted = 'retry_scheduled'
-                    auditAction = automaticExecutionAuditActions.retryScheduled
+                    auditAction =
+                        input.outcome.type === 'deferred'
+                            ? automaticExecutionAuditActions.deferred
+                            : automaticExecutionAuditActions.retryScheduled
                     auditDetails = {
                         fromState: 'publishing',
                         toState: 'ready',

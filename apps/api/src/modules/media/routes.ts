@@ -6,6 +6,7 @@ import { Type, type Static } from 'typebox'
 import type { AuthenticatedElysia } from '../../plugins/auth'
 import { canAccessProjectRole, forbiddenProjectMutation } from '../projects/authorization'
 import { errorResponse } from '../projects/models'
+import { parseMediaByteRange } from './byte-range'
 import { MediaUrlImportError, type MediaUrlImporter } from './url-import'
 
 const mediaProjectParams = Type.Object({
@@ -719,6 +720,8 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     summary: 'Stream verified media bytes for a project asset',
                     tags: ['Media'],
                     responses: {
+                        206: { description: 'Authenticated byte range of media content' },
+                        416: { description: 'The requested media byte range is not satisfiable' },
                         200: {
                             description: 'The verified media bytes',
                             content: {
@@ -765,12 +768,40 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                     },
                 },
             },
-            async ({ params, status, user }) => {
+            async ({ params, status, user, request }) => {
                 if (media === undefined) return status(503, mediaUnavailableError())
+                const rangeHeader = request.headers.get('range')
+                const reference = rangeHeader
+                    ? media.getAsset(params.projectId, params.assetId, user.id)
+                    : null
+                const representation =
+                    reference?.representations.find(
+                        item =>
+                            item.kind === 'original' &&
+                            ['ready', 'deletion_requested'].includes(item.state)
+                    ) ??
+                    reference?.representations.find(item =>
+                        ['ready', 'deletion_requested'].includes(item.state)
+                    )
+                const range =
+                    rangeHeader &&
+                    representation?.byteSize !== null &&
+                    representation?.byteSize !== undefined
+                        ? parseMediaByteRange(rangeHeader, representation.byteSize)
+                        : undefined
+                if (range === null)
+                    return new Response(null, {
+                        status: 416,
+                        headers: {
+                            'content-range': `bytes */${representation!.byteSize}`,
+                            'cache-control': 'private, no-store',
+                        },
+                    })
                 const content = await media.openAssetContent(
                     params.projectId,
                     params.assetId,
-                    user.id
+                    user.id,
+                    range ?? undefined
                 )
                 if (content === null) {
                     return status(404, {
@@ -779,9 +810,16 @@ export function registerMediaRoutes<const Routes extends Record<string, unknown>
                 }
 
                 return new Response(content.stream, {
+                    status: range ? 206 : 200,
                     headers: {
                         'cache-control': 'private, no-store',
-                        'content-length': String(content.size),
+                        'content-length': String(range ? range.end - range.start : content.size),
+                        'accept-ranges': 'bytes',
+                        ...(range
+                            ? {
+                                  'content-range': `bytes ${range.start}-${range.end - 1}/${content.size}`,
+                              }
+                            : {}),
                         'content-type': content.contentType,
                         etag: `"${content.sha256}"`,
                         'last-modified': content.lastModified.toUTCString(),

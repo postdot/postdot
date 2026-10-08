@@ -3,6 +3,9 @@ import type { PublisherExecutionTarget } from '@herald/db'
 import {
     createLinkedInImagePublisher,
     createLinkedInTextPublisher,
+    createLinkedInVideoPublisher,
+    type LINKEDIN_IMAGE_EXECUTION_CONTRACT_REVISION,
+    type LinkedInVideoPublisher,
     LINKEDIN_EXECUTION_CONTRACT_REVISION,
     LINKEDIN_LEGACY_EXECUTION_CONTRACT_REVISION,
     LINKEDIN_MAX_IMAGES,
@@ -19,6 +22,7 @@ import {
 } from '@herald/oauth'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { publishLinkedInVideo } from './linkedin-video'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type {
     BuiltInProviderAdapter,
@@ -36,12 +40,14 @@ export interface LinkedInProviderAdapterOptions {
     readonly revision?:
         | typeof LINKEDIN_EXECUTION_CONTRACT_REVISION
         | typeof LINKEDIN_LEGACY_EXECUTION_CONTRACT_REVISION
+        | typeof LINKEDIN_IMAGE_EXECUTION_CONTRACT_REVISION
     readonly oauth?: LinkedInOAuthConfiguration
     readonly resolveOAuth?: (
         providerApplicationId: string | null
     ) => Promise<LinkedInOAuthConfiguration | undefined>
     readonly textPublisher?: LinkedInTextPublisher
     readonly imagePublisher?: LinkedInImagePublisher
+    readonly videoPublisher?: LinkedInVideoPublisher
 }
 
 export function createLinkedInProviderAdapter(
@@ -49,6 +55,7 @@ export function createLinkedInProviderAdapter(
 ): BuiltInProviderAdapter {
     const textPublisher = options.textPublisher ?? createLinkedInTextPublisher()
     const imagePublisher = options.imagePublisher ?? createLinkedInImagePublisher()
+    const videoPublisher = options.videoPublisher ?? createLinkedInVideoPublisher()
 
     return {
         providerId: LINKEDIN_PROVIDER,
@@ -61,6 +68,10 @@ export function createLinkedInProviderAdapter(
                 resolveOAuth: options.resolveOAuth,
                 textPublisher,
                 imagePublisher,
+                videoPublisher,
+                allowVideo:
+                    (options.revision ?? LINKEDIN_EXECUTION_CONTRACT_REVISION) ===
+                    LINKEDIN_EXECUTION_CONTRACT_REVISION,
                 maxImages:
                     options.revision === LINKEDIN_LEGACY_EXECUTION_CONTRACT_REVISION
                         ? 1
@@ -77,6 +88,8 @@ async function executeLinkedInPublication(input: {
     ) => Promise<LinkedInOAuthConfiguration | undefined>
     readonly textPublisher: LinkedInTextPublisher
     readonly imagePublisher: LinkedInImagePublisher
+    readonly videoPublisher: LinkedInVideoPublisher
+    readonly allowVideo: boolean
     readonly maxImages: number
 }): Promise<ExternalEffectOutcome> {
     const { input: execution, textPublisher, imagePublisher } = input
@@ -151,16 +164,25 @@ async function executeLinkedInPublication(input: {
                   content: target.content,
                   publisher: textPublisher,
               })
-            : await publishLinkedInImage({
-                  accessToken,
-                  destination,
-                  target,
-                  media: execution.media,
-                  publisher: imagePublisher,
-                  providerMediaDeliveryStore: execution.providerMediaDeliveryStore,
-                  now: execution.now,
-                  maxImages: input.maxImages,
-              })
+            : target.media.some(item => item.family === 'video')
+              ? input.allowVideo
+                  ? await publishLinkedInVideo({
+                        execution,
+                        accessToken,
+                        destination,
+                        publisher: input.videoPublisher,
+                    })
+                  : permanentFailure('The LinkedIn execution revision does not support video')
+              : await publishLinkedInImage({
+                    accessToken,
+                    destination,
+                    target,
+                    media: execution.media,
+                    publisher: imagePublisher,
+                    providerMediaDeliveryStore: execution.providerMediaDeliveryStore,
+                    now: execution.now,
+                    maxImages: input.maxImages,
+                })
     if (
         outcome.type === 'permanent_failure' &&
         'code' in outcome &&

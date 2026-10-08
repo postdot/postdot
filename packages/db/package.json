@@ -24,7 +24,8 @@
     "dependencies": {
         "@herald/core": "workspace:*",
         "@herald/media": "workspace:*",
-        "drizzle-orm": "0.45.3"
+        "drizzle-orm": "0.45.3",
+        "mp4box": "2.4.1"
     },
     "devDependencies": {
         "@tala-tools/tsconfig": "0.1.0",

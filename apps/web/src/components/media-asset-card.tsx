@@ -540,6 +540,7 @@ export function MediaPreview({
     className,
     draggable,
     src,
+    playable = false,
 }: {
     readonly alt?: string
     readonly projectId: string
@@ -548,7 +549,21 @@ export function MediaPreview({
     readonly className?: string
     readonly draggable?: boolean
     readonly src?: string
+    readonly playable?: boolean
 }) {
+    if (representation?.family === 'video') {
+        return (
+            <video
+                src={src ?? api.mediaContentUrl(projectId, asset.asset.id)}
+                aria-label={alt || asset.asset.originalFilename}
+                controls={playable}
+                preload="metadata"
+                playsInline
+                muted={!playable}
+                className={className ?? 'size-12 rounded-md object-cover shadow-field'}
+            />
+        )
+    }
     if (representation?.family === 'image') {
         return (
             <img

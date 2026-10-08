@@ -189,6 +189,7 @@ export function PublicationDraftPreview({
                                         linkedIn ? 'rounded-sm' : 'rounded-md'
                                     )}>
                                     <MediaPreview
+                                        playable
                                         alt={
                                             mediaSelections?.find(
                                                 selection => selection.assetId === asset.asset.id

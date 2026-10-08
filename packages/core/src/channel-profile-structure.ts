@@ -79,8 +79,32 @@ export function channelProfileStructureIssues(value: unknown): readonly Validati
             field(capability, 'maxItems', path, 'number')
             for (const key of ['minItems', 'maxBytesPerItem', 'maxTotalBytes'])
                 field(capability, key, path, 'number', true)
-            for (const key of ['accessibilityTextRequired', 'publicUrlRequired'])
+            for (const key of [
+                'accessibilityTextRequired',
+                'publicUrlRequired',
+                'allowMixedFamilies',
+            ])
                 field(capability, key, path, 'boolean', true)
+            if (capability.familyConstraints !== undefined) {
+                array(
+                    capability.familyConstraints,
+                    `${path}/familyConstraints`,
+                    (value, itemPath) => {
+                        const item = object(value, itemPath)
+                        if (!item) return
+                        field(item, 'family', itemPath, 'string')
+                        field(item, 'maxItems', itemPath, 'number', true)
+                        field(item, 'maxBytesPerItem', itemPath, 'number', true)
+                        field(item, 'minBytesPerItem', itemPath, 'number', true)
+                        if (item.duration !== undefined) {
+                            const duration = object(item.duration, `${itemPath}/duration`)
+                            if (duration)
+                                for (const key of ['minMilliseconds', 'maxMilliseconds'])
+                                    field(duration, key, `${itemPath}/duration`, 'number', true)
+                        }
+                    }
+                )
+            }
             for (const [key, fields] of [
                 ['dimensions', ['minWidth', 'maxWidth', 'minHeight', 'maxHeight']],
                 ['duration', ['minMilliseconds', 'maxMilliseconds']],

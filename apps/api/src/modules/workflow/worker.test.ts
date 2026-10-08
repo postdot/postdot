@@ -24,6 +24,7 @@ import {
 import { auditEvents, providerMediaDeliveries, publications } from '@herald/db/schema'
 import {
     createLinkedInImagePublisher,
+    createLinkedInVideoPublisher,
     createLinkedInTextPublisher,
     linkedinChannelProfile,
 } from '@herald/linkedin'
@@ -31,6 +32,7 @@ import { createLocalMediaStore } from '@herald/media'
 import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
 
+import { assessWorkingDraftMedia } from '../../../../../packages/db/src/manual-store/publication-media'
 import { createMediaPublicDelivery } from '../media/public-delivery'
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { linkedInPublisherConnectionPolicy } from '../publishers/providers/linkedin'
@@ -2071,3 +2073,236 @@ function readPublicationState(
         .where(eq(publications.id, publicationId))
         .all()[0]?.state
 }
+
+it('releases the worker during video processing and resumes without uploading or consuming failure attempts', async () => {
+    const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-linkedin-video-'))
+    const database = createDatabase(':memory:')
+    let clock = now
+    try {
+        runMigrations(database)
+        const media = createMediaAssetStore(
+            database,
+            createLocalMediaStore({
+                storeId: 'local-test',
+                rootDirectory,
+                maxObjectBytes: 2_000_000,
+            }),
+            { now: () => clock }
+        )
+        const manualStore = createManualStore(database, { now: () => clock, media })
+        const credentials = createPublisherCredentialStore(database, {
+            cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+            now: () => clock,
+        })
+        const publishers = createPublisherStore(database, {
+            credentialRevoker: credentials,
+            connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
+            now: () => clock,
+        })
+        const project = manualStore.createProject({
+            name: 'Video project',
+            subjectId: 'video-user',
+            displayName: 'Video editor',
+        })!
+        const channel = manualStore.createChannel({
+            projectId: project.project.id,
+            subjectId: 'video-user',
+            name: 'LinkedIn video',
+            profile: linkedinChannelProfile,
+        })!
+        const credential = await credentials.createPublisherCredential({
+            projectId: project.project.id,
+            connectedByActorId: project.actor.id,
+            providerId: 'linkedin',
+            externalAccountId: 'member-42',
+            scopes: ['openid', 'profile', 'w_member_social'],
+            accessToken: 'video-secret',
+        })
+        if (credential.kind !== 'created') throw new Error('Credential fixture failed')
+        expect(
+            publishers.createPublisherConnection({
+                projectId: project.project.id,
+                channelId: channel.id,
+                subjectId: 'video-user',
+                kind: 'linkedin',
+                credentialId: credential.credential.id,
+            }).kind
+        ).toBe('created')
+        const bytes = await Bun.file(
+            new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
+        ).bytes()
+        const reserved = media.reserveUpload({
+            projectId: project.project.id,
+            subjectId: 'video-user',
+            originalFilename: 'video.mp4',
+            contentType: 'video/mp4',
+            expectedSize: bytes.length,
+        })!
+        expect(
+            await media.upload({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                intentId: reserved.intent.id,
+                source: new Blob([bytes]).stream(),
+            })
+        ).toMatchObject({ kind: 'uploaded' })
+        expect(
+            await media.finalizeUpload({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                intentId: reserved.intent.id,
+            })
+        ).toMatchObject({ kind: 'ready' })
+        const imageBytes = createPng()
+        const image = media.reserveUpload({
+            projectId: project.project.id,
+            subjectId: 'video-user',
+            originalFilename: 'image.png',
+            contentType: 'image/png',
+            expectedSize: imageBytes.length,
+        })!
+        await media.upload({
+            projectId: project.project.id,
+            subjectId: 'video-user',
+            intentId: image.intent.id,
+            source: new Blob([imageBytes]).stream(),
+        })
+        expect(
+            await media.finalizeUpload({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                intentId: image.intent.id,
+            })
+        ).toMatchObject({ kind: 'ready' })
+        expect(
+            assessWorkingDraftMedia(
+                linkedinChannelProfile,
+                {
+                    commentary: 'Mixed media',
+                    media: [{ assetId: reserved.asset.id }, { assetId: image.asset.id }],
+                },
+                project.project.id,
+                'video-user',
+                media,
+                false
+            )
+        ).toEqual([
+            expect.objectContaining({
+                code: 'profile.media_incompatible',
+                message: expect.stringContaining('cannot mix'),
+            }),
+        ])
+        expect(
+            assessWorkingDraftMedia(
+                linkedinChannelProfile,
+                {
+                    commentary: 'Too many videos',
+                    media: [{ assetId: reserved.asset.id }, { assetId: reserved.asset.id }],
+                },
+                project.project.id,
+                'video-user',
+                media,
+                false
+            )
+        ).toEqual([
+            expect.objectContaining({ message: expect.stringContaining('at most 1 video') }),
+        ])
+        const post = manualStore.createPost({
+            projectId: project.project.id,
+            subjectId: 'video-user',
+            sourceContent: {
+                body: { text: 'Native video', format: 'plain_text' },
+                media: [{ assetId: reserved.asset.id }],
+            },
+            publications: [
+                { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
+            ],
+        })!
+        expect(post).not.toBeNull()
+        let registrations = 0
+        let transfers = 0
+        let finalizations = 0
+        let posts = 0
+        let ready = false
+        const publisher = createLinkedInVideoPublisher({
+            fetcher: async (url, init) => {
+                const path = String(url)
+                if (path.includes('initializeUpload')) {
+                    registrations++
+                    return Response.json({
+                        value: {
+                            video: 'urn:li:video:worker',
+                            uploadToken: 'private-session',
+                            uploadInstructions: [
+                                {
+                                    firstByte: 0,
+                                    lastByte: bytes.length - 1,
+                                    uploadUrl: 'https://www.linkedin.com/video-part',
+                                },
+                            ],
+                        },
+                    })
+                }
+                if (init?.method === 'PUT') {
+                    transfers++
+                    expect(new Uint8Array(await new Response(init.body).arrayBuffer())).toEqual(
+                        bytes
+                    )
+                    return new Response(null, { status: 201, headers: { etag: 'one' } })
+                }
+                if (path.includes('finalizeUpload')) {
+                    finalizations++
+                    return new Response(null, { status: 200 })
+                }
+                if (path.endsWith('/rest/posts')) {
+                    posts++
+                    return new Response(null, {
+                        status: 201,
+                        headers: { 'x-restli-id': 'urn:li:share:video' },
+                    })
+                }
+                return Response.json({
+                    id: 'urn:li:video:worker',
+                    status: ready ? 'AVAILABLE' : 'PROCESSING',
+                })
+            },
+        })
+        const worker = createPublicationWorker({
+            database,
+            publisherStore: publishers,
+            publisherCredentialStore: credentials,
+            media,
+            builtInProviderRegistry: createBuiltInProviderRegistry([
+                createLinkedInProviderAdapter({ videoPublisher: publisher }),
+            ]),
+            now: () => clock,
+        })
+        for (let index = 0; index < 5; index++) {
+            await worker.processDueEvents(clock)
+            expect(database.$client.query('select state, attempts from jobs').all()).toEqual([
+                { state: 'pending', attempts: 0 },
+            ])
+            expect(posts).toBe(0)
+            clock += 60_000
+        }
+        ready = true
+        await worker.processDueEvents(clock)
+        expect({ registrations, transfers, finalizations, posts }).toEqual({
+            registrations: 1,
+            transfers: 1,
+            finalizations: 1,
+            posts: 1,
+        })
+        expect(database.$client.query('select state from publications').all()).toEqual([
+            { state: 'published' },
+        ])
+        expect(
+            database.$client
+                .query('select state, remote_media_id as id from provider_media_deliveries')
+                .all()
+        ).toEqual([{ state: 'uploaded', id: 'urn:li:video:worker' }])
+    } finally {
+        closeDatabase(database)
+        await rm(rootDirectory, { recursive: true, force: true })
+    }
+})

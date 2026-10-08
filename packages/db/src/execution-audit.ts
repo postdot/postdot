@@ -2,6 +2,7 @@ export const automaticExecutionAuditActions = {
     claimed: 'publication.execution.claimed',
     effectStarted: 'publication.execution.effect_started',
     succeeded: 'publication.execution.succeeded',
+    deferred: 'publication.execution.deferred',
     retryScheduled: 'publication.execution.retry_scheduled',
     failed: 'publication.execution.failed',
     ambiguous: 'publication.execution.ambiguous',

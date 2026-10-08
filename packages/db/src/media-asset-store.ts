@@ -12,6 +12,7 @@ import {
     type MediaAssetState,
     type MediaFamily,
     type MediaInspectionLimits,
+    type MediaInspection,
     type MediaRepresentation,
     type MediaRepresentationState,
     type MediaUploadPolicy,
@@ -21,6 +22,7 @@ import {
 import { MediaStoreError, type MediaObjectMetadata, type MediaStore } from '@herald/media'
 
 import type { HeraldDatabase } from './client'
+import { createMp4Inspection } from './mp4-inspection'
 
 const DEFAULT_UPLOAD_INTENT_TTL_MS = 15 * 60 * 1_000
 const DEFAULT_DELETION_GRACE_PERIOD_MS = 24 * 60 * 60 * 1_000
@@ -1445,7 +1447,8 @@ export function createMediaAssetStore(
 
     async function openRepresentationContent(
         media: MediaAssetReference,
-        representationId: string
+        representationId: string,
+        range?: { readonly start: number; readonly end: number }
     ): Promise<MediaAssetContent | null> {
         const representation = media.representations.find(
             candidate =>
@@ -1463,6 +1466,7 @@ export function createMediaAssetStore(
         }
 
         const opened = await mediaStore.open(representation.objectKey, {
+            range,
             maxBytes: mediaStore.maxObjectBytes,
         })
         if (opened === null || opened.metadata.size !== representation.byteSize) return null
@@ -1584,7 +1588,7 @@ export function createMediaAssetStore(
         }
 
         try {
-            const scanned = await scanObject(opened, inspectionLimits.maxHeaderBytes)
+            const scanned = await scanObject(opened, inspectionLimits)
             if (scanned.size !== opened.metadata.size) {
                 return failFinalization(
                     projectId,
@@ -1609,7 +1613,7 @@ export function createMediaAssetStore(
                 )
             }
 
-            const inspection = inspectors.inspect(scanned.header, inspectionLimits)
+            const inspection = scanned.video ?? inspectors.inspect(scanned.header, inspectionLimits)
             if (inspection === null) {
                 return failFinalization(
                     projectId,
@@ -1848,7 +1852,8 @@ export function createMediaAssetStore(
         async openAssetContent(
             projectId: string,
             assetId: string,
-            subjectId: string
+            subjectId: string,
+            range?: { readonly start: number; readonly end: number }
         ): Promise<MediaAssetContent | null> {
             const normalizedProjectId = requireNonBlank(projectId, 'projectId')
             if (!hasProjectAccess(normalizedProjectId, requireNonBlank(subjectId, 'subjectId'))) {
@@ -1870,7 +1875,7 @@ export function createMediaAssetStore(
                 )
             return representation === undefined
                 ? null
-                : openRepresentationContent(media, representation.id)
+                : openRepresentationContent(media, representation.id, range)
         },
 
         async openRepresentationContent(
@@ -2194,11 +2199,17 @@ export type MediaAssetStore = ReturnType<typeof createMediaAssetStore>
 
 async function scanObject(
     object: { readonly metadata: MediaObjectMetadata; readonly stream: ReadableStream<Uint8Array> },
-    maxHeaderBytes: number
-): Promise<{ readonly size: number; readonly sha256: string; readonly header: Uint8Array }> {
+    limits: MediaInspectionLimits
+): Promise<{
+    readonly size: number
+    readonly sha256: string
+    readonly header: Uint8Array
+    readonly video: MediaInspection | null
+}> {
     const reader = object.stream.getReader()
     const hash = createHash('sha256')
-    const header = new Uint8Array(Math.min(maxHeaderBytes, object.metadata.size))
+    const header = new Uint8Array(Math.min(limits.maxHeaderBytes, object.metadata.size))
+    const video = createMp4Inspection(object.metadata.size, limits)
     let headerSize = 0
     let size = 0
 
@@ -2211,6 +2222,7 @@ async function scanObject(
             }
             size += result.value.byteLength
             hash.update(result.value)
+            video.push(result.value)
             if (headerSize < header.byteLength) {
                 const amount = Math.min(header.byteLength - headerSize, result.value.byteLength)
                 header.set(result.value.subarray(0, amount), headerSize)
@@ -2228,7 +2240,12 @@ async function scanObject(
         reader.releaseLock()
     }
 
-    return { size, sha256: hash.digest('hex'), header: header.subarray(0, headerSize) }
+    return {
+        size,
+        sha256: hash.digest('hex'),
+        header: header.subarray(0, headerSize),
+        video: video.finish(),
+    }
 }
 
 interface MediaAssetCursor {

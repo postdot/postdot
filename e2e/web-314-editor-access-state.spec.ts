@@ -766,8 +766,15 @@ async function createAccountAndProject(page: Page, suffix: string) {
         ),
         page.getByRole('button', { name: 'Create account', exact: true }).click(),
     ])
-    await page.goto('/dashboard?projectId=none')
-    await expect(page).toHaveURL(/\/dashboard\?projectId=none$/)
+    // Keep invitation fixtures independent of accounts accumulated by other specs.
+    // The shared workspace can legitimately reach the provider's membership limit.
+    const workspaceResponse = await page.request.post('/api/workspaces', {
+        data: { name: `E2E-314 workspace ${suffix}` },
+    })
+    expect(workspaceResponse.status()).toBe(201)
+    const { workspace } = (await workspaceResponse.json()) as { workspace: { id: string } }
+    await page.goto(`/dashboard?workspaceId=${workspace.id}&projectId=none`)
+    await expect(page).toHaveURL(/\/dashboard\?workspaceId=[^&]+&projectId=none$/)
 
     await page.getByRole('combobox', { name: 'Select project', exact: true }).click()
     await page.getByRole('button', { name: 'Create project', exact: true }).last().click()

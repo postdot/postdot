@@ -38,6 +38,7 @@ WORKDIR /app
 COPY --from=build --chown=bun:bun /out/herald.js ./herald.js
 COPY --from=build --chown=bun:bun /out/migrations ./migrations
 COPY --from=build --chown=bun:bun /out/public ./public
+COPY --from=build --chown=bun:bun /app/docs/licenses/MP4Box.LICENSE ./licenses/MP4Box.LICENSE
 
 RUN mkdir -p /data && chown bun:bun /data
 

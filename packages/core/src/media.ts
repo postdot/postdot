@@ -120,7 +120,12 @@ export interface MediaInspectionLimits {
     readonly maxPixels: number
 }
 
-export const defaultMediaUploadContentTypes = ['image/png', 'image/jpeg', 'image/webp'] as const
+export const defaultMediaUploadContentTypes = [
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+    'video/mp4',
+] as const
 
 export type DefaultMediaUploadContentType = (typeof defaultMediaUploadContentTypes)[number]
 

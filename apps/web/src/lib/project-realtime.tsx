@@ -50,6 +50,7 @@ const projectRealtimeEventTypes = [
     'publication.execution.claimed',
     'publication.execution.effect_started',
     'publication.execution.succeeded',
+    'publication.execution.deferred',
     'publication.execution.retry_scheduled',
     'publication.execution.failed',
     'publication.execution.ambiguous',

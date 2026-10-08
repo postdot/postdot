@@ -80,9 +80,19 @@ export interface MediaDurationCapability {
     readonly maxMilliseconds?: number
 }
 
+export interface MediaFamilyConstraint {
+    readonly family: MediaFamily
+    readonly minBytesPerItem?: number
+    readonly maxItems?: number
+    readonly maxBytesPerItem?: number
+    readonly duration?: MediaDurationCapability
+}
+
 export interface MediaFieldCapability {
     readonly bindingId: string
     readonly families: readonly MediaFamily[]
+    readonly allowMixedFamilies?: boolean
+    readonly familyConstraints?: readonly MediaFamilyConstraint[]
     readonly mimeTypes: readonly string[]
     readonly minItems?: number
     readonly maxItems: number
@@ -639,6 +649,31 @@ function validateCapabilities(profile: ChannelProfileDefinition): ValidationIssu
                     path,
                     'capability.range_invalid',
                     'Media minItems cannot exceed maxItems',
+                    'capability'
+                )
+            )
+        }
+
+        const familyConstraints = capability.familyConstraints ?? []
+        if (
+            new Set(familyConstraints.map(item => item.family)).size !== familyConstraints.length ||
+            familyConstraints.some(
+                item =>
+                    !capability.families.includes(item.family) ||
+                    invalidOptionalPositiveInteger(item.maxItems) ||
+                    invalidOptionalPositiveInteger(item.minBytesPerItem) ||
+                    invalidOptionalPositiveInteger(item.maxBytesPerItem) ||
+                    invalidRange(item.minBytesPerItem, item.maxBytesPerItem) ||
+                    invalidOptionalPositiveInteger(item.duration?.minMilliseconds) ||
+                    invalidOptionalPositiveInteger(item.duration?.maxMilliseconds) ||
+                    invalidRange(item.duration?.minMilliseconds, item.duration?.maxMilliseconds)
+            )
+        ) {
+            issues.push(
+                profileIssue(
+                    path,
+                    'capability.family_constraints_invalid',
+                    'Media family constraints must be unique, supported and have valid limits',
                     'capability'
                 )
             )

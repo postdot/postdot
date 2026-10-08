@@ -337,7 +337,7 @@ export function MediaViewer({
                                         animate="center"
                                         exit="exit"
                                         transition={imageTransition}
-                                        drag={hasNavigation && !isZoomed ? 'x' : false}
+                                        drag={hasNavigation && image && !isZoomed ? 'x' : false}
                                         dragConstraints={{ left: 0, right: 0 }}
                                         dragElastic={1}
                                         onDragEnd={handleDragEnd}
@@ -360,10 +360,15 @@ export function MediaViewer({
                                             />
                                         ) : (
                                             <MediaPreview
+                                                playable
                                                 projectId={currentAsset.asset.projectId}
                                                 asset={currentAsset}
                                                 representation={representation}
-                                                className="flex size-48 items-center justify-center rounded-md bg-surface-field text-sm font-medium uppercase text-muted-foreground"
+                                                className={
+                                                    representation?.family === 'video'
+                                                        ? 'max-h-full w-full max-w-5xl rounded-md bg-black object-contain'
+                                                        : 'flex size-48 items-center justify-center rounded-md bg-surface-field text-sm font-medium uppercase text-muted-foreground'
+                                                }
                                             />
                                         )}
                                     </motion.div>

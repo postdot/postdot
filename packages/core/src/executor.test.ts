@@ -57,7 +57,10 @@ class FakeExecutorStore implements WorkflowExecutorStore {
         this.completedInput = input
         if (input.outcome.type === 'published') return 'published'
         if (input.outcome.type === 'ambiguous') return 'ambiguous'
-        if (input.outcome.type === 'retryable_failure' && input.retryAt !== null) {
+        if (
+            (input.outcome.type === 'retryable_failure' || input.outcome.type === 'deferred') &&
+            input.retryAt !== null
+        ) {
             return 'retry_scheduled'
         }
         return 'failed'
@@ -130,6 +133,31 @@ describe('retry policy', () => {
 })
 
 describe('workflow executor', () => {
+    test('schedules processing deferrals after a slow effect completes, independent of retry limits', async () => {
+        const store = new FakeExecutorStore()
+        let current = time
+        const result = await processNextWorkflowEvent({
+            store,
+            actorId: 'system-one',
+            leaseDuration: 300_000,
+            retryPolicy: noRetry,
+            createClaimToken: () => 'claim-one',
+            performExternalEffect: () => {
+                current += 120_000
+                return {
+                    type: 'deferred',
+                    effectOccurred: false,
+                    errorMessage: 'Processing',
+                    resumeAfterMs: 60_000,
+                }
+            },
+            now: () => current,
+        })
+        expect(result.outcome).toBe('retry_scheduled')
+        expect(store.completedInput?.completedAt).toBe(time + 120_000)
+        expect(store.completedInput?.retryAt).toBe(time + 180_000)
+    })
+
     test('executes a non-publication work item through the generic boundary', async () => {
         const store = new FakeDeliveryStore()
         const received: { current: TestDelivery | null } = { current: null }
