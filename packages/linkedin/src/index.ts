@@ -5,6 +5,7 @@ export { createLinkedInMemberProfileClient, LinkedInProfileError } from './profi
 export { createLinkedInImagePublisher, createLinkedInTextPublisher } from './publisher'
 export {
     LINKEDIN_EXECUTION_CONTRACT_REVISION,
+    LINKEDIN_LEGACY_EXECUTION_CONTRACT_REVISION,
     linkedinChannelProfile,
     readLinkedInTextContent,
 } from './channel-profile'

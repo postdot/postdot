@@ -136,6 +136,10 @@ const adapterCases: readonly AdapterConformanceCase[] = [
                     }
                     return outcome
                 },
+                async publishImages() {
+                    onDispatch()
+                    return outcome as LinkedInPublishOutcome
+                },
                 async publishImage() {
                     onDispatch()
                     return outcome as LinkedInPublishOutcome
@@ -480,6 +484,34 @@ function createExecutionFixture(
 }
 
 describe('built-in provider adapter conformance', () => {
+    it('keeps the old LinkedIn execution contract separate and rejects multiple images before upload', async () => {
+        const provider = adapterCases[0]!
+        const oldAdapter = createLinkedInProviderAdapter({ revision: 'member-post-v2' })
+        const newAdapter = createLinkedInProviderAdapter()
+        const registry = createBuiltInProviderRegistry([oldAdapter, newAdapter])
+        expect(
+            registry.resolve({
+                providerId: 'linkedin',
+                kind: 'linkedin',
+                execution: { kind: 'built_in', contractId: 'linkedin', revision: 'member-post-v2' },
+            })
+        ).toBe(oldAdapter)
+        expect(
+            registry.resolve({
+                providerId: 'linkedin',
+                kind: 'linkedin',
+                execution: provider.profile.execution,
+            })
+        ).toBe(newAdapter)
+        const fixture = createExecutionFixture(provider, {
+            target: { media: [conformanceMedia, { ...conformanceMedia, id: 'second' }] },
+        })
+        expect(await oldAdapter.execute(fixture.input)).toMatchObject({
+            type: 'permanent_failure',
+            effectOccurred: false,
+        })
+    })
+
     it('registers each adapter under its exact provider and execution identity', () => {
         const adapters = adapterCases.map(provider =>
             provider.createAdapter(outcomes[0]!, () => undefined)

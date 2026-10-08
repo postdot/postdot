@@ -24,6 +24,7 @@ import {
     type Channel,
     type ChannelProfileAssessment,
 } from '@/lib/api'
+import { templatesFromPresets } from '@/lib/channel-profile-presets'
 import { useLanguage } from '@/lib/i18n'
 import { profileIssueMessage } from '@/lib/profile-validation-feedback'
 import * as m from '@/paraglide/messages.js'
@@ -43,6 +44,7 @@ export function ChannelProfileEditorDialog({
 }) {
     useLanguage()
     const [profileText, setProfileText] = useState('')
+    const [latestTemplateAvailable, setLatestTemplateAvailable] = useState(false)
     const [savedProfileText, setSavedProfileText] = useState('')
     const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null)
     const session = useRef(0)
@@ -77,6 +79,7 @@ export function ChannelProfileEditorDialog({
         setProfileText('')
         setSavedProfileText('')
         setMetadata(null)
+        setLatestTemplateAvailable(false)
         setDraftId(null)
         setDraftRevision(undefined)
         setSaving(false)
@@ -94,6 +97,18 @@ export function ChannelProfileEditorDialog({
                 setProfileText(presentation.text)
                 setSavedProfileText(presentation.text)
                 setMetadata(presentation.metadata)
+                const execution = Object.fromEntries(Object.entries(version.profile)).execution
+                setLatestTemplateAvailable(
+                    state.draft === null &&
+                        typeof execution === 'object' &&
+                        execution !== null &&
+                        'kind' in execution &&
+                        execution.kind === 'built_in' &&
+                        'contractId' in execution &&
+                        execution.contractId === 'linkedin' &&
+                        'revision' in execution &&
+                        execution.revision === 'member-post-v2'
+                )
                 setDraftId(state.draft?.id ?? null)
                 setDraftRevision(state.draft?.revision)
             })
@@ -232,6 +247,26 @@ export function ChannelProfileEditorDialog({
         }
     }
 
+    async function loadLatestTemplate() {
+        const epoch = session.current
+        setLoading(true)
+        setError(null)
+        try {
+            const { presets } = await api.listChannelProfilePresets()
+            if (epoch !== session.current) return
+            const preset = presets.find(item => item.id === 'linkedin')
+            if (preset === undefined) throw new Error('LinkedIn template unavailable')
+            setProfileText(profilePresentation(templatesFromPresets([preset])[0]!.profile).text)
+            setAssessment(null)
+            setEditing(true)
+            setLatestTemplateAvailable(false)
+        } catch (caughtError) {
+            if (epoch === session.current) setError(formatApiError(caughtError))
+        } finally {
+            if (epoch === session.current) setLoading(false)
+        }
+    }
+
     async function reloadSavedProfile() {
         const epoch = session.current
         setLoading(true)
@@ -282,6 +317,16 @@ export function ChannelProfileEditorDialog({
                 </DialogHeader>
 
                 <div className="grid gap-4">
+                    {stage === 'edit' && latestTemplateAvailable ? (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="justify-self-start"
+                            disabled={busy || unsaved || reloadRequired}
+                            onClick={() => void loadLatestTemplate()}>
+                            {m.profile_load_latest_linkedin_template()}
+                        </Button>
+                    ) : null}
                     {stage === 'edit' ? (
                         <details
                             open={editing}

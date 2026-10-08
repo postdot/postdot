@@ -343,7 +343,7 @@ test('keeps dashboard and composer media journeys reliable', async ({ page, requ
     await expect(page.getByRole('paragraph').filter({ hasText: channelName }).first()).toBeVisible()
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
     const channelProfile = page.getByRole('radiogroup', { name: 'Profile', exact: true })
-    await channelProfile.getByRole('radio', { name: 'LinkedIn text', exact: true }).click()
+    await channelProfile.getByRole('radio', { name: 'LinkedIn post', exact: true }).click()
     await page.getByLabel('Channel name').fill(secondChannelName)
     await page.getByRole('button', { name: 'Create channel', exact: true }).click()
     await expect(
@@ -954,7 +954,7 @@ test('persists mixed and media-only publications through the dashboard', async (
 
     const { projectId: firstProjectId } = await createAccountAndProject(page, suffix, projectName)
     await createChannel(page, channelName)
-    await createChannel(page, secondChannelName, 'LinkedIn text')
+    await createChannel(page, secondChannelName, 'LinkedIn post')
     await page.goto(`/dashboard/projects/${firstProjectId}/media`)
     await importMediaFiles(page, [editedMediaFilename])
     await page.getByRole('button', { name: 'List view', exact: true }).click()

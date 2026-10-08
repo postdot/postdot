@@ -1,14 +1,16 @@
 import type { ChannelProfileDefinition } from '@herald/core'
 
-import { LINKEDIN_PROVIDER } from './contract'
+import { LINKEDIN_MAX_IMAGES, LINKEDIN_PROVIDER } from './contract'
 
-export const LINKEDIN_EXECUTION_CONTRACT_REVISION = 'member-post-v2'
+export const LINKEDIN_LEGACY_EXECUTION_CONTRACT_REVISION = 'member-post-v2'
+
+export const LINKEDIN_EXECUTION_CONTRACT_REVISION = 'member-post-v3'
 
 export const linkedinChannelProfile: ChannelProfileDefinition = {
     id: LINKEDIN_PROVIDER,
-    version: 2,
-    profileHash: 'sha256:herald-linkedin-member-post-v2',
-    schemaHash: 'sha256:herald-linkedin-member-post-schema-v2',
+    version: 3,
+    profileHash: 'sha256:herald-linkedin-member-post-v3',
+    schemaHash: 'sha256:herald-linkedin-member-post-schema-v3',
     origin: 'built_in',
     contentSchema: {
         type: 'object',
@@ -16,7 +18,7 @@ export const linkedinChannelProfile: ChannelProfileDefinition = {
             commentary: { type: 'string', minLength: 1, maxLength: 3000 },
             media: {
                 type: 'array',
-                maxItems: 1,
+                maxItems: LINKEDIN_MAX_IMAGES,
                 items: {
                     type: 'object',
                     properties: {
@@ -41,7 +43,7 @@ export const linkedinChannelProfile: ChannelProfileDefinition = {
         },
     ],
     capabilities: {
-        revision: 'linkedin-member-post-v2',
+        revision: 'linkedin-member-post-v3',
         textFields: [
             {
                 bindingId: 'commentary',
@@ -54,7 +56,7 @@ export const linkedinChannelProfile: ChannelProfileDefinition = {
                 bindingId: 'media',
                 families: ['image'],
                 mimeTypes: ['image/jpeg', 'image/png'],
-                maxItems: 1,
+                maxItems: LINKEDIN_MAX_IMAGES,
             },
         ],
         relations: [],

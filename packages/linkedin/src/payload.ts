@@ -81,3 +81,26 @@ export function createLinkedInImagePostPayload(input: {
 export function createLinkedInDestinationUrn(destination: LinkedInDestination): string {
     return `urn:li:${destination.type === 'member' ? 'person' : 'organization'}:${destination.id}`
 }
+
+export function createLinkedInImagesPostPayload(input: {
+    readonly destination: LinkedInDestination
+    readonly commentary: string
+    readonly images: readonly {
+        readonly imageId: string
+        readonly accessibilityText?: string | null
+    }[]
+}) {
+    return {
+        ...createLinkedInTextPostPayload(input),
+        content: {
+            multiImage: {
+                images: input.images.map(image => {
+                    const altText = image.accessibilityText?.trim()
+                    return altText
+                        ? { id: image.imageId.trim(), altText }
+                        : { id: image.imageId.trim() }
+                }),
+            },
+        },
+    }
+}

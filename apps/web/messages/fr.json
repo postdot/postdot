@@ -594,7 +594,7 @@
     "channel_profile": "Profil",
     "channel_name_placeholder": "Forum communautaire",
     "channel_manual_profile": "Message manuel",
-    "channel_linkedin_profile": "Texte LinkedIn",
+    "channel_linkedin_profile": "Publication LinkedIn",
     "channel_bluesky_profile": "Publication Bluesky",
     "channel_mastodon_profile": "Statut Mastodon",
     "channel_discord_profile": "Message Discord",
@@ -2039,5 +2039,6 @@
     "composer_character_count": "{count} / {limit} caractères",
     "composer_grapheme_count": "{count} / {limit} graphèmes",
     "composer_constraints_loading": "Chargement des limites de la destination…",
-    "composer_constraints_unavailable": "Les limites de la destination n’ont pas pu être vérifiées."
+    "composer_constraints_unavailable": "Les limites de la destination n’ont pas pu être vérifiées.",
+    "profile_load_latest_linkedin_template": "Charger le dernier modèle LinkedIn"
 }

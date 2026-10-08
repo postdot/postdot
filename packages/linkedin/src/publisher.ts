@@ -3,6 +3,7 @@ import {
     LINKEDIN_DEFAULT_API_VERSION,
     LINKEDIN_DEFAULT_TIMEOUT_MS,
     LINKEDIN_IMAGES_PATH,
+    LINKEDIN_MAX_IMAGES,
     LINKEDIN_POSTS_PATH,
     LINKEDIN_RESTLI_PROTOCOL_VERSION,
     type LinkedInAmbiguousFailureCode,
@@ -16,12 +17,14 @@ import {
     type LinkedInTextPublisher,
     type LinkedInTextPublisherOptions,
     type PublishLinkedInImagePostInput,
+    type PublishLinkedInImagesPostInput,
     type PublishLinkedInImageUploadInput,
     type PublishLinkedInTextInput,
 } from './contract'
 import {
     createLinkedInDestinationUrn,
     createLinkedInImagePostPayload,
+    createLinkedInImagesPostPayload,
     createLinkedInTextPostPayload,
 } from './payload'
 
@@ -93,6 +96,46 @@ export function createLinkedInImagePublisher(
     const baseUrl = normalizeBaseUrl(options.baseUrl ?? LINKEDIN_API_BASE_URL)
     const fetcher = options.fetcher ?? globalThis.fetch
     const timeoutMs = normalizeTimeout(options.timeoutMs ?? LINKEDIN_DEFAULT_TIMEOUT_MS)
+
+    async function sendImagePost(
+        input: PublishLinkedInTextInput,
+        payload:
+            | ReturnType<typeof createLinkedInImagePostPayload>
+            | ReturnType<typeof createLinkedInImagesPostPayload>
+    ): Promise<LinkedInPublishOutcome> {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), timeoutMs)
+        try {
+            let response: Response
+            try {
+                response = await fetcher(new URL(LINKEDIN_POSTS_PATH, baseUrl), {
+                    method: 'POST',
+                    headers: linkedInJsonHeaders(input.accessToken, apiVersion),
+                    body: JSON.stringify(payload),
+                    signal: controller.signal,
+                })
+            } catch (error) {
+                return networkFailure(error, input.accessToken, controller.signal.aborted)
+            }
+
+            if (response.status === 201) {
+                const externalId = response.headers.get('x-restli-id')?.trim()
+                if (externalId !== undefined && externalId.length > 0) {
+                    return { type: 'published', externalId }
+                }
+
+                return ambiguousFailure(
+                    'missing_post_id',
+                    'LinkedIn accepted the image post but did not return x-restli-id; the publication outcome is ambiguous'
+                )
+            }
+
+            const providerMessage = await readProviderMessage(response, input.accessToken)
+            return classifyResponse(response, providerMessage)
+        } finally {
+            clearTimeout(timeout)
+        }
+    }
 
     return {
         async uploadImage(input) {
@@ -223,46 +266,25 @@ export function createLinkedInImagePublisher(
         async publishImage(input) {
             const validationError = validateImagePostInput(input)
             if (validationError !== null) return validationError
-
-            const controller = new AbortController()
-            const timeout = setTimeout(() => controller.abort(), timeoutMs)
-            try {
-                let response: Response
-                try {
-                    response = await fetcher(new URL(LINKEDIN_POSTS_PATH, baseUrl), {
-                        method: 'POST',
-                        headers: linkedInJsonHeaders(input.accessToken, apiVersion),
-                        body: JSON.stringify(
-                            createLinkedInImagePostPayload({
-                                destination: normalizeDestination(input.destination),
-                                commentary: input.commentary,
-                                imageId: input.imageId.trim(),
-                                accessibilityText: input.accessibilityText,
-                            })
-                        ),
-                        signal: controller.signal,
-                    })
-                } catch (error) {
-                    return networkFailure(error, input.accessToken, controller.signal.aborted)
-                }
-
-                if (response.status === 201) {
-                    const externalId = response.headers.get('x-restli-id')?.trim()
-                    if (externalId !== undefined && externalId.length > 0) {
-                        return { type: 'published', externalId }
-                    }
-
-                    return ambiguousFailure(
-                        'missing_post_id',
-                        'LinkedIn accepted the image post but did not return x-restli-id; the publication outcome is ambiguous'
-                    )
-                }
-
-                const providerMessage = await readProviderMessage(response, input.accessToken)
-                return classifyResponse(response, providerMessage)
-            } finally {
-                clearTimeout(timeout)
-            }
+            return sendImagePost(
+                input,
+                createLinkedInImagePostPayload({
+                    ...input,
+                    destination: normalizeDestination(input.destination),
+                    imageId: input.imageId.trim(),
+                })
+            )
+        },
+        async publishImages(input) {
+            const validationError = validateImagesPostInput(input)
+            if (validationError !== null) return validationError
+            return sendImagePost(
+                input,
+                createLinkedInImagesPostPayload({
+                    ...input,
+                    destination: normalizeDestination(input.destination),
+                })
+            )
         },
     }
 }
@@ -683,4 +705,25 @@ function normalizeUploadUrl(value: string): URL {
         throw new TypeError('LinkedIn image upload URL must not contain credentials')
     }
     return url
+}
+
+function validateImagesPostInput(
+    input: PublishLinkedInImagesPostInput
+): LinkedInPublishOutcome | null {
+    const commonError = validateInput(input)
+    if (commonError !== null) return commonError
+    if (input.images.length < 2 || input.images.length > LINKEDIN_MAX_IMAGES) {
+        return permanentFailure(
+            'invalid_input',
+            'LinkedIn multi-image posts require 2 to 20 images'
+        )
+    }
+    for (const image of input.images) {
+        const error = validateImagePostInput({ ...input, ...image })
+        if (error !== null) return error
+        if ((image.accessibilityText?.trim().length ?? 0) > 4086) {
+            return permanentFailure('invalid_input', 'LinkedIn image alternative text is too long')
+        }
+    }
+    return null
 }

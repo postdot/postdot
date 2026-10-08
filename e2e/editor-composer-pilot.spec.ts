@@ -429,7 +429,9 @@ test('corrects destination attachments without changing shared media or another 
     await page.goto(`/dashboard/projects/${id}/publications/${publication.id}`)
     const mediaField = page.locator('[data-target-field="media"]')
     await openCustomization(page, mediaField)
-    await expect(mediaField).toContainText('Select at most 1 item.')
+    // Two images are valid under the current LinkedIn profile; customization
+    // must still isolate destination media from the shared source and sibling.
+    await expect(mediaField).not.toContainText('Select at most 1 item.')
     await expect(mediaField.locator('[data-media-selection-preview="true"]')).toHaveCount(2)
     await mediaField.getByRole('button', { name: 'Remove second.png', exact: true }).click()
     await expect
@@ -1142,4 +1144,129 @@ test('composer native presentation follows execution rather than profile identit
             expect((await read()).selectedTarget.content[property]).toBe(text)
         }
     }
+})
+
+test('upgrades LinkedIn explicitly and composes multiple images without changing historical targets', async ({
+    page,
+}) => {
+    test.setTimeout(60_000)
+    const projectId = await createProject(page)
+    const catalog = await (await page.request.get('/api/channel-profile-presets')).json()
+    const latest = catalog.presets.find((item: { id: string }) => item.id === 'linkedin').profile
+    expect(latest.capabilities.mediaFields[0].maxItems).toBe(20)
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    await page.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
+    await page.getByRole('combobox', { name: 'Starter template', exact: true }).click()
+    await page.getByRole('option', { name: 'LinkedIn post', exact: true }).click()
+    const old = JSON.parse(await page.getByLabel('Custom profile JSON').inputValue())
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    old.version = 2
+    old.origin = 'custom'
+    old.contentSchema.$schema = 'https://json-schema.org/draft/2020-12/schema'
+    old.profileHash = 'sha256:herald-linkedin-member-post-v2'
+    old.schemaHash = 'sha256:herald-linkedin-member-post-schema-v2'
+    old.execution.revision = 'member-post-v2'
+    old.capabilities.revision = 'linkedin-member-post-v2'
+    old.contentSchema.properties.media.maxItems = 1
+    old.capabilities.mediaFields[0].maxItems = 1
+    const made = await page.request.post(`/api/projects/${projectId}/channels`, {
+        data: { name: 'LinkedIn images', profile: old },
+    })
+    expect(made.status(), await made.text()).toBe(201)
+    const channelId = (await made.json()).channel.id
+    const filenames = ['first-linkedin.png', 'second-linkedin.png', 'third-linkedin.png']
+    const assets: string[] = []
+    for (const filename of filenames) assets.push(await createMediaAsset(page, projectId, filename))
+    const created = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            sourceContent: {
+                body: { format: 'plain_text', text: 'Historical single image' },
+                media: [{ assetId: assets[0] }],
+            },
+            publications: [{ channelId, deliveryMode: 'manual' }],
+        },
+    })
+    expect(created.status()).toBe(201)
+    const historical = (await created.json()).publications[0]
+    const historicalUrl = `/api/projects/${projectId}/publications/${historical.id}`
+    const prior = (await (await page.request.get(`${historicalUrl}/editor`)).json()).editor
+    const scheduledAt = Date.now() + 1000
+    expect(
+        (
+            await page.request.post(`${historicalUrl}/draft/promote`, {
+                data: { expectedRevision: prior.draft.revision, scheduledAt },
+            })
+        ).status()
+    ).toBe(200)
+    await expect.poll(() => Date.now()).toBeGreaterThanOrEqual(scheduledAt)
+    expect((await page.request.post(`${historicalUrl}/publish`, { data: {} })).status()).toBe(200)
+    const selected = (await (await page.request.get(`${historicalUrl}/editor`)).json()).editor
+        .selectedTarget
+
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Manage LinkedIn images', exact: true }).click()
+    await page.getByRole('menuitem', { name: 'Edit profile', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('button', { name: 'Load latest LinkedIn template', exact: true }).click()
+    await expect(dialog.getByLabel('Profile JSON', { exact: true })).toHaveValue(/member-post-v3/)
+    // Loading the template is a local draft action, never an activation.
+    const profileUrl = `/api/projects/${projectId}/channels/${channelId}/profile`
+    expect(
+        (await (await page.request.get(profileUrl)).json()).active.profile.execution.revision
+    ).toBe('member-post-v2')
+    await dialog.getByRole('button', { name: 'Save draft', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Preview impact', exact: true }).click()
+    await expect(
+        dialog.getByRole('button', { name: 'Review activation', exact: true })
+    ).toBeEnabled()
+    await dialog.getByRole('button', { name: 'Review activation', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Confirm activation', exact: true }).click()
+    await expect(
+        dialog.getByRole('heading', { name: 'LinkedIn images profile activated', exact: true })
+    ).toBeVisible()
+    expect(
+        (await (await page.request.get(profileUrl)).json()).active.profile.execution.revision
+    ).toBe('member-post-v3')
+    expect(
+        (await (await page.request.get(`${historicalUrl}/editor`)).json()).editor.selectedTarget
+    ).toEqual(selected)
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    await page.getByRole('textbox', { name: 'Content', exact: true }).fill('Three images in order')
+    await page.getByRole('button', { name: 'Add media', exact: true }).click()
+    const library = page.locator('[data-media-library="true"]')
+    for (const filename of filenames)
+        await library
+            .locator('article')
+            .filter({ hasText: filename })
+            .locator('[data-media-selection-toggle]')
+            .click()
+    await page.getByRole('button', { name: 'Done', exact: true }).click()
+    await expect(page.locator('[data-media-selection-preview="true"]')).toHaveCount(3)
+    await expect(page.locator('[data-preview-platform="linkedin"] img')).toHaveCount(4)
+    const saving = page.waitForResponse(
+        response => response.url().endsWith('/posts') && response.request().method() === 'POST'
+    )
+    await page.getByRole('button', { name: 'Create draft', exact: true }).click()
+    const result = await saving
+    expect(result.status()).toBe(201)
+    const post = await result.json()
+    const publication = post.publications[0]
+    const editor = (
+        await (
+            await page.request.get(
+                `/api/projects/${projectId}/publications/${publication.id}/editor`
+            )
+        ).json()
+    ).editor
+    expect(editor.draft.content.media.map((item: { assetId: string }) => item.assetId)).toEqual(
+        assets
+    )
+    expect(
+        editor.draft.content.media.map(
+            (item: { accessibilityText: string }) => item.accessibilityText
+        )
+    ).toEqual(filenames.map(filename => `Alt text for ${filename}`))
+    expect(editor.profile.profile.execution.revision).toBe('member-post-v3')
 })

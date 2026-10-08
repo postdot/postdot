@@ -197,6 +197,11 @@ async function startServerWithRuntimeLock(
         createDiscordProviderAdapter(),
         createDevtoProviderAdapter(),
         createLinkedInProviderAdapter({
+            revision: 'member-post-v2',
+            oauth: publisher.linkedin,
+            resolveOAuth: publisher.resolveLinkedInOAuth,
+        }),
+        createLinkedInProviderAdapter({
             oauth: publisher.linkedin,
             resolveOAuth: publisher.resolveLinkedInOAuth,
         }),

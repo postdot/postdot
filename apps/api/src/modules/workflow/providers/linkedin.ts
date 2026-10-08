@@ -4,6 +4,8 @@ import {
     createLinkedInImagePublisher,
     createLinkedInTextPublisher,
     LINKEDIN_EXECUTION_CONTRACT_REVISION,
+    LINKEDIN_LEGACY_EXECUTION_CONTRACT_REVISION,
+    LINKEDIN_MAX_IMAGES,
     LINKEDIN_PROVIDER,
     readLinkedInTextContent,
     type LinkedInDestination,
@@ -31,6 +33,9 @@ export interface LinkedInOAuthConfiguration {
 }
 
 export interface LinkedInProviderAdapterOptions {
+    readonly revision?:
+        | typeof LINKEDIN_EXECUTION_CONTRACT_REVISION
+        | typeof LINKEDIN_LEGACY_EXECUTION_CONTRACT_REVISION
     readonly oauth?: LinkedInOAuthConfiguration
     readonly resolveOAuth?: (
         providerApplicationId: string | null
@@ -48,7 +53,7 @@ export function createLinkedInProviderAdapter(
     return {
         providerId: LINKEDIN_PROVIDER,
         contractId: LINKEDIN_PROVIDER,
-        revision: LINKEDIN_EXECUTION_CONTRACT_REVISION,
+        revision: options.revision ?? LINKEDIN_EXECUTION_CONTRACT_REVISION,
         execute: input =>
             executeLinkedInPublication({
                 input,
@@ -56,6 +61,10 @@ export function createLinkedInProviderAdapter(
                 resolveOAuth: options.resolveOAuth,
                 textPublisher,
                 imagePublisher,
+                maxImages:
+                    options.revision === LINKEDIN_LEGACY_EXECUTION_CONTRACT_REVISION
+                        ? 1
+                        : LINKEDIN_MAX_IMAGES,
             }),
     }
 }
@@ -68,6 +77,7 @@ async function executeLinkedInPublication(input: {
     ) => Promise<LinkedInOAuthConfiguration | undefined>
     readonly textPublisher: LinkedInTextPublisher
     readonly imagePublisher: LinkedInImagePublisher
+    readonly maxImages: number
 }): Promise<ExternalEffectOutcome> {
     const { input: execution, textPublisher, imagePublisher } = input
     const oauth = input.resolveOAuth
@@ -149,6 +159,7 @@ async function executeLinkedInPublication(input: {
                   publisher: imagePublisher,
                   providerMediaDeliveryStore: execution.providerMediaDeliveryStore,
                   now: execution.now,
+                  maxImages: input.maxImages,
               })
     if (
         outcome.type === 'permanent_failure' &&
@@ -189,22 +200,49 @@ interface LinkedInImageExecutionInput {
     readonly publisher: LinkedInImagePublisher
     readonly providerMediaDeliveryStore: ProviderMediaDeliveryPort
     readonly now: number
+    readonly maxImages: number
 }
 
 async function publishLinkedInImage(
     input: LinkedInImageExecutionInput
 ): Promise<ExternalEffectOutcome> {
-    if (input.target.media.length !== 1) {
-        return permanentFailure('LinkedIn image posts require exactly one image')
+    if (input.target.media.length < 1 || input.target.media.length > input.maxImages) {
+        return permanentFailure('The LinkedIn image count exceeds the execution contract limit')
     }
-    const targetMedia = input.target.media[0]
-    if (targetMedia === undefined) {
-        return permanentFailure('The LinkedIn image reference is unavailable')
-    }
+    // Validate the whole batch before any upload. A bad later item must not dispatch earlier ones.
     if (
-        targetMedia.family !== 'image' ||
-        (targetMedia.contentType !== 'image/jpeg' && targetMedia.contentType !== 'image/png')
+        input.target.media.some(
+            item =>
+                item.family !== 'image' ||
+                (item.contentType !== 'image/jpeg' && item.contentType !== 'image/png')
+        )
     ) {
+        return permanentFailure(
+            'The pinned LinkedIn media representation is not a JPEG or PNG image'
+        )
+    }
+    const commentary = readLinkedInTextContent(input.target.content)
+    if (commentary === null)
+        return permanentFailure('The execution revision does not contain LinkedIn commentary')
+    const images: { imageId: string; accessibilityText: string | null }[] = []
+    for (const targetMedia of input.target.media) {
+        const result = await prepareLinkedInImage(input, targetMedia)
+        if (result.type !== 'uploaded') return result
+        images.push({
+            imageId: result.remoteMediaId,
+            accessibilityText: targetMedia.accessibilityText,
+        })
+    }
+    const common = { accessToken: input.accessToken, destination: input.destination, commentary }
+    if (images.length === 1) return input.publisher.publishImage({ ...common, ...images[0]! })
+    return input.publisher.publishImages({ ...common, images })
+}
+
+async function prepareLinkedInImage(
+    input: LinkedInImageExecutionInput,
+    targetMedia: PublisherExecutionTarget['media'][number]
+): Promise<ExternalEffectOutcome | { type: 'uploaded'; remoteMediaId: string }> {
+    if (targetMedia.contentType !== 'image/jpeg' && targetMedia.contentType !== 'image/png') {
         return permanentFailure(
             'The pinned LinkedIn media representation is not a JPEG or PNG image'
         )
@@ -212,12 +250,6 @@ async function publishLinkedInImage(
     if (input.media === undefined) {
         return permanentFailure('Media lifecycle service is required for LinkedIn image posts')
     }
-
-    const commentary = readLinkedInTextContent(input.target.content)
-    if (commentary === null) {
-        return permanentFailure('The execution revision does not contain LinkedIn commentary')
-    }
-
     const delivery = input.providerMediaDeliveryStore.reserve({
         projectId: input.target.projectId,
         executionMediaId: targetMedia.id,
@@ -243,13 +275,7 @@ async function publishLinkedInImage(
     }
 
     if (current.state === 'uploaded' && current.remoteMediaId !== null) {
-        return input.publisher.publishImage({
-            accessToken: input.accessToken,
-            destination: input.destination,
-            commentary,
-            imageId: current.remoteMediaId,
-            accessibilityText: targetMedia.accessibilityText,
-        })
+        return { type: 'uploaded', remoteMediaId: current.remoteMediaId }
     }
 
     if (current.state === 'uploading' && current.remoteMediaId !== null) {
@@ -260,13 +286,7 @@ async function publishLinkedInImage(
             at: input.now,
         })
         if (completed?.state === 'uploaded' && completed.remoteMediaId !== null) {
-            return input.publisher.publishImage({
-                accessToken: input.accessToken,
-                destination: input.destination,
-                commentary,
-                imageId: completed.remoteMediaId,
-                accessibilityText: targetMedia.accessibilityText,
-            })
+            return { type: 'uploaded', remoteMediaId: completed.remoteMediaId }
         }
         return ambiguousFailure('The LinkedIn image delivery could not be resumed safely')
     }
@@ -377,13 +397,7 @@ async function publishLinkedInImage(
         return ambiguousFailure('The LinkedIn image delivery could not be completed')
     }
 
-    return input.publisher.publishImage({
-        accessToken: input.accessToken,
-        destination: input.destination,
-        commentary,
-        imageId: upload.remoteMediaId,
-        accessibilityText: targetMedia.accessibilityText,
-    })
+    return { type: 'uploaded', remoteMediaId: upload.remoteMediaId }
 }
 
 function toLinkedInDestination(

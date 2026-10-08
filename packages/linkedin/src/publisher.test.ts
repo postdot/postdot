@@ -472,3 +472,82 @@ describe('LinkedIn image publisher', () => {
         })
     })
 })
+
+describe('LinkedIn multiple-image publisher', () => {
+    it.each(['member', 'organization'] as const)(
+        'posts ordered images and alternatives for a %s',
+        async type => {
+            let body: unknown
+            const publisher = createImagePublisher(async (_url, init) => {
+                body = JSON.parse(String(init?.body))
+                expect(new Headers(init?.headers).get('linkedin-version')).toBe('202608')
+                return new Response(null, {
+                    status: 201,
+                    headers: { 'x-restli-id': 'urn:li:post:multi' },
+                })
+            })
+            expect(
+                await publisher.publishImages({
+                    ...input,
+                    destination: { type, id: '42' },
+                    images: [
+                        { imageId: 'urn:li:image:second', accessibilityText: ' Second ' },
+                        { imageId: 'urn:li:image:first', accessibilityText: '' },
+                    ],
+                })
+            ).toEqual({ type: 'published', externalId: 'urn:li:post:multi' })
+            expect(body).toMatchObject({
+                author: `urn:li:${type === 'member' ? 'person' : 'organization'}:42`,
+                content: {
+                    multiImage: {
+                        images: [
+                            { id: 'urn:li:image:second', altText: 'Second' },
+                            { id: 'urn:li:image:first' },
+                        ],
+                    },
+                },
+            })
+        }
+    )
+    it('rejects invalid batches before dispatch and accepts the maximum batch', async () => {
+        let calls = 0
+        const publisher = createImagePublisher(async () => {
+            calls += 1
+            return new Response(null, { status: 201, headers: { 'x-restli-id': 'post' } })
+        })
+        const image = { imageId: 'urn:li:image:valid' }
+        for (const images of [
+            [],
+            [image],
+            Array.from({ length: 21 }, () => image),
+            [image, { imageId: 'bad' }],
+            [image, { ...image, accessibilityText: 'a'.repeat(4087) }],
+        ]) {
+            expect(await publisher.publishImages({ ...input, images })).toMatchObject({
+                type: 'permanent_failure',
+                code: 'invalid_input',
+            })
+        }
+        expect(calls).toBe(0)
+        expect(
+            await publisher.publishImages({
+                ...input,
+                images: Array.from({ length: 20 }, (_, index) => ({
+                    imageId: `urn:li:image:${index}`,
+                })),
+            })
+        ).toMatchObject({ type: 'published' })
+        expect(calls).toBe(1)
+    })
+    it.each([429, 500, 201])(
+        'keeps post failure semantics for HTTP %i without an id',
+        async status => {
+            const publisher = createImagePublisher(async () => new Response(null, { status }))
+            const result = await publisher.publishImages({
+                ...input,
+                images: [{ imageId: 'urn:li:image:a' }, { imageId: 'urn:li:image:b' }],
+            })
+            expect(result.type).toBe(status === 429 ? 'retryable_failure' : 'ambiguous')
+        }
+    )
+})

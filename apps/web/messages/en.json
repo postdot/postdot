@@ -594,7 +594,7 @@
     "channel_profile": "Profile",
     "channel_name_placeholder": "Community forum",
     "channel_manual_profile": "Manual message",
-    "channel_linkedin_profile": "LinkedIn text",
+    "channel_linkedin_profile": "LinkedIn post",
     "channel_bluesky_profile": "Bluesky post",
     "channel_mastodon_profile": "Mastodon status",
     "channel_discord_profile": "Discord message",
@@ -2039,5 +2039,6 @@
     "composer_character_count": "{count} / {limit} characters",
     "composer_grapheme_count": "{count} / {limit} graphemes",
     "composer_constraints_loading": "Loading destination limits…",
-    "composer_constraints_unavailable": "Destination limits could not be checked."
+    "composer_constraints_unavailable": "Destination limits could not be checked.",
+    "profile_load_latest_linkedin_template": "Load latest LinkedIn template"
 }

@@ -868,207 +868,278 @@ describe('publication worker', () => {
         }
     })
 
-    it('uploads and publishes a LinkedIn image through the real worker and SQLite state', async () => {
-        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-linkedin-image-'))
-        const database = createDatabase(':memory:')
+    it.each([
+        [1, 'retry'],
+        [3, 'retry'],
+        [3, 'ambiguous'],
+    ] as const)(
+        'uploads %i LinkedIn images with durable %s handling',
+        async (imageCount, failureMode) => {
+            const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-linkedin-image-'))
+            const database = createDatabase(':memory:')
 
-        try {
-            runMigrations(database)
-            const media = createMediaAssetStore(
-                database,
-                createLocalMediaStore({
-                    storeId: 'local-test',
-                    rootDirectory,
-                    maxObjectBytes: 2_000_000,
-                }),
-                { now: () => now, deletionGracePeriodMs: 0 }
-            )
-            const manualStore = createManualStore(database, { now: () => now, media })
-            const credentialStore = createPublisherCredentialStore(database, {
-                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
-                now: () => now,
-            })
-            const publisherStore = createPublisherStore(database, {
-                credentialRevoker: credentialStore,
-                connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
-                now: () => now,
-            })
-            const project = manualStore.createProject({
-                name: 'LinkedIn Image Worker Project',
-                subjectId: 'user-1',
-                displayName: 'Herald Operator',
-            })
-            const channel = manualStore.createChannel({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                name: 'LinkedIn Member',
-                profile: linkedinChannelProfile,
-            })
-            expect(channel).not.toBeNull()
-            if (channel === null) throw new Error('The LinkedIn image channel was not created')
-
-            const credential = await credentialStore.createPublisherCredential({
-                projectId: project.project.id,
-                connectedByActorId: project.actor.id,
-                providerId: 'linkedin',
-                externalAccountId: 'member-42',
-                scopes: ['openid', 'profile', 'w_member_social'],
-                accessToken: 'linkedin-image-access-token',
-            })
-            expect(credential.kind).toBe('created')
-            if (credential.kind !== 'created')
-                throw new Error('The LinkedIn image credential was not created')
-
-            expect(
-                publisherStore.createPublisherConnection({
-                    projectId: project.project.id,
-                    channelId: channel.id,
-                    subjectId: 'user-1',
-                    kind: 'linkedin',
-                    credentialId: credential.credential.id,
-                }).kind
-            ).toBe('created')
-
-            const bytes = createPng()
-            const reservation = media.reserveUpload({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                originalFilename: 'announcement.png',
-                defaultAccessibilityText: 'Herald announcement image',
-                expectedSize: bytes.byteLength,
-                contentType: 'image/png',
-            })
-            expect(reservation).not.toBeNull()
-            if (reservation === null)
-                throw new Error('The LinkedIn image reservation was not created')
-            expect(
-                await media.upload({
-                    projectId: project.project.id,
-                    subjectId: 'user-1',
-                    intentId: reservation.intent.id,
-                    source: new Blob([bytes]).stream(),
+            try {
+                runMigrations(database)
+                const media = createMediaAssetStore(
+                    database,
+                    createLocalMediaStore({
+                        storeId: 'local-test',
+                        rootDirectory,
+                        maxObjectBytes: 2_000_000,
+                    }),
+                    { now: () => now, deletionGracePeriodMs: 0 }
+                )
+                const manualStore = createManualStore(database, { now: () => now, media })
+                const credentialStore = createPublisherCredentialStore(database, {
+                    cipher: createPublisherCredentialCipher({
+                        keyId: 'test-v1',
+                        key: encryptionKey,
+                    }),
+                    now: () => now,
                 })
-            ).toMatchObject({ kind: 'uploaded' })
-            expect(
-                await media.finalizeUpload({
+                const publisherStore = createPublisherStore(database, {
+                    credentialRevoker: credentialStore,
+                    connectionPolicies: { linkedin: linkedInPublisherConnectionPolicy },
+                    now: () => now,
+                })
+                const project = manualStore.createProject({
+                    name: 'LinkedIn Image Worker Project',
+                    subjectId: 'user-1',
+                    displayName: 'Herald Operator',
+                })
+                const profile = JSON.parse(JSON.stringify(linkedinChannelProfile))
+                if (imageCount === 1) {
+                    profile.version = 2
+                    profile.profileHash = 'sha256:herald-linkedin-member-post-v2'
+                    profile.schemaHash = 'sha256:herald-linkedin-member-post-schema-v2'
+                    profile.execution.revision = 'member-post-v2'
+                    profile.capabilities.revision = 'linkedin-member-post-v2'
+                    profile.contentSchema.properties.media.maxItems = 1
+                    profile.capabilities.mediaFields[0].maxItems = 1
+                }
+                const channel = manualStore.createChannel({
                     projectId: project.project.id,
                     subjectId: 'user-1',
-                    intentId: reservation.intent.id,
+                    name: 'LinkedIn Member',
+                    profile,
                 })
-            ).toMatchObject({ kind: 'ready' })
+                expect(channel).not.toBeNull()
+                if (channel === null) throw new Error('The LinkedIn image channel was not created')
 
-            const post = manualStore.createPost({
-                projectId: project.project.id,
-                subjectId: 'user-1',
-                sourceContent: {
-                    body: { text: 'A LinkedIn image publication', format: 'plain_text' },
-                    media: [{ assetId: reservation.asset.id }],
-                },
-                publications: [
-                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
-                ],
-            })
-            expect(post).not.toBeNull()
+                const credential = await credentialStore.createPublisherCredential({
+                    projectId: project.project.id,
+                    connectedByActorId: project.actor.id,
+                    providerId: 'linkedin',
+                    externalAccountId: 'member-42',
+                    scopes: ['openid', 'profile', 'w_member_social'],
+                    accessToken: 'linkedin-image-access-token',
+                })
+                expect(credential.kind).toBe('created')
+                if (credential.kind !== 'created')
+                    throw new Error('The LinkedIn image credential was not created')
 
-            const imageId = 'urn:li:image:worker-image-42'
-            const requests: Array<{
-                readonly input: string
-                readonly init: RequestInit | undefined
-            }> = []
-            let uploadedBytes: Uint8Array | undefined
-            const imagePublisher = createLinkedInImagePublisher({
-                baseUrl: 'https://linkedin.test',
-                fetcher: async (input, init) => {
-                    requests.push({ input: input.toString(), init })
-                    if (requests.length === 1) {
-                        return Response.json({
-                            value: {
-                                uploadUrl:
-                                    'https://uploads.linkedin.test/worker-image-42?signature=secret',
-                                image: imageId,
-                            },
+                expect(
+                    publisherStore.createPublisherConnection({
+                        projectId: project.project.id,
+                        channelId: channel.id,
+                        subjectId: 'user-1',
+                        kind: 'linkedin',
+                        credentialId: credential.credential.id,
+                    }).kind
+                ).toBe('created')
+
+                const bytes = createPng()
+                const assets: string[] = []
+                for (let index = 0; index < imageCount; index += 1) {
+                    const reservation = media.reserveUpload({
+                        projectId: project.project.id,
+                        subjectId: 'user-1',
+                        originalFilename: `announcement-${index}.png`,
+                        defaultAccessibilityText: `Herald image ${index}`,
+                        expectedSize: bytes.byteLength,
+                        contentType: 'image/png',
+                    })
+                    expect(reservation).not.toBeNull()
+                    if (reservation === null)
+                        throw new Error('The LinkedIn image reservation was not created')
+                    expect(
+                        await media.upload({
+                            projectId: project.project.id,
+                            subjectId: 'user-1',
+                            intentId: reservation.intent.id,
+                            source: new Blob([bytes]).stream(),
                         })
-                    }
-                    if (requests.length === 2) {
-                        uploadedBytes = new Uint8Array(
-                            await new Response(init?.body ?? null).arrayBuffer()
-                        )
-                        return new Response(null, { status: 201 })
-                    }
-                    if (requests.length === 3) {
-                        return new Response('retry the final post', { status: 429 })
-                    }
-                    return new Response(null, {
-                        status: 201,
-                        headers: { 'x-restli-id': 'urn:li:post:worker-image-42' },
-                    })
-                },
-            })
-            const providerMediaDeliveryStore = createProviderMediaDeliveryStore(database, {
-                now: () => now + 1,
-            })
-            const worker = createPublicationWorker({
-                database,
-                publisherStore,
-                publisherCredentialStore: credentialStore,
-                media,
-                builtInProviderRegistry: createBuiltInProviderRegistry([
-                    createLinkedInProviderAdapter({ imagePublisher }),
-                ]),
-                providerMediaDeliveryStore,
-                createClaimToken: () => 'image-worker-claim',
-                retryPolicy: {
-                    nextRunAt: ({ failedAt }) => failedAt + 1,
-                },
-                now: () => now,
-            })
+                    ).toMatchObject({ kind: 'uploaded' })
+                    expect(
+                        await media.finalizeUpload({
+                            projectId: project.project.id,
+                            subjectId: 'user-1',
+                            intentId: reservation.intent.id,
+                        })
+                    ).toMatchObject({ kind: 'ready' })
 
-            await worker.processDueEvents(now)
-            expect(requests).toHaveLength(3)
-            expect(
-                database
-                    .select({ state: publications.state })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
-            ).toEqual([{ state: 'ready' }])
+                    assets.push(reservation.asset.id)
+                }
 
-            await worker.processDueEvents(now + 1)
+                const post = manualStore.createPost({
+                    projectId: project.project.id,
+                    subjectId: 'user-1',
+                    sourceContent: {
+                        body: { text: 'A LinkedIn image publication', format: 'plain_text' },
+                        media: assets.map(assetId => ({ assetId })),
+                    },
+                    publications: [
+                        { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: now },
+                    ],
+                })
+                expect(post).not.toBeNull()
 
-            expect(requests).toHaveLength(4)
-            expect(uploadedBytes).toEqual(bytes)
-            expect(requests[3]?.input).toBe('https://linkedin.test/rest/posts')
-            expect(JSON.parse(String(requests[3]?.init?.body))).toMatchObject({
-                author: 'urn:li:person:member-42',
-                commentary: 'A LinkedIn image publication',
-                content: {
-                    media: { id: imageId, altText: 'Herald announcement image' },
-                },
-            })
-            expect(
-                database
-                    .select({
-                        state: publications.state,
-                        externalId: publications.externalId,
-                    })
-                    .from(publications)
-                    .where(eq(publications.projectId, project.project.id))
-                    .all()
-            ).toEqual([{ state: 'published', externalId: 'urn:li:post:worker-image-42' }])
-            expect(
-                database
-                    .select({
-                        state: providerMediaDeliveries.state,
-                        remoteMediaId: providerMediaDeliveries.remoteMediaId,
-                    })
-                    .from(providerMediaDeliveries)
-                    .all()
-            ).toEqual([{ state: 'uploaded', remoteMediaId: imageId }])
-        } finally {
-            closeDatabase(database)
-            await rm(rootDirectory, { recursive: true, force: true })
+                const requests: Array<{
+                    readonly input: string
+                    readonly init: RequestInit | undefined
+                }> = []
+                const uploadedBytes: Uint8Array[] = []
+                let registrations = 0
+                let uploads = 0
+                let postAttempts = 0
+                const imagePublisher = createLinkedInImagePublisher({
+                    baseUrl: 'https://linkedin.test',
+                    fetcher: async (url, init) => {
+                        requests.push({ input: url.toString(), init })
+                        if (url.toString().includes('initializeUpload')) {
+                            registrations += 1
+                            return Response.json({
+                                value: {
+                                    uploadUrl: `https://uploads.linkedin.test/image-${registrations}`,
+                                    image: `urn:li:image:worker-${registrations}`,
+                                },
+                            })
+                        }
+                        if (init?.method === 'PUT') {
+                            uploads += 1
+                            uploadedBytes.push(
+                                new Uint8Array(await new Response(init.body ?? null).arrayBuffer())
+                            )
+                            if (imageCount === 3 && uploads === 2)
+                                return new Response('image response', {
+                                    status: failureMode === 'ambiguous' ? 500 : 429,
+                                })
+                            return new Response(null, { status: 201 })
+                        }
+                        postAttempts += 1
+                        if (postAttempts === 1)
+                            return new Response('retry final post', { status: 429 })
+                        return new Response(null, {
+                            status: 201,
+                            headers: { 'x-restli-id': 'urn:li:post:worker-image-42' },
+                        })
+                    },
+                })
+                const providerMediaDeliveryStore = createProviderMediaDeliveryStore(database, {
+                    now: () => now + 1,
+                })
+                const worker = createPublicationWorker({
+                    database,
+                    publisherStore,
+                    publisherCredentialStore: credentialStore,
+                    media,
+                    builtInProviderRegistry: createBuiltInProviderRegistry([
+                        createLinkedInProviderAdapter({
+                            imagePublisher,
+                            revision: profile.execution.revision,
+                        }),
+                    ]),
+                    providerMediaDeliveryStore,
+                    createClaimToken: () => 'image-worker-claim',
+                    retryPolicy: {
+                        nextRunAt: ({ failedAt }) => failedAt + 1,
+                    },
+                    now: () => now,
+                })
+
+                await worker.processDueEvents(now)
+                expect(requests).toHaveLength(imageCount === 1 ? 3 : 4)
+                expect(postAttempts).toBe(imageCount === 1 ? 1 : 0)
+                if (failureMode === 'ambiguous') {
+                    expect(
+                        database.$client
+                            .query('select state from publications where project_id = ?')
+                            .all(project.project.id)
+                    ).toEqual([{ state: 'ambiguous' }])
+                    expect(
+                        database.$client
+                            .query('select state from provider_media_deliveries order by rowid')
+                            .all()
+                    ).toEqual([{ state: 'uploaded' }, { state: 'ambiguous' }])
+                    await worker.processDueEvents(now + 60_000)
+                    expect(uploads).toBe(2)
+                    expect(postAttempts).toBe(0)
+                    return
+                }
+
+                expect(
+                    database
+                        .select({ state: publications.state })
+                        .from(publications)
+                        .where(eq(publications.projectId, project.project.id))
+                        .all()
+                ).toEqual([{ state: 'ready' }])
+
+                await worker.processDueEvents(now + 1)
+
+                if (imageCount === 3) {
+                    expect(postAttempts).toBe(1)
+                    await worker.processDueEvents(now + 2)
+                }
+                expect(postAttempts).toBe(2)
+                expect(registrations).toBe(imageCount === 1 ? 1 : 4)
+                expect(uploads).toBe(registrations)
+                for (const uploaded of uploadedBytes) expect(uploaded).toEqual(bytes)
+                const last = requests.at(-1)
+                expect(last?.input).toBe('https://linkedin.test/rest/posts')
+                const expectedImages =
+                    imageCount === 1
+                        ? [{ id: 'urn:li:image:worker-1', altText: 'Herald image 0' }]
+                        : [
+                              { id: 'urn:li:image:worker-1', altText: 'Herald image 0' },
+                              { id: 'urn:li:image:worker-3', altText: 'Herald image 1' },
+                              { id: 'urn:li:image:worker-4', altText: 'Herald image 2' },
+                          ]
+                expect(JSON.parse(String(last?.init?.body))).toMatchObject({
+                    author: 'urn:li:person:member-42',
+                    commentary: 'A LinkedIn image publication',
+                    content:
+                        imageCount === 1
+                            ? { media: expectedImages[0] }
+                            : { multiImage: { images: expectedImages } },
+                })
+                expect(
+                    database
+                        .select({
+                            state: publications.state,
+                            externalId: publications.externalId,
+                        })
+                        .from(publications)
+                        .where(eq(publications.projectId, project.project.id))
+                        .all()
+                ).toEqual([{ state: 'published', externalId: 'urn:li:post:worker-image-42' }])
+                expect(
+                    database
+                        .select({
+                            state: providerMediaDeliveries.state,
+                            remoteMediaId: providerMediaDeliveries.remoteMediaId,
+                        })
+                        .from(providerMediaDeliveries)
+                        .all()
+                ).toEqual(
+                    expectedImages.map(image => ({ state: 'uploaded', remoteMediaId: image.id }))
+                )
+            } finally {
+                closeDatabase(database)
+                await rm(rootDirectory, { recursive: true, force: true })
+            }
         }
-    })
+    )
 
     it('delivers a custom HTTP webhook through the real worker and local HTTP server', async () => {
         let receivedBody: string | null = null

@@ -22,6 +22,7 @@ export const LINKEDIN_ORGANIZATION_REQUIRED_SCOPES = [
 /** @deprecated Use LINKEDIN_MEMBER_REQUIRED_SCOPES for member connections. */
 export const LINKEDIN_REQUIRED_SCOPES = LINKEDIN_MEMBER_REQUIRED_SCOPES
 export const LINKEDIN_DEFAULT_TIMEOUT_MS = 30_000
+export const LINKEDIN_MAX_IMAGES = 20
 
 export type LinkedInDestination =
     | { readonly type: 'member'; readonly id: string }
@@ -121,6 +122,13 @@ export interface PublishLinkedInImagePostInput {
     readonly accessibilityText?: string | null
 }
 
+export interface PublishLinkedInImagesPostInput extends PublishLinkedInTextInput {
+    readonly images: readonly {
+        readonly imageId: string
+        readonly accessibilityText?: string | null
+    }[]
+}
+
 export interface LinkedInImagePublisherOptions {
     readonly apiVersion?: string
     readonly baseUrl?: string
@@ -131,6 +139,7 @@ export interface LinkedInImagePublisherOptions {
 export interface LinkedInImagePublisher {
     uploadImage(input: PublishLinkedInImageUploadInput): Promise<LinkedInMediaUploadOutcome>
     publishImage(input: PublishLinkedInImagePostInput): Promise<LinkedInPublishOutcome>
+    publishImages(input: PublishLinkedInImagesPostInput): Promise<LinkedInPublishOutcome>
 }
 
 export interface LinkedInMemberProfile {
