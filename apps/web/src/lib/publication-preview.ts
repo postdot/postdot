@@ -1,7 +1,7 @@
 import { getTargetEditorFields, readTargetField } from '@/lib/target-editor'
 
 export interface DraftPreviewInput {
-    readonly profileId: string
+    readonly platform: string
     readonly postContent: string
     readonly postTitle: string
     readonly targetContent?: string
@@ -24,7 +24,7 @@ export interface DraftPreviewModel {
 export function getDraftPreviewModel({
     postContent,
     postTitle,
-    profileId,
+    platform,
     targetContent,
 }: DraftPreviewInput): DraftPreviewModel {
     const body = targetContent === undefined ? postContent : targetContent
@@ -33,7 +33,7 @@ export function getDraftPreviewModel({
     return {
         body,
         hasText: body.trim() !== '',
-        showTitle: profileId === 'devto',
+        showTitle: platform === 'devto',
         title,
     }
 }

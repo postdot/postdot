@@ -12,14 +12,16 @@ import { ChannelAvatar } from '@/components/identity-visuals'
 import { MediaPreview, readyRepresentation } from '@/components/media-asset-card'
 import { PublicationArticleBody } from '@/components/publication-article-body'
 import { PublicationDiscordBody } from '@/components/publication-discord-body'
-import type { Channel, MediaReference } from '@/lib/api'
+import type { Channel, ChannelListItem, MediaReference } from '@/lib/api'
 import { useLanguage } from '@/lib/i18n'
+import { getNativePlatform } from '@/lib/native-presentation'
 import { getDraftPreviewModel } from '@/lib/publication-preview'
 import type { MediaSelection } from '@/lib/target-media'
 import * as m from '@/paraglide/messages.js'
 
 interface PublicationDraftPreviewProps {
     readonly channel: Channel | undefined
+    readonly execution: ChannelListItem['execution']
     readonly className?: string
     readonly identityMode?: 'sample' | 'channel'
     readonly media: readonly MediaReference[]
@@ -31,6 +33,7 @@ interface PublicationDraftPreviewProps {
 
 export function PublicationDraftPreview({
     channel,
+    execution,
     className,
     identityMode = 'sample',
     media,
@@ -43,26 +46,27 @@ export function PublicationDraftPreview({
 
     if (channel === undefined) return null
 
+    const platform = getNativePlatform(execution)
     const preview = getDraftPreviewModel({
         postContent,
         postTitle,
-        profileId: channel.profileId,
+        platform,
         targetContent,
     })
 
-    const linkedIn = channel.profileId === 'linkedin'
-    const article = channel.profileId === 'devto'
-    const message = channel.profileId === 'discord'
-    const mastodon = channel.profileId === 'mastodon'
+    const linkedIn = platform === 'linkedin'
+    const article = platform === 'devto'
+    const message = platform === 'discord'
+    const mastodon = platform === 'mastodon'
     const social = !article && !message
     const accountDriven = ['linkedin', 'x', 'bluesky', 'mastodon', 'devto', 'discord'].includes(
-        channel.profileId
+        platform
     )
     const sampleIdentity = accountDriven && identityMode === 'sample'
     const authorName = sampleIdentity ? m.publication_preview_sample_author() : channel.name
     const hasPreviewBody = preview.hasText || media.length > 0
     const compactMedia = article || !accountDriven
-    const blueskyMosaic = channel.profileId === 'bluesky' && media.length >= 2 && media.length <= 4
+    const blueskyMosaic = platform === 'bluesky' && media.length >= 2 && media.length <= 4
     const mastodonMosaic = mastodon && media.length >= 2 && media.length <= 4
     const fittedMosaic = blueskyMosaic || mastodonMosaic
 
@@ -72,7 +76,7 @@ export function PublicationDraftPreview({
             aria-label={m.publication_new_preview()}
             className={cn('min-w-0', className)}>
             <article
-                data-preview-platform={channel.profileId}
+                data-preview-platform={platform}
                 className={cn(
                     'min-w-0 overflow-hidden bg-surface-raised font-[Arial,sans-serif] shadow-surface',
                     linkedIn
@@ -113,7 +117,7 @@ export function PublicationDraftPreview({
                                     ? m.publication_preview_sample_age()
                                     : mastodon
                                       ? '@alex@example.social'
-                                      : channel.profileId === 'bluesky'
+                                      : platform === 'bluesky'
                                         ? '@alex.example.com'
                                         : '@alex_example'}
                             </p>
@@ -286,10 +290,10 @@ export function PublicationDraftPreview({
                             </>
                         ) : (
                             <>
-                                <FeedPreviewGlyph profile={channel.profileId} action="reply" />
-                                <FeedPreviewGlyph profile={channel.profileId} action="repost" />
-                                <FeedPreviewGlyph profile={channel.profileId} action="like" />
-                                <FeedPreviewGlyph profile={channel.profileId} action="share" />
+                                <FeedPreviewGlyph profile={platform} action="reply" />
+                                <FeedPreviewGlyph profile={platform} action="repost" />
+                                <FeedPreviewGlyph profile={platform} action="like" />
+                                <FeedPreviewGlyph profile={platform} action="share" />
                             </>
                         )}
                     </div>

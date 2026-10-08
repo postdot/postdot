@@ -54,6 +54,7 @@ export const PlatformPreviews: Story = {
                         <PublicationDraftPreview
                             key={channel.id}
                             channel={channel}
+                            execution={channel?.execution ?? { kind: 'manual' }}
                             media={[]}
                             postTitle=""
                             postContent="A small glimpse of what we have been building. More room for ideas, fewer distractions."
@@ -114,6 +115,7 @@ function ComposerExample() {
                         preview={
                             <PublicationDraftPreview
                                 channel={channel}
+                                execution={channel?.execution ?? { kind: 'manual' }}
                                 media={[]}
                                 postTitle=""
                                 postContent={content}

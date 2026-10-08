@@ -981,3 +981,95 @@ async function openCustomization(page: Page, field: ReturnType<Page['locator']>)
         await details.locator(':scope > summary').click()
     await expect(field).toBeVisible()
 }
+
+test('composer native presentation follows execution rather than profile identity', async ({
+    page,
+}) => {
+    const projectId = await createProject(page)
+    await page.goto(`/dashboard/projects/${projectId}/channels`)
+    await page.getByRole('button', { name: 'Add channel', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('radio', { name: 'Custom runtime profile', exact: true }).click()
+    const starter = JSON.parse(
+        await dialog.getByLabel('Custom profile JSON', { exact: true }).inputValue()
+    )
+    const aliases = new Map<string, Record<string, unknown>>()
+    for (const [platform, label] of [
+        ['x', 'X post'],
+        ['discord', 'Discord message'],
+        ['devto', 'DEV.to article'],
+    ]) {
+        await dialog.getByRole('combobox', { name: 'Starter template', exact: true }).click()
+        await page.getByRole('option', { name: label, exact: true }).click()
+        const json = dialog.getByLabel('Custom profile JSON', { exact: true })
+        await expect(json).toHaveValue(new RegExp(`"id": "custom-${platform}"`))
+        aliases.set(platform!, { ...JSON.parse(await json.inputValue()), id: `alias-${platform}` })
+    }
+    await page.keyboard.press('Escape')
+    const cases: { id: string; platform: string; kind: 'native' | 'alias' | 'manual' }[] = []
+    for (const platform of ['x', 'discord', 'devto']) {
+        const native = await page.request.post(`/api/projects/${projectId}/channels`, {
+            data: { name: `Native ${platform}`, profile: platform },
+        })
+        expect(native.status()).toBe(201)
+        const nativeId = (await native.json()).channel.id
+        cases.push({ id: nativeId, platform, kind: 'native' })
+        const alias = aliases.get(platform)!
+        const manual = structuredClone(starter)
+        manual.id = platform
+        manual.contentSchema.properties.body.maxLength = 8
+        manual.capabilities.textFields.find(
+            (field: { bindingId: string }) => field.bindingId === 'body'
+        ).maxLength = 8
+        for (const [kind, profile] of [
+            ['alias', alias],
+            ['manual', manual],
+        ] as const) {
+            const created = await page.request.post(`/api/projects/${projectId}/channels`, {
+                data: { name: `${kind} ${platform}`, profile },
+            })
+            expect(created.status(), await created.text()).toBe(201)
+            cases.push({ id: (await created.json()).channel.id, platform, kind })
+        }
+    }
+    await page.goto(`/dashboard/projects/${projectId}/publications/new`)
+    await page.getByRole('textbox', { name: 'Content', exact: true }).fill('**Bold** text')
+    for (const channel of cases) {
+        const available = page.locator(`[data-channel-available][data-channel-id="${channel.id}"]`)
+        if (await available.count()) await available.click()
+        await page
+            .locator(`[data-channel-selected-button][data-channel-id="${channel.id}"]`)
+            .click()
+        await expect(page.getByText('Loading destination limits…', { exact: true })).toHaveCount(0)
+        const native = channel.kind !== 'manual'
+        const article = native && channel.platform === 'devto'
+        const discord = native && channel.platform === 'discord'
+        await expect(page.locator('#new-post-title')).toHaveCount(article ? 1 : 0)
+        await expect(page.locator('[data-weighted-count]')).toHaveCount(
+            native && channel.platform === 'x' ? 1 : 0
+        )
+        await expect(page.getByRole('button', { name: 'Underline', exact: true })).toHaveCount(
+            discord ? 1 : 0
+        )
+        await expect(page.getByRole('button', { name: 'Bold', exact: true })).toHaveCount(
+            article || discord ? 1 : 0
+        )
+        const preview = page.locator('[data-preview-platform]')
+        await expect(preview).toHaveAttribute(
+            'data-preview-platform',
+            native ? channel.platform : 'custom'
+        )
+        await expect(preview.locator('strong')).toHaveCount(article || discord ? 1 : 0)
+        if (!native) {
+            await expect(
+                page.getByRole('textbox', { name: 'Channel content', exact: true })
+            ).toHaveAttribute('aria-invalid', 'true')
+            await expect(preview).toContainText('**Bold** text')
+        }
+    }
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.locator('[data-preview-platform]')).toContainText('**Bold** text')
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true)
+})

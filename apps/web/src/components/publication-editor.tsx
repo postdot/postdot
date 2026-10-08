@@ -1323,6 +1323,7 @@ export function PublicationEditor({
     const draftPreview = (
         <PublicationDraftPreview
             channel={editor.channel}
+            execution={previewProfile.execution}
             identityMode={publicationEditable ? 'sample' : 'channel'}
             media={previewMedia}
             mediaSelections={previewMediaSelections}

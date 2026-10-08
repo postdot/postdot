@@ -13,7 +13,7 @@ describe('publication draft preview model', () => {
             getDraftPreviewModel({
                 postContent: 'Shared content',
                 postTitle: 'Release notes',
-                profileId: 'devto',
+                platform: 'devto',
                 targetContent: 'DEV.to body',
             })
         ).toEqual({
@@ -29,7 +29,7 @@ describe('publication draft preview model', () => {
             getDraftPreviewModel({
                 postContent: 'Shared content',
                 postTitle: 'Internal title',
-                profileId: 'bluesky',
+                platform: 'bluesky',
                 targetContent: '  \n',
             })
         ).toEqual({
@@ -45,7 +45,7 @@ describe('publication draft preview model', () => {
             getDraftPreviewModel({
                 postContent: '   ',
                 postTitle: '',
-                profileId: 'custom',
+                platform: 'custom',
             })
         ).toEqual({
             body: '   ',

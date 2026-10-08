@@ -39,6 +39,7 @@ import { type PublicationCreationMode, useProjectDashboard } from '@/lib/dashboa
 import { formatCivilSchedule } from '@/lib/date-time'
 import { formatNumber } from '@/lib/format'
 import { useLanguage } from '@/lib/i18n'
+import { getNativeEditorProfile, getNativePlatform } from '@/lib/native-presentation'
 import { calendarDateTimeLocal, type DeliveryMode } from '@/lib/publication-authoring'
 import {
     clearPublicationRecovery,
@@ -215,11 +216,12 @@ export function NewPublicationPage({
         [profileQuery.data, profileQuery.isError]
     )
     const showHeadline =
-        textFields?.headline?.field.required === true || activePreviewChannel?.profileId === 'devto'
+        textFields?.headline?.field.required === true ||
+        getNativePlatform(activePreviewChannel?.execution) === 'devto'
     const headlineCount = textFields?.headline
         ? countComposerText(postTitle, textFields.headline)
         : null
-    const usesXTextRules = activePreviewChannel?.profileId === 'x'
+    const usesXTextRules = getNativePlatform(activePreviewChannel?.execution) === 'x'
     const activeText =
         activeContentTarget !== undefined && !activeContentTargetUsesSharedContent
             ? activeContentTarget.content
@@ -891,11 +893,9 @@ export function NewPublicationPage({
                                                         const profile =
                                                             scope.id === publicationSharedTabId
                                                                 ? 'plain'
-                                                                : channel?.profileId === 'discord'
-                                                                  ? 'discord'
-                                                                  : channel?.profileId === 'devto'
-                                                                    ? 'article'
-                                                                    : 'plain'
+                                                                : getNativeEditorProfile(
+                                                                      channel?.execution
+                                                                  )
                                                         const shared =
                                                             scope.id === publicationSharedTabId ||
                                                             !customizedContentTargetIds.has(
@@ -1096,6 +1096,7 @@ export function NewPublicationPage({
                             activePreviewChannel !== undefined ? (
                                 <PublicationDraftPreview
                                     channel={activePreviewChannel}
+                                    execution={activePreviewChannel.execution}
                                     media={previewMedia}
                                     mediaSelections={sourceMedia}
                                     postContent={postContent}
