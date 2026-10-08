@@ -24,6 +24,7 @@ export interface HeraldEmailTransport {
 
 export interface HeraldEmailDeliveryOptions {
     readonly smtp?: HeraldSmtpConfig
+    readonly getSmtp?: () => HeraldSmtpConfig | undefined
     readonly webOrigin: string
     readonly transport?: HeraldEmailTransport
     readonly onDeliveryError?: (kind: HeraldEmailKind, error: unknown) => void
@@ -56,12 +57,13 @@ export function createHeraldAuthEmailDelivery(
         })
 
     const send = (kind: HeraldEmailKind, createMessage: () => Promise<SendMailOptions>): void => {
+        if (options.getSmtp && !options.getSmtp()) return
         try {
             void createMessage()
                 .then(message =>
                     transport.sendMail({
                         ...message,
-                        from: options.smtp?.from ?? message.from,
+                        from: (options.getSmtp?.() ?? options.smtp)?.from ?? message.from,
                     })
                 )
                 .catch(error => options.onDeliveryError?.(kind, error))
@@ -71,6 +73,8 @@ export function createHeraldAuthEmailDelivery(
     }
 
     return {
+        emailDeliveryAvailable:
+            options.getSmtp === undefined ? undefined : () => options.getSmtp!() !== undefined,
         organizationInvitationURL: ({ id, organizationId, projectId }) => {
             const url = new URL('/invite', options.webOrigin)
             url.searchParams.set('invitationId', id)
@@ -92,7 +96,7 @@ export function createHeraldAuthEmailDelivery(
 
             send('organization_invitation', async () =>
                 withFrom(
-                    options.smtp?.from,
+                    (options.getSmtp?.() ?? options.smtp)?.from,
                     await renderHeraldOrganizationInvitationEmail({
                         email: invitation.email,
                         role: invitation.role,
@@ -107,7 +111,7 @@ export function createHeraldAuthEmailDelivery(
         sendEmailVerification: verification => {
             send('email_verification', async () =>
                 withFrom(
-                    options.smtp?.from,
+                    (options.getSmtp?.() ?? options.smtp)?.from,
                     await renderHeraldEmailVerificationEmail({
                         user: verification.user,
                         url: verification.url,
@@ -119,7 +123,7 @@ export function createHeraldAuthEmailDelivery(
         sendPasswordResetEmail: reset => {
             send('password_reset', async () =>
                 withFrom(
-                    options.smtp?.from,
+                    (options.getSmtp?.() ?? options.smtp)?.from,
                     await renderHeraldPasswordResetEmail({
                         user: reset.user,
                         url: reset.url,

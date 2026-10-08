@@ -1,5 +1,7 @@
 import {
     createHeraldClient,
+    type EmailSettings,
+    type EmailSettingsInput,
     type AuditEvent,
     type Channel,
     type ChannelListItem,
@@ -505,6 +507,15 @@ function unwrap<T>(result: {
 }
 
 export const api = {
+    async getEmailSettings(): Promise<EmailSettings> {
+        return unwrap<EmailSettings>(await client.api.settings.email.get())
+    },
+    async saveEmailSettings(input: EmailSettingsInput): Promise<EmailSettings> {
+        return unwrap<EmailSettings>(await client.api.settings.email.put(input))
+    },
+    async testEmailSettings() {
+        return unwrap<{ accepted: true }>(await client.api.settings.email.test.post())
+    },
     getInstanceSetupStatus(): Promise<InstanceSetupStatus> {
         return requestAuth<InstanceSetupStatus>('/api/instance/status')
     },
@@ -2002,3 +2013,5 @@ export interface DraftProfileAdoptionInput {
     targetContent: Record<string, unknown>
     previousLocalContent?: Record<string, unknown>
 }
+
+export type { EmailSettings, EmailSettingsInput }

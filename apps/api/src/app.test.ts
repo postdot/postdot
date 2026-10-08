@@ -5,6 +5,8 @@ import { createAuth } from '@herald/auth'
 import type { ChannelProfileDefinition } from '@herald/core'
 import {
     closeDatabase,
+    createInstallationEmailSettingsStore,
+    createSecretCipher,
     createAccessStore,
     createDatabase,
     createEventJournalStore,
@@ -22,6 +24,7 @@ import type { Registry } from '@prometheus-io/client'
 import { eq } from 'drizzle-orm'
 
 import { createApp } from './app'
+import { createEmailSettingsService, type EmailSettingsService } from './modules/email/settings'
 import { createHeraldMetrics } from './modules/metrics/metrics'
 import { createNotificationProjectionRuntime } from './modules/notifications/runtime'
 import type { ChannelListItemResponse } from './modules/projects/models'
@@ -120,6 +123,7 @@ type OpenApiOperation = {
 
 function createFixture(
     options: {
+        readonly emailSettings?: EmailSettingsService
         readonly emailAlerts?: boolean
         readonly linkedin?: PublisherRuntimeOptions['linkedin']
         readonly x?: PublisherRuntimeOptions['x']
@@ -164,6 +168,7 @@ function createFixture(
         runtime: options.runtime,
         metrics: options.metrics,
         notifications,
+        emailSettings: options.emailSettings,
         emailAlerts:
             options.emailAlerts === undefined
                 ? undefined
@@ -1008,6 +1013,8 @@ describe('Herald API', () => {
                 '/api/account/avatars/{id}',
                 '/api/instance/status',
                 '/api/access/invitations/{token}',
+                '/api/settings/email',
+                '/api/settings/email/test',
                 '/api/access',
                 '/api/access/members',
                 '/api/access/members/{userId}',
@@ -5632,3 +5639,110 @@ function readOpenApiStatus(response: OpenApiResponse | undefined): string | unde
         part => part.properties?.status !== undefined
     )?.properties?.status?.const
 }
+
+it('restricts SMTP settings to human instance administrators and never returns credentials', async () => {
+    const settingsDatabase = createDatabase(':memory:')
+    runMigrations(settingsDatabase)
+    const sent: string[] = []
+    const service = await createEmailSettingsService({
+        store: createInstallationEmailSettingsStore(
+            settingsDatabase,
+            createSecretCipher({
+                domain: 'herald.installation-email',
+                keyId: 'test',
+                key: publisherEncryptionKey,
+            })
+        ),
+        createTransport: () => ({
+            async sendMail(message) {
+                sent.push(String(message.to))
+            },
+        }),
+    })
+    const { app, access, database } = createFixture({
+        emailSettings: service,
+        allowAdditionalSignups: true,
+    })
+    try {
+        const cookie = await signUp(app, 'smtp-admin@herald.local')
+        const read = await jsonRequest(app, '/api/settings/email', cookie)
+        expect(read.status).toBe(200)
+        expect(await read.json()).toMatchObject({
+            source: 'none',
+            enabled: false,
+            hasPassword: false,
+        })
+        const input = {
+            enabled: true,
+            host: 'smtp.example.test',
+            port: 587,
+            secure: false,
+            from: 'herald@example.test',
+            username: 'mailer',
+            password: 'FAKE_SECRET_355',
+        }
+        const save = await jsonRequest(app, '/api/settings/email', cookie, {
+            method: 'PUT',
+            body: JSON.stringify(input),
+        })
+        expect(save.status).toBe(200)
+        expect(await save.text()).not.toContain('FAKE_SECRET_355')
+        expect(
+            (await jsonRequest(app, '/api/settings/email/test', cookie, { method: 'POST' })).status
+        ).toBe(200)
+        expect(sent).toEqual(['smtp-admin@herald.local'])
+        const invalid = await jsonRequest(app, '/api/settings/email', cookie, {
+            method: 'PUT',
+            body: JSON.stringify({ ...input, host: 'smtp server' }),
+        })
+        expect(invalid.status).toBe(422)
+        const projectResponse = await jsonRequest(app, '/api/projects', cookie, {
+            method: 'POST',
+            body: JSON.stringify({ name: 'SMTP key scope' }),
+        })
+        const projectId = ((await projectResponse.json()) as { project: { id: string } }).project.id
+        const keyResponse = await jsonRequest(app, '/api/api-keys', cookie, {
+            method: 'POST',
+            body: JSON.stringify({ projectIds: [projectId] }),
+        })
+        expect(keyResponse.status).toBe(201)
+        const key = ((await keyResponse.json()) as { token: string }).token
+        for (const [path, method] of [
+            ['/api/settings/email', 'GET'],
+            ['/api/settings/email', 'PUT'],
+            ['/api/settings/email/test', 'POST'],
+        ] as const) {
+            const response = await app.handle(
+                new Request(`${baseURL}${path}`, {
+                    method,
+                    headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+                    ...(method === 'PUT' ? { body: JSON.stringify(input) } : {}),
+                })
+            )
+            expect(response.status).toBe(403)
+        }
+        const memberCookie = await signUpFixtureAdditionalUser(app, 'smtp-member@herald.local')
+        const members = access.listInstanceMemberships()
+        const memberId = members.find(member => member.email === 'smtp-member@herald.local')!.userId
+        const demotion = await jsonRequest(app, `/api/access/members/${memberId}`, cookie, {
+            method: 'PATCH',
+            body: JSON.stringify({ role: 'member' }),
+        })
+        expect(demotion.status).toBe(200)
+        expect(await demotion.json()).toMatchObject({ membership: { role: 'member' } })
+        expect(
+            access.isInstanceAdmin(
+                members.find(member => member.email === 'smtp-member@herald.local')!.userId
+            )
+        ).toBe(false)
+        expect((await jsonRequest(app, '/api/settings/email', memberCookie)).status).toBe(403)
+        expect(
+            (await jsonRequest(app, '/api/settings/email/test', memberCookie, { method: 'POST' }))
+                .status
+        ).toBe(403)
+        expect(sent).toHaveLength(1)
+    } finally {
+        closeDatabase(database)
+        closeDatabase(settingsDatabase)
+    }
+})

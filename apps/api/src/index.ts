@@ -4,7 +4,11 @@ import {
     createNetworkControlledBinaryFetcher,
     createNetworkControlledFetcher,
 } from '@herald/custom-http'
-import { createNotificationEmailStore } from '@herald/db'
+import {
+    createNotificationEmailStore,
+    createInstallationEmailSettingsStore,
+    createSecretCipher,
+} from '@herald/db'
 import {
     closeDatabase,
     createDatabase,
@@ -22,6 +26,7 @@ import { createApp } from './app'
 import { createHeraldConfig, createHeraldMaintenanceConfig, decodeHexKey } from './config'
 import { runMaintenanceCommand } from './maintenance'
 import { createHeraldAuthEmailDelivery } from './modules/email/delivery'
+import { createEmailSettingsService } from './modules/email/settings'
 import { createMediaPublicDelivery } from './modules/media/public-delivery'
 import {
     createConfiguredMediaStore,
@@ -45,6 +50,7 @@ import { createWebAssets } from './plugins/web-assets'
 import { registerServingHandle } from './serving'
 import { createShutdownHandler } from './shutdown'
 
+export type { EmailSettingsResponse, EmailSettingsInput } from './modules/email/settings'
 export { createApp } from './app'
 export type { HeraldApp } from './app'
 export { createPublisherRuntime } from './modules/publishers/runtime'
@@ -121,14 +127,25 @@ async function startServerWithRuntimeLock(
     const notifications = createNotificationStore(database)
     const notificationProjection = createNotificationProjectionRuntime(notifications)
     const emailStore = createNotificationEmailStore(database)
-    const emailRuntime =
-        config.email?.smtp === undefined
-            ? undefined
-            : createNotificationEmailRuntime({
-                  store: emailStore,
-                  smtp: config.email.smtp,
-                  webOrigin: config.web.origin,
-              })
+    let emailRuntime: ReturnType<typeof createNotificationEmailRuntime> | undefined
+    const emailSettings = await createEmailSettingsService({
+        store: createInstallationEmailSettingsStore(
+            database,
+            createSecretCipher({
+                domain: 'herald.installation-email',
+                keyId: config.security.publisherEncryptionKeyId,
+                key: decodeHexKey(config.security.publisherEncryptionKey),
+            })
+        ),
+        initial: config.email?.smtp,
+        onChange: () => emailRuntime?.replan(),
+    })
+    emailRuntime = createNotificationEmailRuntime({
+        store: emailStore,
+        getSmtp: emailSettings.current,
+        transport: emailSettings,
+        webOrigin: config.web.origin,
+    })
     const realtime = createProjectRealtimeRuntime({
         onProjectsChanged: projectIds => {
             notificationProjection.runProjects(projectIds)
@@ -162,11 +179,11 @@ async function startServerWithRuntimeLock(
         },
     })
     const email = createHeraldAuthEmailDelivery({
-        smtp: config.email?.smtp,
+        getSmtp: emailSettings.current,
+        transport: emailSettings,
         webOrigin: config.web.origin,
-        onDeliveryError: (kind, error) => {
-            const message = error instanceof Error ? error.message : 'unknown transport error'
-            console.error(`[herald-email] ${kind} delivery failed: ${message}`)
+        onDeliveryError: kind => {
+            console.error(`[herald-email] ${kind} delivery failed`)
         },
     })
     const allowAdditionalSignups =
@@ -276,7 +293,8 @@ async function startServerWithRuntimeLock(
         access,
         allowAdditionalSignups,
         notifications,
-        emailAlerts: { store: emailStore, available: emailRuntime !== undefined },
+        emailSettings,
+        emailAlerts: { store: emailStore, available: () => emailSettings.current() !== undefined },
         projectChanges: realtime.hub,
         userChanges: realtime.userHub,
         runtime: {

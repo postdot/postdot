@@ -15,6 +15,7 @@ import { AddIcon } from '@solar-icons/react/linear/add'
 import { ChartSquareIcon } from '@solar-icons/react/linear/chart-square'
 import { GalleryIcon } from '@solar-icons/react/linear/gallery'
 import { KeyMinimalisticIcon } from '@solar-icons/react/linear/key-minimalistic'
+import { LetterIcon } from '@solar-icons/react/linear/letter'
 import { LinkIcon } from '@solar-icons/react/linear/link'
 import { ListIcon } from '@solar-icons/react/linear/list'
 import { Logout2Icon } from '@solar-icons/react/linear/logout-2'
@@ -260,6 +261,14 @@ export function DashboardSidebar({
                                 <SidebarGroupContent>
                                     <nav aria-label={m.nav_instance_navigation()}>
                                         <SidebarMenu>
+                                            <WorkspaceMenuItem
+                                                active={activeSection === 'settings'}
+                                                destination="settings"
+                                                icon={<LetterIcon aria-hidden="true" />}
+                                                label={m.smtp_title()}
+                                                projectId={selectedProjectId}
+                                                workspaceId={selectedWorkspaceId}
+                                            />
                                             <WorkspaceMenuItem
                                                 active={activeSection === 'settings-access'}
                                                 destination="settings-access"

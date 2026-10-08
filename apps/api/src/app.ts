@@ -30,6 +30,7 @@ import { Elysia } from 'elysia'
 import type { HeraldLoggingConfig } from './config'
 import { createPublicInstanceRoutes } from './modules/access/public-routes'
 import { createAccountRoutes } from './modules/account/routes'
+import type { EmailSettingsService } from './modules/email/settings'
 import { createHealthRoutes, type HealthRoutesOptions } from './modules/health/routes'
 import type { MediaPublicDelivery } from './modules/media/public-delivery'
 import { createPublicMediaRoutes } from './modules/media/public-routes'
@@ -66,9 +67,10 @@ export interface HeraldAppOptions {
     readonly runtime?: HealthRoutesOptions['runtime']
     /** The shared Herald instance access store. */
     readonly access?: AccessStore
+    readonly emailSettings?: EmailSettingsService
     readonly emailAlerts?: {
         store: NotificationEmailStore
-        available: boolean
+        available: boolean | (() => boolean)
     }
     readonly notifications?: NotificationStore
     readonly analytics?: AnalyticsStore
@@ -99,6 +101,7 @@ function createDomainApp({
     access,
     notifications,
     emailAlerts,
+    emailSettings,
     analytics,
     providerAnalytics,
     taxonomy,
@@ -224,6 +227,7 @@ function createDomainApp({
             createProjectModule({
                 auth,
                 emailAlerts,
+                emailSettings,
                 manualStore,
                 publisher,
                 media,
@@ -274,6 +278,7 @@ export function createApp({
     access,
     notifications,
     emailAlerts,
+    emailSettings,
     analytics,
     providerAnalytics,
     taxonomy,
@@ -303,6 +308,7 @@ export function createApp({
         access,
         notifications,
         emailAlerts,
+        emailSettings,
         analytics,
         providerAnalytics,
         taxonomy,

@@ -34,8 +34,12 @@ const globalNotFoundResponse = {
 export function registerNotificationRoutes<const Routes extends Record<string, unknown>>(
     app: AuthenticatedElysia<Routes>,
     notifications: NotificationStore,
-    emailAlerts?: { store: NotificationEmailStore; available: boolean }
+    emailAlerts?: { store: NotificationEmailStore; available: boolean | (() => boolean) }
 ) {
+    const available = () =>
+        typeof emailAlerts?.available === 'function'
+            ? emailAlerts.available()
+            : (emailAlerts?.available ?? false)
     return app
         .get(
             '/api/projects/:projectId/email-alerts',
@@ -66,7 +70,7 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                         verified: false,
                         lastDeliveryState: null,
                     }),
-                    available: emailAlerts?.available ?? false,
+                    available: available(),
                 }
             }
         )
@@ -92,7 +96,7 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
             },
             ({ authMethod, params, user, body, status }) => {
                 if (authMethod !== 'session') return status(403, humanOnlyResponse)
-                if (!emailAlerts || (body.enabled && !emailAlerts.available))
+                if (!emailAlerts || (body.enabled && !available()))
                     return status(400, {
                         error: {
                             code: 'invalid_input',
@@ -113,7 +117,7 @@ export function registerNotificationRoutes<const Routes extends Record<string, u
                     user.id,
                     body.enabled
                 )!
-                return { ...preference, available: emailAlerts.available }
+                return { ...preference, available: available() }
             }
         )
         .get(

@@ -34,6 +34,8 @@ export interface HeraldAuthVerificationEmail {
 }
 
 export interface HeraldAuthEmailOptions {
+    /** Live transport availability for explicit email requests. */
+    readonly emailDeliveryAvailable?: () => boolean
     /** Optional deployment-provided account verification mail delivery. */
     readonly sendEmailVerification?: (input: HeraldAuthVerificationEmail) => Promise<void> | void
     /** Optional deployment-provided password reset mail delivery. */
@@ -364,6 +366,7 @@ export function createAuth(
         sendEmailVerification,
         sendEmailVerificationOnSignUp,
         sendPasswordResetEmail,
+        emailDeliveryAvailable,
         ...betterAuthOptions
     } = runtimeOptions
     const access = accessOption ?? createAccessStore(database)
@@ -392,6 +395,22 @@ export function createAuth(
                 // but it is not part of the public hook type in 1.7 yet.
                 const authContext = context as typeof context & {
                     readonly path?: string
+                }
+
+                if (emailDeliveryAvailable?.() === false) {
+                    if (authContext.path === '/request-password-reset') {
+                        throw new APIError('BAD_REQUEST', {
+                            code: 'RESET_PASSWORD_DISABLED',
+                            message:
+                                'Password recovery is unavailable because email delivery is not configured',
+                        })
+                    }
+                    if (authContext.path === '/send-verification-email') {
+                        throw new APIError('BAD_REQUEST', {
+                            code: 'VERIFICATION_EMAIL_NOT_ENABLED',
+                            message: 'Verification email delivery is not configured',
+                        })
+                    }
                 }
 
                 if (authContext.path === '/update-user') {

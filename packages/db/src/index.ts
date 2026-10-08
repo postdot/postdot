@@ -343,3 +343,4 @@ export {
     createNotificationEmailStore,
     type NotificationEmailStore,
 } from './notification-email-store'
+export { createInstallationEmailSettingsStore } from './installation-email-settings-store'

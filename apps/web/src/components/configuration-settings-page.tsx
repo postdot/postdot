@@ -4,6 +4,8 @@ import { UsersGroupTwoRoundedIcon } from '@solar-icons/react/linear/users-group-
 import { Link } from '@tanstack/react-router'
 
 import { DashboardPageHeader } from '@/components/dashboard-page-header'
+import { EmailSettingsForm } from '@/components/email-settings-form'
+import { useDashboardGlobal } from '@/lib/dashboard-context'
 import { useLanguage } from '@/lib/i18n'
 import * as m from '@/paraglide/messages.js'
 
@@ -15,6 +17,7 @@ export function ConfigurationSettingsPage({
     readonly workspaceId?: string
 }) {
     useLanguage()
+    const { isInstanceAdmin } = useDashboardGlobal()
 
     return (
         <main className="min-w-0 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -76,6 +79,7 @@ export function ConfigurationSettingsPage({
                         </span>
                     </Link>
                 </section>
+                {isInstanceAdmin && <EmailSettingsForm />}
             </div>
         </main>
     )

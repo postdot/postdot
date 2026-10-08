@@ -122,3 +122,5 @@ export type BlueskyAnalyticsCollection = BlueskyAnalyticsCollectionResponse
 export type DevtoAnalyticsCollection = DevtoAnalyticsCollectionResponse
 
 export type EmailAlertPreference = EmailAlertPreferenceResponse
+
+export type { EmailSettingsResponse as EmailSettings, EmailSettingsInput } from '@herald/api'

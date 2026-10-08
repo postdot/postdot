@@ -2823,3 +2823,13 @@ export const userAvatars = sqliteTable(
         ),
     ]
 )
+
+/** Installation-owned SMTP configuration; the complete payload is encrypted. */
+export const installationEmailSettings = sqliteTable('installation_email_settings', {
+    id: text('id').primaryKey(),
+    encryptionVersion: integer('encryption_version').notNull(),
+    encryptionKeyId: text('encryption_key_id').notNull(),
+    nonce: blob('nonce', { mode: 'buffer' }).notNull(),
+    ciphertext: blob('ciphertext', { mode: 'buffer' }).notNull(),
+    updatedAt: integer('updated_at').notNull(),
+})

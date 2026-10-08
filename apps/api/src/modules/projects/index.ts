@@ -18,6 +18,8 @@ import { createAuthenticatedElysia } from '../../plugins/auth'
 import { readUserApiKeyMetadata, registerUserApiKeyRoutes } from '../access/api-key-routes'
 import { registerAccessRoutes } from '../access/routes'
 import { registerWorkspaceRoutes } from '../access/workspace-routes'
+import type { EmailSettingsService } from '../email/settings'
+import { registerEmailSettingsRoutes } from '../email/settings-routes'
 import { registerMediaRoutes } from '../media/routes'
 import type { MediaUrlImporter } from '../media/url-import'
 import { registerProviderApplicationRoutes } from '../publishers/application-config-routes'
@@ -62,9 +64,10 @@ export interface ProjectModuleOptions {
     readonly discordFetcher?: DiscordFetcher
     readonly devtoFetcher?: DevtoFetcher
     readonly access: AccessStore
+    readonly emailSettings?: EmailSettingsService
     readonly emailAlerts?: {
         store: NotificationEmailStore
-        available: boolean
+        available: boolean | (() => boolean)
     }
     readonly notifications: NotificationStore
     readonly analytics: AnalyticsStore
@@ -117,7 +120,12 @@ export function createProjectModule(options: ProjectModuleOptions) {
             return workspaceId !== null && options.access.canManageWorkspace(workspaceId, userId)
         },
     })
-    const accessRoutes = registerAccessRoutes(authenticated, options.access, options.auth)
+    const emailSettingsRoutes = registerEmailSettingsRoutes(
+        authenticated,
+        options.access,
+        options.emailSettings
+    )
+    const accessRoutes = registerAccessRoutes(emailSettingsRoutes, options.access, options.auth)
     const userApiKeyRoutes = registerUserApiKeyRoutes(
         accessRoutes,
         options.auth,

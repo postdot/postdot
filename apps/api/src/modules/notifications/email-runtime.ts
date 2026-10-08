@@ -13,29 +13,34 @@ import { createNotificationProjectionRuntime } from './runtime'
 
 export function createNotificationEmailRuntime(options: {
     store: NotificationEmailStore
-    smtp: HeraldSmtpConfig
+    smtp?: HeraldSmtpConfig
+    getSmtp?: () => HeraldSmtpConfig | undefined
     webOrigin: string
     transport?: { sendMail(message: SendMailOptions): Promise<unknown> }
 }) {
-    const { store, smtp } = options
+    const { store } = options
+    const getSmtp = options.getSmtp ?? (() => options.smtp)
+    const smtp = options.smtp
     const transport =
         options.transport ??
         createTransport({
-            host: smtp.host,
-            port: smtp.port,
-            secure: smtp.secure,
+            host: smtp!.host,
+            port: smtp!.port,
+            secure: smtp!.secure,
             connectionTimeout: 15_000,
             greetingTimeout: 15_000,
             socketTimeout: 30_000,
-            ...(smtp.username === undefined
+            ...(smtp!.username === undefined
                 ? {}
-                : { auth: { user: smtp.username, pass: smtp.password! } }),
+                : { auth: { user: smtp!.username, pass: smtp!.password! } }),
         })
     const scheduler = new NextEventScheduler({
-        getNextEventAt: () => store.deliveries.getNextAttemptAt(),
+        getNextEventAt: () =>
+            getSmtp() === undefined ? null : store.deliveries.getNextAttemptAt(),
         onError: () => console.error('[herald-notification-email] delivery scheduler failed'),
         async processDueEvents() {
             for (let count = 0; count < 100; count++) {
+                if (getSmtp() === undefined) break
                 const result = await processNextExternalEffect({
                     store: store.deliveries,
                     actorId: 'notification-email-worker',
@@ -74,13 +79,16 @@ export function createNotificationEmailRuntime(options: {
                                 body: delivery.body,
                                 url: url.toString(),
                             })
-                            if (store.resolveRecipient(delivery) !== email)
+                            if (
+                                store.resolveRecipient(delivery) !== email ||
+                                getSmtp() === undefined
+                            )
                                 return {
                                     type: 'permanent_failure',
                                     effectOccurred: false,
                                     errorMessage: 'The email recipient changed before dispatch',
                                 }
-                            await transport.sendMail({ ...message, from: smtp.from })
+                            await transport.sendMail({ ...message, from: getSmtp()?.from })
                             return { type: 'published' }
                         } catch (error) {
                             // SMTP may have accepted DATA before the connection failed. Never blindly resend.
@@ -110,6 +118,9 @@ export function createNotificationEmailRuntime(options: {
             projection.start()
         },
         runProjects: projection.runProjects,
+        replan() {
+            if (scheduler.state === 'started' || scheduler.state === 'running') scheduler.replan()
+        },
         async stop() {
             projection.stop()
             await scheduler.stop()

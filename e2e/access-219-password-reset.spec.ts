@@ -247,3 +247,87 @@ test('opts into project outcome email through the preferences and real SMTP rela
         email,
     })
 })
+
+test('configures SMTP in administration and sends a real test without exposing credentials', async ({
+    page,
+}, testInfo) => {
+    const email = `smtp-admin-${randomUUID().slice(0, 8)}@herald.local`
+    const signup = await page.request.post('/api/auth/sign-up/email', {
+        data: { email, name: 'SMTP administrator', password: 'smtp-administrator-password' },
+    })
+    expect(signup.status()).toBe(200)
+    await page.goto('/dashboard/preferences')
+    await page.getByRole('link', { name: 'Email delivery', exact: true }).click()
+    await expect(page).toHaveURL(/\/dashboard\/settings/)
+    await expect(page.getByRole('heading', { name: 'Email delivery', exact: true })).toBeVisible()
+    await expect(
+        page.getByText('Current settings come from the deployment. Saving here replaces them.')
+    ).toBeVisible()
+    await page.getByLabel('Sender address', { exact: true }).fill('herald-test@herald.local')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(
+        page.getByRole('status').filter({ hasText: 'Email settings saved.' })
+    ).toBeVisible()
+    const stored = await page.request.get('/api/settings/email')
+    expect(stored.status()).toBe(200)
+    expect(await stored.json()).toMatchObject({
+        source: 'database',
+        enabled: true,
+        hasPassword: false,
+        from: 'herald-test@herald.local',
+    })
+    await page.getByRole('button', { name: 'Send me a test email', exact: true }).click()
+    await expect(
+        page.getByRole('status').filter({ hasText: 'SMTP accepted the test email.' })
+    ).toBeVisible()
+    await expect
+        .poll(async () => {
+            const body = await (
+                await page.request.get(`${mailpitOrigin()}/api/v1/messages?limit=100`)
+            ).json()
+            return body.messages.filter(
+                (message: { Subject: string; To: { Address: string }[] }) =>
+                    message.Subject === 'Herald — SMTP test' &&
+                    message.To.some(to => to.Address === email)
+            ).length
+        })
+        .toBe(1)
+    // A real connection refusal remains a recoverable, non-secret UI error.
+    await page.getByLabel('Port', { exact: true }).fill('1')
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(
+        page.getByRole('status').filter({ hasText: 'Email settings saved.' })
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Send me a test email', exact: true }).click()
+    await expect(
+        page.getByRole('alert').filter({ hasText: 'SMTP did not confirm the test.' })
+    ).toBeVisible()
+    await page.getByLabel('Port', { exact: true }).fill(process.env.HERALD_E2E_MAILPIT_SMTP_PORT!)
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(
+        page.getByRole('status').filter({ hasText: 'Email settings saved.' })
+    ).toBeVisible()
+    await page.getByRole('switch', { name: 'Enable email delivery', exact: true }).click()
+    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(
+        page.getByRole('status').filter({ hasText: 'Email settings saved.' })
+    ).toBeVisible()
+    await page.reload()
+    await expect(
+        page.getByRole('switch', { name: 'Enable email delivery', exact: true })
+    ).not.toBeChecked()
+    await expect(
+        page.getByRole('button', { name: 'Send me a test email', exact: true })
+    ).toBeDisabled()
+    await page.screenshot({ path: testInfo.outputPath('smtp-desktop.png'), fullPage: true })
+    await page.getByRole('button', { name: 'Save', exact: true }).scrollIntoViewIfNeeded()
+    await page.screenshot({ path: testInfo.outputPath('smtp-desktop-fields.png'), fullPage: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(page.getByLabel('SMTP server', { exact: true })).toBeVisible()
+    expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    ).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath('smtp-narrow.png'), fullPage: true })
+    await page.getByRole('button', { name: 'Save', exact: true }).scrollIntoViewIfNeeded()
+    await page.screenshot({ path: testInfo.outputPath('smtp-narrow-fields.png'), fullPage: true })
+})

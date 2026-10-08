@@ -229,3 +229,36 @@ it('distinguishes explicit SMTP rejection from unknown post-dispatch outcomes', 
     expect(classifySmtpFailure({ command: 'CONN' }).type).toBe('ambiguous')
     expect(classifySmtpFailure({ command: 'DATA', code: 'ETIMEDOUT' }).type).toBe('ambiguous')
 })
+
+it('keeps disabled SMTP work pending and resumes it when configuration becomes available', async () => {
+    const f = fixture()
+    let smtp: { host: string; port: number; secure: boolean; from: string } | undefined
+    const messages: SendMailOptions[] = []
+    const runtime = createNotificationEmailRuntime({
+        store: f.store,
+        getSmtp: () => smtp,
+        webOrigin: 'https://herald.example.test',
+        transport: {
+            async sendMail(message) {
+                messages.push(message)
+            },
+        },
+    })
+    try {
+        f.store.setEnabled(f.projectId, 'owner', true)
+        f.append()
+        f.store.deliveries.project(f.projectId)
+        runtime.start()
+        expect(messages).toHaveLength(0)
+        expect(
+            f.database.$client.query('select state from notification_deliveries').get()
+        ).toMatchObject({ state: 'pending' })
+        smtp = { host: 'unused', port: 25, secure: false, from: 'new@example.test' }
+        runtime.replan()
+        await expect.poll(() => messages.length).toBe(1)
+        expect(messages[0]?.from).toBe('new@example.test')
+    } finally {
+        await runtime.stop()
+        closeDatabase(f.database)
+    }
+})
