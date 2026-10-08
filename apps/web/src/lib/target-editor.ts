@@ -1,7 +1,19 @@
 import { X_MAX_WEIGHTED_POST_LENGTH, X_TEXT_COUNTING_ALGORITHM } from '@herald/x/text'
 
+import { getNativeEditorProfile } from '@/lib/native-presentation'
 import * as m from '@/paraglide/messages.js'
 import type { Locale } from '@/paraglide/runtime.js'
+
+/** Keep generic field controls when the profile does not declare native execution. */
+export function getTargetEditorProfile(profile: unknown) {
+    const execution = isRecord(profile) && isRecord(profile.execution) ? profile.execution : null
+    if (execution?.kind !== 'built_in' || typeof execution.contractId !== 'string') return undefined
+    const editorProfile = getNativeEditorProfile({
+        kind: 'built_in',
+        contractId: execution.contractId,
+    })
+    return editorProfile === 'plain' ? undefined : editorProfile
+}
 
 export type TargetEditorFieldKind =
     | 'text'

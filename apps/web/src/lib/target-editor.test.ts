@@ -8,6 +8,7 @@ import {
     decodeTargetEnumValue,
     encodeTargetEnumValue,
     getTargetEditorFields,
+    getTargetEditorProfile,
     readTargetField,
     unsetTargetFieldValue,
     updateTargetField,
@@ -268,5 +269,37 @@ describe('schema-aware target editor values', () => {
 
         expect(decodeTargetEnumValue(unsetTargetFieldValue, values)).toBeUndefined()
         expect(decodeTargetEnumValue(JSON.stringify('private'), values)).toBeUndefined()
+    })
+})
+
+describe('execution-aware target field dialect', () => {
+    it('keeps native tools for renamed profiles and generic controls for matching manual IDs', () => {
+        for (const id of ['discord', 'devto', 'renamed']) {
+            expect(
+                getTargetEditorProfile({
+                    id,
+                    execution: { kind: 'built_in', contractId: 'discord' },
+                })
+            ).toBe('discord')
+            expect(
+                getTargetEditorProfile({ id, execution: { kind: 'built_in', contractId: 'devto' } })
+            ).toBe('article')
+            expect(getTargetEditorProfile({ id, execution: { kind: 'manual' } })).toBeUndefined()
+        }
+    })
+    it('does not grant a dialect from invalid shape, source formats or unknown execution', () => {
+        for (const profile of [
+            null,
+            [],
+            {},
+            { id: 'discord' },
+            { execution: 'discord' },
+            { acceptedSourceFormats: ['markdown'] },
+            { execution: { kind: 'built_in', contractId: 1 } },
+            { execution: { kind: 'built_in', contractId: 'unknown' } },
+            { execution: { kind: 'declarative_http' } },
+        ]) {
+            expect(getTargetEditorProfile(profile)).toBeUndefined()
+        }
     })
 })

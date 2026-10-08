@@ -9,6 +9,7 @@ import { TargetFieldControl } from '@/components/publication-target-field-contro
 import { useLanguage } from '@/lib/i18n'
 import {
     getTargetEditorFields,
+    getTargetEditorProfile,
     readTargetField,
     type TargetEditorField,
     updateTargetField,
@@ -108,16 +109,7 @@ export function PublicationTargetEditor({
                         ) : (
                             <TargetFieldControl
                                 editorProfile={
-                                    configuredEditor &&
-                                    typeof profile === 'object' &&
-                                    profile !== null &&
-                                    'id' in profile
-                                        ? profile.id === 'discord'
-                                            ? 'discord'
-                                            : profile.id === 'devto'
-                                              ? 'article'
-                                              : undefined
-                                        : undefined
+                                    configuredEditor ? getTargetEditorProfile(profile) : undefined
                                 }
                                 key={`${field.bindingId}-${field.path}`}
                                 field={field}

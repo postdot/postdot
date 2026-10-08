@@ -985,6 +985,7 @@ async function openCustomization(page: Page, field: ReturnType<Page['locator']>)
 test('composer native presentation follows execution rather than profile identity', async ({
     page,
 }) => {
+    test.setTimeout(90_000)
     const projectId = await createProject(page)
     await page.goto(`/dashboard/projects/${projectId}/channels`)
     await page.getByRole('button', { name: 'Add channel', exact: true }).click()
@@ -1072,4 +1073,73 @@ test('composer native presentation follows execution rather than profile identit
     expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
     ).toBe(true)
+    // Reuse the channel matrix for the existing editor, rather than another setup journey.
+    await page.setViewportSize({ width: 1280, height: 900 })
+    const sourceText = 'Unchanged shared source'
+    const existingCases = cases.filter(channel => channel.platform !== 'x')
+    const created = await page.request.post(`/api/projects/${projectId}/posts`, {
+        data: {
+            title: 'Existing editor controls',
+            sourceContent: {
+                headline: 'Shared headline',
+                body: { format: 'plain_text', text: sourceText },
+                media: [],
+            },
+            publications: existingCases.map(channel => ({
+                channelId: channel.id,
+                deliveryMode: 'manual',
+            })),
+        },
+    })
+    expect(created.status()).toBe(201)
+    const publications = (await created.json()).publications
+    for (const channel of existingCases) {
+        const publication = publications.find(
+            (item: { channelId: string }) => item.channelId === channel.id
+        )
+        const base = `/api/projects/${projectId}/publications/${publication.id}`
+        const read = async () => (await (await page.request.get(`${base}/editor`)).json()).editor
+        const original = await read()
+        const binding = original.profile.profile.fieldBindings.find(
+            (item: { semantic: string }) => item.semantic === 'primary_text'
+        )
+        expect(binding.path).toMatch(/^\/[^/]+$/)
+        const property = binding.path.slice(1)
+        await page.goto(`/dashboard/projects/${projectId}/publications/${publication.id}`)
+        const field = page.locator(`[data-target-field="${binding.id}"]`)
+        await openCustomization(page, field)
+        const rich = channel.kind !== 'manual'
+        await expect(field.getByRole('button', { name: 'Bold', exact: true })).toHaveCount(
+            rich ? 1 : 0
+        )
+        await expect(field.getByRole('button', { name: 'Underline', exact: true })).toHaveCount(
+            rich && channel.platform === 'discord' ? 1 : 0
+        )
+        const text =
+            channel.kind === 'manual' ? 'Saved' : `Saved ${channel.kind}-${channel.platform}`
+        const saving = page.waitForResponse(
+            response =>
+                response.url().endsWith(`${publication.id}/draft`) &&
+                response.request().method() === 'PATCH' &&
+                response.ok()
+        )
+        await field.getByRole('textbox').fill(text)
+        await saving
+        const saved = await read()
+        expect(saved.draft.content[property]).toBe(text)
+        expect(saved.post.sourceContent.body.text).toBe(sourceText)
+        if (channel.kind === 'alias' && channel.platform === 'devto') {
+            const scheduledAt = Date.now() + 1_000
+            const promoted = await page.request.post(`${base}/draft/promote`, {
+                data: { expectedRevision: saved.draft.revision, scheduledAt },
+            })
+            expect(promoted.status()).toBe(200)
+            await expect.poll(() => Date.now()).toBeGreaterThanOrEqual(scheduledAt)
+            expect((await page.request.post(`${base}/publish`, { data: {} })).status()).toBe(200)
+            await page.reload()
+            await expect(page.locator('[data-preview-platform="devto"]')).toContainText(text)
+            await expect(page.getByRole('button', { name: 'Bold', exact: true })).toHaveCount(0)
+            expect((await read()).selectedTarget.content[property]).toBe(text)
+        }
+    }
 })
