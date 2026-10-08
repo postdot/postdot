@@ -28,6 +28,11 @@ import {
     createLinkedInTextPublisher,
     linkedinChannelProfile,
 } from '@herald/linkedin'
+import {
+    createMastodonPublisher,
+    mastodonChannelProfile,
+    mastodonImageChannelProfile,
+} from '@herald/mastodon'
 import { createLocalMediaStore } from '@herald/media'
 import { clientSecretPost, type OAuthAuthorizationServer } from '@herald/oauth'
 import { eq } from 'drizzle-orm'
@@ -36,7 +41,9 @@ import { assessWorkingDraftMedia } from '../../../../../packages/db/src/manual-s
 import { createMediaPublicDelivery } from '../media/public-delivery'
 import { createNotificationProjectionRuntime } from '../notifications/runtime'
 import { linkedInPublisherConnectionPolicy } from '../publishers/providers/linkedin'
+import { mastodonPublisherConnectionPolicy } from '../publishers/providers/mastodon'
 import { createLinkedInProviderAdapter } from './providers/linkedin'
+import { createMastodonProviderAdapter } from './providers/mastodon'
 import { createBuiltInProviderRegistry } from './providers/registry'
 import { createPublicationWorker } from './worker'
 
@@ -2306,3 +2313,245 @@ it('releases the worker during video processing and resumes without uploading or
         await rm(rootDirectory, { recursive: true, force: true })
     }
 })
+
+for (const scenario of [
+    'processing',
+    'instance-limit',
+    'provider-failure',
+    'upload-ambiguous',
+    'timeout',
+] as const) {
+    it(`executes native Mastodon video with durable ${scenario} handling`, async () => {
+        const rootDirectory = await mkdtemp(join(tmpdir(), 'herald-worker-mastodon-video-'))
+        const database = createDatabase(':memory:')
+        let clock = now
+        try {
+            runMigrations(database)
+            const media = createMediaAssetStore(
+                database,
+                createLocalMediaStore({
+                    storeId: 'local-test',
+                    rootDirectory,
+                    maxObjectBytes: 2_000_000,
+                }),
+                { now: () => clock }
+            )
+            const manualStore = createManualStore(database, { now: () => clock, media })
+            const credentials = createPublisherCredentialStore(database, {
+                cipher: createPublisherCredentialCipher({ keyId: 'test-v1', key: encryptionKey }),
+                now: () => clock,
+            })
+            const publishers = createPublisherStore(database, {
+                credentialRevoker: credentials,
+                connectionPolicies: { mastodon: mastodonPublisherConnectionPolicy },
+                now: () => clock,
+            })
+            const project = manualStore.createProject({
+                name: 'Video project',
+                subjectId: 'video-user',
+                displayName: 'Video editor',
+            })!
+            const channel = manualStore.createChannel({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                name: 'Mastodon video',
+                profile: mastodonChannelProfile,
+            })!
+            const credential = await credentials.createPublisherCredential({
+                projectId: project.project.id,
+                connectedByActorId: project.actor.id,
+                providerId: 'mastodon',
+                externalAccountId: 'account-42',
+                scopes: ['read:accounts', 'write:media', 'write:statuses'],
+                providerSession: JSON.stringify({
+                    version: 1,
+                    instanceUrl: 'https://mastodon.example',
+                    clientId: 'client-one',
+                    clientSecret: 'client-secret',
+                }),
+                accessToken: 'video-secret',
+            })
+            if (credential.kind !== 'created') throw new Error('Credential fixture failed')
+            expect(
+                publishers.createPublisherConnection({
+                    projectId: project.project.id,
+                    channelId: channel.id,
+                    subjectId: 'video-user',
+                    kind: 'mastodon',
+                    endpointUrl: 'https://mastodon.example',
+                    credentialId: credential.credential.id,
+                }).kind
+            ).toBe('created')
+            const bytes = await Bun.file(
+                new URL('../../../../../packages/db/src/fixtures/video-h264.mp4', import.meta.url)
+            ).bytes()
+            const reserved = media.reserveUpload({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                originalFilename: 'video.mp4',
+                contentType: 'video/mp4',
+                expectedSize: bytes.length,
+            })!
+            expect(
+                await media.upload({
+                    projectId: project.project.id,
+                    subjectId: 'video-user',
+                    intentId: reserved.intent.id,
+                    source: new Blob([bytes]).stream(),
+                })
+            ).toMatchObject({ kind: 'uploaded' })
+            expect(
+                await media.finalizeUpload({
+                    projectId: project.project.id,
+                    subjectId: 'video-user',
+                    intentId: reserved.intent.id,
+                })
+            ).toMatchObject({ kind: 'ready' })
+
+            expect(
+                assessWorkingDraftMedia(
+                    mastodonImageChannelProfile,
+                    {
+                        text: 'Historical',
+                        media: [{ assetId: reserved.asset.id, accessibilityText: 'Moving scene' }],
+                    },
+                    project.project.id,
+                    'video-user',
+                    media,
+                    false
+                )
+            ).not.toEqual([])
+            expect(
+                assessWorkingDraftMedia(
+                    mastodonChannelProfile,
+                    {
+                        text: 'Too many',
+                        media: [
+                            { assetId: reserved.asset.id, accessibilityText: 'Moving scene' },
+                            { assetId: reserved.asset.id, accessibilityText: 'Moving scene' },
+                        ],
+                    },
+                    project.project.id,
+                    'video-user',
+                    media,
+                    false
+                )
+            ).not.toEqual([])
+            const post = manualStore.createPost({
+                projectId: project.project.id,
+                subjectId: 'video-user',
+                sourceContent: {
+                    body: { text: 'Native Mastodon video', format: 'plain_text' },
+                    media: [{ assetId: reserved.asset.id, accessibilityText: 'Moving scene' }],
+                },
+                publications: [
+                    { channelId: channel.id, deliveryMode: 'automatic', scheduledAt: clock },
+                ],
+            })!
+            expect(post).not.toBeNull()
+            let transfers = 0
+            let posts = 0
+            let ready = false
+            const publisher = createMastodonPublisher({
+                baseUrl: 'https://mastodon.example',
+                fetcher: async (url, init) => {
+                    const path = String(url)
+                    if (path.endsWith('/v2/instance'))
+                        return Response.json({
+                            configuration: {
+                                media_attachments: {
+                                    supported_mime_types: ['video/mp4'],
+                                    video_size_limit:
+                                        scenario === 'instance-limit' ? 1 : 100_000_000,
+                                    video_matrix_limit: 8_294_400,
+                                },
+                            },
+                        })
+                    if (path.endsWith('/v2/media')) {
+                        transfers++
+                        const form = await new Response(init?.body, {
+                            headers: {
+                                'content-type': new Headers(init?.headers).get('content-type')!,
+                            },
+                        }).formData()
+                        expect(
+                            new Uint8Array(await (form.get('file') as File).arrayBuffer())
+                        ).toEqual(bytes)
+                        expect(form.get('description')).toBe('Moving scene')
+                        if (scenario === 'upload-ambiguous')
+                            throw new Error('secret echo video-secret')
+                        return Response.json(
+                            { id: 'video-one', type: 'video', url: null },
+                            { status: 202 }
+                        )
+                    }
+                    if (path.endsWith('/v1/statuses')) {
+                        posts++
+                        const payload = new URLSearchParams(String(init?.body))
+                        expect(payload.getAll('media_ids[]')).toEqual(['video-one'])
+                        expect(new Headers(init?.headers).get('idempotency-key')).toContain(':')
+                        return Response.json({
+                            id: 'status-one',
+                            url: 'https://mastodon.example/@account/status-one',
+                        })
+                    }
+                    if (scenario === 'provider-failure')
+                        return Response.json({ error: 'Processing failed' }, { status: 422 })
+                    return ready
+                        ? Response.json({
+                              id: 'video-one',
+                              type: 'video',
+                              url: 'https://mastodon.example/video.mp4',
+                          })
+                        : new Response(null, { status: 206 })
+                },
+            })
+            const worker = createPublicationWorker({
+                database,
+                publisherStore: publishers,
+                publisherCredentialStore: credentials,
+                media,
+                builtInProviderRegistry: createBuiltInProviderRegistry([
+                    createMastodonProviderAdapter({ createPublisher: () => publisher }),
+                ]),
+                now: () => clock,
+            })
+            if (scenario === 'processing' || scenario === 'timeout') {
+                for (let index = 0; index < 5; index++) {
+                    await worker.processDueEvents(clock)
+                    expect(
+                        database.$client.query('select state, attempts from jobs').all()
+                    ).toEqual([{ state: 'pending', attempts: 0 }])
+                    expect(posts).toBe(0)
+                    clock += 60_000
+                }
+                if (scenario === 'timeout') clock += 31 * 60_000
+                else ready = true
+            }
+            await worker.processDueEvents(clock)
+            expect(transfers).toBe(scenario === 'instance-limit' ? 0 : 1)
+            expect(posts).toBe(scenario === 'processing' ? 1 : 0)
+            expect(database.$client.query('select state from publications').all()).toEqual([
+                {
+                    state:
+                        scenario === 'processing'
+                            ? 'published'
+                            : scenario === 'upload-ambiguous'
+                              ? 'ambiguous'
+                              : 'failed',
+                },
+            ])
+            const deliveries = database.$client
+                .query('select state, remote_media_id as id from provider_media_deliveries')
+                .all()
+            if (scenario === 'processing')
+                expect(deliveries).toEqual([{ state: 'uploaded', id: 'video-one' }])
+            if (scenario === 'upload-ambiguous')
+                expect(deliveries).toEqual([{ state: 'ambiguous', id: null }])
+            if (scenario === 'timeout') expect(transfers).toBe(1)
+        } finally {
+            closeDatabase(database)
+            await rm(rootDirectory, { recursive: true, force: true })
+        }
+    })
+}

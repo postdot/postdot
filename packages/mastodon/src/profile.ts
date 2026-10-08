@@ -4,6 +4,8 @@ import {
     MASTODON_DEFAULT_MAX_CHARACTERS,
     MASTODON_DEFAULT_MAX_MEDIA_ATTACHMENTS,
     MASTODON_EXECUTION_CONTRACT_REVISION,
+    MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
+    MASTODON_MAX_VIDEO_BYTES,
     MASTODON_MAX_ALT_TEXT_LENGTH,
     MASTODON_MAX_LANGUAGE_LENGTH,
     MASTODON_MAX_SPOILER_TEXT_LENGTH,
@@ -11,7 +13,7 @@ import {
     mastodonVisibilityValues,
 } from './contract'
 
-export const mastodonChannelProfile: ChannelProfileDefinition = {
+export const mastodonImageChannelProfile: ChannelProfileDefinition = {
     id: MASTODON_PROVIDER,
     version: 1,
     profileHash: 'sha256:herald-mastodon-status-v1',
@@ -82,6 +84,36 @@ export const mastodonChannelProfile: ChannelProfileDefinition = {
             },
         ],
         relations: [],
+    },
+    execution: {
+        kind: 'built_in',
+        contractId: MASTODON_PROVIDER,
+        revision: MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
+    },
+}
+
+export const mastodonChannelProfile: ChannelProfileDefinition = {
+    ...mastodonImageChannelProfile,
+    version: 2,
+    profileHash: 'sha256:herald-mastodon-status-v2',
+    schemaHash: 'sha256:herald-mastodon-status-schema-v2',
+    capabilities: {
+        ...mastodonImageChannelProfile.capabilities,
+        revision: 'mastodon-status-v2',
+        mediaFields: mastodonImageChannelProfile.capabilities.mediaFields.map(field => ({
+            ...field,
+            families: ['image', 'video'],
+            mimeTypes: [...field.mimeTypes, 'video/mp4'],
+            allowMixedFamilies: false,
+            familyConstraints: [
+                {
+                    family: 'video',
+                    maxItems: 1,
+                    maxBytesPerItem: MASTODON_MAX_VIDEO_BYTES,
+                    duration: { minMilliseconds: 3000, maxMilliseconds: 1_800_000 },
+                },
+            ],
+        })),
     },
     execution: {
         kind: 'built_in',

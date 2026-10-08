@@ -2,6 +2,7 @@ import type { ExternalEffectOutcome } from '@herald/core'
 import type { PublisherExecutionTarget } from '@herald/db'
 import {
     MASTODON_EXECUTION_CONTRACT_REVISION,
+    MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
     MASTODON_MAX_IMAGE_BYTES,
     MASTODON_PROVIDER,
     createMastodonPublisher,
@@ -16,6 +17,7 @@ import {
 import { clientSecretPost, refreshAccessToken, type OAuthAuthorizationServer } from '@herald/oauth'
 
 import { ambiguousFailure, permanentFailure, retryableFailure } from '../outcomes'
+import { prepareMastodonVideo } from './mastodon-video'
 import { openVerifiedPinnedMedia } from './media-integrity'
 import type {
     BuiltInProviderAdapter,
@@ -24,6 +26,9 @@ import type {
 } from './registry'
 
 export interface MastodonProviderAdapterOptions {
+    readonly revision?:
+        | typeof MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION
+        | typeof MASTODON_EXECUTION_CONTRACT_REVISION
     readonly createPublisher?: (baseUrl: string) => MastodonPublisher
     readonly fetcher?: MastodonFetcher
     readonly refreshAccessToken?: typeof refreshAccessToken
@@ -48,7 +53,7 @@ export function createMastodonProviderAdapter(
     return {
         providerId: MASTODON_PROVIDER,
         contractId: MASTODON_PROVIDER,
-        revision: MASTODON_EXECUTION_CONTRACT_REVISION,
+        revision: options.revision ?? MASTODON_EXECUTION_CONTRACT_REVISION,
         execute: input => executeMastodonPublication({ input, options }),
     }
 }
@@ -129,17 +134,22 @@ async function executeMastodonPublication(input: {
     const text = readMastodonTextContent(target.content)
     if (text === null) return permanentFailure('The execution revision has no Mastodon status text')
 
-    const mediaResult = await prepareMastodonMedia({
-        target,
-        accessToken,
-        publisher,
-        media: execution.media,
-        providerMediaDeliveryStore: execution.providerMediaDeliveryStore,
-        now: execution.now,
-        sleep: options.sleep ?? defaultSleep,
-        processingTimeoutMs: options.mediaProcessingTimeoutMs,
-        processingIntervalMs: options.mediaProcessingIntervalMs,
-    })
+    const hasVideo = target.media.some(item => item.family === 'video')
+    if (hasVideo && options.revision === MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION)
+        return permanentFailure('The historical Mastodon execution supports images only')
+    const mediaResult = hasVideo
+        ? await prepareMastodonVideo({ execution, accessToken, publisher })
+        : await prepareMastodonMedia({
+              target,
+              accessToken,
+              publisher,
+              media: execution.media,
+              providerMediaDeliveryStore: execution.providerMediaDeliveryStore,
+              now: execution.now,
+              sleep: options.sleep ?? defaultSleep,
+              processingTimeoutMs: options.mediaProcessingTimeoutMs,
+              processingIntervalMs: options.mediaProcessingIntervalMs,
+          })
     if (mediaResult.kind !== 'ready') {
         if (isMastodonAuthenticationFailure(mediaResult.outcome)) {
             execution.credentials.markPublisherCredentialReconnectRequired(

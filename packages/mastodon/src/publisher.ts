@@ -10,7 +10,8 @@ import type {
     MastodonPublisher,
     MastodonPublisherOptions,
 } from './contract'
-import { MASTODON_DEFAULT_TIMEOUT_MS } from './contract'
+import { MASTODON_DEFAULT_TIMEOUT_MS, MASTODON_MAX_VIDEO_BYTES } from './contract'
+import { createVideoMultipart } from './video-multipart'
 
 const mastodonBasePath = '/api'
 
@@ -251,6 +252,35 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
     }
 
     return {
+        async getVideoLimits() {
+            const result = await request('/v2/instance', { method: 'GET' }, undefined, 'read')
+            if ('failure' in result) return operationFailure(result.failure)
+            const configuration = isRecord(result.body) ? result.body.configuration : null
+            const limits = isRecord(configuration) ? configuration.media_attachments : null
+            if (
+                !isRecord(limits) ||
+                !Array.isArray(limits.supported_mime_types) ||
+                !limits.supported_mime_types.every(item => typeof item === 'string') ||
+                typeof limits.video_size_limit !== 'number' ||
+                !Number.isSafeInteger(limits.video_size_limit) ||
+                limits.video_size_limit <= 0 ||
+                typeof limits.video_matrix_limit !== 'number' ||
+                !Number.isSafeInteger(limits.video_matrix_limit) ||
+                limits.video_matrix_limit <= 0
+            )
+                return operationFailure(
+                    permanentFailure(
+                        'invalid_request',
+                        'The Mastodon instance does not advertise usable video limits'
+                    )
+                )
+            return operationSuccess({
+                supportedMimeTypes: limits.supported_mime_types,
+                maxBytes: limits.video_size_limit,
+                maxPixels: limits.video_matrix_limit,
+            })
+        },
+
         async registerApplication(input) {
             const body = new URLSearchParams({
                 client_name: input.clientName,
@@ -300,6 +330,44 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
         },
 
         async uploadMedia(accessToken, input): Promise<MastodonMediaUploadOutcome> {
+            if (input.contentType === 'video/mp4') {
+                if (
+                    !Number.isSafeInteger(input.size) ||
+                    input.size <= 0 ||
+                    input.size > MASTODON_MAX_VIDEO_BYTES
+                )
+                    return permanentFailure(
+                        'invalid_input',
+                        'The Mastodon video exceeds the portable video limit'
+                    )
+                const multipart = createVideoMultipart(input)
+                const result = await request(
+                    '/v2/media',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'content-type': multipart.contentType,
+                            'content-length': String(multipart.size),
+                        },
+                        body: multipart.stream,
+                    },
+                    accessToken,
+                    'media'
+                )
+                await multipart.stream.cancel().catch(() => undefined)
+                if ('failure' in result) return result.failure
+                const attachment = readMediaAttachment(result.body)
+                if (attachment === null || attachment.type !== 'video')
+                    return ambiguousFailure(
+                        'unexpected_response',
+                        'Mastodon returned an invalid video attachment'
+                    )
+                return {
+                    type: 'uploaded',
+                    remoteMediaId: attachment.id,
+                    ready: attachment.url !== null,
+                }
+            }
             let file: Blob
             try {
                 file = await new Response(input.stream).blob()
@@ -344,7 +412,16 @@ export function createMastodonPublisher(options: MastodonPublisherOptions): Mast
                 mediaId
             )
             if ('failure' in result) return operationFailure(result.failure)
+            if (result.response.status === 206)
+                return operationSuccess({ id: mediaId, type: 'unknown', url: null })
             const attachment = readMediaAttachment(result.body)
+            if (attachment !== null && attachment.id !== mediaId)
+                return operationFailure(
+                    permanentFailure(
+                        'invalid_request',
+                        'Mastodon returned another media attachment'
+                    )
+                )
             return attachment === null
                 ? operationFailure(
                       retryableFailure(

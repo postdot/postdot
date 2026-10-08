@@ -20,7 +20,10 @@ import {
     setDatabaseCommitObserver,
     runMigrations,
 } from '@herald/db'
-import { createMastodonPublisher } from '@herald/mastodon'
+import {
+    createMastodonPublisher,
+    MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
+} from '@herald/mastodon'
 
 import { createApp } from './app'
 import { createHeraldConfig, createHeraldMaintenanceConfig, decodeHexKey } from './config'
@@ -241,6 +244,12 @@ async function startServerWithRuntimeLock(
         createLinkedInProviderAdapter({
             oauth: publisher.linkedin,
             resolveOAuth: publisher.resolveLinkedInOAuth,
+        }),
+        createMastodonProviderAdapter({
+            revision: MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION,
+            fetcher: mastodonFetcher,
+            createPublisher: baseUrl =>
+                createMastodonPublisher({ baseUrl, fetcher: mastodonFetcher }),
         }),
         createMastodonProviderAdapter({
             fetcher: mastodonFetcher,

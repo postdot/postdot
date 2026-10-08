@@ -15,3 +15,10 @@ responses, and provider error classification.
 - Keep instance-specific limits and payload rules here. The application adapter owns
   project credentials, connection endpoints, media lifecycle checkpoints, and
   scheduling semantics.
+
+- Preserve the immutable image-only `status-v1` profile and execution registration.
+  New channels use `status-v2`: one MP4 video, exclusive of images, with required
+  accessibility text. Check instance MIME, byte and pixel limits before upload.
+- Stream video multipart bodies; do not materialize an entire video Blob. A 206
+  media read means processing, not failure or readiness. The API adapter persists
+  the remote identifier and defers its job; it must never upload that video again.

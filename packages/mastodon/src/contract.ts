@@ -1,7 +1,9 @@
 import type { ExternalEffectOutcome } from '@herald/core'
 
 export const MASTODON_PROVIDER = 'mastodon' as const
-export const MASTODON_EXECUTION_CONTRACT_REVISION = 'status-v1'
+export const MASTODON_IMAGE_EXECUTION_CONTRACT_REVISION = 'status-v1'
+export const MASTODON_EXECUTION_CONTRACT_REVISION = 'status-v2'
+export const MASTODON_MAX_VIDEO_BYTES = 100_000_000
 export const MASTODON_REQUIRED_SCOPES = ['read:accounts', 'write:media', 'write:statuses'] as const
 export const MASTODON_DEFAULT_MAX_CHARACTERS = 500
 export const MASTODON_DEFAULT_MAX_MEDIA_ATTACHMENTS = 4
@@ -100,7 +102,7 @@ export interface MastodonMediaAttachment {
 }
 
 export interface MastodonMediaInput {
-    readonly contentType: 'image/jpeg' | 'image/png'
+    readonly contentType: 'image/jpeg' | 'image/png' | 'video/mp4'
     readonly size: number
     readonly filename: string
     readonly accessibilityText: string
@@ -118,7 +120,14 @@ export interface MastodonStatusInput {
     readonly idempotencyKey: string
 }
 
+export interface MastodonVideoLimits {
+    readonly supportedMimeTypes: readonly string[]
+    readonly maxBytes: number
+    readonly maxPixels: number
+}
+
 export interface MastodonPublisher {
+    getVideoLimits(): Promise<MastodonOperationResult<MastodonVideoLimits>>
     registerApplication(input: {
         readonly clientName: string
         readonly redirectUri: string

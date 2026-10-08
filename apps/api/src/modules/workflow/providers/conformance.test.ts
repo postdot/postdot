@@ -200,6 +200,16 @@ const adapterCases: readonly AdapterConformanceCase[] = [
         }),
         createAdapter(outcome, onDispatch) {
             const publisher: MastodonPublisher = {
+                async getVideoLimits() {
+                    return {
+                        kind: 'success',
+                        value: {
+                            supportedMimeTypes: ['video/mp4'],
+                            maxBytes: 100_000_000,
+                            maxPixels: 8_294_400,
+                        },
+                    }
+                },
                 async registerApplication() {
                     return {
                         kind: 'success',

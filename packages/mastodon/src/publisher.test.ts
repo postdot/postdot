@@ -310,3 +310,109 @@ describe('rogue-instance diagnostic echo (AUDIT-307)', () => {
         })
     })
 })
+
+describe('native video transport', () => {
+    it('reads instance limits, streams exact multipart bytes and treats 206 as processing', async () => {
+        const bytes = new Uint8Array([0, 1, 2, 255])
+        let uploaded = false
+        let ready = false
+        const publisher = createMastodonPublisher({
+            baseUrl: 'https://mastodon.example',
+            fetcher: async (url, init) => {
+                if (String(url).endsWith('/v2/instance'))
+                    return Response.json({
+                        configuration: {
+                            media_attachments: {
+                                supported_mime_types: ['video/mp4'],
+                                video_size_limit: 100_000_000,
+                                video_matrix_limit: 8_294_400,
+                            },
+                        },
+                    })
+                if (init?.method === 'POST') {
+                    const body = await new Response(init.body).arrayBuffer()
+                    const headers = new Headers(init.headers)
+                    expect(body.byteLength).toBe(Number(headers.get('content-length')))
+                    const form = await new Response(body, { headers }).formData()
+                    const file = form.get('file') as File
+                    expect(file.type).toBe('video/mp4')
+                    expect(file.name).toBe('clip.mp4')
+                    expect(new Uint8Array(await file.arrayBuffer())).toEqual(bytes)
+                    expect(form.get('description')).toBe('A moving scene')
+                    uploaded = true
+                    return Response.json(
+                        { id: 'video-one', type: 'video', url: null },
+                        { status: 202 }
+                    )
+                }
+                expect(uploaded).toBe(true)
+                return ready
+                    ? Response.json({
+                          id: 'video-one',
+                          type: 'video',
+                          url: 'https://mastodon.example/video.mp4',
+                      })
+                    : new Response(null, { status: 206 })
+            },
+        })
+        expect(await publisher.getVideoLimits()).toEqual({
+            kind: 'success',
+            value: {
+                supportedMimeTypes: ['video/mp4'],
+                maxBytes: 100_000_000,
+                maxPixels: 8_294_400,
+            },
+        })
+        expect(
+            await publisher.uploadMedia('secret', {
+                contentType: 'video/mp4',
+                filename: 'clip.mp4',
+                size: bytes.length,
+                accessibilityText: 'A moving scene',
+                stream: new Blob([bytes]).stream(),
+            })
+        ).toEqual({ type: 'uploaded', remoteMediaId: 'video-one', ready: false })
+        expect(await publisher.getMedia('secret', 'video-one')).toEqual({
+            kind: 'success',
+            value: { id: 'video-one', type: 'unknown', url: null },
+        })
+        ready = true
+        expect(await publisher.getMedia('secret', 'video-one')).toMatchObject({
+            kind: 'success',
+            value: { type: 'video', url: 'https://mastodon.example/video.mp4' },
+        })
+    })
+
+    it('rejects unavailable limits and wrong identifiers and never exposes echoed video tokens', async () => {
+        let response = Response.json({ configuration: {} })
+        const publisher = createMastodonPublisher({
+            baseUrl: 'https://mastodon.example',
+            fetcher: async () => response,
+        })
+        expect(await publisher.getVideoLimits()).toMatchObject({
+            kind: 'failure',
+            outcome: { type: 'permanent_failure' },
+        })
+        response = Response.json({
+            id: 'wrong',
+            type: 'video',
+            url: 'https://mastodon.example/video.mp4',
+        })
+        expect(await publisher.getMedia('video-secret', 'expected')).toMatchObject({
+            kind: 'failure',
+            outcome: { type: 'permanent_failure' },
+        })
+        response = Response.json({ error: 'Bearer video-secret failed' }, { status: 500 })
+        const result = await publisher.uploadMedia('video-secret', {
+            contentType: 'video/mp4',
+            filename: 'clip.mp4',
+            size: 1,
+            accessibilityText: 'Scene',
+            stream: new Blob(['x']).stream(),
+        })
+        expect(result).toMatchObject({
+            type: 'ambiguous',
+            errorMessage: 'Bearer [redacted] failed',
+        })
+    })
+})
